@@ -5,8 +5,8 @@ import {
 } from 'react-native-nitro-modules';
 
 import { Stack } from '@onekeyhq/components';
-import type { IInputProps } from '@onekeyhq/components';
 
+import type { IAutoSizeInputProps } from './AutoSizeInput.types';
 import type {
   AutoSizeInputMethods,
   AutoSizeInputProps,
@@ -16,34 +16,30 @@ const AutoSizeInput = AutoSizeInputView;
 const wrapNitroCallback = nitroCallback;
 type IAutoSizeInputRef = HybridView<AutoSizeInputProps, AutoSizeInputMethods>;
 
-type IAutoSizeProps = {
-  displayValue: string;
-  simpleFontSize: number;
-  currencyLabel?: string;
-  inlineTokenSymbol?: string;
-  inlinePrefixGapPx: number;
-  inlineSuffixGapPx: number;
-  desktopAmountTextAlign: 'center' | 'right';
-  desktopInlineRowOffsetPx: number;
-  desktopPrefixOffset: number;
-  desktopInlineSymbolOffset: number;
-  inlineInputWidthPx: number;
-  inlineInputMaxWidth: string;
-  selectionColor: string;
-  handleSimpleChangeText: (text: string) => void;
-  simpleInputProps: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
-    loading?: boolean;
-  };
-  inputRef: React.RefObject<any>;
-  autoSizeContainerWidth: number;
-  simpleMaxFontSize: number;
-  simpleMinFontSize: number;
-  autoSizeTextValue: string;
-  autoSizeInputTextColor?: string;
-  autoSizePlaceholderColor?: string;
-  autoSizeSelectionColor?: string;
-  autoSizeTransparentColor?: string;
-  onHybridRef: (ref: { focus?: () => void } | null) => void;
+const estimateInlineTextWidthPx = (text: string, fontSize: number) => {
+  let width = 0;
+  for (const char of text) {
+    if (/[0-9]/.test(char)) {
+      width += fontSize * 0.58;
+    } else if (/[A-Z]/.test(char)) {
+      width += fontSize * 0.62;
+    } else if (/[a-z]/.test(char)) {
+      width += fontSize * 0.52;
+    } else if (char === ' ') {
+      width += fontSize * 0.28;
+    } else if (['.', ',', ':', ';'].includes(char)) {
+      width += fontSize * 0.24;
+    } else if (['+', '-'].includes(char)) {
+      width += fontSize * 0.34;
+    } else if (['$', '€', '¥', '£', '₹', '₿', 'Ξ'].includes(char)) {
+      width += fontSize * 0.44;
+    } else if (['(', ')', '[', ']'].includes(char)) {
+      width += fontSize * 0.36;
+    } else {
+      width += fontSize * 0.56;
+    }
+  }
+  return width;
 };
 
 const mapAutoSizeKeyboardType = (keyboardType?: string): string | undefined => {
@@ -62,22 +58,60 @@ const mapAutoSizeKeyboardType = (keyboardType?: string): string | undefined => {
 };
 
 export function AutoSizeInput({
-  autoSizeContainerWidth,
+  displayValue,
+  simpleFontSize,
   simpleMaxFontSize,
   simpleMinFontSize,
-  autoSizeTextValue,
-  simpleInputProps,
+  availableInlineWidth,
   currencyLabel,
   inlineTokenSymbol,
+  inlinePrefixGapPx,
+  inlineSuffixGapPx,
+  handleSimpleChangeText,
+  inputPlaceholder,
+  inputEditable,
+  inputKeyboardType,
+  inputReturnKeyType,
+  onInputFocus,
+  onInputBlur,
+  autoSizeTextValue,
   autoSizeInputTextColor,
   autoSizePlaceholderColor,
   autoSizeSelectionColor,
-  inlinePrefixGapPx,
-  inlineSuffixGapPx,
   autoSizeTransparentColor,
-  handleSimpleChangeText,
   onHybridRef,
-}: IAutoSizeProps) {
+}: IAutoSizeInputProps) {
+  const inlineMeasureText = displayValue || inputPlaceholder || '0';
+  const inlineAmountTextWidthPx = Math.ceil(
+    estimateInlineTextWidthPx(inlineMeasureText, simpleFontSize) +
+      Math.max(18, Math.round(simpleFontSize * 0.5)),
+  );
+  const inlinePrefixTextWidthPx = currencyLabel
+    ? Math.ceil(estimateInlineTextWidthPx(currencyLabel, simpleFontSize))
+    : 0;
+  const inlineSuffixTextWidthPx = inlineTokenSymbol
+    ? Math.ceil(estimateInlineTextWidthPx(inlineTokenSymbol, simpleFontSize))
+    : 0;
+  const autoSizePreferredWidth = Math.ceil(
+    inlineAmountTextWidthPx +
+      inlinePrefixTextWidthPx +
+      inlineSuffixTextWidthPx +
+      (currencyLabel ? inlinePrefixGapPx : 0) +
+      (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
+      simpleFontSize * 0.18,
+  );
+  const autoSizeContainerMinWidth = Math.ceil(simpleMaxFontSize * 1.2);
+  const defaultAutoSizeContainerMaxWidth = 320;
+  const autoSizeAvailableWidth =
+    availableInlineWidth > 0
+      ? Math.max(availableInlineWidth - 8, 0)
+      : defaultAutoSizeContainerMaxWidth;
+  const autoSizeContainerWidth = Math.min(
+    Math.max(autoSizePreferredWidth, autoSizeContainerMinWidth),
+    autoSizeAvailableWidth,
+    defaultAutoSizeContainerMaxWidth,
+  );
+
   return (
     <Stack width="100%" alignItems="center" py="$1">
       <AutoSizeInput
@@ -87,18 +121,18 @@ export function AutoSizeInput({
           minHeight: Math.ceil(simpleMinFontSize * 1.4),
         }}
         text={autoSizeTextValue}
-        placeholder={simpleInputProps?.placeholder ?? '0'}
+        placeholder={inputPlaceholder ?? '0'}
         prefix={currencyLabel ?? ''}
         suffix={inlineTokenSymbol ?? ''}
         fontSize={simpleMaxFontSize}
         minFontSize={simpleMinFontSize}
         textAlign="center"
         fontWeight="500"
-        editable={simpleInputProps?.editable ?? true}
+        editable={inputEditable ?? true}
         keyboardType={mapAutoSizeKeyboardType(
-          simpleInputProps?.keyboardType ?? 'decimal-pad',
+          inputKeyboardType ?? 'decimal-pad',
         )}
-        returnKeyType={simpleInputProps?.returnKeyType}
+        returnKeyType={inputReturnKeyType}
         autoCorrect={false}
         autoCapitalize="none"
         textColor={autoSizeInputTextColor}
@@ -114,12 +148,12 @@ export function AutoSizeInput({
         onChangeText={wrapNitroCallback(handleSimpleChangeText)}
         onFocus={
           wrapNitroCallback(() => {
-            simpleInputProps?.onFocus?.({} as never);
+            onInputFocus?.({} as never);
           }) as never
         }
         onBlur={
           wrapNitroCallback(() => {
-            simpleInputProps?.onBlur?.({} as never);
+            onInputBlur?.({} as never);
           }) as never
         }
         hybridRef={wrapNitroCallback((hybridViewRef: IAutoSizeInputRef) => {
