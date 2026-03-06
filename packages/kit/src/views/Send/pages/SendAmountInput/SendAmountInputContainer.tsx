@@ -288,16 +288,29 @@ function SendAmountInputContainer() {
 
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
+    let balance: string;
     if (currentSelectedUtxoInfo?.totalValue && tokenDetails.info) {
-      return new BigNumber(
+      balance = new BigNumber(
         chainValueUtils.convertTokenChainValueToAmount({
           value: currentSelectedUtxoInfo.totalValue,
           token: tokenDetails.info,
         }),
       ).toFixed();
+    } else {
+      balance = tokenDetails.balanceParsed;
     }
-    return tokenDetails.balanceParsed;
-  }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
+
+    if (isLightningNetwork && lnUnit === ELightningUnit.SATS) {
+      return chainValueUtils.convertBtcToSats(balance);
+    }
+
+    return balance;
+  }, [
+    currentSelectedUtxoInfo?.totalValue,
+    isLightningNetwork,
+    lnUnit,
+    tokenDetails,
+  ]);
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
@@ -366,11 +379,11 @@ function SendAmountInputContainer() {
   ]);
 
   const isIntegerAmount = useMemo(() => {
-    if (isLightningNetwork && lnUnit === ELightningUnit.SATS) {
+    if (!isUseFiat && isLightningNetwork && lnUnit === ELightningUnit.SATS) {
       return true;
     }
     return false;
-  }, [isLightningNetwork, lnUnit]);
+  }, [isLightningNetwork, isUseFiat, lnUnit]);
 
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
@@ -542,9 +555,12 @@ function SendAmountInputContainer() {
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
       const balance = isUseFiat ? maxBalanceFiat : maxBalance;
-      const decimals = isUseFiat
-        ? FIAT_INPUT_DECIMALS
-        : tokenDetails?.info.decimals;
+      let decimals = tokenDetails?.info.decimals;
+      if (isUseFiat) {
+        decimals = FIAT_INPUT_DECIMALS;
+      } else if (isIntegerAmount) {
+        decimals = 0;
+      }
       let result = calcPercentBalance({
         balance,
         percent: stage,
@@ -557,7 +573,14 @@ function SendAmountInputContainer() {
       void form.trigger('amount');
       setIsMaxSend(stage === 100);
     },
-    [form, isUseFiat, maxBalance, maxBalanceFiat, tokenDetails?.info.decimals],
+    [
+      form,
+      isIntegerAmount,
+      isUseFiat,
+      maxBalance,
+      maxBalanceFiat,
+      tokenDetails?.info.decimals,
+    ],
   );
 
   const displayCoinControlButton = useMemo(
@@ -903,13 +926,13 @@ function SendAmountInputContainer() {
 
       if (e.key === 'Enter' && !isSubmitDisabledRef.current) {
         e.preventDefault();
-        void onSubmitRef.current?.();
+        void handleConfirm();
       }
     };
 
     globalThis.addEventListener('keydown', handleKeyDown);
     return () => globalThis.removeEventListener('keydown', handleKeyDown);
-  }, [isAmountInputFocused, isNFT, onSelectPercentageStage]);
+  }, [handleConfirm, isAmountInputFocused, isNFT, onSelectPercentageStage]);
 
   const balanceInfoContent = useMemo(() => {
     if (!hasFrozenBalance) return null;

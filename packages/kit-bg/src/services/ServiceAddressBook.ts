@@ -140,6 +140,11 @@ class ServiceAddressBook extends ServiceBase {
     if (!networkId) {
       return items;
     }
+    if (networkUtils.isEvmNetwork({ networkId })) {
+      return items.filter((item) =>
+        networkUtils.isEvmNetwork({ networkId: item.networkId }),
+      );
+    }
     return items.filter((item) => item.networkId === networkId);
   }
 

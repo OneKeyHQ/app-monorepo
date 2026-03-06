@@ -28,7 +28,6 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
     if (this.migrationDone) {
       return;
     }
-    this.migrationDone = true;
 
     try {
       // Read from old storage key
@@ -36,6 +35,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
       const oldDataStr = await this.appStorage.getItem(oldKey);
 
       if (!oldDataStr) {
+        this.migrationDone = true;
         return;
       }
 
@@ -47,6 +47,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
           };
           oldData = parsed?.data;
         } catch {
+          this.migrationDone = true;
           return;
         }
       } else {
@@ -57,6 +58,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
       }
 
       if (!oldData?.recentRecipients) {
+        this.migrationDone = true;
         return;
       }
 
@@ -114,8 +116,9 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
 
       // Remove old storage key after successful migration
       await this.appStorage.removeItem(oldKey);
+      this.migrationDone = true;
     } catch {
-      // Migration failed, ignore and continue
+      this.migrationDone = false;
     }
   }
 

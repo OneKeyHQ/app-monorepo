@@ -21,6 +21,7 @@ import type {
   IQueryCheckAddressArgs,
   IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAddressInteractionStatus,
   EServerInteractedStatus,
@@ -562,18 +563,24 @@ class ServiceAccountProfile extends ServiceBase {
             (r) => r.address.toLowerCase() === targetLower,
           );
 
-          // For custom EVM networks, also check local history on the current chain
-          if (
-            !isInRecipients &&
-            (await this.backgroundApi.serviceNetwork.isCustomNetwork({
-              networkId,
-            }))
-          ) {
+          if (!isInRecipients) {
             const localTxs =
               await this.backgroundApi.serviceHistory.getAccountsLocalHistoryTxs(
-                { accountId, networkId },
+                {
+                  accountId,
+                  networkId: getNetworkIdsMap().onekeyall,
+                  excludeTestNetwork: true,
+                },
               );
             for (const tx of localTxs) {
+              if (
+                !networkUtils.isEvmNetwork({
+                  networkId: tx.decodedTx.networkId,
+                })
+              ) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
               const actions = tx.decodedTx?.actions;
               if (!actions) {
                 // eslint-disable-next-line no-continue
