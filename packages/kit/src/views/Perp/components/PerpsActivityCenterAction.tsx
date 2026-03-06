@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
+import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -24,31 +25,6 @@ import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
-
-const STATIC_ACTIVITY_CARDS: Array<{
-  id: string;
-  imageUrl?: string;
-  fallbackIconName?: IButtonProps['icon'];
-  title: string;
-  subtitle: string;
-  url: string;
-}> = [
-  {
-    id: 'perps-activity-placeholder-1',
-    imageUrl: 'https://uni.onekey-asset.com/static/logo/1inchFusion.png',
-    fallbackIconName: 'GiftOutline',
-    title: 'Perps 活动预告',
-    subtitle: '查看详情',
-    url: 'https://www.onekey.so/',
-  },
-  {
-    id: 'perps-activity-placeholder-2',
-    fallbackIconName: 'HandCoinsOutline',
-    title: '交易赛季奖励',
-    subtitle: '报名并参与',
-    url: 'https://www.onekey.so/',
-  },
-];
 
 function ActivityShortcutCard({
   title,
@@ -174,8 +150,13 @@ export function PerpsActivityCenterAction({
   const themeVariant = useThemeVariant();
   const { shareReferRewards } = useReferFriends();
   const { showInviteeRewardModal } = useShowInviteeRewardModal();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const activityCards = useMemo(
+    () => perpConfigCommon?.activityCards ?? [],
+    [perpConfigCommon?.activityCards],
+  );
   const activityCenterTitle = '活动中心';
-  const hasActivityCards = STATIC_ACTIVITY_CARDS.length > 0;
+  const hasActivityCards = activityCards.length > 0;
 
   const handleOpenReferReward = useCallback(() => {
     void shareReferRewards(undefined, undefined, 'Perps', copyAsUrl);
@@ -242,14 +223,16 @@ export function PerpsActivityCenterAction({
             {hasActivityCards ? (
               <YStack gap="$2.5" mt="$4">
                 <SizableText size="$headingXs" color="$text">
-                  {`当前活动 (${STATIC_ACTIVITY_CARDS.length})`}
+                  {`当前活动 (${activityCards.length})`}
                 </SizableText>
                 <YStack gap="$2">
-                  {STATIC_ACTIVITY_CARDS.map((item) => (
+                  {activityCards.map((item) => (
                     <ActivityCampaignCard
                       key={item.id}
                       imageUrl={item.imageUrl}
-                      fallbackIconName={item.fallbackIconName}
+                      fallbackIconName={
+                        (item.iconName as IButtonProps['icon']) ?? 'GiftOutline'
+                      }
                       title={item.title}
                       subtitle={item.subtitle}
                       onPress={() => {
