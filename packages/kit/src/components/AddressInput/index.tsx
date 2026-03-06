@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type {
   IAccountDeriveInfo,
@@ -496,8 +495,8 @@ export function AddressInput(props: IAddressInputProps) {
           setQueryResult(result);
         }
       } catch {
-        // Invalid input (e.g. special characters) — treat as empty result
-        setQueryResult({ input: params.address });
+        // Treat unexpected validation errors as an unknown address state.
+        setQueryResult({ input: params.address, validStatus: 'unknown' });
       } finally {
         setLoading(false);
       }
@@ -618,7 +617,9 @@ export function AddressInput(props: IAddressInputProps) {
         validateError: {
           type: queryResult.validStatus,
           translationId,
-          message: intl.formatMessage({ id: translationId }),
+          message: translationId
+            ? intl.formatMessage({ id: translationId })
+            : undefined,
         },
         isContract: queryResult.isContract,
         similarAddress: queryResult.similarAddress,
@@ -831,8 +832,11 @@ export function AddressInputField(
 
   // Re-validate when match status changes to toggle error/hint
   useEffect(() => {
+    if (!toValue?.raw?.trim()) {
+      return;
+    }
     void trigger(name);
-  }, [hasQuickSelectMatches, trigger, name]);
+  }, [hasQuickSelectMatches, trigger, name, toValue?.raw]);
 
   const contextValue = useMemo(
     () => ({
