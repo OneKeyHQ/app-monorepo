@@ -64,9 +64,7 @@ function AutoSizeAmountInputGalleryExample() {
         <Button onPress={() => setTokenSymbol(AUTO_SIZE_LONG_SYMBOL)}>
           long symbol
         </Button>
-        <Button
-          onPress={() => setCurrencyLabel((prev) => (prev ? '' : '$'))}
-        >
+        <Button onPress={() => setCurrencyLabel((prev) => (prev ? '' : '$'))}>
           toggle fiat prefix
         </Button>
       </XStack>
