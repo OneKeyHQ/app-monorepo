@@ -104,6 +104,7 @@ function SendAmountInputContainer() {
     recipientMemo,
     recipientPaymentId,
     recipientNote,
+    recipientIsContract,
     onSuccess,
     onFail,
     onCancel,
@@ -344,24 +345,106 @@ function SendAmountInputContainer() {
 
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
-      // Allow '0' without error (button will be disabled instead)
       if (!value) {
         return intl.formatMessage({
           id: ETranslations.send_amount_invalid,
         });
       }
 
-      const valueBN = new BigNumber(value);
-      if (valueBN.isNaN() || valueBN.isNegative()) {
+      let amountBN = new BigNumber(value);
+      if (amountBN.isNaN() || amountBN.isNegative()) {
         return intl.formatMessage({
           id: ETranslations.send_amount_invalid,
         });
       }
 
-      // Insufficient balance is handled via button text, not form error
+      // Convert Lightning BTC to sats for validation
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        amountBN = new BigNumber(
+          chainValueUtils.convertBtcToSats(amountBN.toFixed()),
+        );
+      }
+
+      // Minimum transfer amount check
+      const isNative = tokenDetails?.info.isNative;
+      const minTransferAmount = isNative
+        ? (vaultSettings?.nativeMinTransferAmount ??
+          vaultSettings?.minTransferAmount ??
+          '0')
+        : (vaultSettings?.minTransferAmount ?? '0');
+
+      if (
+        !isUseFiat &&
+        !new BigNumber(minTransferAmount).isZero() &&
+        amountBN.isLessThan(minTransferAmount) &&
+        !amountBN.isZero()
+      ) {
+        return intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          { amount: minTransferAmount, token: tokenSymbol },
+        );
+      }
+
+      if (
+        isUseFiat &&
+        tokenDetails?.price &&
+        !new BigNumber(minTransferAmount).isZero() &&
+        amountBN
+          .dividedBy(tokenDetails.price)
+          .isLessThan(minTransferAmount) &&
+        !amountBN.isZero()
+      ) {
+        return intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          { amount: minTransferAmount, token: tokenSymbol },
+        );
+      }
+
+      // Zero native token transfer prevention
+      if (
+        !isNFT &&
+        isNative &&
+        amountBN.isZero() &&
+        !vaultSettings?.transferZeroNativeTokenEnabled
+      ) {
+        return intl.formatMessage({
+          id: ETranslations.send_cannot_send_amount_zero,
+        });
+      }
+
+      // Vault-specific validation
+      try {
+        await backgroundApiProxy.serviceValidator.validateSendAmount({
+          accountId: currentAccountId,
+          networkId,
+          amount: amountBN.toFixed(),
+          tokenBalance: maxBalance,
+          to: recipientAddress ?? '',
+          isNative,
+        });
+      } catch (e) {
+        return (e as Error).message;
+      }
+
       return undefined;
     },
-    [intl],
+    [
+      intl,
+      isLightningNetwork,
+      lnUnit,
+      tokenDetails?.info.isNative,
+      tokenDetails?.price,
+      vaultSettings?.nativeMinTransferAmount,
+      vaultSettings?.minTransferAmount,
+      vaultSettings?.transferZeroNativeTokenEnabled,
+      isUseFiat,
+      isNFT,
+      tokenSymbol,
+      currentAccountId,
+      networkId,
+      maxBalance,
+      recipientAddress,
+    ],
   );
 
   // Check if balance is insufficient (show on button instead of form error)
@@ -572,7 +655,7 @@ function SendAmountInputContainer() {
               isMaxSend,
               isNFT,
               originalRecipient: recipientAddress,
-              isToContract: false,
+              isToContract: recipientIsContract ?? false,
               memo: recipientMemo,
               paymentId: recipientPaymentId,
               note: recipientNote,
