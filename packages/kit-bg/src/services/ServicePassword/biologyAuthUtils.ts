@@ -68,6 +68,7 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 
   deletePassword = async () => {
+    if (!(await appStorage.secureStorage.supportSecureStorage())) return;
     await appStorage.secureStorage.removeSecureItem(
       SECURE_STORAGE_PASSWORD_KEY,
     );

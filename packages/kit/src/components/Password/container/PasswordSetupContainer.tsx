@@ -89,9 +89,10 @@ const PasswordSetupContainer = ({
       setLoading(true);
       let isPasswordSetSuccess = false;
       try {
+        let webAuthRes: string | undefined;
         if (isBiologyAuthSwitchOn && isSupport) {
-          const res = await setWebAuthEnable(true);
-          if (!res) return;
+          webAuthRes = await setWebAuthEnable(true);
+          if (!webAuthRes) return;
         }
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -104,11 +105,10 @@ const PasswordSetupContainer = ({
           );
         isPasswordSetSuccess = true;
         // Save password to secure storage for biometric unlock on extension
-        // Save password to secure storage for biometric unlock on extension
         if (
           platformEnv.isExtension &&
           isBiologyAuthSwitchOn &&
-          res
+          webAuthRes
         ) {
           try {
             await biologyAuthUtils.savePassword(setUpPasswordRes);

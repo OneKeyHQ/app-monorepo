@@ -114,6 +114,12 @@ const usePassKeyOperations = () => {
             },
           );
         } else {
+          // Cancel the pending password prompt dialog if we can't provide a real password
+          if (passwordPromptPromiseTriggerData?.idNumber) {
+            await backgroundApiProxy.servicePassword.cancelPasswordPromptDialog(
+              passwordPromptPromiseTriggerData.idNumber,
+            );
+          }
           await backgroundApiProxy.servicePassword.unLockApp();
         }
       } else {
