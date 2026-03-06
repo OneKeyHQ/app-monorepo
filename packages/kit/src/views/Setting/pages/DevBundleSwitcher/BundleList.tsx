@@ -44,6 +44,12 @@ type IBundleInfo = {
   changeLog?: string;
 };
 
+function normalizeCommitHash(commitHash?: string) {
+  return String(commitHash || '')
+    .trim()
+    .toLowerCase();
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -343,24 +349,33 @@ export default function SettingDevBundleList() {
   const [downloadedSet, setDownloadedSet] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
   const [gpgSkipped, setGpgSkipped] = useState(false);
+  const [skipGpgVerificationAllowed, setSkipGpgVerificationAllowed] =
+    useState(false);
 
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
+  const currentCommitHash = normalizeCommitHash(platformEnv.githubSHA);
+  const currentBundleLabel =
+    skipGpgVerificationAllowed && currentCommitHash
+      ? currentCommitHash.slice(0, 8)
+      : `#${currentBundleVersion}`;
 
   useEffect(() => {
     let isMounted = true;
     void (async () => {
       try {
-        const [data, skipGpg, localBundles] = await Promise.all([
+        const [data, skipGpg, localBundles, isSkipAllowed] = await Promise.all([
           backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
             version,
           ),
           backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
           BundleUpdate.listLocalBundles().catch(() => []),
+          BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false),
         ]);
         if (!isMounted) return;
 
         setGpgSkipped(skipGpg);
+        setSkipGpgVerificationAllowed(Boolean(isSkipAllowed));
         setBundles(data);
 
         const downloaded = new Set<string>(
@@ -427,7 +442,7 @@ export default function SettingDevBundleList() {
           <YStack px="$5" py="$4" gap="$3">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText size="$bodySm" color="$textSubdued">
-                {`Current: v${currentAppVersion} #${currentBundleVersion}`}
+                {`Current: v${currentAppVersion} ${currentBundleLabel}`}
               </SizableText>
               {process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped ? (
                 <Badge badgeType="warning" badgeSize="sm">
@@ -444,7 +459,9 @@ export default function SettingDevBundleList() {
               overflow="hidden"
             >
               {bundles.map((bundle, index) => (
-                <YStack key={bundle.bundleVersion}>
+                <YStack
+                  key={`${bundle.bundleVersion}-${bundle.commitHash || index}`}
+                >
                   {index > 0 ? (
                     <XStack mx="$4">
                       <Divider />
@@ -453,10 +470,20 @@ export default function SettingDevBundleList() {
                   <BundleItem
                     bundle={bundle}
                     version={version}
-                    isCurrentBundle={
-                      version === currentAppVersion &&
-                      bundle.bundleVersion === currentBundleVersion
-                    }
+                    isCurrentBundle={(() => {
+                      if (version !== currentAppVersion) {
+                        return false;
+                      }
+                      if (skipGpgVerificationAllowed) {
+                        const bundleCommitHash = normalizeCommitHash(
+                          bundle.commitHash,
+                        );
+                        if (bundleCommitHash && currentCommitHash) {
+                          return bundleCommitHash === currentCommitHash;
+                        }
+                      }
+                      return bundle.bundleVersion === currentBundleVersion;
+                    })()}
                     alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
                     isDownloading={isDownloading}
                     onDownloadStart={handleDownloadStart}

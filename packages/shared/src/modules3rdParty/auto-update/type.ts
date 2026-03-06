@@ -119,6 +119,7 @@ export interface IBundleUpdate {
   downloadBundleASC: IDownloadBundleASC;
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
+  isSkipGpgVerificationAllowed: () => Promise<boolean>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getFallbackBundles: () => Promise<IJSBundle[]>;
   switchBundle: (params: IJSBundle) => Promise<void>;
