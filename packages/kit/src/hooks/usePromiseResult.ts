@@ -202,7 +202,9 @@ export function usePromiseResult<T>(
           // (e.g., when component unmount or tab switches during search)
           // Treat it as a non-critical error and don't re-throw
           const isAbortError =
-            err instanceof DOMException && err.name === 'AbortError';
+            typeof DOMException !== 'undefined' &&
+            err instanceof DOMException &&
+            err.name === 'AbortError';
 
           if (
             shouldSetState(config) &&
