@@ -12,7 +12,6 @@ import type {
   AutoSizeInputProps,
 } from '@onekeyfe/react-native-auto-size-input';
 
-const AutoSizeInput = AutoSizeInputView;
 const wrapNitroCallback = nitroCallback;
 type IAutoSizeInputRef = HybridView<AutoSizeInputProps, AutoSizeInputMethods>;
 
@@ -114,7 +113,7 @@ export function AutoSizeInput({
 
   return (
     <Stack width="100%" alignItems="center" py="$1">
-      <AutoSizeInput
+      <AutoSizeInputView
         style={{
           width: autoSizeContainerWidth,
           height: Math.ceil(simpleMaxFontSize * 1.4),
