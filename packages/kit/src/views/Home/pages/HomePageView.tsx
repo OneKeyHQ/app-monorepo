@@ -330,7 +330,12 @@ export function HomePageView({
   );
 
   const renderHeader = useCallback(() => {
-    return <HomeHeaderContainer />;
+    return (
+      <>
+        <RiskApprovalAlert />
+        <HomeHeaderContainer />
+      </>
+    );
   }, []);
 
   const tabConfigs = useMemo(() => {
@@ -623,7 +628,6 @@ export function HomePageView({
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
             <NetworkAlert />
-            <RiskApprovalAlert />
             {content}
             {platformEnv.isNative ? (
               <YStack
