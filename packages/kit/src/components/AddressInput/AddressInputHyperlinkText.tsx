@@ -72,7 +72,7 @@ export function AddressInputHyperlinkText({
   const messageId =
     error?.message && error.message !== 'undefined'
       ? (error.message as ETranslations)
-      : ETranslations.send_to_placeholder;
+      : ETranslations.send_address_invalid;
 
   return (
     <HyperlinkText

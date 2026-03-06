@@ -799,7 +799,7 @@ export default function RecipientQuickSelect({
   // Report match status to parent: true if ANY tab has matches (not just active tab)
   useEffect(() => {
     const anyTabHasMatches = Object.values(tabMatchStatus).some(
-      (status) => status !== false,
+      (status) => status === true,
     );
     onMatchStatusChange?.(anyTabHasMatches);
   }, [tabMatchStatus, onMatchStatusChange]);

@@ -51,6 +51,7 @@ import type { ImageStyle } from 'react-native';
 
 // Module-level cache to track shown avatar sources (persists across component instances)
 const shownAvatarSourcesCache = new Set<string>();
+const SHOWN_AVATAR_SOURCES_CACHE_LIMIT = 500;
 
 const VARIANT_SIZE = {
   'default': {
@@ -334,6 +335,9 @@ function BasicAccountAvatar({
       !shownAvatarSourcesCache.has(stableAddressKey);
     shouldAnimateRef.current = isFirstGlobalAppearance;
     if (isFirstGlobalAppearance) {
+      if (shownAvatarSourcesCache.size >= SHOWN_AVATAR_SOURCES_CACHE_LIMIT) {
+        shownAvatarSourcesCache.clear();
+      }
       shownAvatarSourcesCache.add(stableAddressKey);
     }
   }
