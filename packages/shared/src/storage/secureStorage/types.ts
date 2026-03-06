@@ -10,4 +10,6 @@ export interface ISecureStorage {
   getSecureItem(key: string): Promise<string | null>;
   removeSecureItem(key: string): Promise<void>;
   supportSecureStorage(): Promise<boolean>;
+  supportSecureStorageWithoutInteraction(): Promise<boolean>;
+  hasSecureItem?(key: string): Promise<boolean>;
 }
