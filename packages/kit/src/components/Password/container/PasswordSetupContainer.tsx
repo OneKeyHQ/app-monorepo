@@ -104,10 +104,11 @@ const PasswordSetupContainer = ({
           );
         isPasswordSetSuccess = true;
         // Save password to secure storage for biometric unlock on extension
+        // Save password to secure storage for biometric unlock on extension
         if (
           platformEnv.isExtension &&
           isBiologyAuthSwitchOn &&
-          webAuthCredentialId
+          res
         ) {
           try {
             await biologyAuthUtils.savePassword(setUpPasswordRes);
