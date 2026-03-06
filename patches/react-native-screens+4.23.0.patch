@@ -37,10 +37,10 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index e37e40a..45d26cf 100644
+index e37e40a..d136407 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-@@ -31,6 +31,20 @@
+@@ -31,6 +31,55 @@
  #import "RNSTabsScreenViewController.h"
  #import "RNSViewInteractionAware.h"
  #import "UIScrollView+RNScreens.h"
@@ -58,23 +58,57 @@ index e37e40a..45d26cf 100644
 +  }
 +  NSLog(@"%@", fullMessage);
 +}
++
++static NSNotificationName const RNSBottomTabsContainerDidReattachNotification =
++    @"RNCTabViewContainerDidReattachNotification";
++
++static NSString *RNSSceneSummary(UIWindow *window)
++{
++#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
++  if (window == nil) {
++    return @"scene=nil";
++  }
++  if (@available(iOS 13.0, tvOS 13.0, *)) {
++    UIScene *scene = window.windowScene;
++    if (scene == nil) {
++      return @"scene=nil(windowHasNoScene)";
++    }
++    NSString *state = @"unknown";
++    switch (scene.activationState) {
++      case UISceneActivationStateForegroundActive:
++        state = @"foregroundActive";
++        break;
++      case UISceneActivationStateForegroundInactive:
++        state = @"foregroundInactive";
++        break;
++      case UISceneActivationStateBackground:
++        state = @"background";
++        break;
++      case UISceneActivationStateUnattached:
++        state = @"unattached";
++        break;
++    }
++    return [NSString stringWithFormat:@"scene=%p state=%@", scene, state];
++  }
++#endif
++  return @"scene=unavailable";
++}
  #import "UIView+RNSUtility.h"
  #import "integrations/RNSDismissibleModalProtocol.h"
  #import "utils/UINavigationBar+RNSUtility.h"
-@@ -212,6 +226,12 @@ @implementation RNSScreenStackView {
+@@ -212,6 +261,11 @@ @implementation RNSScreenStackView {
    RNSPercentDrivenInteractiveTransition *_interactionController;
    __weak RNSScreenStackManager *_manager;
    BOOL _updateScheduled;
 +  BOOL _pendingContainerUpdate; // Set when push/modal updates are skipped due to window==nil
-+  BOOL _pendingUpdateRetryScheduled; // Prevent duplicate retry scheduling
-+  NSInteger _pendingUpdateRetryCount; // Guard against infinite retry loops
-+  CFAbsoluteTime _pendingContainerUpdateSince;
-+  CFAbsoluteTime _transitionBusySince;
-+  NSInteger _updateContainerRunCount;
++  BOOL _pendingUpdateRetryScheduled; // Prevent duplicate retry timer scheduling
++  NSInteger _pendingUpdateRetryCount; // Guard against endless retry loops
++  NSInteger _pendingContainerUpdateRequestId; // Current pending request id
++  NSInteger _pendingContainerUpdateSeq; // Monotonic request id sequence
    UIPanGestureRecognizer *_sinkEventsPanGestureRecognizer;
  #ifdef RCT_NEW_ARCH_ENABLED
    /// Screens that are subject of `ShadowViewMutation::Type::Delete` mutation
-@@ -267,6 +287,16 @@ - (void)initCommonProps
+@@ -267,6 +321,24 @@ - (void)initCommonProps
    // the header will render in collapsed state which is perhaps a bug
    // in UIKit but ¯\_(ツ)_/¯
    [_controller setViewControllers:@[ [UIViewController new] ]];
@@ -82,6 +116,14 @@ index e37e40a..45d26cf 100644
 +  [[NSNotificationCenter defaultCenter] addObserver:self
 +                                           selector:@selector(onApplicationDidBecomeActive:)
 +                                               name:UIApplicationDidBecomeActiveNotification
++                                             object:nil];
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onSceneDidActivate:)
++                                               name:UISceneDidActivateNotification
++                                             object:nil];
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onBottomTabsContainerDidReattach:)
++                                               name:RNSBottomTabsContainerDidReattachNotification
 +                                             object:nil];
 +}
 +
@@ -91,204 +133,194 @@ index e37e40a..45d26cf 100644
  }
  
  #pragma mark - helper methods
-@@ -300,6 +330,74 @@ - (void)emitOnFinishTransitioningEvent
+@@ -300,6 +372,147 @@ - (void)emitOnFinishTransitioningEvent
  #endif
  }
  
-+- (void)setPendingContainerUpdateWithReason:(NSString *)reason
++- (BOOL)isContainerWindowReady
 +{
-+  if (!_pendingContainerUpdate) {
-+    _pendingContainerUpdateSince = CFAbsoluteTimeGetCurrent();
-+    RNSScreenStackLog([NSString
-+        stringWithFormat:@"pendingContainerUpdate: NO->YES, reason=%@, ts=%.6f",
-+                         reason ?: @"NIL",
-+                         _pendingContainerUpdateSince]);
-+  } else {
-+    RNSScreenStackLog([NSString
-+        stringWithFormat:@"pendingContainerUpdate: YES->YES, reason=%@, since=%.3fs",
-+                         reason ?: @"NIL",
-+                         CFAbsoluteTimeGetCurrent() - _pendingContainerUpdateSince]);
-+  }
++  return self.window != nil;
++}
++
++- (void)schedulePendingContainerUpdateRetry:(NSString *)reason
++{
++  __weak RNSScreenStackView *weakSelf = self;
++  dispatch_async(dispatch_get_main_queue(), ^{
++    RNSScreenStackView *strongSelf = weakSelf;
++    if (!strongSelf || !strongSelf->_pendingContainerUpdate) {
++      return;
++    }
++
++    UIViewController *parentVC = strongSelf->_controller.parentViewController;
++    const BOOL selfWindowReady = strongSelf.window != nil;
++    const BOOL superviewWindowReady = strongSelf.superview.window != nil;
++    const BOOL parentWindowReady = parentVC.viewIfLoaded.window != nil;
++    const BOOL ready = [strongSelf isContainerWindowReady];
++
++    RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: reason=%@, requestId=%ld, pending=%d, ready=%d, selfWindow=%@, superviewWindow=%@, parentWindow=%@, retryScheduled=%d, retryCount=%ld, %@",
++                                                 reason ?: @"NIL",
++                                                 (long)strongSelf->_pendingContainerUpdateRequestId,
++                                                 strongSelf->_pendingContainerUpdate,
++                                                 ready,
++                                                 selfWindowReady ? @"YES" : @"NIL",
++                                                 superviewWindowReady ? @"YES" : @"NIL",
++                                                 parentWindowReady ? @"YES" : @"NIL",
++                                                 strongSelf->_pendingUpdateRetryScheduled,
++                                                 (long)strongSelf->_pendingUpdateRetryCount,
++                                                 RNSSceneSummary(strongSelf.window)]);
++
++    if (ready) {
++      strongSelf->_pendingContainerUpdate = NO;
++      strongSelf->_pendingUpdateRetryScheduled = NO;
++      strongSelf->_pendingUpdateRetryCount = 0;
++      strongSelf->_pendingContainerUpdateRequestId = 0;
++      [strongSelf updateContainer];
++      return;
++    }
++
++    if (strongSelf->_pendingUpdateRetryScheduled) {
++      return;
++    }
++
++    static const NSInteger kMaxPendingRetryCount = 50;
++    static const int64_t kPendingRetryDelayMs = 100;
++    if (strongSelf->_pendingUpdateRetryCount >= kMaxPendingRetryCount) {
++      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: giving up after %ld retries (requestId=%ld)",
++                                                   (long)strongSelf->_pendingUpdateRetryCount,
++                                                   (long)strongSelf->_pendingContainerUpdateRequestId]);
++      return;
++    }
++
++    strongSelf->_pendingUpdateRetryScheduled = YES;
++    strongSelf->_pendingUpdateRetryCount += 1;
++    const NSInteger retryCount = strongSelf->_pendingUpdateRetryCount;
++    const NSInteger requestIdAtSchedule = strongSelf->_pendingContainerUpdateRequestId;
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPendingRetryDelayMs * NSEC_PER_MSEC)),
++                   dispatch_get_main_queue(),
++                   ^{
++      RNSScreenStackView *innerSelf = weakSelf;
++      if (!innerSelf) {
++        return;
++      }
++      innerSelf->_pendingUpdateRetryScheduled = NO;
++      if (!innerSelf->_pendingContainerUpdate) {
++        innerSelf->_pendingUpdateRetryCount = 0;
++        return;
++      }
++      if (innerSelf->_pendingContainerUpdateRequestId != requestIdAtSchedule) {
++        RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: stale retry timer ignored (scheduledRequestId=%ld, currentRequestId=%ld)",
++                                                     (long)requestIdAtSchedule,
++                                                     (long)innerSelf->_pendingContainerUpdateRequestId]);
++        return;
++      }
++      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: retry timer fired (%ld/%ld) requestId=%ld",
++                                                   (long)retryCount,
++                                                   (long)kMaxPendingRetryCount,
++                                                   (long)requestIdAtSchedule]);
++      [innerSelf schedulePendingContainerUpdateRetry:@"retry-timer-fired"];
++    });
++  });
++}
++
++- (void)markPendingContainerUpdateWithReason:(NSString *)reason
++{
++  NSInteger previousRequestId = _pendingContainerUpdateRequestId;
++  _pendingContainerUpdateSeq += 1;
++  _pendingContainerUpdateRequestId = _pendingContainerUpdateSeq;
 +  _pendingContainerUpdate = YES;
-+}
-+
-+- (void)clearPendingContainerUpdateWithReason:(NSString *)reason
-+{
-+  if (_pendingContainerUpdate) {
-+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-+    RNSScreenStackLog([NSString
-+        stringWithFormat:@"pendingContainerUpdate: YES->NO, reason=%@, duration=%.3fs",
-+                         reason ?: @"NIL",
-+                         now - _pendingContainerUpdateSince]);
-+  } else {
-+    RNSScreenStackLog([NSString stringWithFormat:@"pendingContainerUpdate: NO->NO, reason=%@", reason ?: @"NIL"]);
-+  }
-+  _pendingContainerUpdate = NO;
-+  _pendingContainerUpdateSince = 0;
-+}
-+
-+- (BOOL)isAnyWindowReadyForContainerUpdate
-+{
-+  UIViewController *parentVC = _controller.parentViewController;
-+  const BOOL selfWindowReady = self.window != nil;
-+  const BOOL superviewWindowReady = self.superview.window != nil;
-+  const BOOL parentWindowReady = parentVC.viewIfLoaded.window != nil;
-+  const BOOL attachedToParent = parentVC != nil;
-+  const BOOL controllerViewLoaded = _controller.isViewLoaded;
-+  const BOOL ready = selfWindowReady || superviewWindowReady || parentWindowReady;
-+  RNSScreenStackLog([NSString
-+      stringWithFormat:@"isAnyWindowReadyForContainerUpdate: ready=%d (selfWindow=%@, superviewWindow=%@, parentWindow=%@, attachedToParent=%d, viewLoaded=%d)",
-+                       ready,
-+                       selfWindowReady ? @"YES" : @"NIL",
-+                       superviewWindowReady ? @"YES" : @"NIL",
-+                       parentWindowReady ? @"YES" : @"NIL",
-+                       attachedToParent,
-+                       controllerViewLoaded]);
-+  return ready;
++  _pendingUpdateRetryScheduled = NO;
++  _pendingUpdateRetryCount = 0;
++  RNSScreenStackLog([NSString stringWithFormat:@"pendingContainerUpdate marked: reason=%@, requestId=%ld, previousRequestId=%ld, %@",
++                                               reason ?: @"NIL",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               (long)previousRequestId,
++                                               RNSSceneSummary(self.window)]);
 +}
 +
 +- (void)onApplicationDidBecomeActive:(NSNotification *)notification
 +{
-+  RNSScreenStackLog([NSString
-+      stringWithFormat:@"onApplicationDidBecomeActive: pending=%d, retryScheduled=%d, retryCount=%ld, selfWindow=%@, superviewWindow=%@",
-+                       _pendingContainerUpdate,
-+                       _pendingUpdateRetryScheduled,
-+                       (long)_pendingUpdateRetryCount,
-+                       self.window ? @"YES" : @"NIL",
-+                       self.superview.window ? @"YES" : @"NIL"]);
-+  if (_pendingContainerUpdate) {
-+    [self schedulePendingContainerUpdateRetry:@"applicationDidBecomeActive"];
-+  } else {
-+    RNSScreenStackLog(@"onApplicationDidBecomeActive: pending=NO, no retry scheduled");
++  if (!_pendingContainerUpdate) {
++    return;
 +  }
++  RNSScreenStackLog([NSString stringWithFormat:@"onApplicationDidBecomeActive: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"application-did-become-active"];
++}
++
++- (void)onSceneDidActivate:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  RNSScreenStackLog([NSString stringWithFormat:@"onSceneDidActivate: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"scene-did-activate"];
++}
++
++- (void)onBottomTabsContainerDidReattach:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  NSString *reason = notification.userInfo[@"reason"];
++  UIViewController *parentVC = _controller.parentViewController;
++  RNSScreenStackLog([NSString
++      stringWithFormat:@"onBottomTabsContainerDidReattach: reason=%@, requestId=%ld, scheduling retry (selfWindow=%@, superviewWindow=%@, parentWindow=%@, parentVC=%@, %@)",
++                       reason ?: @"NIL",
++                       (long)_pendingContainerUpdateRequestId,
++                       self.window ? @"YES" : @"NIL",
++                       self.superview.window ? @"YES" : @"NIL",
++                       parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
++                       parentVC ? NSStringFromClass([parentVC class]) : @"NIL",
++                       RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"bottom-tabs-container-reattached"];
 +}
 +
  - (void)navigationController:(UINavigationController *)navigationController
        willShowViewController:(UIViewController *)viewController
                      animated:(BOOL)animated
-@@ -346,6 +444,81 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
-   }
- }
- 
-+- (void)schedulePendingContainerUpdateRetry:(NSString *)reason
-+{
-+  if (_pendingUpdateRetryScheduled) {
-+    RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: duplicate schedule skipped, reason=%@",
-+                             reason ?: @"NIL"]);
-+    return;
-+  }
-+  _pendingUpdateRetryScheduled = YES;
-+
-+  __weak RNSScreenStackView *weakSelf = self;
-+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(16 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-+    RNSScreenStackView *strongSelf = weakSelf;
-+    if (!strongSelf) {
-+      return;
-+    }
-+
-+    strongSelf->_pendingUpdateRetryScheduled = NO;
-+
-+    if (!strongSelf->_pendingContainerUpdate) {
-+      strongSelf->_pendingUpdateRetryCount = 0;
-+      return;
-+    }
-+
-+    UIViewController *parentVC = strongSelf->_controller.parentViewController;
-+    const BOOL windowReady = [strongSelf isAnyWindowReadyForContainerUpdate];
-+    const BOOL transitionBusy = strongSelf->_controller.transitionCoordinator != nil;
-+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-+    if (transitionBusy) {
-+      if (strongSelf->_transitionBusySince == 0) {
-+        strongSelf->_transitionBusySince = now;
-+        RNSScreenStackLog(@"schedulePendingContainerUpdateRetry: transition busy start");
-+      }
-+    } else if (strongSelf->_transitionBusySince > 0) {
-+      RNSScreenStackLog([NSString
-+          stringWithFormat:@"schedulePendingContainerUpdateRetry: transition busy end, duration=%.3fs",
-+                           now - strongSelf->_transitionBusySince]);
-+      strongSelf->_transitionBusySince = 0;
-+    }
-+    const BOOL shouldRetryLater = !windowReady || transitionBusy;
-+
-+    RNSScreenStackLog([NSString
-+        stringWithFormat:@"schedulePendingContainerUpdateRetry: reason=%@, pending=%d, ready=%@, transition=%@, retryCount=%ld, selfWindow=%@, superviewWindow=%@, parentWindow=%@, attached=%d",
-+                         reason ?: @"NIL",
-+                         strongSelf->_pendingContainerUpdate,
-+                         windowReady ? @"YES" : @"NIL",
-+                         transitionBusy ? @"YES" : @"NIL",
-+                         (long)strongSelf->_pendingUpdateRetryCount,
-+                         strongSelf.window ? @"YES" : @"NIL",
-+                         strongSelf.superview.window ? @"YES" : @"NIL",
-+                         parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
-+                         parentVC != nil]);
-+
-+    if (shouldRetryLater) {
-+      strongSelf->_pendingUpdateRetryCount += 1;
-+      if (strongSelf->_pendingUpdateRetryCount > 300) {
-+        RNSScreenStackLog(@"schedulePendingContainerUpdateRetry: retry limit reached, stop polling (will retry on lifecycle events)");
-+        strongSelf->_pendingUpdateRetryCount = 0;
-+        return;
-+      }
-+      if (strongSelf->_pendingUpdateRetryCount % 60 == 0) {
-+        RNSScreenStackLog([NSString
-+            stringWithFormat:@"schedulePendingContainerUpdateRetry: still waiting after %ld retries, keep retrying",
-+                             (long)strongSelf->_pendingUpdateRetryCount]);
-+      }
-+      [strongSelf schedulePendingContainerUpdateRetry:@"window-or-transition-not-ready"];
-+      return;
-+    }
-+
-+    RNSScreenStackLog(@"schedulePendingContainerUpdateRetry: conditions met, running updateContainer");
-+    [strongSelf clearPendingContainerUpdateWithReason:@"schedulePendingContainerUpdateRetry-conditions-met"];
-+    strongSelf->_pendingUpdateRetryCount = 0;
-+    [strongSelf updateContainer];
-+  });
-+}
-+
- RNS_IGNORE_SUPER_CALL_BEGIN
- - (NSArray<UIView *> *)reactSubviews
- {
-@@ -355,6 +528,11 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+@@ -355,6 +568,13 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
  
  - (void)didMoveToWindow
  {
-+  RNSScreenStackLog([NSString stringWithFormat:@"didMoveToWindow: window=%@, viewControllers=%lu, parentVC=%@, pendingUpdate=%d",
++  RNSScreenStackLog([NSString stringWithFormat:@"didMoveToWindow: window=%@, viewControllers=%lu, parentVC=%@, pendingUpdate=%d, requestId=%ld, %@",
 +        self.window ? @"YES" : @"NIL",
 +        (unsigned long)_controller.viewControllers.count,
 +        _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL",
-+        _pendingContainerUpdate]);
++        _pendingContainerUpdate,
++        (long)_pendingContainerUpdateRequestId,
++        RNSSceneSummary(self.window)]);
    [super didMoveToWindow];
  #ifdef RCT_NEW_ARCH_ENABLED
    // for handling nested stacks
-@@ -367,6 +545,14 @@ - (void)didMoveToWindow
+@@ -367,6 +587,14 @@ - (void)didMoveToWindow
      [self maybeAddToParentAndUpdateContainer];
    }
  #endif
 +
 +  // When window is restored after a detach (e.g. iOS 26 SwiftUI TabView recreating
 +  // UITabBarController), retry any push/modal operations that were skipped due to window==nil.
-+  if ([self isAnyWindowReadyForContainerUpdate] && _pendingContainerUpdate) {
-+    RNSScreenStackLog(@"didMoveToWindow: scheduling pending container update retry after readiness restored");
-+    [self schedulePendingContainerUpdateRetry:@"didMoveToWindow"];
++  if (self.window != nil && _pendingContainerUpdate) {
++    RNSScreenStackLog(@"didMoveToWindow: retrying pending container update after window restored");
++    [self schedulePendingContainerUpdateRetry:@"didMoveToWindow-window-restored"];
 +  }
 +
    if (self.window == nil) {
      // When hot reload happens that would remove the whole stack, disabling the interaction on a screen out transition
      // will not be matched with enabling the interactions on another screen's in transition. We need to make sure
-@@ -375,16 +561,32 @@ - (void)didMoveToWindow
+@@ -375,16 +603,29 @@ - (void)didMoveToWindow
    }
  }
  
 +- (void)didMoveToSuperview
 +{
 +  [super didMoveToSuperview];
-+  RNSScreenStackLog([NSString
-+      stringWithFormat:@"didMoveToSuperview: pending=%d, selfWindow=%@, superview=%@, superviewWindow=%@",
-+                       _pendingContainerUpdate,
-+                       self.window ? @"YES" : @"NIL",
-+                       self.superview ? NSStringFromClass([self.superview class]) : @"NIL",
-+                       self.superview.window ? @"YES" : @"NIL"]);
 +  if (_pendingContainerUpdate) {
++    RNSScreenStackLog([NSString stringWithFormat:@"didMoveToSuperview: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                                 (long)_pendingContainerUpdateRequestId,
++                                                 RNSSceneSummary(self.window)]);
 +    [self schedulePendingContainerUpdateRetry:@"didMoveToSuperview"];
 +  }
 +}
@@ -312,7 +344,7 @@ index e37e40a..45d26cf 100644
    [self updateContainer];
    if (!wasScreenMounted) {
      // when stack hasn't been added to parent VC yet we do two things:
-@@ -405,10 +607,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -405,10 +646,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -358,7 +390,7 @@ index e37e40a..45d26cf 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -417,7 +652,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -417,7 +691,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -367,7 +399,7 @@ index e37e40a..45d26cf 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -467,6 +702,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -467,6 +741,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // prevent re-entry
    if (_updatingModals) {
@@ -376,7 +408,7 @@ index e37e40a..45d26cf 100644
      _scheduleModalsUpdate = YES;
      return;
    }
-@@ -475,12 +712,24 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -475,12 +751,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
    // change in the list of presented modal was made.
    if ([_presentedModals isEqualToArray:controllers]) {
@@ -392,44 +424,22 @@ index e37e40a..45d26cf 100644
 +
    // if view controller is not yet attached to window we skip updates now and run them when view
    // is attached
--  if (self.window == nil && _presentedModals.lastObject.view.window == nil) {
-+  const BOOL modalWindowReady = _presentedModals.lastObject.view.window != nil;
-+  const BOOL anyWindowReady = [self isAnyWindowReadyForContainerUpdate];
-+  if (!anyWindowReady && !modalWindowReady) {
-+    RNSScreenStackLog(@"setModalViewControllers: SKIPPED - no ready window (self/superview/parent/lastModal nil), setting _pendingContainerUpdate=YES");
-+    [self setPendingContainerUpdateWithReason:@"setModalViewControllers-window-nil"];
+   if (self.window == nil && _presentedModals.lastObject.view.window == nil) {
++    RNSScreenStackLog(@"setModalViewControllers: SKIPPED - both window and lastModal.window are nil! setting _pendingContainerUpdate=YES");
++    [self markPendingContainerUpdateWithReason:@"setModalViewControllers-window-nil"];
 +    [self schedulePendingContainerUpdateRetry:@"setModalViewControllers-window-nil"];
      return;
    }
  
-@@ -521,14 +770,21 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -521,6 +807,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    __weak RNSScreenStackView *weakSelf = self;
  
    void (^afterTransitions)(void) = ^{
--    [weakSelf emitOnFinishTransitioningEvent];
--    weakSelf.updatingModals = NO;
--    if (weakSelf.scheduleModalsUpdate) {
-+    RNSScreenStackView *strongSelf = weakSelf;
-+    if (!strongSelf) {
-+      return;
-+    }
 +    RNSScreenStackLog(@"setModalViewControllers: afterTransitions called");
-+    [strongSelf emitOnFinishTransitioningEvent];
-+    strongSelf.updatingModals = NO;
-+    if (strongSelf.scheduleModalsUpdate) {
-       // if modals update was requested during setModalViewControllers we set scheduleModalsUpdate
-       // flag in order to perform updates at a later point. Here we are done with all modals
-       // transitions and check this flag again. If it was set, we reset the flag and execute updates.
--      weakSelf.scheduleModalsUpdate = NO;
--      [weakSelf updateContainer];
-+      strongSelf.scheduleModalsUpdate = NO;
-+      // Clear pending retry state because we are about to run an immediate update now.
-+      [strongSelf clearPendingContainerUpdateWithReason:@"setModalViewControllers-afterTransitions"];
-+      [strongSelf updateContainer];
-     }
-     // we trigger the update of orientation here because, when dismissing the modal from JS,
-     // neither `viewWillAppear` nor `presentationControllerDidDismiss` are called, same for status bar.
-@@ -536,6 +792,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+     [weakSelf emitOnFinishTransitioningEvent];
+     weakSelf.updatingModals = NO;
+     if (weakSelf.scheduleModalsUpdate) {
+@@ -536,6 +823,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    };
  
    void (^finish)(void) = ^{
@@ -437,7 +447,7 @@ index e37e40a..45d26cf 100644
      NSUInteger oldCount = weakSelf.presentedModals.count;
      if (changeRootIndex < oldCount) {
        [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
-@@ -544,10 +801,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -544,10 +832,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
          changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
  
      if (!isAttached || changeRootIndex >= controllers.count) {
@@ -447,10 +457,15 @@ index e37e40a..45d26cf 100644
 -      // of new controllers array. This means that no new controllers should be presented.
 +      RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: finish() - no present needed (isAttached=%d, changeRootIndex=%lu, controllers=%lu)",
 +            isAttached, (unsigned long)changeRootIndex, (unsigned long)controllers.count]);
++      if (!isAttached && changeRootIndex < controllers.count) {
++        RNSScreenStackLog(@"setModalViewControllers: finish() - detached while pending modal presentations, re-arming pending retry");
++        [weakSelf markPendingContainerUpdateWithReason:@"setModalViewControllers-finish-detached"];
++        [weakSelf schedulePendingContainerUpdateRetry:@"setModalViewControllers-finish-detached"];
++      }
        afterTransitions();
        return;
      }
-@@ -624,16 +879,28 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -624,16 +915,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -475,15 +490,10 @@ index e37e40a..45d26cf 100644
                animateAlongsideTransition:nil
                                completion:^(id<UIViewControllerTransitionCoordinatorContext> _) {
 +                                RNSScreenStackLog(@"setModalViewControllers: transitionCoordinator completion called");
-+                                RNSScreenStackView *strongSelf = weakSelf;
-+                                if (strongSelf) {
-+                                  [strongSelf setPendingContainerUpdateWithReason:@"setModalViewControllers-transitionCoordinator-completion"];
-+                                  [strongSelf schedulePendingContainerUpdateRetry:@"setModalViewControllers-transitionCoordinator-completion"];
-+                                }
                                  finish();
                                }];
          }
-@@ -670,12 +937,24 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -670,12 +968,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -501,42 +511,29 @@ index e37e40a..45d26cf 100644
    // if view controller is not yet attached to window we skip updates now and run them when view
    // is attached
 -  if (self.window == nil) {
-+  if (![self isAnyWindowReadyForContainerUpdate]) {
-+    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: SKIPPED - no ready window! superview=%@, class=%@, setting _pendingContainerUpdate=YES",
-+          self.superview, NSStringFromClass([self.superview class])]);
-+    [self setPendingContainerUpdateWithReason:@"setPushViewControllers-window-nil"];
++  const BOOL containerReady = [self isContainerWindowReady];
++  if (!containerReady) {
++    UIViewController *parentVC = _controller.parentViewController;
++    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: SKIPPED - container window not ready! selfWindow=%@, superviewWindow=%@, parentWindow=%@, superview=%@, class=%@, setting _pendingContainerUpdate=YES",
++          self.window ? @"YES" : @"NIL",
++          self.superview.window ? @"YES" : @"NIL",
++          parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
++          self.superview,
++          NSStringFromClass([self.superview class])]);
++    [self markPendingContainerUpdateWithReason:@"setPushViewControllers-window-nil"];
 +    [self schedulePendingContainerUpdateRetry:@"setPushViewControllers-window-nil"];
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -685,6 +964,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -685,6 +1001,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
 +    RNSScreenStackLog(@"setPushViewControllers: DEFERRED - transitionCoordinator active");
-+    [self setPendingContainerUpdateWithReason:@"setPushViewControllers-transition-active"];
-+    [self schedulePendingContainerUpdateRetry:@"setPushViewControllers-transition-active"];
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -693,8 +975,14 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
-             // do nothing here, we only want to be notified when transition is complete
-           }
-           completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
--            self->_updateScheduled = NO;
--            [weakSelf updateContainer];
-+            RNSScreenStackView *strongSelf = weakSelf;
-+            if (!strongSelf) {
-+              return;
-+            }
-+            strongSelf->_updateScheduled = NO;
-+            // A direct update is performed below, so clear pending retry state to avoid duplicate updates.
-+            [strongSelf clearPendingContainerUpdateWithReason:@"setPushViewControllers-transition-completion"];
-+            [strongSelf updateContainer];
-           }];
-     }
-     return;
-@@ -750,8 +1038,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -750,8 +1067,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -552,55 +549,28 @@ index e37e40a..45d26cf 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -765,6 +1060,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -765,6 +1089,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  
  - (void)updateContainer
  {
-+  _updateContainerRunCount += 1;
 +  RNSScreenStackLog([NSString stringWithFormat:@"updateContainer called, window=%@, reactSubviews=%lu",
 +        self.window ? @"YES" : @"NIL", (unsigned long)_reactSubviews.count]);
++  _pendingContainerUpdate = NO;
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -792,14 +1090,37 @@ - (void)updateContainer
+@@ -816,6 +1143,10 @@ - (void)layoutSubviews
+       modal.view.frame = correctFrame;
      }
    }
- 
-+  RNSScreenStackLog([NSString
-+      stringWithFormat:@"updateContainer prepared: run=%ld, pushControllers=%lu, modalControllers=%lu, pending=%d",
-+                       (long)_updateContainerRunCount,
-+                       (unsigned long)pushControllers.count,
-+                       (unsigned long)modalControllers.count,
-+                       _pendingContainerUpdate]);
-   [self setPushViewControllers:pushControllers];
-   [self setModalViewControllers:modalControllers];
-+  RNSScreenStackLog([NSString
-+      stringWithFormat:@"updateContainer finished: run=%ld, navControllers=%lu, topVC=%@, parentVC=%@, selfWindow=%@, superviewWindow=%@, pending=%d",
-+                       (long)_updateContainerRunCount,
-+                       (unsigned long)_controller.viewControllers.count,
-+                       _controller.topViewController ? NSStringFromClass([_controller.topViewController class]) : @"NIL",
-+                       _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL",
-+                       self.window ? @"YES" : @"NIL",
-+                       self.superview.window ? @"YES" : @"NIL",
-+                       _pendingContainerUpdate]);
- }
- 
- - (void)layoutSubviews
- {
-   [super layoutSubviews];
-   _controller.view.frame = self.bounds;
++
 +  if (_pendingContainerUpdate) {
-+    RNSScreenStackLog([NSString
-+        stringWithFormat:@"layoutSubviews: pending=YES, bounds=%@, selfWindow=%@, superviewWindow=%@",
-+                         NSStringFromCGRect(self.bounds),
-+                         self.window ? @"YES" : @"NIL",
-+                         self.superview.window ? @"YES" : @"NIL"]);
 +    [self schedulePendingContainerUpdateRetry:@"layoutSubviews"];
 +  }
+ }
  
-   // We need to update the bounds of the modal views here, since
-   // for contained modals they are not updated by modals themselves.
-@@ -868,13 +1189,17 @@ - (void)rnscreens_disableInteractions
+ - (void)dismissOnReload
+@@ -868,13 +1199,17 @@ - (void)rnscreens_disableInteractions
  {
    // When transitioning between screens, disable interactions on stack subview which wraps the screens
    // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.
