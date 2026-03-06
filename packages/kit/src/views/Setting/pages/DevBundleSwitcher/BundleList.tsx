@@ -65,6 +65,7 @@ function BundleItem({
   onDownloadStart,
   onDownloadEnd,
   gpgSkipped,
+  skipGpgVerificationAllowed,
 }: {
   bundle: IBundleInfo;
   version: string;
@@ -74,6 +75,7 @@ function BundleItem({
   onDownloadStart: () => void;
   onDownloadEnd: () => void;
   gpgSkipped: boolean;
+  skipGpgVerificationAllowed: boolean;
 }) {
   const downloadPercent = useDownloadProgress();
   const [status, setStatus] = useState<
@@ -89,8 +91,7 @@ function BundleItem({
   }, [alreadyDownloaded, status]);
 
   const handleDownload = useCallback(async () => {
-    const skipGPGVerification =
-      !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
+    const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
     onDownloadStart();
     setStatus('downloading');
     setErrorMessage('');
@@ -152,11 +153,17 @@ function BundleItem({
     } finally {
       onDownloadEnd();
     }
-  }, [bundle, version, onDownloadStart, onDownloadEnd, gpgSkipped]);
+  }, [
+    bundle,
+    version,
+    onDownloadStart,
+    onDownloadEnd,
+    gpgSkipped,
+    skipGpgVerificationAllowed,
+  ]);
 
   const handleInstall = useCallback(async () => {
-    const skipGPGVerification =
-      !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
+    const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
     setStatus('installing');
     defaultLogger.app.jsBundleDev.installBundle({
       version,
@@ -223,7 +230,13 @@ function BundleItem({
         error: errMsg,
       });
     }
-  }, [alreadyDownloaded, bundle, version, gpgSkipped]);
+  }, [
+    alreadyDownloaded,
+    bundle,
+    version,
+    gpgSkipped,
+    skipGpgVerificationAllowed,
+  ]);
 
   const downloadDisabled = isDownloading && status !== 'downloading';
 
@@ -444,7 +457,7 @@ export default function SettingDevBundleList() {
               <SizableText size="$bodySm" color="$textSubdued">
                 {`Current: v${currentAppVersion} ${currentBundleLabel}`}
               </SizableText>
-              {process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped ? (
+              {skipGpgVerificationAllowed && gpgSkipped ? (
                 <Badge badgeType="warning" badgeSize="sm">
                   <Badge.Text>GPG Skipped</Badge.Text>
                 </Badge>
@@ -489,6 +502,7 @@ export default function SettingDevBundleList() {
                     onDownloadStart={handleDownloadStart}
                     onDownloadEnd={handleDownloadEnd}
                     gpgSkipped={gpgSkipped}
+                    skipGpgVerificationAllowed={skipGpgVerificationAllowed}
                   />
                 </YStack>
               ))}
