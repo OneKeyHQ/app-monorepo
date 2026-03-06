@@ -143,6 +143,13 @@ const usePassKeyOperations = () => {
           }),
         },
       }));
+      // Cancel any pending password prompt dialog so caller fails immediately
+      // instead of hanging until the 5-minute timeout
+      if (passwordPromptPromiseTriggerData?.idNumber) {
+        await backgroundApiProxy.servicePassword.cancelPasswordPromptDialog(
+          passwordPromptPromiseTriggerData.idNumber,
+        );
+      }
     } finally {
       console.log('close from renderPassKeyPage');
       closeWindow();
