@@ -33,11 +33,6 @@ jobs:
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
-      - name: Warn if GPG verification is skipped
-        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
-        run: |
-          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
-
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
@@ -57,6 +52,11 @@ jobs:
           sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
 
       - name: 'Setup ENV'
