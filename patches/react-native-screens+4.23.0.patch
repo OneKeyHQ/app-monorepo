@@ -1,4 +1,5 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+index 7055a0d..81ee02b 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 @@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
@@ -35,8 +36,8 @@ diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansi
          }
      }
  
-
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+index e37e40a..d4d581e 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 @@ -31,6 +31,55 @@
@@ -571,8 +572,8 @@ diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modu
    [self removeGestureRecognizer:_sinkEventsPanGestureRecognizer];
  }
  
-
 diff --git a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
+index fc6257e..37067c0 100644
 --- a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
 +++ b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
 @@ -147,22 +147,52 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
@@ -642,8 +643,8 @@ diff --git a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTab
          break;
        }
        parentView = (UIView *)parentView.reactSuperview;
-
 diff --git a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
+index 40e92b6..9092dbc 100644
 --- a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
 +++ b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
 @@ -128,11 +128,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
@@ -684,8 +685,8 @@ diff --git a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitView
          break;
        }
        parentView = (UIView *)parentView.reactSuperview;
-
 diff --git a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
+index 3e21388..e4f4785 100644
 --- a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
 +++ b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
 @@ -52,11 +52,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
@@ -726,4 +727,3 @@ diff --git a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHost
          break;
        }
        parentView = (UIView *)parentView.reactSuperview;
-
