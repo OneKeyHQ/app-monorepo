@@ -2,10 +2,9 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Page, YStack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
@@ -13,11 +12,12 @@ import {
   DAppRequestFooter,
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
+import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
 function RiskWhiteListModal() {
-  const { $sourceInfo, url } = useDappQuery<{
+  const { $sourceInfo } = useDappQuery<{
     url: string;
   }>();
 
@@ -25,6 +25,14 @@ function RiskWhiteListModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const {
+    showContinueOperate,
+    continueOperate,
+    setContinueOperate,
+    riskLevel,
+    urlSecurityInfo,
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
 
   const intl = useIntl();
 
@@ -49,29 +57,26 @@ function RiskWhiteListModal() {
             title={intl.formatMessage({
               id: ETranslations.explore_malicious_dapp_warning_addToWhiteListLink,
             })}
-            subtitle={url ?? $sourceInfo?.origin ?? ''}
+            subtitle={intl.formatMessage({
+              id: ETranslations.explore_malicious_dapp_warning_description,
+            })}
             origin={$sourceInfo?.origin ?? ''}
-          >
-            <YStack gap="$2">
-              <Alert
-                type="critical"
-                title={intl.formatMessage({
-                  id: ETranslations.explore_malicious_dapp_warning_description,
-                })}
-              />
-            </YStack>
-          </DAppRequestLayout>
+            urlSecurityInfo={urlSecurityInfo}
+          />
         </Page.Body>
         <Page.Footer>
           <DAppRequestFooter
-            continueOperate
-            setContinueOperate={() => {}}
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
             onConfirm={onSubmit}
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
-              variant: 'destructive',
+              disabled: !continueOperate,
             }}
-            riskLevel={EHostSecurityLevel.High}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
         </Page.Footer>
       </>
