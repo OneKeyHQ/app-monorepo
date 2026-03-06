@@ -14,7 +14,9 @@ export function ResourceBannerCard({
 
   switch (impl) {
     case IMPL_TRON:
-      return <TronResourceBannerCard accountId={accountId} networkId={networkId} />;
+      return (
+        <TronResourceBannerCard accountId={accountId} networkId={networkId} />
+      );
     default:
       return null;
   }
