@@ -265,6 +265,8 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     const protocolList =
       await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: normalizedSymbol,
+        accountId: networkAccount.id,
+        networkId,
       });
 
     // If only one protocol, navigate directly to details page
