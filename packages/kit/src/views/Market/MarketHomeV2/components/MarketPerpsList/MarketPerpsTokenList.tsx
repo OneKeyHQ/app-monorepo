@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,6 +6,7 @@ import {
   SizableText,
   Stack,
   Table,
+  YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -14,6 +15,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
+import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from './hooks/usePerpsColumns';
@@ -23,6 +26,7 @@ import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
 
 type IMarketPerpsTokenListProps = {
   tabIntegrated?: boolean;
+  tabName?: string;
   listContainerProps?: {
     paddingBottom: number;
   };
@@ -30,6 +34,7 @@ type IMarketPerpsTokenListProps = {
 
 function MarketPerpsTokenListImpl({
   tabIntegrated,
+  tabName,
   listContainerProps,
 }: IMarketPerpsTokenListProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -94,9 +99,37 @@ function MarketPerpsTokenListImpl({
     );
   }, [isLoading, intl]);
 
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+
+  // Desktop sticky header: portal the category selector + column header
+  // into the renderTabBar area so they stick when scrolling.
+  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
+  const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
+  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
+  const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
+
+  const portalContent = useMemo(() => {
+    if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
+    return (
+      <StickyHeaderPortal target={stickyPortalTarget}>
+        <YStack bg="$bgApp" px="$4">
+          {CategorySelector}
+          <Table.HeaderRow columns={perpsColumns} />
+        </YStack>
+      </StickyHeaderPortal>
+    );
+  }, [
+    useDesktopPortal,
+    isTabFocused,
+    stickyPortalTarget,
+    CategorySelector,
+    perpsColumns,
+  ]);
+
   return (
     <Stack flex={1} width="100%">
-      {CategorySelector}
+      {portalContent}
+      {useDesktopPortal ? null : CategorySelector}
       <Stack
         flex={1}
         className="normal-scrollbar"
@@ -130,7 +163,9 @@ function MarketPerpsTokenListImpl({
                     }
               }
               stickyHeader
-              scrollEnabled={!tabIntegrated || platformEnv.isNative}
+              showHeader={!useDesktopPortal}
+              tabIntegrated={tabIntegrated}
+              scrollEnabled={!webTabIntegrated}
               columns={perpsColumns}
               dataSource={tokens}
               keyExtractor={(item) => item.name}
