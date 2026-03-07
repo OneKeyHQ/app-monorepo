@@ -120,6 +120,13 @@ export async function navigateToNotificationDetailByLocalParams({
             return localParams[param as keyof typeof localParams] || match;
           },
         );
+        // Remove params with unresolved template variables
+        if (
+          typeof targetParams[key] === 'string' &&
+          targetParams[key].includes('{local_')
+        ) {
+          delete targetParams[key];
+        }
       }
     }
   }
