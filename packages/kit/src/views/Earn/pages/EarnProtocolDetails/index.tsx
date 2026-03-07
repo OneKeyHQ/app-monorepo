@@ -22,7 +22,10 @@ import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCa
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EJotaiContextStoreNames,
   useDevSettingsPersistAtom,
@@ -615,6 +618,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
 
@@ -672,8 +676,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     };
   }, [route.params]);
 
-  const accountId = account?.id || '';
-  const indexedAccountId = indexedAccount?.id;
+  const accountId = selectedAccount.othersWalletAccountId || account?.id || '';
+  const indexedAccountId =
+    selectedAccount.indexedAccountId || indexedAccount?.id;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
   const { detailInfo, tokenInfo, isLoading, refreshData, refreshAccount } =
