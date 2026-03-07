@@ -3,10 +3,7 @@ import { useMemo } from 'react';
 import { Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type EModalStakingRoutes,
@@ -26,7 +23,6 @@ const ManagePositionPage = () => {
     EModalStakingRoutes.ManagePosition
   >();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
 
   // parse route params, support two types of routes
   const resolvedParams = useMemo<{
@@ -40,19 +36,15 @@ const ManagePositionPage = () => {
   }>(() => {
     const { networkId, symbol, provider, vault, tokenImageUri } = route.params;
     return {
-      accountId:
-        selectedAccount.othersWalletAccountId ||
-        activeAccount.account?.id ||
-        '',
-      indexedAccountId:
-        selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id,
+      accountId: activeAccount.account?.id || '',
+      indexedAccountId: activeAccount.indexedAccount?.id,
       networkId,
       symbol: symbol as ISupportedSymbol,
       provider,
       vault,
       tokenImageUri,
     };
-  }, [route.params, activeAccount, selectedAccount]);
+  }, [route.params, activeAccount]);
 
   const {
     accountId,

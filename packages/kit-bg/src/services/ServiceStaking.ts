@@ -1498,34 +1498,16 @@ class ServiceStaking extends ServiceBase {
     btcOnlyTaproot?: boolean;
   }) {
     const { accountId, networkId, indexedAccountId, btcOnlyTaproot } = params;
-    let resolvedIndexedAccountId = indexedAccountId;
-
-    if (!accountId && !resolvedIndexedAccountId) {
+    if (!accountId && !indexedAccountId) {
       return null;
     }
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new OneKeyLocalError('networkId should not be all network');
     }
-    if (networkUtils.isAllNetwork({ networkId }) && !resolvedIndexedAccountId) {
+    if (networkUtils.isAllNetwork({ networkId }) && !indexedAccountId) {
       throw new OneKeyLocalError('indexedAccountId should be provided');
     }
-    // Fallback: resolve indexedAccountId from DB when only accountId is provided
-    if (!resolvedIndexedAccountId && accountId) {
-      try {
-        const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
-          accountId,
-        });
-        if (dbAccount?.indexedAccountId) {
-          resolvedIndexedAccountId = dbAccount.indexedAccountId;
-        }
-      } catch (_e) {
-        // External/imported accounts may not have indexedAccountId in DB
-      }
-    }
-
-    const isOthers = accountUtils.isOthersAccount({ accountId });
-
-    if (isOthers || !resolvedIndexedAccountId) {
+    if (accountUtils.isOthersAccount({ accountId }) || !indexedAccountId) {
       let account: INetworkAccount | null = null;
       try {
         account = await this.backgroundApi.serviceAccount.getAccount({
@@ -1571,7 +1553,7 @@ class ServiceStaking extends ServiceBase {
       const networkAccount =
         await this.backgroundApi.serviceAccount.getNetworkAccount({
           accountId: undefined,
-          indexedAccountId: resolvedIndexedAccountId,
+          indexedAccountId,
           networkId,
           deriveType,
         });
@@ -1591,6 +1573,7 @@ class ServiceStaking extends ServiceBase {
         account: networkAccount,
       };
     } catch (_e) {
+      // ignore error
       return null;
     }
   }
