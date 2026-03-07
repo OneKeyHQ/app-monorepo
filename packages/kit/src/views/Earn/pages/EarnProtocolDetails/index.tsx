@@ -43,7 +43,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   normalizeToEarnProvider,
   normalizeToEarnSymbol,
@@ -625,7 +624,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // Parse route params, support both normal and share link routes
   const resolvedParams = useMemo<{
     networkId: string;
-    symbol: ISupportedSymbol;
+    symbol: string;
     provider: string;
     vault: string | undefined;
   }>(() => {
@@ -647,9 +646,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
       if (!networkId) {
         throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
-      }
-      if (!symbol) {
-        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
       }
       if (!normalizedProvider) {
         throw new OneKeyLocalError(

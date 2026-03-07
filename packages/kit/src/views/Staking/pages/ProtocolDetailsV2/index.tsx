@@ -45,7 +45,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   normalizeToEarnProvider,
   normalizeToEarnSymbol,
@@ -473,7 +472,7 @@ const ProtocolDetailsPage = () => {
     accountId: string;
     indexedAccountId: string | undefined;
     networkId: string;
-    symbol: ISupportedSymbol;
+    symbol: string;
     provider: string;
     vault: string | undefined;
     isFromShareLink: boolean;
@@ -495,9 +494,6 @@ const ProtocolDetailsPage = () => {
 
       if (!networkId) {
         throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
-      }
-      if (!symbol) {
-        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
       }
       if (!provider) {
         throw new OneKeyLocalError(
