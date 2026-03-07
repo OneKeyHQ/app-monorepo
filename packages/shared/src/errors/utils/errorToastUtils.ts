@@ -146,7 +146,10 @@ function toastIfError(error: unknown) {
 
     if (e) {
       // handle autoToast error by BackgroundApiProxyBase
-      e.autoToast = true;
+      // Respect explicit autoToast set by error creator (e.g. 5xx interceptor)
+      if (typeof e.autoToast !== 'boolean') {
+        e.autoToast = true;
+      }
     }
   }
 }
