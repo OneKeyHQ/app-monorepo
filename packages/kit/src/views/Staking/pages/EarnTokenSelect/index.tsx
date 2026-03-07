@@ -167,7 +167,12 @@ export default function EarnTokenSelectModal() {
       assets.filter((item) => {
         const sym = item.info.symbol.toLowerCase();
         const name = item.info.name.toLowerCase();
-        return sym.includes(keyword) || name.includes(keyword);
+        const addr = (item.info.address ?? '').toLowerCase();
+        return (
+          sym.includes(keyword) ||
+          name.includes(keyword) ||
+          addr.includes(keyword)
+        );
       }),
     );
   }, [assets, searchKeyword]);
