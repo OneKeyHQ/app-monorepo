@@ -12,8 +12,6 @@ import {
   useNavigationBuilder,
   useTheme,
 } from '@react-navigation/native';
-import Color from 'color';
-
 import type {
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationEventMap,
@@ -53,7 +51,7 @@ function NativeBottomTabNavigator({
 
   const inactiveTintColor =
     customInactiveTintColor === undefined
-      ? Color(colors.text).mix(Color(colors.card), 0.5).hex()
+      ? colors.text
       : customInactiveTintColor;
 
   const { state, descriptors, navigation, NavigationContent } =
