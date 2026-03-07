@@ -24,7 +24,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
 import {
@@ -463,6 +466,7 @@ const ProtocolDetailsPage = () => {
     | EModalStakingRoutes.ProtocolDetailsV2Share
   >();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
 
   // parse route params, support two types of routes
   const resolvedParams = useMemo<{
@@ -502,8 +506,11 @@ const ProtocolDetailsPage = () => {
       }
 
       return {
-        accountId: activeAccount.account?.id || '',
-        indexedAccountId: activeAccount.indexedAccount?.id,
+        // Only use othersWalletAccountId for external wallets.
+        // NEVER use account?.id — it's network-specific and will mismatch cross-network.
+        accountId: selectedAccount.othersWalletAccountId || '',
+        indexedAccountId:
+          selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id,
         networkId,
         symbol,
         provider,
@@ -523,16 +530,20 @@ const ProtocolDetailsPage = () => {
     } = routeParams;
 
     return {
-      accountId: routeAccountId || activeAccount.account?.id || '',
+      // Only use othersWalletAccountId for external wallets.
+      // NEVER use account?.id — it's network-specific and will mismatch cross-network.
+      accountId: routeAccountId || selectedAccount.othersWalletAccountId || '',
       indexedAccountId:
-        routeIndexedAccountId || activeAccount.indexedAccount?.id,
+        routeIndexedAccountId ||
+        selectedAccount.indexedAccountId ||
+        activeAccount.indexedAccount?.id,
       networkId,
       symbol,
       provider,
       vault,
       isFromShareLink: false,
     };
-  }, [route.params, activeAccount]);
+  }, [route.params, activeAccount, selectedAccount]);
 
   const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
     resolvedParams;
