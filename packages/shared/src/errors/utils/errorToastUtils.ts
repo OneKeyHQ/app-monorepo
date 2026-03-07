@@ -52,7 +52,8 @@ function fixAxiosAbortCancelError(error: unknown) {
 
 let lastToastErrorInstance: IOneKeyError | undefined;
 let lastToastErrorCode: number | string | undefined;
-let lastToastRequestId: string | undefined;
+let lastToastTimestamp = 0;
+const TOAST_DEDUP_WINDOW_MS = 5_000;
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
@@ -94,12 +95,12 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   }
   const isTriggered = err?.$$autoToastErrorTriggered;
   const isSameError = lastToastErrorInstance === err;
-  // Deduplicate by errorCode — different error instances with the same code
-  // should not produce multiple toasts (e.g. parallel requests hitting the same error)
+  // Deduplicate by errorCode within a time window — collapse parallel requests
+  // hitting the same error, but allow legitimate recurring errors after the window expires
   const isSameErrorCode =
     err?.code !== undefined &&
     err?.code === lastToastErrorCode &&
-    err?.requestId !== lastToastRequestId;
+    Date.now() - lastToastTimestamp < TOAST_DEDUP_WINDOW_MS;
   // TODO log error to file if developer mode on
   if (
     err &&
@@ -112,7 +113,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
     err.$$autoToastErrorTriggered = true;
     lastToastErrorInstance = err;
     lastToastErrorCode = err?.code;
-    lastToastRequestId = err?.requestId;
+    lastToastTimestamp = Date.now();
     void (async () => {
       const diagnosticText = await buildDiagnosticText(err);
 
