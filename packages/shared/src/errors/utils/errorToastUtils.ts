@@ -53,7 +53,7 @@ function fixAxiosAbortCancelError(error: unknown) {
 let lastToastErrorInstance: IOneKeyError | undefined;
 let lastToastErrorCode: number | string | undefined;
 let lastToastTimestamp = 0;
-const TOAST_DEDUP_WINDOW_MS = 5_000;
+const TOAST_DEDUPLICATE_WINDOW_MS = 5000;
 function showToastOfError(error: IOneKeyError | unknown | undefined) {
   fixAxiosAbortCancelError(error);
   const err = error as IOneKeyError | undefined;
@@ -100,7 +100,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
   const isSameErrorCode =
     err?.code !== undefined &&
     err?.code === lastToastErrorCode &&
-    Date.now() - lastToastTimestamp < TOAST_DEDUP_WINDOW_MS;
+    Date.now() - lastToastTimestamp < TOAST_DEDUPLICATE_WINDOW_MS;
   // TODO log error to file if developer mode on
   if (
     err &&
