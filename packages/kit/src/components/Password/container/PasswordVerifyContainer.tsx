@@ -88,17 +88,20 @@ const PasswordVerifyContainer = ({
   }, [webAuthCredentialId, isBiologyAuthSwitchOn]);
 
   useEffect(() => {
-    if (isEnable && isBiologyAuthSwitchOn) {
+    const shouldCheck =
+      (isEnable || (platformEnv.isExtension && !!webAuthCredentialId)) &&
+      isBiologyAuthSwitchOn;
+    if (shouldCheck) {
       void (async () => {
         try {
-          const securePassword = await biologyAuthUtils.getPassword();
-          setHasSecurePassword(!!securePassword);
+          const hasPassword = await biologyAuthUtils.hasPassword();
+          setHasSecurePassword(hasPassword);
         } catch (_e) {
           setHasSecurePassword(false);
         }
       })();
     }
-  }, [isEnable, isBiologyAuthSwitchOn]);
+  }, [isEnable, isBiologyAuthSwitchOn, webAuthCredentialId]);
 
   const passwordVerifyStatusRef = useRef(passwordVerifyStatus);
   useEffect(() => {
@@ -148,7 +151,7 @@ const PasswordVerifyContainer = ({
         isBiologyAuthSwitchOn &&
         verifyPeriodBiologyEnable &&
         ((isEnable && hasSecurePassword) ||
-          (!!webAuthCredentialId && !!hasCachedPassword))
+          (!!webAuthCredentialId && (!!hasCachedPassword || hasSecurePassword)))
       );
     },
     [
@@ -242,9 +245,29 @@ const PasswordVerifyContainer = ({
       }));
       try {
         if (isExtLockNoCachePassword) {
+          // Try to retrieve password from secure storage (WebAuthn PRF)
+          try {
+            const securePassword = await biologyAuthUtils.getPassword();
+            if (securePassword) {
+              const verifiedPassword =
+                await backgroundApiProxy.servicePassword.verifyPassword({
+                  password: securePassword,
+                  passwordMode,
+                });
+              await callOnVerifyRes(verifiedPassword);
+              setVerifiedStatus();
+              return;
+            }
+          } catch {
+            // No secure password stored — fall through to credential-only
+          }
+          // Fallback: old behavior (credential-only verification).
+          // Call checkWebAuth directly — note it may retry getPassword()
+          // internally but the PRF master key should be cached from the
+          // first attempt, avoiding a redundant user prompt.
           const result = await checkWebAuth();
           if (result) {
-            await callOnVerifyRes('');
+            await callOnVerifyRes(typeof result === 'string' ? result : '');
             setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
@@ -270,6 +293,7 @@ const PasswordVerifyContainer = ({
           }
         }
       } catch (e: any) {
+        console.error('onBiologyAuthenticate error', e);
         const error = e as {
           message?: string;
           cause?: string;
@@ -374,6 +398,22 @@ const PasswordVerifyContainer = ({
         }
         await callOnVerifyRes(verifiedPassword);
         setVerifiedStatus();
+        // Save to secure storage for future biometric unlock on extension.
+        // Clear skipPrfCache first — the flag is set during promptPasswordVerify
+        // to force real WebAuthn for the biometric button, but password
+        // verification has already succeeded here so it's safe to use cache.
+        if (
+          platformEnv.isExtension &&
+          isBiologyAuthSwitchOn &&
+          webAuthCredentialId
+        ) {
+          try {
+            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
+            await biologyAuthUtils.savePassword(verifiedPassword);
+          } catch (e) {
+            console.error('Failed to save password to secure storage:', e);
+          }
+        }
       } catch (e) {
         const errorWithFlag = e as Error & { isCallbackError?: boolean };
         const isCallbackError = errorWithFlag?.isCallbackError === true;
@@ -455,6 +495,8 @@ const PasswordVerifyContainer = ({
       unlockPeriodPasswordArray,
       callOnVerifyRes,
       setVerifiedStatus,
+      isBiologyAuthSwitchOn,
+      webAuthCredentialId,
     ],
   );
 

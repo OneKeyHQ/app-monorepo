@@ -197,6 +197,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       hyperLiquidErrorLocales,
       tokenSearchAliases,
       tokenSelectorTabs,
+      activityCards,
     }: IPerpServerConfigResponse,
     options?: { fromServerConfig?: boolean },
   ) {
@@ -253,6 +254,9 @@ export default class ServiceHyperliquid extends ServiceBase {
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
               : (bannerConfig ?? prev.perpConfigCommon.perpBannerConfig),
+            activityCards: options?.fromServerConfig
+              ? (activityCards ?? [])
+              : (activityCards ?? prev.perpConfigCommon.activityCards),
           },
         });
         return newVal;
@@ -358,6 +362,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
         tokenSearchAliases: resData?.data?.tokenSearchAliases,
         tokenSelectorTabs: resData?.data?.tokenSelectorTabs,
+        activityCards: resData?.data?.activityCards,
       },
       { fromServerConfig: true },
     );
