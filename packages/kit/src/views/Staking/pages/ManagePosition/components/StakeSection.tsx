@@ -25,7 +25,6 @@ import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
-  IBorrowReserveItem,
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -85,7 +84,6 @@ export const StakeSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
-  borrowReserves?: IBorrowReserveItem;
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   pendleSlippage?: number;
