@@ -28,13 +28,20 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
 
   return [
     {
-      title: `${intl.formatMessage({
-        id: ETranslations.global_name,
-      })} / ${intl.formatMessage({
-        id: ETranslations.dexmarket_turnover,
-      })}`,
-      titleProps: { paddingBottom: '$2', paddingLeft: '$5' },
-      dataIndex: 'tokenInfo',
+      title: null,
+      renderTitle: (sortIcon) => (
+        <XStack alignItems="center" py="$2" paddingLeft="$5">
+          <SizableText color="$textSubdued" size="$bodySmMedium">
+            {`${intl.formatMessage({
+              id: ETranslations.global_name,
+            })} / ${intl.formatMessage({
+              id: ETranslations.dexmarket_turnover,
+            })}`}
+          </SizableText>
+          {sortIcon}
+        </XStack>
+      ),
+      dataIndex: 'turnover',
       columnWidth: '50%',
       render: (_, record: IMarketToken) => {
         if (record.perpsCoin) {
@@ -103,13 +110,35 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
       ),
     },
     {
-      title: `${intl.formatMessage({
-        id: ETranslations.global_price,
-      })} / ${intl.formatMessage({
-        id: ETranslations.dexmarket_token_change,
-      })}`,
-      titleProps: { paddingBottom: '$2', paddingRight: '$5' },
-      dataIndex: 'price',
+      title: null,
+      renderTitle: (sortIcon) => (
+        <XStack
+          justifyContent="flex-end"
+          alignItems="center"
+          gap="$2"
+          py="$2"
+          flex={1}
+          pr="$5"
+        >
+          <SizableText
+            color="$textSubdued"
+            size="$bodySmMedium"
+            flexShrink={1}
+            textAlign="right"
+          >
+            {intl.formatMessage({ id: ETranslations.global_price })}
+          </SizableText>
+          <XStack alignItems="center" justifyContent="center" width="$20">
+            <SizableText color="$textSubdued" size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_token_change,
+              })}
+            </SizableText>
+            {sortIcon}
+          </XStack>
+        </XStack>
+      ),
+      dataIndex: 'change24h',
       columnWidth: '50%',
       align: 'right',
       render: (_, record: IMarketToken) => (
