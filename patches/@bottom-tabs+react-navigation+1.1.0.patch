@@ -1,0 +1,44 @@
+diff --git a/node_modules/@bottom-tabs/react-navigation/lib/typescript/commonjs/src/types.d.ts b/node_modules/@bottom-tabs/react-navigation/lib/typescript/commonjs/src/types.d.ts
+index 3cd0887..3e48a11 100644
+--- a/node_modules/@bottom-tabs/react-navigation/lib/typescript/commonjs/src/types.d.ts
++++ b/node_modules/@bottom-tabs/react-navigation/lib/typescript/commonjs/src/types.d.ts
+@@ -91,6 +91,10 @@ export type BottomTabBarProps = {
+     navigation: NavigationHelpers<ParamListBase, NativeBottomTabNavigationEventMap>;
+ };
+ export type NativeBottomTabNavigationConfig = Partial<Omit<React.ComponentProps<typeof TabView>, 'navigationState' | 'onIndexChange' | 'renderScene' | 'getLazy' | 'getIcon' | 'getLabelText' | 'getBadge' | 'getBadgeBackgroundColor' | 'getBadgeTextColor' | 'onTabLongPress' | 'getActiveTintColor' | 'getTestID' | 'getRole' | 'tabBar' | 'getFreezeOnBlur' | 'getSceneStyle' | 'getPreventsDefault'>> & {
++    /**
++     * Whether the tab bar is hidden.
++     */
++    tabBarHidden?: boolean;
+     tabBar?: (props: BottomTabBarProps) => React.ReactNode;
+ };
+ //# sourceMappingURL=types.d.ts.map
+diff --git a/node_modules/@bottom-tabs/react-navigation/lib/typescript/module/src/types.d.ts b/node_modules/@bottom-tabs/react-navigation/lib/typescript/module/src/types.d.ts
+index 3cd0887..3e48a11 100644
+--- a/node_modules/@bottom-tabs/react-navigation/lib/typescript/module/src/types.d.ts
++++ b/node_modules/@bottom-tabs/react-navigation/lib/typescript/module/src/types.d.ts
+@@ -91,6 +91,10 @@ export type BottomTabBarProps = {
+     navigation: NavigationHelpers<ParamListBase, NativeBottomTabNavigationEventMap>;
+ };
+ export type NativeBottomTabNavigationConfig = Partial<Omit<React.ComponentProps<typeof TabView>, 'navigationState' | 'onIndexChange' | 'renderScene' | 'getLazy' | 'getIcon' | 'getLabelText' | 'getBadge' | 'getBadgeBackgroundColor' | 'getBadgeTextColor' | 'onTabLongPress' | 'getActiveTintColor' | 'getTestID' | 'getRole' | 'tabBar' | 'getFreezeOnBlur' | 'getSceneStyle' | 'getPreventsDefault'>> & {
++    /**
++     * Whether the tab bar is hidden.
++     */
++    tabBarHidden?: boolean;
+     tabBar?: (props: BottomTabBarProps) => React.ReactNode;
+ };
+ //# sourceMappingURL=types.d.ts.map
+diff --git a/node_modules/@bottom-tabs/react-navigation/src/types.ts b/node_modules/@bottom-tabs/react-navigation/src/types.ts
+index b55afb0..6e0285c 100644
+--- a/node_modules/@bottom-tabs/react-navigation/src/types.ts
++++ b/node_modules/@bottom-tabs/react-navigation/src/types.ts
+@@ -164,5 +164,9 @@ export type NativeBottomTabNavigationConfig = Partial<
+     | 'getPreventsDefault'
+   >
+ > & {
++  /**
++   * Whether the tab bar is hidden.
++   */
++  tabBarHidden?: boolean;
+   tabBar?: (props: BottomTabBarProps) => React.ReactNode;
+ };
