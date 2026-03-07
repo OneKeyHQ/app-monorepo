@@ -34,6 +34,7 @@ type IMarketWatchlistTokenListProps = {
   toolbar?: ReactNode;
   hideNativeToken?: boolean;
   tabIntegrated?: boolean;
+  tabName?: string;
   listContainerProps?: {
     paddingBottom: number;
   };
@@ -46,6 +47,7 @@ function MarketWatchlistTokenList({
   toolbar,
   hideNativeToken,
   tabIntegrated,
+  tabName,
   listContainerProps,
   hidePerps,
 }: IMarketWatchlistTokenListProps) {
@@ -290,6 +292,7 @@ function MarketWatchlistTokenList({
       showEndReachedIndicator
       draggable
       tabIntegrated={tabIntegrated}
+      tabName={tabName}
       listContainerProps={listContainerProps}
       onDragEnd={handleDragEnd}
       onItemLongPress={handleShowContextMenu}
