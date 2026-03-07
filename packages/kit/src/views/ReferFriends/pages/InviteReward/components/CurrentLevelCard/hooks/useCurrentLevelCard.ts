@@ -86,7 +86,7 @@ export function useCurrentLevelCard(
         }));
       }
 
-      sortCommissionRateItems(commissionRates);
+      commissionRates = sortCommissionRateItems(commissionRates);
     }
 
     return {

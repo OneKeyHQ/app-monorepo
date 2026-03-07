@@ -51,8 +51,7 @@ export function LevelAccordionItem({
         rate,
       }));
     }
-    sortCommissionRateItems(items);
-    return items;
+    return sortCommissionRateItems(items);
   }, [level.commissionRates]);
   const getDefaultSubjectLabel = (subject?: string) => subject ?? '';
   const getDisplayLabel = (labelKey?: string, fallback?: string): string => {
