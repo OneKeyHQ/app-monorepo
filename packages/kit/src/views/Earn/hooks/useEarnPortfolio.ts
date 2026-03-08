@@ -288,6 +288,7 @@ async function fetchSingleInvestment(
         network: result.network,
         fiatValue: result.totalFiatValue,
         fiatValueUsd: result.totalFiatValueUsd,
+        netPnl: result.netPnl,
       },
     };
   });
@@ -298,6 +299,7 @@ async function fetchSingleInvestment(
       totalFiatValue: result.totalFiatValue,
       totalFiatValueUsd: result.totalFiatValueUsd,
       earnings24hFiatValue: result.earnings24hFiatValue,
+      netPnl: result.netPnl,
       protocol: normalizedProtocol,
       network: result.network,
       assets: enrichedAssets,
