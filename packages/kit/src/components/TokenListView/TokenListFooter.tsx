@@ -38,6 +38,7 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
   useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
   useSearchKeyAtom,
@@ -51,6 +52,7 @@ import { useTokenListViewContext } from './TokenListViewContext';
 type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
+  hideDeFiMarkedTokens?: boolean;
   hasTokens?: boolean;
   manageTokenEnabled?: boolean;
   plainMode?: boolean;
@@ -61,6 +63,7 @@ function TokenListFooter(props: IProps) {
   const {
     tableLayout,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     hasTokens,
     manageTokenEnabled,
     plainMode,
@@ -97,7 +100,8 @@ function TokenListFooter(props: IProps) {
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
 
-  const [aggregateTokensMap] = useAggregateTokensMapAtom();
+  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
+  const [nestedAggregateTokensMap] = useAggregateTokensMapAtom();
 
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
@@ -118,8 +122,10 @@ function TokenListFooter(props: IProps) {
   );
 
   const filteredSmallBalanceTokens = useMemo(() => {
+    let resultTokens = smallBalanceTokens;
+
     if (hideZeroBalanceTokens) {
-      return smallBalanceTokens.filter((token) => {
+      resultTokens = resultTokens.filter((token) => {
         const tokenBalance = new BigNumber(
           smallBalanceTokenListMap[token.$key]?.balance ??
             aggregateTokensMap[token.$key]?.balance ??
@@ -133,10 +139,16 @@ function TokenListFooter(props: IProps) {
         return false;
       });
     }
-    return smallBalanceTokens;
+
+    if (hideDeFiMarkedTokens) {
+      resultTokens = resultTokens.filter((token) => !token.defiMarked);
+    }
+
+    return resultTokens;
   }, [
     smallBalanceTokens,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     smallBalanceTokenListMap,
     aggregateTokensMap,
   ]);
@@ -186,7 +198,7 @@ function TokenListFooter(props: IProps) {
         hideValue,
         isAllNetworks: network.isAllNetworks,
         aggregateTokensListMap,
-        aggregateTokensMap,
+        aggregateTokensMap: nestedAggregateTokensMap,
         accountAddress: account.address,
         allAggregateTokenMap,
         searchKeyLengthThreshold: 1,
@@ -207,7 +219,7 @@ function TokenListFooter(props: IProps) {
     deriveInfo,
     hideValue,
     aggregateTokensListMap,
-    aggregateTokensMap,
+    nestedAggregateTokensMap,
     allAggregateTokenMap,
   ]);
 
@@ -318,7 +330,7 @@ function TokenListFooter(props: IProps) {
   }, [run]);
 
   return (
-    <Stack>
+    <Stack mx={tableLayout ? undefined : '$2'}>
       {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressLowValueTokens}
@@ -326,8 +338,8 @@ function TokenListFooter(props: IProps) {
           {...(tableLayout && plainMode
             ? undefined
             : {
-                px: '$0',
-                mx: '$0',
+                px: '$3',
+                mx: 0,
               })}
         >
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
@@ -380,12 +392,16 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          <Stack flexGrow={1} flexBasis={0} justifyContent="flex-end">
+          <Stack
+            flexGrow={1}
+            flexBasis={0}
+            justifyContent="center"
+            alignItems="flex-end"
+          >
             <NumberSizeableText
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              flex={1}
               textAlign="right"
             >
               {smallBalanceTokensFiatValue}
@@ -400,8 +416,8 @@ function TokenListFooter(props: IProps) {
           {...(tableLayout && plainMode
             ? undefined
             : {
-                px: '$0',
-                mx: '$0',
+                px: '$3',
+                mx: 0,
               })}
         >
           <XStack alignItems="center" gap="$3" flex={1}>
@@ -423,8 +439,15 @@ function TokenListFooter(props: IProps) {
         </ListItem>
       ) : null}
       {hasTokens && manageTokenEnabled ? (
-        <XStack py="$4" justifyContent="center" gap="$2.5">
-          <SizableText size="$bodyMd" color="$textDisabled">
+        <XStack
+          py="$4"
+          px="$4"
+          justifyContent="center"
+          alignItems="center"
+          gap="$2.5"
+          flexWrap="wrap"
+        >
+          <SizableText size="$bodyMd" color="$textDisabled" textAlign="center">
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}
           </SizableText>
           <Button

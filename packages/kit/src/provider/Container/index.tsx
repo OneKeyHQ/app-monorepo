@@ -1,12 +1,13 @@
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
-  ETabletViewType,
-  TabletModeViewContext,
-  useIsNativeTablet,
+  ESplitViewType,
+  SplitViewContext,
+  isNativeTablet,
 } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -31,7 +32,6 @@ import InAppNotification from './InAppNotification';
 import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
-import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 import { TableSplitViewContainer } from './TableSplitViewContainer';
@@ -56,6 +56,7 @@ function DetailRouter() {
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
       <Bootstrap />
+      <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
       <PrevCheckBeforeSendingContainer />
@@ -67,8 +68,7 @@ function DetailRouter() {
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <CloudBackupContainer />
-      <FullWindowOverlayContainer />
-      <PortalBodyContainer />
+      {/* <PortalBodyContainer /> */}
       <PageTrackerContainer />
       <ErrorToastContainer />
       <GlobalErrorHandlerContainer />
@@ -85,25 +85,28 @@ function MainRouter() {
   return <NavigationContainer />;
 }
 
-const tabletMainViewContext = { viewType: ETabletViewType.MAIN };
-const tabletDetailViewContext = { viewType: ETabletViewType.DETAIL };
+const splitMainViewContext = { viewType: ESplitViewType.MAIN };
+const splitSubViewContext = { viewType: ESplitViewType.SUB };
 
 export function Container() {
-  const isTablet = useIsNativeTablet();
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('Container render');
+  }
+  const isTablet = isNativeTablet();
   if (isTablet) {
     return (
       <RootSiblingParent>
         <AppStateLockContainer>
           <TableSplitViewContainer
             mainRouter={
-              <TabletModeViewContext.Provider value={tabletMainViewContext}>
+              <SplitViewContext.Provider value={splitMainViewContext}>
                 <MainRouter />
-              </TabletModeViewContext.Provider>
+              </SplitViewContext.Provider>
             }
             detailRouter={
-              <TabletModeViewContext.Provider value={tabletDetailViewContext}>
+              <SplitViewContext.Provider value={splitSubViewContext}>
                 <DetailRouter />
-              </TabletModeViewContext.Provider>
+              </SplitViewContext.Provider>
             }
           />
           <GlobalWalletConnectModalContainer />

@@ -173,7 +173,7 @@ type IDeviceHomeScreenConfig = {
 };
 
 async function buildCustomScreenHex({
-  dbDeviceId,
+  dbDeviceId: _dbDeviceId,
   url,
   deviceType,
   isUserUpload,

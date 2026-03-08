@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPrinter = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M9 2a3 3 0 0 0-3 3v1H5a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h1v1a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3v-1h1a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-1V5a3 3 0 0 0-3-3zm7 4V5a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v1zm0 9H8v4a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1zM6 11a1 1 0 0 1 1-1h2a1 1 0 1 1 0 2H7a1 1 0 0 1-1-1"
+      d="M18 2v4h4v12h-4v4H6v-4H2V6h4V2zM8 20h8v-5H8zM6.5 10v2h4v-2zM8 6h8V4H8z"
       clipRule="evenodd"
     />
   </Svg>

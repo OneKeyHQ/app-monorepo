@@ -31,6 +31,13 @@ type IEditableChainSelectorProps = {
   recentNetworksEnabled?: boolean;
   accountNetworkValues: Record<string, string>;
   accountNetworkValueCurrency?: string;
+  accountDeFiOverview: Record<
+    string,
+    {
+      netWorth: number;
+    }
+  >;
+  showAllNetworkInRecentNetworks?: boolean;
 };
 
 // function getHeaderRightComponent(
@@ -61,6 +68,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   onFrequentlyUsedItemsChange,
   allNetworkItem,
   recentNetworksEnabled = true,
+  accountDeFiOverview,
+  showAllNetworkInRecentNetworks,
 }) => {
   const intl = useIntl();
   // const [isEditMode, setIsEditMode] = useState(false);
@@ -111,6 +120,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           recentNetworksEnabled={recentNetworksEnabled}
           accountNetworkValues={accountNetworkValues}
           accountNetworkValueCurrency={accountNetworkValueCurrency}
+          accountDeFiOverview={accountDeFiOverview}
+          showAllNetworkInRecentNetworks={showAllNetworkInRecentNetworks}
         />
       </Page.Body>
     </Page>

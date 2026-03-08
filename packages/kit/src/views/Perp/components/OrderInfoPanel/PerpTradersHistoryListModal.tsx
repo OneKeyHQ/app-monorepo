@@ -6,12 +6,14 @@ import {
   Button,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { PageBody } from '@onekeyhq/components/src/layouts/Page/PageBody';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTradesHistoryViewAllUrl } from '../../hooks/usePerpOrderInfoPanel';
@@ -106,7 +108,15 @@ export function PerpTradersHistoryListModal() {
             {activeTab === 'Trades' ? (
               <PerpTradesHistoryList isMobile useTabsList={false} />
             ) : (
-              <PerpAccountList isMobile useTabsList={false} />
+              <PerpAccountList
+                isMobile
+                useTabsList={false}
+                ListHeaderComponent={
+                  <Stack pt="$2">
+                    <NotificationEnableAlert scene="perpHistory" />
+                  </Stack>
+                }
+              />
             )}
           </YStack>
         </YStack>

@@ -1,11 +1,4 @@
-import {
-  Icon,
-  Image,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 

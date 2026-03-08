@@ -10,6 +10,7 @@ import {
   formatValue,
   fromBigIntHex,
   numberFormat,
+  numberFormatAsRaw,
   toBigIntHex,
 } from './numberUtils';
 
@@ -880,21 +881,42 @@ test('formatPriceChangeCapped', () => {
     },
   });
 
-  // Test values that exceed the cap (should be capped and marked as isCapped)
+  // Test values within new cap range (not capped)
   expect(formatPriceChangeCapped('1500.5')).toEqual({
-    formattedValue: '999.99',
+    formattedValue: '1,500.50',
     meta: {
       value: '1500.5',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+    },
+  });
+
+  expect(formatPriceChangeCapped('-1200.8')).toEqual({
+    formattedValue: '-1,200.80',
+    meta: {
+      value: '-1200.8',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+    },
+  });
+
+  // Test values that exceed the cap (should be capped and marked as isCapped)
+  expect(formatPriceChangeCapped('150000')).toEqual({
+    formattedValue: '99,999',
+    meta: {
+      value: '150000',
       symbol: '%',
       decimalSymbol: '.',
       isCapped: true,
     },
   });
 
-  expect(formatPriceChangeCapped('-1200.8')).toEqual({
-    formattedValue: '-999.99',
+  expect(formatPriceChangeCapped('-120000')).toEqual({
+    formattedValue: '-99,999',
     meta: {
-      value: '-1200.8',
+      value: '-120000',
       symbol: '%',
       decimalSymbol: '.',
       isCapped: true,
@@ -951,11 +973,11 @@ test('formatPriceChangeCapped', () => {
 
   // Test capped values with showPlusMinusSigns
   expect(
-    formatPriceChangeCapped('1500.5', { showPlusMinusSigns: true }),
+    formatPriceChangeCapped('150000', { showPlusMinusSigns: true }),
   ).toEqual({
-    formattedValue: '999.99',
+    formattedValue: '99,999',
     meta: {
-      value: '1500.5',
+      value: '150000',
       symbol: '%',
       decimalSymbol: '.',
       isCapped: true,
@@ -966,15 +988,15 @@ test('formatPriceChangeCapped', () => {
   // Test formatted display with > symbol for capped values
   expect(
     formatDisplayNumber(
-      formatPriceChangeCapped('1500.5', { showPlusMinusSigns: true }),
+      formatPriceChangeCapped('150000', { showPlusMinusSigns: true }),
     ),
-  ).toEqual('>+999.99%');
+  ).toEqual('>+99,999%');
 
   expect(
     formatDisplayNumber(
-      formatPriceChangeCapped('-1200.8', { showPlusMinusSigns: true }),
+      formatPriceChangeCapped('-120000', { showPlusMinusSigns: true }),
     ),
-  ).toEqual('>-999.99%');
+  ).toEqual('>-99,999%');
 
   // Test formatted display for normal values with plus/minus signs
   expect(
@@ -991,18 +1013,18 @@ test('formatPriceChangeCapped', () => {
 
   // Test numberFormat integration with new formatter
   expect(
-    numberFormat('1500.5', {
+    numberFormat('150000', {
       formatter: 'priceChangeCapped',
       formatterOptions: { showPlusMinusSigns: true },
     }),
-  ).toEqual('>+999.99%');
+  ).toEqual('>+99,999%');
 
   expect(
-    numberFormat('-1200.8', {
+    numberFormat('-120000', {
       formatter: 'priceChangeCapped',
       formatterOptions: { showPlusMinusSigns: true },
     }),
-  ).toEqual('>-999.99%');
+  ).toEqual('>-99,999%');
 
   expect(
     numberFormat('15.67', {
@@ -1010,4 +1032,140 @@ test('formatPriceChangeCapped', () => {
       formatterOptions: { showPlusMinusSigns: true },
     }),
   ).toEqual('+15.67%');
+});
+
+test('formatDisplayNumber with splitDecimal', () => {
+  // balance with decimal
+  expect(
+    formatDisplayNumber(formatBalance('4512.1242'), { splitDecimal: true }),
+  ).toEqual(['4,512', { value: '.1242', type: 'decimal' }]);
+
+  // negative balance with decimal
+  expect(
+    formatDisplayNumber(formatBalance('-4512.1242'), { splitDecimal: true }),
+  ).toEqual(['-', '4,512', { value: '.1242', type: 'decimal' }]);
+
+  // balance without decimal (integer)
+  expect(
+    formatDisplayNumber(formatBalance('40000'), { splitDecimal: true }),
+  ).toEqual(['40,000']);
+
+  // balance zero
+  expect(
+    formatDisplayNumber(formatBalance('0'), { splitDecimal: true }),
+  ).toEqual(['0']);
+
+  // price with currency and decimal
+  expect(
+    formatDisplayNumber(formatPrice('558934.09', { currency: '$' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '558,934', { value: '.09', type: 'decimal' }]);
+
+  // price zero with currency
+  expect(
+    formatDisplayNumber(formatPrice('0', { currency: '$' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '0', { value: '.00', type: 'decimal' }]);
+
+  // priceChange with symbol
+  expect(
+    formatDisplayNumber(formatPriceChange('2.81'), { splitDecimal: true }),
+  ).toEqual(['2', { value: '.81', type: 'decimal' }, '%']);
+
+  // priceChange with plus/minus signs
+  expect(
+    formatDisplayNumber(
+      formatPriceChange('2.81', { showPlusMinusSigns: true }),
+      { splitDecimal: true },
+    ),
+  ).toEqual(['+', '2', { value: '.81', type: 'decimal' }, '%']);
+
+  expect(
+    formatDisplayNumber(
+      formatPriceChange('-2.81', { showPlusMinusSigns: true }),
+      { splitDecimal: true },
+    ),
+  ).toEqual(['-', '2', { value: '.81', type: 'decimal' }, '%']);
+
+  // marketCap with unit
+  expect(
+    formatDisplayNumber(formatMarketCap('235382184512.1242'), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['235', { value: '.38', type: 'decimal' }, 'B']);
+
+  // value with currency
+  expect(
+    formatDisplayNumber(formatValue('1234.5678', { currency: '$' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '1,234', { value: '.57', type: 'decimal' }]);
+
+  // balance with tokenSymbol
+  expect(
+    formatDisplayNumber(formatBalance('4512.1242', { tokenSymbol: 'ETH' }), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['4,512', { value: '.1242', type: 'decimal' }, ' ', 'ETH']);
+
+  // leading zeros > 4 (should keep existing array behavior, not split decimal)
+  expect(
+    formatDisplayNumber(formatBalance('0.0000041000'), {
+      splitDecimal: true,
+    }),
+  ).toEqual(['0.0', { value: 5, type: 'sub' }, '41']);
+});
+
+test('numberFormatAsRaw with splitDecimal', () => {
+  // splitDecimal returns array
+  expect(
+    numberFormatAsRaw('558934.09', {
+      formatter: 'price',
+      formatterOptions: { currency: '$' },
+      splitDecimal: true,
+    }),
+  ).toEqual(['$', '558,934', { value: '.09', type: 'decimal' }]);
+
+  // without splitDecimal returns string
+  expect(
+    numberFormatAsRaw('558934.09', {
+      formatter: 'price',
+      formatterOptions: { currency: '$' },
+    }),
+  ).toEqual('$558,934.09');
+});
+
+test('countLeadingZeroDecimals edge cases via formatBalance', () => {
+  // Extremely small numbers that would cause Math.log10(0) = -Infinity
+  // in the old implementation (BigNumber.toNumber() under-flows to 0)
+  expect(formatBalance('0.000000000000000000000000000001')).toMatchObject({
+    meta: { leadingZeros: 29 },
+  });
+
+  // Very small number with many leading zeros
+  expect(formatBalance('0.00000000000000001')).toMatchObject({
+    meta: { leadingZeros: 16 },
+  });
+
+  // Exactly one leading zero
+  expect(formatBalance('0.01234')).toMatchObject({
+    meta: { leadingZeros: 1 },
+  });
+
+  // No leading zeros (value >= 0.1)
+  expect(formatBalance('0.1234')).toMatchObject({
+    meta: { leadingZeros: 0 },
+  });
+
+  // Integer part > 0 (no leading zeros expected)
+  expect(formatBalance('1.00001')).not.toMatchObject({
+    meta: { leadingZeros: expect.any(Number) },
+  });
+
+  // Negative extremely small number
+  expect(formatBalance('-0.000000000000000000000000000001')).toMatchObject({
+    meta: { leadingZeros: 29 },
+  });
 });

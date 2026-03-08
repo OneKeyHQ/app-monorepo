@@ -34,6 +34,7 @@ export class EvmConnectorManager {
     if (!this._mipd) {
       this._mipd =
         // eslint-disable-next-line unicorn/prefer-global-this
+        // oxlint-disable-next-line unicorn/prefer-global-this
         typeof window !== 'undefined' && multiInjectedProviderDiscovery
           ? createMipd()
           : undefined;

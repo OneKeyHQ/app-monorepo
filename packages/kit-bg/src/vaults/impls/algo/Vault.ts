@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   ManageTokenInsufficientBalanceError,
+  type OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -64,6 +65,7 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -75,6 +77,10 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+/* eslint-disable import/order */
+import type { FailedAttemptError } from 'p-retry';
+import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
+/* eslint-enable import/order */
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;
@@ -235,12 +241,10 @@ export default class Vault extends VaultBase {
     let groupId = '';
 
     const txGroup = isArray(encodedTx) ? encodedTx : [encodedTx];
-    let txFee = new BigNumber(0);
 
     for (let i = 0, len = txGroup.length; i < len; i += 1) {
       const { action, nativeTx } = await this._decodeAlgoTx(txGroup[i]);
       actions.push(action);
-      txFee = txFee.plus(nativeTx.fee ?? 0);
       sender = nativeTx.snd ? sdkAlgo.encodeAddress(nativeTx.snd) : '';
       if (nativeTx.grp) {
         groupId = Buffer.from(nativeTx.grp).toString('base64');
@@ -306,6 +310,7 @@ export default class Vault extends VaultBase {
 
       if (nativeToken) {
         const amount = nativeTx.amt?.toString() || '0';
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const to = sdkAlgo.encodeAddress(nativeTx.rcv!);
         const transfer: IDecodedTxTransferInfo = {
           from: sender,
@@ -329,9 +334,11 @@ export default class Vault extends VaultBase {
     }
 
     if (nativeTx.type === sdkAlgo.TransactionType.axfer) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const to = sdkAlgo.encodeAddress(nativeTx.arcv!);
       const token = await this.backgroundApi.serviceToken.getToken({
         networkId: this.networkId,
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         tokenIdOnNetwork: nativeTx.xaid!.toString(),
         accountId: this.accountId,
       });
@@ -580,20 +587,21 @@ export default class Vault extends VaultBase {
     return result;
   }
 
-  override async activateToken(params: {
-    token: IAccountToken;
-  }): Promise<boolean> {
-    if (params.token.isNative) {
-      return Promise.resolve(true);
-    }
+  override async activateToken(params: { token: IAccountToken }): Promise<{
+    token?: IAccountToken;
+    isActivated: boolean;
+  }> {
     const { token } = params;
+    if (token.isNative) {
+      return Promise.resolve({ isActivated: true });
+    }
     const dbAccount = await this.getAccount();
     const client = await this.getClient();
     const { assets } = await client.accountInformation(dbAccount.address);
 
     for (const { 'asset-id': assetId } of assets) {
       if (assetId === parseInt(token.address, 10)) {
-        return Promise.resolve(true);
+        return Promise.resolve({ isActivated: true });
       }
     }
 
@@ -616,7 +624,7 @@ export default class Vault extends VaultBase {
           unsignedTxs: [unsignedTx],
           transferPayload: undefined,
         });
-      return !!signedTx.signedTx.txid;
+      return { isActivated: !!signedTx.signedTx.txid };
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
@@ -634,6 +642,8 @@ export default class Vault extends VaultBase {
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
+    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     const client = new sdkAlgo.Algodv2('', params.rpcUrl, 443);
     const start = performance.now();
     const { 'last-round': latestBlock } = await client.status().do();
@@ -641,6 +651,14 @@ export default class Vault extends VaultBase {
       responseTime: Math.floor(performance.now() - start),
       bestBlockNumber: latestBlock,
     };
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    const result = await super.broadcastTransaction(params);
+    await this._getSuggestedParams.clear();
+    return result;
   }
 
   override async broadcastTransactionFromCustomRpc(
@@ -651,6 +669,8 @@ export default class Vault extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('rpcUrl is required');
     }
+
+    // oxlint-disable-next-line @cspell/spellchecker
     const client = new sdkAlgo.Algodv2('', rpcUrl, 443);
     const { txId } = await client
       .sendRawTransaction(Buffer.from(signedTx.rawTx, 'base64'))
@@ -659,9 +679,25 @@ export default class Vault extends VaultBase {
       txId,
       rawTx: signedTx.rawTx,
     });
+    await this._getSuggestedParams.clear();
     return {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code === NETWORK_REQUEST_ERROR_CODE &&
+      (error as unknown as OneKeyError)?.message?.includes(
+        'cannot broadcast txns in follower mode',
+      )
+    ) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      return true;
+    }
+    return false;
   }
 }

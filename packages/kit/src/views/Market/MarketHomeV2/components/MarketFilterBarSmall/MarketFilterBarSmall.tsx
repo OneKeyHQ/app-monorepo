@@ -1,5 +1,3 @@
-import { Stack } from '@onekeyhq/components';
-
 import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
 
 import type { ILiquidityFilter } from '../../types';
@@ -28,7 +26,7 @@ function MarketFilterBarSmall({
       onSelectNetworkId={handleNetworkIdChange}
       placement="bottom-start"
       containerStyle={{
-        px: '$4',
+        px: '$5',
         pt: '$3',
         pb: '$2',
       }}

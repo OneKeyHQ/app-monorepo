@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -19,12 +19,16 @@ import {
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  filterSwapHistoryPendingList,
+  useInAppNotificationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
+  IQuoteTip,
   ISwapPreSwapData,
   ISwapStep,
   ISwapToken,
@@ -41,6 +45,7 @@ import {
 import PreSwapConfirmResult from '../../components/PreSwapConfirmResult';
 import PreSwapInfoGroup from '../../components/PreSwapInfoGroup';
 import PreSwapStep from '../../components/PreSwapStep';
+import { PreSwapTipInfo } from '../../components/PreSwapTipInfo';
 import PreSwapTokenItem from '../../components/PreSwapTokenItem';
 
 interface IPreSwapDialogContentProps {
@@ -103,6 +108,25 @@ const PreSwapDialogContent = ({
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
 
+  const [showPreSwapTipInfo, setShowPreSwapTipInfo] = useState<
+    IQuoteTip | undefined
+  >(undefined);
+
+  const handleConfirmPress = useCallback(() => {
+    if (quoteResult?.quoteShowTip) {
+      setShowPreSwapTipInfo(quoteResult?.quoteShowTip);
+    } else {
+      onConfirm();
+    }
+  }, [onConfirm, quoteResult?.quoteShowTip]);
+
+  const tipOnConfirm = useCallback(() => {
+    onConfirm();
+    setShowPreSwapTipInfo(undefined);
+  }, [onConfirm]);
+  const tipOnCancel = useCallback(() => {
+    setShowPreSwapTipInfo(undefined);
+  }, []);
   useEffect(() => {
     if (
       inAppNotificationAtom.swapApprovingTransaction &&
@@ -178,11 +202,12 @@ const PreSwapDialogContent = ({
     if (lastStep?.txHash || lastStep?.orderId) {
       let findStepItem: ISwapTxHistory | IFetchLimitOrderRes | undefined;
       if (preSwapData?.swapType !== ESwapTabSwitchType.LIMIT) {
-        findStepItem = inAppNotificationAtom.swapHistoryPendingList.find(
-          (item) =>
-            item.txInfo.useOrderId
-              ? item.txInfo.orderId === lastStep?.orderId
-              : item.txInfo.txId === lastStep?.txHash,
+        findStepItem = filterSwapHistoryPendingList(
+          inAppNotificationAtom.swapHistoryPendingList,
+        ).find((item) =>
+          item.txInfo.useOrderId
+            ? item.txInfo.orderId === lastStep?.orderId
+            : item.txInfo.txId === lastStep?.txHash,
         );
       } else {
         findStepItem = inAppNotificationAtom.swapLimitOrders.find(
@@ -380,27 +405,37 @@ const PreSwapDialogContent = ({
           swapSteps.steps[0].status === ESwapStepStatus.READY ? (
             <YStack gap="$4">
               {/* Info items */}
-              <PreSwapInfoGroup
-                preSwapData={swapSteps.preSwapData}
-                onSelectNetworkFeeLevel={(value) => {
-                  setSwapStepNetFeeLevel({
-                    networkFeeLevel: value,
-                  });
-                }}
-              />
-              {/* Primary button */}
-              <Button
-                variant="primary"
-                onPress={onConfirm}
-                size="medium"
-                disabled={
-                  swapSteps.preSwapData.estimateNetworkFeeLoading ||
-                  swapSteps.preSwapData.swapBuildLoading ||
-                  swapSteps.preSwapData.stepBeforeActionsLoading
-                }
-              >
-                {actionBtnTest}
-              </Button>
+              {showPreSwapTipInfo ? (
+                <PreSwapTipInfo
+                  quoteShowTip={showPreSwapTipInfo}
+                  onConfirm={tipOnConfirm}
+                  onCancel={tipOnCancel}
+                />
+              ) : (
+                <>
+                  <PreSwapInfoGroup
+                    preSwapData={swapSteps.preSwapData}
+                    onSelectNetworkFeeLevel={(value) => {
+                      setSwapStepNetFeeLevel({
+                        networkFeeLevel: value,
+                      });
+                    }}
+                  />
+                  {/* Primary button */}
+                  <Button
+                    variant="primary"
+                    onPress={handleConfirmPress}
+                    size="medium"
+                    disabled={
+                      swapSteps.preSwapData.estimateNetworkFeeLoading ||
+                      swapSteps.preSwapData.swapBuildLoading ||
+                      swapSteps.preSwapData.stepBeforeActionsLoading
+                    }
+                  >
+                    {actionBtnTest}
+                  </Button>
+                </>
+              )}
             </YStack>
           ) : (
             <PreSwapStep steps={swapSteps.steps} onRetry={onConfirm} />

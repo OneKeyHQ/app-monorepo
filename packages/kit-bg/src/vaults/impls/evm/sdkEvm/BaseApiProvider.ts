@@ -166,6 +166,7 @@ class BaseApiProvider {
     await Promise.all(
       stages.map(async (n) => {
         if (n.condition) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return n.value();
         }
         return Promise.resolve();
@@ -251,7 +252,7 @@ class BaseApiProvider {
     const smallTokenArray: IServerAccountTokenItem[] = [];
     const riskTokenArray: IServerAccountTokenItem[] = [];
 
-    sortedAccountTokenArray.reverse().forEach((accountToken) => {
+    sortedAccountTokenArray.toReversed().forEach((accountToken) => {
       tokenArray.unshift(accountToken);
     });
 

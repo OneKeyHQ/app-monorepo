@@ -12,7 +12,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { GiftAction } from '@onekeyhq/kit/src/components/TabPageHeader/components';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import {
   usePerpsActiveOpenOrdersAtom,
@@ -31,11 +30,13 @@ import {
   usePerpsActiveOrderBookOptionsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
@@ -119,7 +120,7 @@ function DepositButton() {
       px="$3"
       h={gtSm ? 30 : 28}
       bg={isEmptyAccount ? '$brand8' : '$bgStrong'}
-      cursor="pointer"
+      cursor="default"
     >
       {isEmptyAccount ? (
         <>
@@ -172,9 +173,9 @@ export function PerpsHeaderRight() {
       <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
-      {gtMd ? (
+      {gtMd && !platformEnv.isWebDappMode ? (
         <>
-          <GiftAction source="Perps" copyAsUrl />
+          <PerpsActivityCenterAction copyAsUrl />
           <PerpSettingsButton testID="perp-header-settings-button" />
         </>
       ) : null}

@@ -24,9 +24,9 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   onekeyUserId: undefined,
   primeSubscription: undefined,
   subscriptionManageUrl: undefined,
-  keylessWalletId: undefined, // packSetId
-  // salt: undefined,
-  // pwdHash: undefined,
+  keylessWalletId: undefined,
+  nickname: undefined,
+  avatar: undefined,
 };
 export const {
   target: primePersistAtom, // persist
@@ -40,6 +40,10 @@ export const {
 export type IPrimeCloudSyncPersistAtomData = {
   isCloudSyncEnabled: boolean;
   lastSyncTime?: number;
+  lastSyncTimeOneKeyId?: number;
+  lastSyncTimeKeyless?: number;
+
+  isCloudSyncEnabledKeyless?: boolean;
 };
 export const {
   target: primeCloudSyncPersistAtom,
@@ -49,6 +53,7 @@ export const {
   persist: true,
   initialValue: {
     isCloudSyncEnabled: false,
+    isCloudSyncEnabledKeyless: false,
   },
 });
 

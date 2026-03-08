@@ -1,5 +1,4 @@
 import {
-  Fragment,
   forwardRef,
   useCallback,
   useEffect,
@@ -18,7 +17,6 @@ import type {
 
 import { FlashList } from '@shopify/flash-list';
 import { noop } from 'lodash';
-// eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
 import {
   OpacityDecorator,
@@ -309,11 +307,14 @@ function BaseSortableListView<T>(
                       : {}
                   }
                   drag={noop}
-                  dragProps={Object.keys(dragHandleProps).reduce((acc, key) => {
-                    const reloadKey = key.replace(/^data-/, '');
-                    acc[reloadKey] = dragHandleProps[key];
-                    return acc;
-                  }, {} as Record<string, any>)}
+                  dragProps={Object.keys(dragHandleProps).reduce(
+                    (acc, key) => {
+                      const reloadKey = key.replace(/^data-/, '');
+                      acc[reloadKey] = dragHandleProps[key];
+                      return acc;
+                    },
+                    {} as Record<string, any>,
+                  )}
                   isDragging={false}
                   item={item}
                   getIndex={() => index}
@@ -378,7 +379,7 @@ function BaseSortableListView<T>(
             );
             overridePaddingBottom += useFlashList
               ? 0
-              : getItemLayout?.(data, index)?.length ?? 0;
+              : (getItemLayout?.(data, index)?.length ?? 0);
           }
           const ListViewComponent = useFlashList ? FlashList : ListView;
           return (

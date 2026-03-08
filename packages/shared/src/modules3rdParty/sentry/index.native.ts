@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react';
 
 import {
-  hermesProfilingIntegration,
   init,
   reactNativeTracingIntegration,
   nativeCrash as sentryNativeCrash,
@@ -16,6 +15,7 @@ import { buildBasicOptions, navigationIntegration } from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
+// oxlint-disable-next-line import/export -- re-export from third-party module
 export * from '@sentry/react-native';
 
 export * from './basicOptions';
@@ -34,14 +34,17 @@ export const initSentry = () => {
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
-    integrations: [
-      navigationIntegration,
-      reactNativeTracingIntegration(),
-      hermesProfilingIntegration({
-        platformProfilers: true,
-      }),
-    ],
+    integrations: [navigationIntegration, reactNativeTracingIntegration()],
     enableAutoPerformanceTracing: true,
+    // Disable options that may include sensitive memory context or visual data.
+    // enableNativeCrashHandling and enableNdk are kept enabled because they only
+    // collect stack traces and thread stack memory (not Hermes JS
+    // heap), which is safe for privacy and essential for diagnosing native crashes.
+    enableNativeCrashHandling: true,
+    enableNdk: true,
+    enableWatchdogTerminationTracking: false,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
   });
 };
 

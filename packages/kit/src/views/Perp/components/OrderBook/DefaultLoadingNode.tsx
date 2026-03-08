@@ -9,71 +9,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import type { IOrderBookVariant } from './types';
 
-const DESKTOP_ROW_HEIGHT = 18;
 const MOBILE_ROW_HEIGHT = 12;
-
-const DESKTOP_ROW_WIDTHS = [
-  '100%',
-  '95%',
-  '90%',
-  '85%',
-  '80%',
-  '75%',
-  '72%',
-  '68%',
-  '66%',
-  '62%',
-  '57%',
-  '52%',
-  '48%',
-  '44%',
-  '40%',
-  '36%',
-  '32%',
-  '28%',
-  '100%',
-  '28%',
-  '32%',
-  '36%',
-  '40%',
-  '44%',
-  '48%',
-  '52%',
-  '57%',
-  '62%',
-  '66%',
-  '68%',
-  '72%',
-  '75%',
-  '80%',
-  '85%',
-  '90%',
-  '95%',
-  '100%',
-];
-
-const MOBILE_ROWS: { width: string; height: number }[] = [
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-  { width: '92%', height: MOBILE_ROW_HEIGHT },
-  { width: '85%', height: MOBILE_ROW_HEIGHT },
-  { width: '78%', height: MOBILE_ROW_HEIGHT },
-  { width: '72%', height: MOBILE_ROW_HEIGHT },
-  { width: '65%', height: MOBILE_ROW_HEIGHT },
-  { width: '58%', height: MOBILE_ROW_HEIGHT },
-  { width: '50%', height: MOBILE_ROW_HEIGHT },
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-  { width: '50%', height: MOBILE_ROW_HEIGHT },
-  { width: '58%', height: MOBILE_ROW_HEIGHT },
-  { width: '65%', height: MOBILE_ROW_HEIGHT },
-  { width: '72%', height: MOBILE_ROW_HEIGHT },
-  { width: '78%', height: MOBILE_ROW_HEIGHT },
-  { width: '85%', height: MOBILE_ROW_HEIGHT },
-  { width: '92%', height: MOBILE_ROW_HEIGHT },
-  { width: '100%', height: MOBILE_ROW_HEIGHT },
-];
 
 const MOBILE_HORIZONTAL_WIDTHS = [
   '6.4%',
@@ -170,7 +110,7 @@ export function DefaultLoadingNode({
               {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
             </SizableText>
             <SizableText fontSize={10} lineHeight={12} color="$textSubdued">
-              ({symbol ?? '—'})
+              ({symbol ? parseDexCoin(symbol).displayName : '—'})
             </SizableText>
           </YStack>
         </XStack>

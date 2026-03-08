@@ -1,12 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAddPages = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15 13h2v2h-2v2h-2v-2h-2v-2h2v-2h2z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M15 7V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2m5-5v2m0 0v2m0-2h-2m2 0h2m1 7h-6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2Z"
+      fillRule="evenodd"
+      d="M16 6h4v16H8v-4H4V2h12zm-6 14h8V8h-8zm-4-4h2V6h6V4H6z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -145,6 +145,7 @@ export function DesktopTabItem(
   }, []);
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
+      setIsHovered(false);
       if (selected) {
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
@@ -165,7 +166,7 @@ export function DesktopTabItem(
       <YStack
         {...tabBarItemStyle}
         alignItems="center"
-        py={size === 'small' ? '$1.5' : '$2'}
+        py="$2"
         $gtMd={
           {
             flexDirection: 'row',
@@ -194,12 +195,12 @@ export function DesktopTabItem(
         }
       >
         {icon ? (
-          <XStack flexShrink={0}>
+          <XStack className="sidebar-tab-item-icon" flexShrink={0}>
             <Icon
               flexShrink={0}
               name={icon}
               color={selected ? '$iconActive' : '$iconSubdued'}
-              size="$5"
+              size={size === 'small' ? '$5' : '$6'}
               {...tabBarIconStyle}
             />
             {showDot ? (
@@ -274,7 +275,6 @@ export function DesktopTabItem(
     ),
     [
       tabBarItemStyle,
-      size,
       selected,
       isContextMenuOpened,
       isHovered,
@@ -284,6 +284,7 @@ export function DesktopTabItem(
       reloadOnPress,
       rest,
       icon,
+      size,
       tabBarIconStyle,
       showDot,
       showAvatar,

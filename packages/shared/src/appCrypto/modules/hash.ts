@@ -49,7 +49,7 @@ async function hmacSHA256ByWebCrypto(
 ): Promise<Buffer> {
   const cryptoKey = await globalThis.crypto.subtle.importKey(
     'raw',
-    key,
+    key as unknown as ArrayBuffer,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign'],
@@ -57,7 +57,7 @@ async function hmacSHA256ByWebCrypto(
   const signature = await globalThis.crypto.subtle.sign(
     'HMAC',
     cryptoKey,
-    data,
+    data as unknown as ArrayBuffer,
   );
   return Buffer.from(signature);
 }
@@ -127,7 +127,7 @@ async function hmacSHA512ByWebCrypto(
 ): Promise<Buffer> {
   const cryptoKey = await globalThis.crypto.subtle.importKey(
     'raw',
-    key,
+    key as unknown as ArrayBuffer,
     { name: 'HMAC', hash: 'SHA-512' },
     false,
     ['sign'],
@@ -135,7 +135,7 @@ async function hmacSHA512ByWebCrypto(
   const signature = await globalThis.crypto.subtle.sign(
     'HMAC',
     cryptoKey,
-    data,
+    data as unknown as ArrayBuffer,
   );
   return Buffer.from(signature);
 }
@@ -198,7 +198,10 @@ async function sha256ByRNAes(data: Buffer): Promise<Buffer> {
 }
 
 async function sha256ByWebCrypto(data: Buffer): Promise<Buffer> {
-  const hash = await globalThis.crypto.subtle.digest('SHA-256', data);
+  const hash = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    data as unknown as BufferSource,
+  );
   return Buffer.from(hash);
 }
 
@@ -261,7 +264,10 @@ async function sha512ByRNAes(data: Buffer): Promise<Buffer> {
 }
 
 async function sha512ByWebCrypto(data: Buffer): Promise<Buffer> {
-  const hash = await globalThis.crypto.subtle.digest('SHA-512', data);
+  const hash = await globalThis.crypto.subtle.digest(
+    'SHA-512',
+    data as unknown as BufferSource,
+  );
   return Buffer.from(hash);
 }
 

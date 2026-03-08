@@ -24,13 +24,11 @@ interface IStatItemProps {
 
 function StatItem({ label, value }: IStatItemProps) {
   return (
-    <YStack gap="$1">
+    <YStack>
       <SizableText size="$bodySm" color="$textSubdued">
         {label}
       </SizableText>
-      <SizableText size="$bodySmMedium" color="$text">
-        {value}
-      </SizableText>
+      {value}
     </YStack>
   );
 }
@@ -79,26 +77,26 @@ export function TokenDetailHeaderRight({
   }
 
   return (
-    <XStack gap="$6" ai="center">
+    <XStack gap="$8" ai="center">
       {/* Price and Price Change */}
-      <YStack ai="flex-end" jc="space-between" mt="$-0.5">
+      <XStack ai="center" gap="$1.5">
         <MarketTokenPrice
-          size="$bodyLgMedium"
+          size="$headingXl"
           price={currentPrice}
           tokenName={name}
           tokenSymbol={symbol}
           lastUpdated={tokenDetail?.lastUpdated?.toString()}
         />
-        <PriceChangePercentage size="$bodySm">
+        <PriceChangePercentage size="$headingXs">
           {priceChange24hPercent}
         </PriceChangePercentage>
-      </YStack>
+      </XStack>
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
         value={
           <NumberSizeableText
-            size="$bodySmMedium"
+            size="$headingXs"
             color="$text"
             formatter="marketCap"
             formatterOptions={{
@@ -115,7 +113,7 @@ export function TokenDetailHeaderRight({
         label={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
         value={
           <NumberSizeableText
-            size="$bodySmMedium"
+            size="$headingXs"
             color="$text"
             formatter="marketCap"
             formatterOptions={{
@@ -131,7 +129,7 @@ export function TokenDetailHeaderRight({
         label={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
         value={
           <NumberSizeableText
-            size="$bodySmMedium"
+            size="$headingXs"
             color="$text"
             formatter="marketCap"
           >

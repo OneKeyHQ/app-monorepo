@@ -1,6 +1,8 @@
 import type * as RNFS from 'react-native-fs';
 
-const module: typeof RNFS | undefined = {
+// eslint-disable-next-line @cspell/spellchecker
+// oxlint-disable-next-line @cspell/spellchecker
+const rnfsMock: typeof RNFS | undefined = {
   DocumentDirectoryPath: '',
   CachesDirectoryPath: '',
   exists: async () => false,
@@ -19,4 +21,4 @@ const module: typeof RNFS | undefined = {
     lastModified: 0,
   }),
 } as any;
-export default module;
+export default rnfsMock;

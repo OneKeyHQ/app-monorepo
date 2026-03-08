@@ -320,6 +320,11 @@ function DialogFrame({
               }}
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex || zIndex}
+              style={
+                !platformEnv.isNative && !open && forceMount
+                  ? ({ contentVisibility: 'hidden' } as any)
+                  : {}
+              }
             />
             {/* /* fix missing title warnings in html dialog element on Web */}
             <TMDialog.Title display="none" />
@@ -349,6 +354,9 @@ function DialogFrame({
               outlineColor="$neutral3"
               style={{
                 outlineStyle: 'solid',
+                ...(!platformEnv.isNative && !open && forceMount
+                  ? ({ contentVisibility: 'hidden' } as any)
+                  : {}),
               }}
               bg="$bg"
               width={MAX_CONTENT_WIDTH}
@@ -395,9 +403,7 @@ function BaseDialogContainer(
     },
     [isControlled, onOpenChange],
   );
-  const formRef = useRef<UseFormReturn<any, any, any> | undefined | undefined>(
-    undefined,
-  );
+  const formRef = useRef<UseFormReturn<any, any, any> | undefined>(undefined);
   const handleClose = useCallback(
     (extra?: { flag?: string }) => {
       if (
@@ -721,16 +727,28 @@ export const Dialog = {
 export enum EInPageDialogType {
   inTabPages = 'inTabPages',
   inModalPage = 'inModalPage',
+  inOnboardingPage = 'inOnboardingPage',
+  inFullScreenPushPage = 'inFullScreenPushPage',
 }
 export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
   const pageType = usePageType();
-  const type =
-    dialogType ||
-    (pageType === EPageType.modal
-      ? EInPageDialogType.inModalPage
-      : EInPageDialogType.inTabPages);
+  const type = useMemo(() => {
+    if (dialogType) {
+      return dialogType;
+    }
+    if (pageType === EPageType.modal) {
+      return EInPageDialogType.inModalPage;
+    }
+    if (pageType === EPageType.fullScreenPush) {
+      return EInPageDialogType.inFullScreenPushPage;
+    }
+    if (pageType === EPageType.onboarding) {
+      return EInPageDialogType.inOnboardingPage;
+    }
+    return EInPageDialogType.inTabPages;
+  }, [dialogType, pageType]);
   const portalId = useMemo(() => {
     if (type === EInPageDialogType.inTabPages) {
       return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;

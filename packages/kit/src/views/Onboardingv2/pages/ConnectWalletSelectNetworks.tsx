@@ -1,12 +1,9 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Page, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
@@ -18,7 +15,6 @@ export function ConnectWalletSelectNetworksPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { btc, eth, cosmoshub, bsc, polygon, avalanche, sol } =
     getNetworkIdsMap();
-  const intl = useIntl();
 
   const navigation = useAppNavigation();
 

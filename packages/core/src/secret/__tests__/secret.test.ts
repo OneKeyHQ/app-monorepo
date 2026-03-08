@@ -550,7 +550,11 @@ describe('Secret Module Tests', () => {
     const testPassword = 'test123';
     const testMnemonic =
       'test test test test test test test test test test test junk';
-    const rs = mnemonicToRevealableSeed(testMnemonic);
+    let rs: IBip39RevealableSeed;
+
+    beforeAll(() => {
+      rs = mnemonicToRevealableSeed(testMnemonic);
+    });
 
     it('should generate fingerprint for secp256k1', async () => {
       const hdCredential = await encryptRevealableSeed({
@@ -1628,7 +1632,11 @@ describe('Secret Module Tests', () => {
   });
 
   describe('generateMasterKeyFromSeed', () => {
-    const testRevealableSeed = mnemonicToRevealableSeed(TEST_MNEMONIC);
+    let testRevealableSeed: IBip39RevealableSeed;
+
+    beforeAll(() => {
+      testRevealableSeed = mnemonicToRevealableSeed(TEST_MNEMONIC);
+    });
 
     it('should generate master key for secp256k1', async () => {
       const encryptedSeed = await encryptRevealableSeed({
@@ -1723,7 +1731,11 @@ describe('Secret Module Tests', () => {
   });
 
   describe('mnemonicFromEntropyAsync', () => {
-    const testRevealableSeed = mnemonicToRevealableSeed(TEST_MNEMONIC);
+    let testRevealableSeed: IBip39RevealableSeed;
+
+    beforeAll(() => {
+      testRevealableSeed = mnemonicToRevealableSeed(TEST_MNEMONIC);
+    });
 
     it('should generate mnemonic from entropy', async () => {
       const encryptedSeed = await encryptRevealableSeed({

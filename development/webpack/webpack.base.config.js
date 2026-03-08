@@ -73,9 +73,8 @@ const baseResolve = ({ platform, configName, basePath }) => ({
     ),
   },
   fallback: {
-    'crypto': require.resolve(
-      '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
-    ),
+    'crypto':
+      require.resolve('@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js'),
     stream: require.resolve('stream-browserify'),
     path: false,
     https: false,
@@ -102,6 +101,19 @@ const basePlugins = [
         ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
         TAMAGUI_TARGET: JSON.stringify('web'),
+        PERF_MONITOR_ENABLED: JSON.stringify(
+          process.env.PERF_MONITOR_ENABLED || '',
+        ),
+        PERF_FUNCTION_THRESHOLD_MS: JSON.stringify(
+          process.env.PERF_FUNCTION_THRESHOLD_MS || '',
+        ),
+        PERF_FUNCTION_WARN_MS: JSON.stringify(
+          process.env.PERF_FUNCTION_WARN_MS || '',
+        ),
+        ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: process.env
+          .ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
+          ? process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true'
+          : process.env.NODE_ENV !== 'production',
       },
     },
   }),
@@ -161,10 +173,12 @@ module.exports = ({ platform, basePath, configName }) => {
         ? 'static/media/[name].[ext]'
         : 'static/media/[name].[hash][ext]',
       uniqueName: 'web',
-      filename: isDev ? '[name].bundle.js' : '[name].[chunkhash:10].bundle.js',
+      filename: isDev
+        ? '[name].bundle.js'
+        : '[name].[contenthash:10].bundle.js',
       chunkFilename: isDev
         ? 'static/js/[name].chunk.js'
-        : 'static/js/[name].[chunkhash:10].chunk.js',
+        : 'static/js/[name].[contenthash:10].chunk.js',
     },
     plugins: [
       new HtmlWebpackPlugin({

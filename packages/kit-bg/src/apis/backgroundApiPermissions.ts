@@ -38,6 +38,7 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
 export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://1key.so',
   'https://onekey.so',
+  'https://onekeytest.com',
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
 ].filter(Boolean);
 
@@ -65,6 +66,10 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_analytics_line',
   'tradingview_analytics_studyCreated',
   'tradingview_analytics_studyRemoved',
+  // Perps chart lines methods
+  'tradingview_perpsReady',
+  'tradingview_perpsOrderCancel',
+  'tradingview_lineDragCommit',
   'btc_requestAccount',
   'btc_signTransaction',
 ];

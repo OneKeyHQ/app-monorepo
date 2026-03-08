@@ -8,7 +8,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
-import { useThemeValue } from '../../hooks/useStyle';
+import { useTheme } from '../../hooks/useStyle';
 
 import type { SliderThemeType } from 'react-native-awesome-slider';
 import type { SharedValue } from 'react-native-reanimated';
@@ -194,12 +194,11 @@ export function SegmentSlider({
     [value],
   );
 
-  const [bgPrimaryColor, neutral5Color, bgColor, borderColor] = useThemeValue([
-    'bgPrimary',
-    'neutral5',
-    'bg',
-    'borderStrong',
-  ]);
+  const theme = useTheme();
+  const bgPrimaryColor = theme.bgPrimary.val;
+  const neutral5Color = theme.neutral5.val;
+  const bgColor = theme.bg.val;
+  const borderColor = theme.borderStrong.val;
 
   // Animated style for the center-origin fill overlay
   const centerFillStyle = useAnimatedStyle(() => {

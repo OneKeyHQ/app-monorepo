@@ -314,7 +314,7 @@ function AccountAccordionItemContainer({
   const toggleAccountSwitch = useCallback(
     (value: boolean, dbAccount: IDBAccount | IDBIndexedAccount) => {
       saveAccountNotificationSettings((prevSettings) => {
-        const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
+        const newSettings = cloneDeep({ ...prevSettings });
         const newValue = value;
 
         if (newValue) {
@@ -560,7 +560,7 @@ function WalletAccordionItemContainer({
   const toggleWalletSwitch = useCallback(
     (value: boolean) => {
       saveAccountNotificationSettings((prevSettings) => {
-        const newSettings = cloneDeep({ ...(prevSettings ?? {}) });
+        const newSettings = cloneDeep({ ...prevSettings });
         const newValue = value;
 
         if (newValue && newSettings?.[wallet.id]?.accounts) {

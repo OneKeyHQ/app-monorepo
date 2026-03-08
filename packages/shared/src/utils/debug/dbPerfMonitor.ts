@@ -186,7 +186,7 @@ function sortMapData(data: { [key: string]: number }) {
     [key: string]: number;
   }> = {};
   Object.keys(data)
-    .sort()
+    .toSorted()
     .forEach((key) => {
       sortedResult[key] = data[key];
     });
@@ -248,9 +248,12 @@ function logResult({ autoReset, isWarning, muteLog }: ILogResultParams = {}) {
         resetData();
       } else {
         clearTimeout(resetTimer);
-        resetTimer = setTimeout(() => {
-          resetData();
-        }, resetThreshold - (now - resetStartTime));
+        resetTimer = setTimeout(
+          () => {
+            resetData();
+          },
+          resetThreshold - (now - resetStartTime),
+        );
       }
     }
   }
@@ -310,13 +313,13 @@ function toastWarningAndReset(key: string) {
       indexedDBResult[key] >= generalDebuggerRule[key]
     ) {
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
 
     if (shouldDbTxCreatedDebuggerRule[key]) {
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
     resetData();
@@ -364,7 +367,7 @@ function logLocalDbCall(method: string, table: string, params: any[]) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
   }
@@ -415,7 +418,7 @@ function logAppStorageCall(method: string, key: string) {
     ) {
       logResult();
       if (settings?.debuggerEnabled) {
-        debugger;
+        // debugger;
       }
     }
   }
@@ -477,7 +480,7 @@ function logIndexedDBCreateTx() {
         );
       };
     }
-  } catch (e) {
+  } catch (_e) {
     //
   }
 }

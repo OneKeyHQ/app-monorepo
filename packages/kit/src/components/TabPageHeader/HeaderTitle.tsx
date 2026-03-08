@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,8 +11,10 @@ import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderTitle({
   sceneName,
+  children,
 }: {
   sceneName: EAccountSelectorSceneName;
+  children?: ReactNode;
 }) {
   const { md } = useMedia();
   const item = useMemo(() => {
@@ -22,7 +25,8 @@ export function HeaderTitle({
     ) {
       return <UrlAccountPageHeader />;
     }
-  }, [md, sceneName]);
+    return children;
+  }, [md, sceneName, children]);
 
   return (
     <AccountSelectorProviderMirror

@@ -89,7 +89,7 @@ const ExportCustomRPC = () => {
         .map((o) => {
           let output = '';
           output += `${o.networkName}${CRLF}`;
-          output += `${o.rpcUrls.join(CRLF)}`;
+          output += o.rpcUrls.join(CRLF);
           return output;
         })
         .join(`${CRLF}--${CRLF}`);

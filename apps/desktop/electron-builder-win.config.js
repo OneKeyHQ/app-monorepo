@@ -1,3 +1,4 @@
+// oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const DLLs = require('./electron-dll.config');
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
@@ -27,4 +28,3 @@ module.exports = {
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
 };
-

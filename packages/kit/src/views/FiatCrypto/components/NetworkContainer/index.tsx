@@ -35,10 +35,13 @@ export const NetworkContainer = ({
   );
   const context = useMemo(
     () =>
-      networks.reduce((result, item) => {
-        result[item.id] = item;
-        return result;
-      }, {} as Record<string, IServerNetwork>),
+      networks.reduce(
+        (result, item) => {
+          result[item.id] = item;
+          return result;
+        },
+        {} as Record<string, IServerNetwork>,
+      ),
     [networks],
   );
   return (

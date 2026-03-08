@@ -3,13 +3,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { useIsModalPage } from '@onekeyhq/components';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useIsOverlayPage } from '@onekeyhq/components';
+import {
+  useInAppNotificationAtom,
+  useSwapFromMarketJumpTokenAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -39,6 +43,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
+import { useSwapProInputToken } from './useSwapPro';
 
 /**
  * Initializes and manages state and side effects for the token swap feature, including networks, tokens, providers, and related UI state.
@@ -50,10 +55,17 @@ import { useSwapAddressInfo } from './useSwapAccount';
  */
 export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
-  const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
+  const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
+  const swapProFromToken = useSwapProInputToken();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
   const [, setSwapMevConfig] = useSwapMevConfigAtom();
-  const { syncNetworksSort, needChangeToken } = useSwapActions().current;
+  const {
+    syncNetworksSort,
+    needChangeToken,
+    selectToToken,
+    selectFromToken,
+    swapTypeSwitchAction,
+  } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
@@ -63,10 +75,15 @@ export function useSwapInit(params?: ISwapInitParams) {
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setSwapTips] = useSwapTipsAtom();
-  const { swapTypeSwitchAction } = useSwapActions().current;
+  const fromToken = useMemo(() => {
+    if (platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      return swapProFromToken;
+    }
+    return swapFromToken;
+  }, [swapProFromToken, swapTypeSwitch, swapFromToken]);
   const focusSwapPro = useMemo(() => {
     return platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   }, [swapTypeSwitch]);
@@ -78,8 +95,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapNetworksRef.current = swapNetworks;
   }
   const fromTokenRef = useRef<ISwapToken>(undefined);
-  if (fromTokenRef.current !== fromToken) {
-    fromTokenRef.current = fromToken;
+  if (fromTokenRef.current !== swapFromToken) {
+    fromTokenRef.current = swapFromToken;
   }
   const toTokenRef = useRef<ISwapToken>(undefined);
   if (toTokenRef.current !== toToken) {
@@ -426,6 +443,12 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (!!fromTokenRef.current || !!toTokenRef.current) {
       return;
     }
+    if (params?.fromAmount) {
+      void setFromTokenAmount({
+        value: params.fromAmount,
+        isInput: true,
+      });
+    }
     if (
       (params?.importFromToken &&
         swapNetworksRef.current.find(
@@ -444,7 +467,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           params?.swapTabSwitchType &&
           fromTokenSupportTypes.includes(params?.swapTabSwitchType)
         ) {
-          setFromToken(params?.importFromToken);
+          setSwapFromToken(params?.importFromToken);
         }
       }
       if (params?.importToToken) {
@@ -517,7 +540,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         const defaultFromToken = swapDefaultSetTokens[netId]?.fromToken;
         const defaultToToken = swapDefaultSetTokens[netId]?.toToken;
         if (defaultFromToken) {
-          setFromToken({
+          setSwapFromToken({
             ...defaultFromToken,
             networkLogoURI: isAllNet
               ? defaultFromToken.networkLogoURI
@@ -540,14 +563,16 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     }
   }, [
+    params?.fromAmount,
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,
     params?.swapTabSwitchType,
     skipSyncDefaultSelectedToken,
+    setFromTokenAmount,
     syncNetworksSort,
     checkSupportTokenSwapType,
-    setFromToken,
+    setSwapFromToken,
     setToToken,
     needChangeToken,
   ]);
@@ -622,8 +647,19 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     params?.importNetworkId,
   ]);
-
-  const isModalPage = useIsModalPage();
+  const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
+    useSwapFromMarketJumpTokenAtom();
+  const swapFromMarketJumpTokenRef = useRef<{
+    token: ISwapToken | undefined;
+    type: ESwapTabSwitchType;
+    amount?: string;
+    otherToken?: ISwapToken | undefined;
+    direction: 'from' | 'to';
+  }>(undefined);
+  if (swapFromMarketJumpTokenRef.current !== swapFromMarketJumpToken) {
+    swapFromMarketJumpTokenRef.current = swapFromMarketJumpToken;
+  }
+  const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
@@ -634,6 +670,57 @@ export function useSwapInit(params?: ISwapInitParams) {
           } else {
             setSkipSyncDefaultSelectedToken(false);
           }
+        }
+      }
+      if (isFocus) {
+        if (swapFromMarketJumpTokenRef.current?.token) {
+          void swapTypeSwitchAction(swapFromMarketJumpTokenRef.current.type);
+          if (swapFromMarketJumpTokenRef.current.direction === 'from') {
+            if (
+              equalTokenNoCaseSensitive({
+                token1: swapFromMarketJumpTokenRef.current.token,
+                token2: toTokenRef.current,
+              })
+            ) {
+              void setToToken(undefined);
+            }
+            if (swapFromMarketJumpTokenRef.current.otherToken) {
+              void setToToken(swapFromMarketJumpTokenRef.current.otherToken);
+            }
+            void selectFromToken(swapFromMarketJumpTokenRef.current.token);
+            if (swapFromMarketJumpTokenRef.current.amount) {
+              void setFromTokenAmount({
+                value: swapFromMarketJumpTokenRef.current.amount,
+                isInput: true,
+              });
+            }
+          } else {
+            if (
+              equalTokenNoCaseSensitive({
+                token1: swapFromMarketJumpTokenRef.current.token,
+                token2: fromTokenRef.current,
+              })
+            ) {
+              void setSwapFromToken(undefined);
+            }
+            if (swapFromMarketJumpTokenRef.current.otherToken) {
+              void setSwapFromToken(
+                swapFromMarketJumpTokenRef.current.otherToken,
+              );
+            }
+            void selectToToken(swapFromMarketJumpTokenRef.current.token);
+            if (swapFromMarketJumpTokenRef.current.amount) {
+              void setFromTokenAmount({
+                value: swapFromMarketJumpTokenRef.current.amount,
+                isInput: true,
+              });
+            }
+          }
+          setSwapFromMarketJumpToken({
+            token: undefined,
+            type: ESwapTabSwitchType.SWAP,
+            direction: 'from',
+          });
         }
       }
     },

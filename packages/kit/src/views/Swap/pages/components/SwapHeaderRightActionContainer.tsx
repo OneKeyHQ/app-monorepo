@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { ColorTokens, IPageNavigationProp } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -32,10 +32,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
+  filterSwapHistoryPendingList,
   useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -264,29 +266,35 @@ const SwapSettingsDialogContent = () => {
     () => (
       <SegmentControl
         value={slippageItem.key}
-        options={swapSlippageItems.map((item) => ({
-          label: (
-            <XStack>
-              {item.key === ESwapSlippageSegmentKey.AUTO ? (
-                <Icon
-                  name="Ai3StarOutline"
-                  size="$4.5"
-                  color="$iconSuccess"
-                  mr="$0.5"
-                />
-              ) : null}
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id:
-                    item.key === ESwapSlippageSegmentKey.AUTO
-                      ? ETranslations.slippage_tolerance_switch_auto
-                      : ETranslations.slippage_tolerance_switch_custom,
-                })}
-              </SizableText>
-            </XStack>
-          ),
-          value: item.key,
-        }))}
+        options={swapSlippageItems.map((item) => {
+          const isActive = slippageItem.key === item.key;
+          return {
+            label: (
+              <XStack>
+                {item.key === ESwapSlippageSegmentKey.AUTO ? (
+                  <Icon
+                    name="Ai3StarOutline"
+                    size="$4.5"
+                    color={isActive ? '$iconInverse' : '$iconSuccess'}
+                    mr="$0.5"
+                  />
+                ) : null}
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={isActive ? '$textInverse' : '$text'}
+                >
+                  {intl.formatMessage({
+                    id:
+                      item.key === ESwapSlippageSegmentKey.AUTO
+                        ? ETranslations.slippage_tolerance_switch_auto
+                        : ETranslations.slippage_tolerance_switch_custom,
+                  })}
+                </SizableText>
+              </XStack>
+            ),
+            value: item.key,
+          };
+        })}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
           setNoPersistSettings((s) => ({
@@ -414,8 +422,12 @@ const SwapSettingsDialogContent = () => {
 
 const SwapHeaderRightActionContainer = ({
   pageType,
+  iconSize,
+  iconColor,
 }: {
   pageType?: EPageType;
+  iconSize?: number | `$${string}`;
+  iconColor?: ColorTokens;
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -426,7 +438,7 @@ const SwapHeaderRightActionContainer = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const swapPendingStatusList = useMemo(
     () =>
-      swapHistoryPendingList.filter(
+      filterSwapHistoryPendingList(swapHistoryPendingList).filter(
         (i) =>
           i.status === ESwapTxHistoryStatus.PENDING ||
           i.status === ESwapTxHistoryStatus.CANCELING,
@@ -449,12 +461,14 @@ const SwapHeaderRightActionContainer = ({
     return null;
   }, [slippageItem.key, slippageItem.value]);
   const onOpenHistoryListModal = useCallback(() => {
+    dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
         type:
           swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
-          swapProTradeType === ESwapProTradeType.MARKET
+          (platformEnv.isNative &&
+            swapProTradeType === ESwapProTradeType.MARKET)
             ? EProtocolOfExchange.SWAP
             : EProtocolOfExchange.LIMIT,
         storeName:
@@ -510,13 +524,17 @@ const SwapHeaderRightActionContainer = ({
           }}
         >
           {slippageTitle}
-          <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
+          <Icon
+            name="SliderHorOutline"
+            size={iconSize ?? 20}
+            color={iconColor ?? '$icon'}
+          />
         </XStack>
       ) : (
         <HeaderIconButton
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
-          iconProps={{ size: 24 }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor }}
           size="medium"
         />
       )}
@@ -554,7 +572,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
-          iconProps={{ size: 24 }}
+          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
           size="medium"
         />
       )}

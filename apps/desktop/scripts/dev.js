@@ -11,7 +11,7 @@ function checkPort() {
       const status = execSync('lsof -i:3001', {});
       if (!status) return;
     }
-  } catch (e) {
+  } catch (_e) {
     return;
   }
 

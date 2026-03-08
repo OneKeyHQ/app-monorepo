@@ -54,7 +54,7 @@ export class SimpleDbEntityBTCFreshAddressMeta extends SimpleDbEntityBase<IBtcFr
       const next: IBtcFreshAddressMetaDb = data ?? { data: {} };
       const key = this.getKey({ networkId, xpubSegwit });
       next.data[key] = {
-        ...(next.data[key] ?? {}),
+        ...next.data[key],
         ...patch,
       };
       return next;

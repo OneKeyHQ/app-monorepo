@@ -263,7 +263,7 @@ const DialogGallery = () => {
               </Button>
               <Button
                 onPress={async () => {
-                  let d = Dialog.show({
+                  Dialog.show({
                     title: 'Lorem ipsum 1111',
                     icon: 'PlaceholderOutline',
                     description:
@@ -271,8 +271,7 @@ const DialogGallery = () => {
                     tone: 'default',
                   });
 
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  d = Dialog.show({
+                  Dialog.show({
                     title: 'Lorem ipsum 2222',
                     icon: 'PlaceholderOutline',
                     description:
@@ -595,7 +594,7 @@ const DialogGallery = () => {
                       return new Promise<void>((_, reject) => {
                         setTimeout(() => {
                           alert('loaded failed');
-                          reject();
+                          reject(new Error('loaded failed'));
                         }, 3000);
                         return false;
                       });
@@ -812,7 +811,7 @@ const DialogGallery = () => {
                     title: 'the dialog cannot be closed by onConfirm Button',
                     onConfirm: () =>
                       new Promise((resolve, reject) => {
-                        reject();
+                        reject(new Error('dialog cannot be closed'));
                       }),
                   });
                 }}

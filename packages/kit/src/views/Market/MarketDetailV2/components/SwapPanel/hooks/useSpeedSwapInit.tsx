@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISpeedSwapConfig } from '@onekeyhq/shared/types/swap/types';
 
@@ -14,7 +15,9 @@ const defaultSpeedSwapConfig: ISpeedSwapConfig = {
     defaultLimitTokens: [],
     swapMevNetConfig: mevSwapNetworks,
   },
-  supportSpeedSwap: false,
+  supportSpeedSwap: undefined,
+  onlySupportCrossChain: false,
+  onlySupportSingleChain: false,
   speedDefaultSelectToken: undefined,
 };
 
@@ -22,31 +25,36 @@ export function useSpeedSwapInit(
   networkId: string,
   enableNoNetworkCheck?: boolean,
 ) {
-  const { result, isLoading } = usePromiseResult(
-    async () => {
+  const [speedSwapConfigLoading, setSpeedSwapConfigLoading] = useState(false);
+  const [speedSwapConfig, setSpeedSwapConfig] = useState<ISpeedSwapConfig>(
+    defaultSpeedSwapConfig,
+  );
+  useEffect(() => {
+    void (async () => {
       if (enableNoNetworkCheck && !networkId) {
-        return defaultSpeedSwapConfig;
+        setSpeedSwapConfigLoading(false);
+        setSpeedSwapConfig(defaultSpeedSwapConfig);
+        return;
       }
+      setSpeedSwapConfigLoading(true);
       const config = await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
         networkId,
       });
-      return config;
-    },
-    [enableNoNetworkCheck, networkId],
-    {
-      initResult: defaultSpeedSwapConfig,
-      watchLoading: true,
-    },
-  );
+      setSpeedSwapConfig(config);
+      setSpeedSwapConfigLoading(false);
+    })();
+  }, [enableNoNetworkCheck, networkId]);
 
   return {
-    defaultTokens: result?.speedConfig.defaultTokens as IToken[],
-    defaultLimitTokens: result?.speedConfig.defaultLimitTokens as IToken[],
-    isLoading: !!isLoading,
-    speedConfig: result?.speedConfig,
-    supportSpeedSwap: result?.supportSpeedSwap,
-    provider: result?.provider,
-    swapMevNetConfig: result?.speedConfig.swapMevNetConfig,
-    speedDefaultSelectToken: result?.speedDefaultSelectToken,
+    defaultTokens: speedSwapConfig?.speedConfig.defaultTokens as IToken[],
+    defaultLimitTokens: speedSwapConfig?.speedConfig
+      .defaultLimitTokens as IToken[],
+    isLoading: !!speedSwapConfigLoading,
+    speedConfig: speedSwapConfig?.speedConfig,
+    supportSpeedSwap: speedSwapConfig?.supportSpeedSwap,
+    onlySupportCrossChain: speedSwapConfig?.onlySupportCrossChain,
+    provider: speedSwapConfig?.provider,
+    swapMevNetConfig: speedSwapConfig?.speedConfig.swapMevNetConfig,
+    speedDefaultSelectToken: speedSwapConfig?.speedDefaultSelectToken,
   };
 }

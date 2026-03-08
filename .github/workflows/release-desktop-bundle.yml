@@ -7,13 +7,24 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
   release-desktop-bundle:
-    runs-on: macos-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [24.x]
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
@@ -22,7 +33,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -41,6 +52,11 @@ jobs:
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
       - name: 'Setup ENV'
         run: |
           eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
@@ -51,31 +67,23 @@ jobs:
 
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
           scope: '@onekeyhq'
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
-
-      - uses: actions/cache@v3
-        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn
+          yarn install --immutable
 
       - name: Build Bundle
         env:
@@ -119,14 +127,14 @@ jobs:
             "fileName": "$BUNDLE_FILE",
             "sha256": "$BUNDLE_SHA256",
             "size": $BUNDLE_SIZE,
-            "generatedAt": "$GENERATED_AT"
+            "generatedAt": "$GENERATED_AT",
             "appVersion": "$APP_VERSION",
             "buildNumber": "$BUILD_NUMBER",
             "bundleVersion": "$BUILD_BUNDLE_VERSION",
             "appType": "electron"
           }
           EOF
-      
+
       - name: Generate metadata.json.info
         run: |
           echo "current dir: $(pwd)"
@@ -145,14 +153,14 @@ jobs:
             "fileName": "$METADATA_FILE",
             "sha256": "$METADATA_SHA256",
             "size": $METADATA_SIZE,
-            "generatedAt": "$GENERATED_AT"
+            "generatedAt": "$GENERATED_AT",
             "appVersion": "$APP_VERSION",
             "buildNumber": "$BUILD_NUMBER",
-            "bundleVersion": "$BUILD_BUNDLE_VERSION"
+            "bundleVersion": "$BUILD_BUNDLE_VERSION",
             "appType": "electron"
           }
           EOF
-      
+
       - name: upload bundle
         uses: actions/upload-artifact@v4
         with:
@@ -160,6 +168,15 @@ jobs:
           path: |
             ./apps/desktop/bundle-zip/*
             !**/.DS_Store
+
+      - name: Upload QA Bundles
+        uses: originalix/actions/qa-bundle-upload@feat/qa-bundle-upload # TODO: replace with onekeyhq/actions/qa-bundle-upload@main after testing
+        with:
+          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+          bundle-dir: ./apps/desktop/bundle-zip
+          commit-hash: ${{ github.sha }}
+          branch: ${{ github.ref_name }}
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

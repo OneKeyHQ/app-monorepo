@@ -235,7 +235,7 @@ export class KeyringQr extends KeyringQrBase {
     try {
       const sig = sdk.sol.parseSignature(ur);
       return Promise.resolve(sig);
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyErrorAirGapInvalidQrCode();
     }
   }

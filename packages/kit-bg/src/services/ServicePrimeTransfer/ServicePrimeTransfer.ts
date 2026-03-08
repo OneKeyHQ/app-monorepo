@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, debounce, isEmpty, isNaN, isNil, uniqBy } from 'lodash';
 import natsort from 'natsort';
@@ -162,7 +161,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
           clearTimeout(timeoutId);
           return response.status === 200;
-        } catch (error) {
+        } catch (_error) {
           return false;
         }
       };
@@ -370,7 +369,8 @@ class ServicePrimeTransfer extends ServiceBase {
         this.socket.on('room-full', async (data: { roomId: string }) => {
           if (data.roomId === (await primeTransferAtom.get()).pairedRoomId) {
             const message = appLocale.intl.formatMessage({
-              // eslint-disable-next-line spellcheck/spell-checker
+              // eslint-disable-next-line @cspell/spellchecker
+              // oxlint-disable-next-line @cspell/spellchecker
               // id: ETranslations.global_connet_error_try_again,
               id: ETranslations.transfer_security_alert_new_device_re_pair,
             });
@@ -858,7 +858,8 @@ class ServicePrimeTransfer extends ServiceBase {
   }: {
     isForCloudBackup?: boolean;
   } = {}): Promise<IPrimeTransferData> {
-    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    const { serviceAccount, serviceNetwork: _serviceNetwork } =
+      this.backgroundApi;
 
     const credentials = await serviceAccount.dumpCredentials();
 
@@ -880,17 +881,15 @@ class ServicePrimeTransfer extends ServiceBase {
     const { wallets } = await serviceAccount.getWallets();
 
     // Filter out keyless wallets
-    const filteredWallets = wallets.filter(
-      (wallet) =>
-        !accountUtils.isKeylessWallet({
-          walletId: wallet.id,
-        }),
-    );
+    const filteredWallets = wallets.filter((wallet) => !wallet.isKeyless);
 
-    const walletAccountMap = filteredWallets.reduce((summary, current) => {
-      summary[current.id] = current;
-      return summary;
-    }, {} as Record<string, IDBWallet>);
+    const walletAccountMap = filteredWallets.reduce(
+      (summary, current) => {
+        summary[current.id] = current;
+        return summary;
+      },
+      {} as Record<string, IDBWallet>,
+    );
     let { accounts: allAccounts } = await serviceAccount.getAllAccounts();
 
     const importedWallet = await serviceAccount.getWalletSafe({
@@ -937,7 +936,7 @@ class ServicePrimeTransfer extends ServiceBase {
           });
           return account;
         })
-        .sort((a, b) => this.accountSortFn(a, b));
+        .toSorted((a, b) => this.accountSortFn(a, b));
       return sortedAccounts;
     };
 
@@ -1001,17 +1000,14 @@ class ServicePrimeTransfer extends ServiceBase {
         // eslint-disable-next-line no-continue
         continue;
       }
-      // Skip accounts belonging to keyless wallets
-      if (
-        accountUtils.isKeylessWallet({
-          walletId,
-        })
-      ) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
+
       const wallet = walletAccountMap[walletId];
       if (wallet) {
+        // Skip accounts belonging to keyless wallets
+        if (wallet?.isKeyless) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const getNetworkAccountInfo = async () => {
           let networkAccount: INetworkAccount | undefined;
           const networkId = await serviceAccount.getAccountCreatedNetworkId({
@@ -1112,7 +1108,9 @@ class ServicePrimeTransfer extends ServiceBase {
     // fill publicData summary by aggregating from privateBackupData
     try {
       const hdWallets = Object.values(privateBackupData.wallets);
-      const sortedHdWallets = hdWallets.sort((a, b) => this.walletSortFn(a, b));
+      const sortedHdWallets = hdWallets.toSorted((a, b) =>
+        this.walletSortFn(a, b),
+      );
       const totalHdAccounts = hdWallets.reduce(
         (sum, w) => sum + (w.indexedAccountUUIDs?.length || 0),
         0,
@@ -1126,30 +1124,31 @@ class ServicePrimeTransfer extends ServiceBase {
       publicData.totalWalletsCount = hdWallets.length;
       publicData.totalAccountsCount =
         totalHdAccounts + importedAccountsCount + watchingAccountsCount;
-      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> = [
-        ...sortedHdWallets.map((w) => {
-          let avatarInfo: IAvatarInfo | undefined;
-          try {
-            const parsedAvatar = JSON.parse(
-              walletAccountMap[w.id]?.avatar || '' || '{}',
-            );
-            if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
-              avatarInfo = parsedAvatar;
+      const walletDetails: Array<IPrimeTransferPublicDataWalletDetail> =
+        sortedHdWallets
+          .map((w) => {
+            let avatarInfo: IAvatarInfo | undefined;
+            try {
+              const parsedAvatar = JSON.parse(
+                walletAccountMap[w.id]?.avatar || '' || '{}',
+              );
+              if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
+                avatarInfo = parsedAvatar;
+              }
+            } catch (error) {
+              console.error('refillWalletInfo', error);
             }
-          } catch (error) {
-            console.error('refillWalletInfo', error);
-          }
 
-          const avatar: IAllWalletAvatarImageNamesWithoutDividers =
-            avatarInfo?.img || 'bear';
-          return {
-            name: w.name,
-            avatar,
-            accountsCount: w.indexedAccountUUIDs?.length || 0,
-            walletXfp: w.xfp,
-          };
-        }),
-      ].filter(Boolean);
+            const avatar: IAllWalletAvatarImageNamesWithoutDividers =
+              avatarInfo?.img || 'bear';
+            return {
+              name: w.name,
+              avatar,
+              accountsCount: w.indexedAccountUUIDs?.length || 0,
+              walletXfp: w.xfp,
+            };
+          })
+          .filter(Boolean);
       if (importedAccountsCount > 0) {
         const data: IPrimeTransferPublicDataWalletDetail = {
           name: appLocale.intl.formatMessage({
@@ -1210,13 +1209,13 @@ class ServicePrimeTransfer extends ServiceBase {
       appVersion: version ?? '',
       isWatchingOnly: Boolean(
         !Object.keys(privateData?.wallets || {}).length &&
-          !Object.keys(privateData?.importedAccounts || {}).length &&
-          Object.keys(privateData?.watchingAccounts || {}).length,
+        !Object.keys(privateData?.importedAccounts || {}).length &&
+        Object.keys(privateData?.watchingAccounts || {}).length,
       ),
       isEmptyData: Boolean(
         !Object.keys(privateData?.wallets || {}).length &&
-          !Object.keys(privateData?.importedAccounts || {}).length &&
-          !Object.keys(privateData?.watchingAccounts || {}).length,
+        !Object.keys(privateData?.importedAccounts || {}).length &&
+        !Object.keys(privateData?.watchingAccounts || {}).length,
       ),
     };
   }
@@ -1648,7 +1647,7 @@ class ServicePrimeTransfer extends ServiceBase {
       dataSource: data.privateData.wallets,
       credentials: data.privateData.credentials,
       decryptedCredentials: data.privateData.decryptedCredentials,
-    }).sort((a, b) => this.walletSortFn(a.item, b.item));
+    }).toSorted((a, b) => this.walletSortFn(a.item, b.item));
 
     // // Extract selected imported accounts
     const importedAccounts = this.extractSelectedItems({
@@ -1657,14 +1656,14 @@ class ServicePrimeTransfer extends ServiceBase {
       dataSource: data.privateData.importedAccounts,
       credentials: data.privateData.credentials,
       decryptedCredentials: data.privateData.decryptedCredentials,
-    }).sort((a, b) => this.accountSortFn(a.item, b.item));
+    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
 
     // // Extract selected watching accounts
     const watchingAccounts = this.extractSelectedItems({
       selectedItemMapInfo:
         selectedItemMap === 'ALL' ? 'ALL' : selectedItemMap.watchingAccount,
       dataSource: data.privateData.watchingAccounts,
-    }).sort((a, b) => this.accountSortFn(a.item, b.item));
+    }).toSorted((a, b) => this.accountSortFn(a.item, b.item));
 
     // return {
     //   wallets: [],
@@ -1694,7 +1693,7 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
         }
-        const decryptedCredential1 = await decryptRevealableSeed({
+        const _decryptedCredential1 = await decryptRevealableSeed({
           rs: walletCredential,
           password,
           allowRawPassword: true,
@@ -1703,7 +1702,7 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!password) {
           throw new OneKeyLocalError('Password is required');
         }
-        const decryptedCredential2 = await decryptImportedCredential({
+        const _decryptedCredential2 = await decryptImportedCredential({
           credential: importedAccountCredential,
           password,
           allowRawPassword: true,
@@ -1934,8 +1933,11 @@ class ServicePrimeTransfer extends ServiceBase {
     createNetworkParams: IPrimeTransferHDWalletCreateNetworkParams;
     indexedAccountNames: IPrimeTransferHDWalletIndexedAccountNames;
   }> {
-    const { serviceAccount, serviceNetwork, servicePassword } =
-      this.backgroundApi;
+    const {
+      serviceAccount,
+      serviceNetwork,
+      servicePassword: _servicePassword,
+    } = this.backgroundApi;
 
     const defaultCustomNetworks = [
       { networkId: 'tron--0x2b6653dc', deriveType: 'default' },
@@ -2061,7 +2063,7 @@ class ServicePrimeTransfer extends ServiceBase {
     decryptedCredentialsHex,
     selectedTransferData,
     includingDefaultNetworks = false,
-    isFromCloudBackupRestore,
+    isFromCloudBackupRestore: _isFromCloudBackupRestore,
     password,
   }: {
     decryptedCredentialsHex?: string;
@@ -2183,6 +2185,8 @@ class ServicePrimeTransfer extends ServiceBase {
         wallet?.createNetworkParams ?? [];
 
       if (isEmpty(indexedAccountNames) || isEmpty(createNetworkParams)) {
+        /* eslint-disable prefer-const */
+        /* oxlint-disable prefer-const */
         let isCancelled: boolean | undefined;
         ({
           createNetworkParams = [],
@@ -2194,6 +2198,8 @@ class ServicePrimeTransfer extends ServiceBase {
           taskUUID,
           errorsInfo,
         }));
+        /* eslint-enable prefer-const */
+        /* oxlint-enable prefer-const */
 
         if (isCancelled) {
           // task cancelled
@@ -2208,12 +2214,12 @@ class ServicePrimeTransfer extends ServiceBase {
         }
         try {
           if (newWallet) {
-            const skipNetworks = [
+            const skipNetworks = new Set([
               // lightning network requires network verification
               presetNetworksMap.lightning.id,
               // Skip Cardano network because address generation is very slow
               presetNetworksMap.cardano.id,
-            ];
+            ]);
             // if (isFromCloudBackupRestore) {
             //   skipNetworks = [
             //     presetNetworksMap.lightning.id,
@@ -2221,7 +2227,7 @@ class ServicePrimeTransfer extends ServiceBase {
             //   ];
             // }
             const customNetworksUsed = customNetworks?.filter(
-              (n) => !skipNetworks.includes(n.networkId),
+              (n) => !skipNetworks.has(n.networkId),
             );
             const params: IBatchBuildAccountsAdvancedFlowForAllNetworkParams = {
               walletId: newWallet.id,

@@ -18,7 +18,7 @@ export const InteractiveTableDemo = () => {
         return;
       }
 
-      const sorted = [...featureData].sort((a, b) => {
+      const sorted = [...featureData].toSorted((a, b) => {
         const aValue = a[sortBy as keyof IFeatureData];
         const bValue = b[sortBy as keyof IFeatureData];
 

@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgShareArrow = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m21.925 11.456-7.66-7.257A.75.75 0 0 0 13 4.744V8a.51.51 0 0 1-.504.504C4.541 8.62 2.085 11.566 2.002 19.573c0 .105.141.142.19.048 1.378-2.69 2.62-4.062 10.303-4.12A.5.5 0 0 1 13 16v3.256a.75.75 0 0 0 1.266.545l7.66-7.256a.75.75 0 0 0 0-1.09Z"
+      fillRule="evenodd"
+      d="M23.505 12 12 1.773v5.718c-3.59-.057-5.51-.427-6.678-1.01-1.18-.59-1.682-1.437-2.427-2.928L1 4c0 4.284.615 7.507 2.581 9.62 1.828 1.963 4.62 2.752 8.419 2.864v5.743zM14 14.5h-1c-4.187 0-6.566-.751-7.956-2.244-.973-1.045-1.577-2.574-1.857-4.809a6 6 0 0 0 1.24.823C6.157 9.133 8.742 9.5 13 9.5h1V6.227L20.495 12 14 17.774z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -1,20 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSimCard = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 13.5a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5v2a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 15.5z"
+      fillRule="evenodd"
+      d="M16 18H8v-7h8zm-6-2h4v-3h-4z"
+      clipRule="evenodd"
     />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 5a2 2 0 0 1 2-2h5.343a4 4 0 0 1 2.829 1.172l2.656 2.656A4 4 0 0 1 19 9.657V19a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"
+      fillRule="evenodd"
+      d="M20 7.586V22H4V2h10.414zM6 20h12V8.414L13.586 4H6z"
+      clipRule="evenodd"
     />
   </Svg>
 );

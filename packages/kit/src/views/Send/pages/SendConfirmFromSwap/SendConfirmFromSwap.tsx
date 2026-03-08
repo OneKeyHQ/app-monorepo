@@ -148,7 +148,7 @@ function SendConfirmFromSwap() {
           } else {
             await handleConfirmMultiTxsOnHwOrExternal(undefined);
           }
-        } catch (e) {
+        } catch (_e) {
           await handleConfirmMultiTxsOnHwOrExternal(undefined);
         }
       } else {

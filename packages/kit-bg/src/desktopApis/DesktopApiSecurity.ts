@@ -63,7 +63,7 @@ class DesktopApiSecurity {
             error,
           );
         }
-        return { success, isSupport: true };
+        return { success, error: error || undefined, isSupport: true };
       } catch (e: unknown) {
         logger.info(
           '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',

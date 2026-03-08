@@ -130,7 +130,7 @@ export function BulkCopyAddressesButton({
       extra={
         isPrimeUser ? null : (
           <Badge badgeSize="sm" badgeType="default">
-            <Badge.Text>
+            <Badge.Text size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.prime_status_prime,
               })}

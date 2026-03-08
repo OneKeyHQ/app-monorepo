@@ -1,13 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTape = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M8.5 14h7M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2m5.914 5.586a2 2 0 1 1-2.828 2.828 2 2 0 0 1 2.828-2.828m7 0a2 2 0 1 1-2.828 2.828 2 2 0 0 1 2.828-2.828"
+      fillRule="evenodd"
+      d="M13.379 9.879A3 3 0 1 1 15.5 15h-7a3 3 0 1 1 2.825-2h1.35a3 3 0 0 1 .704-3.121m-4.172 1.414a1 1 0 1 0-1.414 1.414 1 1 0 0 0 1.414-1.414m7 0a1 1 0 1 0-1.414 1.414l.076.068a1 1 0 0 0 1.338-1.482"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M23 20H1V4h22zM3 18h18V6H3z"
+      clipRule="evenodd"
     />
   </Svg>
 );

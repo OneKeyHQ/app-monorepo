@@ -80,8 +80,8 @@ function ListEmptyComponent({
 
   return (
     <Empty
-      mt="$24"
-      icon="BezierNodesOutline"
+      mt="$16"
+      illustration="BlockPencil"
       title={intl.formatMessage({ id: ETranslations.custom_rpc_empty_title })}
       buttonProps={{
         onPress: () => onAddCustomRpc(),
@@ -187,7 +187,7 @@ function DialogContent({
               },
             });
             defaultLogger.setting.page.addCustomRPC({ network: networkId });
-          } catch (e: any) {
+          } catch (_e: any) {
             rpcValidRef.current = false;
             void form.trigger('rpc');
             preventClose();

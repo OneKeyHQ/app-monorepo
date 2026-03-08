@@ -20,9 +20,7 @@ const TokenSelector = LazyLoadPage(
 
 const AggregateTokenSelector = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'
-    ),
+    import('@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'),
 );
 
 const DeriveTypesAddress = LazyLoadPage(
@@ -40,10 +38,6 @@ const ReceiveSelector = LazyLoadPage(
 
 const FiatCryptoBuyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/Buy'),
-);
-
-const FiatCryptoSellModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/Sell'),
 );
 
 export const ModalReceiveStack: IModalFlowNavigatorConfig<
@@ -85,10 +79,6 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.BuyModal,
     component: FiatCryptoBuyModal,
-  },
-  {
-    name: EModalReceiveRoutes.SellModal,
-    component: FiatCryptoSellModal,
   },
   {
     name: EModalReceiveRoutes.DeriveTypesAddress,

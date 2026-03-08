@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -34,7 +34,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -764,6 +764,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             isBookmark,
             type: 'normal',
           });
+          if (!isInPlace) {
+            this.setCurrentWebTab.call(set, tabId ?? '');
+          }
         }
 
         if (!isNewTab && !isInPlace) {
@@ -820,54 +823,76 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
-        shouldPopNavigation = true,
-        switchToMultiTabBrowser = false,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
-        shouldPopNavigation?: boolean;
-        switchToMultiTabBrowser?: boolean;
       },
     ) => {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
 
-      let delayTime = 0;
-      if (shouldPopNavigation) {
-        delayTime = 300;
-      }
-      setTimeout(() => {
-        const isNewWindow = !useCurrentWindow;
-
-        if (!useCurrentWindow) {
-          const disabledAddedNewTab = get(disabledAddedNewTabAtom());
-          if (disabledAddedNewTab) {
-            Toast.message({
-              title: appLocale.intl.formatMessage(
-                { id: ETranslations.explore_toast_tab_limit_reached },
-                { number: MaximumNumberOfTabs },
-              ),
-            });
-            return;
-          }
+      // Auto-detect if already on Discovery/MultiTabBrowser tab
+      let needsSwitchTab = true;
+      try {
+        const rootState = rootNavigationRef.current?.getRootState();
+        const currentIndex = rootState?.index || 0;
+        const currentRoute = rootState?.routes?.[currentIndex];
+        const currentTabName =
+          currentRoute?.name === ERootRoutes.Main
+            ? currentRoute.state?.routes?.[currentRoute.state?.index || 0]?.name
+            : undefined;
+        if (platformEnv.isDesktop) {
+          // On desktop, Discovery tab renders Dashboard (not browser with webviews).
+          // Only MultiTabBrowser has actual webview content, so always switch
+          // unless already on MultiTabBrowser.
+          needsSwitchTab = currentTabName !== ETabRoutes.MultiTabBrowser;
+        } else {
+          needsSwitchTab =
+            currentTabName !== ETabRoutes.Discovery &&
+            currentTabName !== ETabRoutes.MultiTabBrowser;
         }
-        this.setDisplayHomePage.call(set, false);
-        void this.openMatchDApp.call(set, {
-          webSite,
-          dApp,
-          isNewWindow,
-          tabId,
-        });
-      }, delayTime);
+      } catch (e) {
+        // fallback to switch tab if navigation state is not available
+        console.warn('Failed to detect current tab:', e);
+      }
 
-      if (switchToMultiTabBrowser || platformEnv.isDesktop) {
-        navigation.switchTab(ETabRoutes.MultiTabBrowser);
-      } else if (shouldPopNavigation) {
-        navigation.switchTab(ETabRoutes.Discovery);
+      setTimeout(
+        () => {
+          const isNewWindow = !useCurrentWindow;
+
+          if (!useCurrentWindow) {
+            const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+            if (disabledAddedNewTab) {
+              Toast.message({
+                title: appLocale.intl.formatMessage(
+                  { id: ETranslations.explore_toast_tab_limit_reached },
+                  { number: MaximumNumberOfTabs },
+                ),
+              });
+              return;
+            }
+          }
+          this.setDisplayHomePage.call(set, false);
+          void this.openMatchDApp.call(set, {
+            webSite,
+            dApp,
+            isNewWindow,
+            tabId,
+          });
+        },
+        needsSwitchTab ? 300 : 0,
+      );
+
+      if (needsSwitchTab) {
+        if (platformEnv.isDesktop) {
+          navigation.switchTab(ETabRoutes.MultiTabBrowser);
+        } else {
+          navigation.switchTab(ETabRoutes.Discovery);
+        }
       }
       if (platformEnv.isNative) {
         setTimeout(() => {
@@ -1011,7 +1036,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (deskTopRef) {
             try {
               deskTopRef.executeJavaScript(injectCode);
-            } catch (e) {
+            } catch (_e) {
               // if not dom ready, no need to pause websocket
             }
           }
@@ -1036,26 +1061,30 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
-    if (!url) return EValidateUrlEnum.InvalidUrl;
-    const cache = get(phishingLruCacheAtom());
-    const { action } = uriUtils.parseDappRedirect(
-      url,
-      Array.from(cache.keys()),
-    );
-    if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      defaultLogger.discovery.browser.logRejectUrl(url);
-      return EValidateUrlEnum.NotSupportProtocol;
-    }
-    if (uriUtils.containsPunycode(url)) {
-      defaultLogger.discovery.browser.logRejectUrl(url);
-      return EValidateUrlEnum.InvalidPunycode;
-    }
-    if (uriUtils.isValidDeepLink(url)) {
-      return EValidateUrlEnum.ValidDeeplink;
-    }
-    return EValidateUrlEnum.Valid;
-  });
+  validateWebviewSrc = contextAtomMethod(
+    (get, _, payload: { url: string; isTopFrame?: boolean }) => {
+      const { url, isTopFrame = true } = payload;
+      if (!url) return EValidateUrlEnum.InvalidUrl;
+      const cache = get(phishingLruCacheAtom());
+      const { action } = uriUtils.parseDappRedirect(
+        url,
+        Array.from(cache.keys()),
+        { isTopFrame },
+      );
+      if (action === uriUtils.EDAppOpenActionEnum.DENY) {
+        defaultLogger.discovery.browser.logRejectUrl(url);
+        return EValidateUrlEnum.NotSupportProtocol;
+      }
+      if (uriUtils.containsPunycode(url)) {
+        defaultLogger.discovery.browser.logRejectUrl(url);
+        return EValidateUrlEnum.InvalidPunycode;
+      }
+      if (uriUtils.isValidDeepLink(url)) {
+        return EValidateUrlEnum.ValidDeeplink;
+      }
+      return EValidateUrlEnum.Valid;
+    },
+  );
 }
 
 const createActions = memoFn(() => {

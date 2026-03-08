@@ -32,7 +32,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
@@ -171,7 +170,6 @@ export function PrimeTransferDirection({
   const navigation = useAppNavigation();
   const [primeTransferAtom, setPrimeTransferAtom] = usePrimeTransferAtom();
   const { exitTransferFlow } = usePrimeTransferExit();
-  const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
 
@@ -272,7 +270,7 @@ export function PrimeTransferDirection({
     }
 
     // Use the new ServicePrimeTransfer
-    const result = await backgroundApiProxy.servicePrimeTransfer.startTransfer({
+    await backgroundApiProxy.servicePrimeTransfer.startTransfer({
       roomId: primeTransferAtom.pairedRoomId || '',
       fromUserId: directionUserInfo?.fromUser.id || '',
       toUserId: directionUserInfo?.toUser.id || '',

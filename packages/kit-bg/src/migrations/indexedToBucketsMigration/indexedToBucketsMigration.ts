@@ -39,7 +39,7 @@ async function legacyDbExists(): Promise<boolean> {
   try {
     const databases = await globalThis.indexedDB.databases();
     return databases.some((db) => db.name === LEGACY_INDEXED_DB_NAME);
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

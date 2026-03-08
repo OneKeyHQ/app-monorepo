@@ -1,51 +1,77 @@
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+// Helper to convert value: returns number if field exists, undefined if field is missing
+function toNumberOrUndefined(
+  value: number | string | undefined | null,
+): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  return Number(value);
+}
+
 export function formatTokenActivityData(
   tokenDetail: IMarketTokenDetail | undefined,
   selectedTimeRange: string,
 ): {
-  buys: number;
-  sells: number;
-  buyVolume: number;
-  sellVolume: number;
-  totalVolume: number;
+  buys: number | undefined;
+  sells: number | undefined;
+  buyVolume: number | undefined;
+  sellVolume: number | undefined;
+  totalVolume: number | undefined;
 } {
-  let buys = 0;
-  let sells = 0;
-  let buyVolume = 0;
-  let sellVolume = 0;
-  let totalVolume = 0;
+  let buys: number | undefined;
+  let sells: number | undefined;
+  let buyVolume: number | undefined;
+  let sellVolume: number | undefined;
+  let totalVolume: number | undefined;
 
   if (tokenDetail) {
     switch (selectedTimeRange) {
       case '4h':
-        buys = Number(tokenDetail.buy4hCount) || 0;
-        sells = Number(tokenDetail.sell4hCount) || 0;
-        buyVolume = Number(tokenDetail.vBuy4h) || 0;
-        sellVolume = Number(tokenDetail.vSell4h) || 0;
-        totalVolume = Number(tokenDetail.volume4h) || buyVolume + sellVolume;
+        buys = toNumberOrUndefined(tokenDetail.buy4hCount);
+        sells = toNumberOrUndefined(tokenDetail.sell4hCount);
+        buyVolume = toNumberOrUndefined(tokenDetail.vBuy4h);
+        sellVolume = toNumberOrUndefined(tokenDetail.vSell4h);
+        totalVolume =
+          toNumberOrUndefined(tokenDetail.volume4h) ??
+          (buyVolume !== undefined && sellVolume !== undefined
+            ? buyVolume + sellVolume
+            : undefined);
         break;
       case '8h':
-        buys = Number(tokenDetail.buy8hCount) || 0;
-        sells = Number(tokenDetail.sell8hCount) || 0;
-        buyVolume = Number(tokenDetail.vBuy8h) || 0;
-        sellVolume = Number(tokenDetail.vSell8h) || 0;
-        totalVolume = Number(tokenDetail.volume8h) || buyVolume + sellVolume;
+        buys = toNumberOrUndefined(tokenDetail.buy8hCount);
+        sells = toNumberOrUndefined(tokenDetail.sell8hCount);
+        buyVolume = toNumberOrUndefined(tokenDetail.vBuy8h);
+        sellVolume = toNumberOrUndefined(tokenDetail.vSell8h);
+        totalVolume =
+          toNumberOrUndefined(tokenDetail.volume8h) ??
+          (buyVolume !== undefined && sellVolume !== undefined
+            ? buyVolume + sellVolume
+            : undefined);
         break;
       case '24h':
-        buys = Number(tokenDetail.buy24hCount) || 0;
-        sells = Number(tokenDetail.sell24hCount) || 0;
-        buyVolume = Number(tokenDetail.vBuy24h) || 0;
-        sellVolume = Number(tokenDetail.vSell24h) || 0;
-        totalVolume = Number(tokenDetail.volume24h) || buyVolume + sellVolume;
+        buys = toNumberOrUndefined(tokenDetail.buy24hCount);
+        sells = toNumberOrUndefined(tokenDetail.sell24hCount);
+        buyVolume = toNumberOrUndefined(tokenDetail.vBuy24h);
+        sellVolume = toNumberOrUndefined(tokenDetail.vSell24h);
+        totalVolume =
+          toNumberOrUndefined(tokenDetail.volume24h) ??
+          (buyVolume !== undefined && sellVolume !== undefined
+            ? buyVolume + sellVolume
+            : undefined);
         break;
       case '1h':
       default:
-        buys = Number(tokenDetail.buy1hCount) || 0;
-        sells = Number(tokenDetail.sell1hCount) || 0;
-        buyVolume = Number(tokenDetail.vBuy1h) || 0;
-        sellVolume = Number(tokenDetail.vSell1h) || 0;
-        totalVolume = Number(tokenDetail.volume1h) || buyVolume + sellVolume;
+        buys = toNumberOrUndefined(tokenDetail.buy1hCount);
+        sells = toNumberOrUndefined(tokenDetail.sell1hCount);
+        buyVolume = toNumberOrUndefined(tokenDetail.vBuy1h);
+        sellVolume = toNumberOrUndefined(tokenDetail.vSell1h);
+        totalVolume =
+          toNumberOrUndefined(tokenDetail.volume1h) ??
+          (buyVolume !== undefined && sellVolume !== undefined
+            ? buyVolume + sellVolume
+            : undefined);
         break;
     }
   }

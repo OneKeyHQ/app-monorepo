@@ -40,6 +40,7 @@ const WithdrawOptions = () => {
     protocolInfo,
     tokenInfo,
     onSuccess: externalOnSuccess,
+    isInModalContext,
   } = appRoute.params;
   const symbol = tokenInfo?.token.symbol || '';
   const provider = protocolInfo?.provider || '';
@@ -77,13 +78,10 @@ const WithdrawOptions = () => {
         fromPage: EModalStakingRoutes.WithdrawOptions,
         allowPartialWithdraw: stakingConfig?.allowPartialWithdraw,
         onSuccess: () => {
-          // pop to portfolio details page
-          setTimeout(() => {
-            appNavigation.pop();
-            // Trigger external onSuccess callback (from ManagePositionContent)
-            // This ensures the entire modal stack is closed when in modal context
-            externalOnSuccess?.();
-          }, 4);
+          if (!isInModalContext) {
+            appNavigation.popStack();
+          }
+          externalOnSuccess?.();
         },
       });
     },
@@ -95,6 +93,7 @@ const WithdrawOptions = () => {
       tokenInfo,
       stakingConfig?.allowPartialWithdraw,
       externalOnSuccess,
+      isInModalContext,
     ],
   );
 

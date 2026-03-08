@@ -2,7 +2,6 @@ import { useIntl } from 'react-intl';
 
 import type { useInTabDialog } from '@onekeyhq/components';
 import {
-  Alert,
   Divider,
   ScrollView,
   SizableText,

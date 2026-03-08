@@ -216,5 +216,6 @@ function TokenList() {
 }
 
 const TokenListWithProvider = memo(withTokenListProvider(TokenList));
+TokenListWithProvider.displayName = 'TokenListWithProvider';
 
 export { TokenList, TokenListWithProvider };

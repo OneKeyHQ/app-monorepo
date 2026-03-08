@@ -6,7 +6,7 @@ import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
-  useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
@@ -20,7 +20,7 @@ function TokenValueView(props: IProps) {
   const { $key, ...rest } = props;
   const [settings] = useSettingsPersistAtom();
   const [tokenListMap] = useTokenListMapAtom();
-  const [aggregateTokensMap] = useAggregateTokensMapAtom();
+  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
   const fiatValue = new BigNumber(token?.fiatValue || 0);

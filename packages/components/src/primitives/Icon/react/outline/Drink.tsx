@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDrink = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m17.667 12-.543 8.133A2 2 0 0 1 15.13 22H8.87a2 2 0 0 1-1.995-1.867L6.333 12m11.334 0 .262-3.933A1 1 0 0 0 16.93 7H7.07a1 1 0 0 0-.998 1.067L6.333 12m11.334 0H6.333M12 7V3l4.5-1"
+      fillRule="evenodd"
+      d="M17.693 2.759 13 3.802V6h6.07l-1.134 17H6.064L4.931 6H11V2.198L17.259.807zM7.403 13l.533 8h8.128l.534-8zm-.133-2h9.46l.2-3H7.07z"
+      clipRule="evenodd"
     />
   </Svg>
 );

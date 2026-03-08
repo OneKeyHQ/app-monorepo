@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgOption1 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 5h2.84a2 2 0 0 1 1.736 1.008l6.848 11.984A2 2 0 0 0 17.161 19H20m0-14h-4"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16.58 18H21v2h-5.58l-8-14H3V4h5.58zM21 6h-6V4h6z" />
   </Svg>
 );
 export default SvgOption1;

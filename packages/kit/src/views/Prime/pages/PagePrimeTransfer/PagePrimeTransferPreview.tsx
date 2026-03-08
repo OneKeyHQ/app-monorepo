@@ -229,9 +229,13 @@ function WalletList({
     const _importedAccounts = Object.values(data.privateData.importedAccounts);
     const _watchingAccounts = Object.values(data.privateData.watchingAccounts);
     return {
-      wallets: _wallets.sort((a, b) => walletSortFn(a, b)),
-      importedAccounts: _importedAccounts.sort((a, b) => accountSortFn(a, b)),
-      watchingAccounts: _watchingAccounts.sort((a, b) => accountSortFn(a, b)),
+      wallets: _wallets.toSorted((a, b) => walletSortFn(a, b)),
+      importedAccounts: _importedAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
+      watchingAccounts: _watchingAccounts.toSorted((a, b) =>
+        accountSortFn(a, b),
+      ),
     };
   }, [data]);
 
@@ -365,9 +369,9 @@ export default function PagePrimeTransferPreview() {
         (acc, wallet) => {
           const shouldDisabled = Boolean(
             platformEnv.isWebDappMode &&
-              accountUtils.isHdWallet({
-                walletId: wallet?.id || '',
-              }),
+            accountUtils.isHdWallet({
+              walletId: wallet?.id || '',
+            }),
           );
           acc[wallet.id] = {
             checked: !shouldDisabled,
@@ -388,9 +392,9 @@ export default function PagePrimeTransferPreview() {
         (acc, account) => {
           const shouldDisabled = Boolean(
             platformEnv.isWebDappMode &&
-              accountUtils.isImportedAccount({
-                accountId: account?.id || '',
-              }),
+            accountUtils.isImportedAccount({
+              accountId: account?.id || '',
+            }),
           );
 
           acc[account.id] = {
@@ -408,13 +412,16 @@ export default function PagePrimeTransferPreview() {
       ),
       watchingAccount: Object.values(
         transferData?.privateData?.watchingAccounts || {},
-      ).reduce((acc, account) => {
-        acc[account.id] = {
-          checked: true,
-          disabled: false,
-        };
-        return acc;
-      }, {} as { [id: string]: { checked: boolean; disabled: boolean } }),
+      ).reduce(
+        (acc, account) => {
+          acc[account.id] = {
+            checked: true,
+            disabled: false,
+          };
+          return acc;
+        },
+        {} as { [id: string]: { checked: boolean; disabled: boolean } },
+      ),
     };
   }, [
     transferData?.privateData?.wallets,
@@ -544,6 +551,11 @@ export default function PagePrimeTransferPreview() {
 
           // exitTransferFlow();
           // await timerUtils.wait(1000);
+
+          // Delay to ensure the dialog is closed before proceeding
+          if (platformEnv.isNative) {
+            await timerUtils.wait(350);
+          }
 
           await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
             selectedTransferData,

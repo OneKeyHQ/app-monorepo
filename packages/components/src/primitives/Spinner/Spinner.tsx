@@ -15,7 +15,7 @@ import {
 
 export type ISpinnerProps = Omit<YStackProps, 'children'> & {
   size?: 'small' | 'large';
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // oxlint-disable-next-line @typescript-eslint/no-empty-object-type -- `string & {}` pattern for autocomplete
   color?: (ColorTokens | ThemeTokens | (string & {})) | null;
 };
 

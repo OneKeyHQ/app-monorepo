@@ -2,18 +2,20 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions, View } from 'react-native';
+import { Dimensions, type GestureResponderEvent, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
   EInPageDialogType,
+  HeaderScrollGestureWrapper,
   ScrollView,
   Stack,
   Tabs,
   YStack,
   useInPageDialog,
-  useIsModalPage,
+  useIsOverlayPage,
+  usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -32,26 +34,29 @@ import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMi
 import {
   InformationPanel,
   MarketTradingView,
+  PerpetualTradingBanner,
   SwapPanel,
   TokenActivityOverview,
   TokenOverview,
 } from '../components';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
-import { useNetworkAccountAddress } from '../components/InformationTabs/hooks/useNetworkAccountAddress';
+import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
-import SwapFlashBtn from '../components/SwapPanel/components/SwapFlashBtn';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
+  const { tokenAddress, networkId, tokenDetail, websocketConfig } =
     useTokenDetail();
   const intl = useIntl();
-  const { accountAddress } = useNetworkAccountAddress(networkId);
+
+  const { accountAddress, xpub } = useNetworkAccount(networkId);
+
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
+    xpub,
   });
   const tabNames = useMemo(
     () => [
@@ -60,7 +65,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     ],
     [intl],
   );
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
   );
@@ -68,18 +73,25 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
 
   const { top, bottom } = useSafeAreaInsets();
 
-  const height = useMemo(() => {
-    return platformEnv.isNative
-      ? Dimensions.get('window').height - top - bottom - 158
-      : 'calc(100vh - 96px - 74px)';
-  }, [bottom, top]);
+  // Skip top inset for iOS modal pages, as modal has its own safe area handling
+  const isIOSModalPage = platformEnv.isNativeIOS && isModalPage;
 
-  const width = useMemo(() => {
-    return Dimensions.get('window').width;
-  }, []);
+  const height = useMemo(() => {
+    if (platformEnv.isNative) {
+      const topInset = isIOSModalPage ? 0 : top;
+      return Dimensions.get('window').height - topInset - bottom - 158;
+    }
+    return 'calc(100vh - 96px - 74px)';
+  }, [bottom, top, isIOSModalPage]);
+
+  const width = usePageWidth();
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
+  const secondTabTouchStartRef = useRef<{
+    pageX: number;
+    pageY: number;
+  } | null>(null);
 
   const handleTabChange = useCallback(
     (tabName: string) => {
@@ -92,38 +104,106 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     [focusedTab, tabNames, width],
   );
 
+  const handleHeaderHorizontalSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      const currentIndex = tabNames.indexOf(focusedTab.value);
+      if (currentIndex < 0) {
+        return;
+      }
+      const offset = direction === 'left' ? 1 : -1;
+      const nextIndex = Math.min(
+        tabNames.length - 1,
+        Math.max(0, currentIndex + offset),
+      );
+      if (nextIndex === currentIndex) {
+        return;
+      }
+      handleTabChange(tabNames[nextIndex]);
+    },
+    [focusedTab, handleTabChange, tabNames],
+  );
+
   const tradingViewHeight = useMemo(() => {
-    if (isNative) {
-      return Number(height) * 0.9;
-    }
     if (platformEnv.isNative) {
       return Number(height) * 0.58;
     }
-    return '40vh';
-  }, [height, isNative]);
+    return 'calc(100vh - 96px - 74px - 250px)';
+  }, [height]);
+
+  const handleSecondTabTouchStart = useCallback(
+    (event: GestureResponderEvent) => {
+      const { pageX, pageY } = event.nativeEvent;
+      secondTabTouchStartRef.current = { pageX, pageY };
+    },
+    [],
+  );
+
+  const handleSecondTabTouchEnd = useCallback(
+    (event: GestureResponderEvent) => {
+      const start = secondTabTouchStartRef.current;
+      secondTabTouchStartRef.current = null;
+      if (!start) {
+        return;
+      }
+
+      const { pageX, pageY } = event.nativeEvent;
+      const deltaX = pageX - start.pageX;
+      const deltaY = pageY - start.pageY;
+
+      if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+        return;
+      }
+
+      handleHeaderHorizontalSwipe(deltaX < 0 ? 'left' : 'right');
+    },
+    [handleHeaderHorizontalSwipe],
+  );
 
   const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
-        <InformationPanel />
-        <Stack h={tradingViewHeight} position="relative">
-          <MarketTradingView
-            tokenAddress={tokenAddress}
-            networkId={networkId}
-            tokenSymbol={tokenDetail?.symbol}
-            isNative={isNative}
-            dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-          />
-        </Stack>
+        <HeaderScrollGestureWrapper
+          panActiveOffsetY={[-4, 4]}
+          scrollScale={1}
+          onHorizontalSwipe={handleHeaderHorizontalSwipe}
+          horizontalSwipeThreshold={36}
+        >
+          <YStack>
+            <PerpetualTradingBanner px="$5" />
+            <InformationPanel />
+          </YStack>
+        </HeaderScrollGestureWrapper>
+        <HeaderScrollGestureWrapper
+          panActiveOffsetY={[-4, 4]}
+          panFailOffsetX={[-40, 40]}
+          excludeRightEdgeRatio={0.1}
+          scrollScale={1}
+          onHorizontalSwipe={handleHeaderHorizontalSwipe}
+          horizontalSwipeThreshold={24}
+          horizontalSwipeVelocityThreshold={900}
+          simultaneousWithNativeGesture
+          cancelChildTouches={false}
+        >
+          <Stack h={tradingViewHeight} overflow="hidden">
+            {networkId && tokenDetail?.symbol ? (
+              <MarketTradingView
+                tokenAddress={tokenAddress}
+                networkId={networkId}
+                tokenSymbol={tokenDetail.symbol}
+                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+              />
+            ) : null}
+          </Stack>
+        </HeaderScrollGestureWrapper>
       </YStack>
     );
   }, [
-    isNative,
+    handleHeaderHorizontalSwipe,
     networkId,
     tokenAddress,
     tokenDetail?.symbol,
     tradingViewHeight,
-    websocketConfig,
+    websocketConfig?.kline,
   ]);
 
   const renderInformationHeader = useCallback(
@@ -136,22 +216,21 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       if (index === 0) {
         return (
           <YStack flex={1} height={height}>
-            {isNative ? (
-              informationHeader
-            ) : (
-              <MobileInformationTabs
-                onScrollEnd={noop}
-                renderHeader={renderInformationHeader}
-                portfolioData={portfolioData}
-                isRefreshing={isRefreshing}
-              />
-            )}
+            <MobileInformationTabs
+              onScrollEnd={noop}
+              renderHeader={renderInformationHeader}
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+            />
           </YStack>
         );
       }
       return (
         <YStack flex={1} height={height}>
-          <ScrollView>
+          <ScrollView
+            onTouchStart={handleSecondTabTouchStart}
+            onTouchEnd={handleSecondTabTouchEnd}
+          >
             <TokenOverview />
             <TokenActivityOverview />
             <Stack h={100} w="100%" />
@@ -161,11 +240,11 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     },
     [
       height,
-      isNative,
-      informationHeader,
       renderInformationHeader,
       portfolioData,
       isRefreshing,
+      handleSecondTabTouchStart,
+      handleSecondTabTouchEnd,
     ],
   );
 
@@ -238,24 +317,12 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
           </YStack>
         ))}
       </ScrollView>
-
-      {isNative ? null : (
-        <SwapPanel
-          swapToken={toSwapPanelToken}
-          portfolioData={portfolioData}
-          isPortRefreshing={isRefreshing}
-          disableTrade={disableTrade}
-          onShowSwapDialog={showSwapDialog}
-        />
-      )}
-      {platformEnv.isNative && !disableTrade && !isNative ? (
-        <SwapFlashBtn
-          buttonProps={{
-            style: { position: 'absolute', bottom: 100, right: 20 },
-          }}
-          onFlashTrade={() => showSwapDialog(toSwapPanelToken)}
-        />
-      ) : null}
+      <SwapPanel
+        swapToken={toSwapPanelToken}
+        portfolioData={portfolioData}
+        disableTrade={disableTrade}
+        onShowSwapDialog={showSwapDialog}
+      />
     </YStack>
   );
 }

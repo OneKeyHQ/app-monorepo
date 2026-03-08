@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBusiness = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm2 0a1 1 0 0 1 1-1h1v2a1 1 0 0 1-2 0zm5 2a1 1 0 0 1-1-1V5h2v2a1 1 0 0 1-1 1m4 0a1 1 0 0 1-1-1V5h2v2a1 1 0 0 1-1 1m4 0a1 1 0 0 1-1-1V5h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1m-8 8a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h2v-3a3 3 0 0 0-3-3h-2a3 3 0 0 0-3 3v3h2z"
+      d="m20.235 3 1.543 4.94A3.88 3.88 0 0 1 21 11.66V21H3v-9.34a3.88 3.88 0 0 1-.78-3.72L3.766 3zM4.13 8.536a1.898 1.898 0 1 0 3.695.802l.114-.918.002-.017L8.367 5H5.235zM10.383 5l-.458 3.663a2.09 2.09 0 1 0 4.15.003L13.617 5zm5.25 0 .425 3.403.003.02.114.915a1.898 1.898 0 1 0 3.694-.802L18.765 5z"
       clipRule="evenodd"
     />
   </Svg>

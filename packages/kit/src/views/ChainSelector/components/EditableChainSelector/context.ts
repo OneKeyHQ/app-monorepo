@@ -8,4 +8,5 @@ export const EditableChainSelectorContext =
     frequentlyUsedItems: [],
     frequentlyUsedItemsIds: new Set(),
     accountNetworkValues: {},
+    accountDeFiOverview: {},
   });

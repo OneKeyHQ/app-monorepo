@@ -1,22 +1,38 @@
 import type { ComponentProps } from 'react';
-import { memo, useCallback, useEffect, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { isNil } from 'lodash';
+// eslint-disable-next-line import/order
 import { useIntl } from 'react-intl';
 
 import {
-  Anchor,
+  scrollTo,
+  useAnimatedReaction,
+  useSharedValue,
+} from 'react-native-reanimated';
+
+import {
   Badge,
   Button,
+  CollapsibleTabContext,
   Form,
   Icon,
   Input,
+  SizableText,
   Skeleton,
   Stack,
   Toast,
   XStack,
   YStack,
   useForm,
+  useKeyboardEvent,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -39,6 +55,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import MainInfoBlock from './MainBlock';
 
@@ -177,6 +197,58 @@ function ReferralCodeBlock({
     updateWalletStatus,
   ]);
 
+  // Keyboard avoidance: scroll collapsible tab header when input is covered
+  const inputWrapperRef = useRef<any>(null);
+  const isInputFocusedRef = useRef(false);
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = (tabsContext as any)?.refMap;
+  const focusedTabShared = (tabsContext as any)?.focusedTab;
+  const scrollYCurrent = (tabsContext as any)?.scrollYCurrent;
+  const tabContentInset = ((tabsContext as any)?.contentInset as number) ?? 0;
+
+  const scrollDelta = useSharedValue(0);
+
+  useAnimatedReaction(
+    () => scrollDelta.value,
+    (delta, prevDelta) => {
+      if (
+        delta > 0 &&
+        delta !== prevDelta &&
+        refMap &&
+        focusedTabShared &&
+        scrollYCurrent
+      ) {
+        const ref = refMap[focusedTabShared.value];
+        if (ref) {
+          const targetScroll = scrollYCurrent.value + delta;
+          scrollTo(ref, 0, Math.max(0, targetScroll - tabContentInset), true);
+        }
+        scrollDelta.value = 0;
+      }
+    },
+  );
+
+  useKeyboardEvent(
+    {
+      keyboardWillShow: (e) => {
+        if (!isInputFocusedRef.current || !inputWrapperRef.current || !refMap) {
+          return;
+        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        inputWrapperRef.current.measureInWindow(
+          (_x: number, y: number, _width: number, height: number) => {
+            const inputBottom = y + height;
+            const keyboardTop = e.endCoordinates.screenY;
+            if (inputBottom > keyboardTop - 20) {
+              scrollDelta.value = inputBottom - keyboardTop + 60;
+            }
+          },
+        );
+      },
+    },
+    [],
+  );
+
   const referralHelpLink = useHelpLink({ path: 'articles/11461266' });
 
   const handleJoinReferral = useCallback(async () => {
@@ -225,7 +297,10 @@ function ReferralCodeBlock({
 
     return shouldBoundReferralCode ? (
       <XStack alignItems="center" gap="$2" alignSelf="stretch">
-        <Stack flex={platformEnv.isNative ? 1 : undefined}>
+        <Stack
+          flex={platformEnv.isNative ? 1 : undefined}
+          ref={inputWrapperRef}
+        >
           <Form.Field
             name="referralCode"
             rules={{
@@ -248,6 +323,12 @@ function ReferralCodeBlock({
               })}
               backgroundColor="$bgApp"
               maxLength={30}
+              onFocus={() => {
+                isInputFocusedRef.current = true;
+              }}
+              onBlur={() => {
+                isInputFocusedRef.current = false;
+              }}
             />
           </Form.Field>
         </Stack>
@@ -339,16 +420,23 @@ function ReferralCodeBlock({
         actions={
           <Form form={form}>
             <YStack gap="$2" alignItems="flex-start">
-              <Anchor
-                href={referralHelpLink}
+              <SizableText
                 color="$textSubdued"
                 size="$bodyMd"
                 textDecorationLine="underline"
+                cursor="pointer"
+                onPress={() => {
+                  if (platformEnv.isDesktop || platformEnv.isNative) {
+                    openUrlInDiscovery({ url: referralHelpLink });
+                  } else {
+                    openUrlExternal(referralHelpLink);
+                  }
+                }}
               >
                 {intl.formatMessage({
                   id: ETranslations.referral_code_tutorial_label,
                 })}
-              </Anchor>
+              </SizableText>
               {renderReferralCodeActions()}
             </YStack>
           </Form>

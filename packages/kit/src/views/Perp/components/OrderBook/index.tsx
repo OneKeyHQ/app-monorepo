@@ -1,5 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import { useCallback, useMemo } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
@@ -28,7 +26,10 @@ import {
 import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  calculateSpreadPercentage,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
@@ -695,7 +696,9 @@ export function OrderBook({
     );
   }
   return (
-    <View style={{ padding: 1 }}>
+    // Avoid a visible "gap" at the bottom edge when the container height
+    // doesn't align perfectly with row steps.
+    <View style={{ padding: 1, paddingBottom: 0 }}>
       <DebugRenderTracker
         name="OrderBookVerticalHeader"
         position="right-center"
@@ -1301,6 +1304,7 @@ export function OrderBookMobile({
                 {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
               </PerpBookText>
               <PerpBookText
+                numberOfLines={1}
                 style={[
                   styles.headerText,
                   {
@@ -1310,7 +1314,7 @@ export function OrderBookMobile({
                   },
                 ]}
               >
-                ({_symbol ?? ''})
+                ({_symbol ? parseDexCoin(_symbol).displayName : ''})
               </PerpBookText>
             </View>
           </View>
@@ -1530,7 +1534,7 @@ export function OrderBookMobile({
                     )
                   : '-'}
               </PerpBookText>
-              <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
+              <Icon name="ChevronDownSmallOutline" size="$5" />
             </TouchableOpacity>
           )}
         />

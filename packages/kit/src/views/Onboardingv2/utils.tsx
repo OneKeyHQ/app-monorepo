@@ -168,5 +168,5 @@ export const shuffleWordsIndices = (length: number) => {
     const j = Math.floor(Math.random() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
-  return indices.slice(0, 3).sort((a, b) => a - b);
+  return indices.slice(0, 3).toSorted((a, b) => a - b);
 };

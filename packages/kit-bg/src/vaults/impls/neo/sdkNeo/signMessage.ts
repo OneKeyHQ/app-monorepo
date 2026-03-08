@@ -79,10 +79,10 @@ export function isPublicKey(key: string, encoded?: boolean): boolean {
     try {
       const keyPair = curveInstance.keyFromPublic(encodedKey, 'hex');
       return !!keyPair;
-    } catch (e) {
+    } catch (_e) {
       return false;
     }
-  } catch (e) {
+  } catch (_e) {
     return false;
   }
 }
@@ -109,7 +109,7 @@ export async function verify(
     const messageHash = await sha256(hex);
     const publicKeyPair = curveInstance.keyFromPublic(publicKey, 'hex');
     return publicKeyPair.verify(messageHash, sigObj);
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }

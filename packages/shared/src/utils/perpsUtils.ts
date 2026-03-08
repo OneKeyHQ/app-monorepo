@@ -602,7 +602,7 @@ function findMarginTier(
 ): IMarginTier | null {
   if (!marginTiers.length) return null;
 
-  const sortedTiers = [...marginTiers].reverse();
+  const sortedTiers = marginTiers.toReversed();
   for (const tier of sortedTiers) {
     if (totalValue.gte(new BigNumber(tier.lowerBound))) {
       return tier;
@@ -938,9 +938,9 @@ function formatLargeNumber(
   value: string | number | undefined | null,
   decimals = 2,
 ): string {
-  if (value == null || value === undefined) return '0';
+  if (value === null || value === undefined) return '0';
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (Number.isNaN(num) || num == null) return '0';
+  if (Number.isNaN(num) || num === null || num === undefined) return '0';
 
   if (num >= 1e12) {
     return `${(num / 1e12).toFixed(decimals)}T`;
@@ -971,6 +971,7 @@ interface ITradingSizeContext {
   price?: string;
   markPrice?: string;
   availableToTrade?: Array<number | string>;
+  maxTradeSzs?: Array<number | string>;
   leverageValue?: number | string | null;
   fallbackLeverage?: number | string | null;
   szDecimals?: number;
@@ -1015,7 +1016,7 @@ const computeMaxTradeSize = ({
   side,
   price,
   markPrice,
-  availableToTrade,
+  maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
@@ -1025,21 +1026,29 @@ const computeMaxTradeSize = ({
     return new BigNumber(0);
   }
 
-  const availableIndex = side === 'long' ? 0 : 1;
-  const availableValue = availableToTrade?.[availableIndex] ?? 0;
-  const availableBN = new BigNumber(availableValue);
-  if (!availableBN.isFinite() || availableBN.lte(0)) {
-    return new BigNumber(0);
-  }
-
   const leverageCandidate = leverageValue ?? fallbackLeverage ?? 1;
   const leverageBN = new BigNumber(leverageCandidate);
   const leverageSafe =
     leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : new BigNumber(1);
 
-  const maxTokens = availableBN
+  const index = side === 'long' ? 0 : 1;
+  const maxTradeSz = new BigNumber(maxTradeSzs?.[index] ?? 0);
+  const markPriceBN = new BigNumber(markPrice ?? 0);
+
+  if (!maxTradeSz.gt(0) || !markPriceBN.gt(0)) {
+    return new BigNumber(0);
+  }
+
+  // availableMargin = maxTradeSzs[side] * markPx / leverage
+  const availableMargin = maxTradeSz
+    .multipliedBy(markPriceBN)
+    .dividedBy(leverageSafe);
+
+  // maxTokens = availableMargin * leverage / effectivePrice
+  const maxTokens = availableMargin
     .multipliedBy(leverageSafe)
     .dividedBy(effectivePrice);
+
   if (!maxTokens.isFinite() || maxTokens.lte(0)) {
     return new BigNumber(0);
   }
@@ -1055,7 +1064,7 @@ const resolveTradingSizeBN = ({
   side,
   price,
   markPrice,
-  availableToTrade,
+  maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
@@ -1078,7 +1087,7 @@ const resolveTradingSizeBN = ({
     side,
     price,
     markPrice,
-    availableToTrade,
+    maxTradeSzs,
     leverageValue,
     fallbackLeverage,
     szDecimals,
@@ -1229,6 +1238,41 @@ export function parseDexCoin(coin: string): {
   };
 }
 
+export interface ITokenSearchAliasItem {
+  subtitle?: string;
+  aliases: string[];
+}
+
+export type ITokenSearchAliases = Record<string, ITokenSearchAliasItem>;
+
+/**
+ * Find token symbols by search alias
+ * @param query - Search query (already lowercased)
+ * @param serverAliases - Server-provided aliases
+ * @returns Matched symbol list
+ */
+export function findTokensByAlias(
+  query: string,
+  serverAliases?: ITokenSearchAliases,
+): string[] {
+  if (!serverAliases || Object.keys(serverAliases).length === 0) {
+    return [];
+  }
+
+  return Object.entries(serverAliases)
+    .filter(([, item]) =>
+      item.aliases?.some((alias) => alias.toLowerCase().includes(query)),
+    )
+    .map(([symbol]) => symbol);
+}
+
+export function getTokenSubtitle(
+  tokenName: string,
+  serverAliases?: ITokenSearchAliases,
+): string | undefined {
+  return serverAliases?.[tokenName]?.subtitle;
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1289,4 +1333,6 @@ export default {
   resolveTradingSizeBN,
   parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
+  findTokensByAlias,
+  getTokenSubtitle,
 };

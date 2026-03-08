@@ -1,5 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
-
 import type { EMessageType } from './messageType';
 
 export interface IWsPriceData {

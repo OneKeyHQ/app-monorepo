@@ -6,6 +6,7 @@ import {
   Alert,
   Checkbox,
   Dialog,
+  Illustration,
   Markdown,
   Page,
   SizableText,
@@ -27,11 +28,7 @@ export default function PrimeDeleteAccount() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const {
-    result: canDeleteAccount,
-    isLoading,
-    run: checkDeleteEligibility,
-  } = usePromiseResult(
+  const { result: _canDeleteAccount } = usePromiseResult(
     async () => {
       // Check if user has active subscription or other restrictions
       const token = await getAccessToken();
@@ -198,12 +195,7 @@ export default function PrimeDeleteAccount() {
       />
       <Page.Body>
         <YStack p="$5" gap="$5" alignItems="center">
-          <Dialog.Icon
-            icon="ErrorOutline"
-            tone="destructive"
-            alignSelf="center"
-            mb={0}
-          />
+          <Illustration name="UserAlert" alignSelf="center" />
           <YStack gap="$2" alignItems="center">
             <SizableText size="$headingXl" textAlign="center">
               {intl.formatMessage({

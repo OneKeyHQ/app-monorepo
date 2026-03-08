@@ -12,6 +12,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -77,6 +78,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   address,
   tokenLogoURI,
   networkLogoURI,
+  networkId,
   onCopied,
   showCopyButton = false,
   showVolume = false,
@@ -88,6 +90,12 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   const { copyText } = useClipboard();
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
+
+  // Use hook to get network logo with async fallback
+  const effectiveNetworkLogoUri = useNetworkLogoUri({
+    logoUri: networkLogoURI,
+    networkId,
+  });
 
   const shortened = useMemo(
     () =>
@@ -131,17 +139,19 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
         tokenImageUri={getTokenImageUri()}
-        networkImageUri={address ? networkLogoURI : undefined}
+        networkImageUri={effectiveNetworkLogoUri}
         fallbackIcon="CryptoCoinOutline"
         size="md"
       />
 
       <Stack flex={1} minWidth={0}>
-        <XStack alignItems="center" gap="$1" bg="red3">
+        <XStack alignItems="center" gap="$1">
           <SizableText
             size="$bodyLgMedium"
             numberOfLines={1}
             ellipsizeMode="tail"
+            maxWidth="$32"
+            flexShrink={1}
           >
             {symbol}
           </SizableText>

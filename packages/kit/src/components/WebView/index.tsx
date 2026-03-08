@@ -17,6 +17,7 @@ import type { ESiteMode } from '../../views/Discovery/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewProps as RNWebViewProps } from 'react-native-webview';
 import type {
+  ShouldStartLoadRequest,
   WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
@@ -25,15 +26,14 @@ import type {
 } from 'react-native-webview/lib/WebViewTypes';
 
 export interface IWebViewProps
-  extends IElectronWebViewEvents,
-    Partial<RNWebViewProps> {
+  extends IElectronWebViewEvents, Partial<RNWebViewProps> {
   id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;
   openUrlInExt?: boolean;
   onWebViewRef?: (ref: IWebViewRef | null) => void;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
-  onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
+  onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean;
   allowpopups?: boolean;
   allowsBackForwardNavigationGestures?: boolean;
   containerProps?: ComponentProps<typeof Stack>;

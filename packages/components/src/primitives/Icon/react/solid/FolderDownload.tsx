@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFolderDownload = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M2 6a3 3 0 0 1 3-3h3.93a3 3 0 0 1 2.496 1.336L12.536 6H19a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm13.207 9.207-2.5 2.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 1 1 1.414-1.414l.793.793V11a1 1 0 1 1 2 0v3.586l.793-.793a1 1 0 0 1 1.414 1.414"
+      d="M12.535 6H22v14H2V3h8.535zM11 10v4.586l-1.5-1.5L8.086 14.5 12 18.414l3.914-3.914-1.414-1.414-1.5 1.5V10z"
       clipRule="evenodd"
     />
   </Svg>

@@ -3,10 +3,7 @@
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import type { ICoreImportedCredential } from '@onekeyhq/core/src/types';
 import type { EDBAccountType } from '@onekeyhq/kit-bg/src/dbs/local/consts';
-import type {
-  IDBAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 // export type ISimpleDBBackUp = {
 //   utxoAccounts: Pick<ISimpleDbEntityUtxoData, 'utxos'>;
 //   market: Pick<ISimpleDbEntityMarktData, 'favorites'>;

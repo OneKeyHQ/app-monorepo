@@ -13,7 +13,7 @@ import {
   XStack,
   YStack,
   useDeferredPromise,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -55,7 +55,7 @@ function TokenDetailHeader({
 }) {
   const { gtMd: gtMdMedia } = useMedia();
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
 
   const {
     activeAccount: { account },
@@ -143,7 +143,7 @@ function MarketDetail({
   const { token: coinGeckoId } = route.params;
   const { gtMd: gtMdMedia } = useMedia();
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
 
   const gtMd = isModalPage ? false : gtMdMedia;
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 
-import { useIsModalPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -135,7 +135,7 @@ export function useSwapFromAccountNetworkSync() {
     [setSettings, updateSelectedAccountNetwork],
   );
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     async (isFocus: boolean, isHideByModal: boolean) => {
@@ -205,8 +205,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
 
   const tokenNetworkId = useMemo(() => {
     return type === ESwapDirectionType.FROM
-      ? currentSelectNetwork?.networkId ?? fromToken?.networkId ?? ''
-      : currentSelectNetwork?.networkId ?? toToken?.networkId ?? '';
+      ? (currentSelectNetwork?.networkId ?? fromToken?.networkId ?? '')
+      : (currentSelectNetwork?.networkId ?? toToken?.networkId ?? '');
   }, [
     type,
     fromToken?.networkId,
@@ -236,7 +236,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               ...accountParams,
             });
           setAccountForAllNet(fromTokenAccount);
-        } catch (e) {
+        } catch (_e) {
           setAccountForAllNet(undefined);
         }
       }
@@ -260,7 +260,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
               ...accountParams,
             });
           setAccountForAllNet(toTokenAccount);
-        } catch (e) {
+        } catch (_e) {
           setAccountForAllNet(undefined);
         }
       }
@@ -334,8 +334,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
                 account: {
                   ...activeAccount.account,
                   id: isAllNetwork
-                    ? accountForAllNet?.id ?? ''
-                    : activeAccount.account?.id ?? '',
+                    ? (accountForAllNet?.id ?? '')
+                    : (activeAccount.account?.id ?? ''),
                 },
               }
             : undefined),
@@ -347,8 +347,8 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
                 account: {
                   ...activeAccount.account,
                   id: isAllNetwork
-                    ? accountForAllNet?.id ?? ''
-                    : activeAccount.account?.id ?? '',
+                    ? (accountForAllNet?.id ?? '')
+                    : (activeAccount.account?.id ?? ''),
                 },
               }
             : undefined),

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Override Material BottomNavigationView text size to prevent label scaling animation on selection -->
+    <!-- Default inactive size is 12sp, active is 14sp. Setting both to 12sp removes the size change effect. -->
+    <dimen name="design_bottom_navigation_active_text_size" tools:override="true">12sp</dimen>
+</resources>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -6,9 +6,13 @@ import {
   Spinner,
   Stack,
   Table,
+  YStack,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import type { ITableColumn } from '@onekeyhq/components';
+import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
+import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -21,16 +25,42 @@ import type {
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { StickyHeaderPortal } from '../StickyHeaderPortal';
+import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
 const SPINNER_HEIGHT = 52;
+// Watchlist mode: only these 3 columns are sortable (server-side sort)
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
   marketCap: 'mc',
   turnover: 'v24hUSD',
 } as const;
+
+// Client sort mode: all numeric columns are sortable (client-side sort)
+const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
+  ...SORTABLE_COLUMNS,
+  price: 'price',
+  change24h: 'change24h',
+  transactions: 'transactions',
+  uniqueTraders: 'uniqueTraders',
+  holders: 'holders',
+};
+
+// Sort key → IMarketToken field mapping for client-side sorting
+const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
+  price: 'price',
+  change24h: 'change24h',
+  mc: 'marketCap',
+  liquidity: 'liquidity',
+  v24hUSD: 'turnover',
+  transactions: 'transactions',
+  uniqueTraders: 'uniqueTraders',
+  holders: 'holders',
+};
 
 // Map sort keys to ESortWay enum values for logging
 const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
@@ -50,6 +80,8 @@ export type IMarketTokenListResult = {
   setSortType: (sortType: 'asc' | 'desc' | undefined) => void;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
+  currentSortBy?: string;
+  currentSortType?: 'asc' | 'desc';
 };
 
 type IMarketTokenListBaseProps = {
@@ -58,10 +90,25 @@ type IMarketTokenListBaseProps = {
   toolbar?: ReactNode;
   result: IMarketTokenListResult;
   isWatchlistMode?: boolean;
+  clientSort?: boolean;
   showEndReachedIndicator?: boolean;
   hideTokenAge?: boolean;
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
+  draggable?: boolean;
+  tabIntegrated?: boolean;
+  tabName?: string;
+  listContainerProps?: {
+    paddingBottom: number;
+  };
+  onDragEnd?: (params: IDragEndParamsWithItem<IMarketToken>) => void;
+  onItemLongPress?: (item: IMarketToken, index: number) => void;
+  onItemContextMenu?: (
+    item: IMarketToken,
+    index: number,
+    position?: { x: number; y: number },
+  ) => void;
+  onScrollBegin?: () => void;
 };
 
 function MarketTokenListBase({
@@ -70,12 +117,22 @@ function MarketTokenListBase({
   toolbar,
   result,
   isWatchlistMode = false,
+  clientSort = false,
   showEndReachedIndicator = false,
   hideTokenAge = false,
   watchlistFrom,
   copyFrom,
+  draggable = false,
+  tabIntegrated,
+  tabName,
+  listContainerProps,
+  onDragEnd,
+  onItemLongPress,
+  onItemContextMenu,
+  onScrollBegin,
 }: IMarketTokenListBaseProps) {
   const toMarketDetailPage = useToDetailPage();
+  const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns(
@@ -87,7 +144,7 @@ function MarketTokenListBase({
   );
 
   const {
-    data,
+    data: rawData,
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
@@ -97,10 +154,27 @@ function MarketTokenListBase({
     setSortType,
     initialSortBy,
     initialSortType,
+    currentSortBy,
+    currentSortType,
   } = result;
 
+  // Client-side sorting: sort data locally when clientSort is enabled
+  const data = useMemo(() => {
+    if (!clientSort || !currentSortBy || !currentSortType) return rawData;
+    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+    if (!field) return rawData;
+    return [...rawData].toSorted((a, b) => {
+      const aVal = (a[field] as number) ?? 0;
+      const bVal = (b[field] as number) ?? 0;
+      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [clientSort, rawData, currentSortBy, currentSortType]);
+
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
+  // Skip for clientSort mode — banner detail pages manage their own sort state
   useEffect(() => {
+    if (clientSort) return;
+
     const handleWatchlistOnlyChanged = (payload: {
       showWatchlistOnly: boolean;
     }) => {
@@ -126,12 +200,10 @@ function MarketTokenListBase({
         handleWatchlistOnlyChanged,
       );
     };
-  }, [setSortBy, setSortType, isWatchlistMode]);
+  }, [setSortBy, setSortType, isWatchlistMode, clientSort]);
 
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
-      console.log('handleSortChange', sortBy, sortType);
-
       // Log sort action
       const sortWay =
         sortType === undefined
@@ -156,25 +228,48 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      if (!isWatchlistMode) {
+      if (!isWatchlistMode && !clientSort) {
         return undefined;
       }
 
-      // Sorting logic
-      const sortKey =
-        SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
+      // Client sort mode uses all numeric columns,
+      // watchlist mode uses restricted server-side sortable columns
+      const columnsMap = clientSort
+        ? CLIENT_SORTABLE_COLUMNS
+        : SORTABLE_COLUMNS;
+      const sortKey = columnsMap[column.dataIndex as keyof typeof columnsMap];
 
       if (sortKey) {
+        const isCurrentSort = currentSortBy === sortKey;
         return {
           onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
             handleSortChange(sortKey, order);
           },
+          initialSortOrder: isCurrentSort
+            ? (currentSortType as ETableSortType)
+            : undefined,
         };
       }
 
       return undefined;
     },
-    [handleSortChange, isWatchlistMode],
+    [
+      handleSortChange,
+      isWatchlistMode,
+      clientSort,
+      currentSortBy,
+      currentSortType,
+    ],
+  );
+
+  // Stable ref for handleHeaderRow to avoid portalContent useMemo recreation
+  // when sort state changes. Same ref pattern used in MobileLayout for perps category.
+  const handleHeaderRowRef = useRef(handleHeaderRow);
+  handleHeaderRowRef.current = handleHeaderRow;
+  const stableHandleHeaderRow = useCallback(
+    (...args: Parameters<typeof handleHeaderRow>) =>
+      handleHeaderRowRef.current(...args),
+    [],
   );
 
   const handleEndReached = useCallback(() => {
@@ -205,11 +300,69 @@ function MarketTokenListBase({
 
     return null;
   }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
+  const tabBarHeight = useScrollContentTabBarOffset();
+
+  // On web with tabIntegrated, disable FlatList's own scroll so the outer
+  // Tabs.Container handles scrolling (allows header to scroll away naturally).
+  // Use IntersectionObserver as a replacement for onEndReached.
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const endSentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!webTabIntegrated) return;
+    const sentinel = endSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          handleEndReached();
+        }
+      },
+      { threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [webTabIntegrated, handleEndReached]);
+
+  // Desktop sticky header: portal the column header + toolbar into the
+  // renderTabBar area so they stick when scrolling in the collapsible tab.
+  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
+  const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
+  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
+  const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
+
+  const portalContent = useMemo(() => {
+    if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
+    return (
+      <StickyHeaderPortal target={stickyPortalTarget}>
+        <YStack bg="$bgApp" px="$4">
+          {toolbar ? (
+            <Stack width="100%" mb="$3">
+              {toolbar}
+            </Stack>
+          ) : null}
+          <Table.HeaderRow
+            columns={marketTokenColumns}
+            onHeaderRow={stableHandleHeaderRow}
+          />
+        </YStack>
+      </StickyHeaderPortal>
+    );
+  }, [
+    useDesktopPortal,
+    isTabFocused,
+    stickyPortalTarget,
+    toolbar,
+    marketTokenColumns,
+    stableHandleHeaderRow,
+  ]);
 
   return (
     <Stack flex={1} width="100%">
-      {/* render custom toolbar if provided */}
-      {toolbar ? (
+      {portalContent}
+      {/* render custom toolbar if provided (only when not in desktop portal mode) */}
+      {!useDesktopPortal && toolbar ? (
         <Stack width="100%" mb="$3">
           {toolbar}
         </Stack>
@@ -225,7 +378,13 @@ function MarketTokenListBase({
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
-        <Stack flex={1} minHeight={platformEnv.isNative ? undefined : 400}>
+        <Stack
+          flex={1}
+          minHeight={platformEnv.isNative ? undefined : 400}
+          onTouchMove={
+            platformEnv.isNative && onScrollBegin ? onScrollBegin : undefined
+          }
+        >
           {showSkeleton ? (
             <Table.Skeleton
               columns={marketTokenColumns}
@@ -236,44 +395,63 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
-              // Add padding bottom to content container to provide space for loading spinner
-              // Fix Android loading spinner visibility issue by ensuring proper content height
               contentContainerStyle={
-                platformEnv.isNativeAndroid
+                tabIntegrated
                   ? {
-                      paddingBottom: SPINNER_HEIGHT * 2,
+                      paddingTop: 8 + (platformEnv.isNative ? 195 : 0),
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? (listContainerProps?.paddingBottom ??
+                          SPINNER_HEIGHT * 2)
+                        : tabBarHeight,
                     }
-                  : undefined
+                  : {
+                      paddingBottom: platformEnv.isNativeAndroid
+                        ? SPINNER_HEIGHT * 2
+                        : tabBarHeight,
+                    }
               }
               stickyHeader
-              scrollEnabled
+              showHeader={!useDesktopPortal}
+              scrollEnabled={!webTabIntegrated}
+              draggable={draggable}
+              tabIntegrated={tabIntegrated}
+              onDragEnd={onDragEnd}
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) =>
-                item.address + item.symbol + item.networkId
-              }
+              keyExtractor={(item) => item.id}
               extraData={networkId}
-              onHeaderRow={handleHeaderRow}
+              onHeaderRow={stableHandleHeaderRow}
               TableFooterComponent={TableFooterComponent}
-              estimatedItemSize="$14"
-              onRow={
-                onItemPress
-                  ? (item) => ({
-                      onPress: () => onItemPress(item),
-                    })
-                  : (item) => ({
-                      onPress: () =>
-                        toMarketDetailPage({
-                          symbol: item.symbol,
-                          tokenAddress: item.address,
-                          networkId: item.networkId,
-                          isNative: item.isNative,
-                        }),
-                    })
-              }
+              estimatedItemSize={60}
+              onRow={(item, index) => ({
+                onPress: onItemPress
+                  ? () => onItemPress(item)
+                  : () => {
+                      if (item.perpsCoin) {
+                        navigateToPerps(item.perpsCoin);
+                        return;
+                      }
+                      void toMarketDetailPage({
+                        symbol: item.symbol,
+                        tokenAddress: item.address,
+                        networkId: item.networkId,
+                        isNative: item.isNative,
+                      });
+                    },
+                onLongPress: onItemLongPress
+                  ? () => onItemLongPress(item, index)
+                  : undefined,
+                onContextMenu: onItemContextMenu
+                  ? (position?: { x: number; y: number }) =>
+                      onItemContextMenu(item, index, position)
+                  : undefined,
+              })}
             />
           )}
+          {webTabIntegrated ? (
+            <div ref={endSentinelRef} style={{ height: 1 }} />
+          ) : null}
         </Stack>
       </Stack>
     </Stack>

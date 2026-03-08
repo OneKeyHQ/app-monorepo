@@ -49,7 +49,12 @@ function BaseStickyHeader({ firstTabName }: { firstTabName: string }) {
   }
 
   return (
-    <Stack pointerEvents="none" h={40}>
+    <Stack
+      pointerEvents="none"
+      h="$11"
+      justifyContent="center"
+      overflow="hidden"
+    >
       {currentHeader}
     </Stack>
   );

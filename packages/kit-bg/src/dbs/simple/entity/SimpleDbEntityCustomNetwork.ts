@@ -20,7 +20,7 @@ export class SimpleDbEntityCustomNetwork extends SimpleDbEntityBase<ICustomNetwo
     const { networkInfo } = params;
     await this.setRawData((rawData) => {
       const data: ICustomNetworkDBStruct = {
-        data: { ...(rawData?.data || {}) },
+        data: { ...rawData?.data },
       };
       const now = Date.now();
       const existingNetwork = data.data[networkInfo.id];
@@ -39,7 +39,7 @@ export class SimpleDbEntityCustomNetwork extends SimpleDbEntityBase<ICustomNetwo
     const { networkId } = params;
     await this.setRawData((rawData) => {
       const data: ICustomNetworkDBStruct = {
-        data: { ...(rawData?.data || {}) },
+        data: { ...rawData?.data },
       };
       delete data.data[networkId];
       return data;
@@ -49,7 +49,7 @@ export class SimpleDbEntityCustomNetwork extends SimpleDbEntityBase<ICustomNetwo
   @backgroundMethod()
   async getAllCustomNetworks(): Promise<IServerNetwork[]> {
     const rawData = await this.getRawData();
-    return Object.values(rawData?.data || {}).sort(
+    return Object.values(rawData?.data || {}).toSorted(
       (a, b) => (b?.createdAt ?? 0) - (a?.createdAt ?? 0),
     );
   }
@@ -69,7 +69,7 @@ export class SimpleDbEntityCustomNetwork extends SimpleDbEntityBase<ICustomNetwo
     const { networkId, status } = params;
     await this.setRawData((rawData) => {
       const data: ICustomNetworkDBStruct = {
-        data: { ...(rawData?.data || {}) },
+        data: { ...rawData?.data },
       };
       if (data.data[networkId]) {
         data.data[networkId] = {

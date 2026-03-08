@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { popModalPagesOnNative, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -18,6 +18,7 @@ import { closeModalPages } from '../../../hooks/usePageNavigation';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
+  // oxlint-disable-next-line unicorn/prefer-global-this
   if (platformEnv.isExtension && typeof window !== 'undefined') {
     return globalThis.location.hash.includes('fromExt=true');
   }
@@ -70,8 +71,20 @@ export const useToOnBoardingPage = () => {
             window.close();
           }
         } else {
-          await closeModalPages();
-          await timerUtils.wait(150);
+          // On native platforms with native bottom tabs, close modal and navigate
+          // directly without deferring to a delayed task. The await timerUtils.wait()
+          // + dispatch pattern causes navigation to be detached from the touch event
+          // context, and iOS production won't flush the bridge call until the next
+          // user interaction.
+          if (platformEnv.isNative) {
+            // Synchronously close all modal pages before navigating to onboarding.
+            // Modal and Onboarding are sibling root routes, so we need to close
+            // modal first before navigating.
+            popModalPagesOnNative();
+          } else {
+            await closeModalPages();
+            await timerUtils.wait(150);
+          }
           if (isOnboardingDone) {
             rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
@@ -97,5 +110,36 @@ export const useToOnBoardingPage = () => {
         }
       },
     [navigation],
+  );
+};
+
+/**
+ * TODO: Remove this hook and use the useNavigateToOnBoardingPage common hook instead
+ */
+export const useNavigateToPickYourDevicePage = () => {
+  return useMemo(
+    () => async () => {
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          path: `/onboarding/${EOnboardingPagesV2.PickYourDevice}`,
+        });
+        if (platformEnv.isExtensionUiSidePanel) {
+          window.close();
+        }
+      } else {
+        await closeModalPages();
+        await timerUtils.wait(150);
+        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.PickYourDevice,
+          },
+        });
+      }
+    },
+    [],
   );
 };

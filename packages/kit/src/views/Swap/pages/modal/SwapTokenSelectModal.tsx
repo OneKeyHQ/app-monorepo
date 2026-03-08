@@ -73,7 +73,11 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
-const SwapTokenSelectPage = () => {
+const SwapTokenSelectPage = ({
+  autoSearch = false,
+}: {
+  autoSearch?: boolean;
+}) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const route =
@@ -352,6 +356,29 @@ const SwapTokenSelectPage = () => {
             address: rawItem.contractAddress,
           })
         : rawItem.contractAddress;
+
+      let badgeText: string | undefined;
+      if (rawItem.freeFeeObject && rawItem.freeFeeObject.tokenList) {
+        const targetToken =
+          type === ESwapDirectionType.FROM
+            ? toTokenRef.current
+            : fromTokenRef.current;
+        if (targetToken) {
+          const hasMatch = rawItem.freeFeeObject.tokenList.some((feeToken) =>
+            equalTokenNoCaseSensitive({
+              token1: targetToken,
+              token2: {
+                networkId: feeToken.networkId,
+                contractAddress: feeToken.contractAddress,
+              },
+            }),
+          );
+          if (hasMatch) {
+            badgeText = rawItem.freeFeeObject.tag;
+          }
+        }
+      }
+
       const tokenItem: ITokenListItemProps = {
         isSearch: !!searchKeywordDebounce,
         tokenImageSrc: rawItem.logoURI,
@@ -376,6 +403,7 @@ const SwapTokenSelectPage = () => {
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
         ),
+        badgeText,
       };
       return (
         <>
@@ -451,6 +479,7 @@ const SwapTokenSelectPage = () => {
       onSelectToken,
       searchKeywordDebounce,
       settingsPersistAtom.currencyInfo.symbol,
+      type,
     ],
   );
 
@@ -526,6 +555,7 @@ const SwapTokenSelectPage = () => {
             const afterTrim = nativeEvent.text.trim();
             setSearchKeyword(afterTrim);
           },
+          ...(autoSearch ? { autoFocus: true } : {}),
           searchBarInputValue: searchKeyword,
           ...(searchKeyword?.length === 0 && !platformEnv.isExtension
             ? {
@@ -542,9 +572,9 @@ const SwapTokenSelectPage = () => {
       <Page.Body>
         <XStack px="$5" pb="$2">
           <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-            {`${intl.formatMessage({
+            {intl.formatMessage({
               id: ETranslations.token_selector_network,
-            })}`}
+            })}
           </SizableText>
           <XStack>
             <SizableText size="$bodyMd">
@@ -597,9 +627,9 @@ const SwapTokenSelectPage = () => {
               !searchKeywordDebounce ? (
                 <YStack px="$5" pt="$3" gap="$2">
                   <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-                    {`${intl.formatMessage({
+                    {intl.formatMessage({
                       id: ETranslations.swap_token_selector_popular_token,
-                    })}`}
+                    })}
                   </SizableText>
                   <SwapPopularTokenGroup
                     onSelectToken={onSelectToken}
@@ -628,7 +658,7 @@ const SwapTokenSelectPage = () => {
                 </>
               ) : (
                 <Empty
-                  icon="SearchOutline"
+                  illustration="TwoBlocks"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}
@@ -650,10 +680,10 @@ const SwapTokenSelectPageWithProvider = () => {
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
     >();
-  const { storeName } = route.params;
+  const { storeName, autoSearch = false } = route.params;
   return (
     <SwapProviderMirror storeName={storeName}>
-      <SwapTokenSelectPage />
+      <SwapTokenSelectPage autoSearch={autoSearch} />
     </SwapProviderMirror>
   );
 };

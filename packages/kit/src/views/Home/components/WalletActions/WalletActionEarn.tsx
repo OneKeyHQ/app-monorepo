@@ -42,6 +42,9 @@ export function WalletActionEarn(props: {
         symbol: symbolInfo?.symbol,
         filterNetworkId: networkId,
       });
+    if (!Array.isArray(protocolList) || !protocolList.length) {
+      return undefined;
+    }
     const aprItems = protocolList
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);

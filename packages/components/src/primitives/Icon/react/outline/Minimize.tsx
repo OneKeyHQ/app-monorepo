@@ -9,9 +9,11 @@ const SvgMinimize = (props: SvgProps) => (
   >
     <Path
       fillRule="evenodd"
-      d="M20.957 3.043a1 1 0 0 1 0 1.414L16.414 9H20a1 1 0 1 1 0 2h-5a2 2 0 0 1-2-2V4a1 1 0 1 1 2 0v3.586l4.543-4.543a1 1 0 0 1 1.414 0M3 14a1 1 0 0 1 1-1h5a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0v-3.586l-4.543 4.543a1 1 0 0 1-1.414-1.414L7.586 15H4a1 1 0 0 1-1-1"
+      d="M12 22H2v-9h10zm-8-2h6v-5H4z"
       clipRule="evenodd"
     />
+    <Path d="M22 16h-8v-2h6V5H5v6H3V3h19z" />
+    <Path d="m18.414 8-2 2H18v2h-5V7h2v1.586l2-2z" />
   </Svg>
 );
 export default SvgMinimize;

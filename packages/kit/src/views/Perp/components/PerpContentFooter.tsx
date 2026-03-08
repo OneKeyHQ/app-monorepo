@@ -1,21 +1,36 @@
-import { Image, Page, Stack, XStack, useMedia } from '@onekeyhq/components';
+import { useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Page, XStack, useMedia } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { PerpFooterActions } from '../../../components/Footer';
 import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { PerpRefreshButton } from '../../../components/PerpRefreshButton';
-import { usePerpsLogo } from '../hooks/usePerpsLogo';
+
+import { PerpFooterTicker } from './FooterTicker/PerpFooterTicker';
 
 function PerpNetworkStatus() {
   const [networkStatus] = usePerpsNetworkStatusAtom();
   const connected = Boolean(networkStatus?.connected);
+  const pingMs = networkStatus?.pingMs;
+  const intl = useIntl();
 
-  return <NetworkStatusBadge connected={connected} />;
+  const label = useMemo(() => {
+    if (connected && pingMs !== null && pingMs !== undefined) {
+      return `${intl.formatMessage({ id: ETranslations.perp_online })} ${pingMs}ms`;
+    }
+    return undefined;
+  }, [connected, pingMs, intl]);
+
+  return <NetworkStatusBadge connected={connected} label={label} />;
 }
 
 export function PerpContentFooter() {
   const { gtSm } = useMedia();
-  const { poweredByHyperliquidLogo } = usePerpsLogo();
 
   if (!platformEnv.isNative && !platformEnv.isWebDappMode && gtSm) {
     return (
@@ -27,17 +42,14 @@ export function PerpContentFooter() {
           h={40}
           alignItems="center"
           p="$2"
-          justifyContent="space-between"
+          gap="$2"
         >
-          <PerpNetworkStatus />
-          <PerpRefreshButton ml="$2" />
-          <Stack flex={1} />
-          <Image
-            source={poweredByHyperliquidLogo}
-            w={145}
-            h={25}
-            resizeMode="contain"
-          />
+          <XStack alignItems="center" gap="$2" flexShrink={0}>
+            <PerpNetworkStatus />
+            <PerpRefreshButton />
+          </XStack>
+          <PerpFooterTicker />
+          <PerpFooterActions />
         </XStack>
       </Page.Footer>
     );

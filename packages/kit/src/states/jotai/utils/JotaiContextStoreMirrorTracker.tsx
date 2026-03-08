@@ -19,7 +19,6 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { EarnProvider } from '../../../views/Earn/EarnProvider';
-import { HomeApprovalListRootProvider } from '../../../views/Home/components/HomeApprovalListProvider/HomeApprovalListRootProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
@@ -50,7 +49,7 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
 
       const mapCache = getJotaiContextTrackerMap();
 
-      const key = `${storeId}`;
+      const key = storeId;
       let value: IJotaiContextStoreMapValue | undefined = mapCache[key];
       if (!value) {
         value = {
@@ -65,7 +64,7 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
           value.accountSelectorInfo.enabledNum = uniq([
             ...value.accountSelectorInfo.enabledNum,
             ...accountSelectorInfo.enabledNum,
-          ]).sort();
+          ]).toSorted();
         }
       }
       if (action === 'remove') {
@@ -136,9 +135,6 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
-          }
-          case EJotaiContextStoreNames.homeApprovalList: {
-            return <HomeApprovalListRootProvider key={key} />;
           }
           case EJotaiContextStoreNames.urlAccountHomeTokenList: {
             return <UrlAccountHomeTokenListProvider key={key} />;

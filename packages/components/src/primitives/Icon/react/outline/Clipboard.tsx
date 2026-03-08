@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgClipboard = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m6 0v2H9V5m6 0a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2"
+      fillRule="evenodd"
+      d="M16 4h4v18H4V4h4V2h8zM6 20h12V6h-2v2H8V6H6zm4-14h4V4h-4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

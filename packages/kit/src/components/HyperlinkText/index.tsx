@@ -36,9 +36,15 @@ export type IHyperlinkTextProps = {
   scoped?: boolean;
 } & ISizableTextProps;
 
-const defaultIntl = createIntl({
-  locale: '',
-});
+let defaultIntl: ReturnType<typeof createIntl> | undefined;
+function getDefaultIntl() {
+  if (!defaultIntl) {
+    defaultIntl = createIntl({
+      locale: '',
+    });
+  }
+  return defaultIntl;
+}
 
 export function HyperlinkText({
   translationId,
@@ -70,7 +76,7 @@ export function HyperlinkText({
     [basicTextProps.fontSize, basicTextProps.size],
   );
 
-  const theIntl = scoped ? defaultIntl : intl;
+  const theIntl = scoped ? getDefaultIntl() : intl;
 
   const text = useMemo(
     () =>
@@ -108,6 +114,7 @@ export function HyperlinkText({
                 return (
                   <SizableText
                     {...basicTextProps}
+                    textDecorationLine="underline"
                     {...urlTextProps}
                     cursor="pointer"
                     hoverStyle={{ bg: '$bgHover' }}
@@ -132,6 +139,7 @@ export function HyperlinkText({
                     }}
                   >
                     {isLinkString ? chunks : link}
+                    {autoHandleResult ? ' ↗' : null}
                   </SizableText>
                 );
               },

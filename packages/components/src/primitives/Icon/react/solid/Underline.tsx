@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgUnderline = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M7 4a1 1 0 0 0-2 0v8a7 7 0 1 0 14 0V4a1 1 0 1 0-2 0v8a5 5 0 0 1-10 0zM6 20a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M19 20v2H5v-2zM7 3v9a5 5 0 0 0 10 0V3h2v9a7 7 0 1 1-14 0V3z" />
   </Svg>
 );
 export default SvgUnderline;

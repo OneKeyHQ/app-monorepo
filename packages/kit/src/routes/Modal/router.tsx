@@ -1,16 +1,23 @@
 import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
-import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  isOnBoardingOpenAtom,
+  v4migrationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
+import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeylessWallet';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
+import { ActionCenterRouter } from '../../views/ActionCenter/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { BulkCopyAddressesModalRouter } from '../../views/BulkCopyAddresses/router';
+import { BulkSendModalRouter } from '../../views/BulkSend/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
@@ -209,6 +216,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: BulkCopyAddressesModalRouter,
   },
   {
+    name: EModalRoutes.BulkSendModal,
+    children: BulkSendModalRouter,
+  },
+  {
     name: EModalRoutes.ApprovalManagementModal,
     children: ModalApprovalManagementStack,
   },
@@ -255,13 +266,29 @@ export const fullModalRouter = [
   },
 ];
 
+export const fullScreenPushRouterConfig: IModalRootNavigatorConfig<EFullScreenPushRoutes>[] =
+  [
+    {
+      name: EFullScreenPushRoutes.ActionCenter,
+      children: ActionCenterRouter,
+    },
+  ];
+
 export const onboardingRouterV2Config: IModalRootNavigatorConfig<EOnboardingV2Routes>[] =
   [
     {
       onMounted: () => {
         console.log('OnboardingModal onMounted');
+        void isOnBoardingOpenAtom.set(true);
       },
       onUnmounted: async () => {
+        void isOnBoardingOpenAtom.set(false);
+        keylessOnboardingCache.clear();
+        try {
+          await backgroundApiProxy.serviceKeylessWallet.clearKeylessOnboardingCache();
+        } catch {
+          // ignore
+        }
         await v4migrationAtom.set((v) => ({
           ...v,
           isProcessing: false,

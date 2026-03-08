@@ -71,14 +71,21 @@ import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
 import type {
+  IBaseDeviceProcessingParams,
+  IChangePinParams,
   IDeviceHomeScreenConfig,
   IGetDeviceAdvanceSettingsParams,
   IGetDeviceLabelParams,
   IHardwareHomeScreenData,
+  ISetAutoLockDelayMsParams,
+  ISetAutoShutDownDelayMsParams,
   ISetDeviceHomeScreenParams,
   ISetDeviceLabelParams,
+  ISetHapticFeedbackParams,
   ISetInputPinOnSoftwareParams,
+  ISetLanguageParams,
   ISetPassphraseEnabledParams,
+  IWipeDeviceParams,
 } from './DeviceSettingsManager';
 import type {
   IFirmwareAuthenticateParams,
@@ -118,19 +125,19 @@ export type IDeviceGetFeaturesOptions = {
 };
 
 // skip events
-const SKIPPED_EVENTS = [
+const SKIPPED_EVENTS = new Set([
   EHardwareUiStateAction.CLOSE_UI_WINDOW,
   EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
   EHardwareUiStateAction.PREVIOUS_ADDRESS,
   EHardwareUiStateAction.BLUETOOTH_UNSUPPORTED,
   EHardwareUiStateAction.BLUETOOTH_POWERED_OFF,
-];
+]);
 
-const NEW_DIALOG_EVENTS = [
+const NEW_DIALOG_EVENTS = new Set([
   EHardwareUiStateAction.BLUETOOTH_PERMISSION,
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
   EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
-];
+]);
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -178,7 +185,7 @@ class ServiceHardware extends ServiceBase {
                   [walletId]: walletName,
                 };
               });
-            } catch (error) {
+            } catch (_error) {
               //
             }
           }
@@ -232,6 +239,8 @@ class ServiceHardware extends ServiceBase {
     });
 
   private registeredEvents = false;
+
+  private connectedDeviceTracked = new Set<string>();
 
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
@@ -468,14 +477,14 @@ class ServiceHardware extends ServiceBase {
 
         // skip ui-close_window event, which cause infinite loop
         //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-        if (!SKIPPED_EVENTS.includes(newUiRequestType)) {
+        if (!SKIPPED_EVENTS.has(newUiRequestType)) {
           defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
             action: newUiRequestType,
             connectId,
             payload: newPayload,
           });
 
-          if (NEW_DIALOG_EVENTS.includes(newUiRequestType)) {
+          if (NEW_DIALOG_EVENTS.has(newUiRequestType)) {
             appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
               uiRequestType: newUiRequestType,
             });
@@ -485,6 +494,14 @@ class ServiceHardware extends ServiceBase {
           ) {
             appEventBus.emit(
               EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+              undefined,
+            );
+          } else if (
+            newUiRequestType ===
+            EHardwareUiStateAction.REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE
+          ) {
+            appEventBus.emit(
+              EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
               undefined,
             );
           } else {
@@ -522,6 +539,44 @@ class ServiceHardware extends ServiceBase {
           });
         },
       );
+
+      instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        const { features } = message.device || {};
+        if (!features || !features.device_id) return;
+        const { device_id: deviceId } = features;
+        if (this.connectedDeviceTracked.has(deviceId)) return;
+
+        void (async () => {
+          try {
+            const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+              features,
+            });
+            if (
+              deviceType !== EDeviceType.Pro &&
+              deviceType !== EDeviceType.Classic1s
+            ) {
+              // Mark ineligible devices to avoid repeated async checks on reconnect
+              this.connectedDeviceTracked.add(deviceId);
+              return;
+            }
+            const firmwareType = await deviceUtils.getFirmwareType({
+              features,
+            });
+            defaultLogger.hardware.connection.hwDeviceConnected({
+              deviceType,
+              firmwareType:
+                firmwareType === EFirmwareType.BitcoinOnly
+                  ? 'btconly'
+                  : 'universal',
+              deviceId,
+            });
+            // Mark only after successful tracking, allowing retry on transient errors
+            this.connectedDeviceTracked.add(deviceId);
+          } catch (_e) {
+            // ignore tracking errors — device not marked, so retry is possible
+          }
+        })();
+      });
 
       // TODO how to emit this event?
       // call getFeatures() or checkFirmwareRelease();
@@ -681,7 +736,7 @@ class ServiceHardware extends ServiceBase {
               hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE,
           },
         });
-      } catch (e: any) {
+      } catch (_e: any) {
         return (device as KnownDevice).features;
       }
     }
@@ -757,7 +812,7 @@ class ServiceHardware extends ServiceBase {
           connectId = device.connectId;
         }
       }
-    } catch (error) {
+    } catch (_error) {
       //
     }
 
@@ -993,6 +1048,42 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async setAutoLockDelayMs(p: ISetAutoLockDelayMsParams) {
+    return this.deviceSettingsManager.setAutoLockDelayMs(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setAutoShutDownDelayMs(p: ISetAutoShutDownDelayMsParams) {
+    return this.deviceSettingsManager.setAutoShutDownDelayMs(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setLanguage(p: ISetLanguageParams) {
+    return this.deviceSettingsManager.setLanguage(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setBrightness(p: IBaseDeviceProcessingParams) {
+    return this.deviceSettingsManager.setBrightness(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async setHapticFeedback(p: ISetHapticFeedbackParams) {
+    return this.deviceSettingsManager.setHapticFeedback(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async wipeDevice(p: IWipeDeviceParams) {
+    return this.deviceSettingsManager.wipeDevice(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async setPassphraseEnabled(p: ISetPassphraseEnabledParams) {
     const result = await this.deviceSettingsManager.setPassphraseEnabled(p);
     if (result.message) {
@@ -1032,6 +1123,12 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async changePin(p: IChangePinParams) {
+    return this.deviceSettingsManager.changePin(p);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async setDeviceLabel(p: ISetDeviceLabelParams) {
     const result = await this.deviceSettingsManager.setDeviceLabel(p);
     if (result.message) {
@@ -1045,6 +1142,11 @@ class ServiceHardware extends ServiceBase {
         await localDb.updateDeviceFeaturesLabel({
           dbDeviceId,
           label: p.label,
+        });
+        // After device label is updated, notify UI/hardware interaction layer to refresh cached device info,
+        // otherwise the hardware interaction dialog may keep showing the old name until app restart.
+        appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+          deviceId: dbDeviceId,
         });
         // update db wallet name
         appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
@@ -1189,7 +1291,7 @@ class ServiceHardware extends ServiceBase {
       });
       const messages = await convertDeviceResponse(() => hardwareSDK.getLogs());
       logs.push(...messages);
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
     return logs;
@@ -1274,7 +1376,7 @@ class ServiceHardware extends ServiceBase {
           $app_firmware_type: EFirmwareType.Universal,
         };
       }
-    } catch (error) {
+    } catch (_error) {
       // ignore
     }
     return bitcoinOnlyFlag;
@@ -1332,6 +1434,17 @@ class ServiceHardware extends ServiceBase {
       await this.updateHwWalletsDeprecatedStatus({
         connectId,
       });
+      const updateFirmwareInfo = params?.releaseResult?.updateInfos?.firmware;
+      if (
+        updateFirmwareInfo?.fromFirmwareType !== undefined &&
+        updateFirmwareInfo?.toFirmwareType !== undefined
+      ) {
+        defaultLogger.update.firmware.firmwareSwitchSuccess({
+          deviceType: dbDevice.deviceType,
+          fromFirmwareType: updateFirmwareInfo.fromFirmwareType,
+          toFirmwareType: updateFirmwareInfo.toFirmwareType,
+        });
+      }
     }
   }
 

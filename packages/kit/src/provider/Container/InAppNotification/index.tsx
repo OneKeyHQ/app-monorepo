@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   SizableText,
@@ -16,9 +17,20 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSwapRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
+import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  ENotificationPushTopicTypes,
+  type INotificationPushMessageInfo,
+} from '@onekeyhq/shared/types/notification';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import {
   ESwapApproveTransactionStatus,
   ESwapSource,
@@ -28,7 +40,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useDebouncedCallback } from '../../../hooks/useDebounce';
+import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { handleSwapNavigation } from '../../../views/Swap/hooks/useSwapNavigation';
 
 const InAppNotification = () => {
@@ -88,7 +102,7 @@ const InAppNotification = () => {
       void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
         activeAccount?.indexedAccount?.id,
         !activeAccount?.indexedAccount?.id
-          ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+          ? (activeAccount?.account?.id ?? activeAccount?.dbAccount?.id)
           : undefined,
       );
     },
@@ -109,7 +123,9 @@ const InAppNotification = () => {
       swapLimitOrdersFetchLoopReload,
     ]);
 
-    void swapLimitOrdersFetchLoopReload();
+    return runAfterTokensDone({
+      onRun: () => swapLimitOrdersFetchLoopReload(),
+    });
   }, [
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
@@ -396,6 +412,120 @@ const InAppNotification = () => {
       }
     }
   }, [intl, setInAppNotificationAtom, speedSwapApprovingTransaction?.status]);
+
+  useEffect(() => {
+    const callback = async ({
+      notificationId,
+      title,
+      description,
+      icon,
+      remotePushMessageInfo,
+    }: {
+      notificationId: string | undefined;
+      title: string;
+      description: string;
+      icon: string | undefined;
+      remotePushMessageInfo: INotificationPushMessageInfo;
+    }) => {
+      const topicType = remotePushMessageInfo?.extras?.topic;
+      const isSystemTopic =
+        (topicType as ENotificationPushTopicTypes) ===
+        ENotificationPushTopicTypes.system;
+
+      // Check if this is an Earn/Borrow transaction by looking up local history
+      let earnAction: JSX.Element | undefined;
+      const { transactionHash, networkId, accountAddress } =
+        remotePushMessageInfo?.extras?.params || {};
+
+      if (transactionHash && networkId && accountAddress) {
+        try {
+          const historyId = `${networkId}_${transactionHash}_${accountAddress}_`;
+          const localTx =
+            await backgroundApiProxy.simpleDb.localHistory.getLocalHistoryTxById(
+              {
+                networkId,
+                accountAddress,
+                historyId,
+              },
+            );
+
+          const label = localTx?.stakingInfo?.label;
+          const isEarnTransaction =
+            label &&
+            [
+              EEarnLabels.Stake,
+              EEarnLabels.Claim,
+              EEarnLabels.Redeem,
+              EEarnLabels.Withdraw,
+              EEarnLabels.Supply,
+            ].includes(label);
+          const isBorrowTransaction =
+            label && [EEarnLabels.Borrow, EEarnLabels.Repay].includes(label);
+
+          if (isEarnTransaction || isBorrowTransaction) {
+            earnAction = (
+              <Button
+                variant="primary"
+                size="small"
+                onPress={async () => {
+                  navigation.switchTab(ETabRoutes.Earn);
+                  await timerUtils.wait(50);
+                  appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
+                    mode: isBorrowTransaction ? 'borrow' : 'earn',
+                  });
+                }}
+              >
+                <SizableText size="$bodyMdMedium" color="$textInverse">
+                  {intl.formatMessage({
+                    id: isBorrowTransaction
+                      ? ETranslations.global_borrow
+                      : ETranslations.global_earn,
+                  })}
+                </SizableText>
+              </Button>
+            );
+          }
+        } catch {
+          // Ignore errors when looking up local history
+        }
+      }
+
+      const toast = Toast.notification({
+        title,
+        message: description,
+        icon: isSystemTopic ? undefined : (icon as IKeyOfIcons),
+        iconImageUri: isSystemTopic
+          ? undefined
+          : remotePushMessageInfo?.extras?.image,
+        duration: 10 * 1000,
+        imageUri: remotePushMessageInfo?.extras?.image,
+        actions: earnAction,
+        actionsAlign: 'left',
+        onPress: async () => {
+          setTimeout(async () => {
+            await whenAppUnlocked();
+            await notificationsUtils.navigateToNotificationDetail({
+              message: remotePushMessageInfo,
+              isFromNotificationClick: true,
+              notificationId: notificationId || '',
+              notificationAccountId:
+                remotePushMessageInfo?.extras?.params?.accountId,
+              topicType: topicType as ENotificationPushTopicTypes,
+              navigation,
+              mode: remotePushMessageInfo?.extras?.mode,
+              payload: remotePushMessageInfo?.extras?.payload,
+              isRead: false,
+            });
+          }, 80);
+          toast.close();
+        },
+      });
+    };
+    appEventBus.on(EAppEventBusNames.ShowInAppPushNotification, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowInAppPushNotification, callback);
+    };
+  }, [intl, navigation]);
 
   return null;
 };

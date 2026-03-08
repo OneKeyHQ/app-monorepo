@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
+import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -86,7 +87,6 @@ function OneKeyIdUserProfile() {
 
   return (
     <YStack alignItems="center" gap="$3">
-      {/* TODO: @zuo - clickable to pick image */}
       <YStack>
         <OneKeyIdAvatar size="$16" />
         <YStack
@@ -137,6 +137,7 @@ function OneKeyIdSettingsPageView() {
   const navigation = useAppNavigation();
   const { isLoggedIn } = useOneKeyAuth();
   const isTabNavigator = useIsTabNavigator();
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 
   const titleProps = useMemo(
     () => ({
@@ -171,8 +172,9 @@ function OneKeyIdSettingsPageView() {
       <Page.Header title="OneKey ID" />
       <Page.Body>
         <YStack px="$4" pt="$3" gap="$6">
+          <SizableText>Hello World</SizableText>
           {/* User Profile Section */}
-          <OneKeyIdUserProfile />
+          {isKeylessWalletEnabled ? <OneKeyIdUserProfile /> : null}
 
           {/* Menu Items - only show when logged in */}
           {isLoggedIn ? (
@@ -196,17 +198,21 @@ function OneKeyIdSettingsPageView() {
                 drillIn
                 onPress={handleSignInSecurity}
               />
-              <XStack mx="$5">
-                <Divider borderColor="$neutral3" />
-              </XStack>
-              <TabSettingsListItem
-                icon="CloudOutline"
-                iconProps={iconProps}
-                title="Keyless wallet"
-                titleProps={titleProps}
-                drillIn
-                onPress={handleKeylessWallet}
-              />
+              {isKeylessWalletEnabled ? (
+                <>
+                  <XStack mx="$5">
+                    <Divider borderColor="$neutral3" />
+                  </XStack>
+                  <TabSettingsListItem
+                    icon="CloudOutline"
+                    iconProps={iconProps}
+                    title="Keyless wallet"
+                    titleProps={titleProps}
+                    drillIn
+                    onPress={handleKeylessWallet}
+                  />
+                </>
+              ) : null}
             </TabSettingsSection>
           ) : null}
         </YStack>

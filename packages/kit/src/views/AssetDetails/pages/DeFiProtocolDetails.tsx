@@ -19,14 +19,18 @@ import {
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { getCategoryConfig } from '@onekeyhq/kit/src/utils/defiCategoryConfig';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDeFiAssetType, type IDeFiAsset } from '@onekeyhq/shared/types/defi';
 
 function DeFiProtocolDetails() {
@@ -71,15 +75,25 @@ function DeFiProtocolDetails() {
               </NumberSizeableTextWrapper>
             </YStack>
           </XStack>
-          <IconButton
-            title={intl.formatMessage({
-              id: ETranslations.global_view_in_blockchain_explorer,
-            })}
-            variant="tertiary"
-            icon="OpenOutline"
-            size="small"
-            onPress={() => openUrlExternal(protocolInfo?.protocolUrl)}
-          />
+          {protocolInfo?.protocolUrl ? (
+            <IconButton
+              title={intl.formatMessage({
+                id: ETranslations.global_view_in_blockchain_explorer,
+              })}
+              variant="tertiary"
+              icon="OpenOutline"
+              size="small"
+              onPress={() => {
+                if (platformEnv.isDesktop || platformEnv.isNative) {
+                  openUrlInDiscovery({
+                    url: protocolInfo?.protocolUrl,
+                  });
+                } else {
+                  openUrlExternal(protocolInfo?.protocolUrl);
+                }
+              }}
+            />
+          ) : null}
         </XStack>
         <Divider />
       </>
@@ -99,19 +113,13 @@ function DeFiProtocolDetails() {
       let type = asset.category;
       let typeColor = '$blue10';
       if (asset.type === EDeFiAssetType.DEBT) {
-        type = appLocale.intl.formatMessage({
-          id: ETranslations.wallet_defi_asset_type_borrowed,
-        });
+        type = 'Borrowed';
         typeColor = '$orange10';
       } else if (asset.type === EDeFiAssetType.REWARD) {
-        type = appLocale.intl.formatMessage({
-          id: ETranslations.wallet_defi_position_module_rewards,
-        });
+        type = 'Rewards';
         typeColor = '$teal10';
       } else if (asset.type === EDeFiAssetType.ASSET) {
-        type = appLocale.intl.formatMessage({
-          id: ETranslations.wallet_defi_asset_type_supplied,
-        });
+        type = 'Supplied';
         typeColor = '$blue10';
       }
 
@@ -138,9 +146,15 @@ function DeFiProtocolDetails() {
           <Stack key={position.category} px="$5">
             <XStack alignItems="center" py="$3" ml="$-2" gap="$1">
               <XStack alignItems="center" gap="$3" flexShrink={1} minWidth={0}>
-                <Badge badgeType="success" badgeSize="lg">
-                  <Badge.Text textTransform="capitalize">
-                    {position.category}
+                <Badge
+                  bg={getCategoryConfig(position.category).bg}
+                  badgeSize="lg"
+                >
+                  <Badge.Text
+                    textTransform="capitalize"
+                    color={getCategoryConfig(position.category).text}
+                  >
+                    {`${getCategoryConfig(position.category).emoji} ${position.category}`}
                   </Badge.Text>
                 </Badge>
                 <Stack flexShrink={1} minWidth={0}>

@@ -2,13 +2,21 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  ESwitchSize,
+  IconButton,
+  Popover,
+  Switch,
   Tabs,
+  XStack,
   YStack,
   rootNavigationRef,
+  useScrollContentTabBarOffset,
   useTabContainerWidth,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -17,23 +25,56 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ListItem } from '../../../components/ListItem';
 import { useIsFirstFocused } from '../../../hooks/useIsFirstFocused';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
+import { useEarnHideSmallAssets } from '../hooks/useEarnHideSmallAssets';
 
 import { FAQContent } from './FAQContent';
 import { PortfolioTabContent } from './PortfolioTabContent';
 import { ProtocolsTabContent } from './ProtocolsTabContent';
 
 import type { IUseEarnPortfolioReturn } from '../hooks/useEarnPortfolio';
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type {
+  CollapsibleProps,
+  TabBarProps,
+} from 'react-native-collapsible-tab-view';
 
 interface IEarnMainTabsProps {
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading?: boolean;
-  containerProps?: any;
+  containerProps?: Partial<CollapsibleProps>;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   portfolioData: IUseEarnPortfolioReturn;
+  header?: React.ReactNode;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }
+
+const TabContentContainer = ({
+  children,
+  withHorizontalPadding,
+  maxWidth,
+}: {
+  children: React.ReactNode;
+  withHorizontalPadding?: boolean;
+  maxWidth?: number;
+}) => {
+  const tabBarHeight = useScrollContentTabBarOffset();
+  return (
+    <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+      <YStack
+        pt="$6"
+        pb="$6"
+        gap="$8"
+        {...(withHorizontalPadding ? { px: '$5' } : {})}
+        {...(maxWidth ? { maxWidth } : {})}
+        style={tabBarHeight ? { paddingBottom: tabBarHeight } : undefined}
+      >
+        {children}
+      </YStack>
+    </Tabs.ScrollView>
+  );
+};
 
 const EarnMainTabsComponent = ({
   faqList,
@@ -41,9 +82,14 @@ const EarnMainTabsComponent = ({
   containerProps,
   defaultTab,
   portfolioData,
+  header,
+  tabsRef: externalTabsRef,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
-  const tabsRef = useRef<ITabContainerRef>(null);
+  const theme = useTheme();
+  const internalTabsRef = useRef<ITabContainerRef>(null);
+  const tabsRef = externalTabsRef || internalTabsRef;
+  const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
 
   const tabNames = useMemo(
     () => ({
@@ -108,6 +154,7 @@ const EarnMainTabsComponent = ({
         tabsRef.current.jumpToTab(targetTabName);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultTab, initialTabName, isFocused]);
 
   useEffect(() => {
@@ -120,53 +167,128 @@ const EarnMainTabsComponent = ({
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchEarnTab, callback);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getTabName]);
 
   useEffect(
     () => () => {
       tabsRef.current = null;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
   const tabContainerWidth = useTabContainerWidth();
 
-  const renderTabBar = useCallback((tabBarProps: TabBarProps<string>) => {
-    const handleTabPress = (name: string) => {
-      tabBarProps.onTabPress?.(name);
+  const renderTabBar = useCallback(
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        tabBarProps.onTabPress?.(name);
+      };
+      return (
+        <Tabs.TabBar
+          {...tabBarProps}
+          onTabPress={handleTabPress}
+          renderToolbar={({ focusedTab }) =>
+            focusedTab === tabNames.portfolio ? (
+              <XStack pr="$5">
+                <Popover
+                  title={intl.formatMessage({
+                    id: ETranslations.defi_display_settings,
+                  })}
+                  renderTrigger={
+                    <IconButton
+                      variant="tertiary"
+                      icon="SliderHorOutline"
+                      iconSize="$6"
+                      bg={hideSmallAssets ? '$bgStrong' : 'transparent'}
+                    />
+                  }
+                  renderContent={
+                    <YStack py="$2.5">
+                      <ListItem
+                        title={intl.formatMessage({
+                          id: ETranslations.defi_hide_low_value_positions,
+                        })}
+                        titleProps={{
+                          size: '$bodyMdMedium',
+                          color: '$textSubdued',
+                        }}
+                        childrenBefore={
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={hideSmallAssets}
+                            onChange={setHideSmallAssets}
+                          />
+                        }
+                      />
+                    </YStack>
+                  }
+                />
+              </XStack>
+            ) : null
+          }
+        />
+      );
+    },
+    [hideSmallAssets, intl, setHideSmallAssets, tabNames.portfolio],
+  );
+
+  const mergedContainerProps = useMemo<
+    Partial<CollapsibleProps> | undefined
+  >(() => {
+    const mergedHeaderContainerStyle = StyleSheet.flatten(
+      containerProps?.headerContainerStyle,
+    );
+    const headerContainerStyle = {
+      backgroundColor: theme.bgApp.val,
+      ...mergedHeaderContainerStyle,
     };
-    return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
-  }, []);
+    if (!header) {
+      return {
+        ...containerProps,
+        headerContainerStyle,
+      };
+    }
+    const renderHeader = containerProps?.renderHeader;
+    return {
+      ...containerProps,
+      headerContainerStyle,
+      renderHeader: (props: TabBarProps<string>) => (
+        <YStack>
+          {header}
+          {renderHeader ? renderHeader(props) : null}
+        </YStack>
+      ),
+    };
+  }, [containerProps, header, theme.bgApp.val]);
 
   return (
     <Tabs.Container
-      width={platformEnv.isNative ? tabContainerWidth : undefined}
-      ref={tabsRef}
+      width={platformEnv.isNative ? Number(tabContainerWidth) : undefined}
+      ref={tabsRef as any}
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
       onTabChange={handleTabChange}
-      {...containerProps}
+      {...mergedContainerProps}
     >
       <Tabs.Tab name={tabNames.assets}>
-        <Tabs.ScrollView>
-          <YStack pt="$6" gap="$8">
-            <ProtocolsTabContent />
-          </YStack>
-        </Tabs.ScrollView>
+        <TabContentContainer>
+          <ProtocolsTabContent />
+        </TabContentContainer>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.portfolio}>
-        <Tabs.ScrollView>
-          <YStack pt="$6" gap="$8">
-            <PortfolioTabContent portfolioData={portfolioData} />
-          </YStack>
-        </Tabs.ScrollView>
+        <TabContentContainer>
+          <PortfolioTabContent
+            portfolioData={portfolioData}
+            hideSmallAssets={hideSmallAssets}
+          />
+        </TabContentContainer>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.faqs}>
-        <Tabs.ScrollView>
-          <YStack px="$5" pt="$6" gap="$8" maxWidth={960}>
-            <FAQContent faqList={faqList} isLoading={isFaqLoading} />
-          </YStack>
-        </Tabs.ScrollView>
+        <TabContentContainer withHorizontalPadding maxWidth={960}>
+          <FAQContent faqList={faqList} isLoading={isFaqLoading} />
+        </TabContentContainer>
       </Tabs.Tab>
     </Tabs.Container>
   );

@@ -1,9 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
-import {
-  useHyperliquidActions,
-  useL2BookAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useL2BookAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -40,7 +37,7 @@ export interface IL2BookData extends HL.IBook {
   asks: HL.IBookLevel[];
 }
 
-export function useL2Book(options?: IL2BookOptions): {
+export function useL2Book(_options?: IL2BookOptions): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
   getBestBid: () => string | null;

@@ -177,7 +177,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     return loadingStates[key] || false;
   });
 
-  getRecommendedTokens = contextAtomMethod((get, set) => {
+  getRecommendedTokens = contextAtomMethod((get, _set) => {
     const { recommendedTokens } = get(earnAtom());
     return recommendedTokens || [];
   });
@@ -190,7 +190,7 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
     },
   );
 
-  getBanners = contextAtomMethod((get, set) => {
+  getBanners = contextAtomMethod((get, _set) => {
     const { banners } = get(earnAtom());
     return banners || [];
   });
@@ -219,15 +219,11 @@ export function useEarnActions() {
   const isDataIncomplete = actions.isDataIncomplete.use();
 
   const buildEarnAccountsKey = useCallback(
-    ({
-      accountId,
-      indexAccountId,
-      networkId,
-    }: {
+    (params: {
       accountId?: string;
       indexAccountId?: string;
       networkId: string;
-    }) => `${indexAccountId || accountId || ''}-${networkId}`,
+    }) => earnUtils.buildEarnAccountKey(params),
     [],
   );
 

@@ -1,12 +1,13 @@
 import { RefreshControl as NativeRefreshControl } from 'react-native';
 
-import { useThemeValue } from '../../hooks';
+import { useTheme } from '../../hooks';
 
 import type { IRefreshControlType } from './type';
 
 export * from './type';
 
 export function RefreshControl(props: IRefreshControlType) {
-  const color = useThemeValue('bgPrimaryActive');
+  const theme = useTheme();
+  const color = theme.bgPrimaryActive.val;
   return <NativeRefreshControl tintColor={color} {...props} />;
 }

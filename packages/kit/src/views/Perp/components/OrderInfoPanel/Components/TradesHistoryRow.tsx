@@ -4,9 +4,12 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   Divider,
   IconButton,
+  Popover,
   SizableText,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -24,7 +27,7 @@ import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
 
-import type { IColumnConfig } from '../List/CommonTableListView';
+import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
 const formatter: INumberFormatProps = {
   formatter: 'value',
@@ -39,6 +42,10 @@ export type ITradesHistoryRowProps = {
   isMobile?: boolean;
   index: number;
   onShare?: (fill: IFill) => void;
+  renderMode?: IRenderMode;
+  isHovered?: boolean;
+  onHoverChange?: (index: number | null) => void;
+  builderFeeRate?: number;
 };
 
 const TradesHistoryRow = memo(
@@ -49,6 +56,10 @@ const TradesHistoryRow = memo(
     isMobile,
     index,
     onShare,
+    renderMode = 'full',
+    isHovered,
+    onHoverChange,
+    builderFeeRate,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
@@ -131,6 +142,40 @@ const TradesHistoryRow = memo(
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
     }, [fill.closedPnl, fill.fee]);
 
+    const feeTooltipContent = useMemo(() => {
+      const feeRatePercentage =
+        builderFeeRate !== undefined
+          ? `${(builderFeeRate / 1000).toFixed(2)}%`
+          : '-';
+      return (
+        <YStack gap="$3">
+          <YStack gap="$1.5">
+            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+              {intl.formatMessage({ id: ETranslations.perps_fee_title })}
+              {feeRatePercentage}
+            </SizableText>
+            <SizableText size={isMobile ? '$bodyMd' : '$bodySm'}>
+              {intl.formatMessage({ id: ETranslations.perps_fee_total })}
+              {tradeBaseInfo.feeFormatted}
+            </SizableText>
+          </YStack>
+          <SizableText
+            size={isMobile ? '$bodyMd' : '$bodySm'}
+            color="$textSubdued"
+          >
+            {intl.formatMessage({ id: ETranslations.perps_fee_desc })}
+          </SizableText>
+        </YStack>
+      );
+    }, [builderFeeRate, tradeBaseInfo.feeFormatted, isMobile, intl]);
+
+    const isOddRow = index % 2 === 1;
+    const baseBgColor = isOddRow ? '$bgSubdued' : '$bgApp';
+    const bgColor = isHovered ? '$bgHover' : baseBgColor;
+
+    const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
+    const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
     if (isMobile) {
       return (
         <ListItem
@@ -191,7 +236,7 @@ const TradesHistoryRow = memo(
                       icon="ShareOutline"
                       iconSize="$4"
                       onPress={() => onShare?.(fill)}
-                      cursor="pointer"
+                      cursor="default"
                       hoverStyle={null}
                       pressStyle={null}
                     />
@@ -216,7 +261,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.priceFormatted}`}
+                {tradeBaseInfo.priceFormatted}
               </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
@@ -225,9 +270,7 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
-                {`${tradeBaseInfo.size}`}
-              </SizableText>
+              <SizableText size="$bodySm">{tradeBaseInfo.size}</SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -236,7 +279,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.tradeValueFormatted}`}
+                {tradeBaseInfo.tradeValueFormatted}
               </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-end">
@@ -245,154 +288,203 @@ const TradesHistoryRow = memo(
                   id: ETranslations.perp_trades_history_fee,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
-                {`${tradeBaseInfo.feeFormatted}`}
-              </SizableText>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trades_history_fee,
+                })}
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {tradeBaseInfo.feeFormatted}
+                  </DashText>
+                }
+                renderContent={() => (
+                  <YStack px="$5" pb="$4">
+                    {feeTooltipContent}
+                  </YStack>
+                )}
+              />
             </YStack>
           </XStack>
         </ListItem>
       );
     }
+
     return (
       <XStack
         flex={1}
         py="$1.5"
-        px="$3"
+        pl="$5"
+        pr="$3"
         alignItems="center"
-        hoverStyle={{ bg: '$bgHover' }}
-        minWidth={cellMinWidth}
-        {...(index % 2 === 1 && {
-          backgroundColor: '$bgSubdued',
-        })}
+        backgroundColor={bgColor}
+        onHoverIn={() => onHoverChange?.(index)}
+        onHoverOut={() => onHoverChange?.(null)}
+        minWidth={renderMode === 'full' ? cellMinWidth : undefined}
       >
-        {/* Time */}
-        <YStack
-          {...getColumnStyle(columnConfigs[0])}
-          justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[0].align)}
-          pl="$2"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {dateInfo.date}
-          </SizableText>
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-            color="$textSubdued"
-          >
-            {dateInfo.time}
-          </SizableText>
-        </YStack>
-        {/* Asset symbol */}
-        <XStack
-          {...getColumnStyle(columnConfigs[1])}
-          justifyContent={calcCellAlign(columnConfigs[1].align)}
-          alignItems="center"
-          cursor="pointer"
-          onPress={() => actions.current.changeActiveAsset({ coin: rawCoin })}
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySmMedium"
-          >
-            {assetSymbol}
-          </SizableText>
-        </XStack>
+        {shouldRenderLeft ? (
+          <>
+            {/* Time */}
+            <YStack
+              {...getColumnStyle(columnConfigs[0])}
+              justifyContent="center"
+              alignItems={calcCellAlign(columnConfigs[0].align)}
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {dateInfo.date}
+              </SizableText>
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+                color="$textSubdued"
+              >
+                {dateInfo.time}
+              </SizableText>
+            </YStack>
+            {/* Asset symbol */}
+            <XStack
+              {...getColumnStyle(columnConfigs[1])}
+              justifyContent={calcCellAlign(columnConfigs[1].align)}
+              alignItems="center"
+              onPress={() =>
+                actions.current.changeActiveAsset({ coin: rawCoin })
+              }
+              cursor="default"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySmMedium"
+              >
+                {assetSymbol}
+              </SizableText>
+            </XStack>
 
-        {/* Direction */}
-        <XStack
-          {...getColumnStyle(columnConfigs[2])}
-          justifyContent={calcCellAlign(columnConfigs[2].align)}
-          alignItems="center"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-            color={directionInfo.directionColor}
-          >
-            {directionInfo.directionStr}
-          </SizableText>
-        </XStack>
+            {/* Direction */}
+            <XStack
+              {...getColumnStyle(columnConfigs[2])}
+              justifyContent={calcCellAlign(columnConfigs[2].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+                color={directionInfo.directionColor}
+              >
+                {directionInfo.directionStr}
+              </SizableText>
+            </XStack>
 
-        {/* Price */}
-        <XStack
-          {...getColumnStyle(columnConfigs[3])}
-          justifyContent={calcCellAlign(columnConfigs[3].align)}
-          alignItems="center"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${tradeBaseInfo.priceFormatted}`}</SizableText>
-        </XStack>
+            {/* Price */}
+            <XStack
+              {...getColumnStyle(columnConfigs[3])}
+              justifyContent={calcCellAlign(columnConfigs[3].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {tradeBaseInfo.priceFormatted}
+              </SizableText>
+            </XStack>
 
-        {/* Position size */}
-        <XStack
-          {...getColumnStyle(columnConfigs[4])}
-          justifyContent={calcCellAlign(columnConfigs[4].align)}
-          alignItems="center"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
-        </XStack>
+            {/* Position size */}
+            <XStack
+              {...getColumnStyle(columnConfigs[4])}
+              justifyContent={calcCellAlign(columnConfigs[4].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >{`${tradeBaseInfo.size} ${assetSymbol}`}</SizableText>
+            </XStack>
 
-        {/* Trade value */}
-        <XStack
-          {...getColumnStyle(columnConfigs[5])}
-          justifyContent={calcCellAlign(columnConfigs[5].align)}
-          alignItems="center"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {`${tradeBaseInfo.tradeValueFormatted}`}
-          </SizableText>
-        </XStack>
+            {/* Trade value */}
+            <XStack
+              {...getColumnStyle(columnConfigs[5])}
+              justifyContent={calcCellAlign(columnConfigs[5].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {tradeBaseInfo.tradeValueFormatted}
+              </SizableText>
+            </XStack>
 
-        {/* Fee */}
-        <XStack
-          {...getColumnStyle(columnConfigs[6])}
-          justifyContent={calcCellAlign(columnConfigs[6].align)}
-          alignItems="center"
-        >
-          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {`${tradeBaseInfo.feeFormatted}`}
-          </SizableText>
-        </XStack>
+            {/* Fee */}
+            <XStack
+              {...getColumnStyle(columnConfigs[6])}
+              justifyContent={calcCellAlign(columnConfigs[6].align)}
+              alignItems="center"
+            >
+              <Tooltip
+                placement="top"
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {tradeBaseInfo.feeFormatted}
+                  </DashText>
+                }
+                renderContent={feeTooltipContent}
+              />
+            </XStack>
+          </>
+        ) : null}
 
         {/* Close PnL */}
-        <XStack
-          {...getColumnStyle(columnConfigs[7])}
-          justifyContent={calcCellAlign(columnConfigs[7].align)}
-          alignItems="center"
-          gap="$1"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-            color={closePnlInfo.closePnlColor}
+        {shouldRenderRight ? (
+          <XStack
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            alignItems="center"
+            gap="$1"
+            cursor="default"
           >
-            {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
-          </SizableText>
-          {canShare ? (
-            <IconButton
-              variant="tertiary"
-              size="small"
-              icon="ShareOutline"
-              iconSize="$4"
-              onPress={() => onShare?.(fill)}
-              cursor="pointer"
-              hoverStyle={null}
-              pressStyle={null}
-            />
-          ) : null}
-        </XStack>
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+              color={closePnlInfo.closePnlColor}
+            >
+              {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
+            </SizableText>
+            {canShare ? (
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="ShareOutline"
+                iconSize="$4"
+                onPress={() => onShare?.(fill)}
+                hoverStyle={null}
+                pressStyle={null}
+              />
+            ) : (
+              <XStack width={16} height={16} />
+            )}
+          </XStack>
+        ) : null}
       </XStack>
     );
   },

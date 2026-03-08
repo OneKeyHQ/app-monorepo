@@ -3,14 +3,7 @@ import { type ComponentProps } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  Badge,
-  Dialog,
-  Icon,
-  SizableText,
-  Toast,
-  XStack,
-} from '@onekeyhq/components';
+import { Badge, Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -87,9 +80,11 @@ export function PrimeUserBadge() {
 }
 
 export function PrimeUserInfo({
+  onBeforeLogout,
   onLogoutSuccess,
   ...stackProps
 }: {
+  onBeforeLogout?: () => void;
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
   const { user } = useOneKeyAuth();
@@ -121,7 +116,10 @@ export function PrimeUserInfo({
         {user?.displayEmail}
       </SizableText>
       <PrimeUserBadge />
-      <PrimeUserInfoMoreButton onLogoutSuccess={onLogoutSuccess} />
+      <PrimeUserInfoMoreButton
+        onBeforeLogout={onBeforeLogout}
+        onLogoutSuccess={onLogoutSuccess}
+      />
     </XStack>
   );
 }

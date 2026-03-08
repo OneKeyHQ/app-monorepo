@@ -24,6 +24,7 @@ import {
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBleFirmwareUpdateInfo,
@@ -253,6 +254,8 @@ export function FirmwareChangeFirmwareWarn({
 
   tips.push({
     content: intl.formatMessage({
+      // eslint-disable-next-line @cspell/spellchecker
+      // oxlint-disable-next-line @cspell/spellchecker
       id: ETranslations.device_wipe_data_bannner,
     }),
     type: 'danger',
@@ -311,6 +314,18 @@ export function FirmwareChangeLogView({
       step: EFirmwareUpdateSteps.showCheckList,
       payload: undefined,
     });
+    const updateFirmwareInfo = result?.updateInfos?.firmware;
+    if (
+      updateFirmwareInfo?.fromFirmwareType !== undefined &&
+      updateFirmwareInfo?.toFirmwareType !== undefined &&
+      updateFirmwareInfo.fromFirmwareType !== updateFirmwareInfo.toFirmwareType
+    ) {
+      defaultLogger.update.firmware.firmwareSwitchStart({
+        deviceType: result?.deviceType,
+        fromFirmwareType: updateFirmwareInfo.fromFirmwareType,
+        toFirmwareType: updateFirmwareInfo.toFirmwareType,
+      });
+    }
     showCheckList({ result });
     onConfirmClick?.();
   }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);

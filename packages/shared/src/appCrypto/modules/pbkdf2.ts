@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { pbkdf2 as pbkdf2ByNode, pbkdf2Sync as pbkdf2ByNodeSync } from 'crypto';
 
 import {
@@ -260,6 +259,7 @@ function pbkdf2SyncV2(params: IPbkdf2Params): Buffer {
     console.log('pbkdf2SyncV2: waiting for the promise to resolve');
   }
   if (error) {
+    // oxlint-disable-next-line no-throw-literal
     throw error;
   }
   if (!result) {

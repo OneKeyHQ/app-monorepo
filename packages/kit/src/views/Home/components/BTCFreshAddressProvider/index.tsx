@@ -7,7 +7,9 @@ import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import { FRESH_ADDRESS_LEARN_MORE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
@@ -30,17 +32,30 @@ export function BTCFreshAddressProvider() {
   const previousIndexedAccountId = usePrevious(indexedAccount?.id);
 
   useEffect(() => {
-    if (!indexedAccount?.id) {
-      return;
-    }
-    if (network?.id) {
-      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByIndexedAccountId(
+    if (!indexedAccount?.id || !network?.id) return;
+
+    let cancelled = false;
+
+    const run = async (_trigger: string) => {
+      await deferHeavyWorkUntilUIIdle();
+      if (cancelled) return;
+
+      await backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByIndexedAccountId(
         {
           indexedAccountId: indexedAccount.id,
           networkId: network.id,
         },
       );
-    }
+    };
+
+    const cleanup = runAfterTokensDone({
+      onRun: run,
+    });
+
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
   }, [indexedAccount?.id, previousIndexedAccountId, network?.id]);
 
   useEffect(() => {

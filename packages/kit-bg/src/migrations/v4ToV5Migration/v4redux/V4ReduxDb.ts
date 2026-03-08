@@ -47,7 +47,7 @@ export class V4ReduxDb {
           return;
         }
         resolve(undefined);
-      } catch (error) {
+      } catch (_error) {
         resolve(undefined);
       } finally {
         resolve(undefined);
@@ -64,7 +64,7 @@ export class V4ReduxDb {
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return JSON.parse(value);
-      } catch (error) {
+      } catch (_error) {
         //
       }
     }

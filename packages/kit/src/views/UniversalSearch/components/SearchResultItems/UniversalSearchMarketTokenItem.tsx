@@ -7,6 +7,7 @@ import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
+import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
@@ -69,7 +70,7 @@ export function UniversalSearchMarketTokenItem({
       jc="space-between"
       onPress={handlePress}
       renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
-      title={symbol.toUpperCase()}
+      title={formatTokenSymbolForDisplay(symbol)}
       subtitle={name}
       subtitleProps={{
         numberOfLines: 1,

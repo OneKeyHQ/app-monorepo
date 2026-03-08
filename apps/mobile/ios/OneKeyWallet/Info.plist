@@ -33,6 +33,14 @@
 				<string>ethereum</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.94391474021-kbgarvu23k3mblp1m2tiknemae99p826</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
@@ -53,6 +61,8 @@
 		<string>bitkeep</string>
 		<string>oneinch</string>
 		<string>itms-apps</string>
+		<string>bnc</string>
+		<string>okx</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
@@ -81,6 +91,8 @@
 	<string>Use Camera to scan QR Code.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use biometrics to authenticate and unlock your wallet.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Use photo library to save images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Use photo library to read QR images.</string>
 	<key>RCTNewArchEnabled</key>

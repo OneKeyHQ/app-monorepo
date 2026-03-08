@@ -1,9 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../../hooks';
 import {
   clearStackNavigatorOptions,
   makeFullScreenOptions,
@@ -20,6 +19,7 @@ type IRootStackType =
   | 'modal'
   | 'fullScreen'
   | 'iOSFullScreen'
+  | 'fullScreenPush'
   | 'onboarding';
 
 export interface IRootStackNavigatorConfig<
@@ -59,7 +59,8 @@ export function RootStackNavigator<
     [config],
   );
 
-  const bgColor = useThemeValue('bg');
+  const theme = useTheme();
+  const bgColor = theme.bg.val;
   const isVerticalLayout = useMedia().md;
   const presetScreenOptions = clearStackNavigatorOptions({
     bgColor,
@@ -79,6 +80,7 @@ export function RootStackNavigator<
           return platformEnv.isNative
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'fullScreenPush':
         case 'onboarding':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
         default:
@@ -98,7 +100,9 @@ export function RootStackNavigator<
             name={name}
             component={component}
             options={(optionsInfo) => ({
-              ...options,
+              ...(typeof options === 'function'
+                ? options(optionsInfo as any)
+                : options),
               ...getOptionsWithType(type, optionsInfo),
             })}
           />

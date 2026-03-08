@@ -17,7 +17,7 @@ export function CopyLinkButton({
   const { copyUrl } = useClipboard();
 
   const handleCopy = useCallback(() => {
-    void copyUrl(url);
+    copyUrl(url);
   }, [url, copyUrl]);
 
   return (

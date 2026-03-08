@@ -171,6 +171,7 @@ class ServiceAccountProfile extends ServiceBase {
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
     badges: IAddressBadge[];
+    similarAddress?: string;
   }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -204,6 +205,7 @@ class ServiceAccountProfile extends ServiceBase {
         isScam,
         isCex,
         badges,
+        similarAddress,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -221,6 +223,7 @@ class ServiceAccountProfile extends ServiceBase {
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
         badges: badges ?? [],
+        similarAddress,
       };
     } catch {
       return {
@@ -266,13 +269,20 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
 
-    const { isContract, interacted, addressLabel, isScam, isCex, badges } =
-      await this.getAddressAccountBadge({
-        networkId,
-        fromAddress,
-        toAddress,
-        checkInteraction,
-      });
+    const {
+      isContract,
+      interacted,
+      addressLabel,
+      isScam,
+      isCex,
+      badges,
+      similarAddress,
+    } = await this.getAddressAccountBadge({
+      networkId,
+      fromAddress,
+      toAddress,
+      checkInteraction,
+    });
     if (
       checkInteractionStatus &&
       toAddress.toLowerCase() !== fromAddress &&
@@ -287,6 +297,7 @@ class ServiceAccountProfile extends ServiceBase {
     result.isScam = isScam;
     result.isCex = isCex;
     result.addressBadges = badges;
+    result.similarAddress = similarAddress;
   }
 
   private async verifyCannotSendToSelf({
@@ -328,6 +339,8 @@ class ServiceAccountProfile extends ServiceBase {
     skipValidateAddress,
     enableAddressDeriveInfo,
     walletAccountItem,
+    ignoreSimilarAddressInAddressBook,
+    enableCheckSimilarAddressInAddressBook,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -347,7 +360,7 @@ class ServiceAccountProfile extends ServiceBase {
         address = displayAddress;
         result.validAddress = address;
       }
-    } catch (e) {
+    } catch (_e) {
       // noop
     }
 
@@ -386,27 +399,24 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (enableAddressBook && resolveAddress) {
       try {
-        const password =
-          await this.backgroundApi.servicePassword.getCachedPassword();
-        if (password) {
-          // handleAddressBookName
-          const addressBookItem =
-            await this.backgroundApi.serviceAddressBook.findItem({
+        // handleAddressBookName
+        const addressBookItem =
+          await this.backgroundApi.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
+            {
               networkId: !networkUtils.isEvmNetwork({ networkId })
                 ? networkId
                 : undefined,
               address: resolveAddress,
-              password,
-            });
-          result.addressBookId = addressBookItem?.id;
-          result.isAllowListed = addressBookItem?.isAllowListed;
-          result.addressNote = addressBookItem?.note;
-          result.addressMemo = addressBookItem?.memo;
-          if (addressBookItem?.name) {
-            result.addressBookName = `${appLocale.intl.formatMessage({
-              id: ETranslations.global_contact,
-            })} / ${addressBookItem?.name}`;
-          }
+            },
+          );
+        result.addressBookId = addressBookItem?.id;
+        result.isAllowListed = addressBookItem?.isAllowListed;
+        result.addressNote = addressBookItem?.note;
+        result.addressMemo = addressBookItem?.memo;
+        if (addressBookItem?.name) {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.global_contact,
+          })} / ${addressBookItem?.name}`;
         }
       } catch (e) {
         console.error(e);
@@ -478,15 +488,9 @@ class ServiceAccountProfile extends ServiceBase {
               accountUtils.isWatchingAccount({ accountId: item.accountId }) ||
               accountUtils.isOthersAccount({ accountId: item.accountId })
             ) {
-              const ownAccountItem = walletAccountItems.find((a) => {
-                const accountParams = { accountId: a.accountId };
-                return (
-                  accountUtils.isHdAccount(accountParams) ||
-                  accountUtils.isHwAccount(accountParams) ||
-                  accountUtils.isQrAccount(accountParams) ||
-                  accountUtils.isImportedAccount(accountParams)
-                );
-              });
+              const ownAccountItem = walletAccountItems.find((a) =>
+                accountUtils.isOwnAccount({ accountId: a.accountId }),
+              );
               if (ownAccountItem) {
                 item = ownAccountItem;
               }
@@ -533,19 +537,41 @@ class ServiceAccountProfile extends ServiceBase {
         ),
         result,
       });
+
+      if (result.similarAddress && ignoreSimilarAddressInAddressBook) {
+        if (result.addressBookId) {
+          result.similarAddress = undefined;
+        }
+      }
+    }
+
+    if (
+      !result.similarAddress &&
+      !result.addressBookId &&
+      !result.walletAccountId &&
+      enableCheckSimilarAddressInAddressBook
+    ) {
+      const addressBookItems =
+        await this.backgroundApi.serviceAddressBook.dangerouslyGetItemsWithoutSafeCheck(
+          {
+            networkId: !networkUtils.isEvmNetwork({ networkId })
+              ? networkId
+              : undefined,
+          },
+        );
+      for (const item of addressBookItems) {
+        if (accountUtils.isSimilarAddress(item.address, resolveAddress)) {
+          result.similarAddress = item.address;
+          break;
+        }
+      }
     }
 
     // Check if address is in allowlist
     if (enableAllowListValidation) {
       // Skip allowlist check if it's user's own account
       if (result.walletAccountId) {
-        const accountParams = { accountId: result.walletAccountId };
-        const isOwnAccount =
-          accountUtils.isHdAccount(accountParams) ||
-          accountUtils.isHwAccount(accountParams) ||
-          accountUtils.isQrAccount(accountParams) ||
-          accountUtils.isImportedAccount(accountParams);
-        if (isOwnAccount) {
+        if (accountUtils.isOwnAccount({ accountId: result.walletAccountId })) {
           return result;
         }
       }
@@ -689,12 +715,15 @@ class ServiceAccountProfile extends ServiceBase {
       if (!currencyInfo) {
         throw new OneKeyLocalError('Currency not found');
       }
-      usdValue = Object.entries(value).reduce((acc, [n, v]) => {
-        acc[n] = new BigNumber(v)
-          .div(new BigNumber(currencyInfo.value))
-          .toFixed();
-        return acc;
-      }, {} as Record<string, string>);
+      usdValue = Object.entries(value).reduce(
+        (acc, [n, v]) => {
+          acc[n] = new BigNumber(v)
+            .div(new BigNumber(currencyInfo.value))
+            .toFixed();
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
     }
 
     const usdAccountValue = {
@@ -848,6 +877,9 @@ class ServiceAccountProfile extends ServiceBase {
     accountId?: string;
   }) {
     if (walletId) {
+      if (accountUtils.isKeylessWallet({ walletId })) {
+        return ERequestWalletTypeEnum.KEYLESS_WALLET;
+      }
       if (accountUtils.isHdWallet({ walletId })) {
         return ERequestWalletTypeEnum.HD;
       }
@@ -869,6 +901,9 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     if (accountId) {
+      if (accountUtils.isKeylessAccount({ accountId })) {
+        return ERequestWalletTypeEnum.KEYLESS_WALLET;
+      }
       if (accountUtils.isHdAccount({ accountId })) {
         return ERequestWalletTypeEnum.HD;
       }

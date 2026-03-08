@@ -52,10 +52,10 @@ export function decodePayload(payload?: string | Uint8Array): {
   if (typeof payload === 'string') {
     try {
       bytes = Buffer.from(payload, 'base64');
-    } catch (e) {
+    } catch (_e) {
       try {
         bytes = Buffer.from(payload, 'hex');
-      } catch (ee) {
+      } catch (_ee) {
         // ignore
       }
     }
@@ -126,7 +126,7 @@ export function decodePayload(payload?: string | Uint8Array): {
         ).toString();
         return { type, comment };
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   }

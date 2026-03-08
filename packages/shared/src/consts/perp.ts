@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { presetNetworksMap } from '../config/presetNetworks';
@@ -7,8 +6,10 @@ import timerUtils from '../utils/timerUtils';
 
 export const HYPER_LIQUID_ORIGIN = 'https://app.hyperliquid.xyz';
 export const HYPER_LIQUID_WEBVIEW_TRADE_URL = `${HYPER_LIQUID_ORIGIN}/trade?isOneKeyBuiltInPerpView=true`;
+
+export const PERPS_ROUTE_PATH = '/perps';
 export const HYPERLIQUID_AGENT_CREDENTIAL_PREFIX = 'hyperliquid-agent';
-export const HYPERLIQUID_REFERRAL_CODE = '1KGO';
+export const HYPERLIQUID_REFERRAL_CODE = '1KREF';
 export const HYPERLIQUID_AGENT_TTL_DEFAULT = timerUtils.getTimeDurationMs({
   month: 1,
 });
@@ -81,3 +82,7 @@ export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
 
 // Disable wallet binding on perps page
 export const DISABLE_PERPS_WALLET_BIND = false;
+
+// Perps config fetch retry
+export const PERPS_CONFIG_FETCH_MAX_RETRIES = 3;
+export const PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS = 3000;

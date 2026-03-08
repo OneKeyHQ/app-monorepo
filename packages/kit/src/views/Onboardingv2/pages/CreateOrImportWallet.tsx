@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
@@ -10,7 +9,6 @@ import {
   AnimatePresence,
   Badge,
   Button,
-  Dialog,
   HeightTransition,
   Icon,
   Image,
@@ -24,24 +22,22 @@ import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
   EOnboardingPagesV2,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
-import { useOneKeyAuth } from '../../../components/OneKeyAuth/useOneKeyAuth';
+import {
+  useKeylessWallet,
+  useKeylessWalletFeatureIsEnabled,
+} from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
-import { showOneKeyIDLoginDialog } from '../../Prime/components/OneKeyIDLoginDialog';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { AnimatedDeviceAvatar } from './GetStarted';
@@ -62,7 +58,7 @@ function CardTitle({
 }: { children: React.ReactNode } & ISizableTextProps) {
   return (
     <SizableText
-      size="$bodyMdMedium"
+      size="$bodyLgMedium"
       $platform-native={{
         size: '$bodyLgMedium',
       }}
@@ -148,12 +144,17 @@ function CreateOrImportWallet() {
   const { fullOptions } = route.params ?? {};
   const [expanded, setExpanded] = useState(false);
   const [keylessExpanded, setKeylessExpanded] = useState(false);
-  const { enableKeylessWallet, enableKeylessWalletLoading } =
-    useKeylessWallet();
+  const [hardwareExpanded, setHardwareExpanded] = useState(false);
+  const [existingExpanded, setExistingExpanded] = useState(false);
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+  const {
+    enableKeylessWallet,
+    enableKeylessWalletLoading,
+    checkKeylessWalletLocalExistence,
+  } = useKeylessWallet();
 
   const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
   const navigation = useAppNavigation();
-  const { isLoggedIn } = useOneKeyAuth();
 
   const handleExpand = useCallback(() => {
     setExpanded((prev) => !prev);
@@ -161,6 +162,14 @@ function CreateOrImportWallet() {
 
   const handleKeylessExpand = useCallback(() => {
     setKeylessExpanded((prev) => !prev);
+  }, []);
+
+  const handleHardwareExpand = useCallback(() => {
+    setHardwareExpanded((prev) => !prev);
+  }, []);
+
+  const handleExistingExpand = useCallback(() => {
+    setExistingExpanded((prev) => !prev);
   }, []);
 
   const handleCreateNewWallet = useCallback(async () => {
@@ -198,10 +207,22 @@ function CreateOrImportWallet() {
   };
 
   const handleKeylessWalletClick = useCallback(async () => {
+    defaultLogger.account.wallet.onboard({
+      onboardMethod: 'createKeylessWallet',
+    });
+    // await enableKeylessWallet({
+    //   fromScene: EKeylessWalletEnableScene.Onboarding,
+    // });
+    // navigation.push(EOnboardingPagesV2.OneKeyIDLogin);
+    await checkKeylessWalletLocalExistence();
+  }, [checkKeylessWalletLocalExistence]);
+
+  const _handleKeylessWalletLegacyClick = useCallback(async () => {
     await enableKeylessWallet({
       fromScene: EKeylessWalletEnableScene.Onboarding,
     });
   }, [enableKeylessWallet]);
+
   return (
     <Page>
       <OnboardingLayout>
@@ -233,146 +254,289 @@ function CreateOrImportWallet() {
                     >
                       <AnimatedDeviceAvatar deviceSize={28} />
                     </XStack>
-                    <Card.Title flex={1}>
-                      {intl.formatMessage({
-                        id: ETranslations.global_connect_hardware_wallet,
-                      })}
-                    </Card.Title>
+                    <YStack gap="$0.5" flex={1} alignItems="flex-start">
+                      <Card.Title>
+                        {intl.formatMessage({
+                          id: ETranslations.global_connect_hardware_wallet,
+                        })}
+                      </Card.Title>
+                      <Button
+                        px="$1"
+                        py="$0.5"
+                        mx="$-1"
+                        my="$-0.5"
+                        borderWidth={0}
+                        size="small"
+                        variant="tertiary"
+                        onPress={handleHardwareExpand}
+                        hitSlop={10}
+                        childrenAsText={false}
+                      >
+                        <XStack alignItems="center">
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.global_learn_more,
+                            })}
+                          </SizableText>
+                          <YStack
+                            animation="quick"
+                            animateOnly={['transform']}
+                            rotate={hardwareExpanded ? '0' : '90deg'}
+                          >
+                            <Icon
+                              name="ChevronRightSmallOutline"
+                              size="$4"
+                              color="$iconDisabled"
+                            />
+                          </YStack>
+                        </XStack>
+                      </Button>
+                    </YStack>
                     <Icon
                       name="ChevronRightSmallOutline"
                       color="$iconSubdued"
                     />
                   </Card.Header>
+                  <HeightTransition initialHeight={0}>
+                    <AnimatePresence>
+                      {hardwareExpanded ? (
+                        <YStack
+                          animation="quick"
+                          animateOnly={['opacity']}
+                          enterStyle={{ opacity: 0 }}
+                          exitStyle={{ opacity: 0 }}
+                        >
+                          <Card.Body>
+                            <XStack gap="$2" flexWrap="wrap">
+                              {[
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.highest_security,
+                                  }),
+                                  badge: 'success' as const,
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.for_large_assets,
+                                  }),
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.private_key_staty_on_device,
+                                  }),
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.ideal_for_long_term_storage,
+                                  }),
+                                },
+                                {
+                                  title: intl.formatMessage({
+                                    id: ETranslations.protects_against_malware,
+                                  }),
+                                },
+                              ].map((item, index) => (
+                                <Badge
+                                  key={index}
+                                  {...(item.badge && { badgeType: item.badge })}
+                                >
+                                  <Badge.Text size="$bodySm">
+                                    {item.title}
+                                  </Badge.Text>
+                                </Badge>
+                              ))}
+                              <Badge>
+                                <Badge.Text size="$bodySm">
+                                  {intl.formatMessage({
+                                    id: ETranslations.global_supports,
+                                  })}
+                                </Badge.Text>
+                                <XStack gap="$1" ml="$1">
+                                  <Icon name="OnekeyLogoIllus" size="$3" />
+                                </XStack>
+                              </Badge>
+                            </XStack>
+                          </Card.Body>
+                        </YStack>
+                      ) : null}
+                    </AnimatePresence>
+                  </HeightTransition>
                 </Card>
               </>
             ) : null}
             {/* keyless wallet */}
-            <Card onPress={handleKeylessWalletClick}>
-              <Card.Header>
-                <YStack
-                  w={38}
-                  h={38}
-                  alignItems="center"
-                  justifyContent="center"
-                  borderRadius="$2"
-                  borderCurve="continuous"
-                  borderWidth={StyleSheet.hairlineWidth}
-                  borderColor="$neutral5"
-                  bg="$info9"
-                >
-                  <Icon name="CloudOutline" color="$iconOnColor" />
-                </YStack>
-                <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                  <Card.Title>Keyless wallet</Card.Title>
-                  <Button
-                    px="$1"
-                    py="$0.5"
-                    mx="$-1"
-                    my="$-0.5"
-                    borderWidth={0}
-                    size="small"
-                    variant="tertiary"
-                    onPress={handleKeylessExpand}
-                    hitSlop={10}
-                    childrenAsText={false}
+            {/* {isKeylessWalletEnabled && platformEnv.isDev ? (
+              <Button onPress={handleKeylessWalletLegacyClick}>
+                Keyless wallet legacy
+              </Button>
+            ) : null} */}
+            {isKeylessWalletEnabled ? (
+              <Card onPress={handleKeylessWalletClick}>
+                <Card.Header>
+                  <YStack
+                    w={38}
+                    h={38}
+                    alignItems="center"
+                    justifyContent="center"
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                    borderWidth={StyleSheet.hairlineWidth}
+                    borderColor="$neutral5"
+                    bg="$info9"
                   >
-                    <XStack alignItems="center">
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.global_learn_more,
-                        })}
-                      </SizableText>
-                      <YStack
-                        animation="quick"
-                        animateOnly={['transform']}
-                        rotate={keylessExpanded ? '0' : '90deg'}
-                      >
-                        <Icon
-                          name="ChevronRightSmallOutline"
-                          size="$4"
-                          color="$iconDisabled"
-                        />
-                      </YStack>
-                    </XStack>
-                  </Button>
-                </YStack>
-                {/* {isKeylessEnabled ? (
+                    <Icon name="CloudOutline" color="$iconOnColor" />
+                  </YStack>
+                  <YStack gap="$0.5" flex={1} alignItems="flex-start">
+                    <Card.Title>
+                      {intl.formatMessage({
+                        id: ETranslations.create_keyless_wallet,
+                      })}
+                    </Card.Title>
+                    <Button
+                      px="$1"
+                      py="$0.5"
+                      mx="$-1"
+                      my="$-0.5"
+                      borderWidth={0}
+                      size="small"
+                      variant="tertiary"
+                      onPress={handleKeylessExpand}
+                      hitSlop={10}
+                      childrenAsText={false}
+                    >
+                      <XStack alignItems="center">
+                        <SizableText size="$bodySm" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.global_learn_more,
+                          })}
+                        </SizableText>
+                        <YStack
+                          animation="quick"
+                          animateOnly={['transform']}
+                          rotate={keylessExpanded ? '0' : '90deg'}
+                        >
+                          <Icon
+                            name="ChevronRightSmallOutline"
+                            size="$4"
+                            color="$iconDisabled"
+                          />
+                        </YStack>
+                      </XStack>
+                    </Button>
+                  </YStack>
+                  {/* {isKeylessEnabled ? (
                   <SizableText x="$2" color="$textSubdued">
                     {intl.formatMessage({ id: ETranslations.global_enabled })}
                   </SizableText>
                 ) : null} */}
-                {enableKeylessWalletLoading ? (
-                  <Spinner size="small" color="$iconDisabled" />
-                ) : (
-                  <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
-                )}
-              </Card.Header>
-              <Card.Body>
-                <XStack gap="$2" flexWrap="wrap">
-                  {[
-                    {
-                      title: 'Recovery phrase free',
-                      badge: 'success' as const,
-                    },
-                    { title: 'Beginner-friendly' },
-                    { title: 'Supports hundreds of networks' },
-                    {
-                      title: 'Open-source secure sharding',
-                    },
-                    { title: 'Ultra-fast setup' },
-                  ].map((item, index) => (
-                    <Badge
-                      key={index}
-                      {...(item.badge && { badgeType: item.badge })}
-                    >
-                      <Badge.Text size="$bodySm">{item.title}</Badge.Text>
-                    </Badge>
-                  ))}
-                  <Badge>
-                    <Badge.Text size="$bodySm">
-                      {intl.formatMessage({
-                        id: ETranslations.global_supports,
-                      })}
-                    </Badge.Text>
-                    <XStack gap="$1" ml="$1">
-                      <Icon name="GoogleIllus" size="$3" />
-                      <Icon
-                        name="AppleBrand"
-                        color="$iconActive"
-                        size="$3"
-                        y={-1}
-                      />
-                      <Icon name="EmailOutline" color="$iconActive" size="$3" />
-                    </XStack>
-                  </Badge>
-                </XStack>
+                  <AnimatePresence exitBeforeEnter initial={false}>
+                    {enableKeylessWalletLoading ? (
+                      <YStack
+                        key="loading"
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{ scale: 0.7, opacity: 0 }}
+                        exitStyle={{ scale: 0.7, opacity: 0 }}
+                        pr="$0.5"
+                      >
+                        <Spinner size="small" color="$iconDisabled" />
+                      </YStack>
+                    ) : (
+                      <YStack
+                        key="icon"
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{ scale: 0.7, opacity: 0 }}
+                        exitStyle={{ scale: 0.7, opacity: 0 }}
+                      >
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          color="$iconSubdued"
+                        />
+                      </YStack>
+                    )}
+                  </AnimatePresence>
+                </Card.Header>
                 <HeightTransition initialHeight={0}>
                   <AnimatePresence>
                     {keylessExpanded ? (
                       <YStack
-                        pt="$5"
                         animation="quick"
                         animateOnly={['opacity']}
-                        enterStyle={{
-                          opacity: 0,
-                        }}
-                        exitStyle={{
-                          opacity: 0,
-                        }}
+                        enterStyle={{ opacity: 0 }}
+                        exitStyle={{ opacity: 0 }}
                       >
-                        <SizableText size="$bodySm" color="$textSubdued">
-                          Cloud wallet, powered by Shamir encrypted backup,
-                          splits your seed phrase into 3 parts. Any 2 parts can
-                          restore your wallet, and you always retain full
-                          control of your assets. Even if one part is lost, your
-                          wallet remains safe and recoverable.
-                        </SizableText>
+                        <Card.Body>
+                          <XStack gap="$2" flexWrap="wrap">
+                            {[
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.recovery_phrase_free,
+                                }),
+                                badge: 'success' as const,
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.beginner_friendly,
+                                }),
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.create_new_wallet_badge_supports,
+                                }),
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.open_source_secure_sharding,
+                                }),
+                              },
+                              {
+                                title: intl.formatMessage({
+                                  id: ETranslations.ultra_fast_setup,
+                                }),
+                              },
+                            ].map((item, index) => (
+                              <Badge
+                                key={index}
+                                {...(item.badge && { badgeType: item.badge })}
+                              >
+                                <Badge.Text size="$bodySm">
+                                  {item.title}
+                                </Badge.Text>
+                              </Badge>
+                            ))}
+                            <Badge>
+                              <Badge.Text size="$bodySm">
+                                {intl.formatMessage({
+                                  id: ETranslations.global_supports,
+                                })}
+                              </Badge.Text>
+                              <XStack gap="$1" ml="$1">
+                                <Icon name="GoogleIllus" size="$3" />
+                                <Icon
+                                  name="AppleBrand"
+                                  color="$iconActive"
+                                  size="$3"
+                                  y={-1}
+                                />
+                              </XStack>
+                            </Badge>
+                          </XStack>
+                          <YStack pt="$5">
+                            <SizableText size="$bodySm" color="$textSubdued">
+                              {intl.formatMessage({
+                                id: ETranslations.keyless_wallet_desc,
+                              })}
+                            </SizableText>
+                          </YStack>
+                        </Card.Body>
                       </YStack>
                     ) : null}
                   </AnimatePresence>
                 </HeightTransition>
-              </Card.Body>
-            </Card>
+              </Card>
+            ) : null}
+
             {/* create new wallet */}
             <Card onPress={handleCreateNewWallet}>
               <Card.Header>
@@ -390,7 +554,15 @@ function CreateOrImportWallet() {
                   <Icon name="PlusLargeOutline" color="$iconOnColor" />
                 </YStack>
                 <YStack gap="$0.5" flex={1} alignItems="flex-start">
-                  <Card.Title>Seed phrase wallet</Card.Title>
+                  <Card.Title>
+                    {isKeylessWalletEnabled
+                      ? intl.formatMessage({
+                          id: ETranslations.create_seed_phrase_wallet,
+                        })
+                      : intl.formatMessage({
+                          id: ETranslations.onboarding_create_new_wallet,
+                        })}
+                  </Card.Title>
                   <Button
                     px="$1"
                     py="$0.5"
@@ -425,53 +597,58 @@ function CreateOrImportWallet() {
                 </YStack>
                 <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
               </Card.Header>
-              <Card.Body>
-                <XStack gap="$2" flexWrap="wrap">
-                  {[
-                    {
-                      id: ETranslations.create_new_wallet_badge_most_used,
-                      badge: 'success' as const,
-                    },
-                    { id: ETranslations.create_new_wallet_badge_consists },
-                    { id: ETranslations.create_new_wallet_badge_metaphor },
-                    { id: ETranslations.create_new_wallet_badge_keep },
-                    { id: ETranslations.create_new_wallet_badge_handwritten },
-                    { id: ETranslations.create_new_wallet_badge_supports },
-                  ].map((item, index) => (
-                    <Badge
-                      key={index}
-                      {...(item.badge && { badgeType: item.badge })}
+              <HeightTransition initialHeight={0}>
+                <AnimatePresence>
+                  {expanded ? (
+                    <YStack
+                      animation="quick"
+                      animateOnly={['opacity']}
+                      enterStyle={{ opacity: 0 }}
+                      exitStyle={{ opacity: 0 }}
                     >
-                      <Badge.Text size="$bodySm">
-                        {intl.formatMessage({ id: item.id })}
-                      </Badge.Text>
-                    </Badge>
-                  ))}
-                </XStack>
-                <HeightTransition initialHeight={0}>
-                  <AnimatePresence>
-                    {expanded ? (
-                      <YStack
-                        pt="$5"
-                        animation="quick"
-                        animateOnly={['opacity']}
-                        enterStyle={{
-                          opacity: 0,
-                        }}
-                        exitStyle={{
-                          opacity: 0,
-                        }}
-                      >
-                        <SizableText size="$bodySm" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.create_new_wallet_learn_more,
-                          })}
-                        </SizableText>
-                      </YStack>
-                    ) : null}
-                  </AnimatePresence>
-                </HeightTransition>
-              </Card.Body>
+                      <Card.Body>
+                        <XStack gap="$2" flexWrap="wrap">
+                          {[
+                            {
+                              id: ETranslations.create_new_wallet_badge_most_used,
+                              badge: 'success' as const,
+                            },
+                            {
+                              id: ETranslations.create_new_wallet_badge_consists,
+                            },
+                            {
+                              id: ETranslations.create_new_wallet_badge_metaphor,
+                            },
+                            { id: ETranslations.create_new_wallet_badge_keep },
+                            {
+                              id: ETranslations.create_new_wallet_badge_handwritten,
+                            },
+                            {
+                              id: ETranslations.create_new_wallet_badge_supports,
+                            },
+                          ].map((item, index) => (
+                            <Badge
+                              key={index}
+                              {...(item.badge && { badgeType: item.badge })}
+                            >
+                              <Badge.Text size="$bodySm">
+                                {intl.formatMessage({ id: item.id })}
+                              </Badge.Text>
+                            </Badge>
+                          ))}
+                        </XStack>
+                        <YStack pt="$5">
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.create_new_wallet_learn_more,
+                            })}
+                          </SizableText>
+                        </YStack>
+                      </Card.Body>
+                    </YStack>
+                  ) : null}
+                </AnimatePresence>
+              </HeightTransition>
             </Card>
             {/* add existing wallet */}
             <Card onPress={handleAddExistingWallet}>
@@ -495,46 +672,95 @@ function CreateOrImportWallet() {
                       id: ETranslations.add_existing_wallet_title,
                     })}
                   </Card.Title>
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.add_existing_wallet_desc,
-                    })}
-                  </SizableText>
+                  <Button
+                    px="$1"
+                    py="$0.5"
+                    mx="$-1"
+                    my="$-0.5"
+                    borderWidth={0}
+                    size="small"
+                    variant="tertiary"
+                    onPress={handleExistingExpand}
+                    hitSlop={10}
+                    childrenAsText={false}
+                  >
+                    <XStack alignItems="center">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.global_learn_more,
+                        })}
+                      </SizableText>
+                      <YStack
+                        animation="quick"
+                        animateOnly={['transform']}
+                        rotate={existingExpanded ? '0' : '90deg'}
+                      >
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          size="$4"
+                          color="$iconDisabled"
+                        />
+                      </YStack>
+                    </XStack>
+                  </Button>
                 </YStack>
                 <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
               </Card.Header>
-              <Card.Body>
-                <XStack gap="$2" flexWrap="wrap">
-                  {[
-                    ETranslations.add_existing_wallet_badge_phrases_length,
-                    ETranslations.create_new_wallet_badge_supports,
-                  ].map((id, index) => (
-                    <Badge key={index}>
-                      <Badge.Text size="$bodySm">
-                        {intl.formatMessage({ id })}
-                      </Badge.Text>
-                    </Badge>
-                  ))}
-                  <Badge>
-                    <Badge.Text size="$bodySm">
-                      {intl.formatMessage({
-                        id: ETranslations.global_supports,
-                      })}
-                    </Badge.Text>
-                    <XStack gap="$1" ml="$1">
-                      {walletKeys.map((key) => (
-                        <Image
-                          key={key}
-                          source={externalWalletLogoUtils.getLogoInfo(key).logo}
-                          width={12}
-                          height={12}
-                          borderRadius={3}
-                        />
-                      ))}
-                    </XStack>
-                  </Badge>
-                </XStack>
-              </Card.Body>
+              <HeightTransition initialHeight={0}>
+                <AnimatePresence>
+                  {existingExpanded ? (
+                    <YStack
+                      animation="quick"
+                      animateOnly={['opacity']}
+                      enterStyle={{ opacity: 0 }}
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <Card.Body>
+                        <XStack gap="$2" flexWrap="wrap">
+                          {[
+                            ETranslations.add_existing_wallet_badge_phrases_length,
+                            ETranslations.create_new_wallet_badge_supports,
+                          ].map((id, index) => (
+                            <Badge key={index}>
+                              <Badge.Text size="$bodySm">
+                                {intl.formatMessage({ id })}
+                              </Badge.Text>
+                            </Badge>
+                          ))}
+                          <Badge>
+                            <Badge.Text size="$bodySm">
+                              {intl.formatMessage({
+                                id: ETranslations.global_supports,
+                              })}
+                            </Badge.Text>
+                            <XStack gap="$1" ml="$1">
+                              {walletKeys.map((key) => (
+                                <Image
+                                  key={key}
+                                  source={
+                                    externalWalletLogoUtils.getLogoInfo(key)
+                                      .logo
+                                  }
+                                  width={12}
+                                  height={12}
+                                  borderRadius={3}
+                                />
+                              ))}
+                            </XStack>
+                          </Badge>
+                        </XStack>
+                        <YStack pt="$5">
+                          <SizableText size="$bodySm" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.add_existing_wallet_desc,
+                            })}
+                          </SizableText>
+                        </YStack>
+                      </Card.Body>
+                    </YStack>
+                  ) : null}
+                </AnimatePresence>
+              </HeightTransition>
             </Card>
             <Card onPress={handleConnectExternalWallet}>
               <Card.Header>

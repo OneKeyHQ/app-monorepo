@@ -3,7 +3,6 @@
 import path from 'path';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
 import { ipcRenderer, nativeImage } from 'electron';
 
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
@@ -17,6 +16,7 @@ import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
   downloadUrl?: string;
+  skipGPGVerification?: boolean;
 }
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
@@ -40,7 +40,6 @@ type IDesktopAPILegacy = {
   ready: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   isFocused: () => boolean;
-  changeTheme: (theme: string) => void;
 
   addIpcEventListener: (
     event: string,
@@ -79,6 +78,15 @@ type IDesktopAPILegacy = {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: NobleBleAPI;
+  getCpuUsage: () => Promise<{ usage: number }>;
+  getMemoryUsage: () => Promise<{
+    private: number;
+    residentSet: number | undefined;
+    blink: {
+      allocated: string;
+      total: string;
+    };
+  }>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -116,7 +124,7 @@ ipcRenderer.on(ipcMessageKeys.OPEN_DEEP_LINK_URL, (event, data) => {
     globalThis.ONEKEY_DESKTOP_DEEP_LINKS.slice(-5);
 });
 
-const validChannels = [
+const validChannels = new Set([
   ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
@@ -128,23 +136,28 @@ const validChannels = [
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
-];
+  'memory-pressure-warning',
+  'memory-pressure-critical',
+  'gpu-process-crashed',
+]);
 
 const getChannel = () => {
   let channel;
   try {
-    if (process.platform === 'linux' && process.env.APPIMAGE) {
-      channel = 'appImage';
-    } else if (process.platform === 'linux' && process.env.SNAP) {
-      channel = 'snap';
+    if (process.platform === 'linux') {
+      if (process.env.APPIMAGE) {
+        channel = 'appImage';
+      } else if (process.env.SNAP) {
+        channel = 'snap';
+      } else if (process.env.FLATPAK) {
+        channel = 'flatpak';
+      }
     }
   } catch (e) {
     // ignore
   }
   return channel;
 };
-
-let globalTitleBar: Titlebar | null = null;
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
 // packages/components/tamagui.config.ts
@@ -156,30 +169,9 @@ const darkColor = '#0f0f0f';
 
 const isMac = process.platform === 'darwin';
 
-const updateGlobalTitleBarBackgroundColor = () => {
-  if (globalTitleBar) {
-    setTimeout(() => {
-      let color = lightColor;
-      const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
-      if (theme === 'dark') {
-        color = darkColor;
-      } else if (theme === 'light') {
-        color = lightColor;
-      } else if (globalThis.matchMedia) {
-        color = globalThis.matchMedia('(prefers-color-scheme: dark)').matches
-          ? darkColor
-          : lightColor;
-      } else {
-        color = lightColor;
-      }
-      globalTitleBar?.updateBackground(TitlebarColor.fromHex(color));
-    }, 0);
-  }
-};
-
 const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
-    if (validChannels.includes(channel)) {
+    if (validChannels.has(channel)) {
       const callback = (_: any, ...args: any[]) => func(...args);
       ipcRenderer.on(channel, callback);
       return () => {
@@ -210,10 +202,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     return () => {
       ipcRenderer.removeListener(ipcMessageKeys.APP_STATE, handler);
     };
-  },
-  changeTheme: (theme: string) => {
-    ipcRenderer.send(ipcMessageKeys.THEME_UPDATE, theme);
-    updateGlobalTitleBarBackgroundColor();
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
@@ -326,26 +314,11 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     checkAvailability: () =>
       ipcRenderer.invoke(EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK),
   },
+  getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
+  getMemoryUsage: () =>
+    ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),
 });
 
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
 globalThis.desktopApiProxy = desktopApiProxy;
-
-if (!isMac) {
-  globalThis.addEventListener('DOMContentLoaded', () => {
-    // eslint-disable-next-line no-new
-    globalTitleBar = new Titlebar({
-      icon: nativeImage.createFromPath(
-        path.join(
-          __dirname,
-          isDev
-            ? '../public/static/images/icons/round_icon.png'
-            : '../build/static/images/icons/round_icon.png',
-        ),
-      ),
-    });
-    globalTitleBar.updateTitle('');
-    updateGlobalTitleBarBackgroundColor();
-  });
-}

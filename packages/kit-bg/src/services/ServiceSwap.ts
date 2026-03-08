@@ -1,3 +1,5 @@
+/* eslint-disable no-restricted-syntax */
+// oxlint-disable preserve-caught-error
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
@@ -14,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -38,6 +41,7 @@ import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   USDC_TOKEN_INFO,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IMarketTokenDetailData } from '@onekeyhq/shared/types/marketV2';
 import type { ESigningScheme } from '@onekeyhq/shared/types/message';
 import type {
   ISwapProviderManager,
@@ -57,18 +61,18 @@ import type {
   ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
-  IFetchLimitMarketPrice,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IFetchQuotesParams,
   IFetchResponse,
+  IFetchSpeedCheckResult,
   IFetchSwapQuoteParams,
   IFetchSwapTxHistoryStatusResponse,
   IFetchTokenDetailParams,
   IFetchTokenListParams,
   IFetchTokensParams,
+  ILMTronObject,
   IOKXTransactionObject,
-  IPerpDepositQuoteRes,
   IPerpDepositQuoteResponse,
   IPopularTrading,
   ISpeedSwapConfig,
@@ -96,6 +100,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  filterSwapHistoryPendingList,
   inAppNotificationAtom,
   perpsDepositOrderAtom,
 } from '../states/jotai/atoms';
@@ -361,7 +366,6 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
         throw new Error('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
@@ -400,7 +404,7 @@ export default class ServiceSwap extends ServiceBase {
                 },
               )
             ).id
-          : otherWalletTypeAccountId ?? '';
+          : (otherWalletTypeAccountId ?? '');
         // const accountsInfo: IAllNetworkAccountInfo[] = [];
         const { accountsInfo } =
           await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
@@ -523,14 +527,17 @@ export default class ServiceSwap extends ServiceBase {
           checkInscriptionProtectionEnabled && inscriptionProtection;
         params.withCheckInscription = withCheckInscription;
       }
+      let fetchSignal: AbortSignal | undefined;
+      if (direction === ESwapDirectionType.FROM) {
+        fetchSignal = this._tokenDetailAbortControllerMap.from?.signal;
+      } else if (direction === ESwapDirectionType.TO) {
+        fetchSignal = this._tokenDetailAbortControllerMap.to?.signal;
+      }
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/token/detail',
         {
           params,
-          signal:
-            direction === ESwapDirectionType.FROM
-              ? this._tokenDetailAbortControllerMap.from?.signal
-              : this._tokenDetailAbortControllerMap.to?.signal,
+          signal: fetchSignal,
           headers:
             await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
@@ -1323,14 +1330,22 @@ export default class ServiceSwap extends ServiceBase {
     void this.cleanApprovingInterval();
     const approvingTransaction = await this.getApprovingTransaction();
     if (approvingTransaction && approvingTransaction.txId) {
-      this.approvingInterval = setTimeout(() => {
-        if (approvingTransaction.txId) {
-          void this.approvingStateRunSync(
-            approvingTransaction.fromToken.networkId,
-            approvingTransaction.txId,
-          );
-        }
-      }, swapApprovingStateFetchInterval * (Math.floor(this.approvingIntervalCount / swapHistoryStateFetchRiceIntervalCount) + 1));
+      this.approvingInterval = setTimeout(
+        () => {
+          if (approvingTransaction.txId) {
+            void this.approvingStateRunSync(
+              approvingTransaction.fromToken.networkId,
+              approvingTransaction.txId,
+            );
+          }
+        },
+        swapApprovingStateFetchInterval *
+          (Math.floor(
+            this.approvingIntervalCount /
+              swapHistoryStateFetchRiceIntervalCount,
+          ) +
+            1),
+      );
     }
   }
 
@@ -1339,14 +1354,22 @@ export default class ServiceSwap extends ServiceBase {
     void this.cleanSpeedSwapApprovingInterval();
     const approvingTransaction = await this.getSpeedSwapApprovingTransaction();
     if (approvingTransaction && approvingTransaction.txId) {
-      this.speedSwapApprovingInterval = setTimeout(() => {
-        if (approvingTransaction.txId) {
-          void this.speedSwapApprovingStateRunSync(
-            approvingTransaction.fromToken.networkId,
-            approvingTransaction.txId,
-          );
-        }
-      }, swapSpeedSwapApprovingStateFetchInterval * (Math.floor(this.speedSwapApprovingIntervalCount / swapHistoryStateFetchRiceIntervalCount) + 1));
+      this.speedSwapApprovingInterval = setTimeout(
+        () => {
+          if (approvingTransaction.txId) {
+            void this.speedSwapApprovingStateRunSync(
+              approvingTransaction.fromToken.networkId,
+              approvingTransaction.txId,
+            );
+          }
+        },
+        swapSpeedSwapApprovingStateFetchInterval *
+          (Math.floor(
+            this.speedSwapApprovingIntervalCount /
+              swapHistoryStateFetchRiceIntervalCount,
+          ) +
+            1),
+      );
     }
   }
 
@@ -1355,7 +1378,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapHistoryListFromSimple() {
     const histories =
       await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
-    return histories.sort((a, b) => b.date.created - a.date.created);
+    return histories.toSorted((a, b) => b.date.created - a.date.created);
   }
 
   @backgroundMethod()
@@ -1368,7 +1391,7 @@ export default class ServiceSwap extends ServiceBase {
     );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: [...pendingHistories],
+      swapHistoryPendingList: filterSwapHistoryPendingList(pendingHistories),
     }));
   }
 
@@ -1383,8 +1406,11 @@ export default class ServiceSwap extends ServiceBase {
   async addSwapHistoryItem(item: ISwapTxHistory) {
     await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
     await inAppNotificationAtom.set((pre) => {
+      const filteredList = filterSwapHistoryPendingList(
+        pre.swapHistoryPendingList,
+      );
       if (
-        !pre.swapHistoryPendingList.find((i) =>
+        !filteredList.find((i) =>
           item.txInfo.useOrderId
             ? i.txInfo.orderId === item.txInfo.orderId
             : i.txInfo.txId === item.txInfo.txId,
@@ -1392,8 +1418,13 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         return {
           ...pre,
-          swapHistoryPendingList: [...pre.swapHistoryPendingList, item],
+          swapHistoryPendingList: [...filteredList, item],
         };
+      }
+      // Item already exists — only update state if dirty entries were removed,
+      // otherwise return the original reference to avoid unnecessary re-renders.
+      if (filteredList.length !== pre.swapHistoryPendingList.length) {
+        return { ...pre, swapHistoryPendingList: filteredList };
       }
       return pre;
     });
@@ -1410,25 +1441,28 @@ export default class ServiceSwap extends ServiceBase {
     status: ESwapTxHistoryStatus;
   }) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
-    const oldHistoryItemIndex = swapHistoryPendingList.findIndex(
-      (item) => item.txInfo.txId === oldTxId,
-    );
-    if (oldHistoryItemIndex !== -1) {
-      const newHistoryItem = swapHistoryPendingList[oldHistoryItemIndex];
+    const oldHistoryItem = filterSwapHistoryPendingList(
+      swapHistoryPendingList,
+    ).find((item) => item.txInfo.txId === oldTxId);
+    if (oldHistoryItem) {
       const updated = Date.now();
-      newHistoryItem.date = { ...newHistoryItem.date, updated };
-      newHistoryItem.txInfo.txId = newTxId;
-      newHistoryItem.status = status;
+      const newHistoryItem = {
+        ...oldHistoryItem,
+        date: { ...oldHistoryItem.date, updated },
+        txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
+        status,
+      };
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
         newHistoryItem,
         oldTxId,
       );
       await inAppNotificationAtom.set((pre) => {
-        const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[oldHistoryItemIndex] = newHistoryItem;
+        const newPendingList = filterSwapHistoryPendingList(
+          pre.swapHistoryPendingList,
+        ).map((item) => (item.txInfo.txId === oldTxId ? newHistoryItem : item));
         return {
           ...pre,
-          swapHistoryPendingList: [...newPendingList],
+          swapHistoryPendingList: newPendingList,
         };
       });
       return;
@@ -1447,15 +1481,15 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapHistoryItem(item: ISwapTxHistory) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
-    const index = swapHistoryPendingList.findIndex((i) =>
+    const filteredList = filterSwapHistoryPendingList(swapHistoryPendingList);
+    const matchFn = (i: ISwapTxHistory) =>
       item.txInfo.useOrderId
         ? i.txInfo.orderId === item.txInfo.orderId
-        : i.txInfo.txId === item.txInfo.txId,
-    );
-    if (index !== -1) {
+        : i.txInfo.txId === item.txInfo.txId;
+    const oldItem = filteredList.find(matchFn);
+    if (oldItem) {
       const updated = Date.now();
       item.date = { ...item.date, updated };
-      const oldItem = swapHistoryPendingList[index];
       if (
         oldItem.status === ESwapTxHistoryStatus.CANCELING &&
         item.status === ESwapTxHistoryStatus.SUCCESS
@@ -1478,11 +1512,12 @@ export default class ServiceSwap extends ServiceBase {
       }
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
       await inAppNotificationAtom.set((pre) => {
-        const newPendingList = [...pre.swapHistoryPendingList];
-        newPendingList[index] = item;
+        const newPendingList = filterSwapHistoryPendingList(
+          pre.swapHistoryPendingList,
+        ).map((i) => (matchFn(i) ? item : i));
         return {
           ...pre,
-          swapHistoryPendingList: [...newPendingList],
+          swapHistoryPendingList: newPendingList,
         };
       });
       if (item.status !== ESwapTxHistoryStatus.PENDING) {
@@ -1530,7 +1565,9 @@ export default class ServiceSwap extends ServiceBase {
       statuses,
     );
     const inAppNotification = await inAppNotificationAtom.get();
-    const deleteHistoryIds = inAppNotification.swapHistoryPendingList
+    const deleteHistoryIds = filterSwapHistoryPendingList(
+      inAppNotification.swapHistoryPendingList,
+    )
       .filter((item) => statuses?.includes(item.status))
       .map((item) =>
         item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
@@ -1538,7 +1575,7 @@ export default class ServiceSwap extends ServiceBase {
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: statuses
-        ? pre.swapHistoryPendingList.filter(
+        ? filterSwapHistoryPendingList(pre.swapHistoryPendingList).filter(
             (item) => !statuses?.includes(item.status),
           )
         : [],
@@ -1556,12 +1593,16 @@ export default class ServiceSwap extends ServiceBase {
   }) {
     await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(txInfo);
     const deleteHistoryId = txInfo.useOrderId
-      ? txInfo.orderId ?? ''
-      : txInfo.txId ?? '';
+      ? (txInfo.orderId ?? '')
+      : (txInfo.txId ?? '');
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: pre.swapHistoryPendingList.filter(
-        (item) => item.txInfo.txId !== deleteHistoryId,
+      swapHistoryPendingList: filterSwapHistoryPendingList(
+        pre.swapHistoryPendingList,
+      ).filter(
+        (item) =>
+          (item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId) !==
+          deleteHistoryId,
       ),
     }));
     await this.cleanHistoryStateIntervals(deleteHistoryId);
@@ -1669,8 +1710,8 @@ export default class ServiceSwap extends ServiceBase {
         if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
           enableInterval = false;
           const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
-            ? currentSwapTxHistory.txInfo.orderId ?? ''
-            : currentSwapTxHistory.txInfo.txId ?? '';
+            ? (currentSwapTxHistory.txInfo.orderId ?? '')
+            : (currentSwapTxHistory.txInfo.txId ?? '');
           await this.cleanHistoryStateIntervals(deleteHistoryId);
         }
       }
@@ -1679,17 +1720,25 @@ export default class ServiceSwap extends ServiceBase {
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
       const keyId = currentSwapTxHistory.txInfo.useOrderId
-        ? currentSwapTxHistory.txInfo.orderId ?? ''
-        : currentSwapTxHistory.txInfo.txId ?? '';
+        ? (currentSwapTxHistory.txInfo.orderId ?? '')
+        : (currentSwapTxHistory.txInfo.txId ?? '');
       if (
         enableInterval &&
         this.historyCurrentStateIntervalIds.includes(keyId)
       ) {
         this.historyStateIntervalCountMap[keyId] =
           (this.historyStateIntervalCountMap[keyId] ?? 0) + 1;
-        this.historyStateIntervals[keyId] = setTimeout(() => {
-          void this.swapHistoryStatusRunFetch(currentSwapTxHistory);
-        }, swapHistoryStateFetchInterval * (Math.floor((this.historyStateIntervalCountMap[keyId] ?? 0) / swapHistoryStateFetchRiceIntervalCount) + 1));
+        this.historyStateIntervals[keyId] = setTimeout(
+          () => {
+            void this.swapHistoryStatusRunFetch(currentSwapTxHistory);
+          },
+          swapHistoryStateFetchInterval *
+            (Math.floor(
+              (this.historyStateIntervalCountMap[keyId] ?? 0) /
+                swapHistoryStateFetchRiceIntervalCount,
+            ) +
+              1),
+        );
       }
     }
   }
@@ -1697,7 +1746,9 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async swapHistoryStatusFetchLoop() {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
-    const statusPendingList = swapHistoryPendingList.filter(
+    const statusPendingList = filterSwapHistoryPendingList(
+      swapHistoryPendingList,
+    ).filter(
       (item) =>
         item.status === ESwapTxHistoryStatus.PENDING ||
         item.status === ESwapTxHistoryStatus.CANCELING,
@@ -1706,8 +1757,8 @@ export default class ServiceSwap extends ServiceBase {
       (item) =>
         !this.historyCurrentStateIntervalIds.includes(
           item.txInfo.useOrderId
-            ? item.txInfo.orderId ?? ''
-            : item.txInfo.txId ?? '',
+            ? (item.txInfo.orderId ?? '')
+            : (item.txInfo.txId ?? ''),
         ),
     );
     if (!newHistoryStatePendingList.length) return;
@@ -1716,8 +1767,8 @@ export default class ServiceSwap extends ServiceBase {
         this.historyCurrentStateIntervalIds = [
           ...this.historyCurrentStateIntervalIds,
           swapTxHistory.txInfo.useOrderId
-            ? swapTxHistory.txInfo.orderId ?? ''
-            : swapTxHistory.txInfo.txId ?? '',
+            ? (swapTxHistory.txInfo.orderId ?? '')
+            : (swapTxHistory.txInfo.txId ?? ''),
         ];
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),
@@ -1885,6 +1936,21 @@ export default class ServiceSwap extends ServiceBase {
       okxTx: params.okxTx,
       fromTokenInfo: params.fromTokenInfo,
       type: params.type,
+    });
+  }
+
+  @backgroundMethod()
+  async buildLMSwapEncodedTx(params: {
+    accountId: string;
+    networkId: string;
+    lmTx: ILMTronObject;
+  }) {
+    const vault = await vaultFactory.getVault({
+      accountId: params.accountId,
+      networkId: params.networkId,
+    });
+    return vault.buildLiquidMeshSwapEncodedTx({
+      lmTx: params.lmTx,
     });
   }
 
@@ -2085,7 +2151,7 @@ export default class ServiceSwap extends ServiceBase {
             }, ESwapLimitOrderUpdateInterval);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         this.limitOrderStateInterval = setTimeout(() => {
           void this.swapLimitOrdersFetchLoop(
             indexedAccountId,
@@ -2161,9 +2227,9 @@ export default class ServiceSwap extends ServiceBase {
     fromToken: ISwapTokenBase;
     toToken: ISwapTokenBase;
   }) {
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const fromTokenFetchPromise = client.get<{ data: IFetchLimitMarketPrice }>(
-      `/swap/v1/limit-market-price`,
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const fromTokenFetchPromise = client.get<{ data: IMarketTokenDetailData }>(
+      `/utility/v2/market/token/detail`,
       {
         params: {
           tokenAddress: params.fromToken.contractAddress,
@@ -2171,8 +2237,8 @@ export default class ServiceSwap extends ServiceBase {
         },
       },
     );
-    const toTokenFetchPromise = client.get<{ data: IFetchLimitMarketPrice }>(
-      `/swap/v1/limit-market-price`,
+    const toTokenFetchPromise = client.get<{ data: IMarketTokenDetailData }>(
+      `/utility/v2/market/token/detail`,
       {
         params: {
           tokenAddress: params.toToken.contractAddress,
@@ -2186,8 +2252,8 @@ export default class ServiceSwap extends ServiceBase {
         toTokenFetchPromise,
       ]);
       return {
-        fromTokenPrice: fromTokenRes.data?.price,
-        toTokenPrice: toTokenRes.data?.price,
+        fromTokenPrice: fromTokenRes.data?.token?.price,
+        toTokenPrice: toTokenRes.data?.token?.price,
       };
     } catch (error) {
       console.error(error);
@@ -2200,6 +2266,20 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async fetchSpeedSwapConfig(params: { networkId: string }) {
+    const defaultConfig = {
+      provider: '',
+      speedConfig: {
+        slippage: 0.5,
+        spenderAddress: '',
+        defaultTokens: [],
+        defaultLimitTokens: [],
+        swapMevNetConfig: mevSwapNetworks,
+      },
+      supportSpeedSwap: false,
+      onlySupportCrossChain: false,
+      onlySupportSingleChain: false,
+      speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
+    };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const res = await client.get<{ data: ISpeedSwapConfig }>(
@@ -2208,21 +2288,34 @@ export default class ServiceSwap extends ServiceBase {
           params: { networkId: params.networkId },
         },
       );
-      return res.data.data;
+      return res?.data?.data || defaultConfig;
     } catch (error) {
       console.error(error);
-      return {
-        provider: '',
-        speedConfig: {
-          slippage: 0.5,
-          spenderAddress: '',
-          defaultTokens: [],
-          defaultLimitTokens: [],
-          swapMevNetConfig: mevSwapNetworks,
+      return defaultConfig;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSpeedCheck(params: {
+    fromNetworkId: string;
+    toNetworkId: string;
+    fromTokenAddress: string;
+    toTokenAddress: string;
+    fromTokenAmount: string;
+    protocol: string;
+  }): Promise<IFetchSpeedCheckResult | null> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<IFetchResponse<IFetchSpeedCheckResult>>(
+        '/swap/v1/check/speed',
+        {
+          params,
         },
-        supportSpeedSwap: false,
-        speedDefaultSelectToken: swapDefaultSetTokens['evm--1'].toToken,
-      };
+      );
+      return data?.data ?? null;
+    } catch (error) {
+      console.error(error);
+      return null;
     }
   }
 
@@ -2455,9 +2548,12 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
-        throw new Error('perp deposit quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL,
+        throw new OneKeyError({
+          message: 'perp deposit quote cancel',
+          autoToast: false,
+          data: {
+            cause: ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL,
+          },
         });
       }
       throw e;
@@ -2575,7 +2671,7 @@ export default class ServiceSwap extends ServiceBase {
     if (filteredPerpDepositOrder.length > 0) {
       const receivingAddressInfo =
         await this.backgroundApi.serviceAccount.getNetworkAccount({
-          accountId: indexedAccountId ? undefined : accountId ?? '',
+          accountId: indexedAccountId ? undefined : (accountId ?? ''),
           indexedAccountId: indexedAccountId ?? '',
           networkId: PERPS_NETWORK_ID,
           deriveType: 'default',
@@ -2598,20 +2694,39 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchPopularTrading(params: { limit?: number } | undefined) {
+  async fetchPopularTrading(
+    params: { limit?: number; saveToLocal?: boolean } | undefined,
+  ) {
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.get<IFetchResponse<IPopularTrading[]>>(
         '/swap/v1/popular/tokens',
       );
 
+      let result = data?.data ?? [];
+
       if (params?.limit) {
-        return data?.data?.slice(0, params.limit) ?? [];
+        result = result.slice(0, params.limit);
       }
-      return data?.data ?? [];
+      if (params?.saveToLocal) {
+        void this.updateLocalPopularTrading(result);
+      }
+      return result;
     } catch (e) {
       console.error(e);
       return [];
     }
+  }
+
+  @backgroundMethod()
+  async updateLocalPopularTrading(popularTrading: IPopularTrading[]) {
+    await this.backgroundApi.simpleDb.swapConfigs.updatePopularTrading(
+      popularTrading,
+    );
+  }
+
+  @backgroundMethod()
+  async getLocalPopularTrading() {
+    return this.backgroundApi.simpleDb.swapConfigs.getPopularTrading();
   }
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import type {
   IKeyOfIcons,
@@ -21,7 +21,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -308,6 +307,53 @@ export default function PagePrimeFeatures() {
       },
 
       {
+        id: EPrimeFeatures.BulkSend,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/bulk_send_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.prime_bulk_send_desc,
+        }),
+        details: [
+          {
+            icon: 'PeopleOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_one_desc,
+            }),
+          },
+          {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_two_desc,
+            }),
+          },
+          {
+            icon: 'UploadOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_three_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_send_three_desc,
+            }),
+          },
+        ],
+      },
+
+      {
         id: EPrimeFeatures.Notifications,
         banner: (
           <Image
@@ -412,7 +458,6 @@ export default function PagePrimeFeatures() {
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
-  const showCloseButton = false;
 
   const portalContainerName = useMemo(() => {
     return `prime-features-swiper-controls--${stringUtils.generateUUID()}`;
@@ -568,16 +613,6 @@ export default function PagePrimeFeatures() {
     selectedSubscriptionPeriod,
     showAllFeatures,
   ]);
-
-  const { height: windowHeight } = useWindowDimensions();
-  const { top, bottom } = useSafeAreaInsets();
-  const height = useMemo(() => {
-    if (platformEnv.isNative) {
-      const TAB_BAR_HEIGHT = 54;
-      return windowHeight - top - bottom - TAB_BAR_HEIGHT - 120;
-    }
-    return '100%';
-  }, [windowHeight, top, bottom]);
 
   const page = (
     <>

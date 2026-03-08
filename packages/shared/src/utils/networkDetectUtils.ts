@@ -1,4 +1,5 @@
-/* eslint-disable spellcheck/spell-checker */
+/* oxlint-disable @cspell/spellchecker */
+/* eslint-disable @cspell/spellchecker */
 // Utilities for detecting whether an address belongs to a given network.
 
 import { getPresetNetworks, presetNetworksMap } from '../config/presetNetworks';
@@ -334,6 +335,16 @@ async function _detectNetworkByAddress({
   }
   */
 
+  // Stellar secret seed (S... 56 chars, base32)
+  if (/^S[0-9A-Z]{55}$/.test(a)) {
+    return [
+      {
+        networkId: presetNetworksMap.stellar.id,
+        impl: presetNetworksMap.stellar.impl,
+      },
+    ];
+  }
+
   // EVM (0x + 40 hex)
   if (/^0x[0-9a-fA-F]{40}$/.test(a)) {
     return [
@@ -373,7 +384,7 @@ async function detectNetworkByPrivateKeyFn({
   const buildSameImplResults = (network: IServerNetwork) => {
     const results = getPresetNetworks()
       .filter((n) => n.impl === network.impl)
-      .sort((a) => (a.name === network.name ? -1 : 0))
+      .toSorted((a) => (a.name === network.name ? -1 : 0))
       .map((n) => buildDetectedNetwork(n));
     return results;
   };
@@ -433,6 +444,10 @@ async function detectNetworkByPrivateKeyFn({
     return [buildDetectedNetwork(presetNetworksMap.doge)];
   }
 
+  if (/^ed25519-priv-0x[0-9a-fA-F]{64}$/.test(pk)) {
+    return [...buildSameImplResults(presetNetworksMap.aptos)];
+  }
+
   // 0x + 64 hex chars (MANY chains use this format)
   // Default to ETH, but could be: Cosmos family, Polkadot family, Aptos, Sui,
   // Conflux, BenFen, Nervos, and many others
@@ -478,6 +493,11 @@ async function detectNetworkByPrivateKeyFn({
   // Ripple (66 hex chars, uppercase, no 0x)
   if (/^[0-9A-F]{66}$/.test(pk)) {
     return [buildDetectedNetwork(presetNetworksMap.ripple)];
+  }
+
+  // Stellar secret seed (S... 56 chars, base32)
+  if (/^S[0-9A-Z]{55}$/.test(pk)) {
+    return [buildDetectedNetwork(presetNetworksMap.stellar)];
   }
 
   return [];

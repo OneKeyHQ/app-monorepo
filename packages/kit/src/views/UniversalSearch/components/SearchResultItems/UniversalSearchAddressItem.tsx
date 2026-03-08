@@ -200,6 +200,7 @@ export function UniversalSearchAddressItem({
           enabledNetworksCompatibleWithWalletId
         }
         networkInfoMap={networkInfoMap}
+        accountDeFiOverview={item.payload.accountsDeFiOverview}
       />
     );
   }, [

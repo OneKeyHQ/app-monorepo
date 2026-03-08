@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgKingVipCrown = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4.168 17.408 2 7l6 3 4-6 4 6 6-3-2.168 10.408A2 2 0 0 1 17.874 19H6.126a2 2 0 0 1-1.958-1.592Z"
+      fillRule="evenodd"
+      d="M16.342 8.71 23.4 5.182 20.314 20H3.687L.6 5.182 7.657 8.71 12 2.197zm-8 2.58L3.4 8.816 5.312 18h13.375L20.6 8.817l-4.943 2.472L12 5.803z"
+      clipRule="evenodd"
     />
   </Svg>
 );

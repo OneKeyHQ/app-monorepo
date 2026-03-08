@@ -4,7 +4,7 @@ export class ClientRipple {
   readonly rpc: JsonRPCRequest;
 
   constructor({ url }: { url: string }) {
-    this.rpc = new JsonRPCRequest(`${url}`);
+    this.rpc = new JsonRPCRequest(url);
   }
 
   async getBlockHeight(): Promise<{ blockHeight: number }> {
