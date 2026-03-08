@@ -713,6 +713,7 @@
   dexmarket_sell_tap = 'dexmarket.sell_tap',
   dexmarket_sell_token_default = 'dexmarket.sell_token_default',
   dexmarket_spot = 'dexmarket.spot',
+  dexmarket_stock_eta = 'dexmarket.stock_eta',
   dexmarket_stock_status_closed = 'dexmarket.stock_status_closed',
   dexmarket_stock_status_closed_error = 'dexmarket.stock_status_closed_error',
   dexmarket_stock_status_open = 'dexmarket.stock_status_open',
