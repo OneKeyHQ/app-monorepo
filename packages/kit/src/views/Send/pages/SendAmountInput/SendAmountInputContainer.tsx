@@ -4,7 +4,6 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
 
 import {
   Button,
@@ -26,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { NumericKeyboard } from '@onekeyhq/kit/src/components/NumericKeyboard';
 import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
@@ -70,8 +70,6 @@ import {
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
-
-export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
 
 interface IAmountFormValues {
   accountId: string;
@@ -385,6 +383,41 @@ function SendAmountInputContainer() {
     }
     return false;
   }, [isLightningNetwork, isUseFiat, lnUnit]);
+
+  const handleNumericKeyPress = useCallback(
+    (key: string) => {
+      const current = form.getValues('amount');
+      // Normalize decimal separator to canonical '.'
+      const char = key === ',' || key === '。' ? '.' : key;
+
+      // Prevent duplicate decimal point
+      if (char === '.' && current.includes('.')) {
+        return;
+      }
+
+      let newValue: string;
+      if (current === '0' && char !== '.') {
+        // Replace leading "0" with the digit (e.g. "0" + "5" -> "5")
+        newValue = char;
+      } else {
+        newValue = current + char;
+      }
+
+      form.setValue('amount', newValue);
+      void form.trigger('amount');
+    },
+    [form],
+  );
+
+  const handleNumericBackspace = useCallback(() => {
+    const current = form.getValues('amount');
+    if (current.length <= 1) {
+      form.setValue('amount', '0');
+    } else {
+      form.setValue('amount', current.slice(0, -1));
+    }
+    void form.trigger('amount');
+  }, [form]);
 
   const handleValidateTokenAmount = useCallback(
     async (value: string): Promise<string | undefined> => {
@@ -1122,6 +1155,7 @@ function SendAmountInputContainer() {
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
             reversible
+            disableSoftKeyboard={platformEnv.isNative}
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
@@ -1131,9 +1165,6 @@ function SendAmountInputContainer() {
               onPress: handleToggleFiatMode,
             }}
             inputProps={{
-              inputAccessoryViewID: platformEnv.isNativeIOS
-                ? amountInputAccessoryViewID
-                : undefined,
               placeholder: '0',
               onFocus: () => {
                 setIsAmountInputFocused(true);
@@ -1153,11 +1184,6 @@ function SendAmountInputContainer() {
             }}
           />
         </Form.Field>
-        {platformEnv.isNativeIOS ? (
-          <InputAccessoryView nativeID={amountInputAccessoryViewID}>
-            <SizableText h="$0" />
-          </InputAccessoryView>
-        ) : null}
       </>
     ),
     [
@@ -1407,6 +1433,15 @@ function SendAmountInputContainer() {
       </Page.Body>
 
       <Page.Footer>
+        {isNFT ? null : (
+          <Stack px="$5" pb="$2">
+            <NumericKeyboard
+              onKeyPress={handleNumericKeyPress}
+              onBackspace={handleNumericBackspace}
+              decimalEnabled={!isIntegerAmount}
+            />
+          </Stack>
+        )}
         <Stack px="$5" gap="$3">
           {extraContent}
           {renderBalanceCard}

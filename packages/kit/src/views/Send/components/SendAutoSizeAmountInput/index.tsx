@@ -263,6 +263,7 @@ type ISendAmountAutoSizeInputProps = {
   };
   extraContent?: React.ReactNode;
   onLayout?: (event: LayoutChangeEvent) => void;
+  disableSoftKeyboard?: boolean;
 } & IStackProps;
 
 function SendAutoSizeAmountInputComponent(
@@ -275,6 +276,7 @@ function SendAutoSizeAmountInputComponent(
     tokenSymbol,
     extraContent,
     onLayout,
+    disableSoftKeyboard,
     ...rest
   }: ISendAmountAutoSizeInputProps,
   ref: React.Ref<ISendAmountAutoSizeInputRef>,
@@ -423,6 +425,7 @@ function SendAutoSizeAmountInputComponent(
       placeholderColor={autoSizePlaceholderColor}
       nativeSelectionColor={autoSizeSelectionColor}
       backgroundColor={autoSizeTransparentColor}
+      disableSoftKeyboard={disableSoftKeyboard}
       onHybridRef={(hybridViewRef) => {
         autoSizeInputRef.current = hybridViewRef;
       }}

@@ -51,4 +51,6 @@ export type IAutoSizeInputProps = {
   backgroundColor?: string;
   /** Callback for native HybridView ref (native only) */
   onHybridRef: (ref: { focus?: () => void } | null) => void;
+  /** When true, suppress soft keyboard on native (used with custom NumericKeyboard) */
+  disableSoftKeyboard?: boolean;
 };

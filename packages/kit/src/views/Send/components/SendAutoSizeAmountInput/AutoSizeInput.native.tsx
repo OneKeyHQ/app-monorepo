@@ -84,6 +84,7 @@ export function AutoSizeInput({
   nativeSelectionColor,
   backgroundColor,
   onHybridRef,
+  disableSoftKeyboard,
 }: IAutoSizeInputProps) {
   // Local state tracks what the native Nitro HybridView currently displays.
   // When sanitization produces a value identical to the parent prop (e.g. "123456a" -> "123456"
@@ -173,7 +174,7 @@ export function AutoSizeInput({
         minFontSize={minFontSize}
         textAlign={textAlign}
         fontWeight="500"
-        editable={editable ?? true}
+        editable={disableSoftKeyboard ? false : (editable ?? true)}
         keyboardType={mapAutoSizeKeyboardType(keyboardType ?? 'decimal-pad')}
         returnKeyType={returnKeyType}
         autoCorrect={false}
