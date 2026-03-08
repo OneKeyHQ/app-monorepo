@@ -1,3 +1,4 @@
+// oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {
@@ -16,7 +17,15 @@ module.exports = {
     'category': 'public.app-category.finance',
     'target': [{ target: 'mas', arch: 'universal' }],
     'entitlements': 'entitlements.mac.plist',
+    'x64ArchFiles': '*',
+    'extraResources': [
+      {
+        'from': 'resources/icons/Assets.car',
+        'to': 'Assets.car',
+      },
+    ],
     'extendInfo': {
+      'CFBundleIconName': 'OneKeyLogo',
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
@@ -32,7 +41,9 @@ module.exports = {
     'entitlementsInherit': 'entitlements.mas.inherit.plist',
     'entitlementsLoginHelper': 'entitlements.mas.loginhelper.plist',
     'provisioningProfile': 'OneKey_Mac_App.provisionprofile',
+    'x64ArchFiles': '*',
     'extendInfo': {
+      'CFBundleIconName': 'OneKeyLogo',
       'ElectronTeamID': 'BVJ3FU5H2K',
       'ITSAppUsesNonExemptEncryption': false,
       'NSBluetoothAlwaysUsageDescription':

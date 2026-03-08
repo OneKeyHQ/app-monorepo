@@ -44,7 +44,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
     const recentRecipientsByNetwork = recentRecipients[networkId] ?? {};
     const recentRecipientsSorted = Object.entries(
       recentRecipientsByNetwork,
-    ).sort(
+    ).toSorted(
       ([, { updatedAt: timestampA }], [, { updatedAt: timestampB }]) =>
         Number(timestampB) - Number(timestampA),
     );
@@ -75,7 +75,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
 
       // Get all recipients for this network sorted by updatedAt
       const sortedRecipients = Object.entries(networkRecipients)
-        .sort(([, a], [, b]) => b.updatedAt - a.updatedAt)
+        .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
         .slice(0, 10); // Keep only the 10 most recent recipients
 
       // Reconstruct the network recipients object

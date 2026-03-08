@@ -1,8 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-    d="M21 12.25V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h7" />
-  <path fill="currentColor" stroke="currentColor" stroke-linecap="square" stroke-width=".75"
-    d="M5.875 8.75a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm3.5 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Zm3.5 0a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Z" />
-  <path stroke="currentColor" stroke-linecap="square" stroke-linejoin="round" stroke-width="2"
-    d="m14.5 14.5 6.5 2-3 1.5-1.5 3-2-6.5Z" />
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+  viewBox="0 0 24 24">
+  <g clip-path="url(#a)">
+    <path fill-rule="evenodd"
+      d="m24.18 16.778-4.935 2.467-2.467 4.935-3.29-10.692 10.692 3.29Zm-6.958 2.041.533-1.064 1.064-.533-2.308-.711.71 2.308Z"
+      clip-rule="evenodd" />
+    <path d="M22 12h-2V6H4v13h8v2H2V4h20v8Z" />
+    <path
+      d="M6.75 7.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm3.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Zm3.5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5Z" />
+  </g>
+  <defs>
+    <clipPath id="a">
+      <path d="M0 0h24v24H0z" />
+    </clipPath>
+  </defs>
 </svg>

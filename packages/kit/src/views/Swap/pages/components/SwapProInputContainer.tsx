@@ -1,29 +1,34 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import {
   Divider,
   Icon,
-  Image,
   Input,
   SizableText,
   Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
+  useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swapProBuyInputSegmentItems,
   swapProSellInputSegmentItems,
@@ -32,6 +37,7 @@ import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapProTradeType,
   ESwapTabSwitchType,
+  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { TokenSelectorPopover } from '../../../Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenSelectorPopover';
@@ -43,13 +49,17 @@ import {
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
 
+import { PercentageStageOnKeyboard } from './SwapInputContainer';
+
 import type { IToken } from '../../../Market/MarketDetailV2/components/SwapPanel/types';
+import type { TextInput } from 'react-native';
 
 interface ISwapProInputContainerProps {
   defaultTokens: ISwapTokenBase[];
   defaultLimitTokens: ISwapTokenBase[];
   isLoading?: boolean;
   cleanInputAmount: () => void;
+  onSelectPercentageStage: (stage: number) => void;
 }
 
 const SwapProInputContainer = ({
@@ -57,6 +67,7 @@ const SwapProInputContainer = ({
   defaultLimitTokens,
   isLoading,
   cleanInputAmount,
+  onSelectPercentageStage,
 }: ISwapProInputContainerProps) => {
   const intl = useIntl();
   const [swapProDirection] = useSwapProDirectionAtom();
@@ -68,7 +79,9 @@ const SwapProInputContainer = ({
     useSwapProInputAmountAtom();
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
     useSwapProUseSelectBuyTokenAtom();
+  const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const inputRef = useRef<IInputRef & TextInput>(null);
   const inputToken = useSwapProInputToken();
   const toToken = useSwapProToToken();
   const defaultTokensFromType = useMemo(() => {
@@ -101,12 +114,31 @@ const SwapProInputContainer = ({
     (token: IToken) => {
       cleanInputAmount();
       setSwapProUseSelectBuyToken(token);
+      // Sync SELL counterparty so both directions use the same token
+      setSwapProSellToToken(token);
       setIsPopoverOpen(false);
+      // Save preference (shared with Instant Mode) via simpledb
+      const networkId = swapProSelectToken?.networkId || '';
+      if (networkId) {
+        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+          networkId,
+          preference: {
+            contractAddress: token.contractAddress,
+            symbol: token.symbol,
+            networkId: token.networkId,
+          },
+        });
+      }
     },
-    [setSwapProUseSelectBuyToken, cleanInputAmount],
+    [
+      setSwapProUseSelectBuyToken,
+      setSwapProSellToToken,
+      cleanInputAmount,
+      swapProSelectToken?.networkId,
+    ],
   );
   const isTokenSelectorVisible =
-    swapProDirection === ESwapDirection.BUY && defaultTokens.length > 1;
+    swapProDirection === ESwapDirection.BUY && defaultTokensFromType.length > 1;
 
   const inputSegmentItems = useMemo(() => {
     if (swapProDirection === ESwapDirection.SELL) {
@@ -133,7 +165,10 @@ const SwapProInputContainer = ({
           const balanceBN = new BigNumber(inputToken.balanceParsed);
           const inputNewAmount = balanceBN
             .multipliedBy(percentage)
-            .decimalPlaces(inputToken?.decimals ?? 0, BigNumber.ROUND_DOWN)
+            .decimalPlaces(
+              Number(inputToken?.decimals ?? 0),
+              BigNumber.ROUND_DOWN,
+            )
             .toFixed();
           handleInputChange(inputNewAmount);
         }
@@ -147,12 +182,36 @@ const SwapProInputContainer = ({
     ],
   );
 
+  const isFocusedRef = useRef(false);
+  const inputValue = useMemo(() => {
+    return swapProTradeType === ESwapProTradeType.MARKET
+      ? swapProInputAmount
+      : fromInputAmount.value;
+  }, [swapProTradeType, swapProInputAmount, fromInputAmount.value]);
+
+  // Reset scroll position to show text from the beginning when value changes and input is not focused
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      inputRef.current?.setSelection?.(0, 0);
+    }
+  }, [inputValue]);
+
+  const onInputBlur = useCallback(() => {
+    isFocusedRef.current = false;
+    inputRef.current?.setSelection?.(0, 0);
+  }, []);
+
+  const onInputFocus = useCallback(() => {
+    isFocusedRef.current = true;
+  }, []);
+
   useSwapLimitPriceCheck(inputToken, toToken);
 
   return (
     <YStack borderRadius="$2" bg="$bgStrong" mb="$2">
       <XStack borderTopLeftRadius="$2" borderTopRightRadius="$2">
         <Input
+          ref={inputRef}
           size="small"
           containerProps={{
             flex: 1,
@@ -165,7 +224,12 @@ const SwapProInputContainer = ({
               ? swapProInputAmount
               : fromInputAmount.value
           }
+          onBlur={onInputBlur}
+          onFocus={onInputFocus}
           onChangeText={handleInputChange}
+          inputAccessoryViewID={
+            platformEnv.isNativeIOS ? SwapAmountInputAccessoryViewID : undefined
+          }
           placeholder={intl.formatMessage({
             id: ETranslations.content__amount,
           })}
@@ -189,10 +253,11 @@ const SwapProInputContainer = ({
                   })}
                 >
                   {inputToken?.logoURI ? (
-                    <Image
-                      src={inputToken.logoURI}
-                      size="$4.5"
-                      borderRadius="$full"
+                    <Token
+                      size="xs"
+                      tokenImageUri={inputToken.logoURI}
+                      networkId={inputToken.networkId}
+                      showNetworkIcon
                     />
                   ) : null}
                   <SizableText size="$bodyMd" maxWidth="$16" numberOfLines={1}>
@@ -227,6 +292,13 @@ const SwapProInputContainer = ({
         items={inputSegmentItems}
         onSelect={onSelectInputSegment}
       />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </InputAccessoryView>
+      ) : null}
     </YStack>
   );
 };

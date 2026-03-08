@@ -19,7 +19,7 @@ export function AccountAddress({
   hideAddress?: boolean;
   showSplitter?: boolean;
 }) {
-  const { activeAccount } = useActiveAccount({ num });
+  const { activeAccount: _activeAccount } = useActiveAccount({ num });
   const intl = useIntl();
   // const noAddressMessage = intl.formatMessage(
   //   { id: ETranslations.global_no_network_address },
@@ -31,9 +31,9 @@ export function AccountAddress({
   //     //   network: '11',
   //   },
   // );
-  const noAddressMessage = `${intl.formatMessage({
+  const noAddressMessage = intl.formatMessage({
     id: ETranslations.wallet_no_address,
-  })}`;
+  });
 
   if (hideAddress) {
     return null;

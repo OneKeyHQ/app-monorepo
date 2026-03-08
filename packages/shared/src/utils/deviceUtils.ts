@@ -49,6 +49,7 @@ export enum EHardwareUiStateAction {
   REQUEST_PASSPHRASE = 'ui-request_passphrase',
   REQUEST_PASSPHRASE_ON_DEVICE = 'ui-request_passphrase_on_device',
   REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE = 'ui-request_select_device_in_bootloader_for_web_device',
+  REQUEST_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE = 'ui-request_select_device_for_switch_firmware_web_device',
 
   CLOSE_UI_WINDOW = 'ui-close_window',
   CLOSE_UI_PIN_WINDOW = 'ui-close_pin_window',
@@ -245,6 +246,20 @@ function isConfirmOnDeviceAction(state: IHardwareUiState | undefined) {
   );
 }
 
+/**
+ * Get the connectId based on current transport type.
+ *
+ * Logic:
+ * - Native (Mobile): Always use BLE (connectId)
+ * - Desktop with BLE support:
+ *   - If currentTransportType is DesktopWebBle → use BLE (connectId)
+ *   - Otherwise → use USB (undefined)
+ * - Other platforms: use USB (undefined)
+ *
+ * @param connectId
+ * @param currentTransportType - Current active transport type
+ * @returns undefined for USB, connectId for BLE
+ */
 function getUpdatingConnectId({
   connectId,
   currentTransportType,
@@ -261,6 +276,18 @@ function getUpdatingConnectId({
   return platformEnv.isNative ? connectId : undefined;
 }
 
+/**
+ * Fix the updatingConnectId based on current transport type.
+ * Used for scenarios where fallback to BLE is needed when USB is not available.
+ *
+ * NOTE: This function is NOT used in firmware update flow, because firmware
+ * updates on desktop should always use USB for stability.
+ *
+ * @param updatingConnectId - The connectId from getUpdatingConnectId
+ * @param currentTransportType - Current active transport type
+ * @param device - Device info from database
+ * @returns Fixed connectId based on current transport
+ */
 function getFixedUpdatingConnectId({
   updatingConnectId,
   currentTransportType,
@@ -278,6 +305,23 @@ function getFixedUpdatingConnectId({
     return device?.connectId || updatingConnectId;
   }
   return updatingConnectId;
+}
+
+function checkInputPinOnSoftwareSupport(deviceType: IDeviceType) {
+  return [
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+  ].includes(deviceType);
+}
+
+function checkAllowChangeFirmwareType(deviceType: IDeviceType) {
+  return [
+    EDeviceType.Pro,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+  ].includes(deviceType);
 }
 
 async function buildDeviceLabel({
@@ -684,6 +728,58 @@ async function attachAppParamsToFeatures({
   return { ...features, $app_firmware_type: firmwareType };
 }
 
+async function getLanguageConfig({ deviceType }: { deviceType: IDeviceType }) {
+  const { getLanguageConfig: sdkGetLanguageConfig } = await CoreSDKLoader();
+  return sdkGetLanguageConfig(deviceType);
+}
+
+async function getAutoLockOptions({ deviceType }: { deviceType: IDeviceType }) {
+  const { getAutoLockOptions: sdkGetAutoLockOptions } = await CoreSDKLoader();
+  return sdkGetAutoLockOptions(deviceType);
+}
+
+async function getAutoShutDownOptions({
+  deviceType,
+}: {
+  deviceType: IDeviceType;
+}) {
+  const { getAutoShutDownOptions: sdkGetAutoShutDownOptions } =
+    await CoreSDKLoader();
+  return sdkGetAutoShutDownOptions(deviceType);
+}
+
+export enum ESupportSettings {
+  HapticFeedback = 'hapticFeedback',
+  Brightness = 'brightness',
+  AutoLock = 'autoLock',
+  AutoShutDown = 'autoShutDown',
+  Language = 'language',
+}
+
+function supportSettings({
+  deviceType,
+  firmwareVersion,
+  setting,
+}: {
+  deviceType: IDeviceType;
+  firmwareVersion: string;
+  setting: ESupportSettings;
+}) {
+  if (setting === ESupportSettings.AutoLock) {
+    if ([EDeviceType.Pro].includes(deviceType)) {
+      return true;
+    }
+    return false;
+  }
+
+  // default
+  const support = firmwareVersion && semver.gte(firmwareVersion, '4.19.0');
+  if (support && [EDeviceType.Pro].includes(deviceType)) {
+    return true;
+  }
+  return false;
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -719,4 +815,11 @@ export default {
   isTouchDevice,
   buildDeviceUSBConnectId,
   attachAppParamsToFeatures,
+  checkInputPinOnSoftwareSupport,
+  checkAllowChangeFirmwareType,
+  getLanguageConfig,
+  getAutoLockOptions,
+  getAutoShutDownOptions,
+  ESupportSettings,
+  supportSettings,
 };

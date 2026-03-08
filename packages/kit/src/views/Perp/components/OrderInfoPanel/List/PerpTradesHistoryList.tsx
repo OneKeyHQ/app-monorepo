@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -45,6 +45,15 @@ function PerpTradesHistoryList({
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
   const { showPositionShare } = useShowPositionShare();
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
 
   const getLeverage = useCallback(
     async (coin: string): Promise<number> => {
@@ -204,9 +213,10 @@ function PerpTradesHistoryList({
         title: intl.formatMessage({
           id: ETranslations.perp_trades_close_pnl,
         }),
-        minWidth: 100,
+        minWidth: 80,
         flex: 1,
-        align: 'left',
+        align: 'right',
+        fixed: true,
       },
     ],
     [intl],
@@ -221,19 +231,27 @@ function PerpTradesHistoryList({
   );
 
   const renderTradesHistoryRow = useCallback(
-    (item: IFill, _index: number) => {
-      return (
-        <TradesHistoryRow
-          fill={item}
-          isMobile={isMobile}
-          cellMinWidth={totalMinWidth}
-          columnConfigs={columnsConfig}
-          index={_index}
-          onShare={handleShare}
-        />
-      );
-    },
-    [isMobile, totalMinWidth, columnsConfig, handleShare],
+    (
+      item: IFill,
+      _index: number,
+      renderMode?: 'full' | 'left' | 'right',
+      isHovered?: boolean,
+      onHoverChange?: (index: number | null) => void,
+    ) => (
+      <TradesHistoryRow
+        fill={item}
+        isMobile={isMobile}
+        cellMinWidth={totalMinWidth}
+        columnConfigs={columnsConfig}
+        index={_index}
+        onShare={handleShare}
+        renderMode={renderMode}
+        isHovered={isHovered}
+        onHoverChange={onHoverChange}
+        builderFeeRate={builderFeeRate}
+      />
+    ),
+    [isMobile, totalMinWidth, columnsConfig, handleShare, builderFeeRate],
   );
   const [isLocked] = useAppIsLockedAtom();
 

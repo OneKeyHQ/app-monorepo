@@ -68,8 +68,7 @@ export interface IEarnTransactionData extends IBaseTransactionData {
   receive?: { amount: string; token: IBaseToken };
 }
 
-export interface IContractInteractionTransactionData
-  extends IBaseTransactionData {
+export interface IContractInteractionTransactionData extends IBaseTransactionData {
   type: ETransactionType.CONTRACT_INTERACTION;
 }
 

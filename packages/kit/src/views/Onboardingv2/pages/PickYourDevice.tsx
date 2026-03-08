@@ -12,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -64,15 +65,16 @@ export default function PickYourDevice() {
             id: ETranslations.pick_your_device,
           })}
         />
-        <OnboardingLayout.Body scrollable={!gtMd} constrained={false}>
+        <OnboardingLayout.Body
+          scrollable={platformEnv.isNative || !gtMd}
+          constrained={false}
+        >
           <YStack
             gap="$5"
             $gtMd={{
-              height: '100%',
+              ...(!platformEnv.isNative && { height: '100%' }),
               flexDirection: 'row',
               flexWrap: 'wrap',
-              gap: '$px',
-              bg: '$neutral3',
               alignContent: 'stretch',
             }}
           >
@@ -95,9 +97,8 @@ export default function PickYourDevice() {
                     index === 0 && DEVICES.length % 2 === 1 ? '80%' : '45%',
                   p: '$10',
                   borderWidth: 0,
-                  borderRadius: 0,
                 }}
-                bg="$bgApp"
+                bg="$bgSubdued"
                 hoverStyle={{ bg: '$gray2' }}
                 pressStyle={{ bg: '$gray1' }}
                 userSelect="none"
@@ -176,7 +177,8 @@ export default function PickYourDevice() {
           >
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
-                // eslint-disable-next-line spellcheck/spell-checker
+                // eslint-disable-next-line @cspell/spellchecker
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.global_onekey_prompt_dont_have_yet,
               })}
             </SizableText>
@@ -186,7 +188,7 @@ export default function PickYourDevice() {
               hoverStyle={{
                 color: '$textSubdued',
               }}
-              href="https://bit.ly/3YsKilK"
+              href={ONEKEY_BUY_HARDWARE_URL}
               target="_blank"
               size="$bodySm"
               hitSlop={{
@@ -194,9 +196,6 @@ export default function PickYourDevice() {
                 left: 8,
                 right: 8,
                 bottom: 8,
-              }}
-              style={{
-                textDecoration: 'none',
               }}
             >
               {intl.formatMessage({ id: ETranslations.global_buy_one })}

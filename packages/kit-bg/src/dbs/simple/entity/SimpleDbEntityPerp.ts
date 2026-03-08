@@ -3,10 +3,10 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
 } from '@onekeyhq/shared/src/consts/perp';
+import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
-  IPerpsUniverseRaw,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IHyperLiquidErrorLocaleItem,
@@ -14,6 +14,8 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+
+import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp';
 
 export type IHyperliquidCustomSettings = {
   hideNavBar?: boolean;
@@ -49,6 +51,9 @@ export interface ISimpleDbPerpData {
   hyperliquidTermsAccepted?: boolean;
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
+  referralPromptOptedOut?: Record<string, boolean>; // user address -> whether user has opted out of referral promotion
+  tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
+  tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -166,7 +171,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
         hyperliquidCustomSettings: {
-          ...(prevConfig?.hyperliquidCustomSettings ?? {}),
+          ...prevConfig?.hyperliquidCustomSettings,
           ...settings,
         },
       }),
@@ -191,7 +196,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }) {
     await this.setPerpData((prevConfig): ISimpleDbPerpData => {
       const nextOptions = {
-        ...(prevConfig?.hyperliquidOrderBookTickOptions ?? {}),
+        ...prevConfig?.hyperliquidOrderBookTickOptions,
       };
       if (!option) {
         delete nextOptions[symbol];
@@ -219,7 +224,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         tradingUniverse: prev?.tradingUniverse,
         marginTablesMap: prev?.marginTablesMap,
         tradingviewDisplayPriceScale: {
-          ...(prev?.tradingviewDisplayPriceScale || {}),
+          ...prev?.tradingviewDisplayPriceScale,
           [symbol]: priceScale,
         },
       }),
@@ -256,8 +261,30 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prev): ISimpleDbPerpData => ({
         ...prev,
         dexAbstractionEnabledUsers: {
-          ...(prev?.dexAbstractionEnabledUsers ?? {}),
+          ...prev?.dexAbstractionEnabledUsers,
           [userAddress.toLowerCase()]: enabled,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getReferralPromptOptedOut(userAddress: string): Promise<boolean> {
+    const config = await this.getPerpData();
+    return config.referralPromptOptedOut?.[userAddress.toLowerCase()] ?? false;
+  }
+
+  @backgroundMethod()
+  async setReferralPromptOptedOut(
+    userAddress: string,
+    optedOut: boolean,
+  ): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        referralPromptOptedOut: {
+          ...prev?.referralPromptOptedOut,
+          [userAddress.toLowerCase()]: optedOut,
         },
       }),
     );

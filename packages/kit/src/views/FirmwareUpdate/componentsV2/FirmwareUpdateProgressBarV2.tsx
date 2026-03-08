@@ -35,7 +35,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
-import { FirmwareUpdatePromptBootloaderWebDevice } from '../components/FirmwareUpdatePromptBootloaderWebDevice';
+import { FirmwareUpdatePromptWebUsbDevice } from '../components/FirmwareUpdatePromptWebUsbDevice';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 
 interface IFirmwareUpdateVersionInfo {
@@ -296,6 +296,15 @@ export function FirmwareUpdateProgressBarV2({
             }),
         },
         {
+          type: [EFirmwareUpdateTipMessages.SwitchFirmwareReconnectDevice],
+          progress: () => progressRef.current,
+          progressMax: () => 99,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.firmware_update_switch_firmware_reconnect_device,
+            }),
+        },
+        {
           type: [EFirmwareUpdateTipMessages.StartTransferData],
           progress: () =>
             calculateProgressInRange({
@@ -481,18 +490,36 @@ export function FirmwareUpdateProgressBarV2({
 
   const previousStepInfo = useRef(stepInfo);
   useEffect(() => {
-    const fn = () => {
+    const onBootloaderRequest = () => {
       previousStepInfo.current = stepInfo;
       setStepInfo({
         step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
         payload: undefined,
       });
     };
-    appEventBus.on(EAppEventBusNames.RequestDeviceInBootloaderForWebDevice, fn);
+    const onSwitchFirmwareRequest = () => {
+      previousStepInfo.current = stepInfo;
+      setStepInfo({
+        step: EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice,
+        payload: undefined,
+      });
+    };
+    appEventBus.on(
+      EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+      onBootloaderRequest,
+    );
+    appEventBus.on(
+      EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
+      onSwitchFirmwareRequest,
+    );
     return () => {
       appEventBus.off(
         EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
-        fn,
+        onBootloaderRequest,
+      );
+      appEventBus.off(
+        EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice,
+        onSwitchFirmwareRequest,
       );
     };
   }, [setStepInfo, stepInfo]);
@@ -503,8 +530,20 @@ export function FirmwareUpdateProgressBarV2({
       EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice
     ) {
       return (
-        <FirmwareUpdatePromptBootloaderWebDevice
+        <FirmwareUpdatePromptWebUsbDevice
           previousStepInfo={previousStepInfo.current}
+          requestType="bootloader"
+        />
+      );
+    }
+    if (
+      stepInfo?.step ===
+      EFirmwareUpdateSteps.requestDeviceForSwitchFirmwareWebDevice
+    ) {
+      return (
+        <FirmwareUpdatePromptWebUsbDevice
+          previousStepInfo={previousStepInfo.current}
+          requestType="switchFirmware"
         />
       );
     }

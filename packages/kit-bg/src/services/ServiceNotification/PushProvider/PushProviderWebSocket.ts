@@ -20,6 +20,8 @@ import type {
   IPrimeConfigFlushInfo,
   IPrimeDeviceLogoutInfo,
   IPrimeLockChangedInfo,
+  ISetBadgeInfo,
+  IUserInfoUpdatedPayload,
 } from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
@@ -41,6 +43,7 @@ export class PushProviderWebSocket extends PushProviderBase {
   private socket: Socket | null = null;
 
   async ping(payload: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.socket
       ?.timeout(3000)
       .emitWithAck(EAppSocketEventNames.ping, payload);
@@ -233,6 +236,31 @@ export class PushProviderWebSocket extends PushProviderBase {
         void this.backgroundApi.servicePrimeCloudSync.onWebSocketMasterPasswordChanged(
           payload,
         );
+      },
+    );
+
+    this.socket.on(EAppSocketEventNames.setBadge, (payload: ISetBadgeInfo) => {
+      defaultLogger.notification.websocket.consoleLog(
+        'WebSocket 收到 setBadge 消息:',
+        payload,
+      );
+      void this.backgroundApi.serviceNotification.ackNotificationMessage({
+        msgId: payload.msgId,
+        action: ENotificationPushMessageAckAction.arrived,
+      });
+      void this.backgroundApi.serviceNotification.setBadge({
+        count: payload.badge,
+      });
+    });
+
+    this.socket.on(
+      EAppSocketEventNames.userInfoUpdated,
+      (payload: IUserInfoUpdatedPayload) => {
+        void this.backgroundApi.serviceNotification.ackNotificationMessage({
+          msgId: payload.msgId,
+          action: ENotificationPushMessageAckAction.arrived,
+        });
+        void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
       },
     );
 

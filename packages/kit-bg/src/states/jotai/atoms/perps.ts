@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFill,
   IHex,
@@ -19,6 +20,7 @@ import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 // #region Active Account
@@ -146,8 +148,12 @@ export const {
       details?.referralCodeOk &&
       details?.activatedOk &&
       details?.internalRebateBoundOk;
+    const isReadOnlyAccount = account?.accountId
+      ? accountUtils.isWatchingAccount({ accountId: account.accountId })
+      : false;
     const accountNotSupport =
-      !account?.accountAddress && !account?.indexedAccountId;
+      (!account?.accountAddress && !account?.indexedAccountId) ||
+      isReadOnlyAccount;
     const canCreateAddress =
       !account?.accountAddress && !!account?.indexedAccountId;
     return {
@@ -259,6 +265,35 @@ export const {
   },
 });
 
+// Token Selector Dynamic Tabs (from server config)
+// null = not loaded yet, [] = loaded but server returned no tabs
+export const {
+  target: perpTokenSelectorTabsAtom,
+  use: usePerpTokenSelectorTabsAtom,
+} = globalAtom<IPerpDynamicTab[] | null>({
+  name: EAtomNames.perpTokenSelectorTabsAtom,
+  initialValue: null,
+});
+
+export type IPerpFavoritesDisplayMode = 'price' | 'percent';
+
+export interface IPerpTokenFavorites {
+  favorites: string[];
+  displayMode: IPerpFavoritesDisplayMode;
+}
+
+export const {
+  target: perpTokenFavoritesPersistAtom,
+  use: usePerpTokenFavoritesPersistAtom,
+} = globalAtom<IPerpTokenFavorites>({
+  name: EAtomNames.perpTokenFavoritesPersistAtom,
+  persist: true,
+  initialValue: {
+    favorites: [],
+    displayMode: 'price',
+  },
+});
+
 export type IPerpsActiveOrderBookOptionsAtom =
   | (IL2BookOptions & {
       coin: string;
@@ -278,6 +313,7 @@ export const {
 // #region Settings & Config
 export interface IPerpsCommonConfigPersistAtom {
   perpConfigCommon: IPerpCommonConfig;
+  perpConfigLoaded?: boolean;
 }
 export const {
   target: perpsCommonConfigPersistAtom,
@@ -287,8 +323,9 @@ export const {
   persist: true,
   initialValue: {
     perpConfigCommon: {
-      disablePerp: true, // Default to hide perps tab, will be overridden by server config
+      disablePerp: true, // Default to hide perps tab, gated by perpConfigLoaded
     },
+    perpConfigLoaded: false,
   },
 });
 
@@ -383,6 +420,8 @@ export const {
 
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
+  showTradeMarks: boolean;
+  showChartLines: boolean;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -392,6 +431,8 @@ export const {
   persist: true,
   initialValue: {
     skipOrderConfirm: false,
+    showTradeMarks: true,
+    showChartLines: true,
   },
 });
 
@@ -427,6 +468,7 @@ export const {
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;
+  pingMs?: number | null;
 }
 
 export const {
@@ -512,3 +554,36 @@ export const {
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
   initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });
+
+export interface IPerpsLayoutState {
+  orderBook?: {
+    visible: boolean;
+  };
+  resetAt?: number;
+}
+
+export const DEFAULT_PERPS_LAYOUT_STATE: IPerpsLayoutState = {
+  orderBook: { visible: true },
+};
+
+export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
+  globalAtom<IPerpsLayoutState>({
+    name: EAtomNames.perpsLayoutStateAtom,
+    persist: true,
+    initialValue: DEFAULT_PERPS_LAYOUT_STATE,
+  });
+
+// #region Footer Ticker
+export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';
+
+export const {
+  target: perpsFooterTickerModePersistAtom,
+  use: usePerpsFooterTickerModePersistAtom,
+} = globalAtom<{ mode: IPerpsFooterTickerMode }>({
+  name: EAtomNames.perpsFooterTickerModePersistAtom,
+  persist: true,
+  initialValue: {
+    mode: 'popular',
+  },
+});
+// #endregion

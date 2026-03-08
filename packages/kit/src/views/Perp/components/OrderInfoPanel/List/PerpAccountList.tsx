@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { noop } from 'lodash';
@@ -25,12 +26,14 @@ interface IPerpAccountListProps {
   isMobile?: boolean;
   useTabsList?: boolean;
   disableListScroll?: boolean;
+  ListHeaderComponent?: ReactElement | null;
 }
 
 function PerpAccountList({
   isMobile,
   useTabsList,
   disableListScroll,
+  ListHeaderComponent,
 }: IPerpAccountListProps) {
   const intl = useIntl();
   const [{ updates, isSubscribed }] = usePerpsLedgerUpdatesAtom();
@@ -112,7 +115,7 @@ function PerpAccountList({
       .filter((update) => update.delta.status === ESwapTxHistoryStatus.PENDING);
 
     const allUpdates = [...updates, ...depositUpdates];
-    const sortedUpdates = allUpdates.sort((a, b) => b.time - a.time);
+    const sortedUpdates = allUpdates.toSorted((a, b) => b.time - a.time);
 
     const seenHashes = new Set<string>();
     return sortedUpdates.filter((update) => {
@@ -174,6 +177,7 @@ function PerpAccountList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
+      ListHeaderComponent={mergedData.length > 0 ? ListHeaderComponent : null}
     />
   );
 }

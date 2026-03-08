@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTicket = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M2 7a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v2.17a1 1 0 0 1-.667.944 2.001 2.001 0 0 0 0 3.772 1 1 0 0 1 .667.943V17a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-2.17a1 1 0 0 1 .667-.944 2.001 2.001 0 0 0 0-3.772A1 1 0 0 1 2 9.17zm12 1a1 1 0 1 1 2 0 1 1 0 0 1-2 0m0 4a1 1 0 1 1 2 0 1 1 0 0 1-2 0m1 3a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
+      d="m22 9.927-.629.252c-1.661.665-1.661 2.977 0 3.642l.629.252V20H2v-5.927l.629-.252c1.661-.665 1.661-2.977 0-3.642L2 9.927V4h20zM14 15v2h2v-2zm0-4v2h2v-2zm0-4v2h2V7z"
       clipRule="evenodd"
     />
   </Svg>

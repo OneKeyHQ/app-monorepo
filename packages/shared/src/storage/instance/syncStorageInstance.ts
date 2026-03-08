@@ -28,7 +28,7 @@ const syncStorageWeb = {
         return undefined;
       }
       return JSON.parse(value) as T;
-    } catch (e) {
+    } catch (_e) {
       return undefined;
     }
   },

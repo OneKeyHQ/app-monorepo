@@ -7,22 +7,30 @@ import { Button, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRoutes,
+  EModalSwapRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
-import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import type { IToken } from '../types';
@@ -30,14 +38,15 @@ import type { GestureResponderEvent } from 'react-native';
 
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
+  supportSpeedSwap?: boolean;
   amount: string;
-  token?: {
-    symbol: string;
-  };
+  token?: IToken;
   balance?: BigNumber;
-  paymentToken?: IToken;
   networkId?: string;
   isWrapped?: boolean;
+  actionToken?: ISwapToken;
+  actionOtherToken?: ISwapToken;
+  onlySupportCrossChain?: boolean;
   onSwapAction?: () => void;
 }
 
@@ -46,11 +55,14 @@ export function ActionButton({
   amount,
   token,
   balance,
+  supportSpeedSwap,
   disabled,
   onPress,
   isWrapped,
-  paymentToken,
+  actionOtherToken,
   networkId,
+  onlySupportCrossChain,
+  actionToken,
   onSwapAction,
   ...otherProps
 }: IActionButtonProps) {
@@ -62,11 +74,10 @@ export function ActionButton({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
-  // Get payment token price for buy orders
-  const { price: paymentTokenPrice } = usePaymentTokenPrice(
-    tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    networkId,
-  );
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -82,34 +93,60 @@ export function ActionButton({
       return undefined;
     }
 
-    if (tradeType === ESwapDirection.BUY && paymentTokenPrice) {
-      // For buy orders: payment amount × payment token price
-      return amountBN.multipliedBy(paymentTokenPrice).toNumber();
-    }
+    return amountBN.multipliedBy(new BigNumber(token?.price || '0')).toNumber();
+  }, [token?.price, amount, isValidAmount, amountBN]);
 
-    if (tradeType === ESwapDirection.SELL && tokenDetail?.price) {
-      // For sell orders: target token amount × target token price
-      return amountBN.multipliedBy(tokenDetail.price).toNumber();
-    }
-
-    return undefined;
+  const handleJumpToSwapAction = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        fromAmount: isValidAmount ? amount : '',
+        importToToken:
+          tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
+        importFromToken:
+          tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
+        swapTabSwitchType: onlySupportCrossChain
+          ? ESwapTabSwitchType.BRIDGE
+          : ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.MARKET,
+      },
+    });
   }, [
-    tradeType,
-    tokenDetail?.price,
-    paymentTokenPrice,
-    amount,
     isValidAmount,
-    amountBN,
+    amount,
+    onlySupportCrossChain,
+    actionToken,
+    actionOtherToken,
+    tradeType,
+    navigation,
   ]);
+
+  // Truncate symbol if it exceeds 20 characters
+  const truncatedSymbol = useMemo(() => {
+    const symbol = token?.symbol || '';
+    if (symbol.length > 20) {
+      return `${symbol.slice(0, 17)}...`;
+    }
+    return symbol;
+  }, [token?.symbol]);
+
+  // Truncate tokenDetail symbol if it exceeds 20 characters
+  const truncatedTokenDetailSymbol = useMemo(() => {
+    const symbol = tokenDetail?.symbol || '';
+    if (symbol.length > 20) {
+      return `${symbol.slice(0, 17)}...`;
+    }
+    return symbol;
+  }, [tokenDetail?.symbol]);
 
   const tokenFormatter: INumberFormatProps = useMemo(() => {
     return {
       formatter: 'balance',
       formatterOptions: {
-        tokenSymbol: token?.symbol || '',
+        tokenSymbol: truncatedSymbol,
       },
     };
-  }, [token?.symbol]);
+  }, [truncatedSymbol]);
 
   const currencyFormatter: INumberFormatProps = useMemo(() => {
     return {
@@ -136,7 +173,7 @@ export function ActionButton({
         if (!networkAccount.address && activeAccount?.canCreateAddress) {
           result = true;
         }
-      } catch (e) {
+      } catch (_e) {
         result = Boolean(activeAccount?.canCreateAddress);
       }
     }
@@ -195,20 +232,29 @@ export function ActionButton({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
   }
-
   // Use colored style only for normal trading states (has amount, not disabled, has account)
   let shouldUseColoredStyle =
     hasAmount && !shouldDisable && !noAccount && !disabled;
 
   let isButtonDisabled = Boolean(
     (shouldDisable || disabled || !hasAmount) &&
-      !shouldCreateAddress?.result &&
-      !noAccount,
+    !shouldCreateAddress?.result &&
+    !noAccount,
   );
 
   if (!hasAmount && !hasClickedWithoutAmount) {
     shouldUseColoredStyle = true;
-    buttonText = `${actionText} ${tokenDetail?.symbol || ''}`.trim();
+    buttonText = `${actionText} ${truncatedTokenDetailSymbol}`.trim();
+    isButtonDisabled = false;
+  }
+
+  if (!supportSpeedSwap) {
+    shouldUseColoredStyle = true;
+  }
+
+  if (platformEnv.isWeb && noAccount) {
+    buttonText = intl.formatMessage({ id: ETranslations.global_connect });
+    shouldUseColoredStyle = false;
     isButtonDisabled = false;
   }
 
@@ -238,6 +284,14 @@ export function ActionButton({
 
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
+      if (platformEnv.isWeb && noAccount) {
+        showAccountSelector();
+        return;
+      }
+      if (!supportSpeedSwap) {
+        handleJumpToSwapAction();
+        return;
+      }
       setHasClickedWithoutAmount(true);
       if (!hasAmount && !hasClickedWithoutAmount) {
         return;
@@ -284,11 +338,14 @@ export function ActionButton({
       onPress?.(event);
     },
     [
-      hasClickedWithoutAmount,
+      supportSpeedSwap,
       hasAmount,
+      hasClickedWithoutAmount,
       noAccount,
       shouldCreateAddress?.result,
       onPress,
+      handleJumpToSwapAction,
+      showAccountSelector,
       createAddress,
       activeAccount?.wallet?.id,
       activeAccount?.indexedAccount?.id,

@@ -4,9 +4,9 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Checkbox,
   DashText,
-  Divider,
   IconButton,
   Popover,
   SizableText,
@@ -23,7 +23,10 @@ import {
   useTradingFormComputedAtom,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type {
+  IBBOPriceMode,
+  ITradingFormData,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAssetAtom,
@@ -50,6 +53,7 @@ import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
+import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
 
@@ -69,7 +73,7 @@ function MobileDepositButton() {
       icon="PlusCircleSolid"
       onPress={() => void showDepositWithdrawModal('deposit')}
       color="$iconSubdued"
-      cursor="pointer"
+      cursor="default"
     />
   );
 }
@@ -88,9 +92,9 @@ function PerpTradingForm({
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const currentTokenName = activeAsset?.coin;
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const isBBOActive = !!formData.bboPriceMode;
   const perpsSelectedDisplayName = useMemo(
     () => parseDexCoin(perpsSelectedSymbol.coin).displayName,
     [perpsSelectedSymbol.coin],
@@ -129,6 +133,7 @@ function PerpTradingForm({
     const nextEnv = {
       markPrice: midPrice,
       availableToTrade: [maxAvailable, maxAvailable],
+      maxTradeSzs: activeAssetData?.maxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
       szDecimals: activeAsset?.universe?.szDecimals,
@@ -136,13 +141,17 @@ function PerpTradingForm({
     setTradingFormEnv((prev) => {
       const prevAvailable = prev.availableToTrade ?? [];
       const nextAvailable = nextEnv.availableToTrade ?? [];
+      const prevMaxTradeSzs = prev.maxTradeSzs ?? [];
+      const nextMaxTradeSzs = nextEnv.maxTradeSzs ?? [];
       if (
         prev.markPrice === nextEnv.markPrice &&
         prev.leverageValue === nextEnv.leverageValue &&
         prev.fallbackLeverage === nextEnv.fallbackLeverage &&
         prev.szDecimals === nextEnv.szDecimals &&
         prevAvailable[0] === nextAvailable[0] &&
-        prevAvailable[1] === nextAvailable[1]
+        prevAvailable[1] === nextAvailable[1] &&
+        prevMaxTradeSzs[0] === nextMaxTradeSzs[0] &&
+        prevMaxTradeSzs[1] === nextMaxTradeSzs[1]
       ) {
         return prev;
       }
@@ -156,6 +165,7 @@ function PerpTradingForm({
   }, [
     midPrice,
     activeAssetData?.availableToTrade,
+    activeAssetData?.maxTradeSzs,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
@@ -293,6 +303,23 @@ function PerpTradingForm({
     [updateForm],
   );
 
+  const handleBBOToggle = useCallback(() => {
+    if (formData.bboPriceMode) {
+      updateForm({ bboPriceMode: null });
+    } else {
+      updateForm({
+        bboPriceMode: { type: 'counterparty', level: 1 },
+      });
+    }
+  }, [formData.bboPriceMode, updateForm]);
+
+  const handleBBOChange = useCallback(
+    (mode: IBBOPriceMode) => {
+      updateForm({ bboPriceMode: mode });
+    },
+    [updateForm],
+  );
+
   const orderTypeOptions = useMemo(
     () => [
       {
@@ -349,35 +376,45 @@ function PerpTradingForm({
         </>
       ) : (
         <>
-          <YStack>
-            <XStack>
-              {orderTypeOptions.map((option) => (
+          <XStack
+            h={38}
+            alignItems="center"
+            borderBottomWidth="$px"
+            borderBottomColor="$borderSubdued"
+          >
+            {orderTypeOptions.map((option) => {
+              const isFocused = formData.type === option.value;
+              return (
                 <XStack
-                  pb="$2.5"
+                  h={38}
                   key={option.value}
-                  ml="$2.5"
-                  mr="$2"
-                  borderBottomWidth={
-                    formData.type === option.value ? '$0.5' : '$0'
-                  }
-                  borderBottomColor="$borderActive"
+                  mr="$4"
+                  alignItems="center"
+                  position="relative"
                   onPress={() => handleOrderTypeChange(option.name)}
-                  cursor="pointer"
+                  cursor="default"
                 >
                   <SizableText
-                    size="$headingXs"
-                    fontSize={14}
-                    color={
-                      formData.type === option.value ? '$text' : '$textSubdued'
-                    }
+                    size="$bodyMdMedium"
+                    color={isFocused ? '$text' : '$textSubdued'}
                   >
                     {option.name}
                   </SizableText>
+                  {isFocused ? (
+                    <YStack
+                      position="absolute"
+                      bottom={0}
+                      left={0}
+                      right={0}
+                      h="$0.5"
+                      bg="$text"
+                      borderRadius={1}
+                    />
+                  ) : null}
                 </XStack>
-              ))}
-            </XStack>
-            <Divider />
-          </YStack>
+              );
+            })}
+          </XStack>
 
           <XStack alignItems="center" flex={1} gap="$3">
             <YStack flex={1}>
@@ -395,7 +432,7 @@ function PerpTradingForm({
           p: '$2.5',
           borderWidth: '$px',
           borderColor: '$borderSubdued',
-          borderRadius: '$3',
+          borderRadius: '$2',
         })}
       >
         <XStack justifyContent="space-between">
@@ -437,26 +474,92 @@ function PerpTradingForm({
       </YStack>
 
       {formData.type === 'limit' || isMobile ? (
-        <PriceInput
-          onUseMidPrice={() => {
-            if (midPrice) {
-              updateForm({
-                price: formatPriceToSignificantDigits(midPrice),
-              });
-            }
-          }}
-          value={
-            formData.type === 'limit'
-              ? formData.price
-              : intl.formatMessage({
-                  id: ETranslations.perp_market_price,
-                })
-          }
-          onChange={(value) => updateForm({ price: value })}
-          szDecimals={universe?.szDecimals ?? 2}
-          isMobile={isMobile}
-          disabled={formData.type === 'market'}
-        />
+        <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
+          {isBBOActive && formData.type === 'limit' ? (
+            <YStack flex={1}>
+              <BBOSelector
+                value={formData.bboPriceMode ?? null}
+                onChange={handleBBOChange}
+                disabled={isSubmitting}
+                isMobile={isMobile}
+              />
+            </YStack>
+          ) : (
+            <YStack flex={1}>
+              <PriceInput
+                onUseMidPrice={() => {
+                  if (midPrice) {
+                    updateForm({
+                      price: formatPriceToSignificantDigits(midPrice),
+                    });
+                  }
+                }}
+                value={
+                  formData.type === 'limit'
+                    ? formData.price
+                    : intl.formatMessage({
+                        id: ETranslations.perp_market_price,
+                      })
+                }
+                onChange={(value) => updateForm({ price: value })}
+                szDecimals={universe?.szDecimals ?? 2}
+                isMobile={isMobile}
+                disabled={formData.type === 'market'}
+              />
+            </YStack>
+          )}
+          {formData.type === 'limit' ? (
+            <Badge
+              testID="perp-bbo-toggle-button"
+              borderRadius="$2"
+              bg="$bgSubdued"
+              borderWidth="$px"
+              borderColor={isBBOActive ? '$borderPrimary' : '$bgSubdued'}
+              onPress={handleBBOToggle}
+              px="$3"
+              h={isMobile ? 38 : 40}
+              alignItems="center"
+              cursor="default"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgHover',
+              }}
+              disabled={isSubmitting}
+            >
+              {isMobile ? (
+                <DashText
+                  size="$bodyMdMedium"
+                  dashColor="$text"
+                  dashThickness={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.Perps_BBO_button_title,
+                  })}
+                </DashText>
+              ) : (
+                <Tooltip
+                  renderTrigger={
+                    <DashText
+                      size="$bodyMdMedium"
+                      dashColor="$text"
+                      dashThickness={0.5}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.Perps_BBO_button_title,
+                      })}
+                    </DashText>
+                  }
+                  renderContent={intl.formatMessage({
+                    id: ETranslations.Perps_BBO_button_desc,
+                  })}
+                  placement="top-end"
+                />
+              )}
+            </Badge>
+          ) : null}
+        </XStack>
       ) : null}
 
       <SizeInput
@@ -474,7 +577,7 @@ function PerpTradingForm({
         leverage={formData.leverage ?? 1}
       />
 
-      <YStack {...(isMobile && { pt: '$2', pb: '$2' })}>
+      <YStack px="$1" {...(isMobile && { pt: '$2', pb: '$2', mt: '$0' })}>
         <PerpsSlider
           min={0}
           max={100}

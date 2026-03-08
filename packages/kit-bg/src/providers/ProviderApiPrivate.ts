@@ -22,6 +22,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import type { IRookieGuideInfo } from '@onekeyhq/shared/types/rookieGuide';
 
 import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
@@ -446,6 +447,8 @@ class ProviderApiPrivate extends ProviderApiBase {
   async wallet_addBrowserUrlToRiskWhiteList(request: IJsBridgeMessagePayload) {
     console.log('ProviderApiPrivate.addBrowserUrlToRiskWhiteList', request);
     if (request.origin) {
+      request.scope = request.scope || this.providerName;
+      await this.backgroundApi.serviceDApp.openRiskWhiteListModal(request);
       await this.backgroundApi.serviceDiscovery.addBrowserUrlToRiskWhiteList(
         request.origin,
       );
@@ -483,7 +486,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     console.log('ProviderApiPrivate.chainWebEmbedResponse', payload);
     void this.backgroundApi.servicePromise.resolveCallback({
       id: payload?.data?.promiseId,
-      data: { ...(payload?.data?.data ?? {}) },
+      data: { ...payload?.data?.data },
     });
   }
 
@@ -532,7 +535,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new OneKeyLocalError('webembed webview bridge not ready.');
     }
 
-    const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
+    const webviewOrigin = bg?.webEmbedBridge?.remoteInfo?.origin || '';
     if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
       throw new OneKeyLocalError(
         `callWebEmbedApiProxy not allowed origin: ${
@@ -572,6 +575,31 @@ class ProviderApiPrivate extends ProviderApiBase {
       params.toastId = generateUUID();
       return this.backgroundApi.serviceApp.showToast(params);
     }
+  }
+
+  // ----------------------------------------------
+  // Rookie Guide API
+  // ----------------------------------------------
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_getRookieGuideInfo',
+    });
+  */
+  @providerApiMethod()
+  async wallet_getRookieGuideInfo(): Promise<IRookieGuideInfo> {
+    return this.backgroundApi.serviceRookieGuide.getRookieGuideInfo();
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_resetRookieGuideProgress',
+    });
+  */
+  @providerApiMethod()
+  async wallet_resetRookieGuideProgress(): Promise<{ success: boolean }> {
+    await this.backgroundApi.serviceRookieGuide.resetProgress();
+    return { success: true };
   }
 }
 

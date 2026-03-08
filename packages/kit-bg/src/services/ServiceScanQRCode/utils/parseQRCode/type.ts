@@ -9,7 +9,7 @@ import type {
 } from '@onekeyhq/shared/types/qrCode';
 import type { ITokenData } from '@onekeyhq/shared/types/token';
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// eslint-disable-next-line @typescript-eslint/no-empty-interface, @typescript-eslint/no-empty-object-type
 export interface IBaseValue {}
 export interface IChainValue extends IBaseValue {
   address: string;
@@ -46,7 +46,8 @@ export interface IEthereumValue extends IChainValue {
 }
 export interface ISolanaValue extends Omit<IChainValue, 'address'> {
   recipient?: string;
-  // eslint-disable-next-line spellcheck/spell-checker
+
+  // oxlint-disable-next-line @cspell/spellchecker
   splToken?: string;
   reference?: string[];
   label?: string;
@@ -119,7 +120,7 @@ export type IQRCodeHandlerParseOutsideOptions = {
   handlers?: EQRCodeHandlerNames[];
   defaultHandler?: (value: string) => void;
   autoHandleResult?: boolean;
-  popNavigation?: () => void;
+  popNavigation?: boolean;
   account?: INetworkAccount;
   network?: IServerNetwork;
   wallet?: IDBWallet;

@@ -123,7 +123,7 @@ function AddressTypeSelectorContent(
     closePopover,
     doubleConfirm,
     confirmText,
-    refreshOnOpen,
+    refreshOnOpen: _refreshOnOpen,
   } = props;
 
   const intl = useIntl();
@@ -650,12 +650,12 @@ function AddressTypeSelector(props: IProps) {
 
   if (isSelectorDisabled) {
     return showTriggerWhenDisabled
-      ? renderSelectorTrigger ?? (
+      ? (renderSelectorTrigger ?? (
           <AddressTypeSelectorTrigger
             activeDeriveInfo={activeDeriveInfo}
             disableSelector={isSelectorDisabled}
           />
-        )
+        ))
       : null;
   }
 

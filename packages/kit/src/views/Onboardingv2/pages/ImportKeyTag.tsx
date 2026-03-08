@@ -61,7 +61,6 @@ const KeyTagFooterComponent = () => {
 };
 
 export function ImportKeyTag() {
-  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();

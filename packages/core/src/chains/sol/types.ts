@@ -40,3 +40,10 @@ export interface ICreateOffChainMessageOptions {
   format?: 0 | 1 | 2;
   isLegacy?: boolean;
 }
+
+export interface IATADetails {
+  owner: string;
+  programId: string;
+  mintAddress: string;
+  associatedTokenAddress: string;
+}

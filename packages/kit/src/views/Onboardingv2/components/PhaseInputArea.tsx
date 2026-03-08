@@ -167,8 +167,8 @@ function SuggestionList({
 }
 
 function PageFooter({
-  suggestions,
-  updateInputValue,
+  suggestions: _suggestions,
+  updateInputValue: _updateInputValue,
   onConfirm,
 }: {
   suggestions: string[];
@@ -499,9 +499,8 @@ export function PhaseInputArea({
     const mnemonicEncoded = await servicePassword.encodeSensitiveText({
       text: mnemonic,
     });
-    const { mnemonicType } = await serviceAccount.validateMnemonic(
-      mnemonicEncoded,
-    );
+    const { mnemonicType } =
+      await serviceAccount.validateMnemonic(mnemonicEncoded);
     const result = { mnemonic: mnemonicEncoded, mnemonicType };
     onConfirm?.(result);
     return result;

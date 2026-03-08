@@ -31,7 +31,7 @@ function WebContent({ id, url }: IWebContentProps) {
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
   useEffect(() => {
-    const validateState = validateWebviewSrc(url);
+    const validateState = validateWebviewSrc({ url, isTopFrame: true });
     setUrlValidateState(validateState);
     setShowBlockAccessView(
       validateState !== EValidateUrlEnum.Valid &&
@@ -41,7 +41,8 @@ function WebContent({ id, url }: IWebContentProps) {
 
   const getNavStatusInfo = useCallback(() => {
     const ref = webviewRefs[id];
-    const webviewRef = ref.innerRef as IElectronWebView;
+    // Fix: Prevent crash when ref is undefined during webview destruction or race conditions
+    const webviewRef = ref?.innerRef as IElectronWebView;
     if (!webviewRef) {
       return;
     }
@@ -124,13 +125,15 @@ function WebContent({ id, url }: IWebContentProps) {
     [getWebTabById, id, setWebTabData],
   );
   const onDomReady = useCallback(() => {
-    const ref = webviewRefs[id] as IElectronWebView;
-    // @ts-expect-error
-    ref.__domReady = true;
+    const ref = webviewRefs[id];
+    if (ref) {
+      // @ts-expect-error
+      ref.__domReady = true;
+    }
   }, [id]);
   const webview = useMemo(
     () => {
-      const isValidate = validateWebviewSrc(url);
+      const isValidate = validateWebviewSrc({ url, isTopFrame: true });
       if (!isValidate) {
         return null;
       }

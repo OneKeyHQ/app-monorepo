@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgVolumeOff = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M10.6 3.3c.989-.742 2.4-.036 2.4 1.2v15c0 1.236-1.411 1.942-2.4 1.2l-4.667-3.5a1 1 0 0 0-.6-.2H4a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3h1.333a1 1 0 0 0 .6-.2zm11.607 5.993a1 1 0 0 1 0 1.414l-1.414 1.414 1.414 1.415a1 1 0 0 1-1.414 1.414l-1.414-1.414-1.415 1.414a1 1 0 1 1-1.414-1.414l1.414-1.415-1.414-1.414a1 1 0 0 1 1.414-1.414l1.415 1.414 1.414-1.414a1 1 0 0 1 1.414 0"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M13 20.928 5.746 17H1V7h4.746L13 3.07v17.857ZM22.914 10l-2.121 2.12 2.121 2.123-1.414 1.414-2.121-2.121-2.121 2.121-1.414-1.414 2.12-2.122L15.845 10l1.414-1.414 2.12 2.12 2.122-2.12z" />
   </Svg>
 );
 export default SvgVolumeOff;

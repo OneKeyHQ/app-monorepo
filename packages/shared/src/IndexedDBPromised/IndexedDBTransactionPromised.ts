@@ -20,8 +20,7 @@ export class IndexedDBTransactionPromised<
     StoreNames<DBTypes>
   >,
   Mode extends IDBTransactionMode = 'readonly',
-> implements IDBPTransaction<DBTypes, TxStores, Mode>
-{
+> implements IDBPTransaction<DBTypes, TxStores, Mode> {
   constructor({
     db,
     mode,

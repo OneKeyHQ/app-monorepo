@@ -41,6 +41,16 @@ export const cleanupHardwareSDKInstance = async (): Promise<void> => {
         HardwareSDK.dispose();
       }
 
+      if (HardwareLowLevelSDK) {
+        if (typeof HardwareLowLevelSDK.removeAllListeners === 'function') {
+          // @ts-expect-error
+          HardwareLowLevelSDK.removeAllListeners();
+        }
+        if (typeof HardwareLowLevelSDK.dispose === 'function') {
+          HardwareLowLevelSDK.dispose();
+        }
+      }
+
       // Clear SDK references
       HardwareSDK = undefined as any;
       HardwareLowLevelSDK = undefined as any;

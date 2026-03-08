@@ -1,14 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFolderBookmarks = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 10V6a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.664.89l1.11 1.665a1 1 0 0 0 .831.445H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8m-5-5H3a1 1 0 0 0-1 1v5l2.5-1.5L7 20v-5a1 1 0 0 0-1-1"
+      fillRule="evenodd"
+      d="m8 21.767-3.5-2.101-3.5 2.1V13h7zm-5-3.534 1.5-.899 1.5.9V15H3z"
+      clipRule="evenodd"
     />
+    <Path d="M12.535 6H22v14H10v-2h10V8h-8.535l-2-3H4v6H2V3h8.535z" />
   </Svg>
 );
 export default SvgFolderBookmarks;

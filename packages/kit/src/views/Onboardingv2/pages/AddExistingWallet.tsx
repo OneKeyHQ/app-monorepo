@@ -82,7 +82,7 @@ export default function AddExistingWallet() {
     () =>
       [
         {
-          title: intl.formatMessage({ id: ETranslations.global_transfer }),
+          title: intl.formatMessage({ id: ETranslations.transfer_transfer }),
           icon: 'MultipleDevicesOutline' as IKeyOfIcons,
           description: intl.formatMessage({
             id: ETranslations.prime_transfer_desc,
@@ -233,14 +233,7 @@ export default function AddExistingWallet() {
                 <Icon name={icon} />
               </YStack>
               <YStack gap={2} flex={1}>
-                <SizableText
-                  size="$bodyMdMedium"
-                  $platform-native={{
-                    size: '$bodyLgMedium',
-                  }}
-                >
-                  {title}
-                </SizableText>
+                <SizableText size="$bodyLgMedium">{title}</SizableText>
                 {description ? (
                   <SizableText size="$bodySm" color="$textSubdued">
                     {Array.isArray(description)

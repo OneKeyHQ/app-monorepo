@@ -438,7 +438,7 @@ const SendGallery = () => (
                           },
                         );
                       logResult(r);
-                    } catch (error) {
+                    } catch (_error) {
                       //
                     }
                   }

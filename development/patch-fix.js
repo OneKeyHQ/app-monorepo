@@ -55,7 +55,9 @@ function removeNodeModule(pkgName) {
         try {
           execSync(`rm -rf "${pkgPath}"`);
         } catch (shellErr) {
-          throw new Error(`Shell rm failed: ${shellErr.message}`);
+          throw new Error(`Shell rm failed: ${shellErr.message}`, {
+            cause: shellErr,
+          });
         }
       }
 

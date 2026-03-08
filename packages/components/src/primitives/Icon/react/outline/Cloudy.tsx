@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCloudy = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 19H9a7 7 0 1 1 6.024-10.568c.264.446.793.681 1.307.612A5 5 0 1 1 17 19Z"
+      fillRule="evenodd"
+      d="M9 4a8 8 0 0 1 6.979 4.087A6 6 0 1 1 17 20H9A8 8 0 1 1 9 4m0 2a6 6 0 1 0 0 12h8a4 4 0 1 0-1.249-7.802l-.871.286-.36-.842A6 6 0 0 0 9 6"
+      clipRule="evenodd"
     />
   </Svg>
 );

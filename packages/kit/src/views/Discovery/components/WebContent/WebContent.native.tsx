@@ -9,6 +9,7 @@ import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
@@ -21,7 +22,10 @@ import type {
   WebViewNavigation,
   WebViewProps,
 } from 'react-native-webview';
-import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  ShouldStartLoadRequest,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
@@ -106,9 +110,12 @@ function WebContent({
   );
 
   const onShouldStartLoadWithRequest = useCallback(
-    (navigationStateChangeEvent: WebViewNavigation) => {
-      const { url: navUrl } = navigationStateChangeEvent;
-      const validateState = validateWebviewSrc(navUrl);
+    (navigationStateChangeEvent: ShouldStartLoadRequest) => {
+      const { url: navUrl, isTopFrame } = navigationStateChangeEvent;
+      const validateState = validateWebviewSrc({
+        url: navUrl,
+        isTopFrame,
+      });
       if (validateState === EValidateUrlEnum.Valid) {
         return true;
       }
@@ -139,6 +146,7 @@ function WebContent({
         key={url}
         siteMode={siteMode}
         androidLayerType={androidLayerType}
+        pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
@@ -157,7 +165,10 @@ function WebContent({
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
           const { targetUrl } = e.nativeEvent;
-          const validateState = validateWebviewSrc(targetUrl);
+          const validateState = validateWebviewSrc({
+            url: targetUrl,
+            isTopFrame: true,
+          });
           if (validateState === EValidateUrlEnum.ValidDeeplink) {
             handleDeepLinkUrl({ url: targetUrl });
           } else {

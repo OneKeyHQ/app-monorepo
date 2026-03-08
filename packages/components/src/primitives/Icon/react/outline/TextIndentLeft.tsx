@@ -1,17 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgTextIndentLeft = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M9 6a1 1 0 0 1 1-1h11a1 1 0 1 1 0 2H10a1 1 0 0 1-1-1m0 6a1 1 0 0 1 1-1h11a1 1 0 1 1 0 2H10a1 1 0 0 1-1-1m0 6a1 1 0 0 1 1-1h11a1 1 0 1 1 0 2H10a1 1 0 0 1-1-1"
-      clipRule="evenodd"
-    />
-    <Path
-      fill="currentColor"
-      d="M2 14.22V9.78c0-.836.914-1.322 1.572-.837l3.01 2.22c.557.41.557 1.264 0 1.674l-3.01 2.22C2.914 15.543 2 15.056 2 14.22"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M22 19H9v-2h13zM7.312 12.002 2 15.508V8.476zM22 13H9v-2h13zm0-6H9V5h13z" />
   </Svg>
 );
 export default SvgTextIndentLeft;

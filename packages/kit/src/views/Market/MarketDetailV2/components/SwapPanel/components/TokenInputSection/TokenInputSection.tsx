@@ -10,16 +10,8 @@ import type { Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  Image,
-  Input,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
-import type { IInputRef } from '@onekeyhq/components';
+import { Icon, Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import type { IInputRef, IYStackProps } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   EAppEventBusNames,
@@ -53,6 +45,7 @@ export interface ITokenInputSectionProps {
   balance?: BigNumber;
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
   onAmountEnterTypeChange?: (source: IAmountEnterSource) => void;
+  style?: IYStackProps;
 }
 
 function TokenInputSectionComponent(
@@ -65,16 +58,15 @@ function TokenInputSectionComponent(
     balance,
     swapNativeTokenReserveGas,
     onAmountEnterTypeChange,
+    style,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
   const intl = useIntl();
-  const { gtMd } = useMedia();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [internalValue, setInternalValue] = useState('');
   const inputRef = useRef<IInputRef>(null);
   const isPresetSelectionRef = useRef(false);
-
   useImperativeHandle(
     ref,
     () => ({
@@ -122,12 +114,18 @@ function TokenInputSectionComponent(
   const isTokenSelectorVisible =
     tradeType === ESwapDirection.BUY && selectableTokens.length > 1;
 
-  const placeholderText =
+  const placeholderLabel =
     tradeType === ESwapDirection.BUY
       ? intl.formatMessage({ id: ETranslations.dexmarket_total })
       : intl.formatMessage({
           id: ETranslations.dexmarket_details_history_amount,
         });
+
+  const placeholderText = (
+    <SizableText size="$bodyMdMedium" color="$textSubdued" userSelect="none">
+      {placeholderLabel}
+    </SizableText>
+  );
 
   useEffect(() => {
     const handleSwapSpeedBuildTxSuccess = (data: {
@@ -183,81 +181,85 @@ function TokenInputSectionComponent(
   }, []);
 
   return (
-    <YStack gap="$1">
-      <Input
-        ref={inputRef}
-        size={gtMd ? 'medium' : 'large'}
-        keyboardType="decimal-pad"
-        value={internalValue}
-        placeholder={intl.formatMessage({
-          id: ETranslations.dexmarket_enter_amount,
-        })}
-        onChangeText={handleInternalChange}
-        leftAddOnProps={{
-          label: placeholderText,
-        }}
-        addOns={[
-          {
-            renderContent: (
-              <XStack
-                alignItems="center"
-                gap="$1"
-                px="$2"
-                {...(isTokenSelectorVisible && {
-                  onPress: () => setIsPopoverOpen(true),
-                  userSelect: 'none',
-                  hoverStyle: { bg: '$bgHover' },
-                  pressStyle: { bg: '$bgActive' },
-                  borderCurve: 'continuous',
-                })}
-              >
-                {selectedToken?.logoURI ? (
-                  <Image
-                    src={selectedToken.logoURI}
-                    width="$5"
-                    height="$5"
-                    borderRadius="$full"
-                  />
-                ) : null}
-                <SizableText size="$bodyLg">
-                  {selectedToken?.symbol}
-                </SizableText>
-                {isTokenSelectorVisible ? (
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                ) : null}
-              </XStack>
-            ),
-          },
-        ]}
-      />
-
-      <TokenSelectorPopover
-        isOpen={isPopoverOpen}
-        onOpenChange={setIsPopoverOpen}
-        tokens={selectableTokens}
-        onTokenPress={handleTokenSelect}
-      />
-
-      <QuickAmountSelector
-        buyAmounts={
-          selectedToken?.speedSwapDefaultAmount?.map((amount) => ({
-            label: amount.toString(),
-            value: amount,
-          })) ?? []
-        }
-        selectedTokenDecimals={selectedToken?.decimals}
-        selectedTokenNetworkId={selectedToken?.networkId}
-        selectedTokenIsNative={selectedToken?.isNative}
-        onSelect={handlePresetAmountSelect}
-        onPresetSelect={onAmountEnterTypeChange}
-        tradeType={tradeType}
-        balance={balance}
-        swapNativeTokenReserveGas={swapNativeTokenReserveGas}
-      />
+    <YStack {...style}>
+      <YStack borderRadius="$2" bg="$bgApp" gap="$px" overflow="hidden">
+        <Input
+          ref={inputRef}
+          size="small"
+          containerProps={{
+            flex: 1,
+            borderWidth: 0,
+            h: 44,
+            alignItems: 'center',
+            borderRadius: 0,
+            bg: '$bgStrong',
+          }}
+          keyboardType="decimal-pad"
+          value={internalValue}
+          placeholder={intl.formatMessage({
+            id: ETranslations.dexmarket_enter_amount,
+          })}
+          onChangeText={handleInternalChange}
+          leftAddOnProps={{
+            label: placeholderText,
+          }}
+          addOnsContainerProps={{
+            borderRadius: 0,
+          }}
+          addOns={[
+            {
+              renderContent: (
+                <XStack
+                  alignItems="center"
+                  h={44}
+                  gap="$1"
+                  px="$2"
+                  {...(isTokenSelectorVisible && {
+                    onPress: () => setIsPopoverOpen(true),
+                    userSelect: 'none',
+                    hoverStyle: { bg: '$bgHover' },
+                    pressStyle: { bg: '$bgActive' },
+                    borderCurve: 'continuous',
+                  })}
+                >
+                  <SizableText size="$bodyMd" numberOfLines={1} maxWidth="$16">
+                    {selectedToken?.symbol}
+                  </SizableText>
+                  {isTokenSelectorVisible ? (
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size="$4"
+                      color="$iconSubdued"
+                    />
+                  ) : null}
+                </XStack>
+              ),
+            },
+          ]}
+        />
+        <TokenSelectorPopover
+          isOpen={isPopoverOpen}
+          onOpenChange={setIsPopoverOpen}
+          tokens={selectableTokens}
+          onTokenPress={handleTokenSelect}
+        />
+        <QuickAmountSelector
+          buyAmounts={
+            selectedToken?.speedSwapDefaultAmount?.map((amount) => ({
+              label: amount.toString(),
+              value: amount,
+            })) ?? []
+          }
+          selectedTokenDecimals={selectedToken?.decimals}
+          selectedTokenNetworkId={selectedToken?.networkId}
+          selectedTokenIsNative={selectedToken?.isNative}
+          onSelect={handlePresetAmountSelect}
+          onPresetSelect={onAmountEnterTypeChange}
+          tradeType={tradeType}
+          balance={balance}
+          swapNativeTokenReserveGas={swapNativeTokenReserveGas}
+        />
+      </YStack>
     </YStack>
   );
 }

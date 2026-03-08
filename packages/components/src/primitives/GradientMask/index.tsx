@@ -1,4 +1,7 @@
-import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
+import { useTheme } from '@onekeyhq/components/src/hooks';
+import { Stack } from '@onekeyhq/components/src/primitives';
+
+import { LinearGradient } from '../../content/LinearGradient';
 
 type IGradientMaskPosition = 'left' | 'right';
 

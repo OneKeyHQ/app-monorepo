@@ -19,9 +19,12 @@ function EarnListView() {
     return (
       <Recommended
         withHeader={false}
+        enableFetch={false}
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
           borderColor: '$neutral3',
+          hoverStyle: { bg: '$bgHover' },
+          pressStyle: { bg: '$bgActive' },
         }}
       />
     );
@@ -49,6 +52,7 @@ function EarnListView() {
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.earn_title })}
+      headerContainerProps={{ px: '$pagePadding' }}
       headerActions={
         <Button
           size="small"
@@ -66,9 +70,9 @@ function EarnListView() {
       contentContainerProps={
         platformEnv.isNative
           ? {
-              mx: '$-5',
+              mx: '$-pagePadding',
             }
-          : undefined
+          : { px: '$pagePadding' }
       }
       content={renderContent()}
       plainContentContainer

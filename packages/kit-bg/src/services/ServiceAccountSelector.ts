@@ -123,7 +123,7 @@ class ServiceAccountSelector extends ServiceBase {
           swapMap[num] = swapDataMerged;
           if (swapMap && swapMap[num]) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            swapMap[num]!.networkId = usedNetworkId;
+            swapMap[num].networkId = usedNetworkId;
           }
         }
       };
@@ -283,15 +283,15 @@ class ServiceAccountSelector extends ServiceBase {
       }) || Boolean(account && !indexedAccountId);
     const isQrWallet = Boolean(
       wallet?.id &&
-        accountUtils.isQrWallet({
-          walletId: wallet?.id || '',
-        }),
+      accountUtils.isQrWallet({
+        walletId: wallet?.id || '',
+      }),
     );
     const isHwWallet = Boolean(
       wallet?.id &&
-        accountUtils.isHwWallet({
-          walletId: wallet?.id || '',
-        }),
+      accountUtils.isHwWallet({
+        walletId: wallet?.id || '',
+      }),
     );
     const universalAccountName = (() => {
       // hd account or others account
@@ -331,6 +331,16 @@ class ServiceAccountSelector extends ServiceBase {
           canCreateAddress = true;
         } catch (error) {
           account = undefined;
+          canCreateAddress = true;
+        }
+      } else if (!isOthersWallet && wallet && !indexedAccountId) {
+        // When all accounts are deleted, allow creating the first account
+        // for HD wallets, HW wallets, and QR wallets
+        const isHdOrHwOrQrWallet =
+          accountUtils.isHdWallet({ walletId: wallet.id }) ||
+          accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id });
+        if (isHdOrHwOrQrWallet) {
           canCreateAddress = true;
         }
       }
@@ -847,6 +857,21 @@ class ServiceAccountSelector extends ServiceBase {
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     }[] = [];
+    let accountsDeFiOverview: Array<
+      | {
+          overview: Record<
+            string,
+            {
+              totalValue: number;
+              totalDebt: number;
+              totalReward: number;
+              netWorth: number;
+              currency: string;
+            }
+          >;
+        }
+      | undefined
+    > = [];
 
     let mergeDeriveAssetsEnabled = false;
     if (selectedNetworkId) {
@@ -861,6 +886,9 @@ class ServiceAccountSelector extends ServiceBase {
     try {
       const accountsForValuesQuery: {
         accountId: string;
+        networkId: string;
+        indexedAccountId?: string;
+        accountAddress?: string;
       }[] = [];
 
       sectionData?.forEach?.((s) => {
@@ -868,26 +896,31 @@ class ServiceAccountSelector extends ServiceBase {
           accountsCount += 1;
           accountsForValuesQuery.push({
             accountId: account.id,
+            networkId:
+              (account as IDBAccount).createAtNetwork ||
+              selectedNetworkId ||
+              '',
+            indexedAccountId: accountUtils.buildIndexedAccountId({
+              walletId: (account as IDBIndexedAccount).walletId ?? '',
+              index: (account as IDBIndexedAccount).index,
+            }),
+            accountAddress:
+              (account as IDBAccount).address ||
+              (account as IDBIndexedAccount).associateAccount?.address ||
+              '',
           });
         });
       });
-      if (
-        accountUtils.isOthersWallet({
-          walletId: focusedWallet ?? '',
-        })
-      ) {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+      accountsDeFiOverview =
+        await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+          accounts: accountsForValuesQuery,
+        });
+      accountsValue =
+        await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+          {
             accounts: accountsForValuesQuery,
-          });
-      } else {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
-            {
-              accounts: accountsForValuesQuery,
-            },
-          );
-      }
+          },
+        );
     } catch (error) {
       //
     }
@@ -898,6 +931,7 @@ class ServiceAccountSelector extends ServiceBase {
       accountsCount,
       accountsValue,
       mergeDeriveAssetsEnabled,
+      accountsDeFiOverview,
     };
   }
 }

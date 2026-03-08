@@ -21,7 +21,7 @@ const excludeDirs = new Set([
 const extensions = new Set(['.ts', '.tsx']);
 
 // Statistics
-let stats = {
+const stats = {
   processed: 0,
   skipped: 0,
   errors: 0,
@@ -30,7 +30,11 @@ let stats = {
 };
 
 function shouldExcludeDir(dirName) {
-  return excludeDirs.has(dirName) || dirName.startsWith('tmp-') || dirName.startsWith('.');
+  return (
+    excludeDirs.has(dirName) ||
+    dirName.startsWith('tmp-') ||
+    dirName.startsWith('.')
+  );
 }
 
 function findFiles(dir, files = []) {
@@ -61,10 +65,10 @@ function findFiles(dir, files = []) {
 function removePerformanceTracking(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
-    
+
     // Skip if no performance tracking
     if (!content.includes('$$perfStart_') && !content.includes('perfReady')) {
-      stats.skipped++;
+      stats.skipped += 1;
       return;
     }
 
@@ -79,43 +83,49 @@ function removePerformanceTracking(filePath) {
     // Delete ready file if exists
     if (fs.existsSync(readyFilePath)) {
       fs.unlinkSync(readyFilePath);
-      stats.readyFilesDeleted++;
-      console.log(`✓ Deleted ready file: ${path.relative(rootDir, readyFilePath)}`);
+      stats.readyFilesDeleted += 1;
+      console.log(
+        `✓ Deleted ready file: ${path.relative(rootDir, readyFilePath)}`,
+      );
     }
 
     let newContent = content;
 
     // Remove import statement
-    const importPattern = new RegExp(`import '\\.\\/${fileNameWithoutExt}\\.perfReady';\\n`, 'g');
+    const importPattern = new RegExp(
+      `import '\\.\\/${fileNameWithoutExt}\\.perfReady';\\n`,
+      'g',
+    );
     newContent = newContent.replace(importPattern, '');
 
     // Remove the end tracking code
     newContent = newContent.replace(
       /\nif \(typeof \(globalThis as any\)\.\$\$perfStart_[a-zA-Z0-9_]+ !== 'undefined'\) \{[\s\S]*?\}\n?$/,
-      ''
+      '',
     );
 
     // Also try to remove old format (without 'as any')
     newContent = newContent.replace(
       /\nif \(typeof globalThis\.\$\$perfStart_[a-zA-Z0-9_]+ !== 'undefined'\) \{[\s\S]*?\}\n?$/,
-      ''
+      '',
     );
 
     // Check if we should remove the eslint-disable import/order comment
     // Remove it if it's at the beginning and there are no other imports that need it
-    const eslintDisablePattern = /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
-    
+    const eslintDisablePattern =
+      /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
+
     if (eslintDisablePattern.test(newContent)) {
       // Check if the next line after eslint-disable is an import
       const afterEslintDisable = newContent.replace(eslintDisablePattern, '');
-      
+
       // If there are no imports at the very beginning (or only perfReady import which we removed),
       // then we can safely remove the eslint-disable comment
       const startsWithImport = /^import\s+/.test(afterEslintDisable.trim());
-      
+
       if (!startsWithImport) {
         newContent = newContent.replace(eslintDisablePattern, '');
-        stats.eslintCommentsRemoved++;
+        stats.eslintCommentsRemoved += 1;
         console.log(`✓ Removed eslint-disable comment from: ${relativePath}`);
       }
     }
@@ -124,13 +134,13 @@ function removePerformanceTracking(filePath) {
     if (newContent !== content) {
       fs.writeFileSync(filePath, newContent, 'utf-8');
       console.log(`✓ Removed tracking from: ${relativePath}`);
-      stats.processed++;
+      stats.processed += 1;
     } else {
-      stats.skipped++;
+      stats.skipped += 1;
     }
   } catch (error) {
     console.error(`Error processing ${filePath}:`, error.message);
-    stats.errors++;
+    stats.errors += 1;
   }
 }
 
@@ -140,10 +150,7 @@ function processAllFiles() {
 
   console.log('Finding all .ts and .tsx files...\n');
 
-  const files = [
-    ...findFiles(packagesDir),
-    ...findFiles(appsDir),
-  ];
+  const files = [...findFiles(packagesDir), ...findFiles(appsDir)];
 
   console.log(`Found ${files.length} files to process\n`);
 
@@ -151,7 +158,7 @@ function processAllFiles() {
     removePerformanceTracking(file);
   });
 
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${'='.repeat(60)}`);
   console.log('Summary:');
   console.log(`  Processed: ${stats.processed}`);
   console.log(`  Ready files deleted: ${stats.readyFilesDeleted}`);
@@ -166,7 +173,7 @@ function processAllFiles() {
 if (require.main === module) {
   console.log('Removing performance tracking from all .ts and .tsx files...');
   console.log(`Root directory: ${rootDir}\n`);
-  
+
   processAllFiles();
 }
 

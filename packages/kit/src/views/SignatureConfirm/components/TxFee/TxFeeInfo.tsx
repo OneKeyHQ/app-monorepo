@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
@@ -45,6 +45,7 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
+  BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
@@ -572,7 +573,7 @@ function TxFeeInfo(props: IProps) {
         if (txFee.gas && !isEmpty(txFee.gas)) {
           customFeeInfo.gas = {
             ...(txFee.gas[sendSelectedFee.presetIndex] ?? txFee.gas[0]),
-            ...(customFee?.gas ?? {}),
+            ...customFee?.gas,
           };
         }
 
@@ -580,28 +581,28 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.gasEIP1559 = {
             ...(txFee.gasEIP1559[sendSelectedFee.presetIndex] ??
               txFee.gasEIP1559[0]),
-            ...(customFee?.gasEIP1559 ?? {}),
+            ...customFee?.gasEIP1559,
           };
         }
 
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...(txFee.feeUTXO[sendSelectedFee.presetIndex] ?? txFee.feeUTXO[0]),
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 
         if (txFee.feeSol && !isEmpty(txFee.feeSol)) {
           customFeeInfo.feeSol = {
             ...(txFee.feeSol[sendSelectedFee.presetIndex] ?? txFee.feeSol[0]),
-            ...(customFee?.feeSol ?? {}),
+            ...customFee?.feeSol,
           };
         }
 
         if (txFee.feeCkb && !isEmpty(txFee.feeCkb)) {
           customFeeInfo.feeCkb = {
             ...(txFee.feeCkb[sendSelectedFee.presetIndex] ?? txFee.feeCkb[0]),
-            ...(customFee?.feeCkb ?? {}),
+            ...customFee?.feeCkb,
           };
         }
 
@@ -626,7 +627,7 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.feeBudget = {
             ...(txFee.feeBudget[sendSelectedFee.presetIndex] ??
               txFee.feeBudget[0]),
-            ...(customFee?.feeBudget ?? {}),
+            ...customFee?.feeBudget,
           };
         }
 
@@ -634,7 +635,7 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.feeNeoN3 = {
             ...(txFee.feeNeoN3[sendSelectedFee.presetIndex] ??
               txFee.feeNeoN3[0]),
-            ...(customFee?.feeNeoN3 ?? {}),
+            ...customFee?.feeNeoN3,
           };
         }
 
@@ -814,7 +815,7 @@ function TxFeeInfo(props: IProps) {
         if (txFee.feeUTXO && !isEmpty(txFee.feeUTXO)) {
           customFeeInfo.feeUTXO = {
             ...txFee.feeUTXO[sendSelectedFee.presetIndex],
-            ...(customFee?.feeUTXO ?? {}),
+            ...customFee?.feeUTXO,
           };
         }
 
@@ -1024,11 +1025,16 @@ function TxFeeInfo(props: IProps) {
             new BigNumber(0),
           );
           specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-            .times(allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP))
+            .times(
+              allRoutesLength
+                .plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP),
+            )
             .toFixed();
         } else {
           specialGasLimit = new BigNumber(baseGasLimit ?? 0)
             .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+            .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP)
             .toFixed();
         }
       }

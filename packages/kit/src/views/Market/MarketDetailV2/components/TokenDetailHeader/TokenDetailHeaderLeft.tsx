@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 import { useWindowDimensions } from 'react-native';
 
 import {
@@ -8,12 +9,12 @@ import {
   SizableText,
   XStack,
   YStack,
+  useIsSplitView,
   useMedia,
-  useOrientation,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -39,12 +40,18 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
 }: ITokenDetailHeaderLeftProps) {
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const { width: windowScreenWidth } = useWindowDimensions();
   const screenWidth = useMemo(() => {
     return isLandscape ? windowScreenWidth / 2 : windowScreenWidth;
   }, [isLandscape, windowScreenWidth]);
   const { md } = useMedia();
+
+  // Use hook to get network logo with async fallback
+  const effectiveNetworkLogoUri = useNetworkLogoUri({
+    logoUri: networkLogoUri,
+    networkId,
+  });
 
   const {
     handleCopyAddress,
@@ -98,20 +105,26 @@ export function TokenDetailHeaderLeft({
           }
         : {})}
     >
-      {!platformEnv.isNative && !md ? marketStar : null}
-      {isNative && !platformEnv.isNative && !md ? shareButton : null}
-
       <XStack gap="$3" ai="center">
         <Token
           size="md"
           tokenImageUri={logoUrl}
-          networkImageUri={networkLogoUri}
+          networkImageUri={effectiveNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
 
         <YStack>
           <XStack ai="center" gap="$1">
-            <SizableText size="$bodyLgMedium" color="$text">
+            <SizableText
+              size="$headingLg"
+              $gtMd={{
+                size: '$heading2xl',
+              }}
+              color="$text"
+              numberOfLines={1}
+              maxWidth="$60"
+              flexShrink={1}
+            >
               {symbol}
             </SizableText>
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
@@ -183,7 +196,7 @@ export function TokenDetailHeaderLeft({
                         />
                       ) : null}
 
-                      {networkId ? (
+                      {networkId && address && address !== SUI_TYPE_ARG ? (
                         <ShareButton
                           networkId={networkId}
                           address={address}

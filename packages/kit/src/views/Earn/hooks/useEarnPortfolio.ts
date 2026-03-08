@@ -13,10 +13,7 @@ import {
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
-import type {
-  IEarnInvestmentItemV2,
-  IEarnPortfolioInvestment,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -26,35 +23,11 @@ import {
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
 
-let currentAccountDataFetcher: (() => void) | null = null;
-let accountDataUpdateListenerRegistered = false;
-const handleAccountDataUpdateGlobal = () => {
-  currentAccountDataFetcher?.();
-};
+import { useEarnAccountKey } from './useEarnAccountKey';
 
-function registerAccountDataUpdateFetcher(fetcher: () => void) {
-  currentAccountDataFetcher = fetcher;
-  if (!accountDataUpdateListenerRegistered) {
-    appEventBus.on(
-      EAppEventBusNames.AccountDataUpdate,
-      handleAccountDataUpdateGlobal,
-    );
-    accountDataUpdateListenerRegistered = true;
-  }
-}
-
-function unregisterAccountDataUpdateFetcher(fetcher: () => void) {
-  if (currentAccountDataFetcher === fetcher) {
-    currentAccountDataFetcher = null;
-  }
-  if (accountDataUpdateListenerRegistered && !currentAccountDataFetcher) {
-    appEventBus.off(
-      EAppEventBusNames.AccountDataUpdate,
-      handleAccountDataUpdateGlobal,
-    );
-    accountDataUpdateListenerRegistered = false;
-  }
-}
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface IRefreshOptions {
   provider?: string;
@@ -74,21 +47,35 @@ interface IFetchInvestmentParams {
 }
 
 interface IFetchInvestmentResult {
-  key: IInvestmentKey;
+  key: string;
   investment?: IEarnPortfolioInvestment;
   remove?: boolean;
 }
 
-type IInvestmentKey = string;
-type IInvestmentMap = Map<IInvestmentKey, IEarnPortfolioInvestment>;
+interface IAccountAssetPair {
+  isAirdrop: boolean;
+  params: IFetchInvestmentParams;
+}
+
+// ============================================================================
+// Pure Utility Functions
+// ============================================================================
 
 const createInvestmentKey = (item: {
   provider: string;
   symbol: string;
   vault?: string;
   networkId: string;
-}): IInvestmentKey =>
+}): string =>
   `${item.provider}_${item.symbol}_${item.vault || ''}_${item.networkId}`;
+
+const resolveVault = ({
+  protocolVault,
+  requestVault,
+}: {
+  protocolVault?: string;
+  requestVault?: string;
+}) => protocolVault || requestVault;
 
 const hasPositiveFiatValue = (value: string | undefined): boolean =>
   new BigNumber(value || '0').gt(0);
@@ -96,37 +83,31 @@ const hasPositiveFiatValue = (value: string | undefined): boolean =>
 const isEarnTestnetNetwork = (networkId: string): boolean =>
   earnTestnetNetworkIds.includes(networkId);
 
-// Check if investment has any assets (for testnet networks)
-// For testnet: check assetsStatus or rewardAssets instead of fiat value
 const hasAnyAssets = (
   assets: Array<{
     assetsStatus?: Array<{ title: { text: string } }>;
     rewardAssets?: Array<{ title: { text: string } }>;
   }>,
-): boolean => {
-  if (assets.length === 0) return false;
-  return assets.some(
+): boolean =>
+  assets.length > 0 &&
+  assets.some(
     (asset) =>
       (asset.assetsStatus && asset.assetsStatus.length > 0) ||
       (asset.rewardAssets && asset.rewardAssets.length > 0),
   );
-};
 
 const hasAnyAirdropAssets = (
   assets: Array<{
     airdropAssets?: Array<{ title: { text: string } }>;
   }>,
-): boolean => {
-  if (assets.length === 0) return false;
-  return assets.some(
-    (asset) => asset.airdropAssets && asset.airdropAssets.length > 0,
-  );
-};
+): boolean =>
+  assets.length > 0 &&
+  assets.some((asset) => asset.airdropAssets && asset.airdropAssets.length > 0);
 
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
-  [...investments].sort((a, b) => {
+  investments.toSorted((a, b) => {
     const valueA = new BigNumber(a.totalFiatValue || '0');
     const valueB = new BigNumber(b.totalFiatValue || '0');
     return valueB.comparedTo(valueA);
@@ -137,7 +118,6 @@ const filterValidInvestments = (
 ): IEarnPortfolioInvestment[] =>
   Array.from(values).filter((inv) => {
     if (hasAnyAirdropAssets(inv.airdropAssets)) return true;
-    // For testnet networks, check if there are any actual assets
     if (isEarnTestnetNetwork(inv.network.networkId)) {
       return hasAnyAssets(inv.assets);
     }
@@ -146,19 +126,23 @@ const filterValidInvestments = (
 
 const createInvestmentKeyFromInvestment = (
   investment: IEarnPortfolioInvestment,
-): IInvestmentKey => {
+): string => {
   const firstAsset = investment.assets[0] || investment.airdropAssets[0];
+  const resolvedVault = resolveVault({
+    protocolVault: investment.protocol.vault,
+    requestVault: firstAsset?.metadata?.protocol?.vault,
+  });
   return createInvestmentKey({
     provider: investment.protocol.providerDetail.code,
     symbol: firstAsset?.token.info.symbol || '',
-    vault: investment.protocol.vault,
+    vault: resolvedVault,
     networkId: investment.network.networkId,
   });
 };
 
 const buildInvestmentMapFromList = (
   investments: IEarnPortfolioInvestment[],
-): IInvestmentMap =>
+): Map<string, IEarnPortfolioInvestment> =>
   new Map(
     investments.map((inv) => [createInvestmentKeyFromInvestment(inv), inv]),
   );
@@ -183,29 +167,21 @@ const calculateTotalEarnings24hValue = (
     return sum.plus(new BigNumber(inv.earnings24hFiatValue || '0'));
   }, new BigNumber(0));
 
-const enrichAssetWithMetadata = (
-  asset: IEarnInvestmentItemV2['assets'][number],
-  investment: IEarnInvestmentItemV2,
-): IEarnPortfolioInvestment['assets'][number] => ({
-  ...asset,
-  metadata: {
-    protocol: investment.protocol,
-    network: investment.network,
-  },
-});
-
 const mergeInvestments = (
   existing: IEarnPortfolioInvestment,
   incoming: IEarnPortfolioInvestment,
 ): IEarnPortfolioInvestment => {
   const existingTotal = new BigNumber(existing.totalFiatValue || '0');
   const incomingTotal = new BigNumber(incoming.totalFiatValue || '0');
+  const existingTotalUsd = new BigNumber(existing.totalFiatValueUsd || '0');
+  const incomingTotalUsd = new BigNumber(incoming.totalFiatValueUsd || '0');
 
   return {
     ...existing,
     assets: [...existing.assets, ...incoming.assets],
     airdropAssets: [...existing.airdropAssets, ...incoming.airdropAssets],
     totalFiatValue: existingTotal.plus(incomingTotal).toFixed(),
+    totalFiatValueUsd: existingTotalUsd.plus(incomingTotalUsd).toFixed(),
   };
 };
 
@@ -228,15 +204,125 @@ const aggregateByProtocol = (
   return sortByFiatValueDesc(Array.from(protocolMap.values()));
 };
 
-const useInvestmentState = ({
-  initialInvestments,
-  initialTotalFiatValue,
-  initialTotalEarnings24hFiatValue,
-}: {
+// ============================================================================
+// Investment Fetching
+// ============================================================================
+
+async function fetchSingleInvestment(
+  params: IFetchInvestmentParams,
+  isAirdrop: boolean,
+): Promise<IFetchInvestmentResult | null> {
+  if (isAirdrop) {
+    const result =
+      await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
+        params,
+      );
+
+    const key = createInvestmentKey({
+      provider: result.protocol.providerDetail.code,
+      symbol: result.assets?.[0]?.token.info.symbol || '',
+      vault: result.protocol.vault,
+      networkId: result.network.networkId,
+    });
+
+    const enrichedAirdropAssets = result.assets.map((asset) => ({
+      ...asset,
+      metadata: {
+        protocol: result.protocol,
+        network: result.network,
+      },
+    }));
+
+    return {
+      key,
+      investment: {
+        totalFiatValue: '0',
+        totalFiatValueUsd: '0',
+        earnings24hFiatValue: '0',
+        protocol: result.protocol,
+        network: result.network,
+        assets: [],
+        airdropAssets: enrichedAirdropAssets,
+      },
+    };
+  }
+
+  const result =
+    await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(params);
+
+  const resolvedProtocolVault = resolveVault({
+    protocolVault: result.protocol.vault,
+    // Use request vault as fallback (Pendle PT market address).
+    requestVault: params.vault,
+  });
+  const normalizedProtocol = resolvedProtocolVault
+    ? { ...result.protocol, vault: resolvedProtocolVault }
+    : result.protocol;
+
+  const key = createInvestmentKey({
+    provider: result.protocol.providerDetail.code,
+    symbol: result.assets?.[0]?.token.info.symbol || '',
+    vault: resolvedProtocolVault,
+    networkId: result.network.networkId,
+  });
+
+  const shouldRemove = isEarnTestnetNetwork(result.network.networkId)
+    ? !hasAnyAssets(result.assets)
+    : !hasPositiveFiatValue(result.totalFiatValue);
+
+  if (shouldRemove) {
+    return { key, remove: true };
+  }
+
+  const enrichedAssets = result.assets.map((asset) => {
+    const resolvedAssetVault = resolveVault({
+      protocolVault: result.protocol.vault,
+      requestVault: params.vault,
+    });
+    return {
+      ...asset,
+      metadata: {
+        protocol: resolvedAssetVault
+          ? { ...result.protocol, vault: resolvedAssetVault }
+          : result.protocol,
+        network: result.network,
+        fiatValue: result.totalFiatValue,
+        fiatValueUsd: result.totalFiatValueUsd,
+      },
+    };
+  });
+
+  return {
+    key,
+    investment: {
+      totalFiatValue: result.totalFiatValue,
+      totalFiatValueUsd: result.totalFiatValueUsd,
+      earnings24hFiatValue: result.earnings24hFiatValue,
+      protocol: normalizedProtocol,
+      network: result.network,
+      assets: enrichedAssets,
+      airdropAssets: [],
+    },
+  };
+}
+
+// ============================================================================
+// Custom Hooks
+// ============================================================================
+
+interface IInvestmentStateOptions {
   initialInvestments?: IEarnPortfolioInvestment[];
   initialTotalFiatValue?: string;
   initialTotalEarnings24hFiatValue?: string;
-} = {}) => {
+}
+
+function useInvestmentState(options: IInvestmentStateOptions = {}) {
+  const {
+    initialInvestments,
+    initialTotalFiatValue,
+    initialTotalEarnings24hFiatValue,
+  } = options;
+
   const [investments, setInvestments] = useState<IEarnPortfolioInvestment[]>(
     () => initialInvestments ?? [],
   );
@@ -247,16 +333,16 @@ const useInvestmentState = ({
     useState<BigNumber>(
       () => new BigNumber(initialTotalEarnings24hFiatValue || 0),
     );
-  const investmentMapRef = useRef<IInvestmentMap>(
+
+  const investmentMapRef = useRef<Map<string, IEarnPortfolioInvestment>>(
     initialInvestments && initialInvestments.length > 0
       ? buildInvestmentMapFromList(initialInvestments)
       : new Map(),
   );
-  const isLoadingNewAccountRef = useRef(true);
 
   const updateInvestments = useCallback(
     (
-      newMap: IInvestmentMap,
+      newMap: Map<string, IEarnPortfolioInvestment>,
       shouldUpdateTotals = true,
     ): IEarnPortfolioInvestment[] => {
       const validInvestments = filterValidInvestments(newMap.values());
@@ -279,13 +365,8 @@ const useInvestmentState = ({
   const clearInvestments = useCallback(() => {
     investmentMapRef.current.clear();
     setInvestments([]);
-    isLoadingNewAccountRef.current = true;
     setEarnTotalFiatValue(new BigNumber(0));
     setEarnTotalEarnings24hFiatValue(new BigNumber(0));
-  }, []);
-
-  const finishLoadingNewAccount = useCallback(() => {
-    isLoadingNewAccountRef.current = false;
   }, []);
 
   return {
@@ -295,53 +376,75 @@ const useInvestmentState = ({
     investmentMapRef,
     updateInvestments,
     clearInvestments,
-    finishLoadingNewAccount,
-    isLoadingNewAccountRef,
   };
-};
+}
 
-const useAccountState = (
-  account?: { id: string } | null,
-  indexedAccount?: { id: string } | null,
-) => {
-  const prevAccountRef = useRef({
-    accountId: account?.id,
-    indexedAccountId: indexedAccount?.id,
+interface IRequestControllerState {
+  accountId: string | undefined;
+  indexedAccountId: string | undefined;
+  requestId: string;
+  isLoadingNewAccount: boolean;
+}
+
+function useRequestController(
+  accountId: string | undefined,
+  indexedAccountId: string | undefined,
+) {
+  const stateRef = useRef<IRequestControllerState>({
+    accountId,
+    indexedAccountId,
+    requestId: '',
+    isLoadingNewAccount: true,
   });
-  const currentRequestIdRef = useRef<string>('');
-
-  const accountId = account?.id;
-  const indexedAccountId = indexedAccount?.id;
 
   const hasAccountChanged = useCallback(() => {
+    const state = stateRef.current;
     return (
-      prevAccountRef.current.accountId !== accountId ||
-      prevAccountRef.current.indexedAccountId !== indexedAccountId
+      state.accountId !== accountId ||
+      state.indexedAccountId !== indexedAccountId
     );
   }, [accountId, indexedAccountId]);
 
-  const markAccountChange = useCallback(() => {
-    prevAccountRef.current = { accountId, indexedAccountId };
-    currentRequestIdRef.current = generateUUID();
-    return currentRequestIdRef.current;
-  }, [accountId, indexedAccountId]);
-
-  const startNewRequest = useCallback(() => {
-    currentRequestIdRef.current = generateUUID();
-    return currentRequestIdRef.current;
-  }, []);
+  const startNewRequest = useCallback(
+    (isAccountChange = false) => {
+      const newRequestId = generateUUID();
+      stateRef.current = {
+        accountId,
+        indexedAccountId,
+        requestId: newRequestId,
+        isLoadingNewAccount: isAccountChange
+          ? true
+          : stateRef.current.isLoadingNewAccount,
+      };
+      return newRequestId;
+    },
+    [accountId, indexedAccountId],
+  );
 
   const isRequestStale = useCallback((requestId: string) => {
-    return requestId !== currentRequestIdRef.current;
+    return requestId !== stateRef.current.requestId;
+  }, []);
+
+  const finishLoadingNewAccount = useCallback(() => {
+    stateRef.current.isLoadingNewAccount = false;
+  }, []);
+
+  const isLoadingNewAccount = useCallback(() => {
+    return stateRef.current.isLoadingNewAccount;
   }, []);
 
   return {
     hasAccountChanged,
-    markAccountChange,
     startNewRequest,
     isRequestStale,
+    finishLoadingNewAccount,
+    isLoadingNewAccount,
   };
-};
+}
+
+// ============================================================================
+// Main Hook
+// ============================================================================
 
 export interface IUseEarnPortfolioReturn {
   investments: IEarnPortfolioInvestment[];
@@ -358,42 +461,28 @@ export const useEarnPortfolio = ({
 } = {}): IUseEarnPortfolioReturn => {
   const isMountedRef = useRef(true);
   const isSyncingAtomRef = useRef(false);
+
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
+
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const accountIdValue = account?.id ?? '';
   const indexedAccountIdValue = indexedAccount?.id ?? '';
   const accountIndexedAccountIdValue = account?.indexedAccountId;
-  const activeAccountIdRef = useRef(accountIdValue);
-  useEffect(() => {
-    activeAccountIdRef.current = accountIdValue;
-  }, [accountIdValue]);
 
   const actions = useEarnActions();
   const [{ earnAccount }] = useEarnAtom();
   const [portfolioCache, setPortfolioCache] = useEarnPortfolioInvestmentsAtom();
-  const earnAccountKey = useMemo(
-    () =>
-      actions.current.buildEarnAccountsKey({
-        accountId: accountIdValue || undefined,
-        indexAccountId:
-          accountIndexedAccountIdValue || indexedAccountIdValue || undefined,
-        networkId: allNetworkId,
-      }),
-    [
-      actions,
-      accountIdValue,
-      accountIndexedAccountIdValue,
-      indexedAccountIdValue,
-      allNetworkId,
-    ],
-  );
+  const earnAccountKey = useEarnAccountKey();
+
   const currentOverviewData =
     earnAccountKey && earnAccount ? earnAccount[earnAccountKey] : undefined;
+
   const cachedInvestments = useMemo(() => {
     if (!earnAccountKey) return undefined;
     return portfolioCache[earnAccountKey];
   }, [portfolioCache, earnAccountKey]);
+
   const [isLoading, setIsLoading] = useState(
     () => !(cachedInvestments && cachedInvestments.length > 0),
   );
@@ -405,8 +494,6 @@ export const useEarnPortfolio = ({
     investmentMapRef,
     updateInvestments,
     clearInvestments,
-    finishLoadingNewAccount,
-    isLoadingNewAccountRef,
   } = useInvestmentState({
     initialInvestments: cachedInvestments,
     initialTotalFiatValue: currentOverviewData?.totalFiatValue,
@@ -415,20 +502,19 @@ export const useEarnPortfolio = ({
 
   const {
     hasAccountChanged,
-    markAccountChange,
     startNewRequest,
     isRequestStale,
-  } = useAccountState(account, indexedAccount);
+    finishLoadingNewAccount,
+    isLoadingNewAccount,
+  } = useRequestController(accountIdValue, indexedAccountIdValue);
 
-  const lastSyncedValuesRef = useRef<{
-    totalFiatValue: string;
-    earnings24h: string;
-  }>({ totalFiatValue: '', earnings24h: '' });
+  const lastSyncedValuesRef = useRef({ totalFiatValue: '', earnings24h: '' });
 
+  // Throttled UI update for progressive loading
   const throttledUIUpdate = useMemo(
     () =>
       throttle(
-        (newMap: IInvestmentMap) => {
+        (newMap: Map<string, IEarnPortfolioInvestment>) => {
           updateInvestments(newMap, false);
         },
         500,
@@ -437,121 +523,26 @@ export const useEarnPortfolio = ({
     [updateInvestments],
   );
 
-  // Clean up throttled timer on unmount to avoid dangling timeouts
-  useEffect(() => () => throttledUIUpdate.cancel(), [throttledUIUpdate]);
-
+  // Handle account changes
   useEffect(() => {
     if (hasAccountChanged()) {
       clearInvestments();
       throttledUIUpdate.cancel();
       lastSyncedValuesRef.current = { totalFiatValue: '', earnings24h: '' };
-      markAccountChange();
+      startNewRequest(true);
       setIsLoading(true);
     }
-  }, [
-    hasAccountChanged,
-    clearInvestments,
-    throttledUIUpdate,
-    markAccountChange,
-  ]);
+  }, [hasAccountChanged, clearInvestments, throttledUIUpdate, startNewRequest]);
 
-  const fetchInvestmentDetail = useCallback(
-    async (
-      item: IFetchInvestmentParams,
-      isAirdrop: boolean,
-      requestId: string,
-    ): Promise<IFetchInvestmentResult | null> => {
-      try {
-        if (isAirdrop) {
-          const result =
-            await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
-              item,
-            );
-          if (isRequestStale(requestId)) return null;
-
-          const key = createInvestmentKey({
-            provider: result.protocol.providerDetail.code,
-            symbol: result.assets?.[0]?.token.info.symbol || '',
-            vault: result.protocol.vault,
-            networkId: result.network.networkId,
-          });
-
-          const enrichedAirdropAssets = result.assets.map((asset) => ({
-            ...asset,
-            metadata: {
-              protocol: result.protocol,
-              network: result.network,
-            },
-          }));
-
-          return {
-            key,
-            investment: {
-              totalFiatValue: '0',
-              earnings24hFiatValue: '0',
-              protocol: result.protocol,
-              network: result.network,
-              assets: [],
-              airdropAssets: enrichedAirdropAssets,
-            },
-          };
-        }
-
-        const result =
-          await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(item);
-
-        const key = createInvestmentKey({
-          provider: result.protocol.providerDetail.code,
-          symbol: result.assets?.[0]?.token.info.symbol || '',
-          vault: result.protocol.vault,
-          networkId: result.network.networkId,
-        });
-
-        if (isRequestStale(requestId)) {
-          return null;
-        }
-
-        const shouldRemove = isEarnTestnetNetwork(result.network.networkId)
-          ? !hasAnyAssets(result.assets)
-          : !hasPositiveFiatValue(result.totalFiatValue);
-
-        if (shouldRemove) {
-          return {
-            key,
-            remove: true,
-          };
-        }
-
-        const enrichedAssets = result.assets.map((asset) =>
-          enrichAssetWithMetadata(asset, result),
-        );
-
-        return {
-          key,
-          investment: {
-            totalFiatValue: result.totalFiatValue,
-            earnings24hFiatValue: result.earnings24hFiatValue,
-            protocol: result.protocol,
-            network: result.network,
-            assets: enrichedAssets,
-            airdropAssets: [],
-          },
-        };
-      } catch (error) {
-        return null;
-      }
-    },
-    [isRequestStale],
-  );
-
+  // Main fetch function
   const fetchAndUpdateInvestments = useCallback(
     async (options?: IRefreshOptions) => {
-      if (!isMountedRef.current) return;
+      if (!isActive || !isMountedRef.current) return;
 
       const requestId = hasAccountChanged()
-        ? markAccountChange()
-        : startNewRequest();
-      // Use a per-request map to avoid cross-request mutations
+        ? startNewRequest(true)
+        : startNewRequest(false);
+
       const requestMap = new Map(investmentMapRef.current);
 
       if (!accountIdValue && !indexedAccountIdValue) {
@@ -562,10 +553,8 @@ export const useEarnPortfolio = ({
       }
 
       const isPartialRefresh = Boolean(options);
-      if (!isPartialRefresh) {
-        if (isMountedRef.current) {
-          setIsLoading(true);
-        }
+      if (!isPartialRefresh && isMountedRef.current) {
+        setIsLoading(true);
       }
 
       try {
@@ -581,6 +570,7 @@ export const useEarnPortfolio = ({
 
         if (isRequestStale(requestId) || !isMountedRef.current) return;
 
+        // Update earn accounts in global state
         if (earnAccountKey) {
           const normalizedAccounts = accounts.map((accountItem) => ({
             tokens: [],
@@ -600,26 +590,29 @@ export const useEarnPortfolio = ({
           });
         }
 
-        const accountAssetPairs = accounts.flatMap((accountItem) =>
-          assets
-            .filter((asset) => asset.networkId === accountItem.networkId)
-            .map((asset) => ({
-              isAirdrop: asset.type === 'airdrop',
-              params: {
-                accountId: accountIdValue || '',
-                accountAddress: accountItem.accountAddress,
-                networkId: accountItem.networkId,
-                provider: asset.provider,
-                symbol: asset.symbol,
-                ...(asset.vault && { vault: asset.vault }),
-                ...(accountItem.publicKey && {
-                  publicKey: accountItem.publicKey,
-                }),
-              },
-            })),
+        // Build account-asset pairs
+        const accountAssetPairs: IAccountAssetPair[] = accounts.flatMap(
+          (accountItem) =>
+            assets
+              .filter((asset) => asset.networkId === accountItem.networkId)
+              .map((asset) => ({
+                isAirdrop: asset.type === 'airdrop',
+                params: {
+                  accountId: accountIdValue || '',
+                  accountAddress: accountItem.accountAddress,
+                  networkId: accountItem.networkId,
+                  provider: asset.provider,
+                  symbol: asset.symbol,
+                  ...(asset.vault && { vault: asset.vault }),
+                  ...(accountItem.publicKey && {
+                    publicKey: accountItem.publicKey,
+                  }),
+                },
+              })),
         );
 
-        const pairsWithType = options
+        // Filter pairs based on refresh options
+        const pairsToFetch = options
           ? accountAssetPairs.filter((pair) => {
               const { params, isAirdrop } = pair;
               if (options.provider && params.provider !== options.provider)
@@ -642,57 +635,59 @@ export const useEarnPortfolio = ({
             })
           : accountAssetPairs;
 
-        const keysUpdatedInThisSession = new Set<IInvestmentKey>();
+        const keysUpdatedInThisSession = new Set<string>();
         const limit = pLimit(6);
 
-        const tasks = pairsWithType.map(({ params, isAirdrop }) =>
+        const tasks = pairsToFetch.map(({ params, isAirdrop }) =>
           limit(async () => {
             if (isRequestStale(requestId) || !isMountedRef.current) return;
 
-            const result = await fetchInvestmentDetail(
-              params,
-              isAirdrop,
-              requestId,
-            );
-
-            // Skip outdated account responses
-            if (
-              params.accountId &&
-              params.accountId !== activeAccountIdRef.current
-            ) {
+            let result: IFetchInvestmentResult | null = null;
+            try {
+              result = await fetchSingleInvestment(params, isAirdrop);
+            } catch (error) {
+              console.warn(
+                `[useEarnPortfolio] Failed to fetch investment for ${params.provider}/${params.symbol}:`,
+                error,
+              );
               return;
             }
 
-            if (!isRequestStale(requestId) && isMountedRef.current && result) {
-              const { key: resultKey, investment: newInv, remove } = result;
+            if (isRequestStale(requestId) || !isMountedRef.current || !result) {
+              return;
+            }
 
-              if (remove) {
-                requestMap.delete(resultKey);
-                keysUpdatedInThisSession.add(resultKey);
-                if (isMountedRef.current) {
-                  throttledUIUpdate(new Map(requestMap));
-                }
-                return;
-              }
+            // Skip outdated account responses
+            if (params.accountId && params.accountId !== accountIdValue) {
+              return;
+            }
 
-              if (!newInv) return;
+            const { key: resultKey, investment: newInv, remove } = result;
 
-              const existingInMap = requestMap.get(resultKey);
-              const hasUpdatedInSession =
-                keysUpdatedInThisSession.has(resultKey);
-
-              let finalInv = newInv;
-
-              if (hasUpdatedInSession && existingInMap) {
-                finalInv = mergeInvestments(existingInMap, newInv);
-              }
-
+            if (remove) {
+              requestMap.delete(resultKey);
               keysUpdatedInThisSession.add(resultKey);
-              requestMap.set(resultKey, finalInv);
-
               if (isMountedRef.current) {
                 throttledUIUpdate(new Map(requestMap));
               }
+              return;
+            }
+
+            if (!newInv) return;
+
+            const existingInMap = requestMap.get(resultKey);
+            const hasUpdatedInSession = keysUpdatedInThisSession.has(resultKey);
+
+            let finalInv = newInv;
+            if (hasUpdatedInSession && existingInMap) {
+              finalInv = mergeInvestments(existingInMap, newInv);
+            }
+
+            keysUpdatedInThisSession.add(resultKey);
+            requestMap.set(resultKey, finalInv);
+
+            if (isMountedRef.current) {
+              throttledUIUpdate(new Map(requestMap));
             }
           }),
         );
@@ -702,6 +697,7 @@ export const useEarnPortfolio = ({
         if (!isRequestStale(requestId) && isMountedRef.current) {
           throttledUIUpdate.flush();
 
+          // Remove stale entries for full refresh
           if (!options) {
             Array.from(requestMap.keys()).forEach((key) => {
               if (!keysUpdatedInThisSession.has(key)) {
@@ -709,12 +705,14 @@ export const useEarnPortfolio = ({
               }
             });
           }
+
           investmentMapRef.current = new Map(requestMap);
 
           const latestInvestments = updateInvestments(
             new Map(requestMap),
             true,
           );
+
           if (earnAccountKey && latestInvestments) {
             setPortfolioCache((prev) => ({
               ...prev,
@@ -724,14 +722,12 @@ export const useEarnPortfolio = ({
 
           finishLoadingNewAccount();
 
-          if (!isPartialRefresh) {
-            if (isMountedRef.current) {
-              setIsLoading(false);
-            }
+          if (!isPartialRefresh && isMountedRef.current) {
+            setIsLoading(false);
           }
         }
-      } catch (e) {
-        console.error('Fetch investments failed', e);
+      } catch (error) {
+        console.error('[useEarnPortfolio] Fetch investments failed:', error);
         if (
           !isRequestStale(requestId) &&
           !isPartialRefresh &&
@@ -741,28 +737,30 @@ export const useEarnPortfolio = ({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      isActive,
       accountIdValue,
       indexedAccountIdValue,
       accountIndexedAccountIdValue,
       allNetworkId,
       hasAccountChanged,
-      markAccountChange,
       startNewRequest,
       isRequestStale,
       earnAccountKey,
       actions,
-      fetchInvestmentDetail,
       throttledUIUpdate,
       updateInvestments,
       setPortfolioCache,
+      finishLoadingNewAccount,
+      investmentMapRef,
     ],
   );
 
+  // Polling with usePromiseResult
   usePromiseResult(
     fetchAndUpdateInvestments,
     [
+      isActive,
       accountIdValue,
       indexedAccountIdValue,
       allNetworkId,
@@ -771,9 +769,11 @@ export const useEarnPortfolio = ({
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
+      overrideIsFocused: (isFocused) => isFocused && isActive,
     },
   );
 
+  // Refresh function
   const refresh = useCallback(
     async (options?: IRefreshOptions) => {
       await fetchAndUpdateInvestments(options);
@@ -781,6 +781,7 @@ export const useEarnPortfolio = ({
     [fetchAndUpdateInvestments],
   );
 
+  // Account data update listener (instance-scoped, not global)
   const fetchRef = useRef(fetchAndUpdateInvestments);
   useEffect(() => {
     fetchRef.current = fetchAndUpdateInvestments;
@@ -788,32 +789,42 @@ export const useEarnPortfolio = ({
 
   const shouldRegisterAccountListener =
     isActive && (accountIdValue || indexedAccountIdValue);
+
   useEffect(() => {
     if (!shouldRegisterAccountListener) {
-      return () => undefined;
+      return undefined;
     }
 
-    const fetcher = () => {
+    const handleAccountDataUpdate = () => {
       if (isSyncingAtomRef.current) return;
       void fetchRef.current();
     };
-    registerAccountDataUpdateFetcher(fetcher);
-    return () => {
-      unregisterAccountDataUpdateFetcher(fetcher);
-    };
-  }, [shouldRegisterAccountListener, accountIdValue, indexedAccountIdValue]);
 
+    appEventBus.on(
+      EAppEventBusNames.AccountDataUpdate,
+      handleAccountDataUpdate,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AccountDataUpdate,
+        handleAccountDataUpdate,
+      );
+    };
+  }, [shouldRegisterAccountListener]);
+
+  // Aggregate investments by protocol
   const aggregatedInvestments = useMemo(
     () => aggregateByProtocol(investments),
     [investments],
   );
 
+  // Debounced global state sync
   const debouncedUpdateGlobalState = useMemo(() => {
-    const fn = debounce((key: string, fiatValue: string, earnings: string) => {
+    return debounce((key: string, fiatValue: string, earnings: string) => {
       const latestAccount = actions.current.getEarnAccount(key);
       if (!latestAccount) return;
 
-      // Prevent unnecessary updates if values haven't actually changed
       if (
         lastSyncedValuesRef.current.totalFiatValue === fiatValue &&
         lastSyncedValuesRef.current.earnings24h === earnings
@@ -836,48 +847,19 @@ export const useEarnPortfolio = ({
         },
       });
 
-      // release flag shortly after writing to atom
       setTimeout(() => {
         isSyncingAtomRef.current = false;
       }, 100);
     }, 500);
-    return fn;
   }, [actions]);
 
-  useEffect(
-    () => () => {
-      debouncedUpdateGlobalState.cancel();
-    },
-    [debouncedUpdateGlobalState],
-  );
-
+  // Sync totals to global state
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      throttledUIUpdate.cancel();
-      debouncedUpdateGlobalState.cancel();
-      investmentMapRef.current.clear();
-
-      // CRITICAL: Clear all refs to release memory
-      fetchRef.current = null as any;
-      lastSyncedValuesRef.current = { totalFiatValue: '', earnings24h: '' };
-      isSyncingAtomRef.current = false;
-      isLoadingNewAccountRef.current = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedUpdateGlobalState, throttledUIUpdate, investmentMapRef]);
-
-  useEffect(() => {
-    if (!earnAccountKey) return;
-
-    // Using ref to avoid triggering effect on every account load state change
-    if (isLoadingNewAccountRef.current) return;
+    if (!earnAccountKey || isLoadingNewAccount()) return;
 
     const totalFiatValueStr = earnTotalFiatValue.toFixed();
     const earnings24hStr = earnTotalEarnings24hFiatValue.toFixed();
 
-    // Check if values have actually changed from what we last synced
     if (
       lastSyncedValuesRef.current.totalFiatValue === totalFiatValueStr &&
       lastSyncedValuesRef.current.earnings24h === earnings24hStr
@@ -890,14 +872,25 @@ export const useEarnPortfolio = ({
       totalFiatValueStr,
       earnings24hStr,
     );
-    // isLoadingNewAccountRef is intentionally not in deps - it's a ref for optimization
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     earnAccountKey,
     earnTotalFiatValue,
     earnTotalEarnings24hFiatValue,
     debouncedUpdateGlobalState,
+    isLoadingNewAccount,
   ]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      throttledUIUpdate.cancel();
+      debouncedUpdateGlobalState.cancel();
+      investmentMapRef.current.clear();
+    };
+  }, [throttledUIUpdate, debouncedUpdateGlobalState, investmentMapRef]);
 
   return {
     investments: aggregatedInvestments,

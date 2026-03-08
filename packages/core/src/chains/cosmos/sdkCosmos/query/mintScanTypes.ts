@@ -111,7 +111,6 @@ export interface ICosmosAssetInfo {
 }
 
 export enum ECosmosType {
-  // eslint-disable-next-line spellcheck/spell-checker
   Erc20 = 'erc20',
   Native = 'native',
   Staking = 'staking',

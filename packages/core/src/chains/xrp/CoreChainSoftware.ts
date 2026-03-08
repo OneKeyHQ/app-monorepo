@@ -106,9 +106,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           .toUpperCase()}`;
       }
       if (credentials.imported) {
-        return `${(await decryptAsync({ password, data: privateKeyRaw }))
+        return (await decryptAsync({ password, data: privateKeyRaw }))
           .toString('hex')
-          .toUpperCase()}`;
+          .toUpperCase();
       }
     }
     throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);

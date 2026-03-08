@@ -43,6 +43,7 @@ import type {
   ESwapTabSwitchType,
   EWrappedType,
   IFetchBuildTxResult,
+  ILMTronObject,
   IOKXTransactionObject,
   ISwapTokenBase,
   ISwapTxInfo,
@@ -211,8 +212,13 @@ export type IVaultSettings = {
    * https://support.ledger.com/hc/en-us/articles/4409603715217-What-is-a-Memo-Tag-?support=true
    */
   withMemo?: boolean;
-  memoMaxLength?: number;
+  memoMaxLength?: number; // Fallback: character-based limit (legacy)
   numericOnlyMemo?: boolean;
+  /**
+   * If true, Vault has implemented validateMemo() for precise validation
+   * Form validation will call vault.validateMemo() instead of using memoMaxLength
+   */
+  supportMemoValidation?: boolean;
 
   // dnx
   withPaymentId?: boolean;
@@ -516,6 +522,9 @@ export type ITransferInfo = {
   // BTC Coin Control
   selectedUtxoKeys?: string[]; // Format: "txid:vout" for manually selected UTXOs
   utxoSelectionStrategy?: EUtxoSelectionStrategy; // Strategy for UTXO selection
+
+  // Bulk send: fee-on-transfer tokens require direct transferFrom per recipient
+  isFeeOnTransferToken?: boolean;
 };
 
 export type IApproveInfo = {
@@ -637,8 +646,7 @@ export interface IBroadcastTransactionParams {
   useDefaultRpc?: boolean;
 }
 
-export interface IBroadcastTransactionByCustomRpcParams
-  extends IBroadcastTransactionParams {
+export interface IBroadcastTransactionByCustomRpcParams extends IBroadcastTransactionParams {
   customRpcInfo: IDBCustomRpc;
 }
 
@@ -741,4 +749,8 @@ export type IBuildOkxSwapEncodedTxParams = {
   okxTx: IOKXTransactionObject;
   fromTokenInfo: ISwapTokenBase;
   type: ESwapTabSwitchType;
+};
+
+export type IBuildLMSwapEncodedTxParams = {
+  lmTx: ILMTronObject;
 };

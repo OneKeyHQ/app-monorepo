@@ -2,11 +2,13 @@ import platformEnv from '../platformEnv';
 
 import { EOneKeyDeepLinkPath, ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
 
+// Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
 // Privy
 export const PRIVY_APP_ID = 'cm6c9xup40017zyrnnp8zh0bt';
 export const PRIVY_MOBILE_CLIENT_ID =
   'client-WY5gESiXQgTXogYv2M8iCM3LaaDDaKAdigE9Bg7a9pr1W';
 
+// Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
 // Revenuecat
 export const REVENUECAT_API_KEY_STRIPE = 'strp_AEqUtFOZYaIjPSuQGBVHVrqyiUs';
 export const REVENUECAT_API_KEY_APPLE = 'appl_RTHLoohMIGQHXWTBflulzJEjKah';

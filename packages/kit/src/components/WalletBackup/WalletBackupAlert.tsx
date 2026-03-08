@@ -64,19 +64,16 @@ export function WalletBackupAlert() {
           />
           <YStack flex={1} gap="$2">
             <SizableText size="$bodyMd">
-              {
-                // @ts-ignore
-                intl.formatMessage(
-                  {
-                    id: ETranslations.wallet_backup_backup_warning,
-                  },
-                  {
-                    strong: ([string]) => (
-                      <SizableText size="$bodyMdMedium">{string}</SizableText>
-                    ),
-                  },
-                )
-              }
+              {intl.formatMessage(
+                {
+                  id: ETranslations.wallet_backup_backup_warning,
+                },
+                {
+                  strong: (parts: React.ReactNode[]) => (
+                    <SizableText size="$bodyMdMedium">{parts}</SizableText>
+                  ),
+                },
+              )}
             </SizableText>
             <WalletBackupActions
               wallet={wallet}

@@ -1,16 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFolderLink = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M5 3a3 3 0 0 0-3 3v5.803A6 6 0 0 1 5 11h3a6 6 0 0 1 5.197 9H19a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-5.93a1 1 0 0 1-.832-.445l-.812-1.22A3 3 0 0 0 8.93 3z"
-    />
-    <Path
-      fill="currentColor"
-      d="M8 13a1 1 0 1 0 0 2 2 2 0 1 1 0 4 1 1 0 1 0 0 2 4 4 0 0 0 0-8m-3 0a4 4 0 0 0 0 8 1 1 0 1 0 0-2 2 2 0 1 1 0-4 1 1 0 1 0 0-2"
-    />
-    <Path fill="currentColor" d="M6 16a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2z" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M6 15H5a2 2 0 1 0 0 4h1v2H5a4 4 0 0 1 0-8h1zm2-2a4 4 0 0 1 0 8H7v-2h1a2 2 0 1 0 0-4H7v-2z" />
+    <Path d="M12.535 6H22v14h-8.803A6 6 0 0 0 8 11H5a6 6 0 0 0-3 .803V3h8.535z" />
+    <Path d="M8 16v2H5v-2z" />
   </Svg>
 );
 export default SvgFolderLink;

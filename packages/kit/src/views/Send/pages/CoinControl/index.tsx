@@ -241,18 +241,18 @@ function CoinControlPage() {
     switch (sortType) {
       case ESortType.NewestFirst:
         // Sort by height descending (newest first)
-        return data.sort((a, b) => b.height - a.height);
+        return data.toSorted((a, b) => b.height - a.height);
       case ESortType.OldestFirst:
         // Sort by height ascending (oldest first)
-        return data.sort((a, b) => a.height - b.height);
+        return data.toSorted((a, b) => a.height - b.height);
       case ESortType.LargestFirst:
         // Sort by amount descending (largest first)
-        return data.sort((a, b) =>
+        return data.toSorted((a, b) =>
           new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
         );
       case ESortType.SmallestFirst:
         // Sort by amount ascending (smallest first)
-        return data.sort((a, b) =>
+        return data.toSorted((a, b) =>
           new BigNumber(a.value).comparedTo(new BigNumber(b.value)),
         );
       default:

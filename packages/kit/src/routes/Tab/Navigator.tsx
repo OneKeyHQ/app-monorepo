@@ -8,16 +8,19 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
-  useIsTabletDetailView,
-  useIsTabletMainView,
+  useIsSplitView,
   useMedia,
-  useOrientation,
+  useSplitMainView,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Footer } from '../../components/Footer';
+import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
+import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
+import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';
@@ -36,7 +39,7 @@ const useIsIOSTabNavigatorFocused =
 let isRendered = false;
 function InPageTabContainer() {
   const isRenderedRef = useRef(isRendered);
-  const isTabletMainView = useIsTabletMainView();
+  const isTabletMainView = useSplitMainView();
   if (isRenderedRef.current || isTabletMainView) {
     return null;
   }
@@ -70,14 +73,15 @@ const useCheckTabsChangedInDev = platformEnv.isDev
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop;
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletDetailView = useSplitSubView();
 
+  useGlobalShortcuts();
   useCheckTabsChangedInDev(config);
 
   return (
@@ -86,6 +90,8 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
         showTabBar={!(isTabletDetailView && isLandscape)}
+        bottomMenu={<BottomMenu />}
+        webPageTabBar={<WebPageTabBar />}
       />
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />

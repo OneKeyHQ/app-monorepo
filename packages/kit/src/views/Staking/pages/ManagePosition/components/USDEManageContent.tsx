@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -57,10 +56,10 @@ export function USDEManageContent({
   provider,
   vault,
   onHistory,
-  indicatorAccountId,
-  stakeTag,
-  onIndicatorRefresh,
-  onRefreshPendingRef,
+  indicatorAccountId: _indicatorAccountId,
+  stakeTag: _stakeTag,
+  onIndicatorRefresh: _onIndicatorRefresh,
+  onRefreshPendingRef: _onRefreshPendingRef,
   showApyDetail = false,
   isInModalContext = false,
   beforeFooter,
@@ -68,7 +67,6 @@ export function USDEManageContent({
   onActionSuccess,
   earnAccount,
 }: IUSDEManageContentProps) {
-  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { handleSwap } = useHandleSwap();
 

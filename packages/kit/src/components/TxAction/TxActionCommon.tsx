@@ -21,7 +21,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
+import {
+  TX_RISKY_LEVEL_MALICIOUS,
+  TX_RISKY_LEVEL_SCAM,
+  TX_RISKY_LEVEL_SPAM,
+} from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -116,11 +120,11 @@ function TxActionCommonAvatar({
 
 function TxActionCommonTitle({
   title,
-  tableLayout,
+  tableLayout: _tableLayout,
   replaceType,
   status,
   riskyLevel,
-  compact,
+  compact: _compact,
 }: Pick<
   ITxActionCommonListViewProps,
   'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel' | 'compact'
@@ -129,14 +133,7 @@ function TxActionCommonTitle({
 
   return (
     <XStack alignItems="center">
-      <SizableText
-        numberOfLines={1}
-        flexShrink={1}
-        size="$bodyLgMedium"
-        {...((tableLayout || compact) && {
-          size: '$bodyMdMedium',
-        })}
-      >
+      <SizableText numberOfLines={1} flexShrink={1} size="$bodyLgMedium">
         {title}
       </SizableText>
       {replaceType && status === EDecodedTxStatus.Pending ? (
@@ -154,9 +151,19 @@ function TxActionCommonTitle({
           {intl.formatMessage({ id: ETranslations.global_failed })}
         </Badge>
       ) : null}
-      {riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? (
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SPAM ? (
+        <Badge badgeSize="sm" badgeType="default" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_spam })}
+        </Badge>
+      ) : null}
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_MALICIOUS ? (
+        <Badge badgeSize="sm" badgeType="warning" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_malicious })}
+        </Badge>
+      ) : null}
+      {riskyLevel && riskyLevel === TX_RISKY_LEVEL_SCAM ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
-          {intl.formatMessage({ id: ETranslations.global_risk })}
+          {intl.formatMessage({ id: ETranslations.global_scam })}
         </Badge>
       ) : null}
     </XStack>
@@ -237,7 +244,7 @@ function TxActionCommonDescription({
         size="$bodyMd"
         color="$textSubdued"
         minWidth={0}
-        numberOfLines={addressLocalLabel ? 1 : undefined}
+        numberOfLines={1}
       >
         {addressLocalLabel || description?.children}
       </SizableText>
@@ -247,8 +254,8 @@ function TxActionCommonDescription({
 
 function TxActionCommonChange({
   change,
-  tableLayout,
-  compact,
+  tableLayout: _tableLayout,
+  compact: _compact,
 }: Pick<ITxActionCommonListViewProps, 'tableLayout' | 'compact'> & {
   change: string;
 }) {
@@ -258,9 +265,6 @@ function TxActionCommonChange({
       size="$bodyLgMedium"
       {...(change?.includes('+') && {
         color: '$textSuccess',
-      })}
-      {...((tableLayout || compact) && {
-        size: '$bodyMdMedium',
       })}
     >
       {change}
@@ -301,7 +305,7 @@ function TxActionCommonFee({
 
   return (
     <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1}>
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.swap_history_detail_network_fee,
         })}
@@ -361,7 +365,13 @@ function TxActionCommonListView(
       flexDirection="column"
       alignItems="flex-start"
       userSelect="none"
-      opacity={riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? 0.5 : 1}
+      opacity={
+        riskyLevel &&
+        (riskyLevel === TX_RISKY_LEVEL_MALICIOUS ||
+          riskyLevel === TX_RISKY_LEVEL_SCAM)
+          ? 0.5
+          : 1
+      }
       {...rest}
     >
       {/* Content */}
@@ -371,9 +381,10 @@ function TxActionCommonListView(
           flex={1}
           gap="$3"
           {...(tableLayout && {
-            flexGrow: 1,
-            flexBasis: 1,
+            flexGrow: 2,
+            flexBasis: 0,
           })}
+          alignItems="center"
         >
           {showIcon ? (
             <TxActionCommonAvatar

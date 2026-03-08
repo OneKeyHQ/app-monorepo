@@ -184,8 +184,13 @@ export function List<Item>({
     sections,
   ]);
 
+  // Use ref to access current listData in keyMapper without recreating cache
+  const listDataRef = useRef(listData);
+  listDataRef.current = listData;
+
   // Cell measurement cache for react-virtualized list optimization
-  // Can be optimized with keyExtractor for better height caching performance
+  // Uses ref for listData so the cache is NOT recreated when data changes,
+  // preserving measured row heights across pagination/data updates.
   const cache = useMemo(
     () =>
       new CellMeasurerCache({
@@ -193,12 +198,12 @@ export function List<Item>({
         defaultHeight: 60,
         keyMapper: (rowIndex, columnIndex) => {
           if (keyExtractor) {
-            const item = listData[rowIndex];
+            const item = listDataRef.current[rowIndex];
             if (
-              item.type === 'header' ||
-              item.type === 'footer' ||
-              item.type === 'section-header' ||
-              item.type === 'section-footer'
+              item?.type === 'header' ||
+              item?.type === 'footer' ||
+              item?.type === 'section-header' ||
+              item?.type === 'section-footer'
             ) {
               return `${rowIndex}-${columnIndex}-${item.type}`;
             }
@@ -209,12 +214,14 @@ export function List<Item>({
           return `${rowIndex}-${columnIndex}`;
         },
       }),
-    [keyExtractor, listData],
+    [keyExtractor],
   );
 
   const isVisible = useMemo(() => {
     return focusedTabValue === currentTabName;
   }, [focusedTabValue, currentTabName]);
+
+  const prevIsVisibleRef = useRef(isVisible);
 
   useEffect(() => {
     if (focusedTabValue === currentTabName) {
@@ -369,6 +376,17 @@ export function List<Item>({
 
   useEffect(() => {
     if (keyExtractor) {
+      // With keyExtractor, the cache is stable (not recreated on data changes).
+      // Only recompute row positions for new rows without clearing measured heights.
+      if (data?.length || sections?.length) {
+        if (numColumns > 1 && width) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          (listRef.current as any)?.recomputeCellSizesAndPositions();
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          (listRef.current as any)?.recomputeRowHeights();
+        }
+      }
       return;
     }
     if (data?.length || sections?.length || numColumns || width || extraData) {
@@ -383,6 +401,28 @@ export function List<Item>({
     recompute,
     keyExtractor,
   ]);
+
+  // Recompute row heights when tab becomes visible to fix stale
+  // CellMeasurer cache from contentVisibility:hidden optimization.
+  // Uses double-rAF to ensure the browser has completed layout after
+  // contentVisibility transitions to 'visible' before re-measuring.
+  useEffect(() => {
+    const wasHidden = !prevIsVisibleRef.current;
+    prevIsVisibleRef.current = isVisible;
+    if (isVisible && wasHidden && listData.length > 0) {
+      let cancelled = false;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!cancelled) {
+            recompute({ numColumns, width });
+          }
+        });
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [isVisible, listData.length, recompute, numColumns, width]);
 
   const cellRenderer = useCallback(
     (params: CollectionCellRendererParams) => {
@@ -472,7 +512,7 @@ export function List<Item>({
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
-        {({ width: autoSizerWidth }) => {
+        {({ width: _autoSizerWidth }) => {
           return (
             <div
               ref={ref as React.RefObject<HTMLDivElement>}

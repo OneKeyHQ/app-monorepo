@@ -1,13 +1,6 @@
 import { useCallback } from 'react';
 
-import {
-  Icon,
-  Image,
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';

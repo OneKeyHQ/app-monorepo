@@ -1,5 +1,6 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import '@onekeyhq/shared/src/storage/appStorage';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../dbs/local/localDb';
@@ -28,10 +29,7 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceSetting.fetchReviewControl(),
         this.backgroundApi.servicePassword.addExtIntervalCheckLockStatusListener(),
         this.backgroundApi.serviceNotification.init(),
-        this.backgroundApi.serviceReferralCode.getPostConfig(),
-        this.backgroundApi.serviceSetting.syncWalletConfig(),
         this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
-        this.backgroundApi.serviceDeFi.syncDeFiEnabledNetworks(),
       ]);
     } catch (error) {
       console.error(error);

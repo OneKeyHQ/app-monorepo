@@ -1,0 +1,19 @@
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
+const SvgPackageSecurity = (props: SvgProps) => (
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path
+      fillRule="evenodd"
+      d="M18 13.117c1.192 0 2.342.36 3.493 1.013l.507.287v3.3c0 1.27-.53 2.188-1.28 2.854-.699.62-1.593 1.023-2.314 1.343l-.406.18-.406-.18c-.721-.32-1.615-.723-2.314-1.343-.75-.666-1.28-1.585-1.28-2.854v-3.3l.507-.287c1.15-.652 2.3-1.013 3.493-1.013m0 2c-.626 0-1.28.151-2 .49v2.11c0 .628.23 1.023.607 1.358.352.312.82.562 1.393.827.573-.265 1.041-.515 1.393-.827.378-.335.607-.73.607-1.358v-2.11c-.72-.339-1.374-.49-2-.49"
+      clipRule="evenodd"
+    />
+    <Path d="M8 9h8V3h5v8.688a8.4 8.4 0 0 0-3-.57c-1.615 0-3.102.492-4.479 1.272L12 13.252v4.465c0 1.313.392 2.405 1.001 3.283H3V3h5z" />
+    <Path d="M14 7h-4V3h4z" />
+  </Svg>
+);
+export default SvgPackageSecurity;

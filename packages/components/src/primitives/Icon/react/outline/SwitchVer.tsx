@@ -1,14 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSwitchVer = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m3 7.5 3.293-3.293a1 1 0 0 1 1.414 0L11 7.5m2 9 3.293 3.293a1 1 0 0 0 1.414 0L21 16.5M7 5v15M17 4v15"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m18 17.586 3-3L22.414 16 17 21.414 11.586 16 13 14.586l3 3V3h2zM12.414 8 11 9.414l-3-3V21H6V6.414l-3 3L1.586 8 7 2.586z" />
   </Svg>
 );
 export default SvgSwitchVer;

@@ -68,13 +68,15 @@ import {
   buildAggregateTokenListData,
   buildLocalAggregateTokenMapKey,
   calculateAccountTokensValue,
+  flattenAggregateTokensMap,
   getEmptyTokenData,
   getMergedDeriveTokenData,
   getMergedTokenData,
   mergeAggregateTokenListMap,
-  mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
+  mergeNestedAggregateTokenMap,
+  nestAggregateTokensMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -89,7 +91,13 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
+function TokenListBlock({
+  tableLayout,
+  showRecentHistory,
+}: {
+  tableLayout?: boolean;
+  showRecentHistory?: boolean;
+}) {
   const [settings] = useSettingsPersistAtom();
 
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
@@ -156,10 +164,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     tokens: [],
     map: {},
   });
-
-  const aggregateTokenMapRef = useRef<{
-    [key: string]: ITokenFiat;
-  }>({});
 
   const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
     unblockedTokens: {},
@@ -493,7 +497,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       overrideIsFocused: (isPageFocused) =>
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
@@ -512,10 +515,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,
       merge: true,
-      map: {
-        ...tokenListRef.current.map,
-        ...aggregateTokenMapRef.current,
-      },
+      map: tokenListRef.current.map,
       mergeDerive: true,
       split: true,
     });
@@ -535,8 +535,6 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     riskyTokenListRef.current.tokens = [];
     riskyTokenListRef.current.keys = '';
     riskyTokenListRef.current.map = {};
-
-    aggregateTokenMapRef.current = {};
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -545,11 +543,13 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       networkId,
       dbAccount,
       allNetworkDataInit,
+      isSingleRequest,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
+      isSingleRequest?: boolean;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         dbAccount,
@@ -747,12 +747,12 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         }
 
         if (r.aggregateTokenMap) {
-          aggregateTokenMapRef.current = mergeAggregateTokenMap({
-            sourceMap: r.aggregateTokenMap,
-            targetMap: aggregateTokenMapRef.current,
-          });
           refreshAggregateTokensMap({
-            tokens: aggregateTokenMapRef.current,
+            tokens: nestAggregateTokensMap({
+              aggregateTokenMap: r.aggregateTokenMap,
+              networkId,
+            }),
+            merge: isSingleRequest,
           });
         }
 
@@ -899,6 +899,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
+      // eslint-disable-next-line prefer-const
       let [c, r, l, a] = await Promise.all([
         backgroundApiProxy.simpleDb.customTokens.getRawData(),
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
@@ -1017,11 +1018,15 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       });
 
       const localAggregateTokenMap =
-        aggregateTokenRawData.current?.aggregateTokenMap?.[key] ?? {};
+        aggregateTokenRawData.current?.aggregateTokenMapV2?.[key] ?? {};
       const localAggregateTokenListMap =
         aggregateTokenRawData.current?.aggregateTokenListMap?.[key] ?? {};
       const aggregateTokenConfigMap =
         aggregateTokenRawData.current?.aggregateTokenConfigMap ?? {};
+
+      const flattenLocalAggregateTokenMap = flattenAggregateTokensMap(
+        localAggregateTokenMap,
+      );
 
       let tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
@@ -1124,7 +1129,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         merge: true,
         map: {
           ...tokenListMap,
-          ...localAggregateTokenMap,
+          ...flattenLocalAggregateTokenMap,
         },
         mergeDerive: true,
         split: true,
@@ -1136,7 +1141,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         merge: true,
         map: {
           ...tokenListMap,
-          ...localAggregateTokenMap,
+          ...flattenLocalAggregateTokenMap,
         },
         mergeDerive: true,
       });
@@ -1146,7 +1151,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         tokens: [...tokenList, ...riskyTokenList],
         map: {
           ...tokenListMap,
-          ...localAggregateTokenMap,
+          ...flattenLocalAggregateTokenMap,
         },
         merge: true,
         mergeDerive: true,
@@ -1272,7 +1277,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
     let riskyTokenListMap: {
       [key: string]: ITokenFiat;
     } = {};
-    let accountsWorth: Record<string, string> = {};
+    const accountsWorth: Record<string, string> = {};
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
@@ -1282,9 +1287,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       };
     } = {};
 
-    let aggregateTokenMap: {
-      [key: string]: ITokenFiat;
-    } = {};
+    let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
 
     if (allNetworksResult) {
       for (const r of allNetworksResult) {
@@ -1298,7 +1301,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
               })
             ).mergeDeriveAssetsEnabled;
           }
-        } catch (e) {
+        } catch (_e) {
           mergeDeriveAssetsEnabled = false;
         }
 
@@ -1310,8 +1313,12 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         }
 
         if (r.aggregateTokenMap) {
-          aggregateTokenMap = mergeAggregateTokenMap({
-            sourceMap: r.aggregateTokenMap,
+          const nestedAggregateTokenMap = nestAggregateTokensMap({
+            aggregateTokenMap: r.aggregateTokenMap,
+            networkId: r.networkId ?? '',
+          });
+          aggregateTokenMap = mergeNestedAggregateTokenMap({
+            sourceMap: nestedAggregateTokenMap,
             targetMap: aggregateTokenMap,
           });
         }
@@ -1364,13 +1371,12 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
           r.smallBalanceTokens.fiatValue ?? '0',
         );
 
-        accountsWorth = {
-          ...accountsWorth,
-          [accountUtils.buildAccountValueKey({
+        accountsWorth[
+          accountUtils.buildAccountValueKey({
             accountId: r.accountId ?? '',
             networkId: r.networkId ?? '',
-          })]: accountWorth.toFixed(),
-        };
+          })
+        ] = accountWorth.toFixed();
 
         if (
           account?.id &&
@@ -1410,15 +1416,20 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       const mergeTokenListMap = {
         ...tokenListMap,
         ...smallBalanceTokenListMap,
-        ...aggregateTokenMap,
       };
+
+      const flattenAggregateTokenMap =
+        flattenAggregateTokensMap(aggregateTokenMap);
 
       let mergedTokens = sortTokensByFiatValue({
         tokens: [
           ...tokenList.tokens,
           ...smallBalanceTokenList.smallBalanceTokens,
         ],
-        map: mergeTokenListMap,
+        map: {
+          ...mergeTokenListMap,
+          ...flattenAggregateTokenMap,
+        },
       });
 
       const index = mergedTokens.findIndex((token) =>
@@ -1498,6 +1509,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         tokens: {
           ...mergeTokenListMap,
           ...riskyTokenListMap,
+          ...flattenAggregateTokenMap,
         },
       });
     }
@@ -1668,8 +1680,8 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       } else {
         updateAccountWorth({
           accountId: mergeDeriveAddressData
-            ? indexedAccount?.id ?? ''
-            : account?.id ?? '',
+            ? (indexedAccount?.id ?? '')
+            : (account?.id ?? ''),
           initialized: true,
           worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,
@@ -1831,6 +1843,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
           accountId,
           networkId,
           allNetworkDataInit: false,
+          isSingleRequest: true,
         });
       }
     },
@@ -1839,30 +1852,22 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
 
   usePromiseResult(
     async () => {
+      // refresh will be handled in RecentHistory
+      if (showRecentHistory) return;
+
       if (!account || !network) return;
 
       if (!network.isAllNetworks) return;
 
       if (isNil(allNetworkAccounts)) return;
 
-      const pendingTxs =
-        await backgroundApiProxy.serviceHistory.getAllNetworksPendingTxs({
-          accountId: account.id,
-          networkId: network.id,
-          allNetworkAccounts,
-        });
-
-      if (isEmpty(pendingTxs)) return;
-
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
       });
 
-      if (r.accountsWithChangedPendingTxs.length > 0) {
-        void handleRefreshAllNetworkDataByAccounts(
-          r.accountsWithChangedPendingTxs,
-        );
+      if (r.accountsWithChangedTxs.length > 0) {
+        void handleRefreshAllNetworkDataByAccounts(r.accountsWithChangedTxs);
       }
     },
     [
@@ -1870,11 +1875,11 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       allNetworkAccounts,
       handleRefreshAllNetworkDataByAccounts,
       network,
+      showRecentHistory,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
@@ -1951,7 +1956,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       return (
         <NumberSizeableTextWrapper
           hideValue
-          size="$headingLg"
+          size="$headingXl"
           color="$textSubdued"
           formatter="value"
           formatterOptions={{
@@ -1982,7 +1987,7 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
           variant="tertiary"
           icon="SliderHorOutline"
           onPress={handleOnManageToken}
-          size="small"
+          size="medium"
         />
       );
     }
@@ -2001,12 +2006,14 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
         inTabList
         hideValue
         withSwapAction
+        hideDeFiMarkedTokens
         accountId={account?.id ?? ''}
         networkId={network?.id ?? ''}
         indexedAccountId={indexedAccount?.id ?? ''}
         allAggregateTokenMap={allAggregateTokenMap}
         showNetworkIcon={!!network?.isAllNetworks}
         hideZeroBalanceTokens={!!network?.isAllNetworks}
+        deferTokenManagement={!!network?.isAllNetworks}
         manageTokenEnabled={manageTokenEnabled}
         onManageToken={handleOnManageToken}
         onPressToken={handleOnPressToken}
@@ -2067,8 +2074,9 @@ function TokenListBlock({ tableLayout }: { tableLayout?: boolean }) {
       })}
       subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
-      plainContentContainer={!tableLayout}
+      plainContentContainer
     />
   );
 }

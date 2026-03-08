@@ -7,7 +7,6 @@ import {
   Empty,
   Icon,
   IconButton,
-  Image,
   NumberSizeableText,
   SectionList,
   SizableText,
@@ -25,6 +24,7 @@ import {
 } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useEarnTxLabel } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnTxLabel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { ETransactionType } from '@onekeyhq/shared/types/signatureRecord';
@@ -54,7 +54,7 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => {
           formatter="balance"
           numberOfLines={1}
           formatterOptions={{
-            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,
           }}
         >
@@ -92,7 +92,7 @@ const ApproveTransactionItem = ({
           numberOfLines={1}
           flexShrink={1}
           formatterOptions={{
-            tokenSymbol: `${data.token.symbol.toUpperCase()}`,
+            tokenSymbol: data.token.symbol.toUpperCase(),
             showPlusMinusSigns: true,
           }}
         >
@@ -215,21 +215,17 @@ const ContractInteractionTransactionItem = () => {
   return (
     <XStack justifyContent="space-between" w="100%" alignItems="center">
       <XStack alignItems="center" pr="$2">
-        <Image
+        <Stack
           borderRadius="$full"
-          overflow="hidden"
           width={40}
           height={40}
           mr="$3"
+          bg="$gray5"
+          alignItems="center"
+          justifyContent="center"
         >
-          <Image.Fallback
-            alignItems="center"
-            justifyContent="center"
-            bg="$gray5"
-          >
-            <Icon size={40} name="GlobusOutline" color="$iconSubdued" />
-          </Image.Fallback>
-        </Image>
+          <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
+        </Stack>
         <SizableText size="$bodyLgMedium">
           {intl.formatMessage({
             id: ETranslations.transaction__contract_interaction,
@@ -318,7 +314,6 @@ const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
             <NetworkAvatar size={16} networkId={item.networkId} />
           </Stack>
           <SizableText color="$textSubdued" size="$bodySmMedium">
-            {item.network.name} •{' '}
             {utils.shortenAddress({ address: item.address })}
           </SizableText>
         </XStack>
@@ -342,7 +337,7 @@ const ListEmptyComponent = () => {
       description={intl.formatMessage({
         id: ETranslations.settings_no_signed_transactions_desc,
       })}
-      icon="ClockAlertOutline"
+      illustration="Document"
     />
   );
 };
@@ -364,6 +359,7 @@ export const Transactions = () => {
       stickySectionHeadersEnabled={false}
       contentContainerStyle={{ paddingBottom: 40 }}
       sections={sections}
+      windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       // estimatedItemSize={158}
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}

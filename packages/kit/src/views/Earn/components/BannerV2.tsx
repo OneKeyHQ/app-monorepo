@@ -22,7 +22,6 @@ interface IBannerV2Props {
 }
 
 const DESKTOP_BANNER_WIDTH = 414;
-const BANNER_PADDING_TOKEN = '$5';
 const BANNER_GAP_TOKEN = '$3';
 
 function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
@@ -35,19 +34,15 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
   const dataCount = data?.length ?? 0;
   const shouldAutoPlay = isActive && !media.gtSm;
-  const bannerPadding =
-    Number(getTokenValue(BANNER_PADDING_TOKEN, 'size')) || 0;
   const bannerGap = Number(getTokenValue(BANNER_GAP_TOKEN, 'size')) || 0;
   const requiredWidth = useMemo(() => {
     if (dataCount <= 0) {
       return 0;
     }
     return (
-      DESKTOP_BANNER_WIDTH * dataCount +
-      bannerPadding * 2 +
-      bannerGap * Math.max(dataCount - 1, 0)
+      DESKTOP_BANNER_WIDTH * dataCount + bannerGap * Math.max(dataCount - 1, 0)
     );
-  }, [bannerGap, bannerPadding, dataCount]);
+  }, [bannerGap, dataCount]);
   const canShowStaticRow =
     !platformEnv.isNative &&
     media.gtSm &&
@@ -58,17 +53,21 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   const renderItem = useCallback(
     ({ item, index }: { item: IDiscoveryBanner; index: number }) => {
       const isLast = index === dataCount - 1;
+      const isFirst = index === 0;
 
       if (!media.gtSm) {
         return (
-          <Stack px={BANNER_PADDING_TOKEN}>
+          <Stack px="$pagePadding">
             <BannerItemV2 item={item} onPress={onBannerPress} />
           </Stack>
         );
       }
 
       return (
-        <Stack pr={isLast ? 0 : BANNER_GAP_TOKEN}>
+        <Stack
+          pl={isFirst ? '$pagePadding' : 0}
+          pr={isLast ? '$pagePadding' : BANNER_GAP_TOKEN}
+        >
           <BannerItemV2 item={item} onPress={onBannerPress} />
         </Stack>
       );
@@ -100,11 +99,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
       if (canShowStaticRow) {
         return (
-          <XStack
-            px={BANNER_PADDING_TOKEN}
-            paddingVertical={30}
-            gap={BANNER_GAP_TOKEN}
-          >
+          <XStack px="$pagePadding" paddingVertical={30} gap={BANNER_GAP_TOKEN}>
             {data.map((item) => (
               <Stack key={item.src} width={DESKTOP_BANNER_WIDTH}>
                 <BannerItemV2 item={item} onPress={onBannerPress} />
@@ -116,7 +111,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
       if (media.gtSm) {
         return (
-          <Stack px={BANNER_PADDING_TOKEN}>
+          <Stack>
             <Carousel
               data={data}
               maxPageWidth={440}
@@ -168,7 +163,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   ]);
 
   return (
-    <Stack width="100%" onLayout={handleLayout}>
+    <Stack width="100%" onLayout={handleLayout} overflow="hidden">
       {content}
     </Stack>
   );

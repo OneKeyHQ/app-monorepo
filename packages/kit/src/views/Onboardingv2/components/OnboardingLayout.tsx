@@ -6,7 +6,8 @@ import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
-  ScrollView,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Select,
   SizableText,
   XStack,
@@ -24,13 +25,6 @@ import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageS
 const DESKTOP_DRAGGABLE_STYLE = {
   WebkitAppRegion: 'drag',
 } as any;
-
-const SCROLL_VIEW_CONTENT_STYLE = {
-  px: '$5',
-  $gtMd: {
-    px: '$10',
-  },
-};
 
 const OnboardingLayoutBack = memo(({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
@@ -134,14 +128,6 @@ const OnboardingLayoutHeader = memo(
       px="$5"
       $gtMd={{
         px: 56,
-        borderWidth: 0,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderStyle: 'solid',
-        borderColor: '$neutral4',
-        '$platform-web': {
-          borderStyle: 'dashed',
-        },
       }}
       alignItems="center"
       {...rest}
@@ -190,11 +176,13 @@ const OnboardingLayoutBody = memo(
     children,
     scrollable = true,
     constrained = true,
+    bottomOffset,
     ...rest
   }: {
     children?: React.ReactNode;
     scrollable?: boolean;
     constrained?: boolean;
+    bottomOffset?: number;
   } & IYStackProps) => {
     const content = constrained ? (
       <OnboardingLayoutConstrainedContent>
@@ -209,20 +197,19 @@ const OnboardingLayoutBody = memo(
       [scrollable],
     );
 
+    const { gtMd } = useMedia();
+
+    const contentContainerStyle = useMemo(
+      () => ({ paddingHorizontal: gtMd ? 40 : 20 }),
+      [gtMd],
+    );
+
     return (
       <YStack
         flex={1}
         minHeight={0}
         overflow="hidden"
         $gtMd={{
-          borderWidth: 0,
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderStyle: 'solid',
-          borderColor: '$neutral4',
-          '$platform-web': {
-            borderStyle: 'dashed',
-          },
           ...(!scrollable && {
             px: '$10',
           }),
@@ -231,25 +218,16 @@ const OnboardingLayoutBody = memo(
         {...rest}
       >
         {scrollable ? (
-          <ScrollView
+          <Keyboard.AwareScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={SCROLL_VIEW_CONTENT_STYLE}
+            bottomOffset={bottomOffset ?? KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            contentContainerStyle={contentContainerStyle}
           >
             {content}
-          </ScrollView>
+          </Keyboard.AwareScrollView>
         ) : (
           content
         )}
-        {/* {scrollable ? (
-        <LinearGradient
-          position="absolute"
-          left={41}
-          right={41}
-          bottom={0}
-          h="$10"
-          colors={['$transparent', '$bgApp']}
-        />
-      ) : null} */}
       </YStack>
     );
   },
@@ -263,14 +241,7 @@ const OnboardingLayoutFooter = memo(
         px="$5"
         $gtMd={{
           px: '$10',
-          borderWidth: 0,
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderStyle: 'solid',
-          borderColor: '$neutral4',
-          '$platform-web': {
-            borderStyle: 'dashed',
-          },
+          pb: '$10',
         }}
         minHeight="$6"
         justifyContent="center"
@@ -341,18 +312,8 @@ const OnboardingLayoutRoot = memo(
           }}
         >
           <YStack
-            py="$10"
+            pt="$10"
             h="100%"
-            $gtMd={{
-              borderWidth: 0,
-              borderLeftWidth: 1,
-              borderRightWidth: 1,
-              borderStyle: 'solid',
-              borderColor: '$neutral4',
-              '$platform-web': {
-                borderStyle: 'dashed',
-              },
-            }}
             $platform-native={{
               pt: top + 10,
               pb: bottom + 10,

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Accordion,
-  Button,
   Icon,
   Page,
   SizableText,
@@ -14,9 +13,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openFiatCryptoUrl,
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -24,10 +27,12 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { ListItem } from '../../../components/ListItem';
 import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useHelpLink } from '../../../hooks/useHelpLink';
+import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
+import { WalletActionExchange } from '../../Home/components/WalletActions/WalletActionExchange';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 
 import type { IListItemProps } from '../../../components/ListItem';
@@ -65,16 +70,9 @@ function ReceiveOptions({
 
 function ReceiveSelectorContent() {
   const intl = useIntl();
-  // eslint-disable-next-line spellcheck/spell-checker
-  const binanceHelpLink = useHelpLink({
-    path: 'articles/12553421',
-  });
-  const okxHelpLink = useHelpLink({
-    path: 'articles/12553973',
-  });
-  const coinbaseHelpLink = useHelpLink({
-    path: 'articles/12561338',
-  });
+
+  // Pre-trigger exchange app detection to avoid UI flash when accordion expands
+  useExchangeAppDetection();
 
   const showBuyAction = useReviewControl();
 
@@ -83,8 +81,17 @@ function ReceiveSelectorContent() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveSelector>
     >();
 
-  const { accountId, networkId, walletId, indexedAccountId, token } =
-    route.params ?? {};
+  // Get active account from context as fallback when route params are not provided
+  const {
+    activeAccount: { account, network, wallet, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+
+  // Use route params if provided, otherwise fallback to active account
+  const accountId = route.params?.accountId ?? account?.id;
+  const networkId = route.params?.networkId ?? network?.id;
+  const walletId = route.params?.walletId ?? wallet?.id;
+  const indexedAccountId = route.params?.indexedAccountId ?? indexedAccount?.id;
+  const { token, onClose } = route.params ?? {};
 
   const navigation = useAppNavigation();
 
@@ -102,7 +109,7 @@ function ReceiveSelectorContent() {
           isSupported: url && build,
           url,
         };
-      } catch (error) {
+      } catch (_error) {
         return {
           isSupported: false,
         };
@@ -136,13 +143,19 @@ function ReceiveSelectorContent() {
   const handleBuyOnPress = useCallback(
     ({ onPress }: { onPress: () => void }) => {
       if (token && isSupported && url) {
-        openUrlExternal(url);
+        if (platformEnv.isDesktop || platformEnv.isNative) {
+          openFiatCryptoUrl(url);
+        } else {
+          openUrlExternal(url);
+        }
       } else {
         onPress();
       }
     },
     [token, isSupported, url],
   );
+
+  useEffect(() => () => void onClose?.(), [onClose]);
 
   return (
     <Page>
@@ -284,7 +297,7 @@ function ReceiveSelectorContent() {
                   {({ open }: { open: boolean }) => (
                     <>
                       <YStack bg="$neutral3" p="$2" borderRadius="$full">
-                        <Icon name="SwitchHorOutline" />
+                        <Icon name="SwitchHorOutline" color="$iconActive" />
                       </YStack>
                       <ListItem.Text
                         flex={1}
@@ -383,81 +396,12 @@ function ReceiveSelectorContent() {
                         id: ETranslations.learn_how_to_withdraw_crypto_from_exchange,
                       })}
                     </SizableText>
-                    <XStack gap="$5" flexWrap="wrap">
-                      <Button
-                        size="small"
-                        variant="tertiary"
-                        childrenAsText={false}
-                        onPress={() => {
-                          // eslint-disable-next-line spellcheck/spell-checker
-                          openUrlExternal(binanceHelpLink);
-                        }}
-                      >
-                        <XStack alignItems="center" gap="$2">
-                          <YStack
-                            p={2}
-                            borderRadius="$1"
-                            borderCurve="continuous"
-                            bg="$yellow6"
-                          >
-                            <Icon
-                              size="$3"
-                              name="BinanceBrand"
-                              color="$yellow11"
-                            />
-                          </YStack>
-                          <SizableText>Binance ↗</SizableText>
-                        </XStack>
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="tertiary"
-                        childrenAsText={false}
-                        onPress={() => {
-                          openUrlExternal(okxHelpLink);
-                        }}
-                      >
-                        <XStack alignItems="center" gap="$2">
-                          <YStack
-                            p={2}
-                            borderRadius="$1"
-                            borderCurve="continuous"
-                            bg="$neutral6"
-                          >
-                            <Icon
-                              size="$3"
-                              name="OkxBrand"
-                              color="$neutral11"
-                            />
-                          </YStack>
-                          <SizableText>OKX ↗</SizableText>
-                        </XStack>
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="tertiary"
-                        childrenAsText={false}
-                        onPress={() => {
-                          openUrlExternal(coinbaseHelpLink);
-                        }}
-                      >
-                        <XStack alignItems="center" gap="$2">
-                          <YStack
-                            p={2}
-                            borderRadius="$1"
-                            borderCurve="continuous"
-                            bg="$blue6"
-                          >
-                            <Icon
-                              size="$3"
-                              name="CoinbaseBrand"
-                              color="$blue11"
-                            />
-                          </YStack>
-                          <SizableText>Coinbase ↗</SizableText>
-                        </XStack>
-                      </Button>
-                    </XStack>
+                    <WalletActionExchange
+                      accountId={accountId}
+                      networkId={networkId}
+                      walletId={walletId}
+                      indexedAccountId={indexedAccountId}
+                    />
                   </Accordion.Content>
                 </Accordion.HeightAnimator>
               </Accordion.Item>

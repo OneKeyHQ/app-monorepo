@@ -27,15 +27,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import {
-  EAccountSelectorSceneName,
-  EHardwareTransportType,
-} from '@onekeyhq/shared/types';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
   EOneKeyDeviceMode,
@@ -616,7 +612,7 @@ function CheckAndUpdatePage({
         }, 150);
       }
       isFirmwareVerifiedRef.current = !!result.verified;
-    } catch (error) {
+    } catch (_error) {
       setSteps((prev) => {
         const newSteps = [...prev];
         newSteps[0] = {
@@ -826,12 +822,7 @@ function CheckAndUpdatePage({
           })}
         />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent
-            gap="$10"
-            $platform-native={{
-              py: '$5',
-            }}
-          >
+          <OnboardingLayout.ConstrainedContent gap="$10">
             {steps.map((step, index) => {
               // Don't show setup-on-device until firmware-check is completed
               if (

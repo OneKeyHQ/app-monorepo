@@ -3,10 +3,10 @@ import { forwardRef, useEffect, useState } from 'react';
 import {
   type GetProps,
   styled,
+  useTheme,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 
-import { useThemeValue } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';
 
 import ICON_CONFIG from './Icons';
@@ -109,7 +109,8 @@ function IconLoader({
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
-  const defaultColor = useThemeValue('icon');
+  const theme = useTheme();
+  const defaultColor = theme.icon.val;
   if (!name) {
     return null;
   }

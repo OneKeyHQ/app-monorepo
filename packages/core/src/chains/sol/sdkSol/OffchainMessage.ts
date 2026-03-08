@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 /* eslint-disable no-bitwise */
-/* eslint-disable spellcheck/spell-checker */
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -420,7 +419,7 @@ export class OffchainMessage {
           };
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // noop
     }
 
@@ -435,7 +434,9 @@ export class OffchainMessage {
       return false;
     }
     const format = OffchainMessage.guessMessageFormat(this.message);
-    return format != null && format === this.messageFormat;
+    return (
+      format !== null && format !== undefined && format === this.messageFormat
+    );
   }
 
   isLedgerSupported(allowBlindSigning: boolean) {

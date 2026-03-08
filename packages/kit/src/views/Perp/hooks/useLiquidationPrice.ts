@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { calculateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { useTradingPrice } from './useTradingPrice';
+import { useOrderPrice } from './useOrderPrice';
 
 export function useLiquidationPrice(
   overrideSide?: 'long' | 'short',
@@ -27,8 +27,10 @@ export function useLiquidationPrice(
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
-  const { midPriceBN } = useTradingPrice();
   const { coin, margin } = activeAsset;
+
+  const effectiveSide = overrideSide || formData.side;
+  const { price: referencePrice } = useOrderPrice(effectiveSide);
 
   const stableAccountValues = useMemo(
     () => ({
@@ -41,16 +43,6 @@ export function useLiquidationPrice(
       accountSummary?.crossMaintenanceMarginUsed,
     ],
   );
-
-  const referencePrice = useMemo(() => {
-    if (formData.type === 'limit' && formData.price) {
-      return new BigNumber(formData.price);
-    }
-    if (formData.type === 'market') {
-      return midPriceBN;
-    }
-    return new BigNumber(0);
-  }, [formData.type, formData.price, midPriceBN]);
 
   const totalValue = useMemo(() => {
     return tradingComputed.computedSizeBN.multipliedBy(referencePrice);
@@ -66,8 +58,6 @@ export function useLiquidationPrice(
     return perpsPositions.filter((pos) => pos.position.coin === coin)?.[0]
       ?.position;
   }, [perpsPositions, coin]);
-
-  const effectiveSide = overrideSide || formData.side;
 
   const liquidationPrice: BigNumber | null = useMemo(() => {
     if (!leverage || !activeAssetData?.leverage.type) return null;

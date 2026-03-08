@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAutoPageSize = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 12h5a2 2 0 0 1 2 2v7m-7-9v7a2 2 0 0 0 2 2h5m-7-9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"
+      fillRule="evenodd"
+      d="M20 22H4V2h16zM6 20h5v-7H6zm0-9h7v9h5V4H6z"
+      clipRule="evenodd"
     />
   </Svg>
 );

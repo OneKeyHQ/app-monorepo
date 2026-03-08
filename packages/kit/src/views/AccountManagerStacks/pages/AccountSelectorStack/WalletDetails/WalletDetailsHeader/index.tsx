@@ -52,15 +52,15 @@ export function WalletDetailsHeader({
   const actions = useAccountSelectorActions();
   const intl = useIntl();
 
-  const showAboutDevice =
+  const _showAboutDevice =
     accountUtils.isHwWallet({ walletId: wallet?.id }) &&
     !accountUtils.isHwHiddenWallet({ wallet });
-  const showRemoveButton = wallet?.id
+  const _showRemoveButton = wallet?.id
     ? !accountUtils.isOthersWallet({
         walletId: wallet?.id,
       })
     : false;
-  const isBackupRequired = useMemo(
+  const _isBackupRequired = useMemo(
     () => wallet?.type === WALLET_TYPE_HD && !wallet.backuped,
     [wallet],
   );
@@ -126,7 +126,7 @@ export function WalletDetailsHeader({
             </SizableText>
           ) : null}
           {!platformEnv.isWebDappMode && wallet ? (
-            <WalletRenameButton wallet={wallet} editable={editable} />
+            <WalletRenameButton wallet={wallet} editable={editable} mr="$1.5" />
           ) : null}
         </XStack>
 

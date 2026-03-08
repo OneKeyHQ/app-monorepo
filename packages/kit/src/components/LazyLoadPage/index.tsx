@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { ComponentProps, ComponentType } from 'react';
+import type { ComponentType } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -33,7 +33,18 @@ export function LazyLoadPage<
     }
 
     return (
-      <Stack flex={1} className="LazyLoadPageContainer" bg="$bgApp">
+      <Stack
+        flex={1}
+        className="LazyLoadPageContainer"
+        bg={
+          platformEnv.isNative ||
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel ||
+          platformEnv.isExtensionBackground
+            ? '$bgApp'
+            : '$bgSubdued'
+        }
+      >
         <LazyLoadComponent {...props} />
       </Stack>
     );

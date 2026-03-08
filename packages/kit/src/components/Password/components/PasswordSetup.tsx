@@ -13,6 +13,7 @@ import {
   Unspaced,
   useForm,
 } from '@onekeyhq/components';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -42,7 +43,29 @@ interface IPasswordSetupProps {
   onSetupPassword: (data: IPasswordSetupForm) => void;
   biologyAuthSwitchContainer?: React.ReactNode;
   confirmBtnText?: string;
+  pageMode?: boolean;
+  onStepChange?: (step: 'create' | 'confirm') => void;
 }
+const useHandleEnterKey = platformEnv.isNative
+  ? () => {}
+  : (onSubmitCallback: () => void) => {
+      const handleKeyPress = useCallback(
+        (event: KeyboardEvent) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onSubmitCallback();
+          }
+        },
+        [onSubmitCallback],
+      );
+
+      useEffect(() => {
+        globalThis.addEventListener('keypress', handleKeyPress);
+        return () => {
+          globalThis.removeEventListener('keypress', handleKeyPress);
+        };
+      }, [handleKeyPress]);
+    };
 
 const PasswordSetup = ({
   loading,
@@ -50,6 +73,8 @@ const PasswordSetup = ({
   onSetupPassword,
   confirmBtnText,
   biologyAuthSwitchContainer,
+  pageMode,
+  onStepChange,
 }: IPasswordSetupProps) => {
   const intl = useIntl();
   const [currentPasswordMode, setCurrentPasswordMode] = useState(passwordMode);
@@ -84,12 +109,17 @@ const PasswordSetup = ({
       intl.formatMessage({ id: ETranslations.auth_set_passcode })
     );
   }, [confirmBtnText, intl, passCodeFirstStep]);
-  const onPassCodeNext = () => {
+  const onPassCodeNext = useCallback(async () => {
     setPassCodeConfirm(true);
-    setTimeout(() => {
-      form.setFocus('confirmPassCode');
-    }, 150);
-  };
+    // Fix Android keyboard not appearing: dismiss keyboard before switching to confirm step,
+    // then manually setFocus after a delay to ensure the keyboard pops up correctly.
+    if (platformEnv.isNativeAndroid) {
+      await dismissKeyboardWithDelay(150);
+    }
+    onStepChange?.('confirm');
+    await timerUtils.wait(150);
+    form.setFocus('confirmPassCode');
+  }, [form, onStepChange]);
 
   const clearPasscodeTimeOut = useCallback(() => {
     setPassCodeConfirmClear(false);
@@ -99,35 +129,39 @@ const PasswordSetup = ({
     }, 200);
   }, [form]);
 
+  const handleSubmit = useCallback(() => {
+    void form.handleSubmit(
+      passCodeFirstStep ? onPassCodeNext : onSetupPassword,
+    )();
+  }, [form, passCodeFirstStep, onPassCodeNext, onSetupPassword]);
+
+  useHandleEnterKey(handleSubmit);
+
   return (
     <>
-      {currentPasswordMode === EPasswordMode.PASSCODE && passCodeConfirm ? (
+      {!pageMode ? (
         <Dialog.Header>
           <Dialog.Title>
             <Heading size="$headingXl" py="$px">
               {intl.formatMessage({
-                id: ETranslations.auth_confirm_passcode_form_label,
+                id:
+                  currentPasswordMode === EPasswordMode.PASSCODE &&
+                  passCodeConfirm
+                    ? ETranslations.auth_confirm_passcode_form_label
+                    : ETranslations.global_set_passcode,
               })}
             </Heading>
           </Dialog.Title>
         </Dialog.Header>
-      ) : (
-        <Dialog.Header>
-          <Dialog.Title>
-            <Heading size="$headingXl" py="$px">
-              {intl.formatMessage({
-                id: ETranslations.global_set_passcode,
-              })}
-            </Heading>
-          </Dialog.Title>
-        </Dialog.Header>
-      )}
+      ) : null}
       <Form form={form}>
         {currentPasswordMode === EPasswordMode.PASSWORD ? (
           <>
             <Form.Field
-              label={intl.formatMessage({
-                id: ETranslations.auth_new_passcode_form_label,
+              {...(!pageMode && {
+                label: intl.formatMessage({
+                  id: ETranslations.auth_new_passcode_form_label,
+                }),
               })}
               name="password"
               rules={{
@@ -172,9 +206,11 @@ const PasswordSetup = ({
             >
               <Input
                 size="large"
-                $gtMd={{
-                  size: 'medium',
-                }}
+                {...(!pageMode && {
+                  $gtMd: {
+                    size: 'medium',
+                  },
+                })}
                 placeholder={intl.formatMessage({
                   id: ETranslations.auth_new_passcode_form_placeholder,
                 })}
@@ -197,8 +233,10 @@ const PasswordSetup = ({
               />
             </Form.Field>
             <Form.Field
-              label={intl.formatMessage({
-                id: ETranslations.auth_confirm_passcode_form_label,
+              {...(!pageMode && {
+                label: intl.formatMessage({
+                  id: ETranslations.auth_confirm_passcode_form_label,
+                }),
               })}
               name="confirmPassword"
               rules={{
@@ -222,9 +260,11 @@ const PasswordSetup = ({
             >
               <Input
                 size="large"
-                $gtMd={{
-                  size: 'medium',
-                }}
+                {...(!pageMode && {
+                  $gtMd: {
+                    size: 'medium',
+                  },
+                })}
                 placeholder={intl.formatMessage({
                   id: ETranslations.auth_confirm_passcode_form_placeholder,
                 })}
@@ -329,7 +369,9 @@ const PasswordSetup = ({
                   form.clearErrors('confirmPassCode');
                 }}
                 editable
-                autoFocus={passCodeConfirm}
+                autoFocus={
+                  platformEnv.isNativeAndroid ? false : passCodeConfirm
+                }
                 clearCodeAndFocus={passCodeConfirmClear}
                 onComplete={form.handleSubmit(onSetupPassword)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
@@ -345,16 +387,14 @@ const PasswordSetup = ({
         {currentPasswordMode === EPasswordMode.PASSWORD ? (
           <Button
             size="large"
-            $gtMd={
-              {
+            {...(!pageMode && {
+              $gtMd: {
                 size: 'medium',
-              } as any
-            }
+              } as any,
+            })}
             variant="primary"
             loading={loading}
-            onPress={form.handleSubmit(
-              passCodeFirstStep ? onPassCodeNext : onSetupPassword,
-            )}
+            onPress={handleSubmit}
             testID="set-password"
           >
             {confirmBtnTextMemo}

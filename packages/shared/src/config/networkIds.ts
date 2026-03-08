@@ -58,38 +58,41 @@ export type INetworkShortCode =
   | 'blast'
   | 'opbnb'
   | 'fevm'
-  | 'holesky'
   | 'hoodi'
   | 'flare'
   | 'base'
   | 'ton'
   | 'bob'
-  | 'mode'
   | 'taiko'
-  | 'metis'
   | 'hsk'
-  | 'neon3';
+  | 'hyperevm'
+  | 'neon3'
+  | 'linea'
+  | 'zksyncera';
 
 const checkErrors: string[] = [];
 // TODO generate getNetworkIdsMap in build time
 export const getNetworkIdsMap = memoFn(() => {
   const networks = getPresetNetworks();
-  const r = networks.reduce((memo, n) => {
-    memo[n.shortcode as INetworkShortCode] = n.id;
-    // const testNames: string[] = [
-    //   n.code,
-    //   n.impl,
-    //   //  n.shortcode,
-    // ];
-    // if (uniq(testNames).length > 1) {
-    //   checkErrors.push(
-    //     `Networks must have same code, shortcode and impl: ${JSON.stringify(
-    //       testNames,
-    //     )}`,
-    //   );
-    // }
-    return memo;
-  }, {} as Record<INetworkShortCode, string>);
+  const r = networks.reduce(
+    (memo, n) => {
+      memo[n.shortcode as INetworkShortCode] = n.id;
+      // const testNames: string[] = [
+      //   n.code,
+      //   n.impl,
+      //   //  n.shortcode,
+      // ];
+      // if (uniq(testNames).length > 1) {
+      //   checkErrors.push(
+      //     `Networks must have same code, shortcode and impl: ${JSON.stringify(
+      //       testNames,
+      //     )}`,
+      //   );
+      // }
+      return memo;
+    },
+    {} as Record<INetworkShortCode, string>,
+  );
   if (checkErrors.length) {
     throw new OneKeyLocalError(checkErrors.join('\n'));
   }

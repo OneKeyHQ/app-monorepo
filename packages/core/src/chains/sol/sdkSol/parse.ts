@@ -22,7 +22,7 @@ export function parseToNativeTx(
 
   try {
     return Transaction.from(txByte);
-  } catch (e) {
+  } catch (_e) {
     return VersionedTransaction.deserialize(txByte);
   }
 }

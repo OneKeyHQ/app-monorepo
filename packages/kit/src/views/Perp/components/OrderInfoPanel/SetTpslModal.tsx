@@ -8,7 +8,6 @@ import {
   Checkbox,
   Dialog,
   Divider,
-  IconButton,
   Page,
   SizableText,
   Toast,
@@ -339,11 +338,17 @@ const SetTpslForm = memo(
             if (isLongPosition) {
               // Long + above
               errorMessage = appLocale.intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_tp_desc_1,
               });
             } else {
               // Short + below
               errorMessage = appLocale.intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_tp_desc_2,
               });
             }
@@ -369,11 +374,17 @@ const SetTpslForm = memo(
             if (isLongPosition) {
               // Long + below
               errorMessage = appLocale.intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_sl_desc_1,
               });
             } else {
               // Short + above
               errorMessage = appLocale.intl.formatMessage({
+                // invalid => invalid
+
+                // oxlint-disable-next-line @cspell/spellchecker
                 id: ETranslations.perp_invaild_sl_desc_2,
               });
             }
@@ -485,7 +496,6 @@ const SetTpslForm = memo(
                     size="$bodyMd"
                     color="$green9"
                     ml="$2"
-                    cursor="pointer"
                     onPress={() => handleCancelOrder(tpOrder)}
                   >
                     {appLocale.intl.formatMessage({
@@ -554,7 +564,6 @@ const SetTpslForm = memo(
                     size="$bodyMd"
                     color="$green9"
                     ml="$2"
-                    cursor="pointer"
                     onPress={() => handleCancelOrder(slOrder)}
                   >
                     {appLocale.intl.formatMessage({

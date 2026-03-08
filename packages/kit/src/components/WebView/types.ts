@@ -29,8 +29,7 @@ export type IWebViewOnScrollEvent =
   IFirstParameterOrUndefined<IWebViewOnScroll>;
 
 export interface IInpageProviderWebViewProps
-  extends IElectronWebViewEvents,
-    InpageWebViewProps {
+  extends IElectronWebViewEvents, InpageWebViewProps {
   id?: string;
   onNavigationStateChange?: (event: any) => void;
   onShouldStartLoadWithRequest?: (event: any) => boolean;
@@ -75,6 +74,16 @@ export interface IInpageProviderWebViewProps
    * @default true
    */
   allowsBackForwardNavigationGestures?: boolean;
+  /** @platform android
+   * @description Allow file access from file URLs
+   * @default false
+   */
+  allowFileAccessFromFileURLs?: boolean;
+  /** @platform android
+   * @description Allow file access
+   * @default false
+   */
+  allowFileAccess?: boolean;
 }
 
 export type IWebViewRef = {

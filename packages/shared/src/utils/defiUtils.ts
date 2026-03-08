@@ -65,22 +65,25 @@ function extractParenthesizedContent(input: string) {
 }
 
 function mergeAssets(assets: (IDeFiAsset & { type: EDeFiAssetType })[]) {
-  return assets.reduce((acc, asset) => {
-    const existingAsset = acc.find(
-      (a) => a.symbol === asset.symbol && a.address === asset.address,
-    );
-    if (existingAsset) {
-      existingAsset.value = new BigNumber(existingAsset.value)
-        .plus(asset.value)
-        .toNumber();
-      existingAsset.amount = new BigNumber(existingAsset.amount)
-        .plus(asset.amount)
-        .toFixed();
-    } else {
-      acc.push(asset);
-    }
-    return acc;
-  }, [] as (IDeFiAsset & { type: EDeFiAssetType })[]);
+  return assets.reduce(
+    (acc, asset) => {
+      const existingAsset = acc.find(
+        (a) => a.symbol === asset.symbol && a.address === asset.address,
+      );
+      if (existingAsset) {
+        existingAsset.value = new BigNumber(existingAsset.value)
+          .plus(asset.value)
+          .toNumber();
+        existingAsset.amount = new BigNumber(existingAsset.amount)
+          .plus(asset.amount)
+          .toFixed();
+      } else {
+        acc.push(asset);
+      }
+      return acc;
+    },
+    [] as (IDeFiAsset & { type: EDeFiAssetType })[],
+  );
 }
 
 function buildProtocolMapKey({
@@ -114,18 +117,20 @@ function transferPositionMap(
       poolName: position.poolName,
       poolFullName: position.poolFullName,
       category: position.category,
-      assets: mergeAssets(position.assets).sort((a, b) =>
+      assets: mergeAssets(position.assets).toSorted((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
-      debts: mergeAssets(position.debts).sort((a, b) =>
+      debts: mergeAssets(position.debts).toSorted((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
-      rewards: mergeAssets(position.rewards).sort((a, b) =>
+      rewards: mergeAssets(position.rewards).toSorted((a, b) =>
         new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
       ),
       value: position.value.toFixed(),
     }))
-    .sort((a, b) => new BigNumber(b.value).comparedTo(new BigNumber(a.value)));
+    .toSorted((a, b) =>
+      new BigNumber(b.value).comparedTo(new BigNumber(a.value)),
+    );
   return positions;
 }
 
@@ -283,7 +288,7 @@ function transformDeFiData({
       positions: transferPositionMap(value.positionMap),
       categories: Array.from(value.categorySet),
     }))
-    .sort((a, b) =>
+    .toSorted((a, b) =>
       new BigNumber(
         protocolMap[
           buildProtocolMapKey({
@@ -314,9 +319,10 @@ function transformDeFiData({
 function getEmptyDeFiData() {
   return {
     overview: {
-      totalValue: '0',
-      totalDebt: '0',
-      netWorth: '0',
+      totalValue: 0,
+      totalDebt: 0,
+      netWorth: 0,
+      totalReward: 0,
       chains: [],
       protocolCount: 0,
       positionCount: 0,
@@ -325,9 +331,10 @@ function getEmptyDeFiData() {
     protocolMap: {},
   } as {
     overview: {
-      totalValue: string;
-      totalDebt: string;
-      netWorth: string;
+      totalValue: number;
+      totalDebt: number;
+      netWorth: number;
+      totalReward: number;
       chains: string[];
       protocolCount: number;
       positionCount: number;

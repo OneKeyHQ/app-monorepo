@@ -7,6 +7,9 @@ import TronWeb from 'tronweb';
 import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
+  TRON_TX_EXPIRATION_TIME,
+  tronTokenAddressMainnet,
+  tronTokenAddressTestnet,
 } from '@onekeyhq/core/src/chains/tron/constants';
 import type {
   IDecodedTxExtraTron,
@@ -14,6 +17,7 @@ import type {
 } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { getBulkSendContractAddress } from '@onekeyhq/shared/src/consts/bulkSendContractAddress';
 import {
   InsufficientBalance,
   OneKeyInternalError,
@@ -22,6 +26,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import contractUtils from '@onekeyhq/shared/src/utils/contractUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -74,6 +79,7 @@ import type {
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
+  IBuildLMSwapEncodedTxParams,
   IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
@@ -137,6 +143,36 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  async _extendTxExpiration({
+    transaction,
+    expiration,
+  }: {
+    transaction: Types.Transaction;
+    expiration: number;
+  }) {
+    try {
+      const [extendedTransaction] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<Types.Transaction>(
+          {
+            networkId: this.networkId,
+            body: [
+              {
+                route: 'tronweb',
+                params: {
+                  method: 'transactionBuilder.extendExpiration',
+                  params: [transaction, expiration],
+                },
+              },
+            ],
+          },
+        );
+      return extendedTransaction;
+    } catch (e) {
+      console.error('extendTxExpiration ERROR:', e);
+      return transaction;
+    }
+  }
+
   async _buildEncodedTxFromApprove(params: IBuildEncodedTxParams) {
     const { approveInfo } = params;
     const { owner, spender, amount, tokenInfo, isMax } =
@@ -191,7 +227,10 @@ export default class Vault extends VaultBase {
         'Unable to build token approve transaction',
       );
     }
-    return transaction;
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
   }
 
   async _buildEncodedTxFromTransfer(
@@ -254,7 +293,10 @@ export default class Vault extends VaultBase {
             'Unable to build token transfer transaction',
           );
         }
-        return transaction;
+        return this._extendTxExpiration({
+          transaction,
+          expiration: TRON_TX_EXPIRATION_TIME,
+        });
       }
 
       try {
@@ -269,12 +311,10 @@ export default class Vault extends VaultBase {
                     method: 'transactionBuilder.sendTrx',
                     params: [
                       to,
-                      parseInt(
-                        new BigNumber(amount)
-                          .shiftedBy(tokenInfo.decimals)
-                          .toFixed(),
-                        10,
-                      ),
+                      chainValueUtils.convertAmountToChainValue({
+                        network: await this.getNetwork(),
+                        value: amount,
+                      }),
                       from,
                     ],
                   },
@@ -282,7 +322,10 @@ export default class Vault extends VaultBase {
               ],
             },
           );
-        return transaction;
+        return await this._extendTxExpiration({
+          transaction,
+          expiration: TRON_TX_EXPIRATION_TIME,
+        });
       } catch (e) {
         if (typeof e === 'string' && e.endsWith('balance is not sufficient.')) {
           throw new InsufficientBalance({
@@ -300,8 +343,329 @@ export default class Vault extends VaultBase {
     return this._buildEncodedTxFromBatchTransfer(transfersInfo);
   }
 
-  async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
-    return {} as Types.Transaction;
+  async _buildEncodedTxFromBatchTransfer(
+    transfersInfo: ITransferInfo[],
+  ): Promise<IEncodedTxTron> {
+    if (transfersInfo.length === 0) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transfersInfo is empty',
+      );
+    }
+
+    const bulkSendContractAddresses = getBulkSendContractAddress();
+    const contractAddress = bulkSendContractAddresses[this.networkId];
+
+    if (!contractAddress) {
+      throw new OneKeyLocalError(
+        `BulkSend contract not deployed on network: ${this.networkId}`,
+      );
+    }
+
+    const network = await this.getNetwork();
+    const firstTransfer = transfersInfo[0];
+    const { from, tokenInfo } = firstTransfer;
+
+    if (!tokenInfo) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    // Check if all amounts are the same
+    const firstAmount = firstTransfer.amount;
+    const isSameAmount = transfersInfo.every((t) => t.amount === firstAmount);
+
+    if (tokenInfo.isNative) {
+      return this._buildNativeBatchTransfer({
+        transfersInfo,
+        from,
+        contractAddress,
+        isSameAmount,
+      });
+    }
+
+    return this._buildTokenBatchTransfer({
+      transfersInfo,
+      from,
+      contractAddress,
+      tokenInfo,
+      isSameAmount,
+    });
+  }
+
+  private async _buildNativeBatchTransfer(params: {
+    transfersInfo: ITransferInfo[];
+    from: string;
+    contractAddress: string;
+    isSameAmount: boolean;
+  }): Promise<IEncodedTxTron> {
+    const { transfersInfo, from, contractAddress, isSameAmount } = params;
+
+    const network = await this.getNetwork();
+
+    const recipients = transfersInfo.map((t) => t.to);
+
+    if (isSameAmount) {
+      // Use sendTRXSameAmount for better energy efficiency
+      const amountOnChain = chainValueUtils.convertAmountToChainValue({
+        network,
+        value: transfersInfo[0].amount,
+      });
+      const totalValue = new BigNumber(amountOnChain)
+        .times(transfersInfo.length)
+        .toFixed();
+
+      const [
+        {
+          result: { result },
+          transaction,
+        },
+      ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: Types.Transaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                contractAddress,
+                'sendTRXSameAmount(address[],uint256)',
+                { callValue: totalValue },
+                [
+                  { type: 'address[]', value: recipients },
+                  { type: 'uint256', value: amountOnChain },
+                ],
+                from,
+              ],
+            },
+          },
+        ],
+      });
+
+      if (!result) {
+        throw new OneKeyInternalError(
+          'Unable to build native batch transfer transaction',
+        );
+      }
+
+      return this._extendTxExpiration({
+        transaction,
+        expiration: TRON_TX_EXPIRATION_TIME,
+      });
+    }
+
+    // Use sendTRX for different amounts
+    const transfers = transfersInfo.map((t) => ({
+      recipient: t.to,
+      amount: chainValueUtils.convertAmountToChainValue({
+        network,
+        value: t.amount,
+      }),
+    }));
+
+    const totalValue = transfers
+      .reduce((sum, t) => sum.plus(t.amount), new BigNumber(0))
+      .toFixed();
+
+    // Build tuple array for (address recipient, uint256 amount)[]
+    // Addresses inside tuples must be hex (0x-prefixed) because TronWeb
+    // only auto-converts standalone address / address[] params, not nested ones.
+    const transferTuples = transfers.map((t) => [
+      TronWeb.utils.address.toHex(t.recipient).replace(/^41/, '0x'),
+      t.amount,
+    ]);
+
+    const [
+      {
+        result: { result },
+        transaction,
+      },
+    ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      result: { result: boolean };
+      transaction: Types.Transaction;
+    }>({
+      networkId: this.networkId,
+      body: [
+        {
+          route: 'tronweb',
+          params: {
+            method: 'transactionBuilder.triggerSmartContract',
+            params: [
+              contractAddress,
+              'sendTRX((address,uint256)[])',
+              { callValue: totalValue },
+              [{ type: '(address,uint256)[]', value: transferTuples }],
+              from,
+            ],
+          },
+        },
+      ],
+    });
+
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build native batch transfer transaction',
+      );
+    }
+
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
+  }
+
+  private async _buildTokenBatchTransfer(params: {
+    transfersInfo: ITransferInfo[];
+    from: string;
+    contractAddress: string;
+    tokenInfo: NonNullable<ITransferInfo['tokenInfo']>;
+    isSameAmount: boolean;
+  }): Promise<IEncodedTxTron> {
+    const { transfersInfo, from, contractAddress, tokenInfo, isSameAmount } =
+      params;
+
+    if (!tokenInfo.address) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo.address is missing',
+      );
+    }
+
+    if (isNil(tokenInfo.decimals)) {
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo.decimals is missing',
+      );
+    }
+
+    const USDTAddress = (await this.getNetwork()).isTestnet
+      ? tronTokenAddressTestnet.USDT
+      : tronTokenAddressMainnet.USDT;
+
+    const isUSDT = tokenInfo.address === USDTAddress;
+
+    const recipients = transfersInfo.map((t) => t.to);
+
+    // Use ViaContract by default (fewer notifications for sender).
+    // Fall back to direct transferFrom for fee-on-transfer tokens.
+    const isFeeOnTransfer = transfersInfo[0].isFeeOnTransferToken ?? false;
+
+    if (isSameAmount) {
+      const amountOnChain = chainValueUtils.convertTokenAmountToChainValue({
+        token: tokenInfo,
+        value: transfersInfo[0].amount,
+      });
+
+      const methodSignature =
+        isFeeOnTransfer || isUSDT
+          ? 'sendTRC20SameAmount(address,address[],uint256)'
+          : 'sendTRC20SameAmountViaContract(address,address[],uint256)';
+
+      const [
+        {
+          result: { result },
+          transaction,
+        },
+      ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: Types.Transaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                contractAddress,
+                methodSignature,
+                {},
+                [
+                  { type: 'address', value: tokenInfo.address },
+                  { type: 'address[]', value: recipients },
+                  { type: 'uint256', value: amountOnChain },
+                ],
+                from,
+              ],
+            },
+          },
+        ],
+      });
+
+      if (!result) {
+        throw new OneKeyInternalError(
+          'Unable to build token batch transfer transaction',
+        );
+      }
+
+      return this._extendTxExpiration({
+        transaction,
+        expiration: TRON_TX_EXPIRATION_TIME,
+      });
+    }
+
+    const transfers = transfersInfo.map((t) => ({
+      recipient: t.to,
+      amount: chainValueUtils.convertTokenAmountToChainValue({
+        token: tokenInfo,
+        value: t.amount,
+      }),
+    }));
+
+    // Build tuple array for (address recipient, uint256 amount)[]
+    // Addresses inside tuples must be hex (0x-prefixed) because TronWeb
+    // only auto-converts standalone address / address[] params, not nested ones.
+    const transferTuples = transfers.map((t) => [
+      TronWeb.utils.address.toHex(t.recipient).replace(/^41/, '0x'),
+      t.amount,
+    ]);
+
+    const methodSignature =
+      isFeeOnTransfer || isUSDT
+        ? 'sendTRC20(address,(address,uint256)[])'
+        : 'sendTRC20ViaContract(address,(address,uint256)[])';
+
+    const [
+      {
+        result: { result },
+        transaction,
+      },
+    ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      result: { result: boolean };
+      transaction: Types.Transaction;
+    }>({
+      networkId: this.networkId,
+      body: [
+        {
+          route: 'tronweb',
+          params: {
+            method: 'transactionBuilder.triggerSmartContract',
+            params: [
+              contractAddress,
+              methodSignature,
+              {},
+              [
+                { type: 'address', value: tokenInfo.address },
+                { type: '(address,uint256)[]', value: transferTuples },
+              ],
+              from,
+            ],
+          },
+        },
+      ],
+    });
+
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build token batch transfer transaction',
+      );
+    }
+
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
   }
 
   override async buildDecodedTx(
@@ -634,7 +998,10 @@ export default class Vault extends VaultBase {
             'Unable to build token approve transaction',
           );
         }
-        return transaction;
+        return await this._extendTxExpiration({
+          transaction,
+          expiration: TRON_TX_EXPIRATION_TIME,
+        });
       } catch (e) {
         console.error('updateTokenApproveInfo ERROR:', e);
         return encodedTx;
@@ -669,9 +1036,10 @@ export default class Vault extends VaultBase {
                   method: 'transactionBuilder.sendTrx',
                   params: [
                     TronWeb.utils.address.fromHex(toAddressHex),
-                    new BigNumber(nativeAmountInfo.maxSendAmount)
-                      .shiftedBy(network.decimals)
-                      .toNumber(),
+                    chainValueUtils.convertAmountToChainValue({
+                      network,
+                      value: nativeAmountInfo.maxSendAmount,
+                    }),
                     TronWeb.utils.address.fromHex(fromAddressHex),
                   ],
                 },
@@ -679,7 +1047,10 @@ export default class Vault extends VaultBase {
             ],
           },
         );
-      return transaction;
+      return this._extendTxExpiration({
+        transaction,
+        expiration: TRON_TX_EXPIRATION_TIME,
+      });
     }
 
     return Promise.resolve(encodedTx);
@@ -864,7 +1235,7 @@ export default class Vault extends VaultBase {
                 signatureDataHex,
                 {
                   feeLimit: 300_000_000,
-                  callValue: parseInt(value, 10),
+                  callValue: new BigNumber(value).toFixed(),
                 },
                 buildTxParams,
                 from,
@@ -895,7 +1266,85 @@ export default class Vault extends VaultBase {
       transaction.txID = txID.slice(2);
     }
 
-    return transaction;
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
+  }
+
+  override async buildLiquidMeshSwapEncodedTx(
+    params: IBuildLMSwapEncodedTxParams,
+  ): Promise<IEncodedTxTron> {
+    const { lmTx } = params;
+    const { from, to, value, data } = lmTx;
+
+    const convertEvmToTronAddress = (address: string): string => {
+      if (address.toLowerCase().startsWith('0x')) {
+        return TronWeb.utils.address.fromHex(`41${address.slice(2)}`);
+      }
+      return address;
+    };
+
+    const ownerAddress = convertEvmToTronAddress(from);
+    const contractAddress = convertEvmToTronAddress(to);
+
+    // value is hex string from LiquidMesh API, ensure proper hex parsing
+    const callValue = new BigNumber(
+      value.startsWith('0x') ? value : `0x${value}`,
+    ).toFixed();
+
+    const functionSelector = data.slice(2, 10);
+
+    const signatureDataHex = functionSelector;
+
+    const [{ result, transaction }] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        result: { result: boolean };
+        transaction: Types.Transaction;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'tronweb',
+            params: {
+              method: 'transactionBuilder.triggerSmartContract',
+              params: [
+                contractAddress,
+                signatureDataHex,
+                {
+                  feeLimit: 300_000_000,
+                  callValue,
+                },
+                [],
+                ownerAddress,
+              ],
+            },
+          },
+        ],
+      });
+
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build LiquidMesh swap transaction',
+      );
+    }
+
+    (
+      transaction.raw_data.contract[0].parameter
+        .value as Types.TriggerSmartContract
+    ).data = data.slice(2);
+
+    const txPb = TronWeb.utils.transaction.txJsonToPb(transaction);
+    const txRawDataHex = TronWeb.utils.transaction.txPbToRawDataHex(txPb);
+    const txID = TronWeb.utils.transaction.txPbToTxID(txPb);
+
+    transaction.raw_data_hex = txRawDataHex;
+    transaction.txID = txID.slice(2);
+
+    return this._extendTxExpiration({
+      transaction,
+      expiration: TRON_TX_EXPIRATION_TIME,
+    });
   }
 
   async _createResourceRentalOrder(params: {
@@ -926,9 +1375,7 @@ export default class Vault extends VaultBase {
           url: '/api/v1/order/create',
           data: {
             ...createOrderParams,
-            sourceFlag: (
-              await this.getNetwork()
-            ).isTestnet
+            sourceFlag: (await this.getNetwork()).isTestnet
               ? TRON_SOURCE_FLAG_TESTNET
               : TRON_SOURCE_FLAG_MAINNET,
           },
@@ -957,9 +1404,7 @@ export default class Vault extends VaultBase {
             orderId,
             fromHash: signedTx.txid,
             signedData: JSON.parse(signedTx.rawTx),
-            sourceFlag: (
-              await this.getNetwork()
-            ).isTestnet
+            sourceFlag: (await this.getNetwork()).isTestnet
               ? TRON_SOURCE_FLAG_TESTNET
               : TRON_SOURCE_FLAG_MAINNET,
           },

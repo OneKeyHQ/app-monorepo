@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -75,7 +74,6 @@ export function PrimeTransferHomeEnterLink({
   // const websocketConnected = false;
 
   const intl = useIntl();
-  const navigation = useAppNavigation();
 
   const { start } = useScanQrCode();
   const { onPasteClearText, clearText, getClipboard, supportPaste } =
@@ -92,10 +90,10 @@ export function PrimeTransferHomeEnterLink({
         pairingCode,
       );
 
-    const r1 = await backgroundApiProxy.servicePrimeTransfer.joinRoom({
+    await backgroundApiProxy.servicePrimeTransfer.joinRoom({
       roomId: remoteRoomId,
     });
-    const r2 = await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
+    await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
       pairingCode: pairingCode.toUpperCase(),
     });
     return undefined;

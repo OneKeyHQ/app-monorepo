@@ -32,8 +32,8 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
   async addOrder(order: IAddEarnOrderParams) {
     await this.setRawData((rawData) => {
       const data: IEarnOrderDBStructure = {
-        data: { ...(rawData?.data || {}) },
-        txIdToOrderIdMap: { ...(rawData?.txIdToOrderIdMap || {}) },
+        data: { ...rawData?.data },
+        txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
       };
       const now = Date.now();
       data.data[order.orderId] = {
@@ -60,8 +60,8 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
 
     await this.setRawData((rawData) => {
       const data: IEarnOrderDBStructure = {
-        data: { ...(rawData?.data || {}) },
-        txIdToOrderIdMap: { ...(rawData?.txIdToOrderIdMap || {}) },
+        data: { ...rawData?.data },
+        txIdToOrderIdMap: { ...rawData?.txIdToOrderIdMap },
       };
 
       const orderId = data.txIdToOrderIdMap[currentTxId];

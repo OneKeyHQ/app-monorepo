@@ -2,6 +2,7 @@ import type {
   IBip39RevealableSeed,
   IBip39RevealableSeedEncryptHex,
 } from '@onekeyhq/core/src/secret';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -64,8 +65,8 @@ export type IDBBaseObjectWithName = IDBBaseObject & {
 };
 export type IDBContext = {
   id: string; // DB_MAIN_CONTEXT_ID
-  nextHD: number;
-  nextWalletNo: number;
+  nextHD: number; // HD wallet counter: used to generate HD wallet ID (hd-{nextHD}) and default wallet name (Wallet {nextHD})
+  nextWalletNo: number; // Global wallet number counter: used for sorting and displaying all wallet types (HD/HW/QR use auto-increment, Imported/Watching/External/Keyless use fixed numbers)
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
@@ -133,6 +134,11 @@ export type IDBWalletNextIdKeys =
   | 'accountGlobalNum'
   | 'hiddenWalletNum';
 export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
+export type IKeylessWalletDetailsInfo = {
+  keylessOwnerId: string;
+  keylessProvider: EOAuthSocialLoginProvider;
+  socialUserIdHash: string;
+};
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
@@ -155,6 +161,9 @@ export type IDBWallet = IDBBaseObjectWithName & {
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
   isTemp?: boolean;
   isMocked?: boolean;
+  isKeyless?: boolean;
+  keylessDetails?: string; // JSON.stringify(keylessDetailsInfo)
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo; // readonly field
   passphraseState?: string;
   walletNo: number;
   walletOrderSaved?: number; // db field
@@ -175,6 +184,9 @@ export type IDBCreateHDWalletParams = {
   walletHash: string;
   walletXfp: string;
   avatar?: IAvatarInfo;
+  isKeylessWallet?: boolean;
+  keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+  skipAddHDNextIndexedAccount?: boolean;
 };
 export type IDBCreateKeylessWalletParams = {
   password: string;
@@ -291,7 +303,8 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpub: string;
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
-  // eslint-disable-next-line spellcheck/spell-checker
+
+  // oxlint-disable-next-line @cspell/spellchecker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address
 };
@@ -470,7 +483,8 @@ export enum EIndexedDBBucketNames {
   // credential = 'credential', // credential, context
   // wallet = 'wallet', // wallet, device
   account = 'account_local-db_onekey-bucket', // account
-  backupAccount = `${INDEXED_BUCKET_NAME_BACKUP_PREFIX}account_local-db_onekey-bucket`, // account
+  // NOTE: Using inline string instead of template literal for SWC/Rspack compatibility
+  backupAccount = 'backup-account_local-db_onekey-bucket', // account
   address = 'address_local-db_onekey-bucket', // address to account map
   archive = 'archive_local-db_onekey-bucket', // connected site, signed message, signed transaction
 

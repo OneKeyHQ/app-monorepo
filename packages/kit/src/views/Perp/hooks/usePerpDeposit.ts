@@ -20,7 +20,10 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+  BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
+} from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -192,7 +195,7 @@ const usePerpDeposit = (
             indexedAccountId,
             networkId: token.networkId ?? '',
             deriveType: defaultDeriveType ?? 'default',
-            accountId: indexedAccountId ? undefined : selectedAccountId ?? '',
+            accountId: indexedAccountId ? undefined : (selectedAccountId ?? ''),
           });
         const perpAccountDefaultDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
@@ -200,7 +203,7 @@ const usePerpDeposit = (
           });
         const perpAccount =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: indexedAccountId ? undefined : selectedAccountId ?? '',
+            accountId: indexedAccountId ? undefined : (selectedAccountId ?? ''),
             indexedAccountId,
             deriveType: perpAccountDefaultDeriveType ?? 'default',
             networkId: PERPS_NETWORK_ID,
@@ -268,7 +271,8 @@ const usePerpDeposit = (
       }
     } catch (e: any) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (e?.cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
+      const cause = e?.cause || e?.data?.cause;
+      if (cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
         setPerpDepositQuoteLoading(false);
         setPerpDepositQuote(undefined);
         throw e;
@@ -339,7 +343,10 @@ const usePerpDeposit = (
           receivingAddress: result?.perpReceiverAddress ?? '',
           swapBuildResData: {
             result: {
-              ...buildSwapRes.result,
+              // API returns flat structure — buildSwapRes.result may be undefined,
+              // fall back to buildSwapRes itself which contains the same fields
+              ...(buildSwapRes.result ?? buildSwapRes),
+              info: buildSwapRes.result?.info ?? buildSwapRes.info,
             },
           },
         };
@@ -495,7 +502,7 @@ const usePerpDeposit = (
         buildUnsignedParamsCheckNonce.prevNonce =
           approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
       }
-      let gasFeeInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[] = [];
+      const gasFeeInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[] = [];
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
@@ -529,13 +536,10 @@ const usePerpDeposit = (
           const unsignedTxItem = unsignedTxArr[i];
           const gasRes = gasResArr.txFees[i];
           const gasInfo = buildGasInfo(gasRes, gasResArr.common);
-          gasFeeInfos = [
-            ...gasFeeInfos,
-            {
-              encodeTx: unsignedTxItem.encodedTx ?? {},
-              gasInfo,
-            },
-          ];
+          gasFeeInfos.push({
+            encodeTx: unsignedTxItem.encodedTx ?? {},
+            gasInfo,
+          });
         }
       } else if (
         approveUnsignedTxArr?.length &&
@@ -564,12 +568,18 @@ const usePerpDeposit = (
               );
               specialGasLimit = new BigNumber(baseGasLimit ?? 0)
                 .times(
-                  allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP),
+                  allRoutesLength
+                    .plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                    .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP),
                 )
                 .toFixed();
             } else {
               specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-                .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                .times(
+                  new BigNumber(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP).plus(
+                    BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+                  ),
+                )
                 .toFixed();
             }
             const lastTxGasInfo = {
@@ -588,13 +598,10 @@ const usePerpDeposit = (
                   }
                 : undefined,
             };
-            gasFeeInfos = [
-              ...gasFeeInfos,
-              {
-                encodeTx: unsignedTxItem.encodedTx,
-                gasInfo: lastTxGasInfo,
-              },
-            ];
+            gasFeeInfos.push({
+              encodeTx: unsignedTxItem.encodedTx,
+              gasInfo: lastTxGasInfo,
+            });
           } else {
             const estimateFeeParams =
               await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -616,13 +623,10 @@ const usePerpDeposit = (
               };
             }
             const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-            gasFeeInfos = [
-              ...gasFeeInfos,
-              {
-                encodeTx: unsignedTxItem.encodedTx,
-                gasInfo: gasParseInfo,
-              },
-            ];
+            gasFeeInfos.push({
+              encodeTx: unsignedTxItem.encodedTx,
+              gasInfo: gasParseInfo,
+            });
           }
         }
       } else {
@@ -639,13 +643,10 @@ const usePerpDeposit = (
           accountId,
         });
         const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-        gasFeeInfos = [
-          ...gasFeeInfos,
-          {
-            encodeTx: unsignedTx.encodedTx,
-            gasInfo: gasParseInfo,
-          },
-        ];
+        gasFeeInfos.push({
+          encodeTx: unsignedTx.encodedTx,
+          gasInfo: gasParseInfo,
+        });
       }
       return gasFeeInfos;
     },
@@ -740,7 +741,13 @@ const usePerpDeposit = (
         unsignedTxs: [updatedUnsignedTxItem],
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
-      const { totalNative } = calculateFeeForSend({
+      const {
+        totalNative,
+        total,
+        totalFiat,
+        totalFiatForDisplay,
+        totalNativeForDisplay,
+      } = calculateFeeForSend({
         feeInfo: gasInfo as IFeeInfoUnit,
         nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
       });
@@ -760,6 +767,30 @@ const usePerpDeposit = (
         accountId,
         unsignedTx: updatedUnsignedTxItem,
         signOnly: false,
+      });
+      const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
+        networkId: token.networkId,
+        accountId,
+        unsignedTx: updatedUnsignedTxItem,
+        feeInfo: {
+          feeInfo: gasInfo as IFeeInfoUnit,
+          total,
+          totalNative,
+          totalFiat,
+          totalNativeForDisplay,
+          totalFiatForDisplay,
+        },
+        saveToLocalHistory: true,
+      });
+      await backgroundApiProxy.serviceHistory.saveSendConfirmHistoryTxs({
+        networkId: token.networkId,
+        accountId,
+        data: {
+          signedTx: res,
+          decodedTx,
+          approveInfo: updatedUnsignedTxItem.approveInfo,
+          feeInfo: gasInfo as IFeeInfoUnit,
+        },
       });
       return res;
     },
@@ -903,12 +934,18 @@ const usePerpDeposit = (
                 );
                 specialGasLimit = new BigNumber(baseGasLimit ?? 0)
                   .times(
-                    allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP),
+                    allRoutesLength
+                      .plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                      .plus(BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP),
                   )
                   .toFixed();
               } else {
                 specialGasLimit = new BigNumber(baseGasLimit ?? 0)
-                  .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                  .times(
+                    new BigNumber(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP).plus(
+                      BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP,
+                    ),
+                  )
                   .toFixed();
               }
               const lastTxGasInfo = {
@@ -1020,9 +1057,8 @@ const usePerpDeposit = (
     if (!token?.networkId) {
       throw new OneKeyError('token.networkId is required');
     }
-    const { transferInfo, encodedTx, swapInfo } = await buildQuoteRes(
-      perpDepositQuote,
-    );
+    const { transferInfo, encodedTx, swapInfo } =
+      await buildQuoteRes(perpDepositQuote);
     const { unsignedTxArr } = await getApproveUnSignedTxArr(
       perpDepositQuote?.result,
     );

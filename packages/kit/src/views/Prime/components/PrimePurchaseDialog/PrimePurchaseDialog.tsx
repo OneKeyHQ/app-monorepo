@@ -29,13 +29,8 @@ export function usePrimePurchaseCallback({
 }: {
   onPurchase?: () => void;
 } = {}) {
-  const {
-    purchasePackageNative,
-    getPackagesNative,
-    purchasePackageWeb,
-    getPackagesWeb,
-  } = usePrimePayment();
-  const { user } = useOneKeyAuth();
+  const { purchasePackageNative, purchasePackageWeb } = usePrimePayment();
+  const { supabaseUser } = useOneKeyAuth();
   const intl = useIntl();
 
   const purchaseByWebview = usePurchasePackageWebview();
@@ -127,7 +122,7 @@ export function usePrimePurchaseCallback({
         if (selectedSubscriptionPeriod) {
           await purchasePackageWeb?.({
             subscriptionPeriod: selectedSubscriptionPeriod,
-            email: user?.email || '',
+            email: supabaseUser?.email || '',
             locale: intl.locale,
             featureName,
           });
@@ -144,12 +139,12 @@ export function usePrimePurchaseCallback({
       }
     },
     [
+      onPurchase,
       purchaseByNative,
       intl,
-      onPurchase,
-      purchasePackageWeb,
       purchaseByWebview,
-      user?.email,
+      purchasePackageWeb,
+      supabaseUser,
     ],
   );
 
@@ -166,16 +161,10 @@ export const PrimePurchaseDialog = (props: {
 }) => {
   const { onPurchase, featureName } = props;
   const intl = useIntl();
-  const { user } = useOneKeyAuth();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
 
-  const {
-    purchasePackageNative,
-    getPackagesNative,
-    purchasePackageWeb,
-    getPackagesWeb,
-  } = usePrimePayment();
+  const { getPackagesNative, getPackagesWeb } = usePrimePayment();
 
   const { result: packages } = usePromiseResult(
     async () =>

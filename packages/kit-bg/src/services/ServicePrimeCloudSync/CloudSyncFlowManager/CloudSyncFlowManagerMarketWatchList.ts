@@ -18,6 +18,9 @@ import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 import type { IDBCloudSyncItem, IDBDevice } from '../../../dbs/local/types';
 
 function buildItemKey(item: IMarketWatchListItemV2) {
+  if (item.perpsCoin) {
+    return `perps_${item.perpsCoin}`;
+  }
   return [
     item.chainId,
     normalizeTokenContractAddress({
@@ -68,24 +71,34 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     return this.syncToSceneMutex.runExclusive(async () => {
       const { payload, item } = params;
 
-      const contractAddress =
-        normalizeTokenContractAddress({
-          networkId: payload.chainId,
-          contractAddress: payload.contractAddress,
-        }) || '';
+      const isPerps = !!payload.perpsCoin;
+
+      const contractAddress = isPerps
+        ? ''
+        : normalizeTokenContractAddress({
+            networkId: payload.chainId,
+            contractAddress: payload.contractAddress,
+          }) || '';
 
       const watchListItem: IMarketWatchListItemV2 = {
         chainId: payload.chainId,
         contractAddress,
         isNative: payload.isNative,
         sortIndex: payload.sortIndex,
+        perpsCoin: payload.perpsCoin,
       };
       if (item.isDeleted) {
         defaultLogger.cloudSync.market.removeWatchList(watchListItem);
-        // await this.backgroundApi.serviceMarket.removeMarketWatchList({
         await this.backgroundApi.serviceMarketV2.removeMarketWatchListV2({
-          items: [watchListItem],
-          // avoid infinite loop sync
+          items: [
+            isPerps
+              ? {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: payload.perpsCoin,
+                }
+              : watchListItem,
+          ],
           skipSaveLocalSyncItem: true,
           skipEventEmit: true,
           callerName: 'cloudSync_syncToSceneEachItem',
@@ -94,14 +107,13 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
           await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
             chainId: payload.chainId,
             contractAddress,
+            perpsCoin: payload.perpsCoin,
           });
         return !removedItemExists;
       }
       defaultLogger.cloudSync.market.addWatchList(watchListItem);
-      // await this.backgroundApi.serviceMarket.addMarketWatchList({
       await this.backgroundApi.serviceMarketV2.addMarketWatchListV2({
         watchList: [watchListItem],
-        // avoid infinite loop sync
         skipSaveLocalSyncItem: true,
         skipEventEmit: true,
         callerName: 'cloudSync_syncToSceneEachItem',
@@ -110,6 +122,7 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
         await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
           chainId: payload.chainId,
           contractAddress,
+          perpsCoin: payload.perpsCoin,
         });
       return !!addedItemExists;
     });
@@ -121,18 +134,20 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     const { payload } = params;
     const watchList =
       await this.backgroundApi.serviceMarketV2.getMarketWatchListV2();
-    const result = watchList.data.find((i) =>
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: i.chainId,
-          contractAddress: i.contractAddress,
-        },
-        token2: {
-          networkId: payload.chainId,
-          contractAddress: payload.contractAddress,
-        },
-      }),
-    );
+    const result = payload.perpsCoin
+      ? watchList.data.find((i) => i.perpsCoin === payload.perpsCoin)
+      : watchList.data.find((i) =>
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId: i.chainId,
+              contractAddress: i.contractAddress,
+            },
+            token2: {
+              networkId: payload.chainId,
+              contractAddress: payload.contractAddress,
+            },
+          }),
+        );
     return cloneDeep(result);
   }
 

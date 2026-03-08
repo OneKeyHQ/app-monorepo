@@ -23,12 +23,10 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
 import MobileTabListItem from '../../components/MobileTabListItem';

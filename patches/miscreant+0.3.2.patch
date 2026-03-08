@@ -1,0 +1,12 @@
+diff --git a/node_modules/miscreant/package.json b/node_modules/miscreant/package.json
+index 1234567..abcdefg 100644
+--- a/node_modules/miscreant/package.json
++++ b/node_modules/miscreant/package.json
+@@ -4,7 +4,6 @@
+   "description": "Misuse resistant symmetric encryption library providing AES-SIV (RFC 5297), AES-PMAC-SIV, and STREAM constructions",
+   "homepage": "https://github.com/miscreant/miscreant/tree/master/js/",
+   "main": "release/index.js",
+-  "types": "src/index.ts",
+   "author": "Tony Arcieri",
+   "license": "MIT",
+   "repository": {

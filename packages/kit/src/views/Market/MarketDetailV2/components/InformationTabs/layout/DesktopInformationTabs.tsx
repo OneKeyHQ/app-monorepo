@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Tabs, YStack } from '@onekeyhq/components';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -35,7 +36,7 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
       top={0}
       zIndex={10}
     >
-      <Tabs.TabBar {...props} />
+      <Tabs.TabBar {...props} textSize="$bodyMdMedium" />
       <StickyHeader firstTabName={firstTabName} />
     </YStack>
   );
@@ -44,14 +45,16 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
 interface IDesktopInformationTabsProps {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  isBTCNetwork?: boolean;
 }
 
 export function DesktopInformationTabs({
   portfolioData,
   isRefreshing,
+  isBTCNetwork,
 }: IDesktopInformationTabsProps) {
   const intl = useIntl();
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail, isNative } = useTokenDetail();
   const { handleTabChange } = useBottomTabAnalytics();
   const { accountAddress } = useNetworkAccountAddress(networkId);
 
@@ -70,37 +73,37 @@ export function DesktopInformationTabs({
   }, [intl, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
-    // Check if current network supports holders tab
-    const shouldShowHoldersTab = isHoldersTabSupported(networkId);
-    // Check if there's an account address available
-    const shouldShowPortfolioTab = !!accountAddress;
+    // Check if current network supports holders tab (not available for native tokens)
+    const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
+    // BTC network doesn't show transactions tab
+    const shouldShowTransactionsTab = !isBTCNetwork;
 
     const items = [
-      <Tabs.Tab
-        key="transactions"
-        name={intl.formatMessage({
-          id: ETranslations.dexmarket_details_transactions,
-        })}
-      >
-        <TransactionsHistory
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-        />
-      </Tabs.Tab>,
-      shouldShowPortfolioTab && (
+      shouldShowTransactionsTab && (
         <Tabs.Tab
-          key="portfolio"
+          key="transactions"
           name={intl.formatMessage({
-            id: ETranslations.dexmarket_details_myposition,
+            id: ETranslations.dexmarket_details_transactions,
           })}
         >
-          <Portfolio
-            portfolioData={portfolioData}
-            isRefreshing={isRefreshing}
-            accountAddress={accountAddress}
+          <TransactionsHistory
+            tokenAddress={tokenAddress}
+            networkId={networkId}
           />
         </Tabs.Tab>
       ),
+      <Tabs.Tab
+        key="portfolio"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_myposition,
+        })}
+      >
+        <Portfolio
+          portfolioData={portfolioData}
+          isRefreshing={isRefreshing}
+          accountAddress={accountAddress}
+        />
+      </Tabs.Tab>,
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
@@ -116,18 +119,29 @@ export function DesktopInformationTabs({
     portfolioData,
     isRefreshing,
     holdersTabName,
+    isNative,
+    isBTCNetwork,
   ]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <DesktopInformationTabsHeader {...props} />;
   }, []);
 
-  if (!tokenAddress || !networkId) {
+  // Generate unique key based on tabs composition
+  const tabsKey = useMemo(() => tabs.map((tab) => tab.key).join('-'), [tabs]);
+
+  // Hide entire component if no networkId
+  if (!networkId) {
     return null;
   }
 
   return (
-    <Tabs.Container renderTabBar={renderTabBar} onTabChange={handleTabChange}>
+    <Tabs.Container
+      key={tabsKey}
+      renderTabBar={renderTabBar}
+      onTabChange={handleTabChange}
+      disableScroll={!platformEnv.isNative}
+    >
       {tabs}
     </Tabs.Container>
   );

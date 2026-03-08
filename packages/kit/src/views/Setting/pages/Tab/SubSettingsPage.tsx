@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 
 import {
   Divider,
@@ -55,20 +55,20 @@ export function SubSettingsPage({
           contentContainerStyle={{ pb: '$10' }}
         >
           <YStack gap="$4" px="$4" pt={isTabNavigator ? undefined : '$3'}>
-            {configList?.map((item) => {
+            {configList?.map((item, sectionIdx) => {
               const list = Array.isArray(item) ? item.filter(Boolean) : [];
               return list.length ? (
-                <TabSettingsSection>
+                <TabSettingsSection key={sectionIdx}>
                   {list.map((i, idx) => {
                     return i ? (
-                      <>
+                      <Fragment key={idx}>
                         <TabSettingsListGrid item={i} />
                         {idx !== list.length - 1 ? (
                           <XStack mx="$5">
                             <Divider borderColor="$neutral3" />
                           </XStack>
                         ) : null}
-                      </>
+                      </Fragment>
                     ) : null;
                   })}
                 </TabSettingsSection>

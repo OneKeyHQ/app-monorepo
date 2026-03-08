@@ -37,6 +37,7 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -114,6 +115,7 @@ function TxConfirmActions(props: IProps) {
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
   const [customRpcStatus] = useCustomRpcStatusAtom();
+  const [settings] = useSettingsPersistAtom();
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -133,10 +135,7 @@ function TxConfirmActions(props: IProps) {
   ).result;
 
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
-    usePreCheckFeeInfo({
-      accountId,
-      networkId,
-    });
+    usePreCheckFeeInfo();
 
   const submitTxs = useCallback(async () => {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
@@ -258,6 +257,8 @@ function TxConfirmActions(props: IProps) {
     // fee info pre-check
     if (sendSelectedFeeInfo) {
       const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+        accountId,
+        networkId,
         feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
         feeSymbol:
           sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
@@ -338,6 +339,18 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        txnParseType: isUndefined(result?.[0].decodedTx.txParseType)
+          ? undefined
+          : result?.[0].decodedTx.txParseType,
+        txnOrigin: isUndefined(sourceInfo?.origin)
+          ? undefined
+          : sourceInfo.origin,
+        feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
+          ? undefined
+          : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,
+        feeFiatValue: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat)
+          ? undefined
+          : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalFiat} ${settings?.currencyInfo.id}`,
         tokenAddress: transferInfo?.tokenInfo?.address,
         tokenSymbol: transferInfo?.tokenInfo?.symbol,
         tokenType: transferInfo?.nftInfo ? 'NFT' : 'Token',
@@ -470,6 +483,8 @@ function TxConfirmActions(props: IProps) {
     updateUnsignedTxs,
     shouldRejectDappAction,
     customRpcStatus?.useDefaultRpcOnce,
+    settings?.currencyInfo.id,
+    nativeTokenInfo.info?.symbol,
   ]);
 
   const handleOnConfirm = useCallback(async () => {

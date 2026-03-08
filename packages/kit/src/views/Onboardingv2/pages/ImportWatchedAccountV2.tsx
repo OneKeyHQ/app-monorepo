@@ -1,5 +1,4 @@
-import type { RefObject } from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,17 +18,12 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { fixInputImportSingleChain } from '../../Onboarding/pages/ImportWallet/ImportSingleChainBase';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import { PhaseInputArea } from '../components/PhaseInputArea';
-
-import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 
 export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();
   const [selected, setSelected] = useState<'address' | 'publicKey'>('address');
   const { gtMd } = useMedia();
-  const phaseInputAreaRef = useRef<IPhaseInputAreaInstance | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [address, setAddress] = useState('');

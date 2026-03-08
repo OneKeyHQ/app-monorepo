@@ -186,7 +186,7 @@ class ServiceSend extends ServiceBase {
         if (!verified) {
           throw new OneKeyLocalError('Invalid txid');
         }
-      } catch (error) {
+      } catch (_error) {
         throw new OneKeyLocalError('Invalid txid');
       }
 
@@ -938,6 +938,23 @@ class ServiceSend extends ServiceBase {
       },
     );
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async validateMemo(params: {
+    networkId: string;
+    accountId?: string;
+    memo: string;
+  }) {
+    const { networkId, accountId, memo } = params;
+    if (accountId) {
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      return vault.validateMemo(memo);
+    }
+
+    return (await vaultFactory.getChainOnlyVault({ networkId })).validateMemo(
+      memo,
+    );
   }
 }
 

@@ -5,6 +5,7 @@ export const POLLING_INTERVAL_FOR_NFT = POLLING_INTERVAL;
 export const POLLING_INTERVAL_FOR_HISTORY = POLLING_INTERVAL;
 export const POLLING_INTERVAL_FOR_APPROVAL = POLLING_INTERVAL;
 export const POLLING_INTERVAL_FOR_DEFI = 60_000;
+export const POLLING_INTERVAL_FOR_NATIVE_TOKEN_INFO = 15_000;
 
 export const POLLING_DEBOUNCE_INTERVAL = 1000;
 
@@ -23,6 +24,7 @@ export const TOKEN_LIST_HIGH_VALUE_MAX = 50;
 
 export const BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE = 2;
 export const BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP = 5;
+export const BATCH_APPROVE_GAS_FEE_RATIO_FOR_SWAP = 0.3;
 export const BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL = 0.8;
 
 export const HISTORY_PAGE_SIZE = 50;
@@ -35,4 +37,6 @@ export const WALLET_STORE_URLS = {
     'https://chromewebstore.google.com/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad',
   phantom:
     'https://chromewebstore.google.com/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
-} as const satisfies Record<'okx' | 'coinbase' | 'phantom', string>;
+  zerion:
+    'https://chromewebstore.google.com/detail/zerion-wallet-crypto-defi/klghhnkeealcohjjanjjdaeeggmfmlpl',
+} as const satisfies Record<'okx' | 'coinbase' | 'phantom' | 'zerion', string>;

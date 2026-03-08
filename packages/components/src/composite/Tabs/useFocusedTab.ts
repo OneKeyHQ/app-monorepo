@@ -4,10 +4,10 @@ import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import { useTabsContext } from './context';
 
-import type Animated from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 
 export function useConvertAnimatedToValue<T>(
-  animatedValue: Animated.SharedValue<T>,
+  animatedValue: SharedValue<T>,
   defaultValue?: T,
 ) {
   const [value, setValue] = useState<T>(animatedValue?.value);

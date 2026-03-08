@@ -1,72 +1,52 @@
-import { useMemo } from 'react';
-
-import { useWindowDimensions } from 'react-native';
-
-import { Image, useMedia } from '@onekeyhq/components';
-import step1MobileImg from '@onekeyhq/kit/assets/inviteCode/1-1.png';
-import step1DesktopImg from '@onekeyhq/kit/assets/inviteCode/1-2.png';
-import step2MobileImg from '@onekeyhq/kit/assets/inviteCode/2-1.png';
-import step2DesktopImg from '@onekeyhq/kit/assets/inviteCode/2-2.png';
+import {
+  LottieView,
+  Stack,
+  useMedia,
+  usePageWidth,
+} from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const DESKTOP_IMAGE_ASPECT_RATIO = 284 / 640;
+const DESKTOP_ASPECT_RATIO = 284 / 640;
+const DESKTOP_WIDTH = 540;
+
+const LOTTIE_MAP = {
+  1: {
+    light: require('@onekeyhq/kit/assets/animations/_mov_referHardware.json'),
+    dark: require('@onekeyhq/kit/assets/animations/_mov_referHardware_dark.json'),
+  },
+  2: {
+    light: require('@onekeyhq/kit/assets/animations/_mov_refer.json'),
+    dark: require('@onekeyhq/kit/assets/animations/_mov_refer_dark.json'),
+  },
+} as const;
 
 interface IInviteCodeStepImageProps {
-  /** Step number (1 or 2) */
   step: 1 | 2;
 }
 
-/**
- * Responsive component to display invite code step images
- * Automatically switches between mobile and desktop versions based on screen size
- * - Mobile (Native): (screenWidth - 32)px width with 1:1 aspect ratio
- * - Mobile (Web): 100% width with auto height
- * - Desktop: 640x284px
- */
 export function InviteCodeStepImage({ step }: IInviteCodeStepImageProps) {
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
-  const { width: screenWidth } = useWindowDimensions();
-  const isDesktopImage =
-    !platformEnv.isNative && (gtSm || platformEnv.isExtensionUiPopup);
-
-  // Image mapping for steps and responsive versions
-  const imageMap = {
-    1: {
-      mobile: step1MobileImg,
-      desktop: step1DesktopImg,
-    },
-    2: {
-      mobile: step2MobileImg,
-      desktop: step2DesktopImg,
-    },
-  };
-
-  // Select image based on step and screen size
-  const selectedImage = imageMap[step]?.[isDesktopImage ? 'desktop' : 'mobile'];
-
-  // Calculate image width based on platform and screen size
-  const imageWidth = useMemo(() => {
-    if (!platformEnv.isNative && gtSm) return 640; // Desktop: fixed width
-    return screenWidth; // Native / popup: screen width minus padding
-  }, [gtSm, screenWidth]);
-
-  // Calculate image height based on platform
-  const imageHeight = useMemo(() => {
-    if (isDesktopImage) {
-      return imageWidth * DESKTOP_IMAGE_ASPECT_RATIO;
-    }
-    return screenWidth; // Native mobile: keep square
-  }, [imageWidth, isDesktopImage, screenWidth]);
+  const pageWidth = usePageWidth();
+  const isDesktop = gtSm || platformEnv.isExtensionUiPopup;
+  const lottieSource =
+    LOTTIE_MAP[step][themeVariant === 'dark' ? 'dark' : 'light'];
+  const width = gtSm ? DESKTOP_WIDTH : pageWidth;
+  const height = isDesktop ? width * DESKTOP_ASPECT_RATIO : pageWidth;
+  const shouldLoop = step === 2;
 
   return (
-    <Image
-      source={selectedImage}
-      w={imageWidth}
-      h={imageHeight}
-      resizeMode="contain"
-      opacity={themeVariant === 'dark' ? 0.95 : 1}
-    />
+    <Stack w={width} h={height} alignSelf="center">
+      <LottieView
+        source={lottieSource}
+        width={width}
+        height={height}
+        autoPlay
+        loop={shouldLoop}
+        resizeMode="contain"
+        renderMode="AUTOMATIC"
+      />
+    </Stack>
   );
 }

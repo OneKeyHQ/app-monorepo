@@ -24,6 +24,7 @@ import type {
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
+import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
   hardwareUiStateAtom,
@@ -63,11 +64,45 @@ export type ICloseHardwareUiStateDialogParams = {
 
 @backgroundClass()
 class ServiceHardwareUI extends ServiceBase {
+  private deviceCacheByConnectId: Map<string, IDBDevice> = new Map();
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // This service caches `connectId -> IDBDevice` for hardware interaction dialogs.
+    // When device features (including label) change, invalidate cache to avoid showing stale names.
+    appEventBus.on(
+      EAppEventBusNames.HardwareFeaturesUpdate,
+      this.onHardwareFeaturesUpdate,
+    );
   }
 
   hardwareProcessingManager = new HardwareProcessingManager();
+
+  private onHardwareFeaturesUpdate = async ({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) => {
+    try {
+      // Delete from cache first to avoid a race where a new interaction immediately reads stale cache.
+      for (const [connectId, cached] of this.deviceCacheByConnectId.entries()) {
+        if (cached?.id === deviceId) {
+          this.deviceCacheByConnectId.delete(connectId);
+        }
+      }
+
+      const device = await localDb.getDevice(deviceId);
+      if (device?.connectId) {
+        this.deviceCacheByConnectId.delete(device.connectId);
+      } else {
+        // Conservative fallback: if connectId cannot be resolved, clear all cache to avoid stale UI.
+        this.deviceCacheByConnectId.clear();
+      }
+    } catch {
+      // Best-effort: this event is only for UI consistency. Clear cache on any error.
+      this.deviceCacheByConnectId.clear();
+    }
+  };
 
   @backgroundMethod()
   async sendUiResponse(response: UiResponseEvent) {
@@ -95,6 +130,62 @@ class ServiceHardwareUI extends ServiceBase {
     });
   }
 
+  private async getDeviceCached(
+    connectId: string,
+  ): Promise<IDBDevice | undefined> {
+    const cached = this.deviceCacheByConnectId.get(connectId);
+    if (cached) {
+      return cached;
+    }
+    const device =
+      await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+        connectId,
+      });
+    if (device) {
+      this.deviceCacheByConnectId.set(connectId, device);
+    }
+    return device;
+  }
+
+  private async updateDialogWithDeviceInfo({
+    action,
+    connectId,
+  }: {
+    action: EHardwareUiStateAction;
+    connectId: string;
+  }) {
+    try {
+      const device = await this.getDeviceCached(connectId);
+      if (!device) {
+        return;
+      }
+      const currentState = await hardwareUiStateAtom.get();
+      if (
+        currentState?.action !== action ||
+        currentState?.connectId !== connectId
+      ) {
+        return;
+      }
+      await hardwareUiStateAtom.set({
+        action,
+        connectId,
+        payload: {
+          uiRequestType: action,
+          eventType: '',
+          deviceType: device.deviceType,
+          deviceId: device.deviceId ?? '',
+          connectId,
+          deviceMode: EOneKeyDeviceMode.normal,
+          rawPayload: {
+            features: device.featuresInfo,
+          },
+        },
+      });
+    } catch {
+      // ignore error, device info is optional for display
+    }
+  }
+
   @backgroundMethod()
   async showCheckingDeviceDialog({ connectId }: { connectId: string }) {
     await hardwareUiStateAtom.set({
@@ -102,6 +193,12 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       payload: undefined,
     });
+    if (connectId) {
+      void this.updateDialogWithDeviceInfo({
+        action: EHardwareUiStateAction.DeviceChecking,
+        connectId,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -111,6 +208,12 @@ class ServiceHardwareUI extends ServiceBase {
       connectId,
       payload: undefined,
     });
+    if (connectId) {
+      void this.updateDialogWithDeviceInfo({
+        action: EHardwareUiStateAction.ProcessLoading,
+        connectId,
+      });
+    }
     // wait animation done
     await timerUtils.wait(150);
   }
@@ -240,6 +343,21 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async sendRequestDeviceForSwitchFirmwareWebDevice({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.SELECT_DEVICE_FOR_SWITCH_FIRMWARE_WEB_DEVICE,
+      payload: {
+        deviceId,
+      },
+    });
+  }
+
+  @backgroundMethod()
   async cleanHardwareUiState({
     hardClose,
   }: {
@@ -279,6 +397,7 @@ class ServiceHardwareUI extends ServiceBase {
   async closeHardwareUiStateDialogFn(
     params: ICloseHardwareUiStateDialogParams,
   ) {
+    /* eslint-disable prefer-const */
     let {
       skipDeviceCancel = true,
       delay,
@@ -288,6 +407,7 @@ class ServiceHardwareUI extends ServiceBase {
       deviceResetToHome = true,
       hardClose,
     } = params;
+    /* eslint-enable prefer-const */
 
     try {
       if (!connectId && walletId) {
@@ -314,7 +434,7 @@ class ServiceHardwareUI extends ServiceBase {
           forceDeviceResetToHome: deviceResetToHome,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       // closeHardwareUiStateDialog should be called safely, do not block caller
     }
   }

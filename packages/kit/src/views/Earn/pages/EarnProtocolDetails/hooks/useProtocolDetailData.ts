@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type {
@@ -28,25 +29,15 @@ export function useProtocolDetailData({
   vault: string | undefined;
 }) {
   const {
-    result: earnAccount,
-    run: refreshAccount,
+    earnAccount,
+    refreshAccount,
     isLoading: isAccountLoading,
-  } = usePromiseResult(
-    async () => {
-      // If no account, don't fetch and don't block loading
-      if (!accountId && !indexedAccountId) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceStaking.getEarnAccount({
-        accountId,
-        networkId,
-        indexedAccountId,
-        btcOnlyTaproot: true,
-      });
-    },
-    [accountId, indexedAccountId, networkId],
-    { watchLoading: true },
-  );
+  } = useEarnAccount({
+    networkId,
+    accountId,
+    indexedAccountId,
+    btcOnlyTaproot: true,
+  });
 
   const {
     result: detailInfo,

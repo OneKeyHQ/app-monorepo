@@ -30,6 +30,9 @@ export type IToken = {
   // for aggregate token
   isAggregateToken?: boolean;
   commonSymbol?: string;
+
+  // for defi
+  defiMarked?: boolean;
 };
 
 export type ITokenFiat = {
@@ -85,6 +88,7 @@ export type IFetchAccountTokensParams = {
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  excludeDeFiMarkedTokens?: boolean;
 };
 
 export type ITokenData = {

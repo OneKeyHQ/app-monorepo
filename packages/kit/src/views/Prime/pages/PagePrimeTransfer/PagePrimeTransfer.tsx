@@ -2,17 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import axios from 'axios';
 import { noop } from 'lodash';
-import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Icon,
-  Page,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
@@ -29,7 +20,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
-import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
@@ -37,7 +27,6 @@ import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent'
 import { PrimeTransferHome } from './components/PrimeTransferHome';
 
 export default function PagePrimeTransfer() {
-  const intl = useIntl();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const navigation = useAppNavigation();
   const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();

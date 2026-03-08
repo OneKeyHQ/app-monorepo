@@ -43,9 +43,8 @@ class ProviderApiTron extends ProviderApiBase {
   public providerName = IInjectedProviderNames.tron;
 
   async tron_chainId(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
     if (!isNil(networks?.[0]?.chainId)) {
       return hexUtils.hexlify(Number(networks?.[0]?.chainId));
     }
@@ -153,9 +152,8 @@ class ProviderApiTron extends ProviderApiBase {
   async tron_nodes(request: IJsBridgeMessagePayload) {
     let url = '';
 
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
-      request,
-    );
+    const networks =
+      await this.backgroundApi.serviceDApp.getConnectedNetworks(request);
 
     if (networks[0]) {
       url = networks[0].isTestnet
@@ -215,8 +213,8 @@ class ProviderApiTron extends ProviderApiBase {
   @permissionRequired()
   @providerApiMethod()
   async signMessageV1(
-    request: IJsBridgeMessagePayload,
-    message: string,
+    _request: IJsBridgeMessagePayload,
+    _message: string,
   ): Promise<string> {
     throw new NotImplemented();
   }
@@ -308,7 +306,7 @@ class ProviderApiTron extends ProviderApiBase {
   @providerApiMethod()
   async wallet_switchEthereumChain(
     request: IJsBridgeMessagePayload,
-    { chainId }: { chainId: string },
+    { chainId: _chainId }: { chainId: string },
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     throw new NotImplemented();
@@ -333,7 +331,7 @@ class ProviderApiTron extends ProviderApiBase {
 
   // https://tronweb.network/docu/docs/API%20List/trx/multiSign
   @providerApiMethod()
-  async eth_multiSign(request: IJsBridgeMessagePayload, transaction: any) {
+  async eth_multiSign(request: IJsBridgeMessagePayload, _transaction: any) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     throw new NotImplemented();
   }

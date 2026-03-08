@@ -150,7 +150,7 @@ function AssetProtocolListContent({
     EModalStakingRoutes.AssetProtocolList
   >();
   const intl = useIntl();
-  const { accountId, indexedAccountId, symbol } = appRoute.params;
+  const { symbol } = appRoute.params;
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
     async ({ item }: { item: IStakeProtocolListItem }) => {
@@ -271,6 +271,7 @@ function AssetProtocolList() {
         symbol,
         accountId,
         indexedAccountId,
+        networkId,
         filterNetworkId: filter ? networkId : undefined,
       }),
     [filter, symbol, networkId, accountId, indexedAccountId],

@@ -69,7 +69,7 @@ function getStoreNamesByBucketName(
           bucketNameToStoreNamesMap?.[_bucketName].push(
             storeName as ELocalDBStoreNames,
           );
-        } catch (error) {
+        } catch (_error) {
           // ignore
         }
       }

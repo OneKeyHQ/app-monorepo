@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import semver from 'semver';
 
-import { Dialog, SizableText } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

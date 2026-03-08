@@ -30,6 +30,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -38,6 +39,7 @@ import type {
   IWsAllDexsAssetCtxs,
   IWsAllDexsClearinghouseState,
   IWsAllMids,
+  IWsBbo,
   IWsOpenOrders,
   IWsUserNonFundingLedgerUpdates,
   IWsWebData2,
@@ -52,7 +54,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
+import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
@@ -62,6 +64,9 @@ import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
+
+import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
 function useSyncContextOrderBookOptionsToGlobal() {
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -172,6 +177,10 @@ function useHyperliquidEventBusListener() {
 
           case ESubscriptionType.L2_BOOK:
             void actions.current.updateL2Book(data as IBook);
+            break;
+
+          case ESubscriptionType.BBO:
+            void actions.current.updateBbo(data as IWsBbo);
             break;
 
           case ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES:
@@ -500,6 +509,8 @@ function useHyperliquidScreenLockHandler() {
         // Screen unlocked - restore status
         if (isFocusedRef.current) {
           void checkPerpsAccountStatus();
+          // Force reload TradingView Candles WebView to fix data gap after screen unlock
+          void backgroundApiProxy.serviceHyperliquidSubscription.forceReloadCandlesWebview();
         }
       } else {
         // Screen locked - dispose clients
@@ -565,6 +576,16 @@ function AutoPauseSubscriptions() {
     }
   });
 
+  const handleAppActiveFromBackground = useCallback(() => {
+    if (isFocusedRef.current) {
+      void onFocusHandler({ isFocus: true });
+    }
+  }, [onFocusHandler]);
+
+  useHandleAppStateActive(
+    platformEnv.isNative ? handleAppActiveFromBackground : undefined,
+  );
+
   const [isLocked] = useAppIsLockedAtom();
 
   useEffect(() => {
@@ -593,9 +614,11 @@ function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
+  usePerpTokenUrlSync();
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
+  usePerpsSharePrompt();
 
   return (
     <>
@@ -608,13 +631,10 @@ function PerpsGlobalEffectsView() {
 }
 
 const PerpsGlobalEffectsMemo = memo(() => {
-  console.log('PerpsGlobalEffectsMemo___mouted');
-
-  return (
-    <GlobalJotaiReady>
-      <PerpsGlobalEffectsView />
-    </GlobalJotaiReady>
-  );
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('PerpsGlobalEffectsMemo___mouted');
+  }
+  return <PerpsGlobalEffectsView />;
 });
 PerpsGlobalEffectsMemo.displayName = 'PerpsGlobalEffectsMemo';
 

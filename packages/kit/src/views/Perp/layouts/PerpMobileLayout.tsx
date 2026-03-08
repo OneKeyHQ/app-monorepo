@@ -10,6 +10,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -34,6 +35,7 @@ export enum ETabName {
   Positions = 'Positions',
   OpenOrders = 'OpenOrders',
   SwapProOpenOrders = 'SwapProOpenOrders',
+  SwapOrderHistory = 'SwapOrderHistory',
 }
 
 const tabNameToTranslationKey: Record<
@@ -41,10 +43,12 @@ const tabNameToTranslationKey: Record<
   | ETranslations.perp_position_title
   | ETranslations.perp_open_orders_title
   | ETranslations.Limit_open_order
+  | ETranslations.Limit_order_history
 > = {
   [ETabName.Positions]: ETranslations.perp_position_title,
   [ETabName.OpenOrders]: ETranslations.perp_open_orders_title,
   [ETabName.SwapProOpenOrders]: ETranslations.Limit_open_order,
+  [ETabName.SwapOrderHistory]: ETranslations.Limit_order_history,
 };
 
 export const TabBarItem = memo(
@@ -73,7 +77,7 @@ export const TabBarItem = memo(
           onPress={() => onPress(name)}
           mb={-2}
         >
-          <SizableText size="$headingXs">
+          <SizableText size="$bodyMdMedium">
             {`${intl.formatMessage({
               id: tabNameToTranslationKey[name],
             })}${tabCount ? ` ${tabCount}` : ''}`}
@@ -87,6 +91,7 @@ export const TabBarItem = memo(
 TabBarItem.displayName = 'TabBarItem';
 
 export function PerpMobileLayout() {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const [activeTab, setActiveTab] = useState<ETabName>(ETabName.Positions);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -132,9 +137,9 @@ export function PerpMobileLayout() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
-      contentContainerStyle={{ flexGrow: 1 }}
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: tabBarHeight }}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[1, 3]}
+      stickyHeaderIndices={[1]}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }

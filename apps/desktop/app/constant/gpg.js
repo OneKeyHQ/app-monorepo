@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 export const PUBLIC_KEY = `-----BEGIN PGP PUBLIC KEY BLOCK-----
 
 mQINBGJATGwBEADL1K7b8dzYYzlSsvAGiA8mz042pygB7AAh/uFUycpNQdSzuoDE

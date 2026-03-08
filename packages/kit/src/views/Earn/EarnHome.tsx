@@ -1,42 +1,32 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  RefreshControl,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import BigNumber from 'bignumber.js';
+import { View } from 'react-native';
+
+import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
+import {
+  type ETabEarnRoutes,
+  ETabRoutes,
+  type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ETabDiscoveryRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
+import { LazyPageContainer } from '../../components/LazyPageContainer';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
@@ -46,36 +36,45 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
+import { BorrowHome } from '../Borrow/pages/BorrowHome';
+import { isBorrowTag } from '../Staking/utils/utils';
 
 import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
+import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
+import { MarketSelector } from './components/MarketSelector';
 import { Overview } from './components/Overview';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
+import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
-import type { LayoutChangeEvent } from 'react-native';
+
+const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
 
 function BasicEarnHome({
   showHeader,
   showContent,
   overrideDefaultTab,
+  tabsRef,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
-  const media = useMedia();
   const actions = useEarnActions();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
@@ -83,7 +82,7 @@ function BasicEarnHome({
 
   const { earnBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
-  const [isEarnTabFocused, setIsEarnTabFocused] = useState(true);
+  const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
   const wasFocusedRef = useRef(false);
   const portfolioData = useEarnPortfolio({ isActive: isEarnTabFocused });
   const { refresh: refreshEarnDataRaw, isLoading: portfolioLoading } =
@@ -95,6 +94,45 @@ function BasicEarnHome({
     }
     return portfolioLoading;
   }, [portfolioLoading, showContent]);
+
+  const { hideSmallAssets } = useEarnHideSmallAssets();
+
+  // Calculate filtered total fiat value when hiding small assets
+  const filteredTotalFiatValue = useMemo(() => {
+    if (!hideSmallAssets) {
+      return undefined; // Use default from Overview
+    }
+
+    const { investments } = portfolioData;
+    const total = investments.reduce((sum, inv) => {
+      // Filter assets with fiatValueUsd < 0.01
+      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
+      if (valueUsd >= 0.01) {
+        return sum.plus(new BigNumber(inv.totalFiatValue ?? 0));
+      }
+      return sum;
+    }, new BigNumber(0));
+
+    return total.toFixed();
+  }, [hideSmallAssets, portfolioData]);
+
+  // Calculate filtered 24h earnings when hiding small assets (same logic)
+  const filteredEarnings24h = useMemo(() => {
+    if (!hideSmallAssets) {
+      return undefined;
+    }
+
+    const { investments } = portfolioData;
+    const total = investments.reduce((sum, inv) => {
+      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
+      if (valueUsd >= 0.01) {
+        return sum.plus(new BigNumber(inv.earnings24hFiatValue ?? 0));
+      }
+      return sum;
+    }, new BigNumber(0));
+
+    return total.toFixed();
+  }, [hideSmallAssets, portfolioData]);
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
@@ -116,6 +154,52 @@ function BasicEarnHome({
     previousIsPendingRef.current = isPending;
   }, [isPending, refreshEarnDataRaw]);
 
+  const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
+  const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
+
+  const handleRegisterBorrowRefresh = useCallback(
+    (handler: (() => Promise<void>) | null) => {
+      borrowRefreshHandlerRef.current = handler;
+    },
+    [],
+  );
+
+  const handleBorrowNetworksChange = useCallback((nextNetworkIds: string[]) => {
+    setBorrowNetworkIds((prev) => {
+      if (
+        prev.length === nextNetworkIds.length &&
+        prev.every((id, index) => id === nextNetworkIds[index])
+      ) {
+        return prev;
+      }
+      return nextNetworkIds;
+    });
+  }, []);
+
+  const handleBorrowPendingRefresh = useCallback(() => {
+    void borrowRefreshHandlerRef.current?.();
+  }, []);
+
+  const borrowPendingTagMatcher = useCallback(
+    (tag: string) => isBorrowTag(tag) || tag === EEarnLabels.Borrow,
+    [],
+  );
+
+  const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
+    networkIds: borrowNetworkIds,
+    tagMatcher: borrowPendingTagMatcher,
+    onRefresh: handleBorrowPendingRefresh,
+    onRefreshDelayMs: BORROW_PENDING_REFRESH_DELAY,
+  });
+  const prevBorrowPendingIdsRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const nextIds = borrowPendingTxs.map((tx) => tx.id).join(',');
+    if (prevBorrowPendingIdsRef.current !== nextIds) {
+      prevBorrowPendingIdsRef.current = nextIds;
+    }
+  }, [borrowPendingTxs]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
     actions.current.triggerRefresh();
@@ -125,6 +209,31 @@ function BasicEarnHome({
   const navigation = useAppNavigation();
 
   const defaultTab = overrideDefaultTab || route.params?.tab;
+  const defaultMode = route.params?.mode || 'earn';
+  const isEarnMode = defaultMode === 'earn';
+  const isBorrowMode = defaultMode === 'borrow';
+
+  const handleModeChange = useCallback(
+    (mode: 'earn' | 'borrow') => {
+      // Use setParams to update mode without navigation - prevents remount flash
+      navigation.setParams({ mode, tab: route.params?.tab });
+    },
+    [navigation, route.params?.tab],
+  );
+
+  useEffect(() => {
+    const handleSwitchEarnMode = ({ mode }: { mode: 'earn' | 'borrow' }) => {
+      if (mode !== defaultMode) {
+        handleModeChange(mode);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
+    };
+  }, [defaultMode, handleModeChange]);
+
+  const media = useMedia();
 
   const accountSelectorActions = useAccountSelectorActions();
 
@@ -135,11 +244,11 @@ function BasicEarnHome({
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
-      const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
-      const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
-      const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
+      const simpleKey = `availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`;
+      const fixedKey = `availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`;
+      const stakingKey = `availableAssets-${EAvailableAssetsTypeEnum.Staking}`;
 
-      const keys = [allKey, stableKey, nativeKey];
+      const keys = [simpleKey, fixedKey, stakingKey];
 
       const hasIncompleteData = keys.some((key) =>
         actions.current.isDataIncomplete(key),
@@ -165,6 +274,13 @@ function BasicEarnHome({
   const onBannerPress = useCallback(
     async ({ hrefType, href }: IDiscoveryBanner) => {
       if (account || indexedAccount) {
+        // Handle /defi?mode=borrow - switch to borrow mode
+        if (href.includes('/defi') && href.includes('mode=borrow')) {
+          appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
+            mode: 'borrow',
+          });
+          return;
+        }
         if (href.includes('/defi/staking')) {
           const [path, query] = href.split('?');
           const paths = path.split('/');
@@ -229,26 +345,46 @@ function BasicEarnHome({
       },
       allowHeaderOverscroll: true,
       renderHeader: () => (
-        <YStack gap="$4" pt="$6" bg="$bgApp" pointerEvents="box-none">
+        <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
           <YStack gap="$7.5">
-            <YStack px="$5">
-              <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
+            <YStack px="$pagePadding">
+              <Overview
+                onRefresh={refreshEarnData}
+                isLoading={isLoading}
+                filteredTotalFiatValue={filteredTotalFiatValue}
+                filteredEarnings24h={filteredEarnings24h}
+              />
             </YStack>
-            {banners ? <YStack width="100%">{banners}</YStack> : null}
+            {banners ? (
+              <View
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
+              >
+                <YStack width="100%">{banners}</YStack>
+              </View>
+            ) : null}
           </YStack>
         </YStack>
       ),
     }),
-    [showContent, refreshEarnData, isLoading, banners],
+    [
+      showContent,
+      refreshEarnData,
+      isLoading,
+      filteredTotalFiatValue,
+      filteredEarnings24h,
+      banners,
+    ],
   );
 
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 143 : 92,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
+  // const [tabPageHeight, setTabPageHeight] = useState(
+  //   platformEnv.isNativeIOS ? 143 : 92,
+  // );
+  // const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+  //   const height = e.nativeEvent.layout.height - 20;
+  //   setTabPageHeight(height);
+  // }, []);
 
   if (!isFetchingBlockResult && blockResult?.blockData) {
     return (
@@ -257,7 +393,7 @@ function BasicEarnHome({
         showContent={showContent}
         refresh={refreshBlockResult}
         refreshing={!!isFetchingBlockResult}
-        icon={blockResult.blockData.icon.icon}
+        illustration="Universal"
         title={blockResult.blockData.title.text}
         description={blockResult.blockData.description.text}
       />
@@ -265,67 +401,117 @@ function BasicEarnHome({
   }
 
   if (platformEnv.isNative) {
+    const marketSelectorHeader = (
+      <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
+    );
+
     return (
       <YStack flex={1}>
-        {showHeader && showContent && media.md ? (
-          <Stack h={tabPageHeight} />
-        ) : null}
-        <EarnMainTabs
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
-          containerProps={mobileContainerProps}
-        />
+        <YStack
+          flex={1}
+          display={isEarnMode ? 'flex' : 'none'}
+          pointerEvents={isEarnMode ? 'auto' : 'none'}
+        >
+          <EarnMainTabs
+            faqList={faqList || []}
+            isFaqLoading={isFaqLoading}
+            defaultTab={defaultTab}
+            portfolioData={portfolioData}
+            containerProps={mobileContainerProps}
+            header={marketSelectorHeader}
+            tabsRef={tabsRef}
+          />
 
-        {showHeader && showContent && media.md ? (
-          <YStack
-            position="absolute"
-            top={-20}
-            left={0}
-            bg="$bgApp"
-            pt="$5"
-            width="100%"
-            onLayout={handleTabPageLayout}
-          >
-            <TabPageHeader
-              sceneName={EAccountSelectorSceneName.home}
-              tabRoute={ETabRoutes.Earn}
-            />
-          </YStack>
-        ) : null}
+          {showHeader && showContent && media.md ? (
+            <YStack
+              position="absolute"
+              top={-20}
+              left={0}
+              bg="$bgApp"
+              pt="$5"
+              width="100%"
+              // onLayout={handleTabPageLayout}
+            >
+              <TabPageHeader
+                sceneName={EAccountSelectorSceneName.home}
+                tabRoute={ETabRoutes.Earn}
+              />
+            </YStack>
+          ) : null}
+        </YStack>
+        <YStack
+          flex={1}
+          display={isBorrowMode ? 'flex' : 'none'}
+          pointerEvents={isBorrowMode ? 'auto' : 'none'}
+        >
+          <BorrowHome
+            header={marketSelectorHeader}
+            isActive={isBorrowMode}
+            pendingTxs={borrowPendingTxs}
+            onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+            onBorrowNetworksChange={handleBorrowNetworksChange}
+          />
+        </YStack>
       </YStack>
     );
   }
 
   return (
-    <EarnPageContainer
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      disableMaxWidth
-      refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
-      }
-    >
-      <YStack flex={1}>
-        <YStack>
-          <XStack px="$5">
-            <Overview onRefresh={refreshEarnData} isLoading={isLoading} />
-          </XStack>
-          {banners ? (
-            <YStack borderRadius="$3" width="100%" borderCurve="continuous">
-              {banners}
+    <LazyPageContainer>
+      <EarnPageContainer
+        showTabPageHeader={media.gtMd}
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+        contentContainerStyle={{
+          py: 0,
+        }}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refreshEarnData} />
+        }
+      >
+        <EarnHomeTabs
+          defaultMode={defaultMode}
+          onModeChange={handleModeChange}
+          earn={
+            <YStack flex={1}>
+              <YStack>
+                <XStack px="$pagePadding">
+                  <Overview
+                    onRefresh={refreshEarnData}
+                    isLoading={isLoading}
+                    filteredTotalFiatValue={filteredTotalFiatValue}
+                    filteredEarnings24h={filteredEarnings24h}
+                  />
+                </XStack>
+                {banners ? (
+                  <YStack
+                    borderRadius="$3"
+                    width="100%"
+                    borderCurve="continuous"
+                  >
+                    {banners}
+                  </YStack>
+                ) : null}
+              </YStack>
+              <EarnMainTabs
+                faqList={faqList || []}
+                isFaqLoading={isFaqLoading}
+                defaultTab={defaultTab}
+                portfolioData={portfolioData}
+              />
             </YStack>
-          ) : null}
-        </YStack>
-        <EarnMainTabs
-          faqList={faqList || []}
-          isFaqLoading={isFaqLoading}
-          defaultTab={defaultTab}
-          portfolioData={portfolioData}
+          }
+          borrow={
+            <BorrowHome
+              isActive={isBorrowMode}
+              pendingTxs={borrowPendingTxs}
+              onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+              onBorrowNetworksChange={handleBorrowNetworksChange}
+            />
+          }
         />
-      </YStack>
-    </EarnPageContainer>
+      </EarnPageContainer>
+    </LazyPageContainer>
   );
 }
 
@@ -333,10 +519,12 @@ export function EarnHomeWithProvider({
   showHeader = true,
   showContent = true,
   defaultTab,
+  tabsRef,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -351,37 +539,13 @@ export function EarnHomeWithProvider({
           showHeader={showHeader}
           showContent={showContent}
           overrideDefaultTab={defaultTab}
+          tabsRef={tabsRef}
         />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }
 
-const useNavigateToNativeEarnPage = platformEnv.isNative
-  ? () => {
-      const navigation = useAppNavigation();
-      const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
-      const tabParam = route.params?.tab;
-
-      useLayoutEffect(() => {
-        navigation.navigate(
-          ETabRoutes.Discovery,
-          {
-            screen: ETabDiscoveryRoutes.TabDiscovery,
-            params: {
-              defaultTab: ETranslations.global_earn,
-              earnTab: tabParam,
-            },
-          },
-          {
-            pop: true,
-          },
-        );
-      }, [navigation, tabParam]);
-    }
-  : () => {};
-
 export default function EarnHome() {
-  useNavigateToNativeEarnPage();
   return platformEnv.isNative ? null : <EarnHomeWithProvider />;
 }

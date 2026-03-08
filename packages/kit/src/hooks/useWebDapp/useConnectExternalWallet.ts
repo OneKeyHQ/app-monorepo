@@ -124,11 +124,11 @@ export function useConnectExternalWallet() {
           Object.keys(connectResult?.accountInfo?.addresses || {}).length === 0
         ) {
           Toast.error({
-            title: `${intl.formatMessage({
+            title: intl.formatMessage({
               id: ETranslations.feedback_connection_request_denied,
-            })}`,
+            }),
           });
-          return;
+          return false;
         }
         const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
           connectResult,

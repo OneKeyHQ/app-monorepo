@@ -18,7 +18,9 @@ async function postBuild() {
       // Move web-build to app/build
       await fs.move(webBuildDir, appBuildDir);
     } else {
-      console.error(`Error: Source directory ${webBuildDir} does not exist. Webpack build might have failed.`);
+      console.error(
+        `Error: Source directory ${webBuildDir} does not exist. Webpack build might have failed.`,
+      );
       process.exit(1);
     }
 
@@ -38,4 +40,3 @@ async function postBuild() {
 }
 
 postBuild();
-

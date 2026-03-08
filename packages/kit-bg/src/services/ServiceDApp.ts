@@ -260,6 +260,22 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async openRiskWhiteListModal(request: IJsBridgeMessagePayload) {
+    const result = await this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.RiskWhiteListModal,
+      ],
+      params: {
+        url: request.origin,
+      },
+      fullScreen: false,
+    });
+    return result;
+  }
+
+  @backgroundMethod()
   openSignMessageModal({
     request,
     unsignedMessage,
@@ -767,7 +783,7 @@ class ServiceDApp extends ServiceBase {
       }
       item.availableNetworksMap = networksMap;
     }
-    const sortedList = allConnectedList.sort((a, b) => {
+    const sortedList = allConnectedList.toSorted((a, b) => {
       const aTime = a.updatedAt ?? 0;
       const bTime = b.updatedAt ?? 0;
       return bTime - aTime;
@@ -1088,9 +1104,8 @@ class ServiceDApp extends ServiceBase {
 
     const deriveType = params.deriveType;
 
-    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
-      origin,
-    );
+    const connectedAccountsInfo =
+      await this.findInjectedAccountByOrigin(origin);
     if (
       !connectedAccountsInfo ||
       !connectedAccountsInfo.length ||
@@ -1179,9 +1194,8 @@ class ServiceDApp extends ServiceBase {
       isOthersWallet,
       deriveType,
     } = params;
-    const connectedAccountsInfo = await this.findInjectedAccountByOrigin(
-      origin,
-    );
+    const connectedAccountsInfo =
+      await this.findInjectedAccountByOrigin(origin);
     if (
       !connectedAccountsInfo ||
       !connectedAccountsInfo.length ||
@@ -1391,7 +1405,8 @@ class ServiceDApp extends ServiceBase {
     const deriveType =
       (networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
         ? connectedAccountInfo.deriveType
-        : globalDeriveType ?? homeAccountSelectorInfo?.deriveType) ?? 'default';
+        : (globalDeriveType ?? homeAccountSelectorInfo?.deriveType)) ??
+      'default';
     try {
       networkAccountWithHomeAccountSelectorInfo =
         await serviceAccount.getNetworkAccount({
@@ -1404,7 +1419,7 @@ class ServiceDApp extends ServiceBase {
             ? homeAccountSelectorInfo?.othersWalletAccountId
             : undefined,
         });
-    } catch (e) {
+    } catch (_e) {
       // void this.disconnectWebsite({
       //   origin,
       //   storageType,
@@ -1616,7 +1631,7 @@ class ServiceDApp extends ServiceBase {
         othersWalletAccountId: accountId,
         networkId: autoChangeToAccountMatchedNetwork
           ? networkId
-          : homeAccountSelectorInfo?.networkId ?? '',
+          : (homeAccountSelectorInfo?.networkId ?? ''),
         walletId,
         focusedWallet,
         deriveType,

@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
+import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent } from 'react-native';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   Icon,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Page,
   ScrollView,
   Stack,
   Tabs,
-  XStack,
   YStack,
+  useScrollContentTabBarOffset,
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -33,19 +36,23 @@ import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
+import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import {
   useAccountOverviewActions,
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
+import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
-import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
+import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -53,8 +60,43 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
+
+interface IAndroidScrollContainerProps {
+  children: React.ReactNode;
+}
+const AndroidScrollContainer = platformEnv.isNativeAndroid
+  ? ({ children }: IAndroidScrollContainerProps) => {
+      const [height, setHeight] = useState(0);
+      const heightRef = useRef(0);
+      const handleLayout = useCallback((event: LayoutChangeEvent) => {
+        const h = Math.round(event.nativeEvent.layout.height);
+        if (h !== heightRef.current) {
+          heightRef.current = h;
+          setHeight(h);
+        }
+      }, []);
+      const contentContainerStyle = useMemo(() => ({ height }), [height]);
+      return (
+        <YStack flex={1} onLayout={handleLayout}>
+          {height > 0 ? (
+            <ScrollView
+              nestedScrollEnabled
+              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
+              contentContainerStyle={contentContainerStyle}
+            >
+              {children}
+            </ScrollView>
+          ) : null}
+        </YStack>
+      );
+    }
+  : ({ children }: IAndroidScrollContainerProps) => {
+      return children;
+    };
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -64,6 +106,8 @@ export function HomePageView({
   onPressHide?: () => void;
   sceneName: EAccountSelectorSceneName;
 }) {
+  const tabBarHeight = useScrollContentTabBarOffset();
+  const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const {
     activeAccount: {
@@ -80,15 +124,42 @@ export function HomePageView({
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
-
   const tabsRef = useRef<ITabContainerRef | null>(null);
+
+  // Force PagerView to re-sync after bottom tab switch (freeze/unfreeze)
+  const wasBlurredRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      let rafId: number | undefined;
+      if (wasBlurredRef.current && tabsRef.current) {
+        // Force PagerView to display the correct page after freeze/unfreeze.
+        // jumpToTab won't work here because onTabPress skips setPage when
+        // the tab is already focused. We need to call setPageWithoutAnimation
+        // directly to force the native PagerView to re-render its current page.
+        rafId = requestAnimationFrame(() => {
+          tabsRef.current?.syncCurrentPage();
+        });
+      }
+      return () => {
+        if (rafId !== undefined) {
+          cancelAnimationFrame(rafId);
+        }
+        wasBlurredRef.current = true;
+      };
+    }, []),
+  );
+
+  const hasRiskApprovalsRef = useRef(hasRiskApprovals);
+  useEffect(() => {
+    hasRiskApprovalsRef.current = hasRiskApprovals;
+  }, [hasRiskApprovals]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
     ? intl.formatMessage({
         id: deriveInfo?.labelKey,
       })
-    : deriveInfo?.label ?? '';
+    : (deriveInfo?.label ?? '');
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
@@ -117,31 +188,29 @@ export function HomePageView({
     };
   }, [network, indexedAccount]);
 
-  usePromiseResult(async () => {
-    if (network?.id && account?.id) {
-      const resp =
-        await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
-          networkId: network.id,
-          accountId: account.id,
-          indexedAccountId: indexedAccount?.id,
-          accountAddress: account.address,
-        });
-
-      const riskApprovals = resp.contractApprovals.filter(
-        (item) => item.isRiskContract,
-      );
-
-      updateApprovalsInfo({
-        hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
-      });
-    }
-  }, [network?.id, indexedAccount?.id, account, updateApprovalsInfo]);
-
   const { vaultSettings, networkAccounts } = result.result ?? {};
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     networkUtils.getEnabledNFTNetworkIds().includes(network?.id ?? '');
+
+  const [isDeFiEnabled, setIsDeFiEnabled] = useState(true);
+  useEffect(() => {
+    const checkDeFiEnabled = async () => {
+      if (!network?.id) {
+        setIsDeFiEnabled(false);
+        return;
+      }
+      if (networkUtils.isAllNetwork({ networkId: network.id })) {
+        setIsDeFiEnabled(true);
+        return;
+      }
+      const enabledNetworks =
+        await backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap();
+      setIsDeFiEnabled(!!enabledNetworks[network.id]);
+    };
+    void checkDeFiEnabled();
+  }, [network?.id]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -172,6 +241,69 @@ export function HomePageView({
     account?.createAtNetwork,
   ]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    // Keep the red-dot state from becoming stale across account/network switches.
+    if (hasRiskApprovalsRef.current) {
+      updateApprovalsInfo({ hasRiskApprovals: false, riskApprovalsCount: 0 });
+    }
+
+    const run = async (_trigger: string) => {
+      if (!isBulkRevokeApprovalEnabled) return;
+      if (!account?.id || !network?.id) return;
+
+      await deferHeavyWorkUntilUIIdle();
+      if (cancelled) return;
+
+      try {
+        const resp =
+          await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+            networkId: network.id,
+            accountId: account.id,
+            indexedAccountId: indexedAccount?.id,
+            accountAddress: account.address,
+          });
+        if (cancelled) return;
+        const riskApprovals = resp.contractApprovals.filter(
+          (i) => i.isRiskContract,
+        );
+        updateApprovalsInfo({
+          hasRiskApprovals: riskApprovals.length > 0,
+          riskApprovalsCount: riskApprovals.length,
+        });
+      } catch (error) {
+        if (error instanceof CanceledError) {
+          return;
+        }
+        console.error(error);
+      }
+    };
+
+    const cleanup = runAfterTokensDone({
+      enabled: isBulkRevokeApprovalEnabled,
+      fallbackDelayMs: 12_000,
+      deferWhileRefreshing: true,
+      retryDelayMs: 2000,
+      maxWaitMs: 30_000,
+      networkId: network?.id,
+      matchNetworkId: true,
+      onRun: run,
+    });
+
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, [
+    account?.address,
+    account?.id,
+    indexedAccount?.id,
+    isBulkRevokeApprovalEnabled,
+    network?.id,
+    updateApprovalsInfo,
+  ]);
+
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
@@ -198,20 +330,32 @@ export function HomePageView({
   );
 
   const renderHeader = useCallback(() => {
-    return <HomeHeaderContainer />;
+    return (
+      <>
+        <RiskApprovalAlert />
+        <HomeHeaderContainer />
+      </>
+    );
   }, []);
-
-  const tabContainerWidth: any = useTabContainerWidth();
 
   const tabConfigs = useMemo(() => {
     return [
       {
         id: EHomeWalletTab.Portfolio,
         name: intl.formatMessage({
-          id: ETranslations.global_portfolio,
+          id: ETranslations.dexmarket_spot,
         }),
         component: <PortfolioContainerWithProvider />,
       },
+      isDeFiEnabled
+        ? {
+            id: EHomeWalletTab.DeFi,
+            name: intl.formatMessage({
+              id: ETranslations.global_earn,
+            }),
+            component: <DeFiContainerWithProvider />,
+          }
+        : undefined,
       isNFTEnabled
         ? {
             id: EHomeWalletTab.NFT,
@@ -228,69 +372,60 @@ export function HomePageView({
         }),
         component: <TxHistoryListContainerWithProvider />,
       },
-      isBulkRevokeApprovalEnabled
-        ? {
-            id: EHomeWalletTab.Approvals,
-            name: intl.formatMessage({
-              id: ETranslations.global_approval,
-            }),
-            component: <ApprovalListContainerWithProvider />,
-          }
-        : undefined,
     ].filter(Boolean);
-  }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
+  }, [intl, isDeFiEnabled, isNFTEnabled]);
 
-  const handleRenderItem = useCallback(
-    (props: ITabBarItemProps) => {
-      const tabId = tabConfigs.find((i) => i.name === props.name)?.id;
-      return (
-        <XStack position="relative">
-          <TabBarItem {...props} />
-          {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
-            <Stack
-              position="absolute"
-              right={-6}
-              top={12}
-              w="$1.5"
-              h="$1.5"
-              bg="$iconCritical"
-              borderRadius="$full"
-            />
-          ) : null}
-        </XStack>
-      );
-    },
-    [hasRiskApprovals, tabConfigs],
+  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
+    return <TabBarItem {...props} />;
+  }, []);
+
+  const renderToolbar = useCallback(
+    ({ focusedTab }: { focusedTab: string }) => (
+      <TabHeaderSettings focusedTab={focusedTab} />
+    ),
+    [],
+  );
+
+  const renderTabBar = useCallback(
+    (props: any) => (
+      <Tabs.TabBar
+        {...props}
+        variant="pill"
+        renderItem={handleRenderItem}
+        renderToolbar={renderToolbar}
+      />
+    ),
+    [handleRenderItem, renderToolbar],
   );
 
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
-        <ScrollView h="100%">
+        <Keyboard.AwareScrollView
+          style={{ flex: 1 }}
+          nestedScrollEnabled={platformEnv.isNativeAndroid}
+          contentContainerStyle={{ paddingBottom: tabBarHeight }}
+          bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+        >
           {renderHeader()}
           <NotBackedUpEmpty />
-        </ScrollView>
+        </Keyboard.AwareScrollView>
       );
     }
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
+    }-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        width={tabContainerWidth}
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // @ts-ignore
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
-        renderTabBar={(props: any) => (
-          <Tabs.TabBar
-            {...props}
-            renderItem={handleRenderItem}
-            renderToolbar={({ focusedTab }) => (
-              <TabHeaderSettings focusedTab={focusedTab} />
-            )}
-          />
-        )}
+        renderTabBar={renderTabBar}
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
@@ -300,16 +435,17 @@ export function HomePageView({
       </Tabs.Container>
     );
   }, [
+    tabBarHeight,
+    tabContainerWidth,
     account?.id,
     account?.indexedAccountId,
-    handleRenderItem,
-    isBulkRevokeApprovalEnabled,
+    isDeFiEnabled,
     isNFTEnabled,
     isWalletNotBackedUp,
     network?.id,
     renderHeader,
+    renderTabBar,
     tabConfigs,
-    tabContainerWidth,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
@@ -410,7 +546,7 @@ export function HomePageView({
       )
     ) {
       return (
-        <YStack height="100%">
+        <YStack flex={1}>
           <Stack flex={1} justifyContent="center">
             {emptyAccountView}
           </Stack>
@@ -464,49 +600,52 @@ export function HomePageView({
     let content = (
       <ScrollView
         h="100%"
-        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+        contentContainerStyle={{
+          justifyContent: 'center',
+          flexGrow: 1,
+          pb: tabBarHeight,
+        }}
       >
         {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
       </ScrollView>
     );
 
     if (wallet) {
-      content = homePageContent;
+      content = platformEnv.isNative ? (
+        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
+      ) : (
+        homePageContent
+      );
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (
       <>
         <Page.Body>
-          {platformEnv.isNative ? (
-            <Stack h={tabPageHeight} />
-          ) : (
-            <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-          )}
-          <NetworkAlert />
-          {/* {
-            // The upgrade reminder does not need to be displayed on the Url Account page
-            sceneName === EAccountSelectorSceneName.home ? (
-              <>
-                <UpdateReminder />
-                <HomeFirmwareUpdateReminder />
-                <WalletXfpStatusReminder />
-              </>
-            ) : null
-          } */}
-          {content}
-          {platformEnv.isNative ? (
-            <YStack
-              position="absolute"
-              top={-20}
-              left={0}
-              bg="$bgApp"
-              pt="$5"
-              width="100%"
-              onLayout={handleTabPageLayout}
-            >
+          <Page.Container flex={1} padded={false}>
+            {platformEnv.isNative ? (
+              <Stack h={tabPageHeight} />
+            ) : (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            </YStack>
-          ) : null}
+            )}
+            <NetworkAlert />
+            {content}
+            {platformEnv.isNative ? (
+              <YStack
+                position="absolute"
+                top={-20}
+                left={0}
+                bg="$bgApp"
+                pt="$5"
+                width="100%"
+                onLayout={handleTabPageLayout}
+              >
+                <TabPageHeader
+                  sceneName={sceneName}
+                  tabRoute={ETabRoutes.Home}
+                />
+              </YStack>
+            ) : null}
+          </Page.Container>
         </Page.Body>
       </>
     );
@@ -517,7 +656,10 @@ export function HomePageView({
     sceneName,
     handleTabPageLayout,
     homePageContent,
+    tabBarHeight,
   ]);
 
-  return useMemo(() => <Page fullPage>{homePage}</Page>, [homePage]);
+  return useMemo(() => {
+    return <Page fullPage>{homePage}</Page>;
+  }, [homePage]);
 }

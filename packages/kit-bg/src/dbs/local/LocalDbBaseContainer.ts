@@ -55,7 +55,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
     // );
     if (!isString(bucketName)) {
-      debugger;
+      // throw new Error('bucketName is required');
     }
     const db = await this.readyDb;
     // TODO default to readOnly: true

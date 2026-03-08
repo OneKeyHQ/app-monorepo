@@ -25,25 +25,22 @@ export interface ISettingsSearchResult {
 export const useSearch = () => {
   const settingsConfig = useSettingsConfig();
   const flattenSettingsConfig = useMemo(() => {
-    return settingsConfig
-      .filter(Boolean)
-      .map((config) =>
-        config
-          ? config?.configs
-              .filter(Boolean)
-              .flat()
-              .map((i) => ({
-                ...i,
-                sectionTitle: config.title,
-                sectionIcon: config.icon,
-              }))
-          : [],
-      )
-      .flat();
+    return settingsConfig.filter(Boolean).flatMap((config) =>
+      config
+        ? config?.configs
+            .filter(Boolean)
+            .flat()
+            .map((i) => ({
+              ...i,
+              sectionTitle: config.title,
+              sectionIcon: config.icon,
+            }))
+        : [],
+    );
   }, [settingsConfig]);
   const [searchResult, setSearchResult] = useState<ISettingsSearchResult[]>([]);
   const searchFuse = useFuse(flattenSettingsConfig, {
-    keys: ['title', 'configs.title'],
+    keys: ['title', 'keywords'],
     shouldSort: false,
   });
 

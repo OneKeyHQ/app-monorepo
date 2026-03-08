@@ -281,6 +281,19 @@ function createBackgroundProviders({
     enumerable: true,
   });
 
+  Object.defineProperty(backgroundProviders, IInjectedProviderNames.stellar, {
+    get() {
+      const ProviderApiStellar = (
+        require('./ProviderApiStellar') as unknown as typeof import('./ProviderApiStellar')
+      ).default;
+      const value = new ProviderApiStellar({ backgroundApi });
+      Object.defineProperty(this, IInjectedProviderNames.stellar, { value });
+      return value;
+    },
+    configurable: true,
+    enumerable: true,
+  });
+
   return backgroundProviders;
 }
 

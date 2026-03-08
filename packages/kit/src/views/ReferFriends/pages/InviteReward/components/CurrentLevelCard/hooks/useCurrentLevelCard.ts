@@ -21,6 +21,8 @@ export function useCurrentLevelCard(
     {
       initResult: undefined,
       pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }), // Auto refresh every 1 minute
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
 

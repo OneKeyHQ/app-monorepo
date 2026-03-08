@@ -9,6 +9,8 @@ export function PageLifeCycle({
   onMounted,
   onUnmounted,
   onClose,
+  onRedirected,
+  shouldRedirect,
   closeExtraRef,
 }: IPageLifeCycle & {
   closeExtraRef: MutableRefObject<{ flag?: string }>;
@@ -17,6 +19,11 @@ export function PageLifeCycle({
     onUnmounted?.();
     onClose?.(closeExtraRef.current);
   }, [closeExtraRef, onClose, onUnmounted]);
-  usePageLifeCycle({ onMounted, onUnmounted: handleUnmounted });
+  usePageLifeCycle({
+    onMounted,
+    onUnmounted: handleUnmounted,
+    onRedirected,
+    shouldRedirect,
+  });
   return null;
 }

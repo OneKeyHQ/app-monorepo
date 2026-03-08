@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAiText = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M4 5a1 1 0 0 0 0 2h16a1 1 0 1 0 0-2zm13.92 4.606a1 1 0 0 0-1.84 0l-1.342 3.132-3.132 1.343a1 1 0 0 0 0 1.838l3.132 1.343 1.343 3.132a1 1 0 0 0 1.838 0l1.343-3.132 3.132-1.343a1 1 0 0 0 0-1.838l-3.132-1.343zM4 11a1 1 0 1 0 0 2h5a1 1 0 1 0 0-2zm0 6a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M19.245 12.755 23.736 15l-4.49 2.245L17 21.736l-2.245-4.49L10.264 15l4.49-2.245L17 8.264l2.245 4.49ZM8 17v2H3v-2zm2-4H3v-2h7zm11-6H3V5h18z" />
   </Svg>
 );
 export default SvgAiText;

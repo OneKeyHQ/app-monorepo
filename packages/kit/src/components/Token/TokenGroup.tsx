@@ -49,6 +49,7 @@ const defaultOverlapOffsets: Record<NonNullable<ITokenSize>, string> = {
   md: '$-3.5',
   sm: '$-3',
   xs: '$-2.5',
+  xxs: '$-2',
 };
 
 function getWrapperProps(

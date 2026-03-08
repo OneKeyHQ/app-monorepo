@@ -4,6 +4,7 @@ import type {
   IEventActiveAssetCtxParameters,
   IEventActiveAssetDataParameters,
   IEventAllDexsClearinghouseStateParameters,
+  IEventBboParameters,
   IEventL2BookParameters,
   IEventOpenOrdersParameters,
   IEventUserFillsParameters,
@@ -62,6 +63,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
   },
   [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: {
     eventType: EPerpsSubscriptionCategory.ACCOUNT,
+    priority: 2,
+  },
+  [ESubscriptionType.BBO]: {
+    eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
   [ESubscriptionType.L2_BOOK]: {
@@ -161,6 +166,17 @@ export function calculateRequiredSubscriptions(
       buildSubscriptionSpec({
         type: ESubscriptionType.ACTIVE_ASSET_CTX,
         params: activeAssetCtxParams,
+      }),
+    );
+
+    // BBO subscription for trading price reference
+    const bboParams: IEventBboParameters = {
+      coin: state.currentSymbol,
+    };
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.BBO,
+        params: bboParams,
       }),
     );
 
@@ -269,7 +285,7 @@ export function calculateRequiredSubscriptions(
     // If no user, we likely only need market data (handled above).
   }
 
-  return specs.sort((a, b) => a.priority - b.priority);
+  return specs.toSorted((a, b) => a.priority - b.priority);
 }
 
 export function calculateRequiredSubscriptionsMap(state: ISubscriptionState) {
@@ -284,7 +300,7 @@ export function calculateRequiredSubscriptionsMap(state: ISubscriptionState) {
 export function sortSubscriptionsByPriority(
   specs: ISubscriptionSpec<ESubscriptionType>[],
 ): ISubscriptionSpec<ESubscriptionType>[] {
-  return [...specs].sort((a, b) => a.priority - b.priority);
+  return [...specs].toSorted((a, b) => a.priority - b.priority);
 }
 
 export function calculateSubscriptionDiff(

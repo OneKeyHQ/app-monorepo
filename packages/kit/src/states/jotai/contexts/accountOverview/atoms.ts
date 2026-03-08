@@ -64,8 +64,10 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
     hasRiskApprovals: boolean;
+    riskApprovalsCount: number;
   }>({
     hasRiskApprovals: false,
+    riskApprovalsCount: 0,
   });
 
 export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
@@ -74,3 +76,20 @@ export const { atom: walletTopBannersAtom, use: useWalletTopBannersAtom } =
   }>({
     banners: [],
   });
+
+export const {
+  atom: accountDeFiOverviewAtom,
+  use: useAccountDeFiOverviewAtom,
+} = contextAtom<{
+  totalValue: number;
+  totalDebt: number;
+  totalReward: number;
+  netWorth: number;
+  currency: string;
+}>({
+  totalValue: 0,
+  totalDebt: 0,
+  totalReward: 0,
+  netWorth: 0,
+  currency: '',
+});

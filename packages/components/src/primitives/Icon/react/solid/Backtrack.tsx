@@ -1,11 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBacktrack = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M7.16 4a3 3 0 0 0-2.605 1.512l-2.857 5a3 3 0 0 0 0 2.976l2.857 5A3 3 0 0 0 7.16 20H19a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3zm4.547 5.293a1 1 0 1 0-1.414 1.414L11.586 12l-1.293 1.293a1 1 0 1 0 1.414 1.414L13 13.414l1.293 1.293a1 1 0 0 0 1.414-1.414L14.414 12l1.293-1.293a1 1 0 0 0-1.414-1.414L13 10.586z"
+      d="M22 4v16H7.485L1.77 12l5.714-8h14.514Zm-8.75 6.588-2.002-2.002L9.835 10l2.001 2.002-2 2 1.414 1.414 2-2 2 2 1.416-1.414-2-2 2-2.002-1.413-1.414z"
       clipRule="evenodd"
     />
   </Svg>

@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgVideoClapperboard = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M3 10h18M3 10v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M3 10V7a2 2 0 0 1 2-2h3m-5 5h4m14 0V7a2 2 0 0 0-2-2h-2m4 5h-5m-4.5 0 1-5m-1 5H7m4.5 0H16m-3.5-5H8m4.5 0H17M8 5l-1 5m10-5-1 5"
+      fillRule="evenodd"
+      d="M22 20H2V4h20zM4 18h16v-7H4zm0-9h3.073l1.2-3H4zm11.727 0H20V6h-3.073zm-6.5 0h4.346l1.2-3h-4.346z"
+      clipRule="evenodd"
     />
   </Svg>
 );

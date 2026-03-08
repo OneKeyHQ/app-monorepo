@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,15 +15,18 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
 import { CurrentLevelCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard';
 import { InvitationDetailsSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection';
+import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
 import { SectionHeader } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SectionHeader';
 import { ResponsiveTwoColumnLayout } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared';
+import { SuspensionAlert } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/SuspensionAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
@@ -30,7 +34,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { ReferFriendsPageContainer } from '../../components';
+import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
 import { ReferralListButton } from './components/ReferralListButton';
 
@@ -49,15 +53,23 @@ function InviteRewardContent({
     rebateLevels,
     rebateConfig,
     withdrawAddresses,
+    suspensionNotice,
+    suspensionContactLabel,
   } = summaryInfo;
 
   return (
     <>
-      <XStack px="$5" pt="$5" pb="$4" jc="space-between" ai="center">
+      <SuspensionAlert
+        suspensionNotice={suspensionNotice}
+        suspensionContactLabel={suspensionContactLabel}
+      />
+
+      <XStack px="$pagePadding" pt="$5" pb="$4" jc="space-between" ai="center">
         <SectionHeader translationId={ETranslations.global_overview} />
 
-        <XStack $md={{ display: 'none' }}>
+        <XStack $md={{ display: 'none' }} gap="$4">
           <RulesButton />
+          {platformEnv.isWeb ? <LogoutButton /> : null}
         </XStack>
 
         <XStack $gtMd={{ display: 'none' }} $md={{ display: 'flex' }}>
@@ -95,6 +107,29 @@ function InviteRewardContent({
 function InviteRewardPage() {
   const intl = useIntl();
   const { md } = useMedia();
+  const navigation = useAppNavigation();
+  const navigateToRewardHistory = useNavigateToRewardHistory();
+  const route = useRoute<{
+    key: string;
+    name: string;
+    params?: { showRewardDistributionHistory?: boolean };
+  }>();
+
+  // Handle showRewardDistributionHistory param - open modal once when param is set
+  useFocusEffect(
+    useCallback(() => {
+      if (!route.params?.showRewardDistributionHistory) {
+        return;
+      }
+      navigation.setParams({ showRewardDistributionHistory: undefined });
+      navigateToRewardHistory();
+    }, [
+      navigation,
+      navigateToRewardHistory,
+      route.params?.showRewardDistributionHistory,
+    ]),
+  );
+
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
@@ -134,7 +169,7 @@ function InviteRewardPage() {
       {platformEnv.isNative || md ? (
         <Page.Header
           title={intl.formatMessage({
-            id: ETranslations.perps_trade_reward,
+            id: ETranslations.referral_title,
           })}
           headerRight={renderHeaderRight}
         />
@@ -167,12 +202,12 @@ function InviteRewardPage() {
           if (summaryInfo) {
             return (
               <ScrollView>
-                <ReferFriendsPageContainer>
+                <Page.Container padded={false}>
                   <InviteRewardContent
                     summaryInfo={summaryInfo}
                     fetchSummaryInfo={fetchSummaryInfo}
                   />
-                </ReferFriendsPageContainer>
+                </Page.Container>
               </ScrollView>
             );
           }

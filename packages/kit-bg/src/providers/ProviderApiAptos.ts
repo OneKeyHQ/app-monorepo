@@ -5,7 +5,6 @@ import {
 } from '@aptos-labs/siwa';
 import {
   Deserializer,
-  MultiAgentTransaction,
   Network,
   NetworkToNodeAPI,
   Serializer,
@@ -53,7 +52,6 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type VaultAptos from '../vaults/impls/aptos/Vault';
-import type { AccountAddress } from '@aptos-labs/ts-sdk';
 import type {
   AptosSignAndSubmitTransactionInput,
   AptosSignAndSubmitTransactionOutput,
@@ -397,7 +395,7 @@ class ProviderApiAptos extends ProviderApiBase {
     const { account, accountInfo } = await this._getAccountByAddress(
       request,
       params.asFeePayer
-        ? rawTxn.feePayerAddress?.bcsToHex().toStringWithoutPrefix() ?? ''
+        ? (rawTxn.feePayerAddress?.bcsToHex().toStringWithoutPrefix() ?? '')
         : rawTxn.rawTransaction.sender.bcsToHex().toStringWithoutPrefix(),
     );
     const encodeTx = {
@@ -603,8 +601,8 @@ class ProviderApiAptos extends ProviderApiBase {
 
   @providerApiMethod()
   public async openInMobileApp(
-    request: IJsBridgeMessagePayload,
-    params: ISignMessagePayload,
+    _request: IJsBridgeMessagePayload,
+    _params: ISignMessagePayload,
   ): Promise<void> {
     throw new OneKeyLocalError('Not implemented');
   }

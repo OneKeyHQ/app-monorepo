@@ -110,7 +110,7 @@ class HtmlLazyScriptPlugin {
   }
 
   apply(compiler) {
-    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
+    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (_compilation) => {
       console.log(`\n${this.config.name}: HtmlLazyScriptPlugin >>>>>>>> `);
       doTask();
       console.log(`\n${this.config.name}: HtmlLazyScriptPlugin DONE !!!!! `);

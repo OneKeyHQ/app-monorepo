@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 
-import { useThemeName } from '../../hooks';
+import { useThemeName } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';
 
 import type { BlurViewProps } from 'expo-blur';

@@ -15,8 +15,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { ERootModalRoutes } from '../../../Developer/pages/Gallery/Components/stories/NavigatorRoute/Modal/Routes';
-
 function PerpUserConfig() {
   const intl = useIntl();
   const [{ perpUserConfig }] = usePerpsUserConfigPersistAtom();

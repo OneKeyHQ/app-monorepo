@@ -146,6 +146,7 @@ import {
   type IDBWallet,
   type IDBWalletId,
   type IDBWalletIdSingleton,
+  type IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -154,7 +155,6 @@ import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
   indexedAccountAddressCreationStateAtom,
-  primePersistAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
@@ -267,37 +267,9 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  private async shouldIncludeWalletButNotKeyless(
-    wallet: IDBWallet,
-  ): Promise<boolean> {
-    const isKeylessWallet = accountUtils.isKeylessWallet({
-      walletId: wallet.id,
-    });
-    if (!isKeylessWallet) {
-      return true;
-    }
-    let expectedId: string | undefined;
-    if (expectedId === undefined) {
-      const { keylessWalletId: packSetId } = await primePersistAtom.get();
-      expectedId = packSetId
-        ? accountUtils.buildKeylessWalletId({ sharePackSetId: packSetId })
-        : undefined;
-    }
-    if (!expectedId) {
-      return false;
-    }
-    return wallet.id === expectedId;
-  }
-
   @backgroundMethod()
   async getWallet({ walletId }: { walletId: string }): Promise<IDBWallet> {
     const wallet = await localDb.getWallet({ walletId });
-    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
-    if (!shouldInclude) {
-      throw new OneKeyError('KeylessWallet not found', {
-        code: EOneKeyErrorClassNames.OneKeyError,
-      });
-    }
     return wallet;
   }
 
@@ -319,7 +291,7 @@ class ServiceAccount extends ServiceBase {
         });
       });
       return !resp;
-    } catch (e) {
+    } catch (_e) {
       return true;
     }
   }
@@ -334,10 +306,6 @@ class ServiceAccount extends ServiceBase {
   }): Promise<IDBWallet | undefined> {
     const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
     if (!wallet) {
-      return undefined;
-    }
-    const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
-    if (!shouldInclude) {
       return undefined;
     }
     return wallet;
@@ -379,6 +347,27 @@ class ServiceAccount extends ServiceBase {
     return localDb.getDevice(dbDeviceId);
   }
 
+  @backgroundMethod()
+  async isKeylessWalletExistsLocal(): Promise<boolean> {
+    await timerUtils.wait(1500, { devOnly: true });
+    const { wallets } = await this.getAllWallets();
+    return wallets.some((wallet) => wallet.isKeyless);
+  }
+
+  @backgroundMethod()
+  async getKeylessWallet(): Promise<IDBWallet | undefined> {
+    // TODO remove
+    // await timerUtils.wait(1500, { devOnly: true });
+    const { wallets } = await localDb.getAllWallets();
+    const wallet = wallets.find((w) => w.isKeyless);
+    if (wallet) {
+      await localDb.refillWalletInfo({
+        wallet,
+      });
+    }
+    return wallet;
+  }
+
   async getAllWallets(
     params: { refillWalletInfo?: boolean; excludeKeylessWallet?: boolean } = {},
   ) {
@@ -402,12 +391,7 @@ class ServiceAccount extends ServiceBase {
     }
     // Filter out keyless wallets if excludeKeylessWallet is true
     if (excludeKeylessWallet) {
-      wallets = wallets.filter(
-        (wallet) =>
-          !accountUtils.isKeylessWallet({
-            walletId: wallet.id,
-          }),
-      );
+      // do nothing
     }
     return { wallets, allDevices };
   }
@@ -418,13 +402,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     const r = await localDb.getWallets(options);
 
-    const wallets: IDBWallet[] = [];
-    for (const wallet of r.wallets) {
-      const shouldInclude = await this.shouldIncludeWalletButNotKeyless(wallet);
-      if (shouldInclude) {
-        wallets.push(wallet);
-      }
-    }
+    const wallets: IDBWallet[] = r.wallets;
 
     return {
       ...r,
@@ -453,7 +431,16 @@ class ServiceAccount extends ServiceBase {
     filterQrWallet?: boolean;
     filterHiddenWallet?: boolean;
     skipDuplicateDevice?: boolean;
+    skipDuplicateDeviceSameType?: boolean;
   }) {
+    type IFilterCtx = {
+      wallet: IDBWallet;
+      deviceId?: string;
+      isHwWallet: boolean;
+      isQrWallet: boolean;
+      isHiddenWallet: boolean;
+    };
+
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
       excludeKeylessWallet: true,
@@ -462,58 +449,84 @@ class ServiceAccount extends ServiceBase {
     const filterQrWallet = params?.filterQrWallet ?? false;
     const filterHiddenWallet = params?.filterHiddenWallet ?? false;
     const skipDuplicateDevice = params?.skipDuplicateDevice ?? false;
+    const skipDuplicateDeviceSameType =
+      params?.skipDuplicateDeviceSameType ?? false;
+
+    // Map of deviceId -> walletId for hardware wallets
+    const deviceToWalletByType: Record<string, string> = {};
+    const deviceHasHw: Record<string, string> = {};
+
+    if (skipDuplicateDevice && !skipDuplicateDeviceSameType) {
+      for (const w of wallets) {
+        if (
+          accountUtils.isHwWallet({ walletId: w.id }) &&
+          !accountUtils.isHwHiddenWallet({ wallet: w }) &&
+          w.associatedDevice
+        ) {
+          deviceHasHw[w.associatedDevice] = w.id;
+        }
+      }
+    }
+
+    const buildFilterCtx = (wallet: IDBWallet): IFilterCtx => ({
+      wallet,
+      deviceId: wallet.associatedDevice,
+      isHwWallet: accountUtils.isHwWallet({ walletId: wallet.id }),
+      isQrWallet: accountUtils.isQrWallet({ walletId: wallet.id }),
+      isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+    });
+
+    // Filter valid type
+    const isValidType = (ctx: IFilterCtx) => ctx.isHwWallet || ctx.isQrWallet;
+    // Filter hidden wallet
+    const passesHiddenFilter = (ctx: IFilterCtx) =>
+      !filterHiddenWallet || !ctx.isHiddenWallet;
+    // Filter QR wallet
+    const passesQrFilter = (ctx: IFilterCtx) =>
+      !filterQrWallet || !ctx.isQrWallet;
+
+    // Filter duplicate device
+    const passesDupFilter = (ctx: IFilterCtx) => {
+      if (!ctx.deviceId) return true;
+
+      if (skipDuplicateDeviceSameType) {
+        const key = `${ctx.deviceId}:${ctx.isHwWallet ? 'hw' : 'qr'}`;
+        return !deviceToWalletByType[key];
+      }
+
+      if (skipDuplicateDevice && ctx.isQrWallet) {
+        return !deviceHasHw[ctx.deviceId];
+      }
+
+      return true;
+    };
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
     } = {};
 
-    // Map of deviceId -> walletId for hardware wallets
-    const deviceToHwWalletMap: Record<string, string> = {};
-
-    // Collect all hardware wallet device IDs if skip duplication is enabled
-    if (skipDuplicateDevice) {
-      for (const wallet of wallets) {
-        if (
-          accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isHwHiddenWallet({ wallet }) &&
-          wallet.associatedDevice
-        ) {
-          deviceToHwWalletMap[wallet.associatedDevice] = wallet.id;
-        }
-      }
-    }
-
     for (const wallet of wallets) {
-      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
-      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+      const ctx = buildFilterCtx(wallet);
+      const passes =
+        isValidType(ctx) &&
+        passesHiddenFilter(ctx) &&
+        passesQrFilter(ctx) &&
+        passesDupFilter(ctx);
 
-      // Check if this wallet should be included in the result
-      const isValidWalletType = isHwWallet || isQrWallet;
-      const passesHiddenWalletFilter = !filterHiddenWallet || !isHiddenWallet;
-      const passesQrWalletFilter = !filterQrWallet || !isQrWallet;
-      const passesDeviceDuplicationCheck = !(
-        skipDuplicateDevice &&
-        isQrWallet &&
-        wallet.associatedDevice &&
-        deviceToHwWalletMap[wallet.associatedDevice]
-      );
-
-      // Only add wallet to result if it passes all checks
-      if (
-        isValidWalletType &&
-        passesHiddenWalletFilter &&
-        passesQrWalletFilter &&
-        passesDeviceDuplicationCheck
-      ) {
-        const device = (allDevices ?? []).find(
-          (d) => d.id === wallet.associatedDevice,
-        );
-        result[wallet.id] = {
-          wallet,
-          device,
-        };
+      // eslint-disable-next-line no-continue
+      if (!passes) continue;
+      if (!ctx.deviceId) {
+        // eslint-disable-next-line no-continue
+        continue;
       }
+
+      if (skipDuplicateDeviceSameType && ctx.isHwWallet) {
+        const key = `${ctx.deviceId}:${ctx.isHwWallet ? 'hw' : 'qr'}`;
+        deviceToWalletByType[key] = wallet.id;
+      }
+
+      const device = (allDevices ?? []).find((d) => d.id === ctx.deviceId);
+      result[wallet.id] = { wallet, device };
     }
 
     return result;
@@ -970,10 +983,16 @@ class ServiceAccount extends ServiceBase {
         },
       );
 
+    // If indexedAccountId is empty, try to get it from the first created account
+    let resultIndexedAccountId = indexedAccountId;
+    if (!resultIndexedAccountId && accountsForCreate.length > 0) {
+      resultIndexedAccountId = accountsForCreate[0].indexedAccountId;
+    }
+
     return {
       networkId: networkId || '',
       walletId: walletId || '',
-      indexedAccountId,
+      indexedAccountId: resultIndexedAccountId,
       accounts: accountsForCreate,
       indexes,
       deriveType,
@@ -1373,14 +1392,7 @@ class ServiceAccount extends ServiceBase {
       agentAddress: agentWallet.address,
       validUntil: params.validUntil,
     };
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
-    return {
-      credential,
-      password,
-    };
+    return { credential };
   }
 
   @backgroundMethod()
@@ -1392,7 +1404,7 @@ class ServiceAccount extends ServiceBase {
   }> {
     try {
       return await this.addHyperLiquidAgentCredential(params);
-    } catch (error) {
+    } catch (_error) {
       return this.updateHyperLiquidAgentCredential(params);
     }
   }
@@ -1404,11 +1416,9 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential(params);
+    const { credential } = await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.addHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return {
       credentialId,
@@ -1422,11 +1432,9 @@ class ServiceAccount extends ServiceBase {
   ): Promise<{
     credentialId: string;
   }> {
-    const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential(params);
+    const { credential } = await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.updateHyperLiquidAgentCredential({
       credential,
-      password,
     });
     return {
       credentialId,
@@ -1442,14 +1450,9 @@ class ServiceAccount extends ServiceBase {
     userAddress: string;
     agentName: EHyperLiquidAgentName;
   }): Promise<ICoreHyperLiquidAgentCredential | undefined> {
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Default,
-      });
     return localDb.getHyperLiquidAgentCredential({
       userAddress,
       agentName,
-      password,
     });
   }
 
@@ -1873,7 +1876,8 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    // eslint-disable-next-line spellcheck/spell-checker
+    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     // /evm/0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
     if (networkId === IMPL_EVM) {
       // eslint-disable-next-line no-param-reassign
@@ -2054,6 +2058,7 @@ class ServiceAccount extends ServiceBase {
     walletId: IDBWalletIdSingleton;
     activeNetworkId?: string;
   }) {
+    // eslint-disable-next-line prefer-const
     let { accounts, removedAccountIds } =
       await localDb.getSingletonAccountsOfWallet({
         walletId,
@@ -2072,7 +2077,7 @@ class ServiceAccount extends ServiceBase {
               networkId: accountNetworkId,
             });
           }
-        } catch (e) {
+        } catch (_e) {
           //
         }
         return account;
@@ -2730,7 +2735,9 @@ class ServiceAccount extends ServiceBase {
     const { index, walletXfp, name, ...others } = params;
     let wallets: IDBWallet[] = [];
     if (walletXfp) {
-      wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
+      wallets = await localDb.getWalletsByXfp({
+        xfp: walletXfp,
+      });
     } else if (params.indexedAccountId) {
       const { walletId } = accountUtils.parseIndexedAccountId({
         indexedAccountId: params.indexedAccountId,
@@ -2743,6 +2750,7 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
+    let isAccountNameChanged = false;
     if (params.shouldCheckDuplicate && params.indexedAccountId) {
       // if it is manually triggered, call the non-try-catch modification once first to ensure that the duplicate name detection takes effect and terminates the function with an error
       await this.setAccountName({
@@ -2753,6 +2761,7 @@ class ServiceAccount extends ServiceBase {
         skipSaveLocalSyncItem: params.skipSaveLocalSyncItem,
         shouldCheckDuplicate: params.shouldCheckDuplicate,
       });
+      isAccountNameChanged = true;
     }
 
     for (const wallet of wallets) {
@@ -2774,11 +2783,12 @@ class ServiceAccount extends ServiceBase {
             ? params.shouldCheckDuplicate
             : false,
         });
+        isAccountNameChanged = true;
       } catch (e) {
         console.error('setUniversalIndexedAccountName ERROR', e);
       }
     }
-    if (wallets.length && !params.skipEventEmit) {
+    if (!params.skipEventEmit && isAccountNameChanged) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
   }
@@ -3062,12 +3072,18 @@ class ServiceAccount extends ServiceBase {
     name,
     mnemonic,
     isWalletBackedUp,
+    isKeylessWallet,
     avatarInfo,
+    keylessDetailsInfo,
+    skipAddHDNextIndexedAccount,
   }: {
     mnemonic: string;
     name?: string;
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
     avatarInfo?: IAvatarInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+    skipAddHDNextIndexedAccount?: boolean;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -3107,7 +3123,10 @@ class ServiceAccount extends ServiceBase {
       walletHash: walletHashAndXfp.hash,
       walletXfp: walletHashAndXfp.xfp,
       isWalletBackedUp,
+      isKeylessWallet,
       avatarInfo,
+      keylessDetailsInfo,
+      skipAddHDNextIndexedAccount,
     });
   }
 
@@ -3153,6 +3172,9 @@ class ServiceAccount extends ServiceBase {
     walletHash,
     walletXfp,
     isWalletBackedUp,
+    isKeylessWallet,
+    keylessDetailsInfo,
+    skipAddHDNextIndexedAccount,
   }: {
     rs: string;
     password: string;
@@ -3161,6 +3183,9 @@ class ServiceAccount extends ServiceBase {
     walletHash: string;
     walletXfp: string;
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+    skipAddHDNextIndexedAccount?: boolean;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -3216,7 +3241,14 @@ class ServiceAccount extends ServiceBase {
       name,
       walletHash,
       walletXfp,
+      isKeylessWallet,
+      keylessDetailsInfo,
+      skipAddHDNextIndexedAccount,
     });
+
+    if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
+      void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
+    }
 
     await timerUtils.wait(100);
 
@@ -3375,6 +3407,10 @@ class ServiceAccount extends ServiceBase {
         'Remove non-hd and non-hw wallet is not allowed',
       );
     }
+
+    const wallet = await this.getWalletSafe({ walletId });
+    const keylessOwnerId = wallet?.keylessDetailsInfo?.keylessOwnerId;
+
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
       hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
@@ -3399,6 +3435,13 @@ class ServiceAccount extends ServiceBase {
     void this.cleanupOrphanedHyperLiquidAgentCredentials({
       walletId,
     });
+
+    if (keylessOwnerId) {
+      void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
+      void this.backgroundApi.serviceKeylessWallet.cleanupKeylessWalletStorage({
+        ownerId: keylessOwnerId,
+      });
+    }
 
     if (!skipBackupWalletRemove) {
       void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
@@ -3990,7 +4033,7 @@ class ServiceAccount extends ServiceBase {
             networkId,
             deriveType: item.deriveType,
           });
-        } catch (e) {
+        } catch (_e) {
           // fail to get account
         }
         return {
@@ -4071,7 +4114,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
             resolve,
@@ -4107,7 +4150,7 @@ class ServiceAccount extends ServiceBase {
           deriveType,
         });
         return result;
-      } catch (error) {
+      } catch (_error) {
         showSwitchAccountSelector();
       }
     }
@@ -4220,9 +4263,7 @@ class ServiceAccount extends ServiceBase {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
     for (const wallet of hdWallets) {
-      const isKeylessWallet = accountUtils.isKeylessWallet({
-        walletId: wallet.id,
-      });
+      const isKeylessWallet = wallet.isKeyless;
       if (isKeylessWallet) {
         // eslint-disable-next-line no-continue
         continue;
@@ -4448,7 +4489,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: true,
             },
           }));
@@ -4463,7 +4504,7 @@ class ServiceAccount extends ServiceBase {
           await hardwareWalletXfpStatusAtom.set((v) => ({
             ...v,
             [walletId]: {
-              ...(v?.[walletId] || {}),
+              ...v?.[walletId],
               xfpMissing: false,
             },
           }));
@@ -4565,7 +4606,7 @@ class ServiceAccount extends ServiceBase {
         await hardwareWalletXfpStatusAtom.set((v) => ({
           ...v,
           [walletId]: {
-            ...(v?.[walletId] || {}),
+            ...v?.[walletId],
             xfpMissing: false,
           },
         }));
@@ -5169,7 +5210,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
   }) {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5226,7 +5267,7 @@ class ServiceAccount extends ServiceBase {
               deriveType,
               skipAddIfNotEqualToAddress,
             });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addImportedAccountByInput error', e);
         }
@@ -5250,7 +5291,7 @@ class ServiceAccount extends ServiceBase {
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
-    let addedAccounts: IDBAccount[] = [];
+    const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
@@ -5305,7 +5346,7 @@ class ServiceAccount extends ServiceBase {
             isUrlAccount: false,
             skipAddIfNotEqualToAddress,
           });
-          addedAccounts = [...addedAccounts, ...(accounts || [])];
+          addedAccounts.push(...(accounts || []));
         } catch (e) {
           console.error('addWatchingAccountByInput error', e);
         }
@@ -5488,12 +5529,18 @@ class ServiceAccount extends ServiceBase {
     accountImpl,
     featuresInfoCache,
     activeNetworkId,
+    limitOptions = {
+      allowWatchingWallet: true,
+    },
   }: {
     accountId?: string;
     walletId?: string;
     accountImpl?: string;
     featuresInfoCache?: IOneKeyDeviceFeatures;
     activeNetworkId: string;
+    limitOptions?: {
+      allowWatchingWallet?: boolean;
+    };
   }): Promise<
     | {
         networkImpl: string;
@@ -5513,14 +5560,20 @@ class ServiceAccount extends ServiceBase {
       finalWalletId = accountUtils.getWalletIdFromAccountId({ accountId });
     }
 
-    // Early returns for watching wallet
-    if (finalWalletId === WALLET_TYPE_WATCHING) {
-      return undefined;
-    }
-
     const { impl: activeNetworkImpl } = networkUtils.parseNetworkId({
       networkId: activeNetworkId ?? '',
     });
+
+    // Early returns for watching wallet
+    if (accountUtils.isWatchingWallet({ walletId: finalWalletId })) {
+      if (limitOptions?.allowWatchingWallet) {
+        return undefined;
+      }
+
+      return {
+        networkImpl: activeNetworkImpl,
+      };
+    }
 
     // other account maybe not have accountId only have walletId
     if (accountId && accountUtils.isOthersAccount({ accountId })) {
@@ -5533,7 +5586,9 @@ class ServiceAccount extends ServiceBase {
         currentAccountImpl = account.impl;
       }
 
-      const isAllNetwork = currentAccountImpl === IMPL_ALLNETWORKS;
+      const isAllNetwork =
+        currentAccountImpl === IMPL_ALLNETWORKS ||
+        activeNetworkImpl === IMPL_ALLNETWORKS;
 
       if (isAllNetwork || currentAccountImpl === activeNetworkImpl) {
         return undefined;

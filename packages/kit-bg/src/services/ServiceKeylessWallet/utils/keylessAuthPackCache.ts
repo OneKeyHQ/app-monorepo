@@ -2,11 +2,16 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAuthKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { settingsPersistAtom } from '../../../states/jotai/atoms/settings';
-
 import { buildKeylessLocalEncryptionKey } from './keylessLocalEncryptionKey';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
+
+/**
+ * @deprecated This file will be deprecated in a future release.
+ * AuthPack is only stored in memory (not persisted to disk) and is cleared on app restart.
+ * Therefore, it does not require password update support (no need for *WithPassword variants).
+ * The updateKeylessDataPasscode flow intentionally does not handle AuthPack re-encryption.
+ */
 
 // In-memory cache for authPack, keyed by packSetId
 // Module-level cache shared across all instances
@@ -82,7 +87,7 @@ async function getAuthPackFromCache(params: {
       resultEncoding: 'utf8',
       allowRawPassword: true,
     });
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       'Failed to decrypt authPack from cache: invalid password or corrupted data',
     );
@@ -91,7 +96,7 @@ async function getAuthPackFromCache(params: {
   // 4. Parse JSON string to authPack object
   try {
     return JSON.parse(authPackString) as IAuthKeyPack;
-  } catch (error) {
+  } catch (_error) {
     throw new OneKeyLocalError(
       'Failed to parse authPack from cache: invalid JSON format',
     );
