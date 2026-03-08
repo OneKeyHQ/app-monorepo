@@ -257,6 +257,8 @@ export const BundleUpdate: IBundleUpdate = {
     }, 2500);
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
+  isSkipGpgVerificationAllowed: () =>
+    Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),

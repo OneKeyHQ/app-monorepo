@@ -890,6 +890,12 @@ class DesktopApiAppBundleUpdate {
     return Promise.resolve(this.isSkipGPGAllowed(skipGPGVerification));
   }
 
+  async isSkipGpgVerificationAllowed() {
+    return Promise.resolve(
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true',
+    );
+  }
+
   /**
    * Test function to delete jsBundle files
    * @param appVersion - Application version
