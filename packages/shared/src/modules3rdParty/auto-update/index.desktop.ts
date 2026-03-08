@@ -193,6 +193,8 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
   switchBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
+  isSkipGpgVerificationAllowed: () =>
+    globalThis.desktopApiProxy.bundleUpdate.isSkipGpgVerificationAllowed(),
   isBundleExists: (appVersion, bundleVersion) =>
     globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
       appVersion,

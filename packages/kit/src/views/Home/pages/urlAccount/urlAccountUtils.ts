@@ -1,6 +1,9 @@
 import { StackActions } from '@react-navigation/native';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import {
+  navigateFromOverlayToTab,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -238,10 +241,16 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+    // Use navigateFromOverlayToTab to atomically remove overlay routes
+    // (FullScreenPush/ActionCenter) and switch tab. This avoids the native
+    // UITabBarController window-nil race where RNSScreenStack retries
+    // exhaust on stacks inside detached tab views.
     defaultLogger.app.router.switchTab(ETabRoutes.Home);
-    navigation.switchTab(ETabRoutes.Home);
+    await navigateFromOverlayToTab({
+      targetTab: ETabRoutes.Home,
+      switchTab: (tab) => navigation.switchTab(tab),
+    });
     defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
-    await timerUtils.wait(0);
     const navState = rootNavigationRef.current?.getRootState();
     const focusedRoute = navState?.routes?.[navState?.index ?? 0];
     const mainRoute = focusedRoute?.state;
