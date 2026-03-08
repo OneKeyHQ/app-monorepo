@@ -37,7 +37,7 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index e37e40a..d136407 100644
+index e37e40a..1e95f36 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 @@ -31,6 +31,55 @@
@@ -133,7 +133,7 @@ index e37e40a..d136407 100644
  }
  
  #pragma mark - helper methods
-@@ -300,6 +372,147 @@ - (void)emitOnFinishTransitioningEvent
+@@ -300,6 +372,153 @@ - (void)emitOnFinishTransitioningEvent
  #endif
  }
  
@@ -188,6 +188,12 @@ index e37e40a..d136407 100644
 +      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: giving up after %ld retries (requestId=%ld)",
 +                                                   (long)strongSelf->_pendingUpdateRetryCount,
 +                                                   (long)strongSelf->_pendingContainerUpdateRequestId]);
++      RCTLogWarn(@"[RNSScreenStack] pendingContainerUpdate retries exhausted (%ld). "
++                 "This usually means goBack()/pop was called on a navigation stack inside a "
++                 "detached native tab view (UITabBarController). The stack's window is NIL so "
++                 "updates cannot be applied. Use resetAboveMainRoute() instead of sequential "
++                 "goBack() calls when dismissing overlay routes to avoid this race condition.",
++                 (long)kMaxPendingRetryCount);
 +      return;
 +    }
 +
@@ -281,7 +287,7 @@ index e37e40a..d136407 100644
  - (void)navigationController:(UINavigationController *)navigationController
        willShowViewController:(UIViewController *)viewController
                      animated:(BOOL)animated
-@@ -355,6 +568,13 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+@@ -355,6 +574,13 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
  
  - (void)didMoveToWindow
  {
@@ -295,7 +301,7 @@ index e37e40a..d136407 100644
    [super didMoveToWindow];
  #ifdef RCT_NEW_ARCH_ENABLED
    // for handling nested stacks
-@@ -367,6 +587,14 @@ - (void)didMoveToWindow
+@@ -367,6 +593,14 @@ - (void)didMoveToWindow
      [self maybeAddToParentAndUpdateContainer];
    }
  #endif
@@ -310,7 +316,7 @@ index e37e40a..d136407 100644
    if (self.window == nil) {
      // When hot reload happens that would remove the whole stack, disabling the interaction on a screen out transition
      // will not be matched with enabling the interactions on another screen's in transition. We need to make sure
-@@ -375,16 +603,29 @@ - (void)didMoveToWindow
+@@ -375,16 +609,29 @@ - (void)didMoveToWindow
    }
  }
  
@@ -344,7 +350,7 @@ index e37e40a..d136407 100644
    [self updateContainer];
    if (!wasScreenMounted) {
      // when stack hasn't been added to parent VC yet we do two things:
-@@ -405,10 +646,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -405,10 +652,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -390,7 +396,7 @@ index e37e40a..d136407 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -417,7 +691,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -417,7 +697,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -399,7 +405,7 @@ index e37e40a..d136407 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -467,6 +741,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -467,6 +747,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // prevent re-entry
    if (_updatingModals) {
@@ -408,7 +414,7 @@ index e37e40a..d136407 100644
      _scheduleModalsUpdate = YES;
      return;
    }
-@@ -475,12 +751,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -475,12 +757,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
    // change in the list of presented modal was made.
    if ([_presentedModals isEqualToArray:controllers]) {
@@ -431,7 +437,7 @@ index e37e40a..d136407 100644
      return;
    }
  
-@@ -521,6 +807,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -521,6 +813,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    __weak RNSScreenStackView *weakSelf = self;
  
    void (^afterTransitions)(void) = ^{
@@ -439,7 +445,7 @@ index e37e40a..d136407 100644
      [weakSelf emitOnFinishTransitioningEvent];
      weakSelf.updatingModals = NO;
      if (weakSelf.scheduleModalsUpdate) {
-@@ -536,6 +823,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -536,6 +829,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
    };
  
    void (^finish)(void) = ^{
@@ -447,7 +453,7 @@ index e37e40a..d136407 100644
      NSUInteger oldCount = weakSelf.presentedModals.count;
      if (changeRootIndex < oldCount) {
        [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
-@@ -544,10 +832,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -544,10 +838,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
          changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
  
      if (!isAttached || changeRootIndex >= controllers.count) {
@@ -465,7 +471,7 @@ index e37e40a..d136407 100644
        afterTransitions();
        return;
      }
-@@ -624,16 +915,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -624,16 +921,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -493,7 +499,7 @@ index e37e40a..d136407 100644
                                  finish();
                                }];
          }
-@@ -670,12 +968,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -670,12 +974,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -525,7 +531,7 @@ index e37e40a..d136407 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -685,6 +1001,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -685,6 +1007,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -533,7 +539,7 @@ index e37e40a..d136407 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -750,8 +1067,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -750,8 +1073,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -549,7 +555,7 @@ index e37e40a..d136407 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -765,6 +1089,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -765,6 +1095,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  
  - (void)updateContainer
  {
@@ -559,7 +565,7 @@ index e37e40a..d136407 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -816,6 +1143,10 @@ - (void)layoutSubviews
+@@ -816,6 +1149,10 @@ - (void)layoutSubviews
        modal.view.frame = correctFrame;
      }
    }
@@ -570,7 +576,7 @@ index e37e40a..d136407 100644
  }
  
  - (void)dismissOnReload
-@@ -868,13 +1199,17 @@ - (void)rnscreens_disableInteractions
+@@ -868,13 +1205,17 @@ - (void)rnscreens_disableInteractions
  {
    // When transitioning between screens, disable interactions on stack subview which wraps the screens
    // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.

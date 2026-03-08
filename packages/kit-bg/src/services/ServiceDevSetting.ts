@@ -4,7 +4,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import {
@@ -95,11 +95,15 @@ class ServiceDevSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async isSkipBundleGPGVerificationAllowed(): Promise<boolean> {
+    // desktop keeps env-gated behavior in main process; native uses module API.
+    // UI/background should use a unified capability check from BundleUpdate.
+    return BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false);
+  }
+
+  @backgroundMethod()
   public async setSkipBundleGPGVerification(enabled: boolean) {
-    if (
-      platformEnv.isDesktop &&
-      !process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
-    ) {
+    if (!(await this.isSkipBundleGPGVerificationAllowed())) {
       return;
     }
     devSettingSyncStorage.set(
@@ -110,10 +114,7 @@ class ServiceDevSetting extends ServiceBase {
 
   @backgroundMethod()
   public async getSkipBundleGPGVerification(): Promise<boolean> {
-    if (
-      platformEnv.isDesktop &&
-      !process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION
-    ) {
+    if (!(await this.isSkipBundleGPGVerificationAllowed())) {
       return false;
     }
     return (
