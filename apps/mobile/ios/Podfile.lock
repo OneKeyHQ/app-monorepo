@@ -4218,9 +4218,9 @@ PODS:
   - RNZipArchive/Core (7.0.2):
     - React-Core
     - SSZipArchive (~> 2.5.5)
-  - SDWebImage (5.21.5):
-    - SDWebImage/Core (= 5.21.5)
-  - SDWebImage/Core (5.21.5)
+  - SDWebImage (5.21.7):
+    - SDWebImage/Core (= 5.21.7)
+  - SDWebImage/Core (5.21.7)
   - SDWebImageSVGCoder (1.7.0):
     - SDWebImage/Core (~> 5.6)
   - SDWebImageWebPCoder (0.14.6):
@@ -5026,7 +5026,7 @@ SPEC CHECKSUMS:
   RNSVG: d260beec1775108e1bd065a0ed666ff2c5565158
   RNWorklets: 8068c8af4b241eb2c19221310729e4c440bee023
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
-  SDWebImage: e9c98383c7572d713c1a0d7dd2783b10599b9838
+  SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
