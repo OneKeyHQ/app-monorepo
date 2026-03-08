@@ -8,14 +8,28 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 
 function SkipGPGVerificationToggle() {
   const [enabled, setEnabled] = useState(false);
+  const [isSkipGpgVerificationAllowed, setIsSkipGpgVerificationAllowed] =
+    useState<boolean | null>(null);
 
   useEffect(() => {
-    void backgroundApiProxy.serviceDevSetting
-      .getSkipBundleGPGVerification()
-      .then(setEnabled);
+    let isMounted = true;
+    void Promise.all([
+      backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
+      BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false),
+    ]).then(([skipEnabled, skipAllowed]) => {
+      if (!isMounted) {
+        return;
+      }
+      setEnabled(skipEnabled);
+      setIsSkipGpgVerificationAllowed(Boolean(skipAllowed));
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleChange = useCallback((value: boolean) => {
@@ -25,14 +39,27 @@ function SkipGPGVerificationToggle() {
     );
   }, []);
 
-  if (!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) {
+  if (isSkipGpgVerificationAllowed === null) {
+    return (
+      <YStack>
+        <SizableText size="$bodyLgMedium" color="$textSubdued">
+          Skip GPG / ASC Verification
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          Checking support...
+        </SizableText>
+      </YStack>
+    );
+  }
+
+  if (!isSkipGpgVerificationAllowed) {
     return (
       <YStack>
         <SizableText size="$bodyLgMedium" color="$textCaution">
           Skip GPG / ASC Verification
         </SizableText>
         <SizableText size="$bodySm" color="$textCaution">
-          {`Not available: ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = ${String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION ?? 'undefined')}`}
+          Not available on this build.
         </SizableText>
       </YStack>
     );
