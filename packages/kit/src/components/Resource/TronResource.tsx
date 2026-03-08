@@ -45,6 +45,14 @@ function useTronAccountResources({
   pollingInterval?: number;
   suppressErrors?: boolean;
 }) {
+  type IResourceResult = {
+    netAvailable: BigNumber;
+    netTotal: BigNumber;
+    energyAvailable: BigNumber;
+    energyTotal: BigNumber;
+  };
+  const lastResultRef = useRef<IResourceResult | undefined>(undefined);
+
   return usePromiseResult(
     async () => {
       try {
@@ -90,12 +98,9 @@ function useTronAccountResources({
           .minus(resources.EnergyUsed ?? 0)
           .minus(resources.freeEnergyUsed ?? 0);
 
-        return {
-          netAvailable,
-          netTotal,
-          energyAvailable,
-          energyTotal,
-        };
+        const result = { netAvailable, netTotal, energyAvailable, energyTotal };
+        lastResultRef.current = result;
+        return result;
       } catch (e: unknown) {
         if (suppressErrors && e && typeof e === 'object') {
           // Suppress toast for silent background/polling refreshes.
@@ -104,6 +109,9 @@ function useTronAccountResources({
           // (same object reference) prevents the toast while keeping the
           // previous result intact via the rethrow.
           (e as { autoToast?: boolean }).autoToast = false;
+          // Return last known values so the card keeps showing valid data
+          // instead of resetting to 0/0 on a transient network failure.
+          return lastResultRef.current;
         }
         throw e;
       }
@@ -112,7 +120,6 @@ function useTronAccountResources({
     {
       watchLoading: true,
       pollingInterval,
-      undefinedResultIfError: suppressErrors,
     },
   );
 }
