@@ -279,6 +279,21 @@ export const useDownloadPackage = () => {
     return getUpdateFileType(appUpdateInfo);
   }, []);
 
+  const getSkipGPGVerification = useCallback(
+    async (isJsBundle: boolean): Promise<boolean> => {
+      if (!isJsBundle) {
+        return false;
+      }
+      const isSkipGpgVerificationAllowed =
+        await BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false);
+      if (!isSkipGpgVerificationAllowed) {
+        return false;
+      }
+      return backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification();
+    },
+    [],
+  );
+
   const installPackage = useCallback(
     async (onSuccess: () => void, onFail: () => void) => {
       const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -291,9 +306,7 @@ export const useDownloadPackage = () => {
             onFail();
             return;
           }
-          const skipGPGVerification =
-            !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification());
+          const skipGPGVerification = await getSkipGPGVerification(true);
           await BundleUpdate.installBundle({
             ...data.downloadedEvent,
             skipGPGVerification,
@@ -318,7 +331,7 @@ export const useDownloadPackage = () => {
         }
       }
     },
-    [getFileTypeFromUpdateInfo],
+    [getFileTypeFromUpdateInfo, getSkipGPGVerification],
   );
 
   const showSilentUpdateDialog = useCallback(() => {
@@ -351,11 +364,9 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
         return;
       }
-      const skipGPGVerification =
-        fileType === EUpdateFileType.jsBundle
-          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
-          : false;
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startVerifyPackage(params);
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
@@ -383,7 +394,7 @@ export const useDownloadPackage = () => {
       });
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, []);
+  }, [getSkipGPGVerification]);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -394,11 +405,9 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
         return;
       }
-      const skipGPGVerification =
-        fileType === EUpdateFileType.jsBundle
-          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
-          : false;
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startVerifyASC(params);
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
@@ -428,7 +437,7 @@ export const useDownloadPackage = () => {
       });
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, verifyPackage]);
+  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyPackage]);
 
   const downloadASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -439,11 +448,9 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
         return;
       }
-      const skipGPGVerification =
-        fileType === EUpdateFileType.jsBundle
-          ? !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-            (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification())
-          : false;
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startDownloadASC(params);
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
@@ -473,7 +480,7 @@ export const useDownloadPackage = () => {
       });
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, verifyASC]);
+  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyASC]);
 
   const downloadPackage = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -494,10 +501,7 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } = params;
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
-      const skipGPGVerification =
-        isJsBundle &&
-        !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION &&
-        (await backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification());
+      const skipGPGVerification = await getSkipGPGVerification(isJsBundle);
       const updateEvent =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       const headers = await getRequestHeaders();
@@ -544,7 +548,7 @@ export const useDownloadPackage = () => {
         });
       }
     }
-  }, [downloadASC, getFileTypeFromUpdateInfo, intl]);
+  }, [downloadASC, getFileTypeFromUpdateInfo, getSkipGPGVerification, intl]);
 
   const resetToInComplete = useCallback(async () => {
     await backgroundApiProxy.serviceAppUpdate.resetToInComplete();

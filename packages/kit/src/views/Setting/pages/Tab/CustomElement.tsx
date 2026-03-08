@@ -66,6 +66,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -562,13 +563,38 @@ export function SocialButtonGroup() {
   const { copyText } = useClipboard();
   const [{ locale }] = useSettingsPersistAtom();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const [isSkipGpgVerificationAllowed, setIsSkipGpgVerificationAllowed] =
+    useState(false);
   const isTabNavigator = useIsTabNavigator();
-  const version = useMemo(() => {
-    const bundleSuffix = platformEnv.bundleVersion
-      ? `(${platformEnv.bundleVersion})`
-      : '';
-    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}${bundleSuffix}`;
+
+  useEffect(() => {
+    let isMounted = true;
+    void BundleUpdate.isSkipGpgVerificationAllowed()
+      .then((allowed) => {
+        if (isMounted) {
+          setIsSkipGpgVerificationAllowed(Boolean(allowed));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsSkipGpgVerificationAllowed(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const version = useMemo(() => {
+    const commitHash = String(platformEnv.githubSHA || '');
+    let bundleSuffix = '';
+    if (isSkipGpgVerificationAllowed && commitHash) {
+      bundleSuffix = `(${commitHash.slice(0, 8)})`;
+    } else if (platformEnv.bundleVersion) {
+      bundleSuffix = `(${platformEnv.bundleVersion})`;
+    }
+    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}${bundleSuffix}`;
+  }, [isSkipGpgVerificationAllowed]);
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
