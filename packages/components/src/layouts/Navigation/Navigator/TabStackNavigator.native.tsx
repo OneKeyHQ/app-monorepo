@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
+import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { useIntl } from 'react-intl';
 
 import {
@@ -181,6 +181,7 @@ export function TabStackNavigator<RouteName extends string>({
       labeled
       hapticFeedbackEnabled
       disablePageAnimations
+      ignoreBottomInsets
       sidebarAdaptable={false}
       tabBarHidden={hidden}
       tabBarActiveTintColor={theme.iconActive.val}
