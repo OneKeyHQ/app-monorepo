@@ -388,52 +388,51 @@ const EarningsField = ({
   );
 };
 
-const MobilePnlSection = ({
-  asset,
-}: {
-  asset: IEarnPortfolioInvestment['assets'][number];
-}) => {
-  const intl = useIntl();
-  const netPnl = asset.metadata?.netPnl;
-  if (netPnl && Number(netPnl) !== 0) {
-    return (
-      <XStack ai="center" gap="$1">
-        <NumberSizeableText
-          formatter="balance"
-          size="$bodySm"
-          color="$textSubdued"
-          formatterOptions={{
-            tokenSymbol: asset.token.info.symbol,
-            showPlusMinusSigns: true,
-          }}
-        >
-          {netPnl}
-        </NumberSizeableText>
-      </XStack>
-    );
-  }
-  if (asset.totalReward) {
-    return (
-      <XStack ai="center" gap="$1">
-        <EarnText
-          size="$bodySm"
-          color="$textSubdued"
-          text={asset.totalReward.description}
-        />
-        <EarnText
-          size="$bodySm"
-          color="$textSubdued"
-          text={{
-            text: intl.formatMessage({
-              id: ETranslations.earn_referral_total_earned,
-            }),
-          }}
-        />
-      </XStack>
-    );
-  }
-  return null;
-};
+const MobilePnlSection = memo(
+  ({ asset }: { asset: IEarnPortfolioInvestment['assets'][number] }) => {
+    const intl = useIntl();
+    const netPnl = asset.metadata?.netPnl;
+    if (netPnl && Number(netPnl) !== 0) {
+      return (
+        <XStack ai="center" gap="$1">
+          <NumberSizeableText
+            formatter="balance"
+            size="$bodySm"
+            color="$textSubdued"
+            formatterOptions={{
+              tokenSymbol: asset.token.info.symbol,
+              showPlusMinusSigns: true,
+            }}
+          >
+            {netPnl}
+          </NumberSizeableText>
+        </XStack>
+      );
+    }
+    if (asset.totalReward) {
+      return (
+        <XStack ai="center" gap="$1">
+          <EarnText
+            size="$bodySm"
+            color="$textSubdued"
+            text={asset.totalReward.description}
+          />
+          <EarnText
+            size="$bodySm"
+            color="$textSubdued"
+            text={{
+              text: intl.formatMessage({
+                id: ETranslations.earn_referral_total_earned,
+              }),
+            }}
+          />
+        </XStack>
+      );
+    }
+    return null;
+  },
+);
+MobilePnlSection.displayName = 'MobilePnlSection';
 
 const AssetStatusField = ({
   asset,

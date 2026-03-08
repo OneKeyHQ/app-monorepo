@@ -45,6 +45,7 @@ export function AvailableAssetsTabViewList() {
   const intl = useIntl();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [searchText, setSearchText] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
   const media = useMedia();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -415,48 +416,53 @@ export function AvailableAssetsTabViewList() {
   // Pre-fetch all categories and open search dialog
   const handleMobileSearchPress = useCallback(() => {
     void (async () => {
-      const allTypes = [
-        EAvailableAssetsTypeEnum.SimpleEarn,
-        EAvailableAssetsTypeEnum.FixedRate,
-        EAvailableAssetsTypeEnum.Staking,
-      ];
+      setSearchLoading(true);
+      try {
+        const allTypes = [
+          EAvailableAssetsTypeEnum.SimpleEarn,
+          EAvailableAssetsTypeEnum.FixedRate,
+          EAvailableAssetsTypeEnum.Staking,
+        ];
 
-      // Build complete data: use existing atom data + fetch missing categories
-      const completeData: Partial<
-        Record<EAvailableAssetsTypeEnum, IEarnAvailableAsset[]>
-      > = { ...availableAssetsByType };
+        // Build complete data: use existing atom data + fetch missing categories
+        const completeData: Partial<
+          Record<EAvailableAssetsTypeEnum, IEarnAvailableAsset[]>
+        > = { ...availableAssetsByType };
 
-      const missingTypes = allTypes.filter(
-        (type) => !completeData[type]?.length,
-      );
-
-      if (missingTypes.length > 0) {
-        const results = await Promise.all(
-          missingTypes.map(async (type) => {
-            try {
-              const data =
-                await backgroundApiProxy.serviceStaking.getAvailableAssets({
-                  type,
-                });
-              actions.current.updateAvailableAssetsByType(type, data);
-              return { type, data };
-            } catch {
-              return { type, data: [] as IEarnAvailableAsset[] };
-            }
-          }),
+        const missingTypes = allTypes.filter(
+          (type) => !completeData[type]?.length,
         );
 
-        for (const { type, data } of results) {
-          completeData[type] = data;
-        }
-      }
+        if (missingTypes.length > 0) {
+          const results = await Promise.all(
+            missingTypes.map(async (type) => {
+              try {
+                const data =
+                  await backgroundApiProxy.serviceStaking.getAvailableAssets({
+                    type,
+                  });
+                actions.current.updateAvailableAssetsByType(type, data);
+                return { type, data };
+              } catch {
+                return { type, data: [] as IEarnAvailableAsset[] };
+              }
+            }),
+          );
 
-      showEarnAssetSearchDialog({
-        availableAssetsByType: completeData,
-        onAssetSelect: (asset, categoryType) => {
-          void navigateToAsset(asset, categoryType);
-        },
-      });
+          for (const { type, data } of results) {
+            completeData[type] = data;
+          }
+        }
+
+        showEarnAssetSearchDialog({
+          availableAssetsByType: completeData,
+          onAssetSelect: (asset, categoryType) => {
+            void navigateToAsset(asset, categoryType);
+          },
+        });
+      } finally {
+        setSearchLoading(false);
+      }
     })();
   }, [availableAssetsByType, actions, navigateToAsset]);
 
@@ -481,6 +487,8 @@ export function AvailableAssetsTabViewList() {
             variant="tertiary"
             icon="SearchOutline"
             iconSize="$5"
+            loading={searchLoading}
+            disabled={searchLoading}
             onPress={handleMobileSearchPress}
           />
         )}
