@@ -7,6 +7,7 @@ import { Portal } from '../../hocs';
 import { PageBody } from './PageBody';
 import { PageBackButton, PageClose, PageCloseButton } from './PageClose';
 import { PageContainer } from './PageContainer';
+import { PageContentContainer } from './PageContentContainer';
 import { PageContext } from './PageContext';
 import { Every, PageEvery } from './PageEvery';
 import { PageFooter } from './PageFooter';
@@ -21,7 +22,13 @@ import { PageLifeCycle } from './PageLifeCycle';
 import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
 
-export type { IPageProps, IPageFooterProps, IPageLifeCycle } from './type';
+export type {
+  IPageProps,
+  IPageFooterProps,
+  IPageLifeCycle,
+  IPageContentContainerProps,
+  IPageContentContainerLayout,
+} from './type';
 
 function PagePortal({ pagePortalId }: { pagePortalId: string }) {
   return pagePortalId ? <Portal.Container name={pagePortalId} /> : null;
@@ -39,9 +46,13 @@ function PageProvider({
   onClose,
   onCancel,
   onConfirm,
+  shouldRedirect,
+  onRedirected,
 }: IPageProps) {
   const footerRef = useRef<IPageFooterRef>({});
   const closeExtraRef = useRef<{ flag?: string }>({});
+
+  const redirect = useMemo(() => !!shouldRedirect?.(), [shouldRedirect]);
   const pagePortalId = useMemo(() => {
     return Math.random().toString();
   }, []);
@@ -57,20 +68,25 @@ function PageProvider({
     [pagePortalId, safeAreaEnabled, scrollEnabled, scrollProps],
   );
 
-  const isEnablePageLifeCycle = onMounted || onUnmounted || onClose || onCancel;
+  const isEnablePageLifeCycle =
+    onMounted || onUnmounted || onClose || onCancel || onRedirected;
 
   return (
     <>
-      <PageContext.Provider value={value}>
-        <>
-          <PageContainer lazyLoad={lazyLoad} fullPage={fullPage}>
-            {children}
-          </PageContainer>
-          <PagePortal pagePortalId={pagePortalId} />
-        </>
-      </PageContext.Provider>
+      {redirect ? null : (
+        <PageContext.Provider value={value}>
+          <>
+            <PageContainer lazyLoad={lazyLoad} fullPage={fullPage}>
+              {children}
+            </PageContainer>
+            <PagePortal pagePortalId={pagePortalId} />
+          </>
+        </PageContext.Provider>
+      )}
       {isEnablePageLifeCycle ? (
         <PageLifeCycle
+          shouldRedirect={shouldRedirect}
+          onRedirected={onRedirected}
           onMounted={onMounted}
           onUnmounted={onUnmounted}
           onCancel={onCancel}
@@ -88,6 +104,7 @@ export const Page = withStaticProperties(PageProvider, {
   Header: PageHeader,
   Body: PageBody,
   Footer: PageFooter,
+  Container: PageContentContainer,
   FooterActions,
   CancelButton: FooterCancelButton,
   ConfirmButton: FooterConfirmButton,
@@ -98,3 +115,5 @@ export const Page = withStaticProperties(PageProvider, {
 });
 
 export * from './hooks';
+
+export * from './iPadModalPageContext';

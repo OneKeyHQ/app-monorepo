@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 
 import type { ISecureStorage } from './types';
 
@@ -18,14 +19,28 @@ const getSecureItem = async (key: string) => {
 const removeSecureItem = async (key: string) =>
   globalThis?.desktopApiProxy?.storage?.secureDelItemAsync(key);
 
-const supportSecureStorage = async () => true;
+const supportSecureStorage = async () => {
+  if (platformEnv.isDesktop && platformEnv.isDev) {
+    return false;
+  }
+  const available =
+    await globalThis?.desktopApiProxy?.storage?.isSecureStorageAvailable?.();
+  return available ?? false;
+};
 
 const storage: ISecureStorage = {
   setSecureItem,
   getSecureItem,
   removeSecureItem,
   supportSecureStorage,
-  setSecureItemWithBiometrics(key, data, options) {
+  async hasSecureItem(key: string): Promise<boolean> {
+    const value = await getSecureItem(key);
+    return !!value;
+  },
+  async supportSecureStorageWithoutInteraction(): Promise<boolean> {
+    return supportSecureStorage();
+  },
+  setSecureItemWithBiometrics(_key, _data, _options) {
     // TODO: mac use keychain to set secure item
     throw new OneKeyLocalError('use webauthn/keychain to set secure item');
   },

@@ -133,10 +133,10 @@ export const TradingFormInput = memo(
             renderContent: (
               <XStack
                 alignItems="center"
-                cursor="pointer"
                 onPress={action.onPress}
                 opacity={action.disabled ? 0.5 : 1}
                 gap="$1"
+                cursor="default"
               >
                 <SizableText size="$bodyMdMedium" color={action.labelColor}>
                   {action.label}
@@ -171,7 +171,7 @@ export const TradingFormInput = memo(
         >
           <Input
             flex={1}
-            h={36}
+            h={platformEnv.isNativeAndroid ? 40 : 36}
             size="small"
             value={value}
             onChangeText={handleInputChange}
@@ -221,8 +221,8 @@ export const TradingFormInput = memo(
     }
     return (
       <YStack
-        bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-        borderRadius="$3"
+        bg={ifOnDialog ? '$bgApp' : '$bgStrong'}
+        borderRadius="$2"
         py="$1"
         pl="$1"
         pr="$2.5"
@@ -238,7 +238,7 @@ export const TradingFormInput = memo(
       >
         <YStack>
           <Input
-            h={40}
+            h={32}
             placeholder={placeholder}
             textAlign="right"
             leftAddOnProps={{
@@ -257,7 +257,7 @@ export const TradingFormInput = memo(
             keyboardType={keyboardType}
             size="small"
             containerProps={{
-              bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
+              bg: 'transparent',
               borderRadius: '$2',
               borderWidth: '$0',
             }}

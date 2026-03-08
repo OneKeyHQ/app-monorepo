@@ -6,15 +6,18 @@ import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
-import { useManagePage } from '../hooks/useManagePage';
+import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 
 import { AdaManageContent } from './AdaManageContent';
+import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
 
@@ -28,11 +31,20 @@ export interface IManagePositionContentProps {
   indexedAccountId?: string;
   isInModalContext?: boolean;
 
+  // Type of manage position (Staking or Borrow)
+  type?: EManagePositionType;
+
+  // Borrow-specific params
+  reserveAddress?: string;
+  marketAddress?: string;
+  borrowReserves?: IBorrowReserveItem;
+
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
+  providerLogoUri?: string;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -87,10 +99,15 @@ export function ManagePositionContent({
   vault,
   accountId,
   indexedAccountId,
+  type = EManagePositionType.Staking,
+  reserveAddress,
+  marketAddress,
+  borrowReserves,
   defaultTab,
   onTabChange,
   showApyDetail = false,
   fallbackTokenImageUri,
+  providerLogoUri,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -118,7 +135,29 @@ export function ManagePositionContent({
     symbol: symbol as ISupportedSymbol,
     provider,
     vault,
+    type,
+    reserveAddress,
+    marketAddress,
   });
+
+  const resolvedProtocolInfo = useMemo(() => {
+    if (!protocolInfo) {
+      return undefined;
+    }
+    if (!providerLogoUri) {
+      return protocolInfo;
+    }
+    if (protocolInfo.providerDetail?.logoURI) {
+      return protocolInfo;
+    }
+    return {
+      ...protocolInfo,
+      providerDetail: {
+        ...protocolInfo.providerDetail,
+        logoURI: providerLogoUri,
+      },
+    };
+  }, [protocolInfo, providerLogoUri]);
 
   // Handle create address
   const handleCreateAddress = useCallback(async () => {
@@ -132,7 +171,7 @@ export function ManagePositionContent({
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
       return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId: accountId?.length > 0 ? accountId : indexedAccountId ?? '',
+        accountId: accountId?.length > 0 ? accountId : (indexedAccountId ?? ''),
         activeNetworkId: networkId,
       });
     },
@@ -171,6 +210,7 @@ export function ManagePositionContent({
       totalSupply: '0',
       riskLevel: 0,
       coingeckoId: '',
+      networkId,
     };
 
     if (tokenInfo) {
@@ -237,41 +277,60 @@ export function ManagePositionContent({
     [managePageData?.history],
   );
 
-  const onHistory = useMemo(() => {
-    if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
-    return (params?: { filterType?: string }) => {
-      const { filterType } = params || {};
-      const historyParams = {
-        accountId: earnAccount?.accountId,
-        networkId,
-        symbol,
-        provider,
-        stakeTag: protocolInfo?.stakeTag || '',
-        protocolVault: vault,
-        filterType,
-      };
+  const isBorrowType = useMemo(
+    () =>
+      [
+        EManagePositionType.Supply,
+        EManagePositionType.Borrow,
+        EManagePositionType.Withdraw,
+        EManagePositionType.Repay,
+      ].includes(type),
+    [type],
+  );
 
-      if (isInModalContext) {
-        // We're already in a modal, use push to navigate within the modal stack
-        appNavigation.push(EModalStakingRoutes.HistoryList, historyParams);
-      } else {
-        // We're in a regular page (like EarnProtocolDetails), use pushModal
-        appNavigation.pushModal(EModalRoutes.StakingModal, {
-          screen: EModalStakingRoutes.HistoryList,
-          params: historyParams,
+  const onHistory = useMemo(() => {
+    // Return undefined if history is disabled or no account
+    if (historyAction?.disabled || !earnAccount?.accountId) return undefined;
+
+    if (isBorrowType && marketAddress) {
+      return () => {
+        BorrowNavigation.pushToBorrowHistory(appNavigation, {
+          accountId: earnAccount.accountId,
+          networkId,
+          provider,
+          marketAddress,
+          isModal: isInModalContext,
         });
-      }
-    };
+      };
+    }
+
+    if (!isBorrowType && historyAction) {
+      return () => {
+        BorrowNavigation.pushToStakingHistory(appNavigation, {
+          accountId: earnAccount.accountId,
+          networkId,
+          symbol,
+          provider,
+          stakeTag: protocolInfo?.stakeTag,
+          protocolVault: vault,
+          isModal: isInModalContext,
+        });
+      };
+    }
+
+    return undefined;
   }, [
-    historyAction?.disabled,
-    appNavigation,
+    historyAction,
     earnAccount?.accountId,
+    isBorrowType,
+    marketAddress,
+    appNavigation,
     networkId,
-    protocolInfo?.stakeTag,
     provider,
-    symbol,
-    vault,
     isInModalContext,
+    symbol,
+    protocolInfo?.stakeTag,
+    vault,
   ]);
 
   // Ref to store refreshPending function from useStakingPendingTxs hook
@@ -283,7 +342,7 @@ export function ManagePositionContent({
     void refreshPendingRef.current?.();
     onStakeWithdrawSuccess?.();
     if (isInModalContext) {
-      appNavigation.pop();
+      appNavigation.popStack();
     }
   }, [
     refreshManageData,
@@ -296,7 +355,7 @@ export function ManagePositionContent({
   const stakeBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return warningElement;
+      return <YStack>{warningElement}</YStack>;
     }
     if (!isEmpty(alertsStake) || !isEmpty(alerts)) {
       return (
@@ -313,7 +372,7 @@ export function ManagePositionContent({
   const withdrawBeforeFooter = useMemo(() => {
     // If should show warning (no address or BTC-only firmware), return the warning element
     if (shouldShowWarning) {
-      return warningElement;
+      return <YStack>{warningElement}</YStack>;
     }
     if (!isEmpty(alertsWithdraw) || !isEmpty(alerts)) {
       return (
@@ -346,6 +405,48 @@ export function ManagePositionContent({
     return <SectionSkeleton />;
   }
 
+  // Pendle special rendering: use ManagePageV2 for future shared layouts.
+  if (earnUtils.isPendleProvider({ providerName: provider })) {
+    if (warningElement) {
+      return <YStack px="$5">{warningElement}</YStack>;
+    }
+
+    return (
+      <ManagePageV2Content
+        networkId={networkId}
+        symbol={symbol}
+        provider={provider}
+        vault={vault}
+        type={type}
+        marketAddress={marketAddress}
+        reserveAddress={reserveAddress}
+        tokenInfo={resolvedTokenInfo}
+        fallbackTokenImageUri={resolvedTokenImageUri}
+        protocolInfo={resolvedProtocolInfo}
+        earnAccount={earnAccount ?? undefined}
+        borrowReserves={borrowReserves}
+        depositDisabled={depositDisabled}
+        withdrawDisabled={withdrawDisabled}
+        stakeBeforeFooter={stakeBeforeFooter}
+        withdrawBeforeFooter={withdrawBeforeFooter}
+        historyAction={historyAction}
+        onHistory={onHistory}
+        indicatorAccountId={earnAccount?.accountId}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
+        onIndicatorRefresh={refreshManageData}
+        onRefreshPendingRef={refreshPendingRef}
+        onSuccess={handleOperationSuccess}
+        defaultTab={defaultTab}
+        onTabChange={onTabChange}
+        isInModalContext={isInModalContext}
+        appNavigation={appNavigation}
+        showApyDetail={showApyDetail}
+        ongoingValidator={ongoingValidator}
+        managePageData={managePageData}
+      />
+    );
+  }
+
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {
     // Show warning if needed (no address or BTC-only firmware)
@@ -365,7 +466,7 @@ export function ManagePositionContent({
         vault={vault}
         onHistory={onHistory}
         indicatorAccountId={earnAccount?.accountId}
-        stakeTag={protocolInfo?.stakeTag}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
         onIndicatorRefresh={refreshManageData}
         onRefreshPendingRef={refreshPendingRef}
         onActionSuccess={handleOperationSuccess}
@@ -393,10 +494,10 @@ export function ManagePositionContent({
         isInModalContext={isInModalContext}
         beforeFooter={specialBeforeFooter}
         fallbackTokenImageUri={fallbackTokenImageUri}
-        protocolInfo={protocolInfo}
+        protocolInfo={resolvedProtocolInfo}
         tokenInfo={resolvedTokenInfo}
         indicatorAccountId={earnAccount?.accountId}
-        stakeTag={protocolInfo?.stakeTag}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
         onIndicatorRefresh={refreshManageData}
         onRefreshPendingRef={refreshPendingRef}
       />
@@ -410,10 +511,14 @@ export function ManagePositionContent({
       symbol={symbol}
       provider={provider}
       vault={vault}
+      type={type}
+      marketAddress={marketAddress}
+      reserveAddress={reserveAddress}
       tokenInfo={resolvedTokenInfo}
       fallbackTokenImageUri={resolvedTokenImageUri}
-      protocolInfo={protocolInfo}
+      protocolInfo={resolvedProtocolInfo}
       earnAccount={earnAccount ?? undefined}
+      borrowReserves={borrowReserves}
       depositDisabled={depositDisabled}
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}
@@ -421,7 +526,7 @@ export function ManagePositionContent({
       historyAction={historyAction}
       onHistory={onHistory}
       indicatorAccountId={earnAccount?.accountId}
-      stakeTag={protocolInfo?.stakeTag}
+      stakeTag={resolvedProtocolInfo?.stakeTag}
       onIndicatorRefresh={refreshManageData}
       onRefreshPendingRef={refreshPendingRef}
       onSuccess={handleOperationSuccess}
@@ -431,6 +536,7 @@ export function ManagePositionContent({
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
       ongoingValidator={ongoingValidator}
+      managePageData={managePageData}
     />
   );
 }

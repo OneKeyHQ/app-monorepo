@@ -13,6 +13,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import appGlobals from '../appGlobals';
+import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import { ETranslations } from '../locale';
 
 import type { IPrefType } from '../../types/desktop';
 import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
@@ -140,7 +142,23 @@ export const openSettings = (prefType: IPrefType) => {
  * ```
  */
 export function gotoDiscoveryTab(): void {
-  appGlobals.$navigationRef.current?.navigate(ETabRoutes.Discovery);
+  appGlobals.$navigationRef.current?.navigate(
+    ERootRoutes.Main,
+    {
+      screen: ETabRoutes.Discovery,
+    },
+    {
+      pop: true,
+    },
+  );
+  if (platformEnv.isNative) {
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+        tab: ETranslations.global_browser,
+        openUrl: true,
+      });
+    }, 50);
+  }
 }
 
 /**
@@ -166,11 +184,36 @@ export function openUrlInDiscovery(params: IOpenUrlInDiscoveryParams): void {
   gotoDiscoveryTab();
 }
 
+/**
+ * Open a fiat crypto (Onramper) URL in a WebView Modal on desktop/native,
+ * with cross-domain navigation redirected to the Discovery browser.
+ * On web/extension, falls back to opening externally.
+ */
+export function openFiatCryptoUrl(url: string, title?: string): void {
+  if (platformEnv.isDesktop || platformEnv.isNative) {
+    appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+      screen: EModalRoutes.WebViewModal,
+      params: {
+        screen: EModalWebViewRoutes.WebView,
+        params: {
+          url,
+          title: title ?? '',
+          redirectExternalNavigation: true,
+          hideHeaderRight: true,
+        },
+      },
+    });
+  } else {
+    openUrlExternal(url);
+  }
+}
+
 const openUrlUtils = {
   openUrlByWebviewPro,
   openUrlInApp,
   openUrlExternal,
   openUrlInDiscovery,
+  openFiatCryptoUrl,
   gotoDiscoveryTab,
   getPendingDiscoveryUrl,
   setPendingDiscoveryUrl,

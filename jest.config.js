@@ -10,9 +10,28 @@ module.exports = async () => {
     // https://jestjs.io/docs/configuration#maxconcurrency-number
     maxConcurrency: 1,
     maxWorkers: 1,
-    // ts-jest, react-native, jest-expo, jest-expo/web,
+    // @swc/jest, react-native, jest-expo, jest-expo/web,
     preset: 'jest-expo/web', // require *.web.ts, do not require *.native.ts
     coverageProvider: 'v8',
+    collectCoverageFrom: [
+      'packages/core/src/**/*.ts',
+      'packages/shared/src/**/*.ts',
+      'packages/kit-bg/src/**/*.ts',
+      '!**/*.d.ts',
+      '!**/index.ts',
+      '!**/__mocks__/**',
+      '!**/*.test.ts',
+      '!**/*.test.tsx',
+      '!**/__tests__/**',
+    ],
+    coverageReporters: ['text', 'lcov', 'json-summary'],
+    coverageThreshold: {
+      global: {
+        statements: 10,
+        branches: 35,
+        functions: 10,
+      },
+    },
     cacheDirectory: `${cacheDirectory}/.app-mono-jest-cache`,
     setupFilesAfterEnv: [
       './jest-setup.js',
@@ -53,10 +72,22 @@ module.exports = async () => {
     ],
     transform: {
       '^.+\\.[jt]sx?$': [
-        'ts-jest',
+        '@swc/jest',
         {
-          'diagnostics': {
-            warnOnly: true,
+          jsc: {
+            target: 'es2022',
+            parser: {
+              syntax: 'typescript',
+              tsx: true,
+              decorators: true,
+            },
+            transform: {
+              legacyDecorator: true,
+              decoratorMetadata: true,
+              react: {
+                runtime: 'automatic',
+              },
+            },
           },
         },
       ],
@@ -70,7 +101,11 @@ module.exports = async () => {
         },
       ],
     ],
+    modulePathIgnorePatterns: ['<rootDir>/.claude/worktrees/'],
     testPathIgnorePatterns: [
+      // Detox E2E tests have their own Jest config under apps/mobile/e2e and must not run in unit-test CI.
+      'apps/mobile/e2e',
+      '\\.claude/worktrees/',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',
       'packages/core/src/chains/apt',
@@ -84,7 +119,6 @@ module.exports = async () => {
       'packages/core/src/chains/near',
       'packages/core/src/chains/nexa',
       'packages/core/src/chains/stc',
-      'packages/core/src/chains/tron',
       'packages/core/src/chains/xmr',
       'packages/core/src/chains/xrp',
     ],

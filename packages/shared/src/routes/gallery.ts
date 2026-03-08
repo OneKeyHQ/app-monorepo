@@ -17,6 +17,7 @@ export enum EGalleryRoutes {
   ComponentCurrency = 'component-Currency',
   ComponentCryptoGallery = 'component-CryptoGallery',
   ComponentCarousel = 'component-Carousel',
+  ComponentDatePicker = 'component-DatePicker',
   ComponentDialog = 'component-Dialog',
   ComponentDiscoveryBrowser = 'component-DiscoveryBrowser',
   ComponentDivider = 'component-Divider',
@@ -52,6 +53,7 @@ export enum EGalleryRoutes {
   ComponentPasswordKeyboardGallery = 'component-PasswordKeyboard',
   ComponentPerp = 'component-Perp',
   ComponentCloudBackup = 'component-CloudBackup',
+  ComponentCloudSync = 'component-CloudSync',
   ComponentKeylessWallet = 'component-KeylessWallet',
   ComponentPopover = 'component-Popover',
   ComponentPortal = 'component-Portal',
@@ -109,4 +111,5 @@ export enum EGalleryRoutes {
   ComponentPlayground = 'component-Playground',
   ComponentAuth = 'component-Auth',
   ComponentOneKeyID = 'component-OneKeyID',
+  ComponentStorage = 'component-Storage',
 }

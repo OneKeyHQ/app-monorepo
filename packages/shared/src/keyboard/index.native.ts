@@ -6,7 +6,7 @@ export const dismissKeyboard = () => {
   }
 };
 
-export const dismissKeyboardWithDelay = async (delayMs = 100) => {
+export const dismissKeyboardWithDelay = async (delayMs = 80) => {
   if (Keyboard.isVisible()) {
     Keyboard.dismiss();
     await new Promise((resolve) => setTimeout(resolve, delayMs));

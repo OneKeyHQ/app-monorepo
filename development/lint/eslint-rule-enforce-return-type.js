@@ -1,15 +1,16 @@
 const enforceReturnTypeRule = {
   meta: {
-    type: 'problem',  
+    type: 'problem',
     docs: {
       description:
         'Ensure that setRawData callback functions have explicit return types',
       category: 'Best Practices',
       recommended: false,
     },
-    schema: [],  
+    schema: [],
     messages: {
-      returnTypeRequired: 'Callback functions for setRawData must explicitly declare a return type',
+      returnTypeRequired:
+        'Callback functions for setRawData must explicitly declare a return type',
     },
   },
   create(context) {
@@ -24,7 +25,8 @@ const enforceReturnTypeRule = {
         ) {
           context.report({
             node: callback,
-            message: 'Callback functions for setRawData must explicitly declare a return type',
+            message:
+              'Callback functions for setRawData must explicitly declare a return type',
           });
         }
       },

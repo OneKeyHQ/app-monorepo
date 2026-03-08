@@ -121,7 +121,7 @@ export class KeyringQr extends KeyringQrBase {
     try {
       const sig = sdk.tron.parseSignature(ur);
       return Promise.resolve(sig);
-    } catch (error) {
+    } catch (_error) {
       throw new OneKeyErrorAirGapInvalidQrCode();
     }
   }

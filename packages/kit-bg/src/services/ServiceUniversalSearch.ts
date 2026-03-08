@@ -16,7 +16,10 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   getFilteredTokenBySearchKey,
@@ -26,12 +29,15 @@ import {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
   IUniversalSearchDappResult,
+  IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
+  IUniversalSearchV2MarketToken,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -48,16 +54,18 @@ class ServiceUniversalSearch extends ServiceBase {
 
   private getAccountPriority(accountId?: string): number {
     if (!accountId) return 1;
-    const accountParams = { accountId };
-    if (
-      accountUtils.isHdAccount(accountParams) ||
-      accountUtils.isHwAccount(accountParams) ||
-      accountUtils.isQrAccount(accountParams) ||
-      accountUtils.isImportedAccount(accountParams)
-    ) {
+    if (accountUtils.isOwnAccount({ accountId })) {
       return 0; // Internal accounts first (HD/HW/QR/Imported)
     }
     return 1; // Others accounts (Watching/External)
+  }
+
+  private buildAddressImplDedupeKey(
+    displayAddress: string,
+    networkId: string,
+  ): string {
+    const networkImpl = networkUtils.getNetworkImpl({ networkId });
+    return `${displayAddress}_${networkImpl}`;
   }
 
   @backgroundMethod()
@@ -71,14 +79,90 @@ class ServiceUniversalSearch extends ServiceBase {
       return [] as IUniversalSearchBatchResult;
     }
     if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
-      const items =
-        await this.backgroundApi.serviceMarket.fetchSearchTrending();
-      result[EUniversalSearchType.MarketToken] = {
-        items: items.map((item) => ({
-          type: EUniversalSearchType.MarketToken,
-          payload: item,
-        })),
-      };
+      try {
+        // Prefer V2 trending endpoint (has network badge, dynamic data)
+        const trendingItems =
+          await this.backgroundApi.serviceMarket.fetchTrendingV2();
+
+        const validTrendingItems = trendingItems.filter(
+          (item) => Boolean(item.price) && Number(item.price) > 0,
+        );
+        if (validTrendingItems.length) {
+          result[EUniversalSearchType.V2MarketToken] = {
+            items: validTrendingItems.map((item) => ({
+              type: EUniversalSearchType.V2MarketToken,
+              payload: item,
+            })),
+          };
+          return result;
+        }
+      } catch {
+        // V2 trending failed, fall through to searchRecommendTokens
+      }
+
+      try {
+        // Fallback to searchRecommendTokens from market basic config
+        const basicConfig =
+          await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
+        const recommendTokens = basicConfig?.data?.searchRecommendTokens;
+
+        if (recommendTokens?.length) {
+          const batchResult =
+            await this.backgroundApi.serviceMarketV2.fetchMarketTokenListBatch({
+              tokenAddressList: recommendTokens.map((t) => ({
+                contractAddress: t.contractAddress,
+                chainId: t.chainId,
+                isNative: t.isNative,
+              })),
+            });
+
+          const chainIdToNetworkId = new Map(
+            basicConfig?.data?.networkList?.map((n) => [
+              n.chainId,
+              n.networkId,
+            ]) ?? [],
+          );
+
+          const v2Items: IUniversalSearchV2MarketToken[] = recommendTokens
+            .map((configToken, index) => {
+              const batchItem = batchResult?.list?.[index];
+              const networkId =
+                batchItem?.networkId ??
+                chainIdToNetworkId.get(configToken.chainId) ??
+                configToken.chainId;
+              return {
+                type: EUniversalSearchType.V2MarketToken as const,
+                payload: {
+                  name: batchItem?.name ?? configToken.name,
+                  symbol: batchItem?.symbol ?? configToken.symbol,
+                  price: batchItem?.price ?? '0',
+                  address: batchItem?.address ?? configToken.contractAddress,
+                  network: networkId,
+                  logoUrl: batchItem?.logoUrl ?? configToken.logo ?? '',
+                  isNative: configToken.isNative,
+                  decimals: batchItem?.decimals ?? 18,
+                  liquidity: batchItem?.liquidity ?? '0',
+                  volume_24h: batchItem?.volume24h ?? '0',
+                  volume24h: batchItem?.volume24h,
+                  marketCap: batchItem?.marketCap,
+                  priceChange24hPercent: batchItem?.priceChange24hPercent,
+                  communityRecognized: batchItem?.communityRecognized,
+                },
+              };
+            })
+            .filter(
+              (item) =>
+                (Boolean(item.payload.address) || item.payload.isNative) &&
+                Number(item.payload.price) > 0,
+            );
+
+          if (v2Items.length) {
+            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+          }
+        }
+      } catch {
+        // searchRecommendTokens also failed
+      }
     }
     return result;
   }
@@ -134,6 +218,9 @@ class ServiceUniversalSearch extends ServiceBase {
       searchTypes.includes(EUniversalSearchType.Dapp)
         ? this.universalSearchOfDapp({ input })
         : Promise.resolve({ items: [] }),
+      searchTypes.includes(EUniversalSearchType.Perp)
+        ? this.universalSearchOfPerp({ input })
+        : Promise.resolve({ items: [] }),
     ]);
     const [
       addressResultSettled,
@@ -141,6 +228,7 @@ class ServiceUniversalSearch extends ServiceBase {
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
+      perpResultSettled,
     ] = promiseResults;
 
     if (
@@ -202,6 +290,14 @@ class ServiceUniversalSearch extends ServiceBase {
       dappResultSettled.value.items.length > 0
     ) {
       result[EUniversalSearchType.Dapp] = dappResultSettled.value;
+    }
+
+    if (
+      perpResultSettled.status === 'fulfilled' &&
+      perpResultSettled.value &&
+      perpResultSettled.value.items.length > 0
+    ) {
+      result[EUniversalSearchType.Perp] = perpResultSettled.value;
     }
 
     return result;
@@ -334,21 +430,23 @@ class ServiceUniversalSearch extends ServiceBase {
           },
         );
 
-      const resp = await Promise.all(
-        networkAccounts.map((networkAccount) =>
-          this.backgroundApi.serviceToken.fetchAccountTokens({
-            accountId: networkAccount.account?.id ?? '',
-            mergeTokens: true,
-            networkId,
-            flag: 'universal-search',
-            saveToLocal: true,
-            indexedAccountId,
-          }),
+      const resp = await promiseAllSettledEnhanced(
+        networkAccounts.map(
+          (networkAccount) => () =>
+            this.backgroundApi.serviceToken.fetchAccountTokens({
+              accountId: networkAccount.account?.id ?? '',
+              mergeTokens: true,
+              networkId,
+              flag: 'universal-search',
+              saveToLocal: true,
+              indexedAccountId,
+            }),
         ),
+        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
       );
 
       const { allTokenList, allTokenListMap } = getMergedDeriveTokenData({
-        data: resp,
+        data: resp.filter(Boolean),
         mergeDeriveAssetsEnabled: true,
       });
 
@@ -454,6 +552,10 @@ class ServiceUniversalSearch extends ServiceBase {
     let addressSearchItems: IUniversalSearchResultItem[] = [];
 
     // Step 2: Check if address belongs to internal wallets for valid networks
+    // Deduplicate by address + impl combination
+    // (e.g., same Polkadot address valid on hydration, bifrost-ksm, bifrost, asset-hub should show once)
+    const processedAddressImplKeys = new Set<string>();
+
     for (const validNetworkId of batchValidateResult.networkIds) {
       const localValidateResult = await serviceValidator.localValidateAddress({
         networkId: validNetworkId,
@@ -461,6 +563,16 @@ class ServiceUniversalSearch extends ServiceBase {
       });
 
       if (localValidateResult.isValid) {
+        const dedupeKey = this.buildAddressImplDedupeKey(
+          localValidateResult.displayAddress,
+          validNetworkId,
+        );
+
+        if (processedAddressImplKeys.has(dedupeKey)) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
         const internalItems = await this.findInternalWalletAccounts({
           address: localValidateResult.displayAddress,
           networkId: validNetworkId,
@@ -468,12 +580,7 @@ class ServiceUniversalSearch extends ServiceBase {
 
         if (internalItems.length > 0) {
           addressSearchItems.push(...internalItems);
-          console.log(
-            '[universalSearchOfAddress] internalItems from network',
-            validNetworkId,
-            ':',
-            internalItems,
-          );
+          processedAddressImplKeys.add(dedupeKey);
         }
       }
     }
@@ -535,13 +642,29 @@ class ServiceUniversalSearch extends ServiceBase {
       return items;
     }
 
+    const deFiRawData =
+      (await this.backgroundApi.simpleDb.deFi.getRawData()) ?? undefined;
+
     // Create search result items
     for (const accountItem of sortedAccounts) {
       let account;
       let indexedAccount;
       let wallet;
       let accountsValue;
+      let accountsDeFiOverview;
       try {
+        accountsDeFiOverview = (
+          await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+            accounts: [
+              {
+                accountId: accountItem.accountId,
+                networkId: networkId || '',
+                accountAddress: address,
+              },
+            ],
+            deFiRawData,
+          })
+        )?.[0];
         if (
           accountUtils.isOthersAccount({
             accountId: accountItem.accountId,
@@ -611,6 +734,7 @@ class ServiceUniversalSearch extends ServiceBase {
           account,
           indexedAccount,
           accountsValue,
+          accountsDeFiOverview,
         },
       } as IUniversalSearchResultItem);
     }
@@ -630,6 +754,9 @@ class ServiceUniversalSearch extends ServiceBase {
     const { serviceNetwork, serviceValidator } = this.backgroundApi;
     const items: IUniversalSearchResultItem[] = [];
 
+    // Deduplicate by address + impl combination
+    const processedAddressImplKeys = new Set<string>();
+
     // Validate for each supported network
     for (const batchNetworkId of batchValidateResult.networkIds) {
       const settings = await getVaultSettings({ networkId: batchNetworkId });
@@ -645,6 +772,16 @@ class ServiceUniversalSearch extends ServiceBase {
         );
 
         if (network && localValidateResult.isValid) {
+          const dedupeKey = this.buildAddressImplDedupeKey(
+            localValidateResult.displayAddress,
+            batchNetworkId,
+          );
+
+          if (processedAddressImplKeys.has(dedupeKey)) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+
           items.push({
             type: EUniversalSearchType.Address,
             payload: {
@@ -652,6 +789,7 @@ class ServiceUniversalSearch extends ServiceBase {
               network,
             },
           } as IUniversalSearchResultItem);
+          processedAddressImplKeys.add(dedupeKey);
         }
       }
     }
@@ -769,7 +907,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const indexedAccountsSearchResult = indexedAccountsFuse.search(searchTerm);
     const indexedAccountsResults = indexedAccountsSearchResult
       .slice(0, maxResults)
-      .map(async (i) => {
+      .map((i) => async () => {
         try {
           const wallet = await serviceAccount.getWalletSafe({
             walletId: i.item.walletId,
@@ -846,7 +984,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const otherAccountsSearchResult = otherAccountsFuse.search(searchTerm);
     const otherAccountsResults = otherAccountsSearchResult
       .slice(0, maxResults)
-      .map(async (i) => {
+      .map((i) => async () => {
         try {
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: i.item.id,
@@ -895,12 +1033,18 @@ class ServiceUniversalSearch extends ServiceBase {
       });
 
     const allResults = [
-      ...(await Promise.all(indexedAccountsResults)),
-      ...(await Promise.all(otherAccountsResults)),
+      ...(await promiseAllSettledEnhanced(indexedAccountsResults, {
+        continueOnError: true,
+        concurrency: PROMISE_CONCURRENCY_LIMIT,
+      })),
+      ...(await promiseAllSettledEnhanced(otherAccountsResults, {
+        continueOnError: true,
+        concurrency: PROMISE_CONCURRENCY_LIMIT,
+      })),
     ]
       .filter(Boolean)
       // First sort by account type (HD/HW/QR/Imported first, then others)
-      .sort((a, b) => {
+      .toSorted((a, b) => {
         const aAccountId = a?.account?.id || a?.indexedAccount?.id;
         const bAccountId = b?.account?.id || b?.indexedAccount?.id;
         const aPriority = this.getAccountPriority(aAccountId);
@@ -944,6 +1088,58 @@ class ServiceUniversalSearch extends ServiceBase {
     console.log('[searchAccountsByName] items: ', items);
 
     return { items } as IUniversalSearchSingleResult;
+  }
+
+  private universalSearchOfPerpCached = memoizee(
+    async (input: string): Promise<IUniversalSearchPerpResult> => {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Wallet);
+        const response = await client.get<{
+          data: Array<{
+            type: string;
+            logoUrl: string;
+            name: string;
+            maxLeverage: number;
+            midPx: string;
+            dayNtlVlm: string;
+            subtitle?: string;
+          }>;
+        }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
+          params: { query: input },
+        });
+
+        const items: IUniversalSearchPerpResult['items'] =
+          response?.data?.data?.map((asset) => ({
+            type: EUniversalSearchType.Perp,
+            payload: {
+              assetType: asset.type,
+              logoUrl: asset.logoUrl,
+              name: asset.name,
+              maxLeverage: asset.maxLeverage,
+              midPx: asset.midPx,
+              dayNtlVlm: asset.dayNtlVlm,
+              subtitle: asset.subtitle,
+            },
+          })) ?? [];
+
+        return { items };
+      } catch (error) {
+        console.error('[universalSearchOfPerp] error:', error);
+        throw error; // Re-throw to prevent caching failed results
+      }
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  async universalSearchOfPerp({
+    input,
+  }: {
+    input: string;
+  }): Promise<IUniversalSearchPerpResult> {
+    return this.universalSearchOfPerpCached(input);
   }
 
   async universalSearchOfDapp({

@@ -58,6 +58,15 @@ export class WalletScene extends BaseScene {
           },
         };
 
+      case 'CreateKeylessWallet':
+        return {
+          addMethod: 'CreateKeylessWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            provider: params.details.provider,
+          },
+        };
+
       default: {
         const _exhaustiveCheck: never = params;
         throw new OneKeyLocalError(
@@ -121,6 +130,16 @@ export class WalletScene extends BaseScene {
           },
         };
 
+      case 'CreateKeylessWallet':
+        return {
+          status: params.status,
+          addMethod: 'CreateKeylessWallet',
+          isSoftwareWalletOnlyUser: params.isSoftwareWalletOnlyUser,
+          details: {
+            provider: params.details.provider,
+          },
+        };
+
       default: {
         const _exhaustiveCheck: never = params;
         throw new OneKeyLocalError(
@@ -137,7 +156,8 @@ export class WalletScene extends BaseScene {
       | 'createWallet'
       | 'importWallet'
       | 'connectHWWallet'
-      | 'connect3rdPartyWallet';
+      | 'connect3rdPartyWallet'
+      | 'createKeylessWallet';
   }) {
     return params;
   }
@@ -239,4 +259,8 @@ export class WalletScene extends BaseScene {
       onboardingExit: true,
     };
   }
+
+  @LogToLocal()
+  @LogToServer()
+  public walletPullToRefresh() {}
 }

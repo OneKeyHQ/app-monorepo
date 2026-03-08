@@ -1,10 +1,11 @@
 import BigNumber from 'bignumber.js';
-import { forEach, isNil, uniqBy } from 'lodash';
+import { forEach, isEmpty, isNil, isUndefined, uniqBy } from 'lodash';
 
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
+import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
@@ -13,6 +14,7 @@ import type {
   IAccountToken,
   IAggregateToken,
   IFetchAccountTokensResp,
+  IToken,
   ITokenData,
   ITokenFiat,
 } from '../../types/token';
@@ -25,6 +27,19 @@ export const caseSensitiveNetworkImpl = [
   'sui',
   'ton',
 ];
+
+/**
+ * Display token symbol preserving API casing for mixed-case symbols (e.g. fAI, aPolWBTC)
+ * while converting short all-lowercase tickers to uppercase (e.g. btc -> BTC, eth -> ETH).
+ */
+export function formatTokenSymbolForDisplay(symbol: string): string {
+  if (!symbol || typeof symbol !== 'string') return symbol;
+  const trimmed = symbol.trim();
+  if (trimmed.length <= 5 && trimmed === trimmed.toLowerCase()) {
+    return trimmed.toUpperCase();
+  }
+  return trimmed;
+}
 
 export function getMergedTokenData({
   tokens,
@@ -172,7 +187,7 @@ export function sortTokensByFiatValue({
   };
   sortDirection?: 'desc' | 'asc';
 }) {
-  return tokens?.sort((a, b) => {
+  return tokens.toSorted((a, b) => {
     const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? -1);
     const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? -1);
 
@@ -199,7 +214,7 @@ export function sortTokensByPrice({
   };
   sortDirection?: 'desc' | 'asc';
 }) {
-  return [...tokens].sort((a, b) => {
+  return tokens.toSorted((a, b) => {
     const aPrice = new BigNumber(map[a.$key]?.price ?? 0);
     const bPrice = new BigNumber(map[b.$key]?.price ?? 0);
 
@@ -222,7 +237,7 @@ export function sortTokensByName({
   tokens: IAccountToken[];
   sortDirection?: 'desc' | 'asc';
 }): IAccountToken[] {
-  return [...tokens].sort((a, b) => {
+  return tokens.toSorted((a, b) => {
     const aName = a.name?.toLowerCase() ?? '';
     const bName = b.name?.toLowerCase() ?? '';
 
@@ -235,7 +250,7 @@ export function sortTokensByName({
 }
 
 export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
-  return [...tokens].sort((a, b) => {
+  return tokens.toSorted((a, b) => {
     if (!isNil(a.order) && !isNil(b.order)) {
       return new BigNumber(a.order).comparedTo(b.order);
     }
@@ -335,60 +350,27 @@ export function mergeDeriveTokenListMap({
   };
 }
 
-export function mergeAggregateTokenMap({
+export function mergeNestedAggregateTokenMap({
   sourceMap,
   targetMap,
 }: {
   sourceMap: {
-    [key: string]: ITokenFiat;
+    [key: string]: Record<string, ITokenFiat>;
   };
   targetMap: {
-    [key: string]: ITokenFiat;
+    [key: string]: Record<string, ITokenFiat>;
   };
 }) {
   const newTargetMap = { ...targetMap };
 
-  forEach(sourceMap, (value, key) => {
-    const mergedToken = newTargetMap[key];
-    if (mergedToken) {
-      mergedToken.balance = new BigNumber(mergedToken.balance)
-        .plus(value.balance)
-        .toFixed();
-      mergedToken.balanceParsed = new BigNumber(mergedToken.balanceParsed ?? 0)
-        .plus(value.balanceParsed ?? 0)
-        .toFixed();
-      mergedToken.frozenBalance = new BigNumber(mergedToken.frozenBalance ?? 0)
-        .plus(value.frozenBalance ?? 0)
-        .toFixed();
-      mergedToken.frozenBalanceParsed = new BigNumber(
-        mergedToken.frozenBalanceParsed ?? 0,
-      )
-        .plus(value.frozenBalanceParsed ?? 0)
-        .toFixed();
-      mergedToken.totalBalance = new BigNumber(mergedToken.totalBalance ?? 0)
-        .plus(value.totalBalance ?? 0)
-        .toFixed();
-      mergedToken.totalBalanceParsed = new BigNumber(
-        mergedToken.totalBalanceParsed ?? 0,
-      )
-        .plus(value.totalBalanceParsed ?? 0)
-        .toFixed();
-      mergedToken.fiatValue = new BigNumber(mergedToken.fiatValue)
-        .plus(value.fiatValue)
-        .toFixed();
-      mergedToken.frozenBalanceFiatValue = new BigNumber(
-        mergedToken.frozenBalanceFiatValue ?? 0,
-      )
-        .plus(value.frozenBalanceFiatValue ?? 0)
-        .toFixed();
-      mergedToken.totalBalanceFiatValue = new BigNumber(
-        mergedToken.totalBalanceFiatValue ?? 0,
-      )
-        .plus(value.totalBalanceFiatValue ?? 0)
-        .toFixed();
-      newTargetMap[key] = mergedToken;
+  forEach(sourceMap, (networkMap, aggregateKey) => {
+    if (newTargetMap[aggregateKey]) {
+      newTargetMap[aggregateKey] = {
+        ...newTargetMap[aggregateKey],
+        ...networkMap,
+      };
     } else {
-      newTargetMap[key] = value;
+      newTargetMap[aggregateKey] = { ...networkMap };
     }
   });
 
@@ -532,13 +514,108 @@ export const checkWrappedTokenPair = ({
   return !!fromTokenIsWrapped && !!toTokenIsWrapped;
 };
 
+export function nestAggregateTokensMap({
+  aggregateTokenMap,
+  networkId,
+}: {
+  aggregateTokenMap: Record<string, ITokenFiat>;
+  networkId: string;
+}): Record<string, Record<string, ITokenFiat>> {
+  const result: Record<string, Record<string, ITokenFiat>> = {};
+
+  Object.entries(aggregateTokenMap).forEach(([aggregateKey, tokenFiat]) => {
+    result[aggregateKey] = {
+      [networkId]: tokenFiat,
+    };
+  });
+
+  return result;
+}
+
+export function flattenAggregateTokensMap(aggregateTokensMap: {
+  [key: string]: {
+    [key: string]: ITokenFiat;
+  };
+}): { [key: string]: ITokenFiat } {
+  const result: { [key: string]: ITokenFiat } = {};
+
+  Object.entries(aggregateTokensMap).forEach(([aggregateKey, networkMap]) => {
+    const networkEntries = Object.values(networkMap);
+    if (networkEntries.length === 0) return;
+
+    const firstEntry = networkEntries[0];
+    const aggregated: ITokenFiat = {
+      balance: '0',
+      balanceParsed: '0',
+      fiatValue: '0',
+      price: firstEntry.price,
+      price24h: firstEntry.price24h,
+    };
+
+    networkEntries.forEach((tokenFiat) => {
+      aggregated.balance = new BigNumber(aggregated.balance)
+        .plus(tokenFiat.balance)
+        .toFixed();
+      aggregated.balanceParsed = new BigNumber(aggregated.balanceParsed)
+        .plus(tokenFiat.balanceParsed)
+        .toFixed();
+      aggregated.fiatValue = new BigNumber(aggregated.fiatValue)
+        .plus(tokenFiat.fiatValue)
+        .toFixed();
+
+      if (tokenFiat.frozenBalance) {
+        aggregated.frozenBalance = new BigNumber(aggregated.frozenBalance ?? 0)
+          .plus(tokenFiat.frozenBalance)
+          .toFixed();
+      }
+      if (tokenFiat.frozenBalanceParsed) {
+        aggregated.frozenBalanceParsed = new BigNumber(
+          aggregated.frozenBalanceParsed ?? 0,
+        )
+          .plus(tokenFiat.frozenBalanceParsed)
+          .toFixed();
+      }
+      if (tokenFiat.frozenBalanceFiatValue) {
+        aggregated.frozenBalanceFiatValue = new BigNumber(
+          aggregated.frozenBalanceFiatValue ?? 0,
+        )
+          .plus(tokenFiat.frozenBalanceFiatValue)
+          .toFixed();
+      }
+      if (tokenFiat.totalBalance) {
+        aggregated.totalBalance = new BigNumber(aggregated.totalBalance ?? 0)
+          .plus(tokenFiat.totalBalance)
+          .toFixed();
+      }
+      if (tokenFiat.totalBalanceParsed) {
+        aggregated.totalBalanceParsed = new BigNumber(
+          aggregated.totalBalanceParsed ?? 0,
+        )
+          .plus(tokenFiat.totalBalanceParsed)
+          .toFixed();
+      }
+      if (tokenFiat.totalBalanceFiatValue) {
+        aggregated.totalBalanceFiatValue = new BigNumber(
+          aggregated.totalBalanceFiatValue ?? 0,
+        )
+          .plus(tokenFiat.totalBalanceFiatValue)
+          .toFixed();
+      }
+    });
+
+    result[aggregateKey] = aggregated;
+  });
+
+  return result;
+}
+
 export function getMergedDeriveTokenData(params: {
   data: IFetchAccountTokensResp[];
   mergeDeriveAssetsEnabled: boolean;
 }) {
   const { data, mergeDeriveAssetsEnabled } = params;
 
-  let aggregateTokenMap: Record<string, ITokenFiat> = {};
+  let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
   let aggregateTokenListMap: Record<
     string,
     {
@@ -659,8 +736,12 @@ export function getMergedDeriveTokenData(params: {
     });
 
     if (r.aggregateTokenMap) {
-      aggregateTokenMap = mergeAggregateTokenMap({
-        sourceMap: r.aggregateTokenMap,
+      const nestedAggregateTokenMap = nestAggregateTokensMap({
+        aggregateTokenMap: r.aggregateTokenMap,
+        networkId: r.networkId ?? '',
+      });
+      aggregateTokenMap = mergeNestedAggregateTokenMap({
+        sourceMap: nestedAggregateTokenMap,
         targetMap: aggregateTokenMap,
       });
     }
@@ -690,7 +771,7 @@ export function getMergedDeriveTokenData(params: {
     ...tokenListMap,
     ...smallBalanceTokenListMap,
     ...riskyTokenListMap,
-    ...aggregateTokenMap,
+    ...flattenAggregateTokensMap(aggregateTokenMap),
   };
 
   return {
@@ -1072,4 +1153,102 @@ export function calculateAccountTokensValue({
     Object.values(tokensWorth.worth)[0] ??
     '0'
   );
+}
+
+export function validateTokenAmount({
+  token,
+  amount,
+  allowEmpty = false,
+  allowNegative = false,
+  allowZero = true,
+  minAmount,
+  maxAmount,
+  customErrorMessages,
+}: {
+  token: IToken;
+  amount: string;
+  allowEmpty?: boolean;
+  allowNegative?: boolean;
+  allowZero?: boolean;
+  minAmount?: string;
+  maxAmount?: string;
+  customErrorMessages?: {
+    emptyAmount?: string;
+    invalidAmount?: string;
+    negativeAmount?: string;
+    zeroAmount?: string;
+    minAmount?: string;
+    maxAmount?: string;
+    decimalPlaces?: string;
+  };
+}) {
+  if (isUndefined(token.decimals)) {
+    throw new OneKeyInternalError('Token decimals is required');
+  }
+
+  if (allowEmpty && isEmpty(amount)) {
+    return {
+      isValid: true,
+      error: undefined,
+    };
+  }
+
+  if (isEmpty(amount)) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.emptyAmount ?? 'Required',
+    };
+  }
+
+  const amountBN = new BigNumber(amount);
+  if (amountBN.isNaN()) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.invalidAmount ?? 'Invalid amount',
+    };
+  }
+
+  if (!allowNegative && amountBN.isNegative()) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.negativeAmount ?? 'Cannot be negative',
+    };
+  }
+
+  if (!allowZero && amountBN.isZero()) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.zeroAmount ?? 'Amount must be greater than 0',
+    };
+  }
+
+  if (minAmount && amountBN.isLessThan(minAmount)) {
+    return {
+      isValid: false,
+      error:
+        customErrorMessages?.minAmount ?? `Must be greater than ${minAmount}`,
+    };
+  }
+
+  if (maxAmount && amountBN.isGreaterThan(maxAmount)) {
+    return {
+      isValid: false,
+      error: customErrorMessages?.maxAmount ?? `Must be less than ${maxAmount}`,
+    };
+  }
+
+  const decimalPlaces = amountBN.decimalPlaces() ?? 0;
+  if (decimalPlaces > token.decimals) {
+    return {
+      isValid: false,
+      error:
+        customErrorMessages?.decimalPlaces ??
+        `Maximum ${token.decimals} decimal places`,
+    };
+  }
+
+  return {
+    isValid: true,
+    error: undefined,
+  };
 }

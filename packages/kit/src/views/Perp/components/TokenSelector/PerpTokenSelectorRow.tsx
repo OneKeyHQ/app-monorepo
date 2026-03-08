@@ -2,21 +2,30 @@ import {
   type PropsWithChildren,
   createContext,
   memo,
+  useCallback,
   useContext,
   useMemo,
 } from 'react';
 
 import {
   DebugRenderTracker,
+  IconButton,
   NumberSizeableText,
   SizableText,
   SkeletonContainer,
   Stack,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsAllAssetsFilteredAtom,
+  usePerpsTokenSearchAliasesAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   NUMBER_FORMATTER,
@@ -24,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getHyperliquidTokenImageUrl,
+  getTokenSubtitle,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
@@ -37,6 +47,7 @@ interface IPerpTokenSelectorRowProps {
   };
   onPress: (name: string) => void;
   isOnModal?: boolean;
+  skipMarkRequired?: boolean;
 }
 
 interface ITokenSelectorRowContextValue {
@@ -44,6 +55,7 @@ interface ITokenSelectorRowContextValue {
     name: string;
     displayName: string;
     dexLabel?: string;
+    subtitle?: string;
     maxLeverage: number;
     assetId: number;
   };
@@ -61,6 +73,9 @@ interface ITokenSelectorRowContextValue {
 
 const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
+
+const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
+const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 function useTokenSelectorRowContext() {
   const context = useContext(TokenSelectorRowContext);
@@ -83,9 +98,101 @@ function TokenSelectorRowProvider({
   );
 }
 
+const FavoriteButton = memo(
+  ({ coin, isMobile }: { coin: string; isMobile?: boolean }) => {
+    const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
+    const isFavorite = favorites.favorites.includes(coin);
+
+    const handleToggle = useCallback(() => {
+      const action = isFavorite ? 'remove' : 'add';
+      setFavorites((prev) => ({
+        ...prev,
+        favorites: isFavorite
+          ? prev.favorites.filter((f) => f !== coin)
+          : [...prev.favorites, coin],
+      }));
+      // Sync to Market watchlist
+      void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+        coin,
+        action,
+      });
+    }, [coin, isFavorite, setFavorites]);
+
+    return (
+      <IconButton
+        icon={isFavorite ? 'StarSolid' : 'StarOutline'}
+        variant="tertiary"
+        size="small"
+        iconProps={{
+          color: isFavorite ? '$icon' : '$iconSubdued',
+          size: isMobile ? '$5' : '$3',
+        }}
+        onPress={handleToggle}
+        stopPropagation
+      />
+    );
+  },
+);
+
+FavoriteButton.displayName = 'FavoriteButton';
+
+const SubtitleBadge = memo(
+  ({
+    subtitle,
+    maxWidth,
+    withTooltip,
+  }: {
+    subtitle: string;
+    maxWidth: number;
+    withTooltip?: boolean;
+  }) => {
+    const badge = (
+      <XStack
+        borderRadius="$1"
+        bg="$bgInfo"
+        justifyContent="center"
+        alignItems="center"
+        px="$1"
+        maxWidth={maxWidth}
+        minWidth={0}
+        overflow="hidden"
+        flexShrink={0}
+        accessibilityLabel={subtitle}
+      >
+        <SizableText
+          fontSize={10}
+          alignSelf="center"
+          color="$textInfo"
+          lineHeight={16}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          flexShrink={1}
+        >
+          {subtitle}
+        </SizableText>
+      </XStack>
+    );
+
+    if (!withTooltip) {
+      return badge;
+    }
+
+    return (
+      <Tooltip
+        placement="top"
+        hovering
+        renderTrigger={badge}
+        renderContent={subtitle}
+      />
+    );
+  },
+);
+SubtitleBadge.displayName = 'SubtitleBadge';
+
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
   const { token } = useTokenSelectorRowContext();
+  const { gtLg } = useMedia();
 
   const content = useMemo(
     () => (
@@ -99,18 +206,24 @@ const TokenInfoCellDesktop = memo(() => {
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
+          pr="$1"
+          overflow="hidden"
+          minWidth={0}
         >
+          <FavoriteButton coin={token.name} />
           <Token
             size="xs"
             borderRadius="$full"
             tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
             fallbackIcon="CryptoCoinOutline"
           />
-          <SizableText size="$bodySmMedium">{token.displayName}</SizableText>
-          <XStack gap="$1">
+          <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
+            {token.displayName}
+          </SizableText>
+          <XStack gap="$1" minWidth={0}>
             <XStack
               borderRadius="$1"
-              bg="$bgInfo"
+              bg="$bgStrong"
               justifyContent="center"
               alignItems="center"
               px="$1.5"
@@ -118,35 +231,24 @@ const TokenInfoCellDesktop = memo(() => {
               <SizableText
                 fontSize={10}
                 alignSelf="center"
-                color="$textInfo"
+                color="$textSubdued"
                 lineHeight={16}
               >
                 {token.maxLeverage}x
               </SizableText>
             </XStack>
-            {token.dexLabel ? (
-              <XStack
-                borderRadius="$1"
-                bg="$bgInfo"
-                justifyContent="center"
-                alignItems="center"
-                px="$1.5"
-              >
-                <SizableText
-                  fontSize={10}
-                  alignSelf="center"
-                  color="$textInfo"
-                  lineHeight={16}
-                >
-                  {token.dexLabel}
-                </SizableText>
-              </XStack>
+            {token.subtitle && gtLg ? (
+              <SubtitleBadge
+                subtitle={token.subtitle}
+                maxWidth={DESKTOP_SUBTITLE_MAX_WIDTH}
+                withTooltip
+              />
             ) : null}
           </XStack>
         </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, token.dexLabel],
+    [token.displayName, token.subtitle, token.maxLeverage, token.name, gtLg],
   );
   return content;
 });
@@ -337,7 +439,7 @@ const TokenSelectorRowDesktop = memo(() => {
           px="$4"
           py="$3"
           flex={1}
-          cursor="pointer"
+          cursor="default"
         >
           <TokenInfoCellDesktop />
           <TokenPriceCellDesktop />
@@ -366,15 +468,18 @@ const TokenImageMobile = memo(() => {
         name="TokenImageMobile"
         offsetY={10}
       >
-        <Token
-          size="lg"
-          borderRadius="$full"
-          tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
-          fallbackIcon="CryptoCoinOutline"
-        />
+        <XStack gap="$2" alignItems="center">
+          <FavoriteButton coin={token.name} isMobile />
+          <Token
+            size="lg"
+            borderRadius="$full"
+            tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
+            fallbackIcon="CryptoCoinOutline"
+          />
+        </XStack>
       </DebugRenderTracker>
     ),
-    [token.displayName],
+    [token.displayName, token.name],
   );
   return content;
 });
@@ -391,30 +496,14 @@ const TokenNameMobile = memo(() => {
         name="TokenNameMobile"
         offsetY={10}
       >
-        <XStack gap="$1.5" alignItems="center" justifyContent="center">
-          <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
+        <YStack gap="$0">
+          <XStack gap="$1.5" alignItems="center" justifyContent="center">
+            <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
 
-          <XStack gap="$1">
-            <XStack
-              borderRadius="$1"
-              bg="$bgInfo"
-              justifyContent="center"
-              alignItems="center"
-              px="$1.5"
-            >
-              <SizableText
-                fontSize={10}
-                alignSelf="center"
-                color="$textInfo"
-                lineHeight={16}
-              >
-                {token.maxLeverage}x
-              </SizableText>
-            </XStack>
-            {token.dexLabel ? (
+            <XStack gap="$1">
               <XStack
                 borderRadius="$1"
-                bg="$bgInfo"
+                bg="$bgStrong"
                 justifyContent="center"
                 alignItems="center"
                 px="$1.5"
@@ -422,18 +511,24 @@ const TokenNameMobile = memo(() => {
                 <SizableText
                   fontSize={10}
                   alignSelf="center"
-                  color="$textInfo"
+                  color="$textSubdued"
                   lineHeight={16}
                 >
-                  {token.dexLabel}
+                  {token.maxLeverage}x
                 </SizableText>
               </XStack>
-            ) : null}
+              {token.subtitle ? (
+                <SubtitleBadge
+                  subtitle={token.subtitle}
+                  maxWidth={MOBILE_SUBTITLE_MAX_WIDTH}
+                />
+              ) : null}
+            </XStack>
           </XStack>
-        </XStack>
+        </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.maxLeverage, token.dexLabel],
+    [token.displayName, token.subtitle, token.maxLeverage],
   );
   return content;
 });
@@ -553,11 +648,11 @@ const TokenSelectorRowMobile = memo(() => {
           justifyContent="space-between"
           alignItems="center"
           onPress={onPress}
-          cursor="pointer"
           pressStyle={{
             bg: '$bgHover',
           }}
-          gap="$4"
+          gap="$2.5"
+          cursor="default"
         >
           <TokenImageMobile />
           <XStack gap="$2" alignItems="center" justifyContent="center">
@@ -582,8 +677,14 @@ const TokenSelectorRowMobile = memo(() => {
 TokenSelectorRowMobile.displayName = 'TokenSelectorRowMobile';
 
 const PerpTokenSelectorRow = memo(
-  ({ mockedToken, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
+  ({
+    mockedToken,
+    onPress,
+    isOnModal,
+    skipMarkRequired,
+  }: IPerpTokenSelectorRowProps) => {
     const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
+    const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
     const tokensByDex = filteredAssets.assetsByDex || [];
     const assets: IPerpsUniverse[] = tokensByDex[mockedToken.dexIndex] || [];
     const token: IPerpsUniverse | undefined = assets[mockedToken.index];
@@ -593,6 +694,7 @@ const PerpTokenSelectorRow = memo(
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
+      skipMarkRequired,
     });
 
     const handlePress = useMemo(
@@ -603,6 +705,10 @@ const PerpTokenSelectorRow = memo(
     );
 
     const parsed = useMemo(() => parseDexCoin(tokenName), [tokenName]);
+    const subtitle = useMemo(
+      () => getTokenSubtitle(tokenName, tokenSearchAliases),
+      [tokenName, tokenSearchAliases],
+    );
 
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({
@@ -610,6 +716,7 @@ const PerpTokenSelectorRow = memo(
           name: tokenName,
           displayName: parsed.displayName,
           dexLabel: parsed.dexLabel,
+          subtitle,
           maxLeverage: tokenMaxLeverage,
           assetId: tokenAssetId,
         },
@@ -630,6 +737,7 @@ const PerpTokenSelectorRow = memo(
         tokenAssetId,
         parsed.displayName,
         parsed.dexLabel,
+        subtitle,
         assetCtx,
         isLoading,
         handlePress,

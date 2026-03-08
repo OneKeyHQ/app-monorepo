@@ -113,8 +113,9 @@ export type IOnboardingParamList = {
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: {
     mnemonic?: string;
-    mnemonicType?: EMnemonicType;
+    mnemonicType?: EMnemonicType; // bip39 or ton
     isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
   };
 
   // device management guide page

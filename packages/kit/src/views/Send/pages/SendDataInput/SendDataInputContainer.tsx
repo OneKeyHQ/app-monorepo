@@ -14,7 +14,7 @@ import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
 import { isEmpty, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
+import { InputAccessoryView, Keyboard } from 'react-native';
 
 import type {
   IFormMode,
@@ -22,6 +22,7 @@ import type {
   UseFormReturn,
 } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   Dialog,
   Form,
@@ -99,6 +100,7 @@ import {
   getAccountIdOnNetwork,
   parseOnChainAmount,
 } from '../../../ScanQrCode/hooks/useParseQRCode';
+import { showSimilarAddressDialog } from '../../../SignatureConfirm/components/SimilarAddressDialog';
 import CoinControlBadge from '../../components/CoinControlBadge';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
@@ -239,6 +241,7 @@ function SendDataInputContainer() {
     numericOnlyMemo,
     displayNoteForm,
     noteMaxLength,
+    supportsMemoValidation,
     displayTxMessageForm,
   ] = useMemo(() => {
     return [
@@ -248,6 +251,7 @@ function SendDataInputContainer() {
       vaultSettings?.numericOnlyMemo,
       vaultSettings?.withNote,
       vaultSettings?.noteMaxLength,
+      vaultSettings?.supportMemoValidation,
       vaultSettings?.withTxMessage,
     ];
   }, [vaultSettings]);
@@ -396,6 +400,7 @@ function SendDataInputContainer() {
   const toAddressRaw = form.watch('to.raw');
   const nftAmount = form.watch('nftAmount');
   const toIsContract = form.watch('to.isContract');
+  const toSimilarAddress = form.watch('to.similarAddress');
 
   const linkedAmount = useMemo(() => {
     let amountBN = new BigNumber(amount ?? 0);
@@ -482,11 +487,17 @@ function SendDataInputContainer() {
     };
   }, [networkId, toResolved, form]);
 
+  // Use ref to break the dependency chain: amount → linkedAmount → handleOnChangeAmountMode → renderTokenDataInputForm → rules.
+  // Without this, linkedAmount (a new object on every keystroke) causes rules to be recreated,
+  // which triggers Controller re-registration and async re-validation, leading to intermittent input focus loss on web.
+  const linkedAmountRef = useRef(linkedAmount);
+  linkedAmountRef.current = linkedAmount;
+
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
 
-    form.setValue('amount', linkedAmount.originalAmount);
-  }, [form, linkedAmount]);
+    form.setValue('amount', linkedAmountRef.current.originalAmount);
+  }, [form]);
   const handleOnSelectToken = useCallback(() => {
     if (isSelectTokenDisabled) return;
     navigation.pushModal(EModalRoutes.AssetSelectorModal, {
@@ -638,7 +649,37 @@ function SendDataInputContainer() {
           if (!account) return;
           const toAddress = form.getValues('to').resolved;
           const isToContract = form.getValues('to').isContract;
+          const similarAddress = form.getValues('to').similarAddress;
           if (!toAddress) return;
+
+          if (similarAddress) {
+            const [similarAddressValidation, toAddressValidation] =
+              await Promise.all([
+                backgroundApiProxy.serviceValidator.localValidateAddress({
+                  networkId: currentAccount.networkId,
+                  address: similarAddress,
+                }),
+                backgroundApiProxy.serviceValidator.localValidateAddress({
+                  networkId: currentAccount.networkId,
+                  address: toAddress,
+                }),
+              ]);
+            try {
+              await showSimilarAddressDialog({
+                similarAddress:
+                  similarAddressValidation.displayAddress ||
+                  similarAddressValidation.normalizedAddress ||
+                  similarAddress,
+                currentAddress:
+                  toAddressValidation.displayAddress ||
+                  toAddressValidation.normalizedAddress ||
+                  toAddress,
+              });
+            } catch (e) {
+              console.error('showSimilarAddressDialog error', e);
+              return;
+            }
+          }
 
           let realAmount = amount;
 
@@ -758,6 +799,7 @@ function SendDataInputContainer() {
     [
       account,
       amount,
+      currentAccount.networkId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
       displayTxMessageForm,
@@ -836,10 +878,10 @@ function SendDataInputContainer() {
       const isNative = tokenDetails?.info.isNative;
 
       const minTransferAmount = isNative
-        ? vaultSettings?.nativeMinTransferAmount ??
+        ? (vaultSettings?.nativeMinTransferAmount ??
           vaultSettings?.minTransferAmount ??
-          '0'
-        : vaultSettings?.minTransferAmount ?? '0';
+          '0')
+        : (vaultSettings?.minTransferAmount ?? '0');
 
       if (isUseFiat) {
         // Use effective balance (considers selected UTXOs)
@@ -1030,6 +1072,67 @@ function SendDataInputContainer() {
     [isLightningNetwork, isUseFiat, lnUnit],
   );
 
+  const handleAmountOnChange = useCallback(
+    (e: { target: { name: string; value: string } }) => {
+      setIsMaxSend(false);
+      const value = e.target?.value;
+      const valueBN = new BigNumber(value ?? 0);
+
+      if (valueBN.isNaN()) {
+        const formattedValue = isIntegerAmount
+          ? Number.parseInt(value, 10)
+          : Number.parseFloat(value);
+        form.setValue(
+          'amount',
+          isNaN(formattedValue) ? '' : String(formattedValue),
+        );
+        return;
+      }
+
+      if (isIntegerAmount) {
+        form.setValue('amount', valueBN.toFixed(0));
+        return;
+      }
+
+      let decimals = tokenDetails?.info.decimals ?? 0;
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        decimals = chainValueUtils.getLightningAmountDecimals({
+          lnUnit,
+          decimals,
+        });
+      }
+
+      const dp = valueBN.decimalPlaces();
+      if (!isUseFiat && dp && dp > decimals) {
+        form.setValue(
+          'amount',
+          valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
+        );
+      }
+    },
+    [
+      form,
+      isIntegerAmount,
+      isUseFiat,
+      tokenDetails?.info.decimals,
+      isLightningNetwork,
+      lnUnit,
+    ],
+  );
+
+  // Use ref to avoid recreating amountRules when effectiveBalance/price/fiatValue refresh in the background.
+  const handleValidateTokenAmountRef = useRef(handleValidateTokenAmount);
+  handleValidateTokenAmountRef.current = handleValidateTokenAmount;
+
+  const amountRules = useMemo(
+    () => ({
+      required: true,
+      validate: (value: string) => handleValidateTokenAmountRef.current(value),
+      onChange: handleAmountOnChange,
+    }),
+    [handleAmountOnChange],
+  );
+
   const selectedTokenSymbol = useMemo(() => {
     if (isNFT) {
       return nft?.metadata?.name;
@@ -1157,47 +1260,7 @@ function SendDataInputContainer() {
         <Form.Field
           name="amount"
           label={intl.formatMessage({ id: ETranslations.send_amount })}
-          rules={{
-            required: true,
-            validate: handleValidateTokenAmount,
-            onChange: (e: { target: { name: string; value: string } }) => {
-              setIsMaxSend(false);
-              const value = e.target?.value;
-              const valueBN = new BigNumber(value ?? 0);
-
-              if (valueBN.isNaN()) {
-                const formattedValue = isIntegerAmount
-                  ? Number.parseInt(value, 10)
-                  : Number.parseFloat(value);
-                form.setValue(
-                  'amount',
-                  isNaN(formattedValue) ? '' : String(formattedValue),
-                );
-                return;
-              }
-
-              if (isIntegerAmount) {
-                form.setValue('amount', valueBN.toFixed(0));
-                return;
-              }
-
-              let decimals = tokenDetails?.info.decimals ?? 0;
-              if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
-                decimals = chainValueUtils.getLightningAmountDecimals({
-                  lnUnit,
-                  decimals,
-                });
-              }
-
-              const dp = valueBN.decimalPlaces();
-              if (!isUseFiat && dp && dp > decimals) {
-                form.setValue(
-                  'amount',
-                  valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
-                );
-              }
-            },
-          }}
+          rules={amountRules}
           labelAddon={renderAmountInputAddOn()}
         >
           <AmountInput
@@ -1218,7 +1281,7 @@ function SendDataInputContainer() {
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-              value: linkedAmount.originalAmount,
+              value: linkedAmountRef.current.originalAmount,
               onPress: handleOnChangeAmountMode,
             }}
             inputProps={{
@@ -1268,24 +1331,21 @@ function SendDataInputContainer() {
       </>
     ),
     [
+      amountRules,
       currencySymbol,
       currentAccount.accountId,
       currentAccount.networkId,
       form,
       handleOnChangeAmountMode,
       handleOnSelectToken,
-      handleValidateTokenAmount,
       hasFrozenBalance,
       hidePercentToolbar,
       intl,
       isIntegerAmount,
-      isLightningNetwork,
       isLoadingAssets,
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
-      linkedAmount.originalAmount,
-      lnUnit,
       maxBalance,
       maxBalanceFiat,
       network?.isCustomNetwork,
@@ -1295,7 +1355,6 @@ function SendDataInputContainer() {
       renderAmountInputAddOn,
       selectedTokenSymbol,
       showPercentToolbar,
-      tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
       tokenSymbol,
     ],
@@ -1354,15 +1413,47 @@ function SendDataInputContainer() {
     return null;
   }, [form, intl, isLoadingAssets, nft?.collectionType, nftDetails?.amount]);
 
+  const validateMemoField = useCallback(
+    async (value: string): Promise<string | undefined> => {
+      if (vaultSettings?.supportMemoValidation) {
+        try {
+          const result = await backgroundApiProxy.serviceSend.validateMemo({
+            networkId: currentAccount.networkId,
+            accountId: currentAccount.accountId,
+            memo: value,
+          });
+          if (!result.isValid) {
+            return result.errorMessage;
+          }
+          return undefined;
+        } catch (error) {
+          console.error('Vault memo validation failed:', error);
+        }
+      }
+
+      const validateErrMsg = numericOnlyMemo
+        ? intl.formatMessage({
+            id: ETranslations.send_field_only_integer,
+          })
+        : undefined;
+      const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
+
+      if (!value || !memoRegExp) return undefined;
+      const result = !memoRegExp.test(value);
+      return result ? validateErrMsg : undefined;
+    },
+    [
+      currentAccount.accountId,
+      currentAccount.networkId,
+      intl,
+      numericOnlyMemo,
+      vaultSettings?.supportMemoValidation,
+    ],
+  );
+
   const renderMemoForm = useCallback(() => {
     if (!displayMemoForm) return null;
     const maxLength = memoMaxLength || 256;
-    const validateErrMsg = numericOnlyMemo
-      ? intl.formatMessage({
-          id: ETranslations.send_field_only_integer,
-        })
-      : undefined;
-    const memoRegExp = numericOnlyMemo ? /^[0-9]+$/ : undefined;
 
     return (
       <>
@@ -1371,22 +1462,20 @@ function SendDataInputContainer() {
           optional
           name="memo"
           rules={{
-            maxLength: {
-              value: maxLength,
-              message: intl.formatMessage(
-                {
-                  id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+            maxLength: supportsMemoValidation
+              ? undefined
+              : {
+                  value: maxLength,
+                  message: intl.formatMessage(
+                    {
+                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                    },
+                    {
+                      number: maxLength,
+                    },
+                  ),
                 },
-                {
-                  number: maxLength,
-                },
-              ),
-            },
-            validate: (value) => {
-              if (!value || !memoRegExp) return undefined;
-              const result = !memoRegExp.test(value);
-              return result ? validateErrMsg : undefined;
-            },
+            validate: validateMemoField,
           }}
         >
           <TextArea
@@ -1399,7 +1488,14 @@ function SendDataInputContainer() {
         </Form.Field>
       </>
     );
-  }, [displayMemoForm, intl, media.gtMd, memoMaxLength, numericOnlyMemo]);
+  }, [
+    displayMemoForm,
+    intl,
+    media.gtMd,
+    memoMaxLength,
+    supportsMemoValidation,
+    validateMemoField,
+  ]);
 
   const renderPaymentIdForm = useCallback(() => {
     if (!displayPaymentIdForm) return null;
@@ -1696,11 +1792,17 @@ function SendDataInputContainer() {
         calcPercentBalance({
           balance: isUseFiat ? maxBalanceFiat : maxBalance,
           percent,
-          decimals: token?.decimals,
+          // eslint-disable-next-line no-nested-ternary
+          decimals: isUseFiat
+            ? 6
+            : percent === 100
+              ? tokenInfo?.decimals
+              : Math.min(tokenInfo?.decimals ?? 6, 6),
         }),
       );
+      Keyboard.dismiss();
     },
-    [form, isUseFiat, maxBalance, maxBalanceFiat, token?.decimals],
+    [form, isUseFiat, maxBalance, maxBalanceFiat, tokenInfo?.decimals],
   );
 
   const inputAddressFieldState = form.getFieldState('to');
@@ -1816,7 +1918,17 @@ function SendDataInputContainer() {
               onInputTypeChange={handleAddressInputChangeType}
               onExtraDataChange={handleAddressInputExtraDataChange}
               hideNonBackedUpWallet
+              ignoreSimilarAddressInAddressBook
+              enableCheckSimilarAddressInAddressBook
             />
+            {toSimilarAddress ? (
+              <Alert
+                type="warning"
+                title={intl.formatMessage({
+                  id: ETranslations.wallet_address_poisoning_alert,
+                })}
+              />
+            ) : null}
             {shouldShowRecentRecipients ? (
               <RecentRecipients
                 accountId={currentAccount.accountId}

@@ -17,6 +17,7 @@ import {
   useContractMapAtom,
   useSearchKeyAtom,
   useSearchNetworkAtom,
+  useTokenMapAtom,
 } from '../../states/jotai/contexts/approvalList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
@@ -67,6 +68,7 @@ function ApprovalListViewCmp(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [searchNetwork] = useSearchNetworkAtom();
   const [{ contractMap }] = useContractMapAtom();
+  const [{ tokenMap }] = useTokenMapAtom();
 
   const {
     ListHeaderComponentStyle,
@@ -110,8 +112,16 @@ function ApprovalListViewCmp(props: IProps) {
   }, [approvalListState.initialized, approvalListState.isRefreshing]);
 
   const EmptyComponentElement = useMemo(() => {
+    if (showSkeleton) {
+      return (
+        <YStack style={{ flex: 1 }}>
+          <ListLoading isTokenSelectorView={!tableLayout} />
+        </YStack>
+      );
+    }
+
     return <EmptyApproval />;
-  }, []);
+  }, [showSkeleton, tableLayout]);
 
   const filteredApprovals = useMemo(() => {
     let _filteredApprovals = approvals;
@@ -172,22 +182,19 @@ function ApprovalListViewCmp(props: IProps) {
     }
   }, []);
 
-  if (showSkeleton) {
-    return (
-      <YStack style={{ flex: 1 }}>
-        <ListLoading isTokenSelectorView={!tableLayout} />
-      </YStack>
-    );
-  }
-
   return (
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      showsVerticalScrollIndicator={false}
       ref={ListComponentRef as any}
+      nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        !platformEnv.isNativeAndroid && onRefresh ? (
+          <PullToRefresh onRefresh={onRefresh} />
+        ) : undefined
       }
+      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       extraData={filteredApprovals?.length ?? 0}
       data={filteredApprovals}
       contentContainerStyle={resolvedContentContainerStyle as any}
@@ -199,6 +206,8 @@ function ApprovalListViewCmp(props: IProps) {
           <ApprovalListHeader
             recomputeLayout={recomputeLayout}
             hideRiskOverview={hideRiskOverview}
+            tokenMap={tokenMap}
+            contractMap={contractMap}
           />
         ) : null
       }
@@ -223,6 +232,7 @@ const ApprovalListView = memo((props: IProps) => {
     return {
       accountId: props.accountId,
       networkId: props.networkId,
+      indexedAccountId: props.indexedAccountId,
       tableLayout: props.tableLayout,
       hideRiskBadge: props.hideRiskBadge,
       selectDisabled: props.selectDisabled,
@@ -230,6 +240,7 @@ const ApprovalListView = memo((props: IProps) => {
     };
   }, [
     props.accountId,
+    props.indexedAccountId,
     props.hideRiskBadge,
     props.networkId,
     props.selectDisabled,

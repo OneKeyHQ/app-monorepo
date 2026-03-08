@@ -98,9 +98,8 @@ class ProviderApiPolkadot extends ProviderApiBase {
       return true;
     }
 
-    const res = await this.backgroundApi.serviceDApp.openConnectionModal(
-      request,
-    );
+    const res =
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
 
     return !!res;
   }
@@ -132,9 +131,8 @@ class ProviderApiPolkadot extends ProviderApiBase {
       if (await this.account(request)) {
         return true;
       }
-      const res = await this.backgroundApi.serviceDApp.openConnectionModal(
-        request,
-      );
+      const res =
+        await this.backgroundApi.serviceDApp.openConnectionModal(request);
       return !!res;
     });
   }

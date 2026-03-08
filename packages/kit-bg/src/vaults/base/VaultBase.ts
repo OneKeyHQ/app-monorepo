@@ -126,6 +126,7 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
+  IBuildLMSwapEncodedTxParams,
   IBuildOkxSwapEncodedTxParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
@@ -146,7 +147,6 @@ export type IVaultInitConfig = {
 export type IKeyringMapKey = IDBWalletType;
 
 if (platformEnv.isExtensionUi) {
-  debugger;
   throw new OneKeyLocalError(
     'engine/VaultBase is not allowed imported from ui',
   );
@@ -190,6 +190,19 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation>;
+
+  /**
+   * Validate memo/tag field (optional, chain-specific implementation)
+   * @param memo - The memo string to validate
+   * @returns Validation result with error message if invalid
+   */
+  async validateMemo(memo: string): Promise<{
+    isValid: boolean;
+    errorMessage?: string;
+  }> {
+    // Default implementation: always valid (chains can override)
+    return { isValid: true };
+  }
 
   async baseValidatePrivateKey(
     privateKey: string,
@@ -412,9 +425,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
     const { signedTx } = params;
-    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(
-      params,
-    );
+    const txid =
+      await this.backgroundApi.serviceSend.broadcastTransaction(params);
     return {
       ...signedTx,
       txid,
@@ -665,7 +677,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       );
     }
 
-    const key = `${accountId}`;
+    const key = accountId;
     let dbAccount: IDBAccount | undefined;
     if (dbAccountCache) {
       await this.mutexBuildOnChainHistoryTxGetDBAccount.runExclusive(
@@ -998,8 +1010,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const { swapData, swapInfo, swapToAddress } = params;
     const swapSendToken = swapInfo.sender.token;
     const swapReceiveToken = swapInfo.receiver.token;
-    const providerInfo = swapInfo.swapBuildResData.result.info;
-    const otherFeeInfos = swapInfo.swapBuildResData.result.fee?.otherFeeInfos;
+    const providerInfo = swapInfo.swapBuildResData.result?.info;
+    const otherFeeInfos = swapInfo.swapBuildResData.result?.fee?.otherFeeInfos;
     const otherFeeInfoTransfers: IDecodedTxTransferInfo[] = [];
 
     let transfers: IDecodedTxTransferInfo[] = [
@@ -1058,10 +1070,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       from: swapInfo.accountAddress,
       to: swapToAddress ?? '',
       data: swapData,
-      application: {
-        name: providerInfo.providerName,
-        icon: providerInfo.providerLogo ?? '',
-      },
+      application: providerInfo
+        ? {
+            name: providerInfo.providerName,
+            icon: providerInfo.providerLogo ?? '',
+          }
+        : undefined,
       isInternalSwap: true,
       swapReceivedAddress: swapInfo.receivingAddress,
       swapReceivedNetworkId: swapInfo.receiver.token.networkId,
@@ -1289,7 +1303,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(params.encodedTx);
   }
 
-  async activateToken(params: { token: IAccountToken }): Promise<boolean> {
+  async activateToken(params: { token: IAccountToken }): Promise<{
+    token?: IAccountToken;
+    isActivated: boolean;
+  }> {
     throw new NotImplemented();
   }
 
@@ -1477,6 +1494,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async buildOkxSwapEncodedTx(
     params: IBuildOkxSwapEncodedTxParams,
+  ): Promise<IEncodedTx> {
+    throw new NotImplemented();
+  }
+
+  async buildLiquidMeshSwapEncodedTx(
+    params: IBuildLMSwapEncodedTxParams,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }

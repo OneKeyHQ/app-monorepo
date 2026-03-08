@@ -11,7 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  useIsModalPage,
+  useIsOverlayPage,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -378,7 +378,7 @@ export function MarketDetailOverview({
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   return (
     <YStack
       pb="$10"

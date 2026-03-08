@@ -4,13 +4,20 @@ import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
 import { Divider } from '../../content';
-import { ListView } from '../../layouts';
-import { SizableText, XStack, YStack } from '../../primitives';
+import { ListView, ScrollView } from '../../layouts';
+import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
 
 import type { IListViewRef } from '../../layouts';
-import type { IYStackProps } from '../../primitives';
+import type { ISizableTextProps, IYStackProps } from '../../primitives';
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
+
+export type ITabBarVariant = 'default' | 'pill';
 
 export function TabBarItem({
   name,
@@ -18,32 +25,66 @@ export function TabBarItem({
   onPress,
   tabItemStyle,
   focusedTabStyle,
+  variant = 'default',
+  textSize,
 }: {
   name: string;
   isFocused: boolean;
   onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
+  variant?: ITabBarVariant;
+  textSize?: ISizableTextProps['size'];
 }) {
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
+
+  const resolvedTextSize = textSize ?? '$bodyLgMedium';
+
+  if (variant === 'pill') {
+    return (
+      <YStack
+        ai="center"
+        jc="center"
+        px="$3.5"
+        py="$1.5"
+        borderRadius="$full"
+        bg={isFocused ? '$bgPrimary' : '$bgStrong'}
+        hoverStyle={isFocused ? undefined : { bg: '$bgHover' }}
+        pressStyle={isFocused ? undefined : { bg: '$bgActive' }}
+        key={name}
+        onPress={handlePress}
+        cursor="default"
+        {...tabItemStyle}
+        {...(isFocused ? focusedTabStyle : undefined)}
+      >
+        <SizableText
+          size={resolvedTextSize}
+          color={isFocused ? '$textInverse' : '$text'}
+          userSelect="none"
+        >
+          {name}
+        </SizableText>
+      </YStack>
+    );
+  }
+
   return (
     <YStack
       h={44}
       // minWidth={52}
       ai="center"
       jc="center"
-      ml={20}
+      ml="$pagePadding"
       key={name}
-      cursor="pointer"
       onPress={handlePress}
       position="relative"
       {...tabItemStyle}
       {...(isFocused ? focusedTabStyle : undefined)}
     >
       <SizableText
-        size="$bodyLgMedium"
+        size={resolvedTextSize}
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {name}
@@ -74,6 +115,86 @@ export interface ITabBarItemProps {
   onPress: (name: string) => void;
   tabItemStyle?: IYStackProps;
   focusedTabStyle?: IYStackProps;
+  variant?: ITabBarVariant;
+  textSize?: ISizableTextProps['size'];
+}
+
+const PILL_GRADIENT_THRESHOLD = 2;
+
+function PillTabBarContent({
+  tabItems,
+  renderToolbar,
+}: {
+  tabItems: React.ReactNode;
+  renderToolbar?: React.ReactNode;
+}) {
+  const [showLeft, setShowLeft] = useState(false);
+  const [showRight, setShowRight] = useState(false);
+  const scrollStateRef = useRef({
+    scrollX: 0,
+    containerWidth: 0,
+    contentWidth: 0,
+  });
+
+  const updateGradientVisibility = useCallback(() => {
+    const { scrollX, containerWidth, contentWidth } = scrollStateRef.current;
+    const newShowLeft = scrollX > PILL_GRADIENT_THRESHOLD;
+    const newShowRight =
+      contentWidth > containerWidth &&
+      scrollX < contentWidth - containerWidth - PILL_GRADIENT_THRESHOLD;
+
+    setShowLeft((prev) => (prev !== newShowLeft ? newShowLeft : prev));
+    setShowRight((prev) => (prev !== newShowRight ? newShowRight : prev));
+  }, []);
+
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollStateRef.current.scrollX = e.nativeEvent.contentOffset.x;
+      updateGradientVisibility();
+    },
+    [updateGradientVisibility],
+  );
+
+  const handleLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      scrollStateRef.current.containerWidth = e.nativeEvent.layout.width;
+      updateGradientVisibility();
+    },
+    [updateGradientVisibility],
+  );
+
+  const handleContentSizeChange = useCallback(
+    (width: number) => {
+      scrollStateRef.current.contentWidth = width;
+      updateGradientVisibility();
+    },
+    [updateGradientVisibility],
+  );
+
+  return (
+    <XStack ai="center" jc="space-between">
+      <XStack position="relative" flexShrink={1}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={handleScroll}
+          onLayout={handleLayout}
+          onContentSizeChange={handleContentSizeChange}
+          contentContainerStyle={{
+            gap: '$2',
+            px: '$pagePadding',
+            py: '$2',
+          }}
+        >
+          {tabItems}
+        </ScrollView>
+        <GradientMask position="left" opacity={showLeft ? 1 : 0} />
+        <GradientMask position="right" opacity={showRight ? 1 : 0} />
+      </XStack>
+      {renderToolbar}
+    </XStack>
+  );
 }
 
 // Prevent pager scroll event callbacks from modifying tabbar selected state
@@ -91,6 +212,8 @@ export function TabBar({
   // eslint-disable-next-line react/prop-types
   containerStyle,
   scrollable = false,
+  variant = 'default',
+  textSize,
 }: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
   focusedTab: SharedValue<string>;
   tabNames: string[];
@@ -100,6 +223,8 @@ export function TabBar({
   focusedTabStyle?: IYStackProps;
   renderItem?: (props: ITabBarItemProps, index: number) => React.ReactNode;
   scrollable?: boolean;
+  variant?: ITabBarVariant;
+  textSize?: ISizableTextProps['size'];
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -144,6 +269,8 @@ export function TabBar({
     },
   );
 
+  const isPill = variant === 'pill';
+
   const tabItems = useMemo(() => {
     return tabNames.map((name, index) =>
       renderItem ? (
@@ -154,6 +281,8 @@ export function TabBar({
             onPress: handleTabPress,
             tabItemStyle,
             focusedTabStyle,
+            variant,
+            textSize,
           },
           index,
         )
@@ -165,6 +294,8 @@ export function TabBar({
           onPress={handleTabPress}
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
+          variant={variant}
+          textSize={textSize}
         />
       ),
     );
@@ -175,10 +306,20 @@ export function TabBar({
     renderItem,
     tabItemStyle,
     tabNames,
+    textSize,
+    variant,
   ]);
   const content = useMemo(() => {
     if (scrollable) {
       return null;
+    }
+    if (isPill) {
+      return (
+        <PillTabBarContent
+          tabItems={tabItems}
+          renderToolbar={renderToolbar?.({ focusedTab: currentTab })}
+        />
+      );
     }
     return (
       <>
@@ -189,7 +330,7 @@ export function TabBar({
         {divider ? <Divider /> : null}
       </>
     );
-  }, [currentTab, divider, renderToolbar, scrollable, tabItems]);
+  }, [currentTab, divider, isPill, renderToolbar, scrollable, tabItems]);
 
   const handleRenderItem = useCallback(
     ({ item, index }: { item: string; index: number }) => {
@@ -202,6 +343,8 @@ export function TabBar({
             onPress: onTabPress,
             tabItemStyle,
             focusedTabStyle,
+            variant,
+            textSize,
           },
           index,
         )
@@ -213,10 +356,20 @@ export function TabBar({
           onPress={onTabPress}
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
+          variant={variant}
+          textSize={textSize}
         />
       );
     },
-    [currentTab, focusedTabStyle, onTabPress, renderItem, tabItemStyle],
+    [
+      currentTab,
+      focusedTabStyle,
+      onTabPress,
+      renderItem,
+      tabItemStyle,
+      textSize,
+      variant,
+    ],
   );
 
   return scrollable ? (
@@ -253,7 +406,6 @@ export function TabBar({
   ) : (
     <YStack
       userSelect="none"
-      cursor="pointer"
       pointerEvents="box-none"
       bg="$bgApp"
       className="onekey-tabs-header"

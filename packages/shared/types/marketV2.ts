@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 export interface IMarketTokenDetail {
   address: string;
   logoUrl: string;
@@ -182,6 +181,7 @@ export interface IMarketTokenListItem {
   liquidity?: string;
   chainId?: string;
   communityRecognized?: boolean;
+  isNative?: boolean;
 }
 
 export interface IMarketTokenListResponse {
@@ -233,6 +233,7 @@ export interface IMarketTokenTransactionsResponse {
 export interface IMarketAccountTokenTransactionParty {
   amount: string;
   address: string;
+  symbol: string;
 }
 
 export interface IMarketAccountTokenTransaction {
@@ -316,6 +317,17 @@ export interface IMarketBasicConfigFeature {
   [key: string]: unknown;
 }
 
+export interface IMarketBasicConfigLowLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+}
+
+export interface IMarketBasicConfigHyperLiquidKlineSourceToken {
+  networkId: string;
+  tokenAddress: string;
+  symbol: string;
+}
+
 export interface IMarketBasicConfigData {
   tradingViewUrl: string;
   networkList: IMarketBasicConfigNetwork[];
@@ -327,6 +339,40 @@ export interface IMarketBasicConfigData {
     [networkId: string]: IMarketBasicConfigNetworkFeature;
   };
   feature?: IMarketBasicConfigFeature;
+  lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
+  HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
+  perpsCategories?: IMarketPerpsCategory[];
+}
+
+export interface IMarketPerpsCategory {
+  /** Unique category identifier, e.g. "crypto", "stock", "commodity" */
+  categoryId: string;
+  /** Localized display name, e.g. "Crypto", "Stocks" */
+  name: string;
+}
+
+export interface IMarketPerpsTokenFromServer {
+  name: string;
+  displayName: string;
+  maxLeverage: number;
+  tokenImageUrl: string;
+  markPrice: string;
+  prevDayPrice: string;
+  change24hPercent: number;
+  volume24h: string;
+  openInterest: string;
+  fundingRate: string;
+}
+
+export interface IMarketPerpsTokenListData {
+  tokens: IMarketPerpsTokenFromServer[];
+  updatedAt: number;
+}
+
+export interface IMarketPerpsTokenListResponse {
+  code: number;
+  message: string;
+  data: IMarketPerpsTokenListData;
 }
 
 export interface IMarketBasicConfigResponse {
@@ -340,9 +386,14 @@ export interface IMarketTokenDetailWebsocket {
   kline: boolean;
 }
 
+export interface IMarketPerpsInfo {
+  hlTicker: string;
+}
+
 export interface IMarketTokenDetailData {
   token: IMarketTokenDetail;
   websocket: IMarketTokenDetailWebsocket;
+  perpsInfo?: IMarketPerpsInfo;
 }
 
 export interface IMarketTokenDetailResponse {
@@ -365,6 +416,11 @@ export interface IMarketAccountPortfolioResponse {
 }
 
 // Banner types
+export enum EMarketBannerType {
+  Ticker = 'ticker',
+  Perps = 'perps',
+}
+
 export interface IMarketBannerDescription {
   text: string;
   fontColor: string;
@@ -381,6 +437,7 @@ export interface IMarketBannerItem {
   tokenListId: string;
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
+  type?: EMarketBannerType;
 }
 
 export interface IMarketBannerListResponse {

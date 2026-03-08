@@ -117,6 +117,7 @@ export interface ISwapInitParams {
   importToToken?: ISwapToken;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
+  fromAmount?: string;
 }
 
 // token & network
@@ -151,6 +152,17 @@ export interface ISwapTokenBase {
   speedSwapDefaultAmount?: number[];
 }
 
+export interface IFreeFeeTokenItem {
+  networkId: string;
+  contractAddress: string;
+  symbol: string;
+}
+
+export interface IFreeFeeObject {
+  tokenList: IFreeFeeTokenItem[];
+  tag: string;
+}
+
 export interface ISwapToken extends ISwapTokenBase {
   balanceParsed?: string;
   price?: string;
@@ -164,6 +176,8 @@ export interface ISwapToken extends ISwapTokenBase {
 
   isPopular?: boolean;
   isWrapped?: boolean;
+
+  freeFeeObject?: IFreeFeeObject;
 }
 
 export interface ISwapTokenCatch {
@@ -347,6 +361,7 @@ export interface IQuoteTip {
   icon?: string;
   title?: string;
   detail?: string;
+  showCancelButton?: boolean;
   link?: string;
 }
 
@@ -623,6 +638,7 @@ export interface IFetchQuoteFee {
   estimatedFeeFiatValue?: number;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
   isFreeNetworkFee?: boolean;
+  costSavings?: string;
 }
 
 export enum ESwapApproveAllowanceType {
@@ -773,6 +789,14 @@ export interface IOKXTransactionObject {
   randomKeyAccount?: string[];
   signatureData?: string[];
 }
+
+export interface ILMTronObject {
+  from: string;
+  to: string;
+  value: string;
+  data: string;
+}
+
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
@@ -780,6 +804,7 @@ export interface IFetchBuildTxResponse {
   swftOrder?: IFetchBuildTxOrderResponse;
   changellyOrder?: IFetchBuildTxChangellyOrderResponse;
   OKXTxObject?: IOKXTransactionObject;
+  LMTronObject?: ILMTronObject;
   ctx?: any;
   tronTxData?: IEncodedTxTron;
   xrpTxData?: IEncodedTxXrp;
@@ -1013,7 +1038,22 @@ export interface ISpeedSwapConfig {
   provider: string;
   speedConfig: ISwapProSpeedConfig;
   speedDefaultSelectToken?: ISwapTokenBase;
-  supportSpeedSwap: boolean;
+  supportSpeedSwap?: boolean;
+  onlySupportCrossChain: boolean;
+  onlySupportSingleChain: boolean;
+}
+
+export interface IFetchSpeedCheckResult {
+  errorMessage?: string;
+  protocol: string;
+  spenderAddress: string;
+  info: {
+    provider: string;
+    providerName: string;
+    providerLogo?: string;
+  };
+  fromTokenInfo?: ISwapTokenBase;
+  toTokenInfo?: ISwapTokenBase;
 }
 
 export enum ESwapLimitOrderStatus {
@@ -1092,6 +1132,8 @@ export interface ISwapNativeTokenReserveGas {
 
 export const SwapPercentageInputStage = [25, 50, 100];
 export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
+export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
+export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
 
@@ -1099,6 +1141,8 @@ export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';
+export const SwapLimitPriceInputAccessoryViewID =
+  'swap-limit-price-input-accessory-view';
 
 export const ChainFlipLogo =
   'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';

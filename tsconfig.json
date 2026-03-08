@@ -10,7 +10,6 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "strict": true,
-    // "exactOptionalPropertyTypes": true,
     "noImplicitAny": true,
     "strictPropertyInitialization": true,
     "target": "es2020",

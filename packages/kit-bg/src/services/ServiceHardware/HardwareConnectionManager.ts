@@ -142,7 +142,7 @@ export class HardwareConnectionManager {
       const devices = response.data as unknown[];
       const isAvailable = Array.isArray(devices) && devices.length > 0;
       return isAvailable;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -276,9 +276,8 @@ export class HardwareConnectionManager {
       }
 
       // No USB devices, check if Bluetooth is available before fallback
-      const bluetoothAvailable = await this.detectBluetoothAvailability(
-        hardwareCallContext,
-      );
+      const bluetoothAvailable =
+        await this.detectBluetoothAvailability(hardwareCallContext);
       if (bluetoothAvailable) {
         return EHardwareTransportType.DesktopWebBle;
       }
@@ -361,9 +360,8 @@ export class HardwareConnectionManager {
         };
       }
 
-      const optimalType = await this.determineOptimalTransportType(
-        hardwareCallContext,
-      );
+      const optimalType =
+        await this.determineOptimalTransportType(hardwareCallContext);
       const shouldSwitch = this.actualTransportType !== optimalType;
 
       console.log(
@@ -382,7 +380,7 @@ export class HardwareConnectionManager {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
       max: 1,
-      normalizer: (args) => `${args[0].hardwareCallContext || 'default'}`,
+      normalizer: (args) => args[0].hardwareCallContext || 'default',
     },
   );
 

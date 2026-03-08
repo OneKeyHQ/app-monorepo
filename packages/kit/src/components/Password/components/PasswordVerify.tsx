@@ -18,12 +18,13 @@ import {
   Input,
   Portal,
   SizableText,
+  Stack,
   XStack,
   YStack,
   onVisibilityStateChange,
   useForm,
 } from '@onekeyhq/components';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
@@ -37,6 +38,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { inAppStateLockStyle } from '../../../views/Setting/hooks';
+import { useClearInputValueAfterVerified } from '../hooks/useClearInputValueAfterVerified';
 import { getPasswordKeyboardType } from '../utils';
 
 import PassCodeInput from './PassCodeInput';
@@ -57,6 +59,7 @@ interface IPasswordVerifyProps {
   };
   alertText?: string;
   confirmBtnDisabled?: boolean;
+  pageMode?: boolean;
 }
 
 export interface IPasswordVerifyForm {
@@ -65,6 +68,7 @@ export interface IPasswordVerifyForm {
 }
 
 function PasswordVerify({
+  pageMode,
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -111,7 +115,7 @@ function PasswordVerify({
   const passwordInput = form.watch(
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
-  const [{ manualLocking }] = usePasswordPersistAtom();
+  const [{ manualLocking }] = usePasswordPersistManualLockStateAtom();
   const { icon: biologyAuthIconName, title: authTitle } =
     useBiometricAuthInfo();
 
@@ -156,6 +160,8 @@ function PasswordVerify({
     onInputPasswordAuth,
     confirmBtnDisabled,
   ]);
+  const formContainerRef = useClearInputValueAfterVerified(status.value);
+
   const [passCodeClear, setPassCodeClear] = useState(false);
   useEffect(() => {
     const fieldName =
@@ -278,106 +284,109 @@ function PasswordVerify({
   }, [form, onInputPasswordAuth]);
 
   return (
-    <Form form={form}>
-      {passwordMode === EPasswordMode.PASSWORD ? (
-        <>
-          <Form.Field
-            name="password"
-            rules={{
-              required: {
-                value: true,
-                message: intl.formatMessage({
-                  id: ETranslations.auth_error_passcode_incorrect,
-                }),
-              },
-              onChange: onPasswordChange,
-            }}
-          >
-            <Input
-              selectTextOnFocus
-              size="large"
-              editable={Boolean(
-                status.value !== EPasswordVerifyStatus.VERIFYING &&
-                  !disableInput,
-              )}
-              placeholder={intl.formatMessage({
-                id: ETranslations.auth_enter_your_passcode,
-              })}
-              flex={1}
-              // onChangeText={(text) => text.replace(PasswordRegex, '')}
-              onChangeText={(text) => text}
-              keyboardType={getPasswordKeyboardType(!secureEntry)}
-              secureTextEntry={secureEntry}
-              // fix Keyboard Flickering on TextInput with secureTextEntry #39411
-              // https://github.com/facebook/react-native/issues/39411
-              textContentType="oneTimeCode"
-              onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
-              addOns={rightActions}
-              testID="password-input"
-            />
-          </Form.Field>
-          {alertText ? (
-            <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
-              <SizableText size="$bodyMd" color="$textOnBrightColor">
-                {alertText}
-              </SizableText>
-            </XStack>
-          ) : null}
-        </>
-      ) : (
-        <>
-          <Form.Field
-            name="passCode"
-            errorMessageAlign="center"
-            rules={{
-              validate: {
-                required: (v) =>
-                  v
-                    ? undefined
-                    : intl.formatMessage({
-                        id: ETranslations.auth_error_passcode_empty,
-                      }),
-              },
-              onChange: onPasswordChange,
-            }}
-          >
-            <PassCodeInput
-              onPinCodeChange={(pin) => {
-                form.setValue('passCode', pin);
-                form.clearErrors('passCode');
-                setPassCodeClear(false);
+    <Stack ref={formContainerRef as any}>
+      <Form form={form}>
+        {passwordMode === EPasswordMode.PASSWORD ? (
+          <>
+            <Form.Field
+              name="password"
+              rules={{
+                required: {
+                  value: true,
+                  message: intl.formatMessage({
+                    id: ETranslations.auth_error_passcode_incorrect,
+                  }),
+                },
+                onChange: onPasswordChange,
               }}
-              editable={Boolean(
-                status.value !== EPasswordVerifyStatus.VERIFYING &&
-                  !disableInput,
-              )}
-              onComplete={onPassCodeComplete}
-              clearCode={passCodeClear}
-              disabledComplete={confirmBtnDisabled}
-              testId="pass-code-input"
-            />
-          </Form.Field>
-          {alertText ? (
-            <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
-              <SizableText size="$bodyMd" color="$textDisabled">
-                {alertText}
-              </SizableText>
-            </XStack>
-          ) : null}
-          {isEnable ? (
-            <YStack alignSelf="center" pt="$6" scale={1.5}>
-              <IconButton
+            >
+              <Input
+                selectTextOnFocus
                 size="large"
-                variant="tertiary"
-                icon={biologyAuthIconName}
-                onPress={onBiologyAuth}
-                loading={status.value === EPasswordVerifyStatus.VERIFYING}
+                editable={status.value !== EPasswordVerifyStatus.VERIFYING}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.auth_enter_your_passcode,
+                })}
+                flex={1}
+                // onChangeText={(text) => text.replace(PasswordRegex, '')}
+                onChangeText={(text) => text}
+                keyboardType={getPasswordKeyboardType(!secureEntry)}
+                secureTextEntry={secureEntry}
+                // fix Keyboard Flickering on TextInput with secureTextEntry #39411
+                // https://github.com/facebook/react-native/issues/39411
+                textContentType="oneTimeCode"
+                onSubmitEditing={
+                  confirmBtnDisabled
+                    ? undefined
+                    : form.handleSubmit(onInputPasswordAuth)
+                }
+                addOns={rightActions}
+                testID="password-input"
               />
-            </YStack>
-          ) : null}
-        </>
-      )}
-    </Form>
+            </Form.Field>
+            {alertText ? (
+              <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
+                <SizableText size="$bodyMd" color="$textOnBrightColor">
+                  {alertText}
+                </SizableText>
+              </XStack>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Form.Field
+              name="passCode"
+              errorMessageAlign="center"
+              rules={{
+                validate: {
+                  required: (v) =>
+                    v
+                      ? undefined
+                      : intl.formatMessage({
+                          id: ETranslations.auth_error_passcode_empty,
+                        }),
+                },
+                onChange: onPasswordChange,
+              }}
+            >
+              <PassCodeInput
+                onPinCodeChange={(pin) => {
+                  form.setValue('passCode', pin);
+                  form.clearErrors('passCode');
+                  setPassCodeClear(false);
+                  if (pageMode) {
+                    onPasswordChange(pin);
+                  }
+                }}
+                editable={status.value !== EPasswordVerifyStatus.VERIFYING}
+                onComplete={onPassCodeComplete}
+                clearCode={passCodeClear}
+                disabledComplete={confirmBtnDisabled}
+                testId="pass-code-input"
+              />
+            </Form.Field>
+            {alertText ? (
+              <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
+                <SizableText size="$bodyMd" color="$textDisabled">
+                  {alertText}
+                </SizableText>
+              </XStack>
+            ) : null}
+            {isEnable ? (
+              <YStack alignSelf="center" pt="$6" scale={1.5}>
+                <IconButton
+                  size="large"
+                  variant="tertiary"
+                  icon={biologyAuthIconName}
+                  onPress={onBiologyAuth}
+                  loading={status.value === EPasswordVerifyStatus.VERIFYING}
+                />
+              </YStack>
+            ) : null}
+          </>
+        )}
+      </Form>
+    </Stack>
   );
 }
 export default memo(PasswordVerify);

@@ -3,11 +3,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Image, Stack } from '../../primitives';
+import { Image } from '../../primitives/Image';
+import { Stack } from '../../primitives/Stack';
 
 import type { ISplashViewProps } from './type';
 
-const removeWebLogo = () => {
+const removePreloadElements = () => {
   document.documentElement.style.removeProperty('background-color');
   const img = document.querySelector('.onekey-index-html-preload-image');
   img?.remove();
@@ -16,7 +17,7 @@ const removeWebLogo = () => {
 export function SplashView({ onExit, ready }: ISplashViewProps) {
   const [showLoading, changeLoadingVisibility] = useState(true);
   const hideSplash = useCallback(() => {
-    removeWebLogo();
+    removePreloadElements();
     changeLoadingVisibility(false);
   }, []);
 

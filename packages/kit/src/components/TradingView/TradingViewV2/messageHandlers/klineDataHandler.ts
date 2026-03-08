@@ -21,27 +21,20 @@ function formatAmount(amount: string) {
 
 function buildTransactionMarks({
   transactions,
-  accountAddress,
-  tokenSymbol,
 }: {
   transactions: IMarketAccountTokenTransaction[];
-  accountAddress?: string;
-  tokenSymbol?: string;
 }) {
-  const account = accountAddress?.toLowerCase();
   const limitedList = transactions
     .slice()
-    .sort((a, b) => a.timestamp - b.timestamp)
+    .filter((tx) => tx.to?.amount && tx.to?.symbol)
+    .toSorted((a, b) => a.timestamp - b.timestamp)
     .slice(-MAX_MARKS_COUNT);
 
   return limitedList.map((tx, index) => {
-    // Determine if user is buying or selling based on their address position
-    // If user is in 'to' field, they are receiving tokens (buying)
-    // If user is in 'from' field, they are sending tokens (selling)
-    const userIsReceiver = tx.to?.address?.toLowerCase() === account;
-    const isBuy = userIsReceiver;
+    const isBuy = tx.type === 'buy';
     const label = isBuy ? 'B' : 'S';
-    const displaySymbol = tokenSymbol || '';
+    const displayAmount = tx.to.amount;
+    const displaySymbol = tx.to.symbol;
     const text = appLocale.intl.formatMessage(
       {
         id: isBuy
@@ -49,7 +42,7 @@ function buildTransactionMarks({
           : ETranslations.dexmarket_point_sell,
       },
       {
-        Amount: formatAmount(tx.amount),
+        Amount: formatAmount(displayAmount),
         From_Token: displaySymbol,
         to_Token: displaySymbol,
       },
@@ -71,7 +64,6 @@ export async function fetchAndSendAccountMarks({
   from,
   to,
   symbol,
-  tokenSymbol,
   webRef,
 }: {
   accountAddress?: string;
@@ -80,7 +72,6 @@ export async function fetchAndSendAccountMarks({
   from: number;
   to: number;
   symbol?: string;
-  tokenSymbol?: string;
   webRef: IMessageHandlerContext['webRef'];
 }) {
   if (!accountAddress) {
@@ -100,8 +91,6 @@ export async function fetchAndSendAccountMarks({
 
     const marks = buildTransactionMarks({
       transactions: accountTransactions.list ?? [],
-      accountAddress,
-      tokenSymbol,
     });
 
     if (webRef.current && marks.length > 0) {
@@ -128,7 +117,7 @@ export async function handleKLineDataRequest({
     networkId = '',
     webRef,
     accountAddress,
-    tokenSymbol,
+    marksTimeRange,
   } = context;
 
   // Safely extract history data with proper type checking
@@ -147,6 +136,17 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
+
+    // Track the time range that user has browsed
+    if (marksTimeRange) {
+      const current = marksTimeRange.current;
+      if (current) {
+        current.min = Math.min(current.min, from);
+        current.max = Math.max(current.max, to);
+      } else {
+        marksTimeRange.current = { min: from, max: to };
+      }
+    }
 
     // Use combined function to get sliced data
     try {
@@ -177,7 +177,6 @@ export async function handleKLineDataRequest({
           from,
           to,
           symbol: (safeData.symbol as string) || tokenAddress,
-          tokenSymbol,
           webRef,
         });
       }

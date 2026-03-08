@@ -976,6 +976,44 @@ export class FirmwareUpdateVersionMismatchError extends OneKeyHardwareError {
   }
 }
 
+export class CosmosInvalidJsonMessage extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CosmosInvalidJsonMessage',
+        defaultKey: ETranslations.device_cosmos_invalid_json_message,
+      }),
+    );
+  }
+}
+
+export class DeviceNotSupportSettingOption extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceNotSupportSettingOption',
+        defaultKey: ETranslations.device_setting_not_provided,
+      }),
+    );
+  }
+}
+
+export class DeviceNotSupportLanguage extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(
+        {
+          info: { 'language': get(props, 'payload.params.languages', '') },
+        },
+        {
+          defaultMessage: 'DeviceNotSupportLanguage',
+          defaultKey: ETranslations.device_setting_not_support_language,
+        },
+      ),
+    );
+  }
+}
+
 export class SelectDeviceError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -987,6 +1025,19 @@ export class SelectDeviceError extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.SelectDevice;
+}
+
+export class AlephTooManyInputsError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'AlephTooManyInputsError',
+        defaultKey: ETranslations.global_too_many_inputs_notification_banner,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.TooManyInputs;
 }
 
 // UnknownHardware
@@ -1004,12 +1055,17 @@ export class UnknownHardwareError extends OneKeyHardwareError {
       .filter(Boolean)
       .join(' : ');
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: message || 'Unknown Hardware Error',
-        defaultKey: ETranslations.feedback_request_failed,
-        alwaysAppendDefaultMessage: true,
-        // defaultAutoToast: true,
-      }),
+      normalizeErrorProps(
+        {
+          info: { 'message': message },
+        },
+        {
+          defaultMessage: message || 'Unknown Hardware Error',
+          defaultKey: ETranslations.wallet_action_failed,
+          alwaysAppendDefaultMessage: false,
+          // defaultAutoToast: true,
+        },
+      ),
     );
   }
 }

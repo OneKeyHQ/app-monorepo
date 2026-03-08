@@ -49,7 +49,7 @@ function SwapInfo(props: IProps) {
     networkId: sender.accountInfo.networkId,
   });
 
-  const { network: receiverNetwork } = useAccountData({
+  const { network: _receiverNetwork } = useAccountData({
     networkId: receiver.accountInfo.networkId,
   });
 

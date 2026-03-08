@@ -10,7 +10,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
@@ -53,7 +53,7 @@ export function PriceChart({
 }: IPriceChartProps) {
   const { formatDate } = useFormatDate();
   const intl = useIntl();
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
 
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState('');

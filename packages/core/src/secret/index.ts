@@ -59,7 +59,8 @@ export { ecc };
 const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string
-const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // hyperliquid agent credential
+const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // legacy encrypted
+const EncryptPrefixHyperLiquidAgentCredentialPlain = '|HLP|'; // plaintext (new)
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
@@ -287,40 +288,61 @@ async function decryptHyperLiquidAgentCredential({
   allowRawPassword,
 }: {
   credential: ICoreHyperLiquidAgentCredentialEncryptHex;
-  password: string;
+  password?: string;
   allowRawPassword?: boolean;
-}): Promise<ICoreHyperLiquidAgentCredential> {
-  const decrypted = await decryptAsync({
-    allowRawPassword,
-    password,
-    data: credential.replace(EncryptPrefixHyperLiquidAgentCredential, ''),
-  });
-  const text = bufferUtils.bytesToUtf8(decrypted);
-  return JSON.parse(text) as ICoreHyperLiquidAgentCredential;
+}): Promise<ICoreHyperLiquidAgentCredential | undefined> {
+  try {
+    // Check |HLP| before |HL| — |HLP| starts with |HL|, so order matters
+    if (credential.startsWith(EncryptPrefixHyperLiquidAgentCredentialPlain)) {
+      const text = credential.replace(
+        EncryptPrefixHyperLiquidAgentCredentialPlain,
+        '',
+      );
+      return JSON.parse(text) as ICoreHyperLiquidAgentCredential;
+    }
+    // Legacy encrypted format
+    if (credential.startsWith(EncryptPrefixHyperLiquidAgentCredential)) {
+      if (!password) {
+        defaultLogger.perp.agentLifeCycle.trackReason({
+          reason: 'credential_legacy_no_password',
+        });
+        return undefined;
+      }
+      const decrypted = await decryptAsync({
+        allowRawPassword,
+        password,
+        data: credential.replace(EncryptPrefixHyperLiquidAgentCredential, ''),
+      });
+      const text = bufferUtils.bytesToUtf8(decrypted);
+      return JSON.parse(text) as ICoreHyperLiquidAgentCredential;
+    }
+    // Unknown format
+    defaultLogger.perp.agentLifeCycle.trackReason({
+      reason: 'credential_unknown_format',
+    });
+  } catch (e) {
+    defaultLogger.perp.agentLifeCycle.trackReason({
+      reason: 'credential_decrypt_corrupted',
+      statusDetails: {
+        errorMessage: e instanceof Error ? e.message : String(e),
+      },
+    });
+  }
+  return undefined;
 }
 
-async function encryptHyperLiquidAgentCredential({
+// Plaintext |HLP| prefix + JSON. Synchronous — no AES encryption involved.
+function encryptHyperLiquidAgentCredential({
   credential,
-  password,
-  allowRawPassword,
 }: {
   credential: ICoreHyperLiquidAgentCredential;
-  password: string;
-  allowRawPassword?: boolean;
-}): Promise<ICoreHyperLiquidAgentCredentialEncryptHex> {
+}): ICoreHyperLiquidAgentCredentialEncryptHex {
   if (!credential || !credential.privateKey) {
     throw new OneKeyLocalError('Invalid credential object');
   }
-  if (!password) {
-    throw new OneKeyLocalError('Invalid password');
-  }
-  const encrypted = await encryptStringAsync({
-    allowRawPassword,
-    password,
-    data: JSON.stringify(credential),
-    dataEncoding: 'utf8',
-  });
-  return EncryptPrefixHyperLiquidAgentCredential + encrypted;
+  return (
+    EncryptPrefixHyperLiquidAgentCredentialPlain + JSON.stringify(credential)
+  );
 }
 
 async function batchGetKeys(
@@ -451,9 +473,8 @@ async function batchGetKeysByAsyncSubCalls(
   const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
 
   // Generate master key
-  let key: IBip32ExtendedKey = await deriver.generateMasterKeyFromSeedAsync(
-    seedBuffer,
-  );
+  let key: IBip32ExtendedKey =
+    await deriver.generateMasterKeyFromSeedAsync(seedBuffer);
 
   // Process prefix path components
   const prefixComponents = prefix.split('/').filter((p) => p !== 'm');
@@ -593,9 +614,8 @@ async function batchGetPublicKeys(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    const keys = await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(
-      params,
-    );
+    const keys =
+      await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(params);
     return keys.map((key) => ({
       path: key.path,
       parentFingerPrint: Buffer.from(key.parentFingerPrint, 'hex'),
@@ -774,9 +794,8 @@ async function mnemonicToSeedAsync(
     !platformEnv.isJest &&
     !globalThis.$onekeyAppWebembedApiWebviewInitFailed
   ) {
-    const hex = await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync(
-      params,
-    );
+    const hex =
+      await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync(params);
     return Buffer.from(hex, 'hex');
   }
   const isValid = validateMnemonic(params.mnemonic);

@@ -270,7 +270,7 @@ describe('formatPriceToSignificantDigits - HyperLiquid Price Formatting', () => 
     expect(formatPriceToSignificantDigits('95123.456789')).toBe('95123'); // 5 sig figs reached with integer part
     expect(formatPriceToSignificantDigits('95123')).toBe('95123'); // Integer, no limit
 
-    // Small altcoin prices
+    // Small AltCoin prices
     expect(formatPriceToSignificantDigits('0.000123456')).toBe('0.000123'); // Limited by MAX_DECIMALS_PERP = 6
     expect(formatPriceToSignificantDigits('0.12345678')).toBe('0.12345'); // 5 sig figs
   });

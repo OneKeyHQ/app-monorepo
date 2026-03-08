@@ -1,13 +1,14 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRandomCrossover = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M17.293 3.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414-1.414L18.586 8h-1.758a1 1 0 0 0-.707.293L6.293 18.12a3 3 0 0 1-2.121.88H3a1 1 0 1 1 0-2h1.172a1 1 0 0 0 .707-.293l9.828-9.828A3 3 0 0 1 16.828 6h1.758l-1.293-1.293a1 1 0 0 1 0-1.414M2 6a1 1 0 0 1 1-1h1.172a3 3 0 0 1 2.12.879l2.415 2.414a1 1 0 0 1-1.414 1.414L4.879 7.293A1 1 0 0 0 4.172 7H3a1 1 0 0 1-1-1m15.293 7.293a1 1 0 0 1 1.414 0l3 3a1 1 0 0 1 0 1.414l-3 3a1 1 0 0 1-1.414-1.414L18.586 18h-1.758a3 3 0 0 1-2.12-.879l-1.415-1.414a1 1 0 0 1 1.414-1.414l1.414 1.414a1 1 0 0 0 .707.293h1.758l-1.293-1.293a1 1 0 0 1 0-1.414"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M22.414 17 18 21.414 16.586 20l2-2h-3l-3-3L14 13.586 16.414 16h2.172l-2-2L18 12.586z" />
+    <Path d="M22.414 7 18 11.414 16.586 10l2-2h-2.172l-11 11H2v-2h2.586l11-11h3l-2-2L18 2.586zm-13 2L8 10.414 4.586 7H2V5h3.414z" />
   </Svg>
 );
 export default SvgRandomCrossover;

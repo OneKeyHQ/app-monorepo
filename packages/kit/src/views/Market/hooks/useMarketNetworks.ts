@@ -12,7 +12,7 @@ export function useMarketNetworks() {
   const { networkList, isLoading: isConfigLoading } = useMarketBasicConfig();
 
   const sortedNetworkList = useMemo(
-    () => [...networkList].sort((a, b) => a.index - b.index),
+    () => networkList.toSorted((a, b) => a.index - b.index),
     [networkList],
   );
 
@@ -35,6 +35,7 @@ export function useMarketNetworks() {
       {
         initResult: [] as IServerNetwork[],
         watchLoading: true,
+        revalidateOnReconnect: true,
       },
     );
 

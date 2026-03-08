@@ -5,11 +5,19 @@ import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActivePositionAtom,
+  usePerpsActivePositionLengthAtom,
+  usePositionFilterByCurrentTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
+import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PositionRow } from '../Components/PositionsRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -31,6 +39,9 @@ function PerpPositionsList({
   const [currentUser] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [positions] = usePerpsActivePositionAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
@@ -44,7 +55,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         }),
-        width: 120,
+        width: 110,
         align: 'left',
       },
       {
@@ -52,7 +63,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_position_size,
         }),
-        minWidth: 140,
+        minWidth: 120,
         align: 'left',
         flex: 1,
       },
@@ -127,12 +138,13 @@ function PerpPositionsList({
       },
       {
         key: 'closeAll',
-        title: `${intl.formatMessage({
+        title: intl.formatMessage({
           id: ETranslations.perp_position_close,
-        })}`,
-        minWidth: 100,
+        }),
+        minWidth: 80,
         align: 'right',
         flex: 1,
+        fixed: true,
         ...(positionsLength > 0 && {
           onPress: () => showCloseAllPositionsDialog(),
         }),
@@ -147,25 +159,48 @@ function PerpPositionsList({
       ),
     [columnsConfig],
   );
-  const mockedPositions = useMemo<{ index: number }[]>(() => {
-    return Array.from({ length: positionsLength }, (_, index) => {
-      return {
-        index,
-      };
-    });
-  }, [positionsLength]);
 
-  const renderPositionRow = (item: { index: number }, _index: number) => {
-    return (
-      <PositionRow
-        mockedPosition={item}
-        isMobile={isMobile}
-        cellMinWidth={totalMinWidth}
-        columnConfigs={columnsConfig}
-        handleViewTpslOrders={handleViewTpslOrders}
-      />
-    );
-  };
+  // Generate mocked positions with correct original indices
+  const mockedPositions = useMemo<{ index: number }[]>(() => {
+    if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
+      // No filter: use sequential indices
+      return Array.from(
+        { length: positions.activePositions.length },
+        (_, index) => ({
+          index,
+        }),
+      );
+    }
+    // Filter active: preserve original indices from unfiltered array
+    return positions.activePositions
+      .map((p, originalIndex) => ({ position: p, originalIndex }))
+      .filter((item) => item.position.position.coin === activeAsset.coin)
+      .map((item) => ({ index: item.originalIndex }));
+  }, [
+    positions.activePositions,
+    isMobile,
+    filterByCurrentToken,
+    activeAsset?.coin,
+  ]);
+
+  const renderPositionRow = (
+    item: { index: number },
+    _index: number,
+    renderMode?: 'full' | 'left' | 'right',
+    isHovered?: boolean,
+    onHoverChange?: (index: number | null) => void,
+  ) => (
+    <PositionRow
+      mockedPosition={item}
+      isMobile={isMobile}
+      cellMinWidth={totalMinWidth}
+      columnConfigs={columnsConfig}
+      handleViewTpslOrders={handleViewTpslOrders}
+      renderMode={renderMode}
+      isHovered={isHovered}
+      onHoverChange={onHoverChange}
+    />
+  );
   const actions = useHyperliquidActions();
   return (
     <CommonTableListView
@@ -195,6 +230,13 @@ function PerpPositionsList({
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_position_empty_desc,
       })}
+      ListHeaderComponent={
+        isMobile ? (
+          <MobilePositionsListHeader
+            totalPositionCount={positions.activePositions.length}
+          />
+        ) : null
+      }
     />
   );
 }

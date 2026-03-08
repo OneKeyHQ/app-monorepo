@@ -1,13 +1,15 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRainbow = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M1.043 17C1.548 11.393 6.26 7 11.998 7s10.45 4.393 10.955 10M5.07 17a7.002 7.002 0 0 1 13.858 0M9.17 17a3.001 3.001 0 0 1 5.658 0"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M12 6c6.627 0 12 5.373 12 12h-2c0-5.523-4.477-10-10-10S2 12.477 2 18H0C0 11.373 5.373 6 12 6" />
+    <Path d="M12 10a8 8 0 0 1 8 8h-2a6 6 0 0 0-12 0H4a8 8 0 0 1 8-8" />
+    <Path d="M12 14a4 4 0 0 1 4 4h-2a2 2 0 1 0-4 0H8a4 4 0 0 1 4-4" />
   </Svg>
 );
 export default SvgRainbow;

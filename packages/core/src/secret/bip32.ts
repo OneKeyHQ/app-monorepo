@@ -1,4 +1,3 @@
-/* eslint-disable spellcheck/spell-checker */
 // eslint-disable-next-line max-classes-per-file
 import BigNumber from 'bignumber.js';
 
@@ -12,6 +11,13 @@ export type IBip32ExtendedKeySerialized = {
   key: string;
   chainCode: string;
 };
+
+/**
+ * BIP32 Extended Key
+ *
+ * key 字段：模块内推导为明文私钥；跨模块返回/存储为 AES-256 加密。
+ * 公钥场景不加密。
+ */
 export type IBip32ExtendedKey = {
   key: Buffer;
   chainCode: Buffer;
@@ -79,7 +85,10 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
    * and CKD functions) doesn't follow BIP-0032 but SLIP-0010. */
 
   // eslint-disable-next-line no-useless-constructor
-  constructor(private key: Buffer, private curve: CurveForKD) {
+  constructor(
+    private key: Buffer,
+    private curve: CurveForKD,
+  ) {
     // noop
   }
 
@@ -268,7 +277,10 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
 
 class ED25519Bip32KeyDeriver implements IBip32KeyDeriver {
   // eslint-disable-next-line no-useless-constructor
-  constructor(private key: Buffer, private curve: BaseCurve) {
+  constructor(
+    private key: Buffer,
+    private curve: BaseCurve,
+  ) {
     // noop
   }
 

@@ -14,6 +14,7 @@ import type {
   IOneKeyJsError,
 } from '../types/errorTypes';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const map = {
   hello: 'world',
 };
@@ -43,6 +44,21 @@ export class IncorrectPassword extends OneKeyAppError {
   }
 
   override className = EOneKeyErrorClassNames.IncorrectPassword;
+}
+
+export class KeylessDataCorruptedError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyError: KeylessDataCorruptedError',
+        defaultKey: ETranslations.keyless_device_changed_recovery_warning,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.KeylessDataCorruptedError;
+
+  override name = EOneKeyErrorClassNames.KeylessDataCorruptedError;
 }
 
 export class IncorrectMasterPassword extends OneKeyAppError {
@@ -378,6 +394,21 @@ export class SecureQRCodeDialogCancel extends OneKeyAppError {
 
   override className: EOneKeyErrorClassNames =
     EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
+}
+
+export class OAuthLoginCancelError extends OneKeyAppError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OAuthLoginCancelError',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.OAuthLoginCancelError;
 }
 
 export class PreCheckBeforeSendingCancelError extends OneKeyAppError {
@@ -1138,4 +1169,27 @@ export class HomeScreenNotSupportFormatError extends OneKeyAppError {
       }),
     );
   }
+}
+
+export type IIncorrectPinErrorInfo = {
+  guessesRemaining: number;
+};
+
+export class IncorrectPinError extends OneKeyAppError<IIncorrectPinErrorInfo> {
+  constructor(props: IOneKeyError<IIncorrectPinErrorInfo>) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'IncorrectPinError',
+        defaultKey:
+          props?.info?.guessesRemaining && props?.info?.guessesRemaining > 0
+            ? ETranslations.incorrect_pin
+            : ETranslations.pin_attempts_exhausted,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.IncorrectPinError;
+
+  override name = EOneKeyErrorClassNames.IncorrectPinError;
 }

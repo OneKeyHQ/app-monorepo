@@ -88,7 +88,7 @@ export const getSecureItem = (key: string) => {
     try {
       const result = safeStorage.decryptString(Buffer.from(value, 'hex'));
       return result;
-    } catch (e) {
+    } catch (_e) {
       logger.error(`failed to decrypt ${key}`);
       return undefined;
     }
@@ -105,7 +105,7 @@ export const setSecureItem = (key: string, value: string): void => {
     const items = store.get(EDesktopStoreKeys.EncryptedData, {});
     items[key] = safeStorage.encryptString(value).toString('hex');
     store.set(EDesktopStoreKeys.EncryptedData, items);
-  } catch (e) {
+  } catch (_e) {
     logger.error(`failed to encrypt ${key}`);
   }
 };
@@ -114,6 +114,25 @@ export const deleteSecureItem = (key: string) => {
   const items = store.get(EDesktopStoreKeys.EncryptedData, {});
   delete items[key];
   store.set(EDesktopStoreKeys.EncryptedData, items);
+};
+
+export const isSecureStorageAvailable = (): boolean => {
+  const available = safeStorage.isEncryptionAvailable();
+  if (!available) {
+    return false;
+  }
+  // On Linux, check if we have a real secure backend (not basic_text)
+  // basic_text means data is encrypted with a hardcoded password, which is not secure
+  if (process.platform === 'linux') {
+    const backend = safeStorage.getSelectedStorageBackend();
+    if (backend === 'basic_text') {
+      logger.warn(
+        'safeStorage backend is basic_text, secure storage is not truly secure',
+      );
+      return false;
+    }
+  }
+  return true;
 };
 
 export const setASCFile = (ascFile: string) => {
@@ -178,3 +197,24 @@ export const setNativeVersion = (nativeVersion: string) => {
 
 export const getNativeVersion = () =>
   store.get(EDesktopStoreKeys.NativeVersion, '');
+
+// ==================== GPU Crash Statistics ====================
+// Functions for tracking GPU crash events
+export const recordGPUCrash = () => {
+  const crashes = store.get(EDesktopStoreKeys.GPUCrashCount, 0);
+  const newCount = crashes + 1;
+  store.set(EDesktopStoreKeys.GPUCrashCount, newCount);
+  store.set(EDesktopStoreKeys.LastGPUCrashTime, Date.now());
+  logger.error(`GPU crash recorded. Total crashes: ${newCount}`);
+};
+
+export const getGPUCrashStats = () => ({
+  count: store.get(EDesktopStoreKeys.GPUCrashCount, 0),
+  lastCrashTime: store.get(EDesktopStoreKeys.LastGPUCrashTime, 0),
+});
+
+export const clearGPUCrashStats = () => {
+  store.delete(EDesktopStoreKeys.GPUCrashCount);
+  store.delete(EDesktopStoreKeys.LastGPUCrashTime);
+  logger.info('GPU crash statistics cleared');
+};

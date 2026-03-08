@@ -31,7 +31,11 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 
 import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
@@ -58,12 +62,18 @@ export function useToReferFriendsModalByRootNavigation() {
         ? ETabReferFriendsRoutes.TabInviteReward
         : ETabReferFriendsRoutes.TabReferAFriend;
 
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.ReferFriends,
-        params: {
-          screen,
+      rootNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: ETabRoutes.ReferFriends,
+          params: {
+            screen,
+          },
         },
-      });
+        {
+          pop: true,
+        },
+      );
     }
   }, []);
 }
@@ -72,19 +82,31 @@ export function useReplaceToReferFriends() {
   const navigation = useAppNavigation();
 
   return useCallback(
-    async (params?: { utmSource?: string; code?: string }) => {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+    async (params?: {
+      utmSource?: string;
+      code?: string;
+      /** Skip isLoggedIn check when caller already knows login state */
+      isLoggedIn?: boolean;
+    }) => {
+      const { isLoggedIn: knownLoginState, ...navParams } = params ?? {};
+      const isLogin =
+        knownLoginState ?? (await backgroundApiProxy.servicePrime.isLoggedIn());
 
       if (platformEnv.isNative) {
         const screen = isLogin
           ? EModalReferFriendsRoutes.InviteReward
           : EModalReferFriendsRoutes.ReferAFriend;
-        navigation.replace(screen, params);
+        navigation.replace(screen, navParams);
       } else {
         const screen = isLogin
           ? ETabReferFriendsRoutes.TabInviteReward
           : ETabReferFriendsRoutes.TabReferAFriend;
-        navigation.replace(screen, params);
+        // Use reset instead of replace to clear the navigation stack
+        // This prevents the back button from appearing on the root screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: screen, params: navParams }],
+        });
       }
     },
     [navigation],
@@ -103,22 +125,59 @@ export const useReferFriends = () => {
     return useTestEnv ? 'test' : 'prod';
   }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
-  const toInviteRewardPage = useCallback(async () => {
-    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-    if (isLogin) {
-      if (platformEnv.isNative) {
-        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-          screen: EModalReferFriendsRoutes.InviteReward,
-        });
+  const toInviteRewardPage = useCallback(
+    async (params?: { showRewardDistributionHistory?: boolean }) => {
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (isLogin) {
+        if (platformEnv.isNative) {
+          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+            screen: EModalReferFriendsRoutes.InviteReward,
+            params,
+          });
+        } else {
+          navigation.switchTab(ETabRoutes.ReferFriends);
+          await timerUtils.wait(50);
+          rootNavigationRef.current?.reset({
+            index: 0,
+            routes: [{ name: ETabReferFriendsRoutes.TabInviteReward, params }],
+          });
+        }
       } else {
-        navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-          screen: ETabReferFriendsRoutes.TabInviteReward,
-        });
+        void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
       }
-    } else {
-      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
-    }
-  }, [loginOneKeyId, navigation]);
+    },
+    [loginOneKeyId, navigation],
+  );
+
+  const toHardwareSalesRewardPage = useCallback(
+    async (params?: { showOrderDetail?: boolean; orderId?: string }) => {
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (isLogin) {
+        if (platformEnv.isNative) {
+          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+            screen: EModalReferFriendsRoutes.HardwareSalesReward,
+            params,
+          });
+        } else {
+          navigation.switchTab(ETabRoutes.ReferFriends);
+          await timerUtils.wait(50);
+          rootNavigationRef.current?.navigate(
+            ETabReferFriendsRoutes.TabHardwareSalesReward,
+            params,
+          );
+        }
+      } else {
+        void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+      }
+    },
+    [loginOneKeyId, navigation],
+  );
+
+  const openHardwareSalesOrderDetail = useCallback(
+    (orderId: string) =>
+      toHardwareSalesRewardPage({ showOrderDetail: true, orderId }),
+    [toHardwareSalesRewardPage],
+  );
 
   const toReferFriendsPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
@@ -137,10 +196,17 @@ export const useReferFriends = () => {
       });
     } else {
       // Web: use Tab
-      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: shouldShowInviteReward
-          ? ETabReferFriendsRoutes.TabInviteReward
-          : ETabReferFriendsRoutes.TabReferAFriend,
+      navigation.switchTab(ETabRoutes.ReferFriends);
+      await timerUtils.wait(50);
+      rootNavigationRef.current?.reset({
+        index: 0,
+        routes: [
+          {
+            name: shouldShowInviteReward
+              ? ETabReferFriendsRoutes.TabInviteReward
+              : ETabReferFriendsRoutes.TabReferAFriend,
+          },
+        ],
       });
     }
   }, [navigation]);
@@ -155,21 +221,34 @@ export const useReferFriends = () => {
       copyAsUrl = false,
     ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const myReferralCode =
-        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-
+      let myReferralCode = '';
+      if (isLogin) {
+        try {
+          // Fetch fresh primary code from API to avoid stale cache
+          const summary =
+            await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+          myReferralCode = summary.inviteCode || '';
+        } catch {
+          // Fall back to cached code on API failure
+          myReferralCode =
+            await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+        }
+      } else {
+        myReferralCode =
+          await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+      }
       const postConfig: IInvitePostConfig | undefined =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
 
       const sourceConfig: IInvitePostConfig['locales']['Earn'] =
         source === 'Perps' && postConfig?.locales.Perps
           ? postConfig.locales.Perps
-          : postConfig?.locales.Earn ?? {
+          : (postConfig?.locales.Earn ?? {
               title: '',
               subtitle: '',
               for_you: { title: '', subtitle: '' },
               for_your_friend: { title: '', subtitle: '' },
-            };
+            });
 
       const getReferralUrl = (code: string) =>
         buildReferralUrl({
@@ -182,19 +261,19 @@ export const useReferFriends = () => {
         ? getReferralUrl(myReferralCode)
         : myReferralCode;
 
-      const handleConfirm = () => {
+      const handleConfirm = async () => {
         if (isLogin) {
           if (platformEnv.isNative) {
             navigation.pushModal(EModalRoutes.ReferFriendsModal, {
               screen: EModalReferFriendsRoutes.InviteReward,
             });
           } else {
-            navigation.switchTab<ETabRoutes.ReferFriends>(
-              ETabRoutes.ReferFriends,
-              {
-                screen: ETabReferFriendsRoutes.TabInviteReward,
-              },
-            );
+            navigation.switchTab(ETabRoutes.ReferFriends);
+            await timerUtils.wait(50);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: ETabReferFriendsRoutes.TabInviteReward }],
+            });
           }
         } else {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
@@ -320,10 +399,11 @@ export const useReferFriends = () => {
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
-          openUrlExternal(REFERRAL_HELP_LINK);
-        },
-        cancelButtonProps: {
-          iconAfter: 'OpenOutline',
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
+          } else {
+            openUrlExternal(REFERRAL_HELP_LINK);
+          }
         },
         onConfirmText: intl.formatMessage({
           id: isLogin
@@ -341,7 +421,15 @@ export const useReferFriends = () => {
       toReferFriendsPage,
       shareReferRewards,
       toInviteRewardPage,
+      toHardwareSalesRewardPage,
+      openHardwareSalesOrderDetail,
     }),
-    [toReferFriendsPage, shareReferRewards, toInviteRewardPage],
+    [
+      toReferFriendsPage,
+      shareReferRewards,
+      toInviteRewardPage,
+      toHardwareSalesRewardPage,
+      openHardwareSalesOrderDetail,
+    ],
   );
 };

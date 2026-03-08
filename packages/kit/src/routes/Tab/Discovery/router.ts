@@ -3,21 +3,46 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabDiscoveryRoutes,
   ETabEarnRoutes,
+  ETabMarketRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
+import {
+  LazyLoadPage,
+  LazyLoadRootTabPage,
+} from '../../../components/LazyLoadPage';
 
 const Browser = LazyLoadRootTabPage(
-  () => import('../../../views/Discovery/pages/Browser/Browser'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Discovery/pages/Browser/Browser'
+    ),
 );
 const DiscoveryDashboard = LazyLoadRootTabPage(
-  () => import('../../../views/Discovery/pages/Dashboard/DashboardContainer'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Discovery/pages/Dashboard/DashboardContainer'
+    ),
 );
 const EarnProtocols = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnProtocols'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocols'
+    ),
 );
 const EarnProtocolDetails = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnProtocolDetails'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/Earn/pages/EarnProtocolDetails'
+    ),
+);
+
+// Market pages for native platforms (Market is embedded in Discovery on mobile)
+const MarketDetailV2 = LazyLoadPage(
+  () => import('../../../views/Market/MarketDetailV2'),
+);
+
+const MarketBannerDetail = LazyLoadPage(
+  () => import('../../../views/Market/MarketBannerDetail'),
 );
 
 export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
@@ -39,4 +64,19 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: EarnProtocolDetails,
     headerShown: !platformEnv.isNative,
   },
+  // Market pages for native platforms (Market is embedded in Discovery on mobile)
+  ...(platformEnv.isNative
+    ? [
+        {
+          name: ETabMarketRoutes.MarketDetailV2,
+          component: MarketDetailV2,
+          headerShown: false,
+        },
+        {
+          name: ETabMarketRoutes.MarketBannerDetail,
+          component: MarketBannerDetail,
+          headerShown: false,
+        },
+      ]
+    : []),
 ];

@@ -59,8 +59,8 @@ function BasicNetworkAlert() {
       title={intl.formatMessage({
         id: ETranslations.feedback_you_are_offline,
       })}
+      mx="$pagePadding"
       closable={false}
-      fullBleed
       action={
         platformEnv.isNative
           ? {

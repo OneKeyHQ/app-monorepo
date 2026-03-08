@@ -82,37 +82,18 @@ function SideButtonInternal({
     marginRequired: marginRequiredRaw,
     isNoEnoughMargin,
     effectivePriceBN,
+    priceError,
+    leverage,
   } = calculations;
 
   const marginRequired = useDebounce(marginRequiredRaw, 100);
   const liquidationPrice = useDebounce(liquidationPriceRaw, 100);
 
-  // Check if inputs are empty
-  const hasEmptyInputs = useMemo(() => {
-    if (
-      formData.type === 'limit' &&
-      (!formData.price || formData.price.trim() === '')
-    ) {
-      return true;
-    }
-    const isSliderMode = formData.sizeInputMode === 'slider';
-    if (isSliderMode) {
-      return !formData.sizePercent || formData.sizePercent <= 0;
-    }
-    return !formData.size || formData.size.trim() === '';
-  }, [
-    formData.type,
-    formData.price,
-    formData.size,
-    formData.sizeInputMode,
-    formData.sizePercent,
-  ]);
-
   const isMinimumOrderNotMetForSide = useMemo(() => {
-    if (hasEmptyInputs) return false;
-    if (!orderValue || !orderValue.isFinite()) return false;
+    if (!orderValue || !orderValue.isFinite() || orderValue.lte(0))
+      return false;
     return orderValue.lt(10);
-  }, [hasEmptyInputs, orderValue]);
+  }, [orderValue]);
 
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -126,23 +107,19 @@ function SideButtonInternal({
 
   const buttonDisabled = useMemo(() => {
     return (
-      hasEmptyInputs ||
-      !computedSizeForSide.gt(0) ||
       !perpsAccountStatus.canTrade ||
-      isMinimumOrderNotMetForSide ||
       isNoEnoughMargin ||
       isAccountLoading ||
+      priceError === 'bbo_unavailable' ||
       (perpsAccountStatus.canTrade &&
         (perpConfigCommon?.disablePerpActionPerp ||
           perpConfigCommon?.ipDisablePerp))
     );
   }, [
-    hasEmptyInputs,
-    computedSizeForSide,
     perpsAccountStatus.canTrade,
-    isMinimumOrderNotMetForSide,
     isNoEnoughMargin,
     isAccountLoading,
+    priceError,
     perpConfigCommon?.disablePerpActionPerp,
     perpConfigCommon?.ipDisablePerp,
   ]);
@@ -172,15 +149,10 @@ function SideButtonInternal({
   ]);
 
   const buttonText = useMemo(() => {
-    if (isMinimumOrderNotMetForSide)
-      return intl.formatMessage(
-        {
-          id: ETranslations.perp_size_least,
-        },
-        {
-          amount: '$10',
-        },
-      );
+    if (priceError === 'bbo_unavailable')
+      return intl.formatMessage({
+        id: ETranslations.Perps_BBO_unavailable,
+      });
     if (perpConfigCommon?.ipDisablePerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_ip_restricted,
@@ -197,7 +169,7 @@ function SideButtonInternal({
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
-    isMinimumOrderNotMetForSide,
+    priceError,
     isNoEnoughMargin,
     side,
     intl,
@@ -238,6 +210,71 @@ function SideButtonInternal({
 
   const handlePress = useDebouncedCallback(
     (): void => {
+      // Validate empty inputs - show toast instead of disabling button
+      // For limit orders, check price first
+      if (
+        formData.type === 'limit' &&
+        (!formData.price || formData.price.trim() === '')
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.limit_enter_price,
+          }),
+        });
+        return;
+      }
+      // Then check size for all order types
+      const isSliderMode = formData.sizeInputMode === 'slider';
+      const hasSizeEmpty = isSliderMode
+        ? !formData.sizePercent || formData.sizePercent <= 0
+        : !formData.size || formData.size.trim() === '';
+      if (hasSizeEmpty || !computedSizeForSide.gt(0)) {
+        Toast.message({
+          title: intl.formatMessage({
+            id: ETranslations.perp_trade_amount_place_holder,
+          }),
+        });
+        return;
+      }
+      if (isMinimumOrderNotMetForSide) {
+        let minAmount = '$10';
+        if (effectivePriceBN.gt(0)) {
+          // minimum token size that satisfies orderValue >= $10
+          const minSize = new BigNumber(10)
+            .dividedBy(effectivePriceBN)
+            .decimalPlaces(szDecimals, BigNumber.ROUND_UP);
+          if (tradingPreferences.sizeInputUnit === 'token') {
+            const coinSymbol = activeAsset?.coin
+              ? parseDexCoin(activeAsset.coin).displayName
+              : '';
+            minAmount = `${minSize.toFixed(szDecimals)} ${coinSymbol}`;
+          } else if (tradingPreferences.sizeInputUnit === 'margin') {
+            const leverageBN = new BigNumber(leverage || 1);
+            if (leverageBN.isFinite() && leverageBN.gt(0)) {
+              // System uses toFixed (ROUND_HALF_UP) to convert margin to token size.
+              // The smallest raw value that rounds up to minSize is: minSize - 0.5 * 10^(-szDecimals)
+              const halfStep = new BigNumber(5).times(
+                new BigNumber(10).pow(-(szDecimals + 1)),
+              );
+              const minMargin = minSize
+                .minus(halfStep)
+                .multipliedBy(effectivePriceBN)
+                .dividedBy(leverageBN)
+                .decimalPlaces(2, BigNumber.ROUND_UP)
+                .toFixed(2);
+              minAmount = `$${minMargin}`;
+            }
+          }
+        }
+        Toast.message({
+          title: intl.formatMessage(
+            { id: ETranslations.perp_size_least },
+            { amount: minAmount },
+          ),
+        });
+        return;
+      }
+
       // Validate TPSL only if user has filled in values
       const tpValue = formData.tpValue?.trim();
       const slValue = formData.slValue?.trim();

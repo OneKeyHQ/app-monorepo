@@ -67,6 +67,7 @@ const settings: IVaultSettings = {
   customRpcEnabled: true,
 
   skipFixFeeInfoDecimal: true,
+  preCheckDappTxFeeInfoRequired: true,
 
   accountDeriveInfo,
   networkInfo: {

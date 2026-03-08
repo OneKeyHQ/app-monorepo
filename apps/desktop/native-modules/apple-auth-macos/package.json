@@ -1,0 +1,16 @@
+{
+  "name": "apple-auth-macos",
+  "version": "1.0.0",
+  "description": "Native Apple Sign-In for macOS Electron apps",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "build": "node-gyp rebuild",
+    "clean": "node-gyp clean"
+  },
+  "dependencies": {
+    "node-addon-api": "^7.0.0"
+  },
+  "gypfile": true
+}
+

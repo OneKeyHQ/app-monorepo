@@ -7,7 +7,6 @@ import { InputAccessoryView } from 'react-native';
 
 import type { IPageNavigationProp, useInTabDialog } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   DashText,
   Divider,
@@ -49,6 +48,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -204,13 +204,6 @@ function SelectTokenPopoverContent({
         formatter: 'value',
         formatterOptions: { currency: symbol },
       });
-      const isArbUSDC = equalTokenNoCaseSensitive({
-        token1: item,
-        token2: {
-          networkId: PERPS_NETWORK_ID,
-          contractAddress: USDC_TOKEN_INFO.address,
-        },
-      });
       const networkInfo = networkUtils.getLocalNetworkInfo(item.networkId);
       const networkName = networkInfo?.name;
       return (
@@ -245,22 +238,6 @@ function SelectTokenPopoverContent({
                 {networkName}
               </SizableText>
             </YStack>
-            {isArbUSDC ? (
-              <Badge
-                badgeSize="sm"
-                height={24}
-                borderRadius="$full"
-                borderColor="$borderInfo"
-                bg="$bgInfo"
-                px="$2.5"
-              >
-                <SizableText size="$bodySm" color="$textInfo">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_deposit_direct,
-                  })}
-                </SizableText>
-              </Badge>
-            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
             <SizableText size="$bodySmMedium">{balanceFormatted}</SizableText>
@@ -271,7 +248,7 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
+    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress],
   );
   return (
     <YStack>
@@ -291,7 +268,7 @@ function SelectTokenPopoverContent({
         borderTopWidth={1}
         borderTopColor="$borderSubdued"
         p="$2"
-        cursor="pointer"
+        cursor="default"
         onPress={() => {
           void closePopover?.();
           if (platformEnv.isNativeIOS) {
@@ -392,10 +369,12 @@ function DepositWithdrawContent({
 
   const accountResult = usePerpsAccountResult(selectedAccount);
 
-  const handleBuyPress = useCallback(() => {
+  const handleBuyPress = useCallback(async () => {
     if (!currentPerpsDepositSelectedToken || !accountResult) {
       return;
     }
+
+    await dismissKeyboardWithDelay();
 
     defaultLogger.wallet.walletActions.buyOnLowBalance({
       source: 'perp',
@@ -469,7 +448,7 @@ function DepositWithdrawContent({
                   deriveType: defaultDeriveType ?? 'default',
                   accountId: selectedAccount.indexedAccountId
                     ? undefined
-                    : selectedAccount.accountId ?? '',
+                    : (selectedAccount.accountId ?? ''),
                 });
               const [tokenDetailsRes, nativeTokenConfigRes] = await Promise.all(
                 [
@@ -503,13 +482,11 @@ function DepositWithdrawContent({
         );
         const tokenDetails =
           tokenDetailsAndNativeTokenConfigs
-            ?.map((t) => t.tokenDetails)
-            .flat()
+            ?.flatMap((t) => t.tokenDetails)
             .filter(Boolean) ?? [];
         const nativeTokenConfigsRes =
           tokenDetailsAndNativeTokenConfigs
-            ?.map((t) => t.nativeTokenConfig)
-            .flat()
+            ?.flatMap((t) => t.nativeTokenConfig)
             .filter(Boolean) ?? [];
         setNativeTokenConfigs(nativeTokenConfigsRes);
         if (tokenDetails) {
@@ -531,7 +508,7 @@ function DepositWithdrawContent({
                 equalTokenNoCaseSensitive({ token1: t, token2: token }),
               )?.fiatValue,
             }))
-            .sort((a, b) =>
+            .toSorted((a, b) =>
               new BigNumber(b.fiatValue ?? 0).comparedTo(
                 new BigNumber(a.fiatValue ?? 0),
               ),
@@ -606,7 +583,7 @@ function DepositWithdrawContent({
     const rawBalance =
       selectedAction === 'withdraw'
         ? withdrawable || '0'
-        : currentPerpsDepositSelectedToken?.balanceParsed ?? '0';
+        : (currentPerpsDepositSelectedToken?.balanceParsed ?? '0');
     const balanceFormatted = numberFormat(rawBalance, { formatter: 'balance' });
     const displayBalance =
       selectedAction === 'withdraw'
@@ -666,7 +643,7 @@ function DepositWithdrawContent({
     }
     const minFromTokenAmountFormatted = minFromTokenAmount
       .decimalPlaces(
-        currentPerpsDepositSelectedToken?.decimals ?? 0,
+        Number(currentPerpsDepositSelectedToken?.decimals ?? 0),
         BigNumber.ROUND_UP,
       )
       .toFixed();
@@ -988,8 +965,10 @@ function DepositWithdrawContent({
                   toAmount: amount,
                   fromAmount: amount,
                   isArbUSDCOrder: true,
+                  skipToast: true,
                 });
               }
+              void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
               onClose?.();
             },
             transfersInfo: [
@@ -1003,6 +982,7 @@ function DepositWithdrawContent({
           });
         } else {
           await buildPerpDepositTx();
+          void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
           onClose?.();
         }
       } else {
@@ -1011,6 +991,7 @@ function DepositWithdrawContent({
           amount,
           destination: selectedAccount.accountAddress,
         });
+        void backgroundApiProxy.serviceHyperliquidSubscription.enableLedgerUpdatesSubscription();
         onClose?.();
       }
     } catch (error) {
@@ -1160,7 +1141,7 @@ function DepositWithdrawContent({
 
   const depositTokenSelectComponent = useMemo(() => {
     if (balanceLoading && checkAccountSupport)
-      return <Skeleton w={50} h={14} />;
+      return <Skeleton w={40} h={14} radius="round" />;
     if (depositTokensWithPrice.length === 0)
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -1183,7 +1164,7 @@ function DepositWithdrawContent({
         placement="bottom-end"
         offset={{ mainAxis: 10, crossAxis: 12 }}
         renderTrigger={
-          <XStack alignItems="center" gap="$1" cursor="pointer">
+          <XStack alignItems="center" gap="$1" cursor="default">
             <SizableText size="$bodyMd" color="$textSubdued">
               {currentPerpsDepositSelectedToken?.symbol ?? '-'}
             </SizableText>
@@ -1307,7 +1288,6 @@ function DepositWithdrawContent({
           height: '100%',
           justifyContent: 'center',
           alignItems: 'center',
-          width: 80,
         }}
         value={selectedAction}
         onChange={onChangeSegmentControl}
@@ -1405,7 +1385,6 @@ function DepositWithdrawContent({
               onPress={handleBuyPress}
               color="$textSuccess"
               size="$bodySmMedium"
-              cursor="pointer"
               dashColor="$textSuccess"
             >
               {intl.formatMessage({ id: ETranslations.global_top_up })}
@@ -1436,7 +1415,6 @@ function DepositWithdrawContent({
                 <SizableText
                   size="$bodyMd"
                   color="$textSuccess"
-                  cursor="pointer"
                   onPress={() => {
                     handleMaxPress({
                       networkId:
@@ -1548,23 +1526,25 @@ function DepositWithdrawContent({
               {perpDepositQuoteLoading ? (
                 <Skeleton w={60} h={14} />
               ) : (
-                <SizableText color="$text" size="$bodyMd">
-                  $
-                  {numberFormat(depositToAmount.value, {
-                    formatter: 'balance',
-                  })}{' '}
-                </SizableText>
+                <XStack gap="$1">
+                  <SizableText color="$text" size="$bodyMd">
+                    $
+                    {numberFormat(depositToAmount.value, {
+                      formatter: 'balance',
+                    })}{' '}
+                  </SizableText>
+                  <SizableText color="$text" size="$bodyMd">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.perp_deposit_on,
+                      },
+                      {
+                        chain: 'Hyperliquid',
+                      },
+                    )}
+                  </SizableText>
+                </XStack>
               )}
-              <SizableText color="$text" size="$bodyMd">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.perp_deposit_on,
-                  },
-                  {
-                    chain: 'Hyperliquid',
-                  },
-                )}
-              </SizableText>
             </XStack>
           )}
         </XStack>

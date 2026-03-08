@@ -226,7 +226,7 @@ function NostrSignEventModal() {
             },
           });
         }, 300);
-      } catch (e) {
+      } catch (_e) {
         dappApprove.reject();
       } finally {
         setIsLoading(false);

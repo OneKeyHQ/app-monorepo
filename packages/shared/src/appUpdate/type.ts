@@ -61,6 +61,8 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   errorText?: ETranslations;
   downloadedEvent?: IUpdateDownloadedEvent;
   summary?: string;
+  // the last time the update dialog was shown (for rate limiting)
+  lastUpdateDialogShownAt?: number;
 }
 
 export enum EAppUpdateStatus {

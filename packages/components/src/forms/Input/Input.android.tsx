@@ -25,6 +25,7 @@ export const textAreaSizeVariant: SizeVariantSpreadFunction<any> = (
 ) => {
   const { props } = extras;
   const buttonStyles = getButtonSized(val, extras);
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const fontStyle = getFontSized(val as any, extras)!;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const lines = props.rows ?? props.numberOfLines;

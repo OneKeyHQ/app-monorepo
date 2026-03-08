@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 
 import { createChart } from 'lightweight-charts';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { useTheme } from '@onekeyhq/components';
 
 import { createChartDom, updateChartDom } from './chartUtils';
 
@@ -18,7 +18,8 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
   height,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const textSubduedColor = useThemeValue('textSubdued');
+  const theme = useTheme();
+  const textSubduedColor = theme.textSubdued.val;
 
   useEffect(() => {
     if (!chartContainerRef.current) {

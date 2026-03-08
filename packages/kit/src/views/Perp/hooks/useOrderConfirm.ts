@@ -11,6 +11,7 @@ import {
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { useOrderPrice } from './useOrderPrice';
 import { useTradingPrice } from './useTradingPrice';
 
 interface IUseOrderConfirmOptions {
@@ -32,6 +33,9 @@ export function useOrderConfirm(
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
 
+  const longOrderPrice = useOrderPrice('long');
+  const shortOrderPrice = useOrderPrice('short');
+
   const handleConfirm = useCallback(
     async (overrideSide?: 'long' | 'short') => {
       if (activeAsset?.assetId === undefined) {
@@ -46,10 +50,38 @@ export function useOrderConfirm(
         ? { ...formData, side: overrideSide }
         : { ...formData };
 
-      // Reset form before placing order
+      const side = formDataSnapshot.side;
+      const orderPrice = side === 'long' ? longOrderPrice : shortOrderPrice;
+
+      if (orderPrice.error) {
+        Toast.error({
+          title: 'Order Failed',
+          message: 'Price data is not available. Please try again.',
+        });
+        return;
+      }
+
+      // Use the price from useOrderPrice
+      let effectivePrice: string;
+      if (formDataSnapshot.type === 'market') {
+        if (!midPrice) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Market price is not available. Please try again.',
+          });
+          return;
+        }
+        effectivePrice = midPrice;
+      } else {
+        effectivePrice = formatPriceToSignificantDigits(orderPrice.price);
+      }
+
       hyperliquidActions.current.resetTradingForm();
 
-      let effectiveFormData = formDataSnapshot;
+      let effectiveFormData = {
+        ...formDataSnapshot,
+        price: effectivePrice,
+      };
 
       const {
         tpValue,
@@ -67,7 +99,6 @@ export function useOrderConfirm(
 
         let calculatedTpTriggerPx: BigNumber | null = null;
         let calculatedSlTriggerPx: BigNumber | null = null;
-        const side = effectiveFormData.side;
 
         if (tpValue) {
           const _tpValue = new BigNumber(tpValue);
@@ -127,7 +158,7 @@ export function useOrderConfirm(
           await hyperliquidActions.current.orderOpen({
             assetId: activeAsset.assetId,
             formData: effectiveFormData,
-            price: effectiveFormData.price || '0',
+            price: effectivePrice || '0',
           });
         }
 
@@ -143,6 +174,8 @@ export function useOrderConfirm(
       formData,
       hyperliquidActions,
       options,
+      longOrderPrice,
+      shortOrderPrice,
     ],
   );
 

@@ -1,13 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgRocketLaunch = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="m15 14.912-3 2.55v1.772l2.514-1.509a1 1 0 0 0 .486-.857zm-5 2.502L6.586 14h-1.82c-1.554 0-2.515-1.696-1.715-3.029L4.56 8.457A3 3 0 0 1 7.132 7h3.683c2.524-2.67 5.386-4.631 9.1-4.953a1.88 1.88 0 0 1 2.038 2.039c-.322 3.713-2.283 6.575-4.953 9.1v3.682a3 3 0 0 1-1.457 2.572l-2.513 1.51c-1.333.8-3.029-.16-3.029-1.715zM9.088 9H7.132a1 1 0 0 0-.857.486L4.766 12h1.772zM2 19a3 3 0 1 1 3 3H3a1 1 0 0 1-1-1z"
+      d="M22.001 3c0 4.24-2.067 7.413-5 10.185v5.433l-7 3.5v-4.704L6.587 14H1.883l3.5-7h5.432c2.773-2.933 5.946-5 10.186-5h1zm-10 14.462v1.42l3-1.5v-2.47zM5.119 12h1.42l2.55-3h-2.47z"
       clipRule="evenodd"
     />
+    <Path d="M5.001 16a3 3 0 1 1 0 6h-3v-3a3 3 0 0 1 3-3" />
   </Svg>
 );
 export default SvgRocketLaunch;

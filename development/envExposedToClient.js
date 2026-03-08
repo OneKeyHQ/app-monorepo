@@ -31,6 +31,13 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'SENTRY_DSN_WINMS',
     'SENTRY_DSN_REACT_NATIVE',
     'SENTRY_DSN_WEB',
+    'PERF_MONITOR_ENABLED',
+    'PERF_BG_CALL_MARK_MS',
+    'PERF_JS_BLOCK_THRESHOLD_MS',
+    'PERF_STORAGE_MARK',
+    'PERF_STORAGE_MARK_MS',
+    'PERF_SIMPLEDB_MARK',
+    'PERF_SIMPLEDB_MARK_MS',
     // Supabase (publishable)
     'SUPABASE_PROJECT_URL',
     'SUPABASE_PUBLIC_API_KEY',

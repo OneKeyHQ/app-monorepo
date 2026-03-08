@@ -3,6 +3,7 @@ package so.onekey.app.wallet;
 import android.app.Application;
 import android.content.Context;
 import com.facebook.react.defaults.DefaultReactNativeHost;
+import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import java.io.File;
 
 public abstract class CustomReactNativeHost extends DefaultReactNativeHost {
@@ -21,7 +22,7 @@ public abstract class CustomReactNativeHost extends DefaultReactNativeHost {
     @Override
     public String getJSBundleFile() {
         // Check for updated bundle first
-        String bundlePath = BundleUpdateModule.getCurrentBundleMainJSBundle(context);
+        String bundlePath = BundleUpdateStoreAndroid.INSTANCE.getCurrentBundleMainJSBundle(context);
         if (bundlePath != null) {
             File bundleFile = new File(bundlePath);
             if (bundleFile.exists()) {

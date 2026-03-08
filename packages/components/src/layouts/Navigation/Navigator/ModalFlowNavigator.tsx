@@ -6,7 +6,7 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EPageType } from '../../../hocs';
 import { PageTypeContext } from '../../../hocs/PageType/context';
-import { useThemeValue } from '../../../hooks';
+import { useTheme } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createOnBoardingNavigator from '../Modal/createOnBoardingNavigator';
 import createWebModalNavigator from '../Modal/createWebModalNavigator';
@@ -62,7 +62,9 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
 }: IModalFlowNavigatorProps<RouteName, P> & {
   pageType?: EPageType;
 }) {
-  const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
+  const theme = useTheme();
+  const bgColor = theme.bgApp.val;
+  const titleColor = theme.text.val;
   const intl = useIntl();
 
   useEffect(() => {
@@ -80,7 +82,8 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   );
   const ModalStackComponent = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return contextValue.pageType === EPageType.onboarding
+    return contextValue.pageType === EPageType.onboarding ||
+      contextValue.pageType === EPageType.fullScreenPush
       ? OnBoardingStack
       : ModalStack;
   }, [contextValue.pageType]);
@@ -109,7 +112,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             dismissOnOverlayPress,
           }) => {
             const customOptions: IModalNavigationOptions = {
-              ...options,
+              ...(typeof options === 'function' ? {} : options),
               shouldPopOnClickBackdrop,
               dismissOnOverlayPress,
               title: translationId

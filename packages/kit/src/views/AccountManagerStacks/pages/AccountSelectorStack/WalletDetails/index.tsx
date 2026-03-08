@@ -106,9 +106,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const isOthers = selectedAccount?.focusedWallet === '$$others';
   const isOthersWallet = Boolean(
     selectedAccount?.focusedWallet &&
-      accountUtils.isOthersWallet({
-        walletId: selectedAccount?.focusedWallet,
-      }),
+    accountUtils.isOthersWallet({
+      walletId: selectedAccount?.focusedWallet,
+    }),
   );
   const isOthersUniversal = isOthers || isOthersWallet;
   // const isOthersUniversal = true;
@@ -116,7 +116,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const {
     result: listDataResult,
     run: reloadAccounts,
-    setResult: setListDataResult,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setResult: _setListDataResult,
   } = usePromiseResult(
     async () => {
       if (!selectedAccount?.focusedWallet || !usedDeriveType) {
@@ -187,6 +188,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const accountsValue = useMemo(
     () => listDataResult?.accountsValue || [],
     [listDataResult?.accountsValue],
+  );
+  const accountsDeFiOverview = useMemo(
+    () => listDataResult?.accountsDeFiOverview || [],
+    [listDataResult?.accountsDeFiOverview],
   );
   const accountsCount = useMemo(
     () => listDataResult?.accountsCount ?? 0,
@@ -266,7 +271,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const listViewLayoutRef = useRef(listViewLayout);
   listViewLayoutRef.current = listViewLayout;
 
-  const { scrollToLocation, onLayout: handleLayoutForSectionList } =
+  const { onLayout: handleLayoutForSectionList } =
     useSafelyScrollToLocation(listRef);
 
   const handleLayoutForContainer = useCallback((e: LayoutChangeEvent) => {
@@ -352,7 +357,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   //   }
   // }, [scrollToLocation, sectionData]);
 
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
 
   // const isEmptyData = useMemo(() => {
   //   let count = 0;
@@ -544,6 +549,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               isOthersUniversal={isOthersUniversal}
               selectedAccount={selectedAccount}
               accountsValue={accountsValue}
+              accountsDeFiOverview={accountsDeFiOverview}
               linkNetwork={linkNetwork}
               editable={editable}
               accountsCount={accountsCount}
@@ -560,7 +566,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
             />
           )}
           renderSectionFooter={({
-            section,
+            section: _section,
           }: {
             section: IAccountSelectorAccountsListSectionData;
           }) =>
@@ -602,6 +608,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     );
   }, [
     accountsCount,
+    accountsDeFiOverview,
     accountsValue,
     actions,
     allowSelectEmptyAccount,
@@ -688,7 +695,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     <Stack
       key={focusedWalletInfo?.wallet?.id}
       flex={1}
-      pb={bottom}
+      pt={platformEnv.isNativeAndroid ? top : undefined}
+      pb={Math.max(bottom, 8)}
       testID="account-selector-accountList"
     >
       <WalletDetailsHeader
@@ -699,6 +707,18 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         num={num}
         title={title}
       />
+
+      {platformEnv.isWebDappMode &&
+      accountUtils.isHwWallet({ walletId: focusedWalletInfo?.wallet?.id }) ? (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.global_web_access_for_hardware_wallet_disconnected,
+          })}
+          mx="$5"
+          mb="$2"
+        />
+      ) : null}
 
       {focusedWalletInfo?.wallet?.id && isHiddenWallet && editable ? (
         <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />

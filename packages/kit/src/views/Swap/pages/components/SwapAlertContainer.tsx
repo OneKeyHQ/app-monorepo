@@ -78,7 +78,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
             }),
           });
           setCreateAddressError(false);
-        } catch (e) {
+        } catch (_e) {
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.swap_page_toast_address_generated_fail,
@@ -131,6 +131,9 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   const createAlert = useCallback(
     (item: ISwapAlertState, index: number) => {
       const { alertLevel, title, icon, message, action } = item;
+      if (!message && !title) {
+        return null;
+      }
       if (
         action?.actionType === ESwapAlertActionType.CREATE_ADDRESS &&
         action?.actionData?.key === accountManualCreatingAtom.key &&
@@ -268,7 +271,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
 
   return (
     <YStack gap="$2.5">
-      {(haveErrorAlert ? alertsSorted.reverse() : alertsSorted).map(
+      {(haveErrorAlert ? alertsSorted.toReversed() : alertsSorted).map(
         (item, index) => createAlert(item, index),
       )}
     </YStack>

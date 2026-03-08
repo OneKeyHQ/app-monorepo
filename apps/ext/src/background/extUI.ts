@@ -13,8 +13,7 @@ const setupExtUIEventBase = (
 };
 
 export const setupExtUIEvent = () =>
-  setupExtUIEventBase((port: chrome.runtime.Port) => {
-    const p = port;
+  setupExtUIEventBase((_port: chrome.runtime.Port) => {
     const backgroundApiProxy =
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       require('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
@@ -24,6 +23,6 @@ export const setupExtUIEvent = () =>
   });
 
 export const setupExtUIEventOnPassKeyPage = () =>
-  setupExtUIEventBase((port: chrome.runtime.Port) => {
+  setupExtUIEventBase((_port: chrome.runtime.Port) => {
     closeWindow();
   });

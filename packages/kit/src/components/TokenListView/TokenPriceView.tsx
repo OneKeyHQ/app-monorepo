@@ -5,7 +5,7 @@ import { NumberSizeableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
-  useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
 
@@ -17,7 +17,7 @@ function TokenPriceView(props: IProps) {
   const { $key, ...rest } = props;
   const [settings] = useSettingsPersistAtom();
   const [tokenListMap] = useTokenListMapAtom();
-  const [aggregateTokensMap] = useAggregateTokensMapAtom();
+  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
   return (

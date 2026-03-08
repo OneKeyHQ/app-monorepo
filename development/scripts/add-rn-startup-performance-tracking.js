@@ -21,7 +21,7 @@ const excludeDirs = new Set([
 const extensions = new Set(['.ts', '.tsx']);
 
 // Statistics
-let stats = {
+const stats = {
   processed: 0,
   skipped: 0,
   errors: 0,
@@ -29,7 +29,11 @@ let stats = {
 };
 
 function shouldExcludeDir(dirName) {
-  return excludeDirs.has(dirName) || dirName.startsWith('tmp-') || dirName.startsWith('.');
+  return (
+    excludeDirs.has(dirName) ||
+    dirName.startsWith('tmp-') ||
+    dirName.startsWith('.')
+  );
 }
 
 function findFiles(dir, files = []) {
@@ -60,25 +64,29 @@ function findFiles(dir, files = []) {
 function addPerformanceTracking(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf-8');
-    
+
     // Skip if already has performance tracking
     if (content.includes('$$perfStart_') || content.includes('perfReady')) {
-      console.log(`Skipping (already has tracking): ${path.relative(rootDir, filePath)}`);
-      stats.skipped++;
+      console.log(
+        `Skipping (already has tracking): ${path.relative(rootDir, filePath)}`,
+      );
+      stats.skipped += 1;
       return;
     }
 
     // Skip empty files
     if (!content.trim()) {
       console.log(`Skipping (empty): ${path.relative(rootDir, filePath)}`);
-      stats.skipped++;
+      stats.skipped += 1;
       return;
     }
 
     // Skip .d.ts files
     if (filePath.endsWith('.d.ts')) {
-      console.log(`Skipping (type definition): ${path.relative(rootDir, filePath)}`);
-      stats.skipped++;
+      console.log(
+        `Skipping (type definition): ${path.relative(rootDir, filePath)}`,
+      );
+      stats.skipped += 1;
       return;
     }
 
@@ -109,20 +117,21 @@ export {};
 
     // Write ready file
     fs.writeFileSync(readyFilePath, readyFileContent, 'utf-8');
-    stats.readyFilesCreated++;
+    stats.readyFilesCreated += 1;
 
     // Modify original file
     const importStatement = `import './${fileNameWithoutExt}.perfReady';\n`;
-    
+
     // Check if file starts with eslint-disable import/order
     let newContent;
-    const eslintDisablePattern = /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
-    
+    const eslintDisablePattern =
+      /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
+
     if (eslintDisablePattern.test(content)) {
       // Insert after eslint-disable comment
       newContent = content.replace(
         eslintDisablePattern,
-        (match) => match + importStatement
+        (match) => match + importStatement,
       );
     } else {
       // Add eslint-disable and import at the beginning
@@ -130,31 +139,45 @@ export {};
     }
 
     // Add end tracking code
+    // Reports to performance server via globalThis.__perfReportModuleLoad if available
+    // Otherwise buffers to globalThis.__perfModuleBuffer for later reporting
     const endCode = `\nif (typeof (globalThis as any).$$perfStart_${varName} !== 'undefined') {
   const $$perfEnd = typeof globalThis.nativePerformanceNow === 'function' ? globalThis.nativePerformanceNow() : Date.now();
   const $$perfDuration = $$perfEnd - (globalThis as any).$$perfStart_${varName};
-  if (__DEV__) {
-    if (globalThis.$rn_startup_performance_times === undefined) {
-      globalThis.$rn_startup_performance_times = [];
-    }
-    globalThis.$rn_startup_performance_times.push({
-      path: '${relativePath.replace(/\\/g, '/')}',
-      duration: $$perfDuration,
+  const $$perfModuleData = {
+    path: '${relativePath.replace(/\\/g, '/')}',
+    duration: $$perfDuration,
+  };
+
+  // Report to performance server if reporter is ready
+  if (typeof (globalThis as any).__perfReportModuleLoad === 'function') {
+    (globalThis as any).__perfReportModuleLoad($$perfModuleData);
+  } else {
+    // Buffer for later reporting when reporter is initialized
+    (globalThis as any).__perfModuleBuffer = (globalThis as any).__perfModuleBuffer || [];
+    (globalThis as any).__perfModuleBuffer.push({
+      ...$$perfModuleData,
+      ts: Date.now(),
     });
-    console.log('[Performance] ${relativePath.replace(/\\/g, '/')}: ' + $$perfDuration + 'ms');
+  }
+
+  // Also store locally for backward compatibility
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    (globalThis as any).$rn_startup_performance_times = (globalThis as any).$rn_startup_performance_times || [];
+    (globalThis as any).$rn_startup_performance_times.push($$perfModuleData);
   }
 }
 `;
 
-    newContent = newContent + endCode;
+    newContent += endCode;
 
     // Write back to original file
     fs.writeFileSync(filePath, newContent, 'utf-8');
     console.log(`✓ Added tracking to: ${relativePath}`);
-    stats.processed++;
+    stats.processed += 1;
   } catch (error) {
     console.error(`Error processing ${filePath}:`, error.message);
-    stats.errors++;
+    stats.errors += 1;
   }
 }
 
@@ -164,10 +187,7 @@ function processAllFiles() {
 
   console.log('Finding all .ts and .tsx files...\n');
 
-  const files = [
-    ...findFiles(packagesDir),
-    ...findFiles(appsDir),
-  ];
+  const files = [...findFiles(packagesDir), ...findFiles(appsDir)];
 
   console.log(`Found ${files.length} files to process\n`);
 
@@ -175,7 +195,7 @@ function processAllFiles() {
     addPerformanceTracking(file);
   });
 
-  console.log('\n' + '='.repeat(60));
+  console.log(`\n${'='.repeat(60)}`);
   console.log('Summary:');
   console.log(`  Processed: ${stats.processed}`);
   console.log(`  Ready files created: ${stats.readyFilesCreated}`);
@@ -189,7 +209,7 @@ function processAllFiles() {
 if (require.main === module) {
   console.log('Adding performance tracking to all .ts and .tsx files...');
   console.log(`Root directory: ${rootDir}\n`);
-  
+
   processAllFiles();
 }
 

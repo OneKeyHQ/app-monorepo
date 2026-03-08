@@ -5,6 +5,26 @@ This file provides guidance to CodeX when working with code in this repository.
 
 OneKey is an open-source multi-chain crypto wallet with a monorepo architecture supporting desktop, mobile, web, and browser extension platforms. The codebase uses Yarn workspaces with TypeScript and React/React Native.
 
+## Review Guidelines
+
+- Review scope: treat `x` as the base (main) branch. Always review the PR as the diff between the current branch (HEAD) and `x` (i.e., changes introduced by this branch vs `x`).
+- Use PR semantics when generating the diff: `git fetch origin && git diff origin/x...HEAD` (triple-dot) to review only the changes introduced on this branch relative to `x`.
+- Don't log PII or secrets (mnemonics/seed phrases, private keys, signing payloads, API keys, tokens, cookies, session IDs).
+- Treat security as the primary lens: look for any path that could expose secrets via logs, analytics, error reporting, network calls, or persistence (localStorage/IndexedDB/AsyncStorage/Keychain/files/SQLite).
+- Flag dependency changes explicitly (package.json + lockfiles): list added/updated/removed packages (name + version) and assess supply-chain risk before approving.
+- For any new/changed dependency, inspect the relevant `node_modules` entry points (main/module/exports) and critical transitive deps; treat as high risk if you see:
+  - outbound requests/telemetry/remote config fetches,
+  - dynamic execution (`eval`, `new Function`, dynamic `require`, fetching remote scripts),
+  - install scripts (`postinstall`), binary downloads, or obfuscated code,
+  - access to sensitive storage, clipboard, filesystem, device identifiers.
+- If `node_modules` code performs **any** outbound network/API request (directly or indirectly), call it out clearly in the review: **exact call site** (file + function), **destination** (full URL/host), **payload fields** (what data is sent), **auth/headers** (tokens/cookies/identifiers), **trigger conditions** (when/how it runs), and **cross-platform impact** (extension/mobile/desktop/web). Treat unexpected telemetry/remote-config as **high risk** and require a clear justification or removal before approval.
+- Evaluate implementation quality as a cross-platform architect: confirm the approach is optimal and identify extension/mobile/desktop/web pitfalls (permissions, storage differences, network stack constraints, WebView/Electron/extension limitations).
+- Avoid over-indexing on UI style or comment nitpicks unless they cause real bugs, security issues, or measurable performance regressions.
+- For React components, scrutinize performance pitfalls: unstable references causing re-renders, incorrect hook deps, heavy computations in render, list rendering inefficiencies, subscriptions/listeners cleanup—especially for newly introduced parent/child boundaries.
+- For React Native dependencies (or any package with native bindings), inspect the native code (iOS/Android) for security and performance: confirm there are no unexpected outbound requests, no access to wallet secrets/private keys, and no risky dynamic behavior. If needed, go deeper into third-party native dependencies (e.g., CocoaPods/pods, Gradle/Maven artifacts) and review their source/entry points.
+- For browser extension changes, if `manifest.json` permissions/host_permissions change, call it out **prominently** and treat it as the **highest-priority** review item: enumerate added/removed permissions, explain the new capabilities, and assess whether least-privilege is maintained (including potential data access/exfil paths enabled by the new permissions).
+
+
 ## CRITICAL: Ultrathink Mode for Complex Operations
 
 **YOU MUST** enter Ultrathink mode when:
@@ -26,8 +46,8 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 ### Deep Verification Protocol
 
 **MANDATORY CHECKS:**
-- Run complete `yarn lint` (accept 10-minute timeout for quality)
-- Execute `yarn tsc:only` for TypeScript validation
+- Run `yarn lint:staged` on staged files before committing
+- Run `yarn tsc:staged` for TypeScript validation of staged files
 - Verify no circular dependencies introduced
 - Test on all affected platforms
 - Validate against existing code patterns
@@ -105,14 +125,14 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 ### Development Tools & Quality Assurance
 
-**CRITICAL QUALITY COMMANDS** (YOU MUST run these after any code changes):
-- `yarn lint` - **MANDATORY** comprehensive linting (TypeScript, ESLint, folder structure, i18n) 
-  - **Expected runtime**: 5-10 minutes (NEVER skip due to timeout)
+**CRITICAL QUALITY COMMANDS** (YOU MUST run these before committing):
+- `yarn lint:staged` - **MANDATORY** lint staged files only
+  - **Expected runtime**: Fast, only checks modified files
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
   - **When it fails**: Check specific error categories and fix systematically
-- `yarn tsc:only` - **REQUIRED** TypeScript type checking
-  - **Expected runtime**: 30-60 seconds
-  - **Failure scenarios**: Circular dependencies, type mismatches, missing imports
+- `yarn tsc:staged` - **REQUIRED** TypeScript type checking on staged files
+  - **Expected runtime**: Fast, only checks modified files
+  - **Failure scenarios**: Type mismatches, missing imports
   - **Action required**: Fix ALL TypeScript errors before proceeding
 - `yarn test` - **MANDATORY** Jest test execution
   - **Expected runtime**: 2-5 minutes depending on test scope
@@ -120,13 +140,13 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 **DEVELOPMENT QUALITY WORKFLOW**:
 1. Make code changes
-2. Run `yarn tsc:only` immediately to catch type errors
-3. Run `yarn lint` to ensure code quality (accept full timeout)
+2. Stage your changes with `git add`
+3. Run `yarn lint:staged` to catch linting errors in staged files
+4. Run `yarn tsc:staged` to catch type errors in staged files
 4. Run `yarn test` to verify functionality
 5. Only proceed if ALL commands pass without errors or warnings
 
 **OTHER TOOLS**:
-- `yarn lint:only` - ESLint only (use for quick syntax checks)
 - `yarn clean` - Clean all build artifacts and node_modules
 - `yarn reinstall` - Full clean install (use when dependency issues occur)
 
@@ -181,8 +201,7 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 **BEFORE ADDING ANY IMPORT:**
 1. Verify the import respects the hierarchy above
 2. Check if the import creates a circular dependency
-3. Run `yarn tsc:only` to validate no circular dependency introduced
-4. If unsure, find an alternative approach that respects the hierarchy
+3. If unsure, find an alternative approach that respects the hierarchy
 
 **COMMON VIOLATIONS TO AVOID:**
 - ❌ Importing from `@onekeyhq/kit` in `@onekeyhq/components`

@@ -8,7 +8,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IV4EIP1559Fee, IV4FeeInfo, IV4FeeInfoUnit } from './v4types';
 
-const notSupportedCoinType = [COINTYPE_XMR, COINTYPE_STC];
+const notSupportedCoinType = new Set([COINTYPE_XMR, COINTYPE_STC]);
 
 const notSupportedNetworksInfo: Partial<{
   [networkId: string]: {
@@ -27,7 +27,7 @@ const notSupportedNetworksInfo: Partial<{
 };
 
 function isCoinTypeSupport({ coinType }: { coinType: string }) {
-  return !notSupportedCoinType.includes(coinType) && coinType;
+  return !notSupportedCoinType.has(coinType) && coinType;
 }
 function getNotSupportNetworkInfo({ networkId }: { networkId: string }) {
   return notSupportedNetworksInfo[networkId];

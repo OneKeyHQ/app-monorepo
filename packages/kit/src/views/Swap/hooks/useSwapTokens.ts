@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import { useIsModalPage } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -70,8 +70,8 @@ export function useSwapTokenList(
           indexedAccountId: swapAddressInfo?.accountInfo?.indexedAccount?.id,
           otherWalletTypeAccountId: !swapAddressInfo?.accountInfo
             ?.indexedAccount?.id
-            ? swapAddressInfo?.accountInfo?.account?.id ??
-              swapAddressInfo?.accountInfo?.dbAccount?.id
+            ? (swapAddressInfo?.accountInfo?.account?.id ??
+              swapAddressInfo?.accountInfo?.dbAccount?.id)
             : undefined,
           swapSupportNetworks: swapNetworks,
         });
@@ -139,7 +139,7 @@ export function useSwapTokenList(
         const priceBN = new BigNumber(token.price ?? '0');
         return !priceBN.isNaN() && !priceBN.isZero();
       })
-      ?.sort((a, b) => {
+      ?.toSorted((a, b) => {
         const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
         const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
         return bBalanceBN.comparedTo(aBalanceBN);
@@ -149,7 +149,7 @@ export function useSwapTokenList(
         const priceBN = new BigNumber(token.price ?? '0');
         return priceBN.isNaN() || priceBN.isZero();
       })
-      ?.sort((a, b) => {
+      ?.toSorted((a, b) => {
         const aBalanceBN = new BigNumber(a.fiatValue ?? '0');
         const bBalanceBN = new BigNumber(b.fiatValue ?? '0');
         return bBalanceBN.comparedTo(aBalanceBN);
@@ -283,8 +283,8 @@ export function useSwapTokenList(
       void swapLoadAllNetworkTokenList(
         swapAddressInfo?.accountInfo?.indexedAccount?.id,
         !swapAddressInfo?.accountInfo?.indexedAccount?.id
-          ? swapAddressInfo?.accountInfo?.account?.id ??
-              swapAddressInfo?.accountInfo?.dbAccount?.id
+          ? (swapAddressInfo?.accountInfo?.account?.id ??
+              swapAddressInfo?.accountInfo?.dbAccount?.id)
           : undefined,
       );
     }
@@ -305,7 +305,7 @@ export function useSwapTokenList(
       return;
     }
     const queryLength = keywords.length;
-    if (queryLength < 1 || queryLength > 10) {
+    if (queryLength < 1) {
       searchLogStateRef.current = null;
       return;
     }
@@ -339,7 +339,7 @@ export function useSwapTokenList(
         networkId,
         networkName: currentSelectNetwork?.isAllNetworks
           ? 'All Networks'
-          : currentSelectNetwork?.name ?? '',
+          : (currentSelectNetwork?.name ?? ''),
         direction: selectTokenModalType,
         from,
       });
@@ -474,7 +474,7 @@ export function useSwapSelectedTokenInfo({
     },
     [type, loadSwapSelectTokenDetailDeb],
   );
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   useEffect(() => {
     if (isFocused && isModalPage) {
       appEventBus.off(

@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFeatures = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10.414 16 5 21.414 3.586 20 9 14.586zm7 0L12 21.414 10.586 20 16 14.586zm-9-5L3 16.414 1.586 15 7 9.586z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="m9 16-4 4m2-9-4 4m13 1-4 4m.783-15.076-2.322.538a1 1 0 0 0-.53 1.63l1.563 1.8a1 1 0 0 1 .241.742l-.206 2.374a1 1 0 0 0 1.386 1.007l2.195-.93a1 1 0 0 1 .78 0l2.194.93a1 1 0 0 0 1.387-1.007l-.206-2.374a1 1 0 0 1 .24-.742l1.563-1.8a1 1 0 0 0-.53-1.63l-2.321-.538a1 1 0 0 1-.631-.458l-1.23-2.042a1 1 0 0 0-1.713 0l-1.229 2.042a1 1 0 0 1-.63.458Z"
+      fillRule="evenodd"
+      d="m18.113 4.403 4.938 1.144-3.323 3.826.439 5.05-4.667-1.978-4.667 1.978.438-5.049L7.95 5.547l4.937-1.144L15.5.061zm-3.95 1.757-2.525.585 1.422 1.638.277.32-.036.422-.188 2.16 2.387-1.01 2.386 1.01-.223-2.582.277-.32 1.421-1.638-2.524-.585L15.5 3.938z"
+      clipRule="evenodd"
     />
   </Svg>
 );

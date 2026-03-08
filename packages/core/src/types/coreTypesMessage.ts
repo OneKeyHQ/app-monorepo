@@ -6,6 +6,7 @@ import type {
   EMessageTypesCommon,
   EMessageTypesEth,
   EMessageTypesSolana,
+  EMessageTypesStellar,
   EMessageTypesTon,
   EMessageTypesTron,
 } from '@onekeyhq/shared/types/message';
@@ -107,6 +108,14 @@ export type IUnsignedMessageTron = {
   payload?: any;
 };
 
+export type IUnsignedMessageStellar = {
+  type: EMessageTypesStellar;
+  message: string;
+  payload?: {
+    networkPassphrase?: string;
+  };
+};
+
 export type IUnsignedMessage =
   | IUnsignedMessageCommon
   | IUnsignedMessageEth
@@ -116,5 +125,5 @@ export type IUnsignedMessage =
   | IUnsignedMessageTron
   | IUnsignedMessageAda
   | IUnsignedMessageAlph
-  | IUnsignedMessageCfx
-  | IUnsignedMessageSolana;
+  | IUnsignedMessageSolana
+  | IUnsignedMessageStellar;

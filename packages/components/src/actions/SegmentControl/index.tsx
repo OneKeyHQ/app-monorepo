@@ -18,6 +18,10 @@ export interface ISegmentControlProps extends IXStackProps {
   }[];
   onChange: (value: string | number) => void;
   segmentControlItemStyleProps?: GetProps<typeof YStack>;
+  slotBackgroundColor?: IXStackProps['backgroundColor'];
+  activeBackgroundColor?: GetProps<typeof YStack>['bg'];
+  activeTextColor?: string;
+  inactiveTextColor?: string;
 }
 
 function SegmentControlItem({
@@ -26,6 +30,9 @@ function SegmentControlItem({
   onChange,
   active,
   disabled,
+  activeBackgroundColor,
+  activeTextColor,
+  inactiveTextColor,
   testID,
   ...rest
 }: {
@@ -34,17 +41,20 @@ function SegmentControlItem({
   active: boolean;
   disabled?: boolean;
   onChange: (value: string | number) => void;
+  activeBackgroundColor?: GetProps<typeof YStack>['bg'];
+  activeTextColor?: string;
+  inactiveTextColor?: string;
 } & GetProps<typeof YStack>) {
   const handleChange = useCallback(() => {
     onChange(value);
   }, [onChange, value]);
   return (
     <YStack
-      py="$1"
-      px="$2"
+      py="$1.5"
+      px="$3.5"
       $gtMd={{ zIndex: 4 }}
       onPress={handleChange}
-      borderRadius="$2"
+      borderRadius="$full"
       borderCurve="continuous"
       userSelect="none"
       focusable={!disabled}
@@ -56,15 +66,7 @@ function SegmentControlItem({
       testID={testID}
       {...(active
         ? {
-            bg: '$bg',
-            elevation: 2,
-            '$platform-native': {
-              elevation: 2,
-            },
-            '$platform-web': {
-              boxShadow:
-                '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-            },
+            bg: activeBackgroundColor ?? '$bgPrimary',
           }
         : {
             hoverStyle: {
@@ -83,7 +85,11 @@ function SegmentControlItem({
         <SizableText
           size="$bodyMdMedium"
           textAlign="center"
-          color={active ? '$text' : '$textSubdued'}
+          color={
+            active
+              ? (activeTextColor ?? '$textInverse')
+              : (inactiveTextColor ?? '$text')
+          }
         >
           {label}
         </SizableText>
@@ -100,6 +106,10 @@ function SegmentControlFrame({
   onChange,
   fullWidth,
   segmentControlItemStyleProps,
+  slotBackgroundColor,
+  activeBackgroundColor,
+  activeTextColor,
+  inactiveTextColor,
   ...rest
 }: ISegmentControlProps) {
   const handleChange = useCallback(
@@ -112,10 +122,10 @@ function SegmentControlFrame({
     <XStack
       width={fullWidth ? '100%' : 'auto'}
       alignSelf={fullWidth ? undefined : 'flex-start'}
-      backgroundColor="$neutral5"
-      borderRadius="$2.5"
+      backgroundColor={slotBackgroundColor ?? '$bgStrong'}
+      borderRadius="$full"
       borderCurve="continuous"
-      p="$0.5"
+      h={32}
       {...rest}
     >
       {options.map(({ label, value: v, testID }, index) => (
@@ -126,9 +136,9 @@ function SegmentControlFrame({
           value={v}
           active={value === v}
           onChange={handleChange}
-          {...(index !== 0 && {
-            ml: '$0.5',
-          })}
+          activeBackgroundColor={activeBackgroundColor}
+          activeTextColor={activeTextColor}
+          inactiveTextColor={inactiveTextColor}
           {...(fullWidth && {
             flexGrow: 1,
             flexBasis: 0,

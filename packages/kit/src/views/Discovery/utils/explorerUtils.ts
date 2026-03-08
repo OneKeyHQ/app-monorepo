@@ -88,7 +88,7 @@ export function dismissWebviewKeyboard(id?: string) {
       if (deskTopRef) {
         try {
           deskTopRef.executeJavaScript(injectToDismissWebviewKeyboard);
-        } catch (e) {
+        } catch (_e) {
           // if not dom ready, no need to pause websocket
         }
       }
@@ -132,7 +132,7 @@ export function processWebSiteUrl(url?: string): string | undefined {
     }
 
     return url;
-  } catch (error) {
+  } catch (_error) {
     // ignore url parse error
     return url;
   }

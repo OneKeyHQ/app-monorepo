@@ -46,6 +46,9 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     url.searchParams.set('locale', locale);
     url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
     url.searchParams.set('theme', theme);
+    if (platformEnv.version) {
+      url.searchParams.set('appVersion', platformEnv.version);
+    }
 
     // Add any additional parameters
     if (additionalParams) {

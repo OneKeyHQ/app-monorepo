@@ -10,22 +10,19 @@ import {
   Icon,
   Page,
   SizableText,
-  Stack,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EOnboardingPagesV2,
   IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
-import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -50,10 +47,9 @@ export default function ICloudBackupDetails({
   EOnboardingPagesV2.ICloudBackupDetails
 >) {
   const intl = useIntl();
-  const backupTime = route.params?.backupTime;
+  const _backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
   const hideRestoreButton = route.params?.hideRestoreButton;
-  const navigation = useAppNavigation();
   const {
     doBackup,
     doDeleteBackup,

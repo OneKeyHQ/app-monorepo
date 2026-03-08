@@ -13,6 +13,8 @@ export interface IDownloadPackageParams {
   downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
+  /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
+  skipGPGVerification?: boolean;
 }
 
 export type IUpdateDownloadedEvent =
@@ -120,7 +122,19 @@ export interface IBundleUpdate {
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getFallbackBundles: () => Promise<IJSBundle[]>;
   switchBundle: (params: IJSBundle) => Promise<void>;
+  isBundleExists: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<boolean>;
+  verifyExtractedBundle: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<void>;
+  listLocalBundles: () => Promise<
+    { appVersion: string; bundleVersion: string }[]
+  >;
   testVerification: () => Promise<boolean>;
+  testSkipVerification: () => Promise<boolean>;
   testDeleteJsBundle: ITestDeleteJsBundle;
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;
   testDeleteMetadataJson: ITestDeleteMetadataJson;

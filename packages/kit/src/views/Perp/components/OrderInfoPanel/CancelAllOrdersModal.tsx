@@ -17,13 +17,25 @@ import { TradingGuardWrapper } from '../TradingGuardWrapper';
 
 interface ICancelAllOrdersContentProps {
   onClose?: () => void;
+  filterByCoin?: string;
 }
 
-function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
+function CancelAllOrdersContent({
+  onClose,
+  filterByCoin,
+}: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
   const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const ordersToProcess = useMemo(
+    () =>
+      filterByCoin
+        ? openOrders.filter((o) => o.coin === filterByCoin)
+        : openOrders,
+    [openOrders, filterByCoin],
+  );
 
   const handleConfirm = useCallback(async () => {
     if (isSubmitting) return;
@@ -33,9 +45,9 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
       await actions.current.ensureTradingEnabled();
       const symbolsMetaMap =
         await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
-          coins: openOrders.map((o) => o.coin),
+          coins: ordersToProcess.map((o) => o.coin),
         });
-      const ordersToCancel = openOrders
+      const ordersToCancel = ordersToProcess
         .map((order) => {
           const tokenInfo = symbolsMetaMap[order.coin];
           if (!tokenInfo || isNil(tokenInfo?.assetId)) {
@@ -62,7 +74,7 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [actions, isSubmitting, onClose, openOrders]);
+  }, [actions, isSubmitting, onClose, ordersToProcess]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -99,7 +111,7 @@ function CancelAllOrdersContent({ onClose }: ICancelAllOrdersContentProps) {
   );
 }
 
-export function showCancelAllOrdersDialog() {
+export function showCancelAllOrdersDialog(filterByCoin?: string) {
   const dialogInstance = Dialog.show({
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_cacenl_all_order_title,
@@ -110,6 +122,7 @@ export function showCancelAllOrdersDialog() {
           onClose={() => {
             void dialogInstance.close();
           }}
+          filterByCoin={filterByCoin}
         />
       </PerpsProviderMirror>
     ),

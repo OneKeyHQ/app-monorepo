@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
@@ -26,6 +27,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
+import { WalletActionBuyMain } from './WalletActionBuyMain';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
@@ -36,8 +38,10 @@ import type { IActionCustomization } from './types';
 
 function WalletActionSend({
   customization,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
+  showButtonStyle?: boolean;
 }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -85,21 +89,40 @@ function WalletActionSend({
         deriveInfoItems.length > 1 &&
         !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
       ) {
-        const defaultDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: network.id,
-          });
-        const { accounts } =
-          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-            indexedAccountIds: [indexedAccount?.id ?? ''],
-            networkId: network.id,
-            deriveType: defaultDeriveType,
-          });
+        let availableAccountId;
+        try {
+          const defaultDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: network.id,
+              },
+            );
+          const { accounts } =
+            await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+              {
+                indexedAccountIds: [indexedAccount?.id ?? ''],
+                networkId: network.id,
+                deriveType: defaultDeriveType,
+              },
+            );
+          availableAccountId = accounts?.[0]?.id;
+        } catch (_e) {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId: network.id,
+                indexedAccountId: indexedAccount?.id ?? '',
+                excludeEmptyAccount: true,
+              },
+            );
+          availableAccountId = networkAccounts.find((item) => item.account)
+            ?.account?.id;
+        }
 
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
           params: {
-            accountId: accounts?.[0]?.id ?? account?.id ?? '',
+            accountId: availableAccountId ?? account?.id ?? '',
             networkId: network.id,
             isNFT: false,
             token: nativeToken,
@@ -210,6 +233,7 @@ function WalletActionSend({
       disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       trackID="wallet-send"
     />
   );
@@ -232,6 +256,12 @@ function WalletActions({ ...rest }: IXStackProps) {
             useSelector
           />
         );
+      case 'buy':
+        return (
+          <ReviewControl key="buy">
+            <WalletActionBuyMain customization={customization} />
+          </ReviewControl>
+        );
       case 'swap':
         return platformEnv.isExtensionUiPopup ||
           platformEnv.isExtensionUiSidePanel ? (
@@ -251,7 +281,16 @@ function WalletActions({ ...rest }: IXStackProps) {
   };
 
   return (
-    <RawActions {...rest}>
+    <RawActions
+      {...rest}
+      justifyContent="flex-start"
+      gap="$2.5"
+      $gtSm={{
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: '$2.5',
+      }}
+    >
       {config.mainActions.map(renderActionComponent).filter(Boolean)}
       <WalletActionMore />
     </RawActions>

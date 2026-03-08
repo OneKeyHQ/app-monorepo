@@ -80,7 +80,7 @@ function buildSortedList<T extends { sortIndex?: number }>({
   // eslint-disable-next-line no-param-reassign
   saveItems = fillingSaveItemsSortIndex({ oldList, saveItems });
 
-  const newList: T[] = uniqBy([...saveItems, ...oldList], uniqByFn).sort(
+  const newList: T[] = uniqBy([...saveItems, ...oldList], uniqByFn).toSorted(
     (a, b) => (a.sortIndex ?? 0) - (b.sortIndex ?? 0),
   );
 

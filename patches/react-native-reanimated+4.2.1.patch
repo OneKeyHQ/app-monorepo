@@ -1,0 +1,60 @@
+diff --git a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
+index 0062693..07a0f0b 100644
+--- a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
++++ b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
+@@ -492,6 +492,28 @@ bool ReanimatedModuleProxy::handleEvent(
+ bool ReanimatedModuleProxy::handleRawEvent(const RawEvent &rawEvent, double currentTime) {
+   ReanimatedSystraceSection s("ReanimatedModuleProxy::handleRawEvent");
+ 
++  // [OneKey] Fix EXC_BAD_ACCESS crash caused by react-native-svg layout events.
++  //
++  // When an SVG <Group> element is rendered via drawRect:, react-native-svg
++  // (Fabric/New Architecture) fires a "topSvgLayout" event through
++  // RNSVGGroupEventEmitter::onSvgLayout. Reanimated intercepts ALL raw events
++  // via attachReactEventListener:. However, during the initial rendering or
++  // component unmounting, the EventTarget's internal InstanceHandle may have
++  // already been garbage-collected by the JS thread, turning it into a dangling
++  // pointer. The existing null check on eventTarget itself is insufficient
++  // because the shared_ptr<EventTarget> is still valid — only its internal
++  // instanceHandle_ is freed. Calling eventTarget->getTag() then dereferences
++  // instanceHandle_->tag_ at offset 0x8 from a null base, causing SIGSEGV.
++  //
++  // Reanimated does not use SVG layout events, so we can safely skip them
++  // to prevent this use-after-free crash.
++  //
++  // See also: the complementary fix in react-native-svg RNSVGNode.mm that
++  // defers event emission to avoid dispatching during drawRect:.
++  if (rawEvent.type == "topSvgLayout") {
++    return false;
++  }
++
+   const EventTarget *eventTarget = rawEvent.eventTarget.get();
+   if (eventTarget == nullptr) {
+     // after app reload scrollView is unmounted and its content offset is set
+diff --git a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
+index 42d2c09..57dd400 100644
+--- a/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
++++ b/node_modules/react-native-reanimated/src/common/style/processors/colors.ts
+@@ -204,6 +204,9 @@ export function processColor(
+   }
+ 
+   if (result === null) {
++    if (process.env.NODE_ENV === 'production') { 
++      return 0x00000000;
++    }
+     throw new ReanimatedError(ERROR_MESSAGES.invalidColor(value));
+   }
+ 
+diff --git a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
+index 7682466..2eef347 100644
+--- a/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
++++ b/node_modules/react-native-reanimated/src/css/svg/native/processors/colors.ts
+@@ -29,5 +29,8 @@ export const processColorSVG: ValueProcessor<
+     return 'currentColor';
+   }
+ 
++  if (process.env.NODE_ENV === 'production') {
++    return 0x00000000;
++  }
+   throw new ReanimatedError(ERROR_MESSAGES.invalidColor(value));
+ };

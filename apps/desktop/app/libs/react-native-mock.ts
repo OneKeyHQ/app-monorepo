@@ -30,7 +30,7 @@ const getChannel = () => {
     } else if (process.platform === 'linux' && process.env.SNAP) {
       channel = 'snap';
     }
-  } catch (e) {
+  } catch (_e) {
     // ignore
   }
   return channel;

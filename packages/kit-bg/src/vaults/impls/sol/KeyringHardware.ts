@@ -5,6 +5,7 @@ import bs58 from 'bs58';
 import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
+  IATADetails,
   IEncodedTxSol,
   INativeTxSol,
 } from '@onekeyhq/core/src/chains/sol/types';
@@ -151,9 +152,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const { feePayer } = unsignedTx.payload as {
+    const { feePayer, ataDetails } = unsignedTx.payload as {
       nativeTx: INativeTxSol;
       feePayer: string;
+      ataDetails?: IATADetails[];
     };
 
     const feePayerPublicKey = new PublicKey(feePayer);
@@ -179,12 +181,25 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const isVersionedTransaction = transaction instanceof VersionedTransaction;
 
+    // Build extraInfo for hardware signing if ATA details exist
+    const extraInfo = ataDetails?.length
+      ? {
+          ata_details: ataDetails.map((ata) => ({
+            owner_address: ata.owner,
+            program_id: ata.programId,
+            mint_address: ata.mintAddress,
+            associated_token_address: ata.associatedTokenAddress,
+          })),
+        }
+      : undefined;
+
     const result = await convertDeviceResponse(async () =>
       sdk.solSignTransaction(connectId, deviceId, {
         path,
         rawTx: isVersionedTransaction
           ? Buffer.from(transaction.message.serialize()).toString('hex')
           : transaction.serializeMessage().toString('hex'),
+        extraInfo,
         ...deviceCommonParams,
       }),
     );

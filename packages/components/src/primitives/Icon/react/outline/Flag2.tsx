@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFlag2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 15V4.62c0-.38.214-.726.566-.868C6.303 3.456 7.656 3 9 3c1.991 0 4.009 2 6 2 .888 0 1.78-.199 2.495-.42.71-.218 1.505.292 1.505 1.035v8.766a.92.92 0 0 1-.566.867c-.737.296-2.09.752-3.434.752-1.991 0-4.009-2-6-2s-4 1-4 1m0 0v6"
+      fillRule="evenodd"
+      d="M4.555 3.105c2.922-1.455 5.514-.691 7.718-.067 2.259.639 4.13 1.138 6.282.067L20 2.385V15.62l-.555.275c-2.922 1.455-5.514.691-7.718.067-2.063-.583-3.802-1.048-5.727-.308V22H4V3.381zm7.172 1.857C9.664 4.378 7.925 3.914 6 4.654v8.895c2.337-.645 4.44-.03 6.273.489 2.063.584 3.801 1.047 5.727.307V5.451c-2.337.645-4.44.03-6.273-.489"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -59,6 +59,7 @@ function FinalizeWalletSetupPage({
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
+  const isKeylessWallet = route?.params?.isKeylessWallet;
   const [onboardingError, setOnboardingError] = useState<
     IOneKeyError | undefined
   >(undefined);
@@ -125,6 +126,7 @@ function FinalizeWalletSetupPage({
               await actions.current.createHDWallet({
                 mnemonic,
                 isWalletBackedUp,
+                isKeylessWallet,
               });
             },
           });
@@ -139,7 +141,15 @@ function FinalizeWalletSetupPage({
         throw error;
       }
     })();
-  }, [actions, intl, mnemonic, mnemonicType, popPage, isWalletBackedUp]);
+  }, [
+    actions,
+    intl,
+    mnemonic,
+    mnemonicType,
+    popPage,
+    isWalletBackedUp,
+    isKeylessWallet,
+  ]);
 
   useEffect(() => {
     const fn = (

@@ -12,8 +12,10 @@ import { useSwapActionState } from '../hooks/useSwapState';
 
 const SwapRefreshButton = ({
   refreshAction,
+  disabled,
 }: {
   refreshAction: (manual?: boolean) => void;
+  disabled?: boolean;
 }) => {
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
@@ -74,6 +76,11 @@ const SwapRefreshButton = ({
   }, [onRefresh, processAnim]);
 
   useEffect(() => {
+    // Don't start auto-refresh timer when disabled
+    if (disabled) {
+      processAnimRef.current?.reset();
+      return;
+    }
     if (!isRefreshQuoteRef.current) {
       processAnimRef.current = Animated.timing(processAnim, {
         toValue: swapRefreshInterval,
@@ -87,7 +94,7 @@ const SwapRefreshButton = ({
       lottieRef.current?.reset();
       processAnimRef.current?.reset();
     }
-  }, [processAnim, isRefreshQuote]);
+  }, [processAnim, isRefreshQuote, disabled]);
 
   useEffect(() => {
     if (isFocusedRef.current) {
@@ -109,10 +116,23 @@ const SwapRefreshButton = ({
     }
   }, [isFocused, processAnim, onRefresh]);
 
+  // Control Lottie animation when disabled state changes
+  useEffect(() => {
+    if (disabled) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      lottieRef.current?.reset();
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      lottieRef.current?.play();
+    }
+  }, [disabled]);
+
   return (
     <XStack
-      cursor="pointer"
+      cursor={disabled ? 'default' : 'pointer'}
+      opacity={disabled ? 0.4 : 1}
       onPress={(event) => {
+        if (disabled) return;
         event.stopPropagation();
         onRefresh(true);
       }}
@@ -138,7 +158,7 @@ const SwapRefreshButton = ({
           }
           width={18}
           height={18}
-          autoPlay
+          autoPlay={!disabled}
         />
       </Animated.View>
     </XStack>

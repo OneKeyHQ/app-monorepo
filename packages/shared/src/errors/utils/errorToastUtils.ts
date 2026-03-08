@@ -60,6 +60,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       // ignore auto toast errors
       EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+      EOneKeyErrorClassNames.OAuthLoginCancelError,
       EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
@@ -72,6 +73,8 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       // use Dialog instead of Toast, check GlobalErrorHandlerContainer
       EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
       EOneKeyErrorClassNames.DeviceNotFound,
+      // IncorrectPinError is handled inline in VerifyPinPage
+      EOneKeyErrorClassNames.IncorrectPinError,
     ].includes(err?.className)
   ) {
     return;

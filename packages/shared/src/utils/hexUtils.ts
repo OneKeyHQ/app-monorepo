@@ -49,7 +49,7 @@ function hexStringToUtf8String(hexString: string): string {
 
     const decoder = new TextDecoder('utf-8');
     return decoder.decode(bytes);
-  } catch (error) {
+  } catch (_error) {
     return '';
   }
 }

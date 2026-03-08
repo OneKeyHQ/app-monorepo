@@ -29,6 +29,7 @@ import type {
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
+  IShopifyOrder,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
@@ -92,7 +93,7 @@ class ServicePrime extends ServiceBase {
           {},
           {
             headers: {
-              'X-Onekey-Request-Token': `${accessToken}`,
+              'X-Onekey-Request-Token': accessToken,
             },
           },
         );
@@ -151,7 +152,7 @@ class ServicePrime extends ServiceBase {
       {},
       {
         headers: {
-          'X-Onekey-Request-Token': `${accessToken}`,
+          'X-Onekey-Request-Token': accessToken,
         },
       },
     );
@@ -170,7 +171,7 @@ class ServicePrime extends ServiceBase {
       '/prime/v1/user/devices',
       {
         headers: {
-          'X-Onekey-Request-Token': `${accessToken}`,
+          'X-Onekey-Request-Token': accessToken,
         },
       },
     );
@@ -233,6 +234,8 @@ class ServicePrime extends ServiceBase {
       const userEmail = serverUserInfo?.emails?.[0] || undefined;
       return {
         ...v,
+        avatar: serverUserInfo?.avatar,
+        nickname: serverUserInfo?.nickname,
         email: userEmail, // TODO update from PrimeGlobalEffect
         displayEmail: userEmail,
         keylessWalletId: serverUserInfo?.keylessWalletId,
@@ -312,7 +315,7 @@ class ServicePrime extends ServiceBase {
     const serverPasswordUUID = serverUserInfo?.pwdHash;
     const isServerMasterPasswordSet = Boolean(
       serverPasswordUUID &&
-        serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+      serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
     );
     await primeServerMasterPasswordStatusAtom.set((v) => ({
       ...v,
@@ -789,6 +792,37 @@ class ServicePrime extends ServiceBase {
   @backgroundMethod()
   async getLocalUserInfo() {
     return primePersistAtom.get();
+  }
+
+  @backgroundMethod()
+  async apiFetchShopifyOrders(): Promise<IShopifyOrder[]> {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<IShopifyOrder[]>>(
+      '/prime/v1/user/shopify-orders',
+    );
+    return result?.data?.data ?? [];
+  }
+
+  @backgroundMethod()
+  async updatePrimeUserProfile({
+    avatar,
+    nickname,
+  }: {
+    avatar: string;
+    nickname: string;
+  }) {
+    const client = await this.getPrimeClient();
+    const result = await client.put<IApiClientResponse<{ success: boolean }>>(
+      `/prime/v1/user/info`,
+      {
+        avatar,
+        nickname,
+      },
+    );
+    setTimeout(() => {
+      void this.apiFetchPrimeUserInfo();
+    });
+    return result.data.code === 0;
   }
 }
 

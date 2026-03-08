@@ -86,6 +86,23 @@ function TableRow<T>({
     }
   }, [getTimeDiff, onRowEvents]);
 
+  const handleContextMenu = useCallback(
+    (e: { preventDefault: () => void; clientX?: number; clientY?: number }) => {
+      if (onRowEvents?.onContextMenu) {
+        e.preventDefault();
+        onRowEvents.onContextMenu(
+          e.clientX !== null &&
+            e.clientX !== undefined &&
+            e.clientY !== null &&
+            e.clientY !== undefined
+            ? { x: e.clientX, y: e.clientY }
+            : undefined,
+        );
+      }
+    },
+    [onRowEvents],
+  );
+
   const handleLongPress = useCallback(() => {
     if (platformEnv.isNative) {
       if (draggable) {
@@ -125,6 +142,13 @@ function TableRow<T>({
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
       onPress={handlePress}
       onLongPress={md ? handleLongPress : undefined}
+      {...(!platformEnv.isNative && {
+        onContextMenu: handleContextMenu as any,
+      })}
+      {...(!platformEnv.isNative &&
+        draggable && {
+          cursor: isDragging ? 'grabbing' : 'grab',
+        })}
       {...nativeScaleAnimationProps}
       {...(itemPressStyle as IXStackProps)}
       {...(rowProps as IXStackProps)}
@@ -176,7 +200,22 @@ function TableHeaderRow<T>({
   rowProps?: ITableProps<T>['rowProps'];
   headerRowProps?: ITableProps<T>['headerRowProps'];
 }) {
-  const [selectedColumnName, setSelectedColumnName] = useState('');
+  const initialSelectedColumn = useMemo(() => {
+    if (!onHeaderRow) return '';
+    for (let i = 0; i < columns.length; i += 1) {
+      const col = columns[i];
+      if (col) {
+        const ev = onHeaderRow(col, i);
+        if (ev?.initialSortOrder) {
+          return col.dataIndex;
+        }
+      }
+    }
+    return '';
+  }, [columns, onHeaderRow]);
+  const [selectedColumnName, setSelectedColumnName] = useState(
+    initialSelectedColumn,
+  );
   return (
     <XStack
       {...(rowProps as IXStackProps)}
@@ -221,6 +260,7 @@ function BasicTable<T>({
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
   draggable = false,
+  tabIntegrated,
   onEndReached,
   onEndReachedThreshold,
   scrollEnabled = true,
@@ -335,11 +375,19 @@ function BasicTable<T>({
     ),
     [columns, draggable, onRow, rowProps, showSkeleton],
   );
+  // On native, when tabIntegrated the header row MUST be inside the list
+  // (as ListHeaderComponent) so it participates in the collapsible tab scroll.
+  // On web, the header must stay outside the list because SortableListView uses
+  // absolute positioning for items, which would overlap ListHeaderComponent.
+  const effectiveStickyHeader =
+    stickyHeader && (!tabIntegrated || !platformEnv.isNative);
+
   const list = useMemo(
     () =>
       draggable ? (
         <SortableListView
           enabled
+          tabIntegrated={tabIntegrated}
           useFlashList={useFlashList}
           scrollEnabled={scrollEnabled}
           ref={listViewRef as any}
@@ -361,7 +409,7 @@ function BasicTable<T>({
           ListHeaderComponent={
             <>
               {TableHeaderComponent}
-              {stickyHeader ? null : headerRow}
+              {effectiveStickyHeader ? null : headerRow}
             </>
           }
           onDragBegin={handleDragBegin}
@@ -391,7 +439,7 @@ function BasicTable<T>({
           ListHeaderComponent={
             <>
               {TableHeaderComponent}
-              {stickyHeader ? null : headerRow}
+              {effectiveStickyHeader ? null : headerRow}
             </>
           }
           ListFooterComponent={TableFooterComponent}
@@ -414,7 +462,7 @@ function BasicTable<T>({
       renderSortableItem,
       renderPlaceholder,
       TableHeaderComponent,
-      stickyHeader,
+      effectiveStickyHeader,
       headerRow,
       handleDragBegin,
       onDragEnd,
@@ -429,10 +477,11 @@ function BasicTable<T>({
       estimatedItemSize,
       handleRenderItem,
       itemSize,
+      tabIntegrated,
     ],
   );
 
-  return stickyHeader ? (
+  return effectiveStickyHeader ? (
     <YStack flex={1}>
       {headerRow}
       {list}
@@ -506,6 +555,7 @@ function TableSkeleton<T>({
 
 export const Table = withStaticProperties(BasicTable, {
   Row: TableRow,
+  HeaderRow: TableHeaderRow,
   Skeleton: TableSkeleton,
   SkeletonRow: TableSkeletonRow,
 });

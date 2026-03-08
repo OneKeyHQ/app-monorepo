@@ -36,7 +36,13 @@ export default abstract class BaseProcess {
 
   launchThrottle: ReturnType<typeof setTimeout> | null;
 
-  supportedSystems = ['mac-x64', 'win-x64', 'linux-arm64', 'linux-x64'];
+  supportedSystems = [
+    'mac-arm64',
+    'mac-x64',
+    'win-x64',
+    'linux-arm64',
+    'linux-x64',
+  ];
 
   stopped = false;
 
@@ -107,17 +113,16 @@ export default abstract class BaseProcess {
     // library search path for macOS
     processEnv.DYLD_LIBRARY_PATH = processEnv.DYLD_LIBRARY_PATH
       ? `${processEnv.DYLD_LIBRARY_PATH}:${processDir}`
-      : `${processDir}`;
+      : processDir;
     // library search path for Linux
     processEnv.LD_LIBRARY_PATH = processEnv.LD_LIBRARY_PATH
       ? `${processEnv.LD_LIBRARY_PATH}:${processDir}`
-      : `${processDir}`;
+      : processDir;
 
     logger.info([
       'Starting process:',
       `- Path: ${processPath}`,
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      `- Params: ${params}`,
+      `- Params: ${params.join(' ')}`,
       `- CWD: ${processDir}`,
     ]);
     this.process = spawn(processPath, params, {

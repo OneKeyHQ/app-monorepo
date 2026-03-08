@@ -1,3 +1,4 @@
+// oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
 import { getApplicationModule } from '@walletconnect/react-native-compat/module';
 
@@ -13,7 +14,7 @@ if (typeof global?.Application === 'undefined') {
     } else {
       global.Application = module;
     }
-  } catch (e) {
+  } catch (_e) {
     // eslint-disable-next-line no-console
     console.error('react-native-compat: Application module is not available');
   }

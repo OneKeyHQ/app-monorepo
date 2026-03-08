@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSdCard2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M17 2a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8.243a4 4 0 0 1 1.172-2.829l2.242-2.242A4 4 0 0 1 10.243 2H11v5a1 1 0 1 0 2 0V2h2v5a1 1 0 1 0 2 0z"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M11 8h2V2h2v6h2V2h3v20H4V7.586L9.586 2H11z" />
   </Svg>
 );
 export default SvgSdCard2;

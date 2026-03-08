@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Spinner, Stack } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
@@ -42,15 +42,16 @@ import type { IPasswordVerifyForm } from '../components/PasswordVerify';
 import type { LayoutChangeEvent } from 'react-native';
 
 interface IPasswordVerifyProps {
-  onVerifyRes: (password: string) => void;
+  onVerifyRes: (password: string) => void | Promise<void>;
   onLayout?: (e: LayoutChangeEvent) => void;
   name?: 'lock';
+  pageMode?: boolean;
 }
 
 const PasswordVerifyContainer = ({
   onVerifyRes,
-  onLayout,
   name,
+  pageMode,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable }] = usePasswordBiologyAuthInfoAtom();
@@ -87,17 +88,20 @@ const PasswordVerifyContainer = ({
   }, [webAuthCredentialId, isBiologyAuthSwitchOn]);
 
   useEffect(() => {
-    if (isEnable && isBiologyAuthSwitchOn) {
+    const shouldCheck =
+      (isEnable || (platformEnv.isExtension && !!webAuthCredentialId)) &&
+      isBiologyAuthSwitchOn;
+    if (shouldCheck) {
       void (async () => {
         try {
-          const securePassword = await biologyAuthUtils.getPassword();
-          setHasSecurePassword(!!securePassword);
-        } catch (e) {
+          const hasPassword = await biologyAuthUtils.hasPassword();
+          setHasSecurePassword(hasPassword);
+        } catch (_e) {
           setHasSecurePassword(false);
         }
       })();
     }
-  }, [isEnable, isBiologyAuthSwitchOn]);
+  }, [isEnable, isBiologyAuthSwitchOn, webAuthCredentialId]);
 
   const passwordVerifyStatusRef = useRef(passwordVerifyStatus);
   useEffect(() => {
@@ -147,7 +151,7 @@ const PasswordVerifyContainer = ({
         isBiologyAuthSwitchOn &&
         verifyPeriodBiologyEnable &&
         ((isEnable && hasSecurePassword) ||
-          (!!webAuthCredentialId && !!hasCachedPassword))
+          (!!webAuthCredentialId && (!!hasCachedPassword || hasSecurePassword)))
       );
     },
     [
@@ -181,11 +185,57 @@ const PasswordVerifyContainer = ({
     setPasswordErrorProtectionTimeMinutesSurplus,
   ]);
 
+  // Helper function to handle callback errors in pageMode
+  const throwCallbackError = useCallback(
+    (callbackError: unknown): never => {
+      const errorMessage =
+        (callbackError as Error)?.message ||
+        intl.formatMessage({
+          id: ETranslations.global_unknown_error,
+        });
+      const callbackErr = new Error(errorMessage) as Error & {
+        isCallbackError: boolean;
+      };
+      callbackErr.isCallbackError = true;
+      throw callbackErr;
+    },
+    [intl],
+  );
+
+  // Helper function to call onVerifyRes with proper error handling
+  const callOnVerifyRes = useCallback(
+    async (verifiedPassword: string) => {
+      if (pageMode) {
+        try {
+          await onVerifyRes(verifiedPassword);
+        } catch (callbackError) {
+          // In pageMode, if callback throws error, rethrow with original error message
+          throwCallbackError(callbackError);
+        }
+      } else {
+        setTimeout(() => {
+          void onVerifyRes(verifiedPassword);
+        });
+      }
+    },
+    [pageMode, onVerifyRes, throwCallbackError],
+  );
+
+  // Helper function to set verified status and reset error attempts
+  const setVerifiedStatus = useCallback(() => {
+    setPasswordAtom((v) => ({
+      ...v,
+      passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
+    }));
+    resetPasswordErrorAttempts();
+  }, [setPasswordAtom, resetPasswordErrorAttempts]);
+
   const onBiologyAuthenticate = useCallback(
     async (isExtLockNoCachePassword: boolean) => {
       if (
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+        (!pageMode &&
+          passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED)
       ) {
         return;
       }
@@ -195,14 +245,30 @@ const PasswordVerifyContainer = ({
       }));
       try {
         if (isExtLockNoCachePassword) {
+          // Try to retrieve password from secure storage (WebAuthn PRF)
+          try {
+            const securePassword = await biologyAuthUtils.getPassword();
+            if (securePassword) {
+              const verifiedPassword =
+                await backgroundApiProxy.servicePassword.verifyPassword({
+                  password: securePassword,
+                  passwordMode,
+                });
+              await callOnVerifyRes(verifiedPassword);
+              setVerifiedStatus();
+              return;
+            }
+          } catch {
+            // No secure password stored — fall through to credential-only
+          }
+          // Fallback: old behavior (credential-only verification).
+          // Call checkWebAuth directly — note it may retry getPassword()
+          // internally but the PRF master key should be cached from the
+          // first attempt, avoiding a redundant user prompt.
           const result = await checkWebAuth();
           if (result) {
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-            }));
-            onVerifyRes('');
-            resetPasswordErrorAttempts();
+            await callOnVerifyRes(typeof result === 'string' ? result : '');
+            setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
           }
@@ -220,20 +286,25 @@ const PasswordVerifyContainer = ({
               });
           }
           if (biologyAuthRes) {
-            setPasswordAtom((v) => ({
-              ...v,
-              passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-            }));
-            onVerifyRes(biologyAuthRes);
-            resetPasswordErrorAttempts();
+            await callOnVerifyRes(biologyAuthRes);
+            setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
           }
         }
       } catch (e: any) {
-        const error = e as { message?: string; cause?: string; name?: string };
+        console.error('onBiologyAuthenticate error', e);
+        const error = e as {
+          message?: string;
+          cause?: string;
+          name?: string;
+        } & { isCallbackError?: boolean };
+        const isCallbackError = error?.isCallbackError === true;
         let message = error?.message;
-        if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
+        // For callback errors in pageMode, use the original error message directly
+        if (isCallbackError && message) {
+          // Use the callback error message as-is
+        } else if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           message = intl.formatMessage(
             {
               id: ETranslations.auth_biometric_failed,
@@ -255,10 +326,14 @@ const PasswordVerifyContainer = ({
             { biometric: title },
           );
         }
-        if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
-          setVerifyPeriodBiologyEnable(false);
-        } else {
-          setVerifyPeriodBiologyAuthAttempts((v) => v + 1);
+        // Skip biology auth protection logic for callback errors in pageMode
+        // because biology auth verification was successful, only the callback failed
+        if (!isCallbackError) {
+          if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
+            setVerifyPeriodBiologyEnable(false);
+          } else {
+            setVerifyPeriodBiologyAuthAttempts((v) => v + 1);
+          }
         }
         setPasswordAtom((v) => ({
           ...v,
@@ -275,16 +350,17 @@ const PasswordVerifyContainer = ({
       intl,
       isBiologyAuthEnable,
       isEnable,
-      onVerifyRes,
       passwordMode,
       passwordVerifyStatus.value,
-      resetPasswordErrorAttempts,
+      pageMode,
       setPasswordAtom,
       setVerifyPeriodBiologyAuthAttempts,
       setVerifyPeriodBiologyEnable,
       title,
       verifiedPasswordWebAuth,
       verifyPeriodBiologyAuthAttempts,
+      callOnVerifyRes,
+      setVerifiedStatus,
     ],
   );
 
@@ -293,8 +369,10 @@ const PasswordVerifyContainer = ({
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
       if (
+        isProtectionTime ||
         passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFYING ||
-        passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED
+        (!pageMode &&
+          passwordVerifyStatus.value === EPasswordVerifyStatus.VERIFIED)
       ) {
         return;
       }
@@ -314,22 +392,43 @@ const PasswordVerifyContainer = ({
             password: encodePassword,
             passwordMode,
           });
-        setPasswordAtom((v) => ({
-          ...v,
-          passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFIED },
-        }));
         if (platformEnv.isNativeAndroid) {
           dismissKeyboard();
           await timerUtils.wait(0);
         }
-        onVerifyRes(verifiedPassword);
-        resetPasswordErrorAttempts();
+        await callOnVerifyRes(verifiedPassword);
+        setVerifiedStatus();
+        // Save to secure storage for future biometric unlock on extension.
+        // Clear skipPrfCache first — the flag is set during promptPasswordVerify
+        // to force real WebAuthn for the biometric button, but password
+        // verification has already succeeded here so it's safe to use cache.
+        if (
+          platformEnv.isExtension &&
+          isBiologyAuthSwitchOn &&
+          webAuthCredentialId
+        ) {
+          try {
+            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
+            await biologyAuthUtils.savePassword(verifiedPassword);
+          } catch (e) {
+            console.error('Failed to save password to secure storage:', e);
+          }
+        }
       } catch (e) {
-        let message = intl.formatMessage({
-          id: ETranslations.auth_error_password_incorrect,
-        });
+        const errorWithFlag = e as Error & { isCallbackError?: boolean };
+        const isCallbackError = errorWithFlag?.isCallbackError === true;
+        let message = isCallbackError
+          ? errorWithFlag?.message ||
+            intl.formatMessage({
+              id: ETranslations.global_unknown_error,
+            })
+          : intl.formatMessage({
+              id: ETranslations.auth_error_password_incorrect,
+            });
         let skipProtection = false;
-        if (isLock && enablePasswordErrorProtection) {
+        // Skip password protection logic for callback errors in pageMode
+        // because password verification was successful, only the callback failed
+        if (!isCallbackError && isLock && enablePasswordErrorProtection) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
             setPasswordPersist((v) => ({
@@ -383,22 +482,25 @@ const PasswordVerifyContainer = ({
       enablePasswordErrorProtection,
       intl,
       isLock,
-      onVerifyRes,
+      isProtectionTime,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
+      pageMode,
       resetApp,
-      resetPasswordErrorAttempts,
       setPasswordAtom,
       setPasswordErrorProtectionTimeMinutesSurplus,
       setPasswordPersist,
       setUnlockPeriodPasswordArray,
       unlockPeriodPasswordArray,
+      callOnVerifyRes,
+      setVerifiedStatus,
+      isBiologyAuthSwitchOn,
+      webAuthCredentialId,
     ],
   );
 
-  const [isPasswordEncryptorReady, setIsPasswordEncryptorReady] =
-    useState(false);
+  const [_, setIsPasswordEncryptorReady] = useState(false);
   const [passwordEncryptorInitError, setPasswordEncryptorInitError] =
     useState('');
   useEffect(() => {
@@ -429,9 +531,10 @@ const PasswordVerifyContainer = ({
   return (
     <Stack>
       <PasswordVerify
+        pageMode={pageMode}
         passwordMode={passwordMode}
         alertText={alertText}
-        disableInput={isProtectionTime}
+        confirmBtnDisabled={isProtectionTime}
         onPasswordChange={() => {
           setPasswordAtom((v) => ({
             ...v,

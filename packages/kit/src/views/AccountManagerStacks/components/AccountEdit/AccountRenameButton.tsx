@@ -30,7 +30,6 @@ export function useAccountRenameMethod({
   account?: IDBAccount;
   wallet?: IDBWallet;
 }) {
-  const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
 
   const callShowRenameDialog = useCallback(() => {

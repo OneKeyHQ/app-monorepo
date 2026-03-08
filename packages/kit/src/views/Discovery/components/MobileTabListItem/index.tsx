@@ -7,7 +7,6 @@ import {
   IconButton,
   Image,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
 } from '@onekeyhq/components';

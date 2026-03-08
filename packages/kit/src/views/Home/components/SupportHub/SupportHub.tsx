@@ -17,7 +17,11 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ONEKEY_SIFU_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { RichBlock } from '../RichBlock';
 
@@ -50,7 +54,11 @@ function SupportHubItem({
       onPress={
         link
           ? () => {
-              openUrlExternal(link);
+              if (platformEnv.isDesktop || platformEnv.isNative) {
+                openUrlInDiscovery({ url: link });
+              } else {
+                openUrlExternal(link);
+              }
             }
           : onPress
       }
@@ -61,7 +69,7 @@ function SupportHubItem({
         </Stack>
         <SizableText size="$bodyMdMedium">{title}</SizableText>
       </XStack>
-      {link ? (
+      {link && (platformEnv.isWeb || platformEnv.isExtension) ? (
         <Stack width="$4" height="$4">
           <Icon name="ArrowTopRightOutline" size="$4" color="$iconSubdued" />
         </Stack>
@@ -84,7 +92,6 @@ function SupportHub() {
         <RichBlock
           blockContainerProps={{
             flex: 1,
-            flexBasis: 0,
           }}
           content={
             <YStack
@@ -133,7 +140,12 @@ function SupportHub() {
             outlineColor: '$neutral2',
           }}
         />
-        <Stack flexDirection="column" gap="$3" flex={1} flexBasis={0}>
+        <Stack
+          flexDirection="column"
+          gap="$3"
+          flex={1}
+          $gtMd={{ flexBasis: 0 }}
+        >
           <RichBlock
             blockContainerProps={{
               flex: 1,
@@ -182,7 +194,9 @@ function SupportHub() {
   return (
     <RichBlock
       title={intl.formatMessage({ id: ETranslations.settings_support_hub })}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
+      contentContainerProps={{ px: '$pagePadding' }}
       plainContentContainer
     />
   );

@@ -1,13 +1,7 @@
 import { useMemo } from 'react';
 
 import type { IIconProps } from '@onekeyhq/components';
-import {
-  Icon,
-  Image,
-  SizableText,
-  Skeleton,
-  XStack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {

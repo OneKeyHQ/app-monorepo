@@ -37,7 +37,7 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (
     <YStack
       gap="$4"
-      px="$5"
+      px="$pagePadding"
       py="$3.5"
       borderRadius="$3"
       bg="$bg"
@@ -184,7 +184,7 @@ function RecommendedContainer({
   return (
     <YStack
       gap="$3"
-      px="$5"
+      px="$pagePadding"
       $md={
         platformEnv.isNative
           ? {
@@ -220,10 +220,15 @@ export function Recommended(
     | {
         recommendedItemContainerProps?: IYStackProps;
         withHeader?: boolean;
+        enableFetch?: boolean;
       }
     | undefined,
 ) {
-  const { recommendedItemContainerProps, withHeader = true } = props ?? {};
+  const {
+    recommendedItemContainerProps,
+    withHeader = true,
+    enableFetch = true,
+  } = props ?? {};
 
   const { md } = useMedia();
   const allNetworkId = getNetworkIdsMap().onekeyall;
@@ -241,6 +246,9 @@ export function Recommended(
   // Fetch new tokens in background and update cache
   usePromiseResult(
     async () => {
+      if (!enableFetch) {
+        return recommendedTokens;
+      }
       const recommendedAssets =
         await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
           accountId: account?.id ?? '',
@@ -257,6 +265,7 @@ export function Recommended(
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      enableFetch,
       account?.id,
       allNetworkId,
       account?.indexedAccountId,
@@ -265,6 +274,7 @@ export function Recommended(
     ],
     {
       watchLoading: true,
+      overrideIsFocused: (isFocused) => isFocused && enableFetch,
     },
   );
 

@@ -318,7 +318,7 @@ export function DeriveTypeSelectorTriggerForDapp({
   return (
     <DeriveTypeSelectorTrigger
       placement="bottom-end"
-      renderTrigger={({ label, onPress }) => (
+      renderTrigger={({ onPress }) => (
         <IconButton
           onPress={onPress}
           icon="BranchesOutline"

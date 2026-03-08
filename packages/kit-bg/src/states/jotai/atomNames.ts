@@ -15,6 +15,7 @@ export enum EAtomNames {
   passwordAtom = 'passwordAtom',
   passwordPromptPromiseTriggerAtom = 'passwordPromptPromiseTriggerAtom',
   passwordPersistAtom = 'passwordPersistAtom',
+  passwordPersistManualLockStateAtom = 'passwordPersistManualLockStateAtom',
   jotaiContextStoreMapAtom = 'jotaiContextStoreMapAtom',
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
@@ -32,6 +33,7 @@ export enum EAtomNames {
   spotlightPersistAtom = 'spotlightPersistAtom',
   onboardingConnectWalletLoadingAtom = 'onboardingConnectWalletLoadingAtom',
   onboardingCloudBackupListRefreshAtom = 'onboardingCloudBackupListRefreshAtom',
+  isOnBoardingOpenAtom = 'isOnBoardingOpenAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
@@ -42,7 +44,7 @@ export enum EAtomNames {
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
   settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
-  appSideBarStatusAtom = 'appSideBarStatusAtom',
+
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
@@ -56,6 +58,8 @@ export enum EAtomNames {
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   primeTransferAtom = 'primeTransferAtom',
   keylessDialogAtom = 'keylessDialogAtom',
+  keylessPinConfirmStatusAtom = 'keylessPinConfirmStatusAtom',
+  keylessLastCancelVerifyPinTimeAtom = 'keylessLastCancelVerifyPinTimeAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
@@ -85,15 +89,21 @@ export enum EAtomNames {
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
   perpTokenSelectorConfigPersistAtom = 'perpTokenSelectorConfigPersistAtom',
+  perpTokenSelectorTabsAtom = 'perpTokenSelectorTabsAtom',
+  perpTokenFavoritesPersistAtom = 'perpTokenFavoritesPersistAtom',
   perpsDepositOrderAtom = 'perpsDepositOrderAtom',
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
+  perpsLayoutStateAtom = 'perpsLayoutStateAtom',
+  perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
+  swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
+  marketBannerListSortAtom = 'marketBannerListSortAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

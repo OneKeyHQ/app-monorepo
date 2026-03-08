@@ -13,6 +13,7 @@ export function useSwapPanel({
   const [paymentAmount, setPaymentAmount] = useState<BigNumber>(
     new BigNumber(0),
   );
+  const [sellAmount, setSellAmount] = useState<BigNumber>(new BigNumber(0));
   const [paymentToken, setPaymentToken] = useState<IToken>();
   const [networkId, setNetworkId] = useState(initialNetworkId);
   const [slippage, setSlippage] = useState<number>(0.5);
@@ -26,6 +27,9 @@ export function useSwapPanel({
   return {
     paymentAmount,
     setPaymentAmount,
+
+    sellAmount,
+    setSellAmount,
 
     // For NetworkSelector
     networkId,

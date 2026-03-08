@@ -21,6 +21,8 @@ export type IWalletAddressContext = {
   allNetworksStateInit: React.MutableRefObject<boolean>;
   originalAllNetworksStateInit: React.MutableRefObject<boolean>;
   actionType?: EWalletAddressActionType;
+  // For EVM Others Wallets, the address is the same across all EVM networks
+  othersWalletAddress?: string;
 };
 export const WalletAddressContext = createContext<IWalletAddressContext>({
   title: '',
@@ -40,4 +42,5 @@ export const WalletAddressContext = createContext<IWalletAddressContext>({
   allNetworksStateInit: { current: false },
   originalAllNetworksStateInit: { current: false },
   actionType: undefined,
+  othersWalletAddress: undefined,
 });

@@ -120,7 +120,7 @@ function ImportAddressCore({
   inputTextDebounced,
   networkIdText,
   deriveTypeValue,
-  isFromOnboardingV2,
+  isFromOnboardingV2: _isFromOnboardingV2,
 }: IImportAddressCoreProps) {
   const intl = useIntl();
   const media = useMedia();

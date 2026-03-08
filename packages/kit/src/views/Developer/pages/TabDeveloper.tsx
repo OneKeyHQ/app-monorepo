@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -11,14 +11,24 @@ import {
   Stack,
   TextArea,
   YStack,
+  rootNavigationRef,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
-import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+  ETabDeveloperRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -26,6 +36,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useV4MigrationActions } from '../../Onboarding/pages/V4Migration/hooks/useV4MigrationActions';
 
 const useStorage = platformEnv.isNative
   ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {
@@ -89,6 +100,76 @@ function ConnectWalletConnectDapp() {
   );
 }
 
+function TestButtons() {
+  const navigation = useAppNavigation<IPageNavigationProp<any>>();
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingListModal,
+    });
+  }, [navigation]);
+  const onExpand = useCallback(() => {
+    extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
+  }, []);
+  const { navigateToV4MigrationPage } = useV4MigrationActions();
+
+  return (
+    <YStack px="$2" py="$2" gap="$2">
+      <Button
+        onPress={() => {
+          navigation.switchTab(ETabRoutes.Home);
+        }}
+      >
+        切换到首页
+      </Button>
+      <Button onPress={onPress} testID="me-settings">
+        设置
+      </Button>
+      {platformEnv.isExtensionUiPopup ? (
+        <Button onPress={onExpand}>全屏</Button>
+      ) : null}
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.servicePassword.clearCachedPassword();
+        }}
+      >
+        清空缓存密码
+      </Button>
+
+      <Button
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+            screen: EDAppConnectionModal.ConnectionList,
+          });
+        }}
+      >
+        DApp 连接管理
+      </Button>
+
+      <Button
+        onPress={() => {
+          void navigateToV4MigrationPage();
+        }}
+      >
+        V4 迁移
+      </Button>
+      <Button
+        onPress={() => {
+          void navigateToV4MigrationPage({ isAutoStartOnMount: true });
+        }}
+      >
+        V4 迁移（断点恢复模式）
+      </Button>
+      <Button
+        onPress={() => {
+          void backgroundApiProxy.serviceAppUpdate.clearLastDialogShownAt();
+        }}
+      >
+        清除更新弹窗时间限制
+      </Button>
+    </YStack>
+  );
+}
+
 function TestRefreshCmp() {
   const {
     activeAccount: { accountName },
@@ -99,6 +180,7 @@ function TestRefreshCmp() {
 const TestRefresh = memo(TestRefreshCmp);
 
 const TabDeveloper = () => {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
@@ -118,13 +200,24 @@ const TabDeveloper = () => {
             flex={1}
             width="100%"
             paddingHorizontal="$5"
-            contentContainerStyle={{ paddingBottom: '$5' }}
+            contentContainerStyle={{ paddingBottom: tabBarHeight ?? '$5' }}
             gap="$5"
           >
             <PartContainer title="Components">
               <Button
                 onPress={() => {
-                  navigation.push(ETabDeveloperRoutes.ComponentsGallery);
+                  rootNavigationRef.current?.navigate(
+                    ERootRoutes.Main,
+                    {
+                      screen: ETabRoutes.Developer,
+                      params: {
+                        screen: ETabDeveloperRoutes.ComponentsGallery,
+                      },
+                    },
+                    {
+                      pop: true,
+                    },
+                  );
                 }}
               >
                 Gallery
@@ -244,6 +337,7 @@ const TabDeveloper = () => {
             <ConnectWalletConnectDapp />
             <TestRefresh />
             {/* <WalletConnectModalNative2 /> */}
+            <TestButtons />
           </ScrollView>
         </Page.Body>
       </Page>

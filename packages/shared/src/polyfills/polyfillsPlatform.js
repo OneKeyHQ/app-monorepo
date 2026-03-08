@@ -1,7 +1,8 @@
-/* eslint-disable no-inner-declarations */
-/* eslint-disable spellcheck/spell-checker */
-/* eslint-disable prefer-template */
+// oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
+/* eslint-disable no-inner-declarations */
+/* eslint-disable prefer-template */
+
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
 
@@ -15,6 +16,14 @@ if (typeof Promise.allSettled !== 'function') {
 }
 
 require('./intlShim');
+const { shim: shimArrayFlatMap } = require('array.prototype.flatmap');
+
+shimArrayFlatMap();
+
+const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
+
+shimArrayToSorted();
+
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
@@ -43,66 +52,8 @@ if (platformEnv.isNative) {
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
     const assetsPath = `file://${mainBundlePath}/assets/`;
-    const { Platform, PixelRatio } = require('react-native');
-    const AssetSourceResolver =
-      require('react-native/Libraries/Image/AssetSourceResolver').default;
-    const wrap = require('lodash/wrap');
 
-    const { pickScale } = require('react-native/Libraries/Image/AssetUtils');
-
-    let getAndroidResourceFolderName;
-    let getAndroidResourceIdentifier;
-    if (Platform.OS === 'android') {
-      const pathSupport = require('@react-native/assets-registry/path-support');
-      getAndroidResourceFolderName = pathSupport.getAndroidResourceFolderName;
-      getAndroidResourceIdentifier = pathSupport.getAndroidResourceIdentifier;
-    }
-
-    function getAssetPathInDrawableFolder(asset) {
-      const scale = pickScale(asset.scales, PixelRatio.get());
-      const drawableFolder = getAndroidResourceFolderName(asset, scale);
-      const fileName = getAndroidResourceIdentifier(asset);
-      return drawableFolder + '/' + fileName + '.' + asset.type;
-    }
-
-    AssetSourceResolver.prototype.defaultAsset = wrap(
-      AssetSourceResolver.prototype.defaultAsset,
-      function (func, ...args) {
-        const isLoadedFromServer = this.isLoadedFromServer();
-        if (isLoadedFromServer) {
-          const serverUrl = this.assetServerURL();
-          return serverUrl;
-        }
-        if (Platform.OS === 'android') {
-          const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
-          if (useJsBundle) {
-            const asset = this.fromSource(
-              assetsPath + getAssetPathInDrawableFolder(this.asset),
-            );
-            asset.uri = asset.uri
-              .replace('__packages', 'packages')
-              .replace('__node_modules', 'node_modules');
-            return asset;
-          }
-          if (isLoadedFromFileSystem) {
-            const resolvedAssetSource = this.drawableFolderInBundle();
-            return resolvedAssetSource;
-          }
-          const resolvedAssetSource = this.resourceIdentifierWithoutScale();
-          return resolvedAssetSource;
-        }
-        if (Platform.OS === 'ios') {
-          const iOSAsset = this.scaledAssetURLNearBundle();
-          if (useJsBundle) {
-            iOSAsset.uri = iOSAsset.uri
-              .replace(this.jsbundleUrl, assetsPath)
-              .replace('__packages', 'packages')
-              .replace('__node_modules', 'node_modules');
-          }
-          return iOSAsset;
-        }
-      },
-    );
+    require('./assetResolutionPatch').patchNativeAssetResolution(assetsPath);
   }
 }
 
@@ -192,7 +143,7 @@ try {
   const fr = new FileReader();
   try {
     fr.readAsArrayBuffer(new Blob(['hello'], { type: 'text/plain' }));
-  } catch (error) {
+  } catch (_error) {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
@@ -213,7 +164,7 @@ try {
       fr.readAsDataURL(blob);
     };
   }
-} catch (error) {
+} catch (_error) {
   console.log('Missing FileReader; unsupported platform');
 }
 
@@ -288,6 +239,15 @@ if (platformEnv.isNative) {
       return newBuffer;
     };
   }
+}
+
+// Polyfill crypto.subtle for React Native
+// This must be loaded AFTER the crypto polyfill (line 145-154) because it extends the crypto object.
+// Purpose: Enable Supabase Auth PKCE flow to use SHA-256 code_challenge (s256 method)
+// instead of falling back to plain method when crypto.subtle is unavailable.
+// @see @supabase/auth-js GoTrueClient.ts - checks crypto.subtle.digest for PKCE support
+if (platformEnv.isNative) {
+  require('@onekeyhq/shared/src/appCrypto/cryptoSubtlePolyfill');
 }
 
 console.log('polyfillsPlatform.native shim loaded');

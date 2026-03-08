@@ -16,8 +16,10 @@ export default function ManualBackupSelectWalletPage() {
   const intl = useIntl();
   const walletList = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets();
-    const hdWalletList = wallets.filter((wallet) =>
-      accountUtils.isHdWallet({ walletId: wallet.id }),
+    const hdWalletList = wallets.filter(
+      (wallet) =>
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !accountUtils.isKeylessWallet({ walletId: wallet.id }),
     );
     return hdWalletList;
   }, []).result;
@@ -49,7 +51,7 @@ export default function ManualBackupSelectWalletPage() {
           onPick={onPick}
           ListEmptyComponent={
             <Empty
-              icon="SearchOutline"
+              illustration="QuestionMark"
               title={intl.formatMessage({
                 id: ETranslations.backup_no_data,
               })}

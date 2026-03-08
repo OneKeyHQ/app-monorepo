@@ -1,0 +1,580 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": [
+    "@cspell/eslint-plugin",
+    "eslint-plugin-import-path",
+    "eslint-plugin-props-checker",
+    "eslint-plugin-ban",
+    "eslint-plugin-prettier"
+  ],
+  "extends": [
+    "eslint-config-prettier",
+  ],
+  "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest", "jsx-a11y"],
+  // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
+  // because some plugin configurations are not compatible with oxlint
+  // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
+  // The following plugins remain in ESLint:
+  // - eslint-plugin-ban
+  // - eslint-plugin-import-path
+  // - eslint-plugin-use-effect-no-deps
+  // - eslint-plugin-props-checker
+  "categories": {
+    // Code that is outright wrong or useless
+    "correctness": "error",
+    // Code that is most likely wrong or useless
+    "suspicious": "warn",
+    // Lints which are rather strict
+    "pedantic": "off",
+    // Code that could be written in a more performant way
+    "perf": "warn",
+    // Code that should be written in a more idiomatic way
+    "style": "off",
+    // Lints which prevent the use of language and library features
+    "restriction": "off"
+  },
+  "rules": {
+    "prettier/prettier": ["error"],
+    "@cspell/spellchecker": [
+      "warn",
+      {
+        "ignoreImports": true,
+        "ignoreImportProperties": true,
+        "checkJSXText": true,
+        "checkComments": true,
+        "checkStrings": false,
+        "checkIdentifiers": true,
+        "autoFix": false
+      }
+    ],
+    "import-path/parent-depth": ["error", 3],
+    "import-path/forbidden": [
+      "error",
+      [
+        {
+          "match": "/index$",
+          "message": "Index on the end of path is redundant"
+        }
+      ]
+    ],
+    // NOTE: This rule stays in ESLint because oxlint jsPlugins is experimental
+    "props-checker/validator": [
+      "error",
+      {
+        "props": [
+          {
+            "propName": "onPress",
+            "components": [
+              { "component": "Stack", "dependOn": "pressStyle" },
+              { "component": "XStack", "dependOn": "pressStyle" },
+              { "component": "YStack", "dependOn": "pressStyle" }
+            ]
+          },
+          { "propName": "accessible", "components": ["TextInput"] }
+        ]
+      }
+    ],
+    "ban/ban": [
+      "error",
+      {
+        "name": ["*", "toLocaleUpperCase"],
+        "message": "Prefer use toUpperCase"
+      },
+      {
+        "name": ["*", "toLocaleLowerCase"],
+        "message": "Prefer use toLowerCase"
+      },
+      {
+        "name": ["InteractionManager", "runAfterInteractions"],
+        "message": "Use timerUtils.setTimeoutPromised instead of InteractionManager.runAfterInteractions"
+      }
+    ],
+    // ============================================
+    // ESLint core rules
+    // ============================================
+    // NOTE: Changed to warn because oxlint doesn't fully support caughtErrorsIgnorePattern
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }
+    ],
+    "no-debugger": "error",
+    "no-eval": "error",
+    "radix": "error",
+    // Migrated from ESLint airbnb/wesbos presets
+    "eqeqeq": "warn",
+    "no-self-compare": "error",
+    "no-fallthrough": "error",
+    "no-redeclare": "error",
+    "no-useless-constructor": "error",
+    "no-new-wrappers": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "prefer-template": "warn",
+    "no-empty": "error",
+    // Disabled: 249 intentional empty functions (context defaults, platform stubs, event placeholders)
+    "no-empty-function": "off",
+    "no-throw-literal": "error",
+    "no-param-reassign": "error",
+    "no-return-assign": "error",
+    "guard-for-in": "error",
+    "no-inner-declarations": "error",
+    "no-misleading-character-class": "error",
+    "no-case-declarations": "error",
+    "no-constructor-return": "error",
+    "no-else-return": "error",
+    "no-extra-bind": "error",
+    "no-extra-label": "error",
+    "no-iterator": "error",
+    "no-labels": "error",
+    "no-lone-blocks": "error",
+    "no-loop-func": "error",
+    "no-new": "error",
+    "no-new-func": "error",
+    "no-proto": "error",
+    "no-script-url": "error",
+    "no-sequences": "error",
+    "no-useless-concat": "error",
+    "no-useless-return": "error",
+    "prefer-promise-reject-errors": "warn",
+    "no-useless-computed-key": "error",
+    "prefer-numeric-literals": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "warn",
+    "symbol-description": "error",
+    "no-label-var": "error",
+    "no-template-curly-in-string": "error",
+    "no-plusplus": "error",
+    "no-nested-ternary": "error",
+    // Sort imports (migrated from ESLint)
+    "sort-imports": [
+      "error",
+      {
+        "ignoreMemberSort": false,
+        "ignoreDeclarationSort": true
+      }
+    ],
+    // Restricted imports (migrated from @typescript-eslint/no-restricted-imports)
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["@onekeyfe/hd-core"],
+            "message": "using `const {} = await CoreSDKLoader()` instead",
+            "allowTypeImports": true
+          },
+          {
+            "group": ["**/localDbInstance", "**/localDbInstance.native"],
+            "message": "import localDbInstance directly is not allowed, use localDb instead"
+          },
+          {
+            "group": ["@onekeyhq/desktop/app/i18n"],
+            "message": "import ETranslations from \"@onekeyhq/shared/src/locale\" instead"
+          },
+          {
+            "group": ["**/v4localDbInstance.native"],
+            "message": "import v4localDbInstance.native directly is not allowed, use v4localDbInstance instead"
+          },
+          {
+            "group": [
+              "**/v4ToV5Migration",
+              "v4ToV5Migration/**",
+              "**/v4ToV5Migration/**"
+            ],
+            "message": "import **/v4ToV5Migration/** not allowed"
+          },
+          {
+            "group": ["**/v4localDBStoreNames.native"],
+            "message": "import v4localDBStoreNames instead"
+          },
+          {
+            "group": ["jotai"],
+            "importNames": ["useAtom", "useSetAtom", "atom"],
+            "message": "Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead."
+          }
+        ]
+      }
+    ],
+
+    // ============================================
+    // React rules (matching ESLint config)
+    // ============================================
+    "react/jsx-key": "error",
+    "react/jsx-no-duplicate-props": "error",
+    "react/no-children-prop": "error",
+    "react/no-string-refs": "error",
+    "react/no-direct-mutation-state": "error",
+    // react-hooks/rules-of-hooks (migrated from ESLint)
+    "react/rules-of-hooks": "error",
+    "react/jsx-no-undef": "error",
+    "react/jsx-pascal-case": "error",
+    "react/self-closing-comp": "error",
+    "react/no-unknown-property": "error",
+    // react-hooks/exhaustive-deps equivalent
+    "react/exhaustive-deps": [
+      "error",
+      {
+        "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
+      }
+    ],
+    "react/jsx-curly-brace-presence": ["error", { "props": "never", "children": "never" }],
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unnecessary-boolean-literal-compare": "off",
+    // ============================================
+    // TODO: will enabled in next version after fixing issues
+    "typescript/no-base-to-string": "off",
+    "typescript/no-unsafe-enum-comparison": "off",
+    "typescript/no-meaningless-void-operator": "off",
+    "typescript/no-unnecessary-type-arguments": "off",
+    "typescript/no-duplicate-type-constituents": "off",
+    "typescript/no-redundant-type-constituents": "off",
+    "typescript/require-array-sort-compare": "off",
+    "typescript/no-unnecessary-template-expression": "error",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-misused-promises": ["error", { "checksVoidReturn": false }],
+    // Type-aware rules migrated from ESLint
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-unsafe-function-type": "error",
+    // ESLint core rules migrated
+    "no-continue": "error",
+    // React rules migrated
+    "react/display-name": "warn",
+    // Jest rules migrated
+    "jest/no-identical-title": "error",
+    // jsx-a11y rules migrated from ESLint
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/no-static-element-interactions": "error",
+    "jsx-a11y/media-has-caption": "error",
+    // Disabled: not applicable for React Native / desktop app context
+    "jsx-a11y/no-autofocus": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/heading-has-content": "off",
+    "jsx-a11y/anchor-has-content": "off",
+    "jsx-a11y/anchor-is-valid": "off",
+    // ============================================
+    // TypeScript rules (matching ESLint config)
+    // ============================================
+    // Force awaited promise call, explicit add `void` if don't want await
+    "typescript/no-floating-promises": ["error"],
+    "typescript/consistent-type-imports": [
+      "error",
+      {
+        "disallowTypeAnnotations": false
+      }
+    ],
+    // NOTE: typescript/no-use-before-define and typescript/no-shadow do not exist in oxlint v1.43.0
+    // They were phantom rules (configured but never enforced). Removed to avoid confusion.
+
+    // ============================================
+    // Unicorn rules (matching ESLint config)
+    // ============================================
+    "unicorn/numeric-separators-style": "error",
+
+    // ============================================
+    // Import rules
+    // ============================================
+    "import/no-cycle": "error",
+    "import/export": "error",
+    "import/first": "error",
+    "import/no-amd": "error",
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-self-import": "error",
+
+    // ============================================
+    // Jest rules (for test files) - keep off as in ESLint config
+    // ============================================
+    "jest/expect-expect": "off",
+    "jest/no-disabled-tests": "off",
+    "jest/no-conditional-expect": "off",
+    "jest/valid-title": "off",
+    "jest/no-export": "off",
+    // Require message for toThrow - not enforced in codebase
+    "jest/require-to-throw-message": "off",
+
+    // ============================================
+    // Disabled rules (too many false positives or not applicable)
+    // ============================================
+    // React 17+ with new JSX transform doesn't need React in scope
+    "react/react-in-jsx-scope": "off",
+    // Duplicate enum values are intentional in some cases
+    "typescript/no-duplicate-enum-values": "off",
+    // new Array() is sometimes needed
+    "unicorn/no-new-array": "off",
+    // These import rules have too many false positives
+    "import/no-named-as-default": "off",
+    "import/no-named-as-default-member": "off",
+    // Side-effect imports are valid
+    "import/no-unassigned-import": "off",
+    // await in loop is sometimes intentional for sequential processing
+    "no-await-in-loop": "off",
+    // Performance suggestions, not errors
+    "oxc/no-map-spread": "off",
+    // Accumulating spread in loops - disabled due to many existing usages
+    "oxc/no-accumulating-spread": "off",
+    // Event handler patterns vary
+    "unicorn/prefer-add-event-listener": "off",
+    // Function scoping is sometimes intentional
+    "unicorn/consistent-function-scoping": "off",
+    // Promise.all with await is valid pattern
+    "unicorn/no-await-in-promise-methods": "off",
+    // Constant binary expressions are sometimes intentional
+    "no-constant-binary-expression": "off",
+    // Useless catch is sometimes for debugging
+    "no-useless-catch": "off",
+    // Module default export issues
+    "import/default": "off",
+    // Parameter property assignment is valid pattern
+    "typescript/no-unnecessary-parameter-property-assignment": "off",
+    // Migrated from ESLint — catches unused expressions (ternary as statement, bare identifiers)
+    "no-unused-expressions": "error",
+    // Variables may be assigned later via destructuring or other patterns
+    "no-unassigned-vars": "off",
+    // Empty classes are valid as base classes
+    "typescript/no-extraneous-class": "off",
+    // window/self usage is valid in browser context
+    "unicorn/prefer-global-this": "error",
+    // Empty files may be placeholders
+    "unicorn/no-empty-file": "off",
+    // postMessage targetOrigin is optional in some contexts
+    "unicorn/require-post-message-target-origin": "off",
+    // Array index keys are acceptable in some list rendering scenarios
+    "react/no-array-index-key": "off",
+    // Unsafe optional chaining is valid in some patterns
+    "no-unsafe-optional-chaining": "off",
+    // useless length check may be intentional for clarity
+    "unicorn/no-useless-length-check": "off",
+    // Invalid remove event listener - some patterns are valid
+    "unicorn/no-invalid-remove-event-listener": "off",
+    // Single promise in Promise.all is sometimes intentional
+    "unicorn/no-single-promise-in-promise-methods": "off",
+    // prefer-array-find vs filter()[0] - not critical
+    "unicorn/prefer-array-find": "off",
+    // instanceof builtins is valid in some cross-realm scenarios
+    "unicorn/no-instanceof-builtins": "off",
+    // useless call may be intentional for explicitness
+    "no-useless-call": "off",
+    // iframe sandbox - handled differently in this codebase
+    "react/iframe-missing-sandbox": "off",
+    // Extending native prototypes is sometimes needed
+    "no-extend-native": "off",
+    // Constant conditions may be intentional for development
+    "no-constant-condition": "off",
+    // namespace import issues - too many false positives
+    "import/namespace": "off",
+    // Allow using Object.assign instead of spread syntax
+    "prefer-object-spread": "off"
+  },
+  // Package-specific rules (migrated from ESLint overrides)
+  "overrides": [
+    {
+      // packages/components - cannot import from kit or kit-bg
+      "files": [
+        "packages/components/src/**/*.ts",
+        "packages/components/src/**/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@onekeyhq/kit", "@onekeyhq/kit-bg"],
+                "message": "Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // packages/shared - cannot import from kit, kit-bg, or components
+      "files": ["packages/shared/src/**/*.ts", "packages/shared/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@onekeyhq/kit",
+                  "@onekeyhq/kit-bg",
+                  "@onekeyhq/components"
+                ],
+                "message": "Please avoid using @onekeyhq/kit, @onekeyhq/kit-bg, and @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // packages/kit-bg - cannot import from kit or components, or tamagui
+      "files": ["packages/kit-bg/src/**/*.ts", "packages/kit-bg/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["tamagui"],
+                "message": "Please avoid using tamagui in this folder",
+                "allowTypeImports": true
+              },
+              {
+                "group": ["@onekeyhq/kit", "@onekeyhq/components"],
+                "message": "Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // packages/kit - cannot import from tamagui or kit-bg internal paths
+      "files": ["packages/kit/src/**/*.ts", "packages/kit/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["tamagui"],
+                "message": "Please avoid using tamagui in this folder",
+                "allowTypeImports": true
+              },
+              {
+                "group": [
+                  "@onekeyhq/kit-bg/src/connectors",
+                  "@onekeyhq/kit-bg/src/dbs",
+                  "@onekeyhq/kit-bg/src/endpoints",
+                  "@onekeyhq/kit-bg/src/migrations",
+                  "@onekeyhq/kit-bg/src/offscreens",
+                  "@onekeyhq/kit-bg/src/providers",
+                  "@onekeyhq/kit-bg/src/services",
+                  "@onekeyhq/kit-bg/src/vaults",
+                  "@onekeyhq/kit-bg/src/webembeds"
+                ],
+                "message": "Please avoid using @onekeyhq/kit-bg internal paths in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // packages/core - cannot import from kit, kit-bg, components, or tamagui
+      "files": ["packages/core/src/**/*.ts", "packages/core/src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "tamagui",
+                  "@onekeyhq/kit",
+                  "@onekeyhq/kit-bg",
+                  "@onekeyhq/components"
+                ],
+                "message": "Please avoid using tamagui, @onekeyhq/kit, @onekeyhq/kit-bg, @onekeyhq/components in this folder",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // Test files - relax some rules
+      "files": ["test/**/*.js", "test/**/*.ts", "**/*.test.ts"],
+      "rules": {
+      }
+    },
+    {
+      // JS/JSX files - disable TypeScript-specific rules
+      "files": ["**/*.js", "**/*.jsx"],
+      "rules": {
+        "typescript/no-floating-promises": "off",
+        "typescript/consistent-type-imports": "off",
+        "typescript/no-duplicate-enum-values": "off",
+        "typescript/no-extraneous-class": "off",
+        "typescript/no-unnecessary-parameter-property-assignment": "off",
+        "typescript/unbound-method": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "typescript/no-implied-eval": "off",
+        "typescript/no-base-to-string": "off",
+        "typescript/no-unnecessary-template-expression": "off",
+        "typescript/restrict-template-expressions": "off",
+        "typescript/require-array-sort-compare": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-function-type": "off",
+        "typescript/no-empty-object-type": "off",
+      }
+    }
+  ],
+  "settings": {
+    "react": {
+      "formComponents": [],
+      "linkComponents": [],
+      "version": "19.1"
+    },
+    "jsx-a11y": {
+      "polymorphicPropName": null,
+      "components": {},
+      "attributes": {}
+    },
+    "jsdoc": {
+      "ignorePrivate": false,
+      "ignoreInternal": false,
+      "ignoreReplacesDocs": true,
+      "overrideReplacesDocs": true,
+      "augmentsExtendsReplacesDocs": false,
+      "implementsReplacesDocs": false,
+      "exemptDestructuredRootsFromChecks": false,
+      "tagNamePreference": {}
+    },
+    "vitest": {
+      "typecheck": false
+    }
+  },
+  "env": {
+    "browser": true,
+    "es6": true,
+    "webextensions": true,
+    "serviceworker": true,
+    "worker": true
+  },
+  "globals": {},
+  // Ignore patterns matching .eslintrc.js ignorePatterns
+  "ignorePatterns": [
+    "*.wasm.bin",
+    "@types/globals.d.ts",
+    "apps/desktop/public/static/js-sdk*",
+    "packages/components/src/primitives/Icon/Icons.tsx",
+    "packages/components/src/primitives/Icon/react/*",
+    "packages/shared/src/modules3rdParty/stripe-v3/*",
+    "packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js",
+    "packages/shared/src/locale/enum/translations.ts",
+    "packages/shared/src/locale/localeJsonMap.ts",
+    "packages/shared/src/locale/json/*",
+    "node_modules/**",
+    ".history/**",
+    "dist/**",
+    "build/**"
+  ]
+}

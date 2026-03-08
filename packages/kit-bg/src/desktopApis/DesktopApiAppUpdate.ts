@@ -91,11 +91,14 @@ autoUpdater.logger = logger;
 
 const isMac = process.platform === 'darwin';
 const isMas = process.mas;
-const isSnapStore = process.platform === 'linux' && process.env.SNAP;
-const isWindowsMsStore =
-  process.platform === 'win32' && process.env.DESK_CHANNEL === 'ms-store';
+const isWin = process.platform === 'win32';
+const isLinux = process.platform === 'linux';
+const isSnapStore = isLinux && process.env.SNAP;
+const isFlatpakStore = isLinux && process.env.FLATPAK;
+const isWindowsMsStore = isWin && process.env.DESK_CHANNEL === 'ms-store';
 
-const isStoreVersion = isMas || isSnapStore || isWindowsMsStore;
+const isStoreVersion =
+  isMas || isSnapStore || isWindowsMsStore || isFlatpakStore;
 
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
@@ -109,6 +112,13 @@ class DesktopApiAppUpdate {
   downloadedEvent: IUpdateDownloadedEvent;
 
   updateCancellationToken: CancellationToken | undefined;
+
+  private isSkipGPGAllowed(skipGPGVerification?: boolean) {
+    return (
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
+      Boolean(skipGPGVerification)
+    );
+  }
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
@@ -445,12 +455,23 @@ class DesktopApiAppUpdate {
   }
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
+    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) {
+      logger.info('auto-updater', 'downloadASC skipped by skipGPGVerification');
+      return true;
+    }
     logger.info('auto-updater', 'Download ASC requested', params);
     const valid = await this.downloadAndVerifyASC(params);
     return valid;
   }
 
   async getSha256AndVerifyASC(params: IInstallUpdateParams): Promise<boolean> {
+    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) {
+      logger.info(
+        'auto-updater',
+        'getSha256AndVerifyASC skipped by skipGPGVerification',
+      );
+      return true;
+    }
     logger.info('auto-updater', 'Get SHA256 and Verify ASC requested', params);
     const valid = await this.downloadAndVerifyASC(params);
     return valid;
@@ -512,7 +533,11 @@ class DesktopApiAppUpdate {
     return fileSha256 === sha256;
   }
 
-  async verifyASC(): Promise<boolean> {
+  async verifyASC(params?: IInstallUpdateParams): Promise<boolean> {
+    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) {
+      logger.info('auto-updater', 'verifyASC skipped by skipGPGVerification');
+      return true;
+    }
     logger.info('auto-updater', 'Verify ASC requested');
     const sha256 = await this.getSha256();
     return !!sha256;
@@ -523,6 +548,10 @@ class DesktopApiAppUpdate {
     if (!downloadedFile || !downloadUrl) {
       logger.info('auto-updater', 'no such file');
       return false;
+    }
+    if (this.isSkipGPGAllowed(verifyParams?.skipGPGVerification)) {
+      logger.info('auto-updater', 'verifyFile skipped by skipGPGVerification');
+      return true;
     }
     logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
 
@@ -555,48 +584,65 @@ class DesktopApiAppUpdate {
   async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
     const verified = await this.verifyFile(verifyParams);
     if (!verified) {
-      return;
+      throw new OneKeyLocalError(
+        ElectronTranslations.update_installation_not_safe_alert_text,
+      );
     }
     const buildNumber = verifyParams.buildNumber;
     logger.info('auto-updater', 'Installation request', buildNumber);
-    void dialog
-      .showMessageBox({
-        type: 'question',
-        buttons: [
-          i18nText(ElectronTranslations.update_install_and_restart),
-          i18nText(ElectronTranslations.global_later),
-        ],
-        defaultId: 0,
-        message: i18nText(ElectronTranslations.update_new_update_downloaded),
-      })
-      .then((selection) => {
-        if (selection.response === 0) {
-          store.setUpdateBuildNumber(buildNumber);
-          logger.info('auto-update', 'button[0] was clicked', buildNumber);
-          // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
-          /**
-           * On macOS 15+ auto-update / relaunch issues:
-           * - https://github.com/electron-userland/electron-builder/issues/8795
-           * - https://github.com/electron-userland/electron-builder/issues/8997
-           */
-          if (isMac) {
-            app.removeAllListeners('before-quit');
-            app.removeAllListeners('window-all-closed');
-            BrowserWindow.getAllWindows().forEach((win) => {
-              if (win.isDestroyed()) {
-                return;
-              }
-              win.removeAllListeners('close');
-              win.close();
-            });
-            nativeUpdater.once('before-quit-for-update', () => {
-              app.exit();
-            });
+    const selection = await dialog.showMessageBox({
+      type: 'question',
+      buttons: [
+        i18nText(ElectronTranslations.update_install_and_restart),
+        i18nText(ElectronTranslations.global_later),
+      ],
+      defaultId: 0,
+      message: i18nText(ElectronTranslations.update_new_update_downloaded),
+    });
+    if (selection.response === 0) {
+      store.setUpdateBuildNumber(buildNumber);
+      logger.info('auto-update', 'button[0] was clicked', buildNumber);
+      // https://github.com/electron-userland/electron-builder/issues/8997#issuecomment-2969507357
+      /**
+       * On macOS 15+ auto-update / relaunch issues:
+       * - https://github.com/electron-userland/electron-builder/issues/8795
+       * - https://github.com/electron-userland/electron-builder/issues/8997
+       */
+      if (isMac) {
+        app.removeAllListeners('before-quit');
+        app.removeAllListeners('window-all-closed');
+        BrowserWindow.getAllWindows().forEach((win) => {
+          if (win.isDestroyed()) {
+            return;
           }
-          autoUpdater.quitAndInstall(false);
+          win.removeAllListeners('close');
+          win.close();
+        });
+        nativeUpdater.once('before-quit-for-update', () => {
+          app.exit();
+        });
+        autoUpdater.quitAndInstall(false);
+        return;
+      }
+      if (!isMac) {
+        logger.info('auto-update', 'button[0] was clicked', buildNumber);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const isExist = autoUpdater?.isExistInstallerPath();
+        const downloadedFilePath = verifyParams.downloadedFile;
+        if (!isExist && downloadedFilePath) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          await autoUpdater?.updateInstallerPath(downloadedFilePath);
         }
-        logger.info('auto-update', 'button[1] was clicked');
-      });
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const isUpdated = autoUpdater?.isExistInstallerPath();
+        logger.info('auto-update', 'isUpdated:', isUpdated, buildNumber);
+        if (!isUpdated) {
+          await this.manualInstallPackage(verifyParams);
+          return;
+        }
+      }
+      autoUpdater.quitAndInstall(false);
+    }
   }
 
   async manualInstallPackage(
@@ -619,7 +665,10 @@ class DesktopApiAppUpdate {
     );
     if (verifyParams.downloadedFile) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
+        // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- dynamic require returns untyped
         const { shell } = require('electron');
+        // oxlint-disable-next-line @typescript-eslint/no-unsafe-call -- shell from dynamic require is untyped
         await shell.openPath(path.dirname(verifyParams.downloadedFile));
       } catch (error) {
         logger.error('auto-updater', 'Failed to open downloaded file', error);

@@ -1,138 +1,146 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
-import {
-  getTokenValue,
-  rootNavigationRef,
-  useMedia,
-} from '@onekeyhq/components';
+import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type {
+  INativeTabBarIcon,
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
-import {
-  useIsGtMdNonNative,
-  useToMyOneKeyModalByRootNavigation,
-} from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
-import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
+import { useDeviceManagerModalStyle } from '../../views/DeviceManagement/hooks/useDeviceManagerModalStyle';
 import { homeRouters } from '../../views/Home/router';
 import { perpRouters } from '../../views/Perp/router';
 import { perpTradeRouters as perpWebviewRouters } from '../../views/PerpTrade/router';
 
+import { deviceManagementRouters } from './DeviceManagement/router';
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
 import { marketRouters } from './Marktet/router';
-import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { referFriendsRouters } from './ReferFriends/router';
 import { swapRouters } from './Swap/router';
+
+// Native tab icons using SVG files from @onekeyhq/components/svg
+// The native tab bar will tint icons using tabBarActiveTintColor/tabBarInactiveTintColor
+const nativeTabIcons = {
+  wallet: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/wallet-4.svg')
+      : require('@onekeyhq/components/svg/outline/wallet-4.svg'),
+  swap: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/switch-hor.svg')
+      : require('@onekeyhq/components/svg/outline/switch-hor.svg'),
+  discover: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/compass.svg')
+      : require('@onekeyhq/components/svg/outline/compass.svg'),
+  market: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/trading-view-candles.svg')
+      : require('@onekeyhq/components/svg/outline/trading-view-candles.svg'),
+  perp: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/trade.svg')
+      : require('@onekeyhq/components/svg/outline/trade.svg'),
+  earn: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/coins.svg')
+      : require('@onekeyhq/components/svg/outline/coins.svg'),
+  developer: ({ focused }: { focused: boolean }): INativeTabBarIcon =>
+    focused
+      ? require('@onekeyhq/components/svg/solid/code-brackets.svg')
+      : require('@onekeyhq/components/svg/outline/code-brackets.svg'),
+};
 
 type IGetTabRouterParams = {
   freezeOnBlur?: boolean;
 };
 
-const useIsShowDesktopDiscover = () => {
-  return useMemo(() => platformEnv.isDesktop, []);
-};
-
 const getDiscoverRouterConfig = (
   params?: IGetTabRouterParams,
   tabBarStyle?: ITabNavigatorConfig<ETabRoutes>['tabBarStyle'],
-) => {
-  const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
-    name: ETabRoutes.Discovery,
-    rewrite: '/discovery',
-    exact: true,
-    tabBarIcon: (focused?: boolean) =>
-      focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
-    translationId: platformEnv.isNative
-      ? ETranslations.global_discover
-      : ETranslations.global_browser,
-    freezeOnBlur: Boolean(params?.freezeOnBlur),
-    children: discoveryRouters,
-    tabBarStyle,
-    trackId: 'global-browser',
-  };
-  return discoverRouterConfig;
-};
+): ITabNavigatorConfig<ETabRoutes> => ({
+  name: ETabRoutes.Discovery,
+  rewrite: '/discovery',
+  exact: true,
+  tabBarIcon: (focused?: boolean) =>
+    focused ? 'CompassSolid' : 'CompassOutline',
+  nativeTabBarIcon: nativeTabIcons.discover,
+  translationId: platformEnv.isNative
+    ? ETranslations.global_discover
+    : ETranslations.global_browser,
+  freezeOnBlur: Boolean(params?.freezeOnBlur),
+  children: discoveryRouters,
+  tabBarStyle,
+  trackId: 'global-browser',
+});
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
-  const isShowDesktopDiscover = useIsShowDesktopDiscover();
+  const { isModalStack } = useDeviceManagerModalStyle();
+  const isShowDesktopDiscover = platformEnv.isDesktop;
   const isWebDappMode = platformEnv.isWebDappMode;
-  const isShowMDDiscover = useMemo(
-    () =>
-      !isShowDesktopDiscover &&
-      !platformEnv.isWebDappMode &&
-      !platformEnv.isExtensionUiPopup &&
-      !(platformEnv.isExtensionUiSidePanel && md),
-    [isShowDesktopDiscover, md],
-  );
+  const isShowMDDiscover =
+    !isShowDesktopDiscover &&
+    !platformEnv.isWebDappMode &&
+    !platformEnv.isExtensionUiPopup &&
+    !(platformEnv.isExtensionUiSidePanel && md);
 
-  const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
-  const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
-  const isGtMdNonNative = useIsGtMdNonNative();
   const shouldShowMarketTab = !(
     platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
   );
 
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-  // Custom Market tab press handler - only for non-mobile platforms
-  const handleMarketTabPress = useMemo(() => {
-    return () => {
-      const navigation = rootNavigationRef.current;
-      if (navigation) {
-        // Always navigate to Market home when this handler is called
-        // Since this is only called when Market tab is already selected,
-        // we can assume user wants to go to Market home
-        navigation.dispatch(
-          CommonActions.navigate({
-            name: ETabRoutes.Market,
-            params: {
-              screen: ETabMarketRoutes.TabMarket,
-            },
-            pop: true,
-          }),
-        );
-      }
-    };
+  const handleMarketTabPress = useCallback(() => {
+    const nav = rootNavigationRef.current;
+    if (nav) {
+      nav.dispatch(
+        CommonActions.navigate({
+          name: ETabRoutes.Market,
+          params: {
+            screen: ETabMarketRoutes.TabMarket,
+          },
+          pop: true,
+        }),
+      );
+    }
   }, []);
 
-  const handleReferFriendsEntry = useCallback(() => {
-    void toReferFriendsPage();
-  }, [toReferFriendsPage]);
-
-  const referFriendsTabConfig = useMemo(() => {
-    return {
+  const referFriendsTabConfig = useMemo(
+    () => ({
       name: ETabRoutes.ReferFriends,
-      tabBarIcon: () => 'GiftOutline',
+      tabBarIcon: (focused?: boolean) =>
+        focused ? 'GiftSolid' : 'GiftOutline',
       translationId: ETranslations.sidebar_refer_a_friend,
       rewrite: '/refer-friends',
       exact: true,
       children: referFriendsRouters,
       trackId: 'global-referral',
       freezeOnBlur: Boolean(params?.freezeOnBlur),
-      tabbarOnPress: handleReferFriendsEntry,
-    };
-  }, [handleReferFriendsEntry, params?.freezeOnBlur]);
+    }),
+    [params?.freezeOnBlur],
+  );
 
   return useMemo(() => {
     const tabs = [
       {
         name: ETabRoutes.Home,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'WalletSolid' : 'WalletOutline',
+          focused ? 'Wallet4Solid' : 'Wallet4Outline',
+        nativeTabBarIcon: nativeTabIcons.wallet,
         translationId: ETranslations.global_wallet,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: '/',
+        rewrite: isWebDappMode ? '/wallet' : '/',
         exact: true,
         children: homeRouters,
         trackId: 'global-wallet',
@@ -142,7 +150,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         ? {
             name: ETabRoutes.Market,
             tabBarIcon: (focused?: boolean) =>
-              focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+              focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
             translationId: ETranslations.global_market,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             rewrite: '/market',
@@ -162,7 +170,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       {
         name: ETabRoutes.Swap,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'SwapHorSolid' : 'SwapHorOutline',
+          focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
+        nativeTabBarIcon: nativeTabIcons.swap,
         translationId: ETranslations.global_trade,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: '/swap',
@@ -173,8 +182,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+          focused ? 'TradeSolid' : 'TradeOutline',
         translationId: ETranslations.global_perp,
+        nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: perpTabShowWeb ? '/perps' : undefined,
         exact: true,
@@ -185,8 +195,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       {
         name: ETabRoutes.Perp,
         tabBarIcon: (focused?: boolean) =>
-          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+          focused ? 'TradeSolid' : 'TradeOutline',
         translationId: ETranslations.global_perp,
+        nativeTabBarIcon: nativeTabIcons.perp,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         children: perpRouters,
         rewrite: perpTabShowWeb ? undefined : '/perps',
@@ -199,65 +210,41 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           focused ? 'CoinsSolid' : 'CoinsOutline',
         translationId: ETranslations.global_earn,
         freezeOnBlur: Boolean(params?.freezeOnBlur),
-        inMoreAction: true,
         rewrite: '/defi',
         exact: true,
         children: earnRouters,
         trackId: 'global-earn',
         hideOnTabBar: platformEnv.isNative,
       },
-      !platformEnv.isNative && isWebDappMode
-        ? referFriendsTabConfig
-        : undefined,
-      // In non-DAPP mode, show ReferFriends in more actions
-      !platformEnv.isNative &&
-        !isWebDappMode && {
-          ...referFriendsTabConfig,
-          inMoreAction: true,
-          hideOnTabBar: !isGtMdNonNative,
-        },
       platformEnv.isNative
         ? undefined
         : {
             name: ETabRoutes.DeviceManagement,
-            tabBarIcon: () => 'OnekeyDeviceCustom',
-            translationId: ETranslations.global_device,
-            tabbarOnPress: toMyOneKeyModal,
-            children: null,
-            trackId: 'global-my-onekey',
-            hideOnTabBar: !isGtMdNonNative,
-          },
-      isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
-      platformEnv.isDev
-        ? {
-            name: ETabRoutes.Me,
-            rewrite: '/me',
-            exact: true,
             tabBarIcon: (focused?: boolean) =>
-              focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
-            translationId: ETranslations.global_more,
+              focused ? 'PhoneSolid' : 'PhoneOutline',
+            translationId: ETranslations.global_device,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
-            children: meRouters,
-            trackId: 'global-me',
-          }
-        : undefined,
+            exact: true,
+            children: deviceManagementRouters,
+            trackId: 'global-my-onekey',
+            hideOnTabBar: isModalStack,
+          },
+      !platformEnv.isNative ? referFriendsTabConfig : undefined,
+      isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
+      isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
       platformEnv.isDev
         ? {
             name: ETabRoutes.Developer,
             tabBarIcon: (focused?: boolean) =>
               focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
             translationId: ETranslations.global_dev_mode,
+            nativeTabBarIcon: nativeTabIcons.developer,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             rewrite: '/dev',
             exact: true,
             children: developerRouters,
             trackId: 'global-dev',
           }
-        : undefined,
-      isShowDesktopDiscover
-        ? getDiscoverRouterConfig(params, {
-            marginTop: getTokenValue('$4', 'size'),
-          })
         : undefined,
     ].filter((i) => !!i);
 
@@ -280,11 +267,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     handleMarketTabPress,
     perpTabShowWeb,
     perpDisabled,
-    referFriendsTabConfig,
-    isGtMdNonNative,
-    toMyOneKeyModal,
+    isModalStack,
     isShowMDDiscover,
     isShowDesktopDiscover,
+    referFriendsTabConfig,
   ]) as ITabNavigatorConfig<ETabRoutes>[];
 };
 

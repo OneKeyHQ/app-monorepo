@@ -209,7 +209,7 @@ function parseTransferDetails({
       // Regular transfer
       else if (positiveChanges.length > 0) {
         positiveChanges.forEach((posChange) => {
-          const sender = negativeChanges.sort((a, b) =>
+          const sender = negativeChanges.toSorted((a, b) =>
             new BigNumber(b.amount).minus(a.amount).toNumber(),
           )[0];
 
@@ -231,7 +231,7 @@ function parseTransferDetails({
     } else if (positiveChanges.length > 0) {
       // Transfers for other tokens
       positiveChanges.forEach((posChange) => {
-        const sender = negativeChanges.sort((a, b) =>
+        const sender = negativeChanges.toSorted((a, b) =>
           new BigNumber(b.amount).minus(a.amount).toNumber(),
         )[0];
 

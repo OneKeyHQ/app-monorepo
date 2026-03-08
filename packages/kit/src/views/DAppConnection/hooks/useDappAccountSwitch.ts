@@ -291,7 +291,7 @@ export function useDappAccountSwitch({
         ) {
           isAvailableAccount = true;
         }
-      } catch (e) {
+      } catch (_e) {
         isAvailableAccount = false;
       }
 

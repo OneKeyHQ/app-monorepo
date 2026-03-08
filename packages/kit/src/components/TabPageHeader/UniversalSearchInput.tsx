@@ -4,14 +4,15 @@ import { useIntl } from 'react-intl';
 
 import type { IStackStyle, IXStackProps } from '@onekeyhq/components';
 import {
-  IconButton,
   SearchBar,
   Shortcut,
   View,
   XStack,
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -36,14 +37,13 @@ export function UniversalSearchInput({
     });
   }, [navigation, initialTab]);
 
-  const isLarge = size === 'large';
   if (size === 'small') {
     return (
-      <IconButton
-        variant="tertiary"
+      <HeaderIconButton
+        size="small"
         icon="SearchOutline"
         title={intl.formatMessage({
-          id: ETranslations.global_search,
+          id: ETranslations.global_search_everything,
         })}
         onPress={toUniversalSearchPage}
       />
@@ -51,19 +51,27 @@ export function UniversalSearchInput({
   }
   return (
     <XStack
-      $gtLg={{ maxWidth: 320 } as any}
+      $gtLg={{ minWidth: 320 } as any}
       width="100%"
       {...(containerProps as IXStackProps)}
     >
       <SearchBar
-        size={isLarge ? 'small' : 'medium'}
+        size={size === 'medium' ? 'medium' : 'small'}
+        containerProps={{ h: size === 'medium' ? 40 : 32 }}
+        py="$2"
         key="searchInput"
         placeholder={intl.formatMessage({
-          id: ETranslations.global_universal_search_placeholder,
+          id: platformEnv.isWebDappMode
+            ? ETranslations.global_search
+            : ETranslations.global_search_everything,
         })}
         addOns={[
           {
-            label: <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />,
+            label: (
+              <View justifyContent="center">
+                <Shortcut shortcutKey={EShortcutEvents.UniversalSearch} />
+              </View>
+            ),
           },
         ]}
       />
@@ -82,7 +90,7 @@ export function UniversalSearchInput({
 export function MDUniversalSearchInput() {
   const isHorizontal = useIsWebHorizontalLayout();
   return isHorizontal ? null : (
-    <XStack px="$5" pt="$0.5">
+    <XStack px="$pagePadding" pt="$0.5">
       <UniversalSearchInput
         size="medium"
         containerProps={{

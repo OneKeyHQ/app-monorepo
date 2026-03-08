@@ -141,9 +141,10 @@ const signTypedDataV1ErrorExamples: { [key: string]: any } = {
   string: [
     {
       // V1: Does not accept numbers as strings (arguably correctly).
+      // V8: "The first argument must be of type string or an instance of Buffer..."
+      // Hermes: 'The "value" argument must not be of type number'
       input: 10,
-      errorMessage:
-        'The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received type number (10)',
+      errorMessage: 'argument must',
     },
   ],
   address: [
@@ -203,7 +204,7 @@ describe('hashMessage', () => {
       const inputs = signTypedDataV1Examples[type] || [];
       for (const input of inputs) {
         const inputType = input instanceof Buffer ? 'Buffer' : typeof input;
-        test(`should hash "${String(input)}" (type "${inputType}")`, () => {
+        test(`should hash "${String(input)}" (type "${inputType}", eip712 "${type}")`, () => {
           const typedData = [{ type, name: 'message', value: input }];
 
           expect(
@@ -219,7 +220,7 @@ describe('hashMessage', () => {
         const inputType = input instanceof Buffer ? 'Buffer' : typeof input;
         test(`should fail to hash "${String(
           input,
-        )}" (type "${inputType}")`, () => {
+        )}" (type "${inputType}", eip712 "${type}")`, () => {
           const typedData = [{ type, name: 'message', value: input }];
 
           expect(() =>
@@ -245,7 +246,9 @@ describe('hashMessage', () => {
       },
       {
         input: null,
-        errorMessage: "Cannot use 'in' operator to search for 'length' in null",
+        // V8: "Cannot use 'in' operator to search for 'length' in null"
+        // Hermes: "right operand of 'in' is not an object"
+        errorMessage: /\bin\b/,
         label: 'null',
       },
       {
@@ -422,7 +425,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {},
         },
@@ -468,7 +471,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
             extraField: 'stuff',
           },
           message: {},
@@ -515,7 +518,9 @@ describe('hashMessage', () => {
             customChainId: 1,
             customVerifyingContract:
               '0x0000000000000000000000000000000000000000',
-            customSalt: Buffer.from(new Int32Array([1, 2, 3])),
+            customSalt: Buffer.from(
+              new Int32Array([1, 2, 3]) as unknown as Buffer,
+            ),
             extraField: 'stuff',
           },
           message: {},
@@ -558,7 +563,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {
             data: 'Hello!',
@@ -602,7 +607,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {
             data: 'Hello!',
@@ -643,7 +648,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {},
         },
@@ -752,7 +757,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {},
         },
@@ -798,7 +803,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
             extraField: 'stuff',
           },
           message: {},
@@ -845,7 +850,9 @@ describe('hashMessage', () => {
             customChainId: 1,
             customVerifyingContract:
               '0x0000000000000000000000000000000000000000',
-            customSalt: Buffer.from(new Int32Array([1, 2, 3])),
+            customSalt: Buffer.from(
+              new Int32Array([1, 2, 3]) as unknown as Buffer,
+            ),
             extraField: 'stuff',
           },
           message: {},
@@ -888,7 +895,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {
             data: 'Hello!',
@@ -932,7 +939,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {
             data: 'Hello!',
@@ -973,7 +980,7 @@ describe('hashMessage', () => {
             version: '1',
             chainId: 1,
             verifyingContract: '0x0000000000000000000000000000000000000000',
-            salt: Buffer.from(new Int32Array([1, 2, 3])),
+            salt: Buffer.from(new Int32Array([1, 2, 3]) as unknown as Buffer),
           },
           message: {},
         },

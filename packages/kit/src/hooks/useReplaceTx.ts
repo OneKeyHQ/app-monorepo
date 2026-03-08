@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast, useMedia } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
@@ -29,7 +29,6 @@ function useReplaceTx({
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const canReplaceTx = usePromiseResult(async () => {
@@ -136,7 +135,6 @@ function useReplaceTx({
           onConfirm: async () => {
             // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
             handleOpenWebSite({
-              switchToMultiTabBrowser: gtMd,
               navigation,
               useCurrentWindow: false,
               webSite: {
@@ -162,15 +160,7 @@ function useReplaceTx({
         });
       }
     },
-    [
-      historyTx,
-      canReplaceTx,
-      intl,
-      handleOpenWebSite,
-      navigation,
-      gtMd,
-      onSuccess,
-    ],
+    [historyTx, canReplaceTx, intl, handleOpenWebSite, navigation, onSuccess],
   );
 
   const handleCheckSpeedUpState = useCallback(async () => {
@@ -182,7 +172,6 @@ function useReplaceTx({
     }
     // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
     handleOpenWebSite({
-      switchToMultiTabBrowser: gtMd,
       navigation,
       useCurrentWindow: false,
       webSite: {
@@ -192,7 +181,7 @@ function useReplaceTx({
         sortIndex: undefined,
       },
     });
-  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation, gtMd]);
+  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation]);
 
   return {
     canReplaceTx,

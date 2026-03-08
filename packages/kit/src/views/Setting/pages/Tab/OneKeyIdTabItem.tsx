@@ -54,6 +54,8 @@ function BasicOneKeyIdTabItem({ selected, onPress }: IOneKeyIdTabItemProps) {
     <YStack
       alignItems="center"
       py="$2"
+      px="$5"
+      ai="flex-start"
       $gtMd={{
         flexDirection: 'row',
         px: '$2',

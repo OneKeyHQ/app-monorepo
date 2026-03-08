@@ -23,13 +23,16 @@ export function ReferralBenefitsList({
   bottomNote,
 }: IReferralBenefitsListProps) {
   return (
-    <YStack gap="$6" $gtMd={{ minWidth: 480 }}>
+    <YStack gap="$6">
       {/* Title and Subtitle Container */}
       <YStack gap="$1">
         <SizableText size="$heading2xl">{title}</SizableText>
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {subtitle}
-        </SizableText>
+
+        {subtitle ? (
+          <SizableText size="$bodyLg" color="$textSubdued">
+            {subtitle}
+          </SizableText>
+        ) : null}
       </YStack>
 
       {/* Benefits List */}

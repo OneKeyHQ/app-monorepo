@@ -1,6 +1,7 @@
 import { useCallback, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -44,9 +45,9 @@ const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
 
   const onPinOrNot = useCallback(() => {
     if (frequentlyUsedItemsIds.has(item.id)) {
-      setFrequentlyUsedItems?.([
-        ...frequentlyUsedItems.filter((o) => o.id !== item.id),
-      ]);
+      setFrequentlyUsedItems?.(
+        frequentlyUsedItems.filter((o) => o.id !== item.id),
+      );
     } else {
       setFrequentlyUsedItems?.([...frequentlyUsedItems, item]);
     }
@@ -98,7 +99,7 @@ export const EditableListItem = ({
     onEditCustomNetwork,
     accountNetworkValues,
     accountNetworkValueCurrency,
-    frequentlyUsedItemsIds,
+    accountDeFiOverview,
   } = useContext(EditableChainSelectorContext);
 
   const onPress = useMemo(() => {
@@ -108,17 +109,29 @@ export const EditableListItem = ({
     return undefined;
   }, [isEditMode, item, onPressItem]);
 
-  const networkValue = useMemo(() => {
+  const networkTotalValue = useMemo(() => {
     if (item.isAllNetworks) {
-      return Object.values(accountNetworkValues)
+      const networkValue = Object.values(accountNetworkValues)
         .reduce((acc, curr) => {
           return acc.plus(curr ?? '0');
         }, new BigNumber(0))
         .toFixed();
+      const deFiValue = Object.values(accountDeFiOverview)
+        .reduce((acc, curr) => {
+          return acc.plus(curr?.netWorth ?? 0);
+        }, new BigNumber(0))
+        .toFixed();
+      return new BigNumber(networkValue).plus(deFiValue).toFixed();
     }
 
-    return accountNetworkValues[item.id];
-  }, [item.isAllNetworks, item.id, accountNetworkValues]);
+    if (isUndefined(accountNetworkValues[item.id])) {
+      return '0';
+    }
+
+    return new BigNumber(accountDeFiOverview[item.id]?.netWorth ?? 0)
+      .plus(accountNetworkValues[item.id] ?? '0')
+      .toFixed();
+  }, [item.isAllNetworks, accountNetworkValues, accountDeFiOverview, item.id]);
 
   return (
     <ListItem
@@ -178,7 +191,7 @@ export const EditableListItem = ({
       bg={networkId === item.id ? '$bgActive' : undefined}
     >
       <XStack gap="$5">
-        {isCustomNetworkEditable && isEditMode && !isDisabled ? (
+        {isCustomNetworkEditable && !isDisabled ? (
           <ListItem.IconButton
             icon="PencilOutline"
             title={intl.formatMessage({ id: ETranslations.global_edit })}
@@ -201,7 +214,7 @@ export const EditableListItem = ({
           </>
         ) : null}
 
-        {new BigNumber(networkValue || 0).gt(
+        {new BigNumber(networkTotalValue || 0).gt(
           NETWORK_SHOW_VALUE_THRESHOLD_USD,
         ) ? (
           <Currency
@@ -212,7 +225,7 @@ export const EditableListItem = ({
             userSelect="none"
             sourceCurrency={accountNetworkValueCurrency}
           >
-            {networkValue || '0'}
+            {networkTotalValue || '0'}
           </Currency>
         ) : null}
       </XStack>

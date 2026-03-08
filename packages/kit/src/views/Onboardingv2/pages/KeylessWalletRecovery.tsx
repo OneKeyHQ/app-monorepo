@@ -1,5 +1,6 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Page, SizableText, YStack } from '@onekeyhq/components';
+import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import type {
   EOnboardingPagesV2,
   IOnboardingParamListV2,
@@ -8,11 +9,17 @@ import type {
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 export default function KeylessWalletRecovery({
-  route,
+  route: _route,
 }: IPageScreenProps<
   IOnboardingParamListV2,
   EOnboardingPagesV2.KeylessWalletRecovery
 >) {
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
+
+  if (!isKeylessWalletEnabled) {
+    return null;
+  }
+
   return (
     <Page>
       <OnboardingLayout>

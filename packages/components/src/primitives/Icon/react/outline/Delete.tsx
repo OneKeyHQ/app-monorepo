@@ -1,11 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDelete = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M11 17H9v-7h2zm4 0h-2v-7h2z" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M7.416 5H3a1 1 0 0 0 0 2h1.064l.814 12.2A3 3 0 0 0 7.87 22h8.258a3 3 0 0 0 2.993-2.8L19.936 7H21a1 1 0 1 0 0-2h-4.416a5 5 0 0 0-9.168 0m2.348 0h4.472c-.55-.614-1.348-1-2.236-1s-1.687.386-2.236 1m6.087 2H6.07l.804 12.067a1 1 0 0 0 .998.933h8.258a1 1 0 0 0 .998-.933L17.93 7h-2.08ZM10 10a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0v-5a1 1 0 0 1 1-1m4 0a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0v-5a1 1 0 0 1 1-1"
+      d="M12 1.5A5 5 0 0 1 16.77 5h4.73v2h-1.532l-1.034 15H5.066L4.032 7H2.5V5h4.73A5 5 0 0 1 12 1.5M6.934 20h10.132l.897-13H6.037zM12 3.5c-1.11 0-2.078.604-2.597 1.5h5.194A3 3 0 0 0 12 3.5"
       clipRule="evenodd"
     />
   </Svg>

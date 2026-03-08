@@ -3,6 +3,8 @@ import { useCallback } from 'react';
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ITradeEvent } from '../types';
 
+export { useChartLines } from './useChartLines';
+
 // simple trade event push hook
 export function useTradeUpdates({
   webRef,

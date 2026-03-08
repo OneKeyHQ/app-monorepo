@@ -34,6 +34,7 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
+  type IEarnActionIcon,
   type IEarnPortfolioAirdropAsset,
   type IEarnPortfolioInvestment,
   type IEarnText,
@@ -58,6 +59,55 @@ import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
 const useIsDesktopLayout = () => {
   const media = useMedia();
   return !platformEnv.isNative && media.gtSm;
+};
+
+type IPortfolioAssetStatusItem =
+  IEarnPortfolioInvestment['assets'][number]['assetsStatus'][number];
+type IPortfolioActionableAssetStatusItem = Omit<
+  IPortfolioAssetStatusItem,
+  'button'
+> & {
+  button: IEarnActionIcon;
+};
+type IWrappedActionReward =
+  | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
+  | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number]
+  | IPortfolioActionableAssetStatusItem;
+type IWrappedActionButton = IWrappedActionReward['button'];
+
+const toActionableAssetStatusItem = (
+  status: IPortfolioAssetStatusItem,
+): IPortfolioActionableAssetStatusItem | undefined => {
+  if (!status.button) {
+    return undefined;
+  }
+
+  return {
+    ...status,
+    button: status.button,
+  };
+};
+
+const getRewardButtonToken = (button: IWrappedActionButton) => {
+  if (!('data' in button) || !button.data || !('token' in button.data)) {
+    return undefined;
+  }
+
+  return button.data.token;
+};
+
+const getRewardButtonDisabled = (button: IWrappedActionButton) => {
+  return 'disabled' in button ? button.disabled : undefined;
+};
+
+const getRewardButtonText = (
+  button: IWrappedActionButton,
+): IEarnText | undefined => {
+  if (!('text' in button) || !button.text) {
+    return undefined;
+  }
+
+  return typeof button.text === 'string' ? { text: button.text } : button.text;
 };
 
 type IPortfolioPendingTxsContext = {
@@ -92,9 +142,7 @@ const WrappedActionButtonCmp = ({
   asset:
     | IEarnPortfolioInvestment['assets'][number]
     | IEarnPortfolioInvestment['airdropAssets'][number];
-  reward:
-    | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
-    | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number];
+  reward: IWrappedActionReward;
   stakedSymbol?: string;
   rewardSymbol?: string;
   stakedVault?: string;
@@ -164,8 +212,6 @@ const WrappedActionButtonCmp = ({
   });
 
   const onPress = useCallback(() => {
-    const buttonData = 'data' in reward.button ? reward.button.data : undefined;
-
     // For airdrop assets, also pass the reward token address from asset.token.info.address
     const rewardTokenAddress =
       'token' in asset &&
@@ -176,7 +222,7 @@ const WrappedActionButtonCmp = ({
 
     handleAction({
       actionIcon: reward.button,
-      token: buttonData?.token,
+      token: getRewardButtonToken(reward.button),
       rewardTokenAddress,
       indexedAccountId: indexedAccount?.id,
       stakedSymbol,
@@ -190,8 +236,14 @@ const WrappedActionButtonCmp = ({
     stakedSymbol,
     rewardSymbol,
   ]);
-
   const isDesktopLayout = useIsDesktopLayout();
+
+  const buttonDisabled = getRewardButtonDisabled(reward.button);
+  const buttonText = getRewardButtonText(reward.button);
+
+  if (!buttonText) {
+    return null;
+  }
   if (!isDesktopLayout) {
     return (
       <Button
@@ -199,11 +251,11 @@ const WrappedActionButtonCmp = ({
         variant="secondary"
         size="small"
         loading={loading || isPending}
-        disabled={loading || reward.button.disabled}
-        cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
+        disabled={loading || buttonDisabled}
+        cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
         onPress={onPress}
       >
-        <EarnText size="$bodyMdMedium" text={reward.button.text as IEarnText} />
+        <EarnText size="$bodyMdMedium" text={buttonText} />
       </Button>
     );
   }
@@ -215,15 +267,11 @@ const WrappedActionButtonCmp = ({
       variant="link"
       size="small"
       loading={loading || isPending}
-      disabled={loading || reward.button.disabled}
-      cursor={reward.button.disabled ? 'not-allowed' : 'pointer'}
+      disabled={loading || buttonDisabled}
+      cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
       onPress={onPress}
     >
-      <EarnText
-        size="$bodyMdMedium"
-        color="$textInfo"
-        text={reward.button.text as IEarnText}
-      />
+      <EarnText size="$bodyMdMedium" color="$textInfo" text={buttonText} />
     </Button>
   );
 };
@@ -275,7 +323,7 @@ const DepositField = ({
         <XStack gap="$1" maxWidth={200} flexWrap="wrap">
           <EarnText size="$bodyMdMedium" text={asset.deposit?.title} />
           <EarnText
-            size="$bodyMdMedium"
+            size="$bodySm"
             color="$textSubdued"
             text={asset.deposit?.description}
           />
@@ -333,19 +381,32 @@ const AssetStatusField = ({
 
   return (
     <FieldWrapper asset={asset}>
-      {asset.assetsStatus?.map((status, index) => (
-        <XStack key={index} ai="center" maxWidth={200} flexWrap="wrap" gap="$2">
-          <EarnText size="$bodyMdMedium" text={status.title} />
-          <XStack gap="$2">
-            <EarnText
-              size="$bodyMd"
-              color="$textSubdued"
-              text={status.description}
-            />
-            <EarnTooltip tooltip={status.tooltip} />
+      {asset.assetsStatus?.map((status, index) => {
+        const actionableStatus = toActionableAssetStatusItem(status);
+
+        return (
+          <XStack
+            key={index}
+            ai="center"
+            maxWidth={200}
+            flexWrap="wrap"
+            gap="$2"
+          >
+            <EarnText size="$bodyMdMedium" text={status.title} />
+            <XStack gap="$2">
+              <EarnText
+                size="$bodyMd"
+                color="$textSubdued"
+                text={status.description}
+              />
+              <EarnTooltip tooltip={status.tooltip} />
+            </XStack>
+            {actionableStatus ? (
+              <WrappedActionButton asset={asset} reward={actionableStatus} />
+            ) : null}
           </XStack>
-        </XStack>
-      ))}
+        );
+      })}
     </FieldWrapper>
   );
 };
@@ -398,6 +459,19 @@ const ActionField = ({
   );
 };
 
+const PositionValueField = ({ totalFiatValue }: { totalFiatValue: string }) => {
+  const currencyInfo = useCurrency();
+  return (
+    <NumberSizeableText
+      size="$bodyMdMedium"
+      formatter="value"
+      formatterOptions={{ currency: currencyInfo.symbol }}
+    >
+      {totalFiatValue}
+    </NumberSizeableText>
+  );
+};
+
 const ProtocolHeader = ({
   portfolioItem,
   pendingCount,
@@ -408,7 +482,7 @@ const ProtocolHeader = ({
   const currencyInfo = useCurrency();
 
   return (
-    <YStack px="$5" py="$3">
+    <YStack px="$pagePadding" py="$3">
       <XStack ai="center">
         <Token
           size="xs"
@@ -440,120 +514,169 @@ const ProtocolHeader = ({
   );
 };
 
+type IAirdropRewardItem = IEarnPortfolioAirdropAsset['airdropAssets'][number];
+type IAirdropRewardPair = {
+  primary: IAirdropRewardItem;
+  secondary?: IAirdropRewardItem;
+};
+
+const buildRewardPairs = (items: IAirdropRewardItem[]) => {
+  const pairs: IAirdropRewardPair[] = [];
+  for (let index = 0; index < items.length; index += 2) {
+    pairs.push({ primary: items[index], secondary: items[index + 1] });
+  }
+  return pairs;
+};
+
 const ProtocolAirdrop = ({
   airdropAssets,
   stakedSymbol,
   stakedVault,
-  airdropRenderMode = 'all',
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
   stakedSymbol?: string;
   stakedVault?: string;
-  airdropRenderMode?: 'firstOnly' | 'all' | 'exceptFirst';
 }) => {
-  const media = useMedia();
+  const intl = useIntl();
   const isDesktopLayout = useIsDesktopLayout();
+  const rows = airdropAssets.flatMap((airdropGroup, groupIndex) => {
+    const items = airdropGroup.airdropAssets ?? [];
+    if (items.length === 0) {
+      return [];
+    }
+    return buildRewardPairs(items).map((pair, pairIndex) => ({
+      key: `${groupIndex}-${pairIndex}`,
+      pair,
+      group: airdropGroup,
+    }));
+  });
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const title = intl.formatMessage({
+    id: ETranslations.defi_claimable_protocol_rewards,
+  });
+  const rowMinHeight = 38;
+  const primaryTextSize = '$bodyMdMedium';
+  const secondaryTextSize = isDesktopLayout ? '$bodyMd' : '$bodyMdMedium';
+
   return (
-    <YStack px="$5" my="$2" $gtSm={{ my: 0 }}>
-      <XStack ai="center">
-        {isEmpty(airdropAssets) ||
-        airdropAssets?.every((airdrop) =>
-          isEmpty(airdrop.airdropAssets),
-        ) ? null : (
-          <YStack w="100%">
-            {airdropAssets?.map((airdropGroup, groupIndex) => {
-              const Layout = isDesktopLayout ? XStack : YStack;
+    <YStack px="$pagePadding" mt="$8" gap="$4">
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        {title}
+      </SizableText>
+      <YStack w="100%" gap="$4">
+        {rows.map(({ key, pair, group }) => {
+          const primaryTitle = pair.primary?.title;
+          const primaryDescription = pair.primary?.description;
+          const hasSecondary = Boolean(pair.secondary);
+          const secondaryDescription =
+            pair.secondary?.title ?? pair.secondary?.description;
+          const tooltip = pair.secondary?.tooltip ?? pair.primary?.tooltip;
+          const actionReward = pair.primary?.button
+            ? pair.primary
+            : pair.secondary;
+          const actionButtonNode = actionReward?.button ? (
+            <WrappedActionButton
+              asset={group}
+              reward={actionReward}
+              stakedSymbol={stakedSymbol}
+              stakedVault={stakedVault}
+              rewardSymbol={group.token.info.symbol}
+            />
+          ) : null;
 
-              const airdropsToRender = (() => {
-                if (airdropRenderMode === 'firstOnly') {
-                  return airdropGroup.airdropAssets.slice(0, 1);
-                }
-                if (airdropRenderMode === 'exceptFirst') {
-                  return airdropGroup.airdropAssets.slice(1);
-                }
-                if (airdropRenderMode === 'all') {
-                  return airdropGroup.airdropAssets;
-                }
-                return [];
-              })();
-
-              return (
-                <Layout
-                  key={groupIndex}
-                  ai="flex-start"
-                  gap="$1.5"
-                  w="100%"
-                  $gtMd={{
-                    ai: 'center',
-                    minHeight: '$9',
-                    gap: '$2.5',
-                  }}
-                >
-                  {media.gtMd ? (
-                    <Token
-                      size="xs"
-                      borderRadius="$2"
-                      tokenImageUri={airdropGroup.token.info.logoURI}
-                    />
+          if (!isDesktopLayout) {
+            return (
+              <XStack
+                key={key}
+                w="100%"
+                minHeight={rowMinHeight}
+                gap="$3"
+                ai="center"
+              >
+                <Token
+                  size="md"
+                  tokenImageUri={group.token.info.logoURI}
+                  showNetworkIcon
+                  networkId={group.metadata?.network?.networkId}
+                />
+                <YStack flex={1} gap="$0.5">
+                  <XStack ai="center" jc="space-between" gap="$2">
+                    <XStack ai="center" gap="$1" flexWrap="wrap" flex={1}>
+                      {primaryTitle ? (
+                        <EarnText size={primaryTextSize} text={primaryTitle} />
+                      ) : null}
+                      {primaryDescription ? (
+                        <EarnText
+                          size={primaryTextSize}
+                          color="$textSubdued"
+                          text={primaryDescription}
+                        />
+                      ) : null}
+                    </XStack>
+                    {actionButtonNode}
+                  </XStack>
+                  {secondaryDescription || tooltip ? (
+                    <XStack ai="center" gap="$1" flexWrap="wrap">
+                      {secondaryDescription ? (
+                        <EarnText
+                          size={secondaryTextSize}
+                          color="$textSubdued"
+                          text={secondaryDescription}
+                        />
+                      ) : null}
+                      {tooltip ? <EarnTooltip tooltip={tooltip} /> : null}
+                    </XStack>
                   ) : null}
-                  {airdropsToRender.map((airdropReward, rewardIndex) => {
-                    const showDivider =
-                      rewardIndex < airdropsToRender.length - 1 && media.gtMd;
+                </YStack>
+              </XStack>
+            );
+          }
 
-                    return (
-                      <XStack
-                        key={rewardIndex}
-                        ai="center"
-                        w="100%"
-                        $gtMd={{
-                          h: '$9',
-                          w: 'auto',
-                        }}
-                      >
-                        <XStack>
-                          <EarnText
-                            mr="$1"
-                            size="$bodyMdMedium"
-                            text={airdropReward.title}
-                          />
-                          <EarnText
-                            mr="$1"
-                            size="$bodyMd"
-                            color="$textSubdued"
-                            text={airdropReward.description}
-                          />
-                          <EarnTooltip tooltip={airdropReward.tooltip} />
-                        </XStack>
-                        <XStack ml="auto" $gtMd={{ ml: 0 }}>
-                          {airdropReward.button ? (
-                            <WrappedActionButton
-                              asset={airdropGroup}
-                              reward={airdropReward}
-                              stakedSymbol={stakedSymbol}
-                              stakedVault={stakedVault}
-                              rewardSymbol={airdropGroup.token.info.symbol}
-                            />
-                          ) : null}
-                        </XStack>
-                        {showDivider ? (
-                          <Divider
-                            bg="$borderSubdued"
-                            vertical
-                            ml="$3"
-                            mr="$0.5"
-                            height="$5"
-                            width="$1"
-                          />
-                        ) : null}
-                      </XStack>
-                    );
-                  })}
-                </Layout>
-              );
-            })}
-          </YStack>
-        )}
-      </XStack>
+          return (
+            <XStack
+              key={key}
+              ai="center"
+              w="100%"
+              minHeight={rowMinHeight}
+              gap="$2"
+              flexWrap="wrap"
+            >
+              <Token
+                size="md"
+                tokenImageUri={group.token.info.logoURI}
+                showNetworkIcon
+                networkId={group.metadata?.network?.networkId}
+              />
+              <XStack ai="center" gap="$1" flexWrap="wrap">
+                {primaryTitle ? (
+                  <EarnText size={primaryTextSize} text={primaryTitle} />
+                ) : null}
+                {primaryDescription ? (
+                  <EarnText
+                    size={primaryTextSize}
+                    color="$textSubdued"
+                    text={primaryDescription}
+                  />
+                ) : null}
+              </XStack>
+              {actionButtonNode}
+              {hasSecondary ? <Divider vertical h="$5" mx="$1" /> : null}
+              {secondaryDescription ? (
+                <EarnText
+                  size={secondaryTextSize}
+                  color="$textSubdued"
+                  text={secondaryDescription}
+                />
+              ) : null}
+              {tooltip ? <EarnTooltip tooltip={tooltip} /> : null}
+            </XStack>
+          );
+        })}
+      </YStack>
     </YStack>
   );
 };
@@ -578,6 +701,23 @@ const PortfolioItemComponent = ({
     return intl.formatMessage({ id: ETranslations.earn_deposited });
   }, [firstAsset, intl]);
 
+  const isPendle = useMemo(
+    () =>
+      earnUtils.isPendleProvider({
+        providerName: portfolioItem.protocol?.providerDetail?.code ?? '',
+      }),
+    [portfolioItem.protocol?.providerDetail?.code],
+  );
+  const earningsColumnLabel = useMemo(
+    () =>
+      intl.formatMessage({
+        id: isPendle
+          ? ETranslations.defi_net_pnl_title
+          : ETranslations.earn_24h_earnings,
+      }),
+    [intl, isPendle],
+  );
+
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
     useMemo(() => {
       return [
@@ -586,36 +726,79 @@ const PortfolioItemComponent = ({
           label: depositColumnLabel,
           flex: 1.5,
           priority: 5,
-          render: (asset) => <DepositField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <DepositField asset={asset} />
+          ),
         },
         {
           key: 'Est. 24h earnings',
-          label: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
+          label: earningsColumnLabel,
           flex: 1,
           priority: 1,
-          render: (asset) => <EarningsField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <EarningsField asset={asset} />
+          ),
         },
         {
           key: 'Asset status',
           label: intl.formatMessage({ id: ETranslations.earn_asset_status }),
           flex: 1,
           priority: 3,
-          render: (asset) => <AssetStatusField asset={asset} />,
+          render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+            <AssetStatusField asset={asset} />
+          ),
         },
-        {
-          key: 'Claimable',
-          label: intl.formatMessage({ id: ETranslations.earn_claimable }),
-          flex: 1,
-          priority: 3,
-          render: (asset) => <ActionField asset={asset} />,
-        },
+        isPendle
+          ? {
+              key: 'Position value',
+              label: intl.formatMessage({
+                id: ETranslations.defi_position_value,
+              }),
+              flex: 1,
+              priority: 3,
+              render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+                <PositionValueField
+                  totalFiatValue={
+                    asset.metadata.fiatValue ?? portfolioItem.totalFiatValue
+                  }
+                />
+              ),
+            }
+          : {
+              key: 'Claimable',
+              label: intl.formatMessage({ id: ETranslations.earn_claimable }),
+              flex: 1,
+              priority: 3,
+              render: (asset: IEarnPortfolioInvestment['assets'][number]) => (
+                <ActionField asset={asset} />
+              ),
+            },
       ];
-    }, [depositColumnLabel, intl]);
+    }, [
+      depositColumnLabel,
+      earningsColumnLabel,
+      intl,
+      isPendle,
+      portfolioItem.totalFiatValue,
+    ]);
 
   const appNavigation = useAppNavigation();
 
+  const isAssetNavigationDisabled = useCallback(
+    (asset: IEarnPortfolioInvestment['assets'][number]) =>
+      earnUtils.isPendleProvider({
+        providerName: asset.metadata.protocol.providerDetail.code,
+      }) &&
+      asset.metadata.protocol.symbol === 'USDe' &&
+      (!asset.buttons || asset.buttons.length === 0),
+    [],
+  );
+
   const handleRowPress = useCallback(
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+      if (isAssetNavigationDisabled(asset)) {
+        return;
+      }
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
         symbol: asset.token.info.symbol,
@@ -623,11 +806,17 @@ const PortfolioItemComponent = ({
         vault: asset.metadata.protocol.vault,
       });
     },
-    [appNavigation],
+    [appNavigation, isAssetNavigationDisabled],
   );
 
   const handleManagePress = useCallback(
-    async (asset: IEarnPortfolioInvestment['assets'][number]) => {
+    async (
+      asset: IEarnPortfolioInvestment['assets'][number],
+      defaultTab?: 'deposit' | 'withdraw',
+    ) => {
+      if (isAssetNavigationDisabled(asset)) {
+        return;
+      }
       const symbol = asset.token.info.symbol;
 
       appNavigation.pushModal(EModalRoutes.StakingModal, {
@@ -637,11 +826,12 @@ const PortfolioItemComponent = ({
           symbol,
           provider: asset.metadata.protocol.providerDetail.code,
           vault: asset.metadata.protocol.vault,
+          tab: defaultTab,
           tokenImageUri: asset.token.info.logoURI,
         },
       });
     },
-    [appNavigation],
+    [appNavigation, isAssetNavigationDisabled],
   );
 
   const showTable = useMemo(
@@ -653,12 +843,6 @@ const PortfolioItemComponent = ({
     <PortfolioPendingTxsProvider value={{ onRefresh }}>
       <YStack>
         <ProtocolHeader portfolioItem={portfolioItem} />
-        <ProtocolAirdrop
-          airdropRenderMode={isDesktopLayout ? 'all' : 'firstOnly'}
-          airdropAssets={portfolioItem.airdropAssets}
-          stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
-        />
         {showTable ? (
           <TableList<IEarnPortfolioInvestment['assets'][number]>
             data={portfolioItem.assets}
@@ -695,30 +879,41 @@ const PortfolioItemComponent = ({
                             text={asset.earnings24h?.title}
                           />
                           <SizableText size="$bodyMd" color="$textSubdued">
-                            {intl.formatMessage({
-                              id: ETranslations.earn_24h_earnings,
-                            })}
+                            {earningsColumnLabel}
                           </SizableText>
                         </XStack>
 
                         {/* Asset status list */}
-                        {asset.assetsStatus?.map((status, index) => (
-                          <XStack key={index} ai="center">
-                            <EarnText
-                              size="$bodyMdMedium"
-                              text={status.title}
-                            />
-                            <XStack gap="$1.5">
-                              <EarnText
-                                ml="$2"
-                                size="$bodyMd"
-                                color="$textSubdued"
-                                text={status.description}
-                              />
-                              <EarnTooltip tooltip={status.tooltip} />
+                        {asset.assetsStatus?.map((status, index) => {
+                          const actionableStatus =
+                            toActionableAssetStatusItem(status);
+
+                          return (
+                            <XStack key={index} ai="center" jc="space-between">
+                              <XStack ai="center">
+                                <EarnText
+                                  size="$bodyMdMedium"
+                                  text={status.title}
+                                />
+                                <XStack gap="$1.5">
+                                  <EarnText
+                                    ml="$2"
+                                    size="$bodyMd"
+                                    color="$textSubdued"
+                                    text={status.description}
+                                  />
+                                  <EarnTooltip tooltip={status.tooltip} />
+                                </XStack>
+                              </XStack>
+                              {actionableStatus ? (
+                                <WrappedActionButton
+                                  asset={asset}
+                                  reward={actionableStatus}
+                                />
+                              ) : null}
                             </XStack>
-                          </XStack>
-                        ))}
+                          );
+                        })}
 
                         {/* Reward assets (claimable rewards) */}
                         {asset.rewardAssets?.map((reward, index) => (
@@ -742,6 +937,25 @@ const PortfolioItemComponent = ({
                           </XStack>
                         ))}
 
+                        {asset.totalReward ? (
+                          <XStack ai="center" gap="$1">
+                            <EarnText
+                              size="$bodySm"
+                              color="$textSubdued"
+                              text={asset.totalReward.description}
+                            />
+                            <EarnText
+                              size="$bodySm"
+                              color="$textSubdued"
+                              text={{
+                                text: intl.formatMessage({
+                                  id: ETranslations.earn_referral_total_earned,
+                                }),
+                              }}
+                            />
+                          </XStack>
+                        ) : null}
+
                         {/* Buttons */}
                         <XStack gap="$3">
                           <Button
@@ -749,7 +963,14 @@ const PortfolioItemComponent = ({
                             size="medium"
                             variant="secondary"
                             onPress={async () => {
-                              await handleManagePress(asset);
+                              await handleManagePress(
+                                asset,
+                                asset.buttons?.some(
+                                  (button) => button?.type === 'redeem',
+                                )
+                                  ? 'withdraw'
+                                  : undefined,
+                              );
                             }}
                           >
                             {intl.formatMessage({
@@ -794,8 +1015,16 @@ const PortfolioItemComponent = ({
                             disabled={button?.disabled}
                             variant="secondary"
                             onPress={async () => {
-                              if (button?.type === 'manage') {
-                                await handleManagePress(asset);
+                              if (
+                                button?.type === 'manage' ||
+                                button?.type === 'redeem'
+                              ) {
+                                await handleManagePress(
+                                  asset,
+                                  button?.type === 'redeem'
+                                    ? 'withdraw'
+                                    : undefined,
+                                );
                               }
                             }}
                           >
@@ -812,14 +1041,11 @@ const PortfolioItemComponent = ({
             }}
           />
         ) : null}
-        {!isDesktopLayout ? (
-          <ProtocolAirdrop
-            airdropRenderMode="exceptFirst"
-            airdropAssets={portfolioItem.airdropAssets}
-            stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
-            stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
-          />
-        ) : null}
+        <ProtocolAirdrop
+          airdropAssets={portfolioItem.airdropAssets}
+          stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
+          stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+        />
       </YStack>
     </PortfolioPendingTxsProvider>
   );
@@ -831,7 +1057,7 @@ const PortfolioItem = memo(PortfolioItemComponent);
 const PortfolioSkeletonItem = () => {
   const isDesktopLayout = useIsDesktopLayout();
   return (
-    <YStack gap="$2" px="$5">
+    <YStack gap="$2" px="$pagePadding">
       {/* Protocol Header */}
       <XStack ai="center" gap="$1.5" mb="$1">
         <Skeleton w="$5" h="$5" borderRadius="$2" />
@@ -912,25 +1138,58 @@ const PortfolioSkeleton = () => (
   </YStack>
 );
 
+interface IBasePortfolioTabContentProps {
+  portfolioData: IUseEarnPortfolioReturn;
+  hideSmallAssets?: boolean;
+}
+
 const BasePortfolioTabContent = ({
   portfolioData,
-}: {
-  portfolioData: IUseEarnPortfolioReturn;
-}) => {
+  hideSmallAssets = false,
+}: IBasePortfolioTabContentProps) => {
   const intl = useIntl();
   const { investments, isLoading, refresh } = portfolioData;
 
-  const filteredInvestments = useMemo(
-    () =>
-      investments.filter(
-        (item) =>
-          !isEmpty(item.assets) ||
+  const filteredInvestments = useMemo(() => {
+    const withAssets = investments.filter(
+      (item) =>
+        !isEmpty(item.assets) ||
+        (item.airdropAssets.find(
+          (airdrop) => !isEmpty(airdrop.airdropAssets),
+        ) !== null &&
           item.airdropAssets.find(
             (airdrop) => !isEmpty(airdrop.airdropAssets),
-          ) != null,
-      ),
-    [investments],
-  );
+          ) !== undefined),
+    );
+
+    if (!hideSmallAssets) {
+      return withAssets;
+    }
+
+    return withAssets.reduce(
+      (acc, item) => {
+        const filteredAssets = item.assets.filter((asset) => {
+          const assetValueUsd = Number(asset.metadata?.fiatValueUsd ?? 0);
+          return assetValueUsd >= 0.01;
+        });
+
+        // If we filtered out all assets and there are no airdrop assets, drop the protocol
+        // (Or if the original protocol only had assets that are now all hidden)
+        if (
+          filteredAssets.length > 0 ||
+          item.airdropAssets.some((airdrop) => !isEmpty(airdrop.airdropAssets))
+        ) {
+          acc.push({
+            ...item,
+            assets: filteredAssets,
+          });
+        }
+
+        return acc;
+      },
+      [] as typeof withAssets,
+    );
+  }, [hideSmallAssets, investments]);
   const noAssets = useMemo(
     () => isEmpty(filteredInvestments),
     [filteredInvestments],
@@ -964,7 +1223,7 @@ const BasePortfolioTabContent = ({
   if (noAssets) {
     return (
       <Empty
-        icon="ClockTimeHistoryOutline"
+        illustration="BlockPercentage"
         title={intl.formatMessage({
           id: ETranslations.earn_no_assets_deposited,
         })}

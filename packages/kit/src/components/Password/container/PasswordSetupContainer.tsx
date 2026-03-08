@@ -2,20 +2,14 @@ import { Suspense, memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  Icon,
-  SizableText,
-  Stack,
-  Toast,
-  XStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordModeAtom,
-  // usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -30,7 +24,8 @@ import PasswordSetup from '../components/PasswordSetup';
 import type { IPasswordSetupForm } from '../components/PasswordSetup';
 
 interface IPasswordSetupProps {
-  onSetupRes: (password: string) => void;
+  onSetupRes: (password: string) => void | Promise<void>;
+  pageMode?: boolean;
 }
 
 interface IBiologyAuthContainerProps {
@@ -74,12 +69,14 @@ const BiologyAuthContainer = ({
   ) : null;
 };
 
-const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
+const PasswordSetupContainer = ({
+  onSetupRes,
+  pageMode,
+}: IPasswordSetupProps) => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
-  // const [, setPasswordPersist] = usePasswordPersistAtom();
   const [passwordMode] = usePasswordModeAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const onSetupPassword = useCallback(
@@ -88,10 +85,12 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
       const finalPassword =
         mode === EPasswordMode.PASSCODE ? confirmPassCode : confirmPassword;
       setLoading(true);
+      let isPasswordSetSuccess = false;
       try {
+        let webAuthRes: string | undefined;
         if (isBiologyAuthSwitchOn && isSupport) {
-          const res = await setWebAuthEnable(true);
-          if (!res) return;
+          webAuthRes = await setWebAuthEnable(true);
+          if (!webAuthRes) return;
         }
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -102,12 +101,31 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
             encodePassword,
             mode,
           );
+        isPasswordSetSuccess = true;
+        // Save password to secure storage for biometric unlock on extension.
+        // Clear skipPrfCache first — the flag is set during promptPasswordVerify
+        // to force real WebAuthn for the biometric button, but password setup
+        // has already succeeded here so it's safe to use cache.
+        if (platformEnv.isExtension && isBiologyAuthSwitchOn && webAuthRes) {
+          try {
+            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
+            await biologyAuthUtils.savePassword(setUpPasswordRes);
+          } catch (e) {
+            console.error('Failed to save password to secure storage:', e);
+          }
+        }
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
-        setTimeout(() => {
-          onSetupRes(setUpPasswordRes);
-        });
+
+        if (pageMode) {
+          await onSetupRes(setUpPasswordRes);
+        } else {
+          setTimeout(() => {
+            void onSetupRes(setUpPasswordRes);
+          });
+        }
+
         // Dialog.show({
         //   title: intl.formatMessage({
         //     id: ETranslations.auth_Passcode_protection,
@@ -152,20 +170,32 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
       } catch (e) {
         console.log('e.stack', (e as Error)?.stack);
         console.error(e);
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_passcode_set_failed,
-          }),
-        });
+        if (!isPasswordSetSuccess) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_passcode_set_failed,
+            }),
+          });
+        } else {
+          throw e;
+        }
       } finally {
         setLoading(false);
       }
     },
-    [intl, isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
+    [
+      intl,
+      isBiologyAuthSwitchOn,
+      isSupport,
+      onSetupRes,
+      pageMode,
+      setWebAuthEnable,
+    ],
   );
 
   return (
     <PasswordSetup
+      pageMode={pageMode}
       loading={loading}
       passwordMode={passwordMode}
       onSetupPassword={onSetupPassword}

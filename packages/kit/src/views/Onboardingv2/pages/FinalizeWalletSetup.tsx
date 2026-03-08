@@ -4,12 +4,12 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
-  runOnJS,
   useAnimatedProps,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -22,8 +22,9 @@ import {
   SizableText,
   XStack,
   YStack,
-  useThemeValue,
+  useTheme,
 } from '@onekeyhq/components';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EOnboardingPagesV2,
@@ -56,62 +58,17 @@ import {
   useDeviceConnect,
 } from '../hooks/useDeviceConnect';
 
+import MatrixBackground from './MatrixBackground';
+
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-const MatrixBackground = ({
-  lineCount = 30,
-  charsPerLine = 60,
-  updateInterval = 200,
-  characterSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-}: {
-  lineCount?: number;
-  charsPerLine?: number;
-  updateInterval?: number;
-  characterSet?: string;
-}) => {
-  const [lines, setLines] = useState<string[]>([]);
-  useEffect(() => {
-    // generate lines of random characters
-    const generateLines = () => {
-      const newLines: string[] = [];
-
-      for (let i = 0; i < lineCount; i += 1) {
-        let line = '';
-        for (let j = 0; j < charsPerLine; j += 1) {
-          line += characterSet[Math.floor(Math.random() * characterSet.length)];
-        }
-        newLines.push(line);
-      }
-      setLines(() => newLines);
-    };
-
-    generateLines();
-
-    // update all characters at regular intervals
-    const interval = setInterval(generateLines, updateInterval);
-
-    return () => clearInterval(interval);
-  }, [lineCount, charsPerLine, updateInterval, characterSet]);
-
-  return (
-    <YStack>
-      {lines.map((line, idx) => (
-        <SizableText
-          textAlign="center"
-          fontFamily="$monoRegular"
-          letterSpacing={2}
-          key={idx}
-          numberOfLines={1}
-          ellipsizeMode="clip"
-        >
-          {line}
-        </SizableText>
-      ))}
-    </YStack>
-  );
-};
-
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+// React Navigation's default Android screen transition is ~300ms.
+// Deferring worklet-heavy operations by this amount prevents a collision
+// between outgoing screen cleanup and incoming animated props registration,
+// which can trigger SIGSEGV in Value::~Value on Fabric/New Architecture.
+const NAVIGATION_TRANSITION_SETTLE_MS = 300;
 
 type IStepData = { pathData: string; title: string } | null;
 
@@ -158,11 +115,12 @@ function FinalizeWalletSetupPage({
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const [bgAppColor, borderDisabledColor, borderActiveColor] = useThemeValue([
-    '$bgApp',
-    '$borderDisabled',
-    '$borderActive',
-  ]);
+  const theme = useTheme();
+  const bgAppColor = theme.bgApp.val;
+  const borderDisabledColor = theme.borderDisabled.val;
+  const borderActiveColor = theme.borderActive.val;
+  const neutral1Color = theme.neutral1.val;
+  const neutral4Color = theme.neutral4.val;
   const [setupError, setSetupError] = useState<
     | {
         messageId: ETranslations;
@@ -177,6 +135,8 @@ function FinalizeWalletSetupPage({
   const deviceData = route?.params?.deviceData;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
+  const isKeylessWallet = route?.params?.isKeylessWallet;
+  const keylessDetailsInfo = route?.params?.keylessDetailsInfo;
 
   const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
 
@@ -190,13 +150,16 @@ function FinalizeWalletSetupPage({
   const isProcessing = useRef(false);
 
   const animatedProps = useAnimatedProps(() => {
-    // eslint-disable-next-line spellcheck/spell-checker
+    // eslint-disable-next-line @cspell/spellchecker
+    // oxlint-disable-next-line @cspell/spellchecker
     const strokeDashoffset = pathLength * (1 - progress.value);
 
     return {
-      // eslint-disable-next-line spellcheck/spell-checker
+      // eslint-disable-next-line @cspell/spellchecker
+      // oxlint-disable-next-line @cspell/spellchecker
       strokeDashoffset,
-      // eslint-disable-next-line spellcheck/spell-checker
+
+      // oxlint-disable-next-line @cspell/spellchecker
       strokeDasharray: pathLength,
     };
   });
@@ -265,9 +228,9 @@ function FinalizeWalletSetupPage({
         },
         (finished) => {
           if (finished) {
-            runOnJS(setCurrentStep)(nextStep);
-            runOnJS(changeIdProgress)(false);
-            runOnJS(processNextStep)();
+            scheduleOnRN(setCurrentStep, nextStep);
+            scheduleOnRN(changeIdProgress, false);
+            scheduleOnRN(processNextStep);
           }
         },
       );
@@ -304,7 +267,24 @@ function FinalizeWalletSetupPage({
             await actions.current.createHDWallet({
               mnemonic,
               isWalletBackedUp,
+              isKeylessWallet,
+              keylessDetailsInfo,
             });
+            // Track keyless wallet creation success
+            if (isKeylessWallet && keylessDetailsInfo) {
+              defaultLogger.account.wallet.walletAdded({
+                status: 'success',
+                addMethod: 'CreateKeylessWallet',
+                isSoftwareWalletOnlyUser: true,
+                details: {
+                  provider:
+                    keylessDetailsInfo.keylessProvider ===
+                    EOAuthSocialLoginProvider.Google
+                      ? 'google'
+                      : 'apple',
+                },
+              });
+            }
           },
         });
         created.current = true;
@@ -316,9 +296,9 @@ function FinalizeWalletSetupPage({
         });
       } else if (keylessPackSetId && !created.current) {
         // Create keyless wallet
-        await actions.current.createKeylessWallet({
-          packSetId: keylessPackSetId,
-        });
+        // await actions.current.createKeylessWallet({
+        //   packSetId: keylessPackSetId,
+        // });
         created.current = true;
       }
     } catch (error) {
@@ -341,18 +321,39 @@ function FinalizeWalletSetupPage({
     mnemonic,
     deviceData,
     isFirmwareVerified,
+    keylessPackSetId,
     mnemonicType,
     actions,
     isWalletBackedUp,
+    isKeylessWallet,
+    keylessDetailsInfo,
     goNextStep,
     connectDevice,
     createHWWallet,
-    keylessPackSetId,
   ]);
 
+  const unmountedRef = useRef(false);
+  useEffect(
+    () => () => {
+      unmountedRef.current = true;
+    },
+    [],
+  );
+
   useEffect(() => {
-    processNextStep();
-    void createWallet();
+    // Defer animation start until after navigation transition completes.
+    // This prevents a triple-worklet collision (HeightTransition cleanup +
+    // screen transition + AnimatedPath mount) that can cause SIGSEGV in
+    // worklets::SerializableObject::toJSValue → facebook::jsi::Value::~Value
+    // on Android with Fabric/New Architecture.
+    void timerUtils.setTimeoutPromised(() => {
+      if (!unmountedRef.current) {
+        processNextStep();
+      }
+    }, NAVIGATION_TRANSITION_SETTLE_MS);
+    if (!unmountedRef.current) {
+      void createWallet();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -483,9 +484,7 @@ function FinalizeWalletSetupPage({
                 y="-50%"
                 opacity={0.15}
               >
-                <MatrixBackground
-                  {...(platformEnv.isNative && { lineCount: 60 })}
-                />
+                <MatrixBackground />
                 {!platformEnv.isNativeAndroid ? svgMask : null}
               </YStack>
               {platformEnv.isNativeAndroid ? svgMask : null}
@@ -543,7 +542,7 @@ function FinalizeWalletSetupPage({
                     }}
                   >
                     <LinearGradient
-                      colors={['$neutral1', '$neutral4']}
+                      colors={[neutral1Color, neutral4Color]}
                       start={{ x: 1, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       w="$14"

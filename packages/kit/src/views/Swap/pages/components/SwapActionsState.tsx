@@ -1,8 +1,10 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Icon,
   LottieView,
@@ -11,7 +13,7 @@ import {
   Stack,
   XStack,
   rootNavigationRef,
-  useIsModalPage,
+  useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -24,7 +26,10 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -34,6 +39,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -100,9 +106,11 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
+  const hasEverShownCostSavingsRef = useRef(false);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
@@ -113,7 +121,7 @@ const SwapActionsState = ({
   const themeVariant = useThemeVariant();
   const quoting = useSwapQuoteEventFetching();
 
-  const isModalPage = useIsModalPage();
+  const isModalPage = useIsOverlayPage();
   const { md } = useMedia();
 
   const onActionHandlerBefore = useCallback(async () => {
@@ -237,6 +245,59 @@ const SwapActionsState = ({
     swapRecipientAddressInfo?.showAddress,
   ]);
 
+  const costSavingsComponent = useMemo(() => {
+    const hasCostSavings =
+      currentQuoteRes?.fee?.costSavings &&
+      new BigNumber(currentQuoteRes?.fee?.costSavings || 0).gt(0);
+
+    if (hasCostSavings) {
+      const isLoadingQuote = quoting || quoteLoading;
+      const shouldShow = hasEverShownCostSavingsRef.current || !isLoadingQuote;
+
+      if (shouldShow) {
+        if (!hasEverShownCostSavingsRef.current) {
+          hasEverShownCostSavingsRef.current = true;
+        }
+
+        const formattedFee = numberFormat(
+          currentQuoteRes.fee?.costSavings ?? '0',
+          {
+            formatter: 'value',
+            formatterOptions: {
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            },
+          },
+        );
+
+        return (
+          <Badge
+            badgeSize="sm"
+            badgeType="success"
+            alignSelf="center"
+            gap="$1.5"
+          >
+            <Icon name="PartyCelebrateSolid" size="$3" color="$iconSuccess" />
+            <SizableText size="$bodySmMedium" color="$textSuccess">
+              {intl.formatMessage(
+                { id: ETranslations.swap_fee_save },
+                { fee: formattedFee },
+              )}
+            </SizableText>
+          </Badge>
+        );
+      }
+    } else {
+      hasEverShownCostSavingsRef.current = false;
+    }
+    return null;
+  }, [
+    currentQuoteRes?.fee?.costSavings,
+    settingsPersistAtom.currencyInfo.symbol,
+    quoting,
+    quoteLoading,
+    intl,
+  ]);
+
   const actionComponent = useMemo(
     () => (
       <Stack
@@ -252,30 +313,37 @@ const SwapActionsState = ({
           : {})}
       >
         {recipientComponent}
-        <Button
-          onPress={onActionHandlerBefore}
-          size={isModalPage && !md ? 'medium' : 'large'}
-          variant="primary"
-          disabled={swapActionState.disabled || swapActionState.isLoading}
-        >
-          {quoting || quoteLoading ? (
-            <LottieView
-              source={
-                themeVariant === 'light'
-                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
-                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
-              }
-              autoPlay
-              loop
-              style={{
-                width: 40,
-                height: 24,
-              }}
-            />
-          ) : (
-            swapActionState.label
-          )}
-        </Button>
+        <Stack gap="$2">
+          {/* In modal: show savings above button; In non-modal: show below */}
+          {isModalPage && !md ? costSavingsComponent : null}
+          <Button
+            onPress={onActionHandlerBefore}
+            size={isModalPage && !md ? 'medium' : 'large'}
+            variant="primary"
+            disabled={swapActionState.disabled || swapActionState.isLoading}
+            borderRadius="$full"
+          >
+            {quoting || quoteLoading ? (
+              <LottieView
+                source={
+                  themeVariant === 'light'
+                    ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
+                    : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+                }
+                autoPlay
+                loop
+                style={{
+                  width: 40,
+                  height: 24,
+                }}
+              />
+            ) : (
+              swapActionState.label
+            )}
+          </Button>
+          {/* In non-modal: show savings below button */}
+          {!isModalPage || md ? costSavingsComponent : null}
+        </Stack>
       </Stack>
     ),
     [
@@ -290,6 +358,7 @@ const SwapActionsState = ({
       swapActionState.isLoading,
       swapActionState.label,
       themeVariant,
+      costSavingsComponent,
     ],
   );
 

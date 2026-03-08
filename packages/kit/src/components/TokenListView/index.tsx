@@ -13,7 +13,6 @@ import {
   Tabs,
   XStack,
   YStack,
-  useMedia,
   useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -30,16 +29,20 @@ import {
   sortTokensByName,
   sortTokensByPrice,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IExchangeFilter } from '@onekeyhq/shared/types/exchange';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type {
   IAccountToken,
   IHomeDefaultToken,
 } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
-  useAggregateTokensMapAtom,
+  useFlattenAggregateTokensMapAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
@@ -106,6 +109,7 @@ type IProps = {
     }
   >;
   hideZeroBalanceTokens?: boolean;
+  hideDeFiMarkedTokens?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   keepDefaultZeroBalanceTokens?: boolean;
   withAggregateBadge?: boolean;
@@ -113,6 +117,8 @@ type IProps = {
   searchKeyLengthThreshold?: number;
   plainMode?: boolean;
   limit?: number;
+  deferTokenManagement?: boolean;
+  exchangeFilter?: IExchangeFilter;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -142,6 +148,7 @@ function TokenListViewCmp(props: IProps) {
     showNetworkIcon,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     homeDefaultTokenMap,
     keepDefaultZeroBalanceTokens = true,
     withAggregateBadge,
@@ -152,10 +159,11 @@ function TokenListViewCmp(props: IProps) {
     searchKeyLengthThreshold,
     plainMode,
     limit,
+    deferTokenManagement,
+    exchangeFilter,
   } = props;
 
   const intl = useIntl();
-  const media = useMedia();
 
   const [overFlowState, setOverFlowState] = useState<{
     isOverflow: boolean;
@@ -168,16 +176,19 @@ function TokenListViewCmp(props: IProps) {
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
   const [tokenListMap] = useTokenListMapAtom();
-  const [aggregateTokenMap] = useAggregateTokensMapAtom();
+  const [aggregateTokenMap] = useFlattenAggregateTokensMapAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
+  const tokenManagementEnabled =
+    !deferTokenManagement || tokenListState.initialized;
   const { customTokens } = useTokenManagement({
     accountId,
     networkId,
     indexedAccountId,
+    enabled: tokenManagementEnabled,
   });
 
   const tokens = useMemo(() => {
@@ -237,12 +248,38 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
+    if (hideDeFiMarkedTokens) {
+      resultTokens = resultTokens.filter((item) => !item.defiMarked);
+    }
+
+    if (exchangeFilter?.supportedAssets) {
+      resultTokens = resultTokens.filter((item) => {
+        const symbolUpper = (
+          item.commonSymbol ??
+          item.symbol ??
+          ''
+        ).toUpperCase();
+
+        if (item.isAggregateToken) {
+          return Object.values(exchangeFilter.supportedAssets).some(
+            (networkAssets) =>
+              networkAssets[symbolUpper]?.withdrawEnable === true,
+          );
+        }
+
+        const networkAssets =
+          exchangeFilter.supportedAssets[item.networkId ?? ''];
+        return networkAssets?.[symbolUpper]?.withdrawEnable === true;
+      });
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
     hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
@@ -251,6 +288,7 @@ function TokenListViewCmp(props: IProps) {
     keepDefaultZeroBalanceTokens,
     homeDefaultTokenMap,
     customTokens,
+    exchangeFilter,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -466,21 +504,14 @@ function TokenListViewCmp(props: IProps) {
   const renderPlainModeFooter = useCallback(() => {
     if (overFlowState.isOverflow && overFlowState.isSliced) {
       return (
-        <XStack py="$3" jc="center" ai="center">
+        <XStack pt="$3" px="$5" jc="center" ai="center">
           <Button
-            size="small"
+            size="medium"
             variant="secondary"
             onPress={() =>
               setOverFlowState((prev) => ({ ...prev, isSliced: false }))
             }
-            $md={
-              {
-                flexGrow: 1,
-                flexBasis: 0,
-                size: 'medium',
-                borderRadius: '$full',
-              } as any
-            }
+            flex={1}
           >
             {intl.formatMessage({ id: ETranslations.global_show_more })}
           </Button>
@@ -493,6 +524,7 @@ function TokenListViewCmp(props: IProps) {
           <TokenListFooter
             tableLayout={tableLayout}
             hideZeroBalanceTokens={hideZeroBalanceTokens}
+            hideDeFiMarkedTokens={hideDeFiMarkedTokens}
             hasTokens={filteredTokens.length > 0}
             manageTokenEnabled={manageTokenEnabled}
             plainMode={plainMode}
@@ -506,21 +538,14 @@ function TokenListViewCmp(props: IProps) {
           </Stack>
         ) : null}
         {overFlowState.isOverflow && !overFlowState.isSliced ? (
-          <XStack jc="center" ai="center" pt="$3">
+          <XStack jc="center" ai="center" pt="$3" px="$5">
             <Button
-              size="small"
+              size="medium"
               variant="secondary"
               onPress={() =>
                 setOverFlowState((prev) => ({ ...prev, isSliced: true }))
               }
-              $md={
-                {
-                  flexGrow: 1,
-                  flexBasis: 0,
-                  size: 'medium',
-                  borderRadius: '$full',
-                } as any
-              }
+              flex={1}
             >
               {intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
@@ -540,23 +565,12 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchKey,
     footerTipText,
     intl,
+    hideDeFiMarkedTokens,
   ]);
 
   if (plainMode) {
     if (showSkeleton) {
-      return (
-        <ListLoading
-          itemProps={
-            tableLayout
-              ? undefined
-              : {
-                  mx: '$0',
-                  px: '$0',
-                }
-          }
-          isTokenSelectorView={!tableLayout}
-        />
-      );
+      return <ListLoading isTokenSelectorView={!tableLayout} />;
     }
 
     if (!limitedTokens || limitedTokens.length === 0) {
@@ -596,11 +610,12 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
             {...(tableLayout
               ? undefined
               : {
-                  mx: '$0',
-                  px: '$0',
+                  mx: '$2',
+                  px: '$3',
                 })}
           />
         ))}
@@ -613,11 +628,13 @@ function TokenListViewCmp(props: IProps) {
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
       extraData={limitedTokens.length}
       data={limitedTokens}
+      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
       ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
@@ -648,6 +665,7 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&
@@ -682,11 +700,40 @@ function TokenListViewCmp(props: IProps) {
 }
 
 const TokenListView = memo((props: IProps) => {
+  const needNetworksMap =
+    !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
+  const { result: allNetworksResp } = usePromiseResult<{
+    networks: IServerNetwork[];
+  }>(
+    async () => {
+      if (!needNetworksMap) {
+        return { networks: [] };
+      }
+      return backgroundApiProxy.serviceNetwork.getAllNetworks();
+    },
+    [needNetworksMap],
+    {
+      initResult: { networks: [] },
+    },
+  );
+  const networksMap = useMemo(() => {
+    if (!needNetworksMap) {
+      return undefined;
+    }
+    const networks = allNetworksResp?.networks ?? [];
+    const map: Record<string, IServerNetwork> = {};
+    for (const n of networks) {
+      map[n.id] = n;
+    }
+    return map;
+  }, [needNetworksMap, allNetworksResp]);
+
   const contextValue = useMemo(() => {
     return {
       allAggregateTokenMap: props.allAggregateTokenMap,
+      networksMap,
     };
-  }, [props.allAggregateTokenMap]);
+  }, [props.allAggregateTokenMap, networksMap]);
 
   return (
     <TokenListViewContext.Provider value={contextValue}>

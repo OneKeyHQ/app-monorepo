@@ -6,11 +6,15 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openFiatCryptoUrl,
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   isSupportStaking,
@@ -157,7 +161,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         remindUnsupportedToken(type);
         return;
       }
-      openUrlExternal(url);
+      if (platformEnv.isDesktop || platformEnv.isNative) {
+        openFiatCryptoUrl(url);
+      } else {
+        openUrlExternal(url);
+      }
     },
     [
       createAccountIfNotExists,
@@ -257,6 +265,8 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     const protocolList =
       await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol: normalizedSymbol,
+        accountId: networkAccount.id,
+        networkId,
       });
 
     // If only one protocol, navigate directly to details page

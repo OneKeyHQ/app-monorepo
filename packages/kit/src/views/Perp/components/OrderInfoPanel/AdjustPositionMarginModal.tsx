@@ -20,7 +20,6 @@ import {
 import { usePerpsActiveAccountSummaryAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getValidPriceDecimals,
@@ -222,7 +221,7 @@ const AdjustPositionMarginForm = memo(
           width: 120,
         }}
         renderTrigger={({ label: selectedLabel }) => (
-          <XStack alignItems="center" gap="$1" cursor="pointer">
+          <XStack alignItems="center" gap="$1" cursor="default">
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               {selectedLabel}
             </SizableText>
@@ -317,7 +316,6 @@ const AdjustPositionMarginForm = memo(
                 <SizableText
                   size="$bodyMd"
                   color="$textInteractive"
-                  cursor="pointer"
                   onPress={handleMaxPress}
                 >
                   {appLocale.intl.formatMessage({

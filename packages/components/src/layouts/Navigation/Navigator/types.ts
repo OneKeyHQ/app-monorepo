@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactElement } from 'react';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -7,7 +7,17 @@ import type { IActionListSection } from '../../../actions';
 import type { IKeyOfIcons } from '../../../primitives';
 import type { RouteProp } from '@react-navigation/core';
 import type { ParamListBase } from '@react-navigation/routers';
-import type { Animated, StyleProp, ViewStyle } from 'react-native';
+import type {
+  Animated,
+  ImageSourcePropType,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
+
+// Native bottom tabs icon type (for react-native-bottom-tabs)
+// ImageSourcePropType: for static images using require() or { uri: string }
+// { sfSymbol: string }: for SF Symbols on iOS
+export type INativeTabBarIcon = ImageSourcePropType | { sfSymbol: string };
 
 export type ICommonScreenOptions = {
   headerShown?: boolean;
@@ -31,12 +41,16 @@ export interface ITabSubNavigatorConfig<
 export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
+  /** Native tab bar icon for react-native-bottom-tabs (iOS/Android only) */
+  nativeTabBarIcon?: (props: { focused: boolean }) => INativeTabBarIcon;
   translationId: ETranslations;
   collapseSideBarTranslationId?: ETranslations;
   children: ITabSubNavigatorConfig<any, any>[] | null;
   freezeOnBlur?: boolean;
   disable?: boolean;
   hidden?: boolean;
+  /** Hide icon in tab bar but keep the tab functional */
+  hiddenIcon?: boolean;
   inMoreAction?: boolean;
   rewrite?: string;
   /** with exact property set to true, current screen will ignore the parent screen's path config */
@@ -77,4 +91,6 @@ export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
   showTabBar?: boolean;
+  bottomMenu: ReactElement;
+  webPageTabBar: ReactElement;
 }

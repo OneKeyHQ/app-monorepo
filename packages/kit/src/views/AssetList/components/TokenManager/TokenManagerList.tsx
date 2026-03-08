@@ -59,7 +59,7 @@ function ListEmptyComponent({
   return (
     <Empty
       flex={1}
-      icon="SearchOutline"
+      illustration="QuestionMark"
       title={intl.formatMessage({
         id: ETranslations.global_no_results,
       })}

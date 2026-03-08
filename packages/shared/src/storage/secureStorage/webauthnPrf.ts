@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, spellcheck/spell-checker */
+/* oxlint-disable @typescript-eslint/no-unused-vars, @cspell/spellchecker */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Buffer } from 'buffer';
 
 import platformEnv from '../../platformEnv';

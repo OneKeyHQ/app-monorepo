@@ -161,7 +161,7 @@ export const uploadLogBundle = async ({
   let fileSystemModule: typeof import('expo-file-system/legacy') | undefined;
   try {
     fileSystemModule = await import('expo-file-system/legacy');
-  } catch (error) {
+  } catch (_error) {
     fileSystemModule = undefined;
   }
 
@@ -259,7 +259,7 @@ export const uploadLogBundle = async ({
   let payload: IServerPayload | undefined;
   try {
     payload = JSON.parse(text) as typeof payload;
-  } catch (error) {
+  } catch (_error) {
     payload = {
       code: httpStatus,
       message: text,

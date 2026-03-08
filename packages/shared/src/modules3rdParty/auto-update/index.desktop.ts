@@ -76,7 +76,6 @@ const downloadPackage: IDownloadPackage = async ({
     return new Promise<IUpdateDownloadedEvent>((resolve) => {
       const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
         (params) => {
-          console.log('params', params);
           onDownloadedSubscription?.();
           resolve(params);
         },
@@ -94,8 +93,11 @@ const downloadASC: IDownloadASC = async (params) => {
   });
 };
 
-const verifyASC: IVerifyASC = async () => {
-  await globalThis.desktopApiProxy.appUpdate.verifyASC();
+const verifyASC: IVerifyASC = async (params) => {
+  await globalThis.desktopApiProxy.appUpdate.verifyASC({
+    ...params,
+    buildNumber: String(platformEnv.buildNumber || 1),
+  });
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
@@ -106,6 +108,9 @@ const verifyPackage: IVerifyPackage = async (params) => {
 };
 
 const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
+  if (!downloadedEvent?.downloadedFile || !downloadedEvent?.downloadUrl) {
+    throw new Error('NOT_FOUND_PACKAGE');
+  }
   await globalThis.desktopApiProxy.appUpdate.installPackage({
     ...downloadedEvent,
     buildNumber: String(platformEnv.buildNumber || 1),
@@ -188,11 +193,25 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
   switchBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
+  isBundleExists: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
+      appVersion,
+      bundleVersion,
+    ),
+  verifyExtractedBundle: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.verifyExtractedBundle(
+      appVersion,
+      bundleVersion,
+    ),
+  listLocalBundles: () =>
+    globalThis.desktopApiProxy.bundleUpdate.listLocalBundles(),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
   clearAllJSBundleData: () =>
     globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
   testVerification: () =>
     globalThis.desktopApiProxy.bundleUpdate.testVerification(),
+  testSkipVerification: () =>
+    globalThis.desktopApiProxy.bundleUpdate.testSkipVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
     globalThis.desktopApiProxy.bundleUpdate.testDeleteJsBundle(
       appVersion,

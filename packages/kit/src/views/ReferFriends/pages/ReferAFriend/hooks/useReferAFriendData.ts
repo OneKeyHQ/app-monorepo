@@ -18,22 +18,26 @@ export function useReferAFriendData() {
 
   // Monitor login status changes and auto-navigate when user logs in
   useLoginStatusChange(() => {
-    void replaceToReferFriends();
+    // Pass isLoggedIn: true to skip redundant check since hook already confirmed login
+    void replaceToReferFriends({ isLoggedIn: true });
   });
 
   useEffect(() => {
-    // Fetch post configuration
-    void backgroundApiProxy.serviceReferralCode
-      .getPostConfig()
-      .then((config: IInvitePostConfig | undefined) => {
-        setPostConfig(config);
-        void backgroundApiProxy.serviceReferralCode
-          .fetchPostConfig()
-          .then(setPostConfig);
-      });
+    async function loadPostConfig() {
+      const cachedConfig =
+        await backgroundApiProxy.serviceReferralCode.getPostConfig();
+      if (cachedConfig) {
+        setPostConfig(cachedConfig);
+      }
+      const freshConfig =
+        await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
+      if (freshConfig) {
+        setPostConfig(freshConfig);
+      }
+    }
 
-    // Check login status and handle redirects
-    void backgroundApiProxy.servicePrime.isLoggedIn().then((isLogin) => {
+    async function checkLoginAndRedirect() {
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
         void replaceToReferFriends();
         return;
@@ -58,7 +62,10 @@ export function useReferAFriendData() {
         defaultLogger.referral.page.enterReferralGuide(code, utmSource);
         globalThis.location.href = url;
       }
-    });
+    }
+
+    void loadPostConfig();
+    void checkLoginAndRedirect();
   }, [replaceToReferFriends]);
 
   return {

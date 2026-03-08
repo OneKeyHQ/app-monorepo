@@ -114,7 +114,7 @@ function WalletBoundReferralCodeButtonView({
       extra={
         shouldBoundReferralCode ? undefined : (
           <Badge badgeSize="sm" badgeType="info">
-            <Badge.Text>
+            <Badge.Text size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.referral_wallet_bind_code_finish,
               })}
