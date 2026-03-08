@@ -713,6 +713,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({
     accountReady: activeAccount.ready,
     accountId,
+    indexedAccountId,
     networkId,
     symbol,
     provider,
