@@ -1,5 +1,4 @@
 import {
-  createNavigatorFactory,
   type DefaultNavigatorOptions,
   type NavigatorTypeBagBase,
   type ParamListBase,
@@ -9,6 +8,7 @@ import {
   TabRouter,
   type TabRouterOptions,
   type TypedNavigator,
+  createNavigatorFactory,
   useNavigationBuilder,
   useTheme,
 } from '@react-navigation/native';
@@ -105,5 +105,6 @@ export default function createNativeBottomTabNavigator<
   },
   const Config extends StaticConfig<TypeBag> = StaticConfig<TypeBag>,
 >(config?: Config): TypedNavigator<TypeBag, Config> {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return createNavigatorFactory(NativeBottomTabNavigator)(config);
 }

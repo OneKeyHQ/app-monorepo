@@ -1,8 +1,8 @@
 import {
-  type ParamListBase,
-  type TabNavigationState,
-  type Route,
   CommonActions,
+  type ParamListBase,
+  type Route,
+  type TabNavigationState,
 } from '@react-navigation/native';
 import type {
   NativeBottomTabDescriptorMap,
@@ -35,11 +35,13 @@ export default function NativeBottomTabView({
       getLabelText={({ route }) => {
         const options = descriptors[route.key]?.options;
 
-        return options?.tabBarLabel !== undefined
-          ? options.tabBarLabel
-          : options?.title !== undefined
-            ? options.title
-            : (route as Route<string>).name;
+        if (options?.tabBarLabel !== undefined) {
+          return options.tabBarLabel;
+        }
+        if (options?.title !== undefined) {
+          return options.title;
+        }
+        return (route as Route<string>).name;
       }}
       getBadge={({ route }) => descriptors[route.key]?.options.tabBarBadge}
       getBadgeBackgroundColor={({ route }) =>
@@ -102,12 +104,10 @@ export default function NativeBottomTabView({
         });
 
         if (
-          focused ||
-          event.defaultPrevented ||
-          descriptors[route.key]?.options.preventsDefault
+          !focused &&
+          !event.defaultPrevented &&
+          !descriptors[route.key]?.options.preventsDefault
         ) {
-          return;
-        } else {
           navigation.dispatch({
             ...CommonActions.navigate(route),
             target: state.key,
