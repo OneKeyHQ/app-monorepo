@@ -47,7 +47,7 @@ export function AutoSizeInput({
   returnKeyType,
   onFocus,
   onBlur,
-  nativeText,
+  value,
   textColor,
   placeholderColor,
   nativeSelectionColor,
@@ -59,23 +59,23 @@ export function AutoSizeInput({
   // but form value was already "123456"), Nitro's prop diffing skips the update.
   // By setting localText to the raw input first, then correcting it in useLayoutEffect,
   // we create a real prop change that Nitro will deliver to the native component.
-  const [localText, setLocalText] = useState(nativeText);
-  const prevPropRef = useRef(nativeText);
+  const [localText, setLocalText] = useState(value);
+  const prevPropRef = useRef(value);
 
   // Sync localText when parent prop changes (e.g. percentage button, token switch)
-  if (prevPropRef.current !== nativeText) {
-    prevPropRef.current = nativeText;
-    if (localText !== nativeText) {
-      setLocalText(nativeText);
+  if (prevPropRef.current !== value) {
+    prevPropRef.current = value;
+    if (localText !== value) {
+      setLocalText(value);
     }
   }
 
   // Correct localText back to the canonical value after raw input diverges
   useLayoutEffect(() => {
-    if (localText !== nativeText) {
-      setLocalText(nativeText);
+    if (localText !== value) {
+      setLocalText(value);
     }
-  }, [localText, nativeText]);
+  }, [localText, value]);
 
   const handleLocalChangeText = useCallback(
     (raw: string) => {

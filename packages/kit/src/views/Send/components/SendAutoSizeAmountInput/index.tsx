@@ -394,10 +394,10 @@ function SendAutoSizeAmountInputComponent(
     4,
     Math.ceil(estimateTextWidthPx(' ', computedFontSize)),
   );
-  let nativeText = displayValue;
-  if (!displayValue) {
-    nativeText = platformEnv.isNative ? '0' : '';
-  }
+  // On native, show "0" when empty (no placeholder support in HybridView);
+  // on web, pass empty string so the HTML placeholder is used instead.
+  const inputValue =
+    displayValue || (platformEnv.isNative ? '0' : displayValue);
 
   const amountInputNode = inputLoading ? (
     <Stack py="$4">
@@ -405,7 +405,7 @@ function SendAutoSizeAmountInputComponent(
     </Stack>
   ) : (
     <AutoSizeInput
-      value={displayValue}
+      value={inputValue}
       fontSize={computedFontSize}
       maxFontSize={maxFontSize}
       minFontSize={minFontSize}
@@ -423,7 +423,6 @@ function SendAutoSizeAmountInputComponent(
       onFocus={inputOnFocus}
       onBlur={inputOnBlur}
       inputRef={inputRef}
-      nativeText={nativeText}
       textColor={autoSizeInputTextColor}
       placeholderColor={autoSizePlaceholderColor}
       nativeSelectionColor={autoSizeSelectionColor}

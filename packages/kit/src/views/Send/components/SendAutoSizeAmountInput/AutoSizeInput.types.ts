@@ -41,8 +41,6 @@ export type IAutoSizeInputProps = {
   onBlur?: IInputProps['onBlur'];
   /** Ref for the web TextInput element (web only) */
   inputRef: RefObject<TextInput | null>;
-  /** Text value for the native HybridView (may differ from value, e.g. "0" for empty) */
-  nativeText: string;
   /** Input text color (Android-normalized on native) */
   textColor?: string;
   /** Placeholder text color (Android-normalized on native) */
