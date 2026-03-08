@@ -13,9 +13,14 @@ import type { IMarketToken } from '../MarketTokenData';
 interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
-const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
+const BasicTokenListItem: FC<ITokenListItemProps> = ({
+  item,
+  onPress,
+  onLongPress,
+}) => {
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
 
@@ -23,6 +28,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
+      onLongPress={onLongPress}
       px="$5"
       py="$3"
       alignItems="center"
