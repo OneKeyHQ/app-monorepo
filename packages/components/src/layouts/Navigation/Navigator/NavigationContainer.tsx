@@ -322,7 +322,7 @@ export const resetAboveMainRoute = () => {
   const mainRoutes = state.routes.filter(
     (route) => route.name === ERootRoutes.Main,
   );
-  if (mainRoutes.length === state.routes.length) {
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
     return;
   }
   rootNavigationRef.current?.dispatch(
