@@ -268,7 +268,7 @@ export function TronResourceBannerCard({
 }) {
   const intl = useIntl();
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
-  const { result, run } = useTronAccountResources({
+  const { result, isLoading, run } = useTronAccountResources({
     accountId,
     networkId,
     pollingInterval: 30_000,
@@ -333,7 +333,7 @@ export function TronResourceBannerCard({
       userSelect="none"
       justifyContent="center"
     >
-      {!result ? (
+      {isLoading && !result ? (
         <Skeleton h="$7" flex={1} width="100%" />
       ) : (
         <XStack flex={1} alignItems="center" gap="$3">
