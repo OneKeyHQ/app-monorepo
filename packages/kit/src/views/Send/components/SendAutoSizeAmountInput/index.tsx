@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/components';
 import type { IInputProps, IStackProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { LOCALE_SEPARATORS } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { AutoSizeInput } from './AutoSizeInput';
@@ -130,16 +131,63 @@ const formatWrappedTokenSymbol = ({
   return lines.join('\n');
 };
 
-const sanitizeAmountInputText = (text: string): string => {
-  // 1. Normalize locale-specific decimal separators to '.'
-  //    Covers: 。(fullwidth period), ，(fullwidth comma), ,(comma used as
-  //    decimal separator in de/fr/es/pt/ru/vi/id/it/uk locales)
-  let sanitizedText = text.replace(/[。，,]/g, '.');
+// Build a regex that matches all known decimal and grouping separators
+// from LOCALE_SEPARATORS, plus CJK fullwidth variants (。，).
+const buildLocaleSeparatorSet = (): Set<string> => {
+  const chars = new Set<string>();
+  // CJK fullwidth period / comma
+  chars.add('。');
+  chars.add('，');
+  for (const { decimal, grouping } of Object.values(LOCALE_SEPARATORS)) {
+    if (decimal !== '.') chars.add(decimal);
+    if (grouping !== '.' && grouping !== ',') chars.add(grouping);
+  }
+  return chars;
+};
 
-  // 2. Strip all non-numeric characters (no letters, no symbols)
+const LOCALE_DECIMAL_CHARS = buildLocaleSeparatorSet();
+
+// Characters that should be treated as a decimal point
+const DECIMAL_ALIAS_CHARS = new Set<string>();
+// Characters that should be stripped entirely (grouping separators)
+const GROUPING_STRIP_CHARS = new Set<string>();
+
+for (const char of LOCALE_DECIMAL_CHARS) {
+  // ',' and CJK chars are decimal aliases; others (non-breaking spaces) are grouping
+  if (char === ',' || char === '，' || char === '。') {
+    DECIMAL_ALIAS_CHARS.add(char);
+  } else {
+    GROUPING_STRIP_CHARS.add(char);
+  }
+}
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const decimalAliasRegex = new RegExp(
+  `[${[...DECIMAL_ALIAS_CHARS].map(escapeRegExp).join('')}]`,
+  'g',
+);
+const groupingStripRegex = GROUPING_STRIP_CHARS.size > 0
+  ? new RegExp(
+      `[${[...GROUPING_STRIP_CHARS].map(escapeRegExp).join('')}]`,
+      'g',
+    )
+  : null;
+
+const sanitizeAmountInputText = (text: string): string => {
+  // 1. Strip grouping separators (non-breaking spaces, narrow NBSP, etc.)
+  let sanitizedText = groupingStripRegex
+    ? text.replace(groupingStripRegex, '')
+    : text;
+
+  // 2. Normalize locale-specific decimal separators to '.'
+  //    Covers: ,(comma), 。(fullwidth period), ，(fullwidth comma)
+  sanitizedText = sanitizedText.replace(decimalAliasRegex, '.');
+
+  // 3. Strip all non-numeric characters (no letters, no symbols)
   sanitizedText = sanitizedText.replace(/[^\d.]/g, '');
 
-  // 3. Deduplicate decimal points — keep only the first one
+  // 4. Deduplicate decimal points — keep only the first one
   const firstDecimalIndex = sanitizedText.indexOf('.');
   if (firstDecimalIndex !== -1) {
     const integerPart = sanitizedText.slice(0, firstDecimalIndex + 1);
@@ -149,12 +197,12 @@ const sanitizeAmountInputText = (text: string): string => {
     sanitizedText = `${integerPart}${decimalPart}`;
   }
 
-  // 4. Auto-prepend "0" if input starts with "." (e.g., ".5" -> "0.5")
+  // 5. Auto-prepend "0" if input starts with "." (e.g., ".5" -> "0.5")
   if (sanitizedText.startsWith('.')) {
     sanitizedText = `0${sanitizedText}`;
   }
 
-  // 5. Remove leading zeros before significant digits (keep "0" and "0.xxx")
+  // 6. Remove leading zeros before significant digits (keep "0" and "0.xxx")
   if (sanitizedText.length > 1 && sanitizedText.startsWith('0')) {
     if (!sanitizedText.startsWith('0.')) {
       sanitizedText = sanitizedText.replace(/^0+/, '') || '0';
@@ -164,7 +212,7 @@ const sanitizeAmountInputText = (text: string): string => {
     }
   }
 
-  // 6. Always preserve at least "0" — never return empty string
+  // 7. Always preserve at least "0" — never return empty string
   if (!sanitizedText) {
     sanitizedText = '0';
   }
