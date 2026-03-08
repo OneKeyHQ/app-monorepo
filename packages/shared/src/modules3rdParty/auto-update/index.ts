@@ -46,6 +46,7 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: () => Promise.resolve(),
   installBundle: () => Promise.resolve(),
   clearBundle: () => Promise.resolve(),
+  isSkipGpgVerificationAllowed: () => Promise.resolve(false),
   clearAllJSBundleData: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testVerification: () => Promise.resolve(false),
