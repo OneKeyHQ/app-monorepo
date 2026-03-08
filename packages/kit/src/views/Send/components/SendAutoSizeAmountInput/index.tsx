@@ -132,10 +132,10 @@ const formatWrappedTokenSymbol = ({
 };
 
 // Build a regex that matches all known decimal and grouping separators
-// from LOCALE_SEPARATORS, plus CJK fullwidth variants (。，).
+// from LOCALE_SEPARATORS, plus CJK fullWidth variants (。，).
 const buildLocaleSeparatorSet = (): Set<string> => {
   const chars = new Set<string>();
-  // CJK fullwidth period / comma
+  // CJK fullWidth period / comma
   chars.add('。');
   chars.add('，');
   for (const { decimal, grouping } of Object.values(LOCALE_SEPARATORS)) {
@@ -167,12 +167,13 @@ const decimalAliasRegex = new RegExp(
   `[${[...DECIMAL_ALIAS_CHARS].map(escapeRegExp).join('')}]`,
   'g',
 );
-const groupingStripRegex = GROUPING_STRIP_CHARS.size > 0
-  ? new RegExp(
-      `[${[...GROUPING_STRIP_CHARS].map(escapeRegExp).join('')}]`,
-      'g',
-    )
-  : null;
+const groupingStripRegex =
+  GROUPING_STRIP_CHARS.size > 0
+    ? new RegExp(
+        `[${[...GROUPING_STRIP_CHARS].map(escapeRegExp).join('')}]`,
+        'g',
+      )
+    : null;
 
 const sanitizeAmountInputText = (text: string): string => {
   // 1. Strip grouping separators (non-breaking spaces, narrow NBSP, etc.)
@@ -181,7 +182,7 @@ const sanitizeAmountInputText = (text: string): string => {
     : text;
 
   // 2. Normalize locale-specific decimal separators to '.'
-  //    Covers: ,(comma), 。(fullwidth period), ，(fullwidth comma)
+  //    Covers: ,(comma), 。(fullWidth period), ，(fullWidth comma)
   sanitizedText = sanitizedText.replace(decimalAliasRegex, '.');
 
   // 3. Strip all non-numeric characters (no letters, no symbols)
@@ -337,9 +338,7 @@ function SendAutoSizeAmountInputComponent(
   );
   const shouldWrapTokenSymbol =
     (normalizedTokenSymbol?.length ?? 0) > INLINE_SYMBOL_MAX_LENGTH;
-  const inputSuffix = shouldWrapTokenSymbol
-    ? undefined
-    : normalizedTokenSymbol;
+  const inputSuffix = shouldWrapTokenSymbol ? undefined : normalizedTokenSymbol;
 
   const inputPrefix = inputProps?.leftAddOnProps?.label as string | undefined;
   const inputLoading = inputProps?.loading;
@@ -357,12 +356,9 @@ function SendAutoSizeAmountInputComponent(
     Math.floor(layoutWidth || windowWidth || 0),
     0,
   );
-  const isCompactWidth =
-    !md && availableWidth > 0 && availableWidth < 360;
+  const isCompactWidth = !md && availableWidth > 0 && availableWidth < 360;
   const maxFontSize = Math.round(56 * fontSizeScale);
-  const minFontSize = Math.round(
-    (isCompactWidth ? 12 : 14) * fontSizeScale,
-  );
+  const minFontSize = Math.round((isCompactWidth ? 12 : 14) * fontSizeScale);
   const wrappedSymbolFontSize = Math.max(
     WRAPPED_SYMBOL_MIN_FONT_SIZE,
     Math.min(

@@ -174,9 +174,7 @@ export function AutoSizeInput({
         textAlign={textAlign}
         fontWeight="500"
         editable={editable ?? true}
-        keyboardType={mapAutoSizeKeyboardType(
-          keyboardType ?? 'decimal-pad',
-        )}
+        keyboardType={mapAutoSizeKeyboardType(keyboardType ?? 'decimal-pad')}
         returnKeyType={returnKeyType}
         autoCorrect={false}
         autoCapitalize="none"

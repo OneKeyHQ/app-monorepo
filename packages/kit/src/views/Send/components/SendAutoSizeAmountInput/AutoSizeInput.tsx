@@ -118,28 +118,15 @@ export function AutoSizeInput({
   const amountTextWidthPx = Math.ceil(measuredAmountWidthPx + inputBufferPx);
   const prefixTextWidthPx = prefix
     ? Math.ceil(
-        measureInlineTextWidthPx(
-          prefix,
-          fontSize,
-          500,
-          webFontMeasureVersion,
-        ),
+        measureInlineTextWidthPx(prefix, fontSize, 500, webFontMeasureVersion),
       )
     : 0;
   const suffixTextWidthPx = suffix
     ? Math.ceil(
-        measureInlineTextWidthPx(
-          suffix,
-          fontSize,
-          500,
-          webFontMeasureVersion,
-        ),
+        measureInlineTextWidthPx(suffix, fontSize, 500, webFontMeasureVersion),
       )
     : 0;
-  const inputWidthPx = Math.max(
-    amountTextWidthPx,
-    Math.ceil(fontSize * 1.05),
-  );
+  const inputWidthPx = Math.max(amountTextWidthPx, Math.ceil(fontSize * 1.05));
   const inputSlackPx = Math.max(inputWidthPx - amountTextWidthPx, 0);
   const reservedWidthPx =
     prefixTextWidthPx +
@@ -148,9 +135,7 @@ export function AutoSizeInput({
     (suffix ? suffixGap : 0) +
     Math.max(8, Math.round(fontSize * 0.16));
   const inputMaxWidth =
-    suffix || prefix
-      ? `calc(100% - ${reservedWidthPx}px)`
-      : '100%';
+    suffix || prefix ? `calc(100% - ${reservedWidthPx}px)` : '100%';
   const prefixOffset = Math.max(2, Math.round(fontSize * 0.05));
   const suffixOffset = Math.max(2, Math.round(fontSize * 0.04));
 
