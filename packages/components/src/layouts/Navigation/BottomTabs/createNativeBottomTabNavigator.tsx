@@ -18,7 +18,7 @@ import type {
   NativeBottomTabNavigationOptions,
   NativeBottomTabNavigationProp,
 } from './types';
-import NativeBottomTabView from './NativeBottomTabView';
+import { NativeBottomTabView } from './NativeBottomTabView';
 
 export type NativeBottomTabNavigatorProps = DefaultNavigatorOptions<
   ParamListBase,
@@ -85,7 +85,7 @@ function NativeBottomTabNavigator({
   );
 }
 
-export default function createNativeBottomTabNavigator<
+export function createNativeBottomTabNavigator<
   const ParamList extends ParamListBase,
   const NavigatorID extends string | undefined = undefined,
   const TypeBag extends NavigatorTypeBagBase = {
@@ -108,3 +108,4 @@ export default function createNativeBottomTabNavigator<
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return createNavigatorFactory(NativeBottomTabNavigator)(config);
 }
+

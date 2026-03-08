@@ -1,12 +1,12 @@
 /**
  * Navigators
  */
-export { default as createNativeBottomTabNavigator } from './createNativeBottomTabNavigator';
+export { createNativeBottomTabNavigator } from './createNativeBottomTabNavigator';
 
 /**
  * Views
  */
-export { default as NativeBottomTabView } from './NativeBottomTabView';
+export { NativeBottomTabView } from './NativeBottomTabView';
 
 /**
  * Types

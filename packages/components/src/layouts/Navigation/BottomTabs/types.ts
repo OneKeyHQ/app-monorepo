@@ -156,6 +156,7 @@ export type NativeBottomTabNavigationConfig = Partial<
     | 'getBadgeTextColor'
     | 'onTabLongPress'
     | 'getActiveTintColor'
+    | 'getHidden'
     | 'getTestID'
     | 'getRole'
     | 'tabBar'

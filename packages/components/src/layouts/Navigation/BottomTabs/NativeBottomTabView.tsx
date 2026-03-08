@@ -17,7 +17,7 @@ type Props = NativeBottomTabNavigationConfig & {
   descriptors: NativeBottomTabDescriptorMap;
 };
 
-export default function NativeBottomTabView({
+export function NativeBottomTabView({
   state,
   navigation,
   descriptors,
