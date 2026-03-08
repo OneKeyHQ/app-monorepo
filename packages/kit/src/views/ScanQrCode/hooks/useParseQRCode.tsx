@@ -198,11 +198,22 @@ const useParseQRCode = () => {
         }
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
-          await closeScanPage();
-          void urlAccountNavigation.pushUrlAccountPage(navigation, {
-            networkId: urlAccountData.networkId,
-            address: urlAccountData.address,
-          });
+          if (popNavigation) {
+            // pushUrlAccountPage uses navigateFromOverlayToTab() which
+            // atomically removes all overlay routes (scan modal +
+            // ActionCenter) via reset, then switches tab and pushes
+            // UrlAccountPage directly. This avoids the native
+            // UITabBarController window-nil race.
+            void urlAccountNavigation.pushUrlAccountPage(navigation, {
+              networkId: urlAccountData.networkId,
+              address: urlAccountData.address,
+            });
+          } else {
+            void urlAccountNavigation.pushUrlAccountPageLanding(navigation, {
+              networkId: urlAccountData.networkId,
+              address: urlAccountData.address,
+            });
+          }
           break;
         }
         case EQRCodeHandlerType.MARKET_DETAIL:

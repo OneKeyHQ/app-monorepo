@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import {
+  CommonActions,
   DarkTheme,
   DefaultTheme,
   NavigationContainer as RNNavigationContainer,
@@ -302,6 +303,62 @@ export const popActionCenterPages = async (maxRetryTimes = 99) => {
   }
   await timerUtils.wait(350);
   await popActionCenterPages(maxRetryTimes - 1);
+};
+
+/**
+ * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
+ * using CommonActions.reset. No transition animation, but avoids the native
+ * UITabBarController window-nil race condition where RNSScreenStack retries
+ * exhaust when goBack() is called on a stack inside a detached tab view.
+ *
+ * Prefer this over sequential goBack() calls when you need to dismiss multiple
+ * overlay routes and the intermediate animation is not important.
+ */
+export const resetAboveMainRoute = () => {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
+  }
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
+    return;
+  }
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+};
+
+/**
+ * Safely navigate from an overlay route (Modal/FullScreenPush) to a tab page.
+ *
+ * When using native UITabBarController, calling goBack() on overlay routes
+ * can trigger RNSScreenStack updates on stacks inside detached tab views,
+ * where window=NIL causes the update to fail after 50 retries (~5 seconds).
+ *
+ * This utility atomically removes all overlay routes via reset, switches
+ * to the target tab, and waits for the navigator to settle before returning.
+ *
+ * Usage:
+ *   await navigateFromOverlayToTab({
+ *     targetTab: ETabRoutes.Home,
+ *     switchTab: (tab) => navigation.switchTab(tab),
+ *   });
+ *   // Now safe to push/navigate within the target tab
+ */
+export const navigateFromOverlayToTab = async (options: {
+  targetTab: ETabRoutes;
+  switchTab: (tab: ETabRoutes) => void;
+}) => {
+  resetAboveMainRoute();
+  options.switchTab(options.targetTab);
+  // Wait for navigator to fully reconcile after reset + tab switch
+  await timerUtils.wait(100);
 };
 
 export const popToTabRootScreen = async () => {
