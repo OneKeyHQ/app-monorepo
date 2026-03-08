@@ -112,6 +112,7 @@ function useTronAccountResources({
     {
       watchLoading: true,
       pollingInterval,
+      undefinedResultIfError: suppressErrors,
     },
   );
 }
