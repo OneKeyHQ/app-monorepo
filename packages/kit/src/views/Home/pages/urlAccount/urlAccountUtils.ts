@@ -1,6 +1,9 @@
 import { StackActions } from '@react-navigation/native';
 
-import { navigateFromOverlayToTab, rootNavigationRef } from '@onekeyhq/components';
+import {
+  navigateFromOverlayToTab,
+  rootNavigationRef,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
