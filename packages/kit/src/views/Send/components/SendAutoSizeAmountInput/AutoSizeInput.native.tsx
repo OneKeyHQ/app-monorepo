@@ -17,32 +17,7 @@ import type {
 const wrapNitroCallback = nitroCallback;
 type IAutoSizeInputRef = HybridView<AutoSizeInputProps, AutoSizeInputMethods>;
 
-const estimateInlineTextWidthPx = (text: string, fontSize: number) => {
-  let width = 0;
-  for (const char of text) {
-    if (/[0-9]/.test(char)) {
-      width += fontSize * 0.58;
-    } else if (/[A-Z]/.test(char)) {
-      width += fontSize * 0.62;
-    } else if (/[a-z]/.test(char)) {
-      width += fontSize * 0.52;
-    } else if (char === ' ') {
-      width += fontSize * 0.28;
-    } else if (['.', ',', ':', ';'].includes(char)) {
-      width += fontSize * 0.24;
-    } else if (['+', '-'].includes(char)) {
-      width += fontSize * 0.34;
-    } else if (['$', '€', '¥', '£', '₹', '₿', 'Ξ'].includes(char)) {
-      width += fontSize * 0.44;
-    } else if (['(', ')', '[', ']'].includes(char)) {
-      width += fontSize * 0.36;
-    } else {
-      width += fontSize * 0.56;
-    }
-  }
-  return width;
-};
-
+/** Map React Native keyboard type names to Nitro camelCase equivalents. */
 const mapAutoSizeKeyboardType = (keyboardType?: string): string | undefined => {
   switch (keyboardType) {
     case 'decimal-pad':
@@ -59,11 +34,8 @@ const mapAutoSizeKeyboardType = (keyboardType?: string): string | undefined => {
 };
 
 export function AutoSizeInput({
-  value,
-  fontSize,
   maxFontSize,
   minFontSize,
-  availableWidth,
   prefix,
   suffix,
   prefixGap,
@@ -113,38 +85,7 @@ export function AutoSizeInput({
     [onChangeText],
   );
 
-  // --- Layout calculations ---
-  const measureText = value || placeholder || '0';
-  const amountTextWidthPx = Math.ceil(
-    estimateInlineTextWidthPx(measureText, fontSize) +
-      Math.max(18, Math.round(fontSize * 0.5)),
-  );
-  const prefixTextWidthPx = prefix
-    ? Math.ceil(estimateInlineTextWidthPx(prefix, fontSize))
-    : 0;
-  const suffixTextWidthPx = suffix
-    ? Math.ceil(estimateInlineTextWidthPx(suffix, fontSize))
-    : 0;
-  const preferredWidth = Math.ceil(
-    amountTextWidthPx +
-      prefixTextWidthPx +
-      suffixTextWidthPx +
-      (prefix ? prefixGap : 0) +
-      (suffix ? suffixGap : 0) +
-      fontSize * 0.18,
-  );
-  const containerMinWidth = Math.ceil(maxFontSize * 1.2);
-  const defaultContainerMaxWidth = 320;
-  const effectiveAvailableWidth =
-    availableWidth > 0
-      ? Math.max(availableWidth - 8, 0)
-      : defaultContainerMaxWidth;
-  const containerWidth = Math.min(
-    Math.max(preferredWidth, containerMinWidth),
-    effectiveAvailableWidth,
-    defaultContainerMaxWidth,
-  );
-
+  // Text alignment: prefix → left-aligned, suffix → right-aligned, otherwise center
   let textAlign: 'center' | 'left' | 'right' = 'center';
   if (prefix) {
     textAlign = 'left';
@@ -156,7 +97,9 @@ export function AutoSizeInput({
     <Stack width="100%" alignItems="center" py="$1">
       <AutoSizeInputView
         style={{
-          width: containerWidth,
+          // Width is handled by the native contentAutoWidth layout engine;
+          // only height constraints are needed from JS.
+          width: '100%',
           height: Math.ceil(maxFontSize * 1.4),
           minHeight: Math.ceil(minFontSize * 1.4),
         }}
