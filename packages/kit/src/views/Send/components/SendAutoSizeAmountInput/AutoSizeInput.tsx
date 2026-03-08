@@ -59,20 +59,20 @@ const measureInlineTextWidthPx = (
 };
 
 export function AutoSizeInput({
-  displayValue,
-  simpleFontSize,
-  availableInlineWidth,
-  currencyLabel,
-  inlineTokenSymbol,
-  inlinePrefixGapPx,
-  inlineSuffixGapPx,
+  value,
+  fontSize,
+  availableWidth,
+  prefix,
+  suffix,
+  prefixGap,
+  suffixGap,
   selectionColor,
-  handleSimpleChangeText,
-  inputPlaceholder,
-  inputEditable,
-  inputKeyboardType,
-  onInputFocus,
-  onInputBlur,
+  onChangeText,
+  placeholder,
+  editable,
+  keyboardType,
+  onFocus,
+  onBlur,
   inputRef,
   ..._nativeOnlyProps
 }: IAutoSizeInputProps) {
@@ -106,79 +106,72 @@ export function AutoSizeInput({
     };
   }, []);
 
-  const inlineMeasureText = displayValue || inputPlaceholder || '0';
-  const inlineMeasuredAmountWidthPx = measureInlineTextWidthPx(
-    inlineMeasureText,
-    simpleFontSize,
+  // --- Layout calculations ---
+  const measureText = value || placeholder || '0';
+  const measuredAmountWidthPx = measureInlineTextWidthPx(
+    measureText,
+    fontSize,
     500,
     webFontMeasureVersion,
   );
-  const inlineInputBufferPx = Math.max(18, Math.round(simpleFontSize * 0.5));
-  const inlineAmountTextWidthPx = Math.ceil(
-    inlineMeasuredAmountWidthPx + inlineInputBufferPx,
-  );
-  const inlinePrefixTextWidthPx = currencyLabel
+  const inputBufferPx = Math.max(18, Math.round(fontSize * 0.5));
+  const amountTextWidthPx = Math.ceil(measuredAmountWidthPx + inputBufferPx);
+  const prefixTextWidthPx = prefix
     ? Math.ceil(
         measureInlineTextWidthPx(
-          currencyLabel,
-          simpleFontSize,
+          prefix,
+          fontSize,
           500,
           webFontMeasureVersion,
         ),
       )
     : 0;
-  const inlineSuffixTextWidthPx = inlineTokenSymbol
+  const suffixTextWidthPx = suffix
     ? Math.ceil(
         measureInlineTextWidthPx(
-          inlineTokenSymbol,
-          simpleFontSize,
+          suffix,
+          fontSize,
           500,
           webFontMeasureVersion,
         ),
       )
     : 0;
-  const inlineInputWidthPx = Math.max(
-    inlineAmountTextWidthPx,
-    Math.ceil(simpleFontSize * 1.05),
+  const inputWidthPx = Math.max(
+    amountTextWidthPx,
+    Math.ceil(fontSize * 1.05),
   );
-  const inlineInputSlackPx = Math.max(
-    inlineInputWidthPx - inlineAmountTextWidthPx,
-    0,
-  );
-  const desktopInlineReservedWidthPx =
-    inlinePrefixTextWidthPx +
-    inlineSuffixTextWidthPx +
-    (currencyLabel ? inlinePrefixGapPx : 0) +
-    (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
-    Math.max(8, Math.round(simpleFontSize * 0.16));
-  const inlineInputMaxWidth =
-    inlineTokenSymbol || currencyLabel
-      ? `calc(100% - ${desktopInlineReservedWidthPx}px)`
+  const inputSlackPx = Math.max(inputWidthPx - amountTextWidthPx, 0);
+  const reservedWidthPx =
+    prefixTextWidthPx +
+    suffixTextWidthPx +
+    (prefix ? prefixGap : 0) +
+    (suffix ? suffixGap : 0) +
+    Math.max(8, Math.round(fontSize * 0.16));
+  const inputMaxWidth =
+    suffix || prefix
+      ? `calc(100% - ${reservedWidthPx}px)`
       : '100%';
-  const desktopPrefixOffset = Math.max(2, Math.round(simpleFontSize * 0.05));
-  const desktopInlineSymbolOffset = Math.max(
-    2,
-    Math.round(simpleFontSize * 0.04),
-  );
-  const hasPrefix = !!currencyLabel;
-  const hasSuffix = !!inlineTokenSymbol;
-  let desktopAmountTextAlign: 'center' | 'left' | 'right' = 'center';
+  const prefixOffset = Math.max(2, Math.round(fontSize * 0.05));
+  const suffixOffset = Math.max(2, Math.round(fontSize * 0.04));
+
+  const hasPrefix = !!prefix;
+  const hasSuffix = !!suffix;
+  let textAlign: 'center' | 'left' | 'right' = 'center';
   if (hasPrefix) {
-    desktopAmountTextAlign = 'left';
+    textAlign = 'left';
   } else if (hasSuffix) {
-    desktopAmountTextAlign = 'right';
+    textAlign = 'right';
   }
 
-  let desktopInlineRowOffsetPx = 0;
-  if (desktopAmountTextAlign === 'right') {
-    desktopInlineRowOffsetPx = Math.round(-inlineInputSlackPx / 2);
-  } else if (desktopAmountTextAlign === 'left') {
-    desktopInlineRowOffsetPx = Math.round(inlineInputSlackPx / 2);
+  let rowOffsetPx = 0;
+  if (textAlign === 'right') {
+    rowOffsetPx = Math.round(-inputSlackPx / 2);
+  } else if (textAlign === 'left') {
+    rowOffsetPx = Math.round(inputSlackPx / 2);
   }
 
   const hasSmallWidth =
-    availableInlineWidth > 0 &&
-    availableInlineWidth < Math.ceil(simpleFontSize);
+    availableWidth > 0 && availableWidth < Math.ceil(fontSize);
 
   return (
     <XStack
@@ -186,30 +179,30 @@ export function AutoSizeInput({
       alignItems="center"
       justifyContent="center"
       style={
-        desktopInlineRowOffsetPx && !hasSmallWidth
-          ? { transform: [{ translateX: desktopInlineRowOffsetPx }] }
+        rowOffsetPx && !hasSmallWidth
+          ? { transform: [{ translateX: rowOffsetPx }] }
           : undefined
       }
     >
-      {currencyLabel ? (
+      {prefix ? (
         <SizableText
           color="$text"
           fontWeight="500"
-          lineHeight={Math.ceil(simpleFontSize * 1.4)}
+          lineHeight={Math.ceil(fontSize * 1.4)}
           style={{
-            fontSize: simpleFontSize,
-            marginRight: inlinePrefixGapPx,
+            fontSize,
+            marginRight: prefixGap,
           }}
-          mt={desktopPrefixOffset}
+          mt={prefixOffset}
         >
-          {currencyLabel}
+          {prefix}
         </SizableText>
       ) : null}
       <Input
         ref={inputRef}
-        keyboardType={inputKeyboardType ?? 'decimal-pad'}
-        editable={inputEditable}
-        fontSize={simpleFontSize}
+        keyboardType={keyboardType ?? 'decimal-pad'}
+        editable={editable}
+        fontSize={fontSize}
         fontWeight="500"
         color="$text"
         unstyled
@@ -219,19 +212,19 @@ export function AutoSizeInput({
         px="$0"
         pl="$0"
         pr="$0"
-        h={Math.ceil(simpleFontSize * 1.4)}
+        h={Math.ceil(fontSize * 1.4)}
         size="large"
         focusVisibleStyle={undefined}
-        placeholder={inputPlaceholder ?? '0'}
+        placeholder={placeholder ?? '0'}
         placeholderTextColor="$textDisabled"
-        value={displayValue}
-        onChangeText={handleSimpleChangeText}
-        textAlign={desktopAmountTextAlign}
+        value={value}
+        onChangeText={onChangeText}
+        textAlign={textAlign}
         containerProps={{
-          width: inlineInputWidthPx,
+          width: inputWidthPx,
           flexShrink: 1,
-          minWidth: Math.ceil(simpleFontSize * 1.2),
-          maxWidth: inlineInputMaxWidth,
+          minWidth: Math.ceil(fontSize * 1.2),
+          maxWidth: inputMaxWidth,
           borderWidth: 0,
           bg: 'transparent',
         }}
@@ -240,8 +233,8 @@ export function AutoSizeInput({
         caretColor={selectionColor}
         {...({
           onFocus: (event: { target: HTMLInputElement }) => {
-            onInputFocus?.(event as never);
-            if (displayValue === '0') {
+            onFocus?.(event as never);
+            if (value === '0') {
               const { target } = event;
               requestAnimationFrame(() => {
                 target.setSelectionRange(1, 1);
@@ -249,38 +242,38 @@ export function AutoSizeInput({
             }
           },
           onBlur: (event: { target: HTMLInputElement }) => {
-            onInputBlur?.(event as never);
+            onBlur?.(event as never);
           },
           onClick: (e: { target: HTMLInputElement }) => {
-            if (displayValue === '0') {
+            if (value === '0') {
               e.target.setSelectionRange(1, 1);
             }
           },
           onKeyUp: (e: { target: HTMLInputElement }) => {
-            if (displayValue === '0') {
+            if (value === '0') {
               e.target.setSelectionRange(1, 1);
             }
           },
           onSelect: (e: { target: HTMLInputElement }) => {
-            if (displayValue === '0' && e.target.selectionStart !== 1) {
+            if (value === '0' && e.target.selectionStart !== 1) {
               e.target.setSelectionRange(1, 1);
             }
           },
         } as any)}
       />
-      {inlineTokenSymbol ? (
+      {suffix ? (
         <SizableText
           color="$text"
           fontWeight="500"
-          lineHeight={Math.ceil(simpleFontSize * 1.4)}
+          lineHeight={Math.ceil(fontSize * 1.4)}
           style={{
-            fontSize: simpleFontSize,
-            marginLeft: inlineSuffixGapPx,
+            fontSize,
+            marginLeft: suffixGap,
           }}
-          mt={desktopInlineSymbolOffset}
+          mt={suffixOffset}
           numberOfLines={1}
         >
-          {inlineTokenSymbol}
+          {suffix}
         </SizableText>
       ) : null}
     </XStack>

@@ -59,139 +59,141 @@ const mapAutoSizeKeyboardType = (keyboardType?: string): string | undefined => {
 };
 
 export function AutoSizeInput({
-  displayValue,
-  simpleFontSize,
-  simpleMaxFontSize,
-  simpleMinFontSize,
-  availableInlineWidth,
-  currencyLabel,
-  inlineTokenSymbol,
-  inlinePrefixGapPx,
-  inlineSuffixGapPx,
-  handleSimpleChangeText,
-  inputPlaceholder,
-  inputEditable,
-  inputKeyboardType,
-  inputReturnKeyType,
-  onInputFocus,
-  onInputBlur,
-  autoSizeTextValue,
-  autoSizeInputTextColor,
-  autoSizePlaceholderColor,
-  autoSizeSelectionColor,
-  autoSizeTransparentColor,
+  value,
+  fontSize,
+  maxFontSize,
+  minFontSize,
+  availableWidth,
+  prefix,
+  suffix,
+  prefixGap,
+  suffixGap,
+  onChangeText,
+  placeholder,
+  editable,
+  keyboardType,
+  returnKeyType,
+  onFocus,
+  onBlur,
+  nativeText,
+  textColor,
+  placeholderColor,
+  nativeSelectionColor,
+  backgroundColor,
   onHybridRef,
 }: IAutoSizeInputProps) {
   // Local state tracks what the native Nitro HybridView currently displays.
-  // When sanitization produces a value identical to the parent prop (e.g. "123456a" → "123456"
+  // When sanitization produces a value identical to the parent prop (e.g. "123456a" -> "123456"
   // but form value was already "123456"), Nitro's prop diffing skips the update.
   // By setting localText to the raw input first, then correcting it in useLayoutEffect,
   // we create a real prop change that Nitro will deliver to the native component.
-  const [localText, setLocalText] = useState(autoSizeTextValue);
-  const prevPropRef = useRef(autoSizeTextValue);
+  const [localText, setLocalText] = useState(nativeText);
+  const prevPropRef = useRef(nativeText);
 
   // Sync localText when parent prop changes (e.g. percentage button, token switch)
-  if (prevPropRef.current !== autoSizeTextValue) {
-    prevPropRef.current = autoSizeTextValue;
-    if (localText !== autoSizeTextValue) {
-      setLocalText(autoSizeTextValue);
+  if (prevPropRef.current !== nativeText) {
+    prevPropRef.current = nativeText;
+    if (localText !== nativeText) {
+      setLocalText(nativeText);
     }
   }
 
   // Correct localText back to the canonical value after raw input diverges
   useLayoutEffect(() => {
-    if (localText !== autoSizeTextValue) {
-      setLocalText(autoSizeTextValue);
+    if (localText !== nativeText) {
+      setLocalText(nativeText);
     }
-  }, [localText, autoSizeTextValue]);
+  }, [localText, nativeText]);
 
   const handleLocalChangeText = useCallback(
     (raw: string) => {
       setLocalText(raw); // Track what native currently has
-      handleSimpleChangeText(raw); // Parent sanitizes and updates form
+      onChangeText(raw); // Parent sanitizes and updates form
     },
-    [handleSimpleChangeText],
+    [onChangeText],
   );
 
-  const inlineMeasureText = displayValue || inputPlaceholder || '0';
-  const inlineAmountTextWidthPx = Math.ceil(
-    estimateInlineTextWidthPx(inlineMeasureText, simpleFontSize) +
-      Math.max(18, Math.round(simpleFontSize * 0.5)),
+  // --- Layout calculations ---
+  const measureText = value || placeholder || '0';
+  const amountTextWidthPx = Math.ceil(
+    estimateInlineTextWidthPx(measureText, fontSize) +
+      Math.max(18, Math.round(fontSize * 0.5)),
   );
-  const inlinePrefixTextWidthPx = currencyLabel
-    ? Math.ceil(estimateInlineTextWidthPx(currencyLabel, simpleFontSize))
+  const prefixTextWidthPx = prefix
+    ? Math.ceil(estimateInlineTextWidthPx(prefix, fontSize))
     : 0;
-  const inlineSuffixTextWidthPx = inlineTokenSymbol
-    ? Math.ceil(estimateInlineTextWidthPx(inlineTokenSymbol, simpleFontSize))
+  const suffixTextWidthPx = suffix
+    ? Math.ceil(estimateInlineTextWidthPx(suffix, fontSize))
     : 0;
-  const autoSizePreferredWidth = Math.ceil(
-    inlineAmountTextWidthPx +
-      inlinePrefixTextWidthPx +
-      inlineSuffixTextWidthPx +
-      (currencyLabel ? inlinePrefixGapPx : 0) +
-      (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
-      simpleFontSize * 0.18,
+  const preferredWidth = Math.ceil(
+    amountTextWidthPx +
+      prefixTextWidthPx +
+      suffixTextWidthPx +
+      (prefix ? prefixGap : 0) +
+      (suffix ? suffixGap : 0) +
+      fontSize * 0.18,
   );
-  const autoSizeContainerMinWidth = Math.ceil(simpleMaxFontSize * 1.2);
-  const defaultAutoSizeContainerMaxWidth = 320;
-  const autoSizeAvailableWidth =
-    availableInlineWidth > 0
-      ? Math.max(availableInlineWidth - 8, 0)
-      : defaultAutoSizeContainerMaxWidth;
-  const autoSizeContainerWidth = Math.min(
-    Math.max(autoSizePreferredWidth, autoSizeContainerMinWidth),
-    autoSizeAvailableWidth,
-    defaultAutoSizeContainerMaxWidth,
+  const containerMinWidth = Math.ceil(maxFontSize * 1.2);
+  const defaultContainerMaxWidth = 320;
+  const effectiveAvailableWidth =
+    availableWidth > 0
+      ? Math.max(availableWidth - 8, 0)
+      : defaultContainerMaxWidth;
+  const containerWidth = Math.min(
+    Math.max(preferredWidth, containerMinWidth),
+    effectiveAvailableWidth,
+    defaultContainerMaxWidth,
   );
-  let autoSizeTextAlign: 'center' | 'left' | 'right' = 'center';
-  if (currencyLabel) {
-    autoSizeTextAlign = 'left'; 
-  } else if (inlineTokenSymbol) {
-    autoSizeTextAlign = 'right';
+
+  let textAlign: 'center' | 'left' | 'right' = 'center';
+  if (prefix) {
+    textAlign = 'left';
+  } else if (suffix) {
+    textAlign = 'right';
   }
 
   return (
     <Stack width="100%" alignItems="center" py="$1">
       <AutoSizeInputView
         style={{
-          width: autoSizeContainerWidth,
-          height: Math.ceil(simpleMaxFontSize * 1.4),
-          minHeight: Math.ceil(simpleMinFontSize * 1.4),
+          width: containerWidth,
+          height: Math.ceil(maxFontSize * 1.4),
+          minHeight: Math.ceil(minFontSize * 1.4),
         }}
         text={localText}
-        placeholder={inputPlaceholder ?? '0'}
-        prefix={currencyLabel ?? ''}
-        suffix={inlineTokenSymbol ?? ''}
-        fontSize={simpleMaxFontSize}
-        minFontSize={simpleMinFontSize}
-        textAlign={autoSizeTextAlign}
+        placeholder={placeholder ?? '0'}
+        prefix={prefix ?? ''}
+        suffix={suffix ?? ''}
+        fontSize={maxFontSize}
+        minFontSize={minFontSize}
+        textAlign={textAlign}
         fontWeight="500"
-        editable={inputEditable ?? true}
+        editable={editable ?? true}
         keyboardType={mapAutoSizeKeyboardType(
-          inputKeyboardType ?? 'decimal-pad',
+          keyboardType ?? 'decimal-pad',
         )}
-        returnKeyType={inputReturnKeyType}
+        returnKeyType={returnKeyType}
         autoCorrect={false}
         autoCapitalize="none"
-        textColor={autoSizeInputTextColor}
-        prefixColor={autoSizeInputTextColor}
-        suffixColor={autoSizeInputTextColor}
-        placeholderColor={autoSizePlaceholderColor}
-        selectionColor={autoSizeSelectionColor}
-        prefixMarginRight={currencyLabel ? inlinePrefixGapPx : 0}
-        suffixMarginLeft={inlineTokenSymbol ? inlineSuffixGapPx : 0}
+        textColor={textColor}
+        prefixColor={textColor}
+        suffixColor={textColor}
+        placeholderColor={placeholderColor}
+        selectionColor={nativeSelectionColor}
+        prefixMarginRight={prefix ? prefixGap : 0}
+        suffixMarginLeft={suffix ? suffixGap : 0}
         showBorder={false}
-        inputBackgroundColor={autoSizeTransparentColor}
+        inputBackgroundColor={backgroundColor}
         contentAutoWidth
         onChangeText={wrapNitroCallback(handleLocalChangeText)}
         onFocus={
           wrapNitroCallback(() => {
-            onInputFocus?.({} as never);
+            onFocus?.({} as never);
           }) as never
         }
         onBlur={
           wrapNitroCallback(() => {
-            onInputBlur?.({} as never);
+            onBlur?.({} as never);
           }) as never
         }
         hybridRef={wrapNitroCallback((hybridViewRef: IAutoSizeInputRef) => {

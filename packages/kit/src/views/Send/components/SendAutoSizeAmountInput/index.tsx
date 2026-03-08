@@ -311,7 +311,7 @@ function SendAutoSizeAmountInputComponent(
     focusPercentageButton: () => {},
   }));
 
-  const handleSimpleChangeText = useCallback(
+  const handleChangeText = useCallback(
     (text: string) => {
       const sanitized = sanitizeAmountInputText(text);
       onChange?.(sanitized);
@@ -337,42 +337,42 @@ function SendAutoSizeAmountInputComponent(
   );
   const shouldWrapTokenSymbol =
     (normalizedTokenSymbol?.length ?? 0) > INLINE_SYMBOL_MAX_LENGTH;
-  const inlineTokenSymbol = shouldWrapTokenSymbol
+  const inputSuffix = shouldWrapTokenSymbol
     ? undefined
     : normalizedTokenSymbol;
 
-  const currencyLabel = inputProps?.leftAddOnProps?.label as string | undefined;
+  const inputPrefix = inputProps?.leftAddOnProps?.label as string | undefined;
   const inputLoading = inputProps?.loading;
   const inputPlaceholder = inputProps?.placeholder ?? '0';
   const inputEditable = inputProps?.editable ?? true;
   const inputKeyboardType = inputProps?.keyboardType ?? 'decimal-pad';
   const inputReturnKeyType = inputProps?.returnKeyType;
-  const onInputFocus = inputProps?.onFocus;
-  const onInputBlur = inputProps?.onBlur;
-  const simpleFontSize = getAmountFontSize(
+  const inputOnFocus = inputProps?.onFocus;
+  const inputOnBlur = inputProps?.onBlur;
+  const computedFontSize = getAmountFontSize(
     displayValue?.length || 0,
     fontSizeScale,
   );
-  const availableInlineWidth = Math.max(
+  const availableWidth = Math.max(
     Math.floor(layoutWidth || windowWidth || 0),
     0,
   );
-  const isCompactInlineWidth =
-    !md && availableInlineWidth > 0 && availableInlineWidth < 360;
-  const simpleMaxFontSize = Math.round(56 * fontSizeScale);
-  const simpleMinFontSize = Math.round(
-    (isCompactInlineWidth ? 12 : 14) * fontSizeScale,
+  const isCompactWidth =
+    !md && availableWidth > 0 && availableWidth < 360;
+  const maxFontSize = Math.round(56 * fontSizeScale);
+  const minFontSize = Math.round(
+    (isCompactWidth ? 12 : 14) * fontSizeScale,
   );
   const wrappedSymbolFontSize = Math.max(
     WRAPPED_SYMBOL_MIN_FONT_SIZE,
     Math.min(
-      Math.round(simpleFontSize * WRAPPED_SYMBOL_FONT_SCALE),
+      Math.round(computedFontSize * WRAPPED_SYMBOL_FONT_SCALE),
       WRAPPED_SYMBOL_MAX_FONT_SIZE,
     ),
   );
   const wrappedTokenSymbolMaxWidthPx =
-    availableInlineWidth > 0
-      ? Math.max(availableInlineWidth - WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX, 0)
+    availableWidth > 0
+      ? Math.max(availableWidth - WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX, 0)
       : 0;
   const wrappedTokenSymbol = useMemo(() => {
     if (!shouldWrapTokenSymbol || !normalizedTokenSymbol) {
@@ -389,14 +389,14 @@ function SendAutoSizeAmountInputComponent(
     wrappedSymbolFontSize,
     wrappedTokenSymbolMaxWidthPx,
   ]);
-  const inlinePrefixGapPx = 0;
-  const inlineSuffixGapPx = Math.max(
+  const prefixGap = 0;
+  const suffixGap = Math.max(
     4,
-    Math.ceil(estimateTextWidthPx(' ', simpleFontSize)),
+    Math.ceil(estimateTextWidthPx(' ', computedFontSize)),
   );
-  let autoSizeTextValue = displayValue;
+  let nativeText = displayValue;
   if (!displayValue) {
-    autoSizeTextValue = platformEnv.isNative ? '0' : '';
+    nativeText = platformEnv.isNative ? '0' : '';
   }
 
   const amountInputNode = inputLoading ? (
@@ -405,30 +405,29 @@ function SendAutoSizeAmountInputComponent(
     </Stack>
   ) : (
     <AutoSizeInput
-      displayValue={displayValue}
-      simpleFontSize={simpleFontSize}
-      simpleMaxFontSize={simpleMaxFontSize}
-      simpleMinFontSize={simpleMinFontSize}
-      availableInlineWidth={availableInlineWidth}
-      currencyLabel={currencyLabel}
-      inlineTokenSymbol={inlineTokenSymbol}
-      inlinePrefixGapPx={inlinePrefixGapPx}
-      inlineSuffixGapPx={inlineSuffixGapPx}
+      value={displayValue}
+      fontSize={computedFontSize}
+      maxFontSize={maxFontSize}
+      minFontSize={minFontSize}
+      availableWidth={availableWidth}
+      prefix={inputPrefix}
+      suffix={inputSuffix}
+      prefixGap={prefixGap}
+      suffixGap={suffixGap}
       selectionColor={selectionColor}
-      handleSimpleChangeText={handleSimpleChangeText}
-      inputLoading={inputLoading}
-      inputPlaceholder={inputPlaceholder}
-      inputEditable={inputEditable}
-      inputKeyboardType={inputKeyboardType}
-      inputReturnKeyType={inputReturnKeyType}
-      onInputFocus={onInputFocus}
-      onInputBlur={onInputBlur}
+      onChangeText={handleChangeText}
+      placeholder={inputPlaceholder}
+      editable={inputEditable}
+      keyboardType={inputKeyboardType}
+      returnKeyType={inputReturnKeyType}
+      onFocus={inputOnFocus}
+      onBlur={inputOnBlur}
       inputRef={inputRef}
-      autoSizeTextValue={autoSizeTextValue}
-      autoSizeInputTextColor={autoSizeInputTextColor}
-      autoSizePlaceholderColor={autoSizePlaceholderColor}
-      autoSizeSelectionColor={autoSizeSelectionColor}
-      autoSizeTransparentColor={autoSizeTransparentColor}
+      nativeText={nativeText}
+      textColor={autoSizeInputTextColor}
+      placeholderColor={autoSizePlaceholderColor}
+      nativeSelectionColor={autoSizeSelectionColor}
+      backgroundColor={autoSizeTransparentColor}
       onHybridRef={(hybridViewRef) => {
         autoSizeInputRef.current = hybridViewRef;
       }}

@@ -5,29 +5,52 @@ import type { IInputProps } from '@onekeyhq/components';
 import type { TextInput } from 'react-native';
 
 export type IAutoSizeInputProps = {
-  displayValue: string;
-  simpleFontSize: number;
-  simpleMaxFontSize: number;
-  simpleMinFontSize: number;
-  availableInlineWidth: number;
-  currencyLabel?: string;
-  inlineTokenSymbol?: string;
-  inlinePrefixGapPx: number;
-  inlineSuffixGapPx: number;
+  /** Current input value (canonical form value) */
+  value: string;
+  /** Computed font size based on text length */
+  fontSize: number;
+  /** Maximum font size for auto-sizing */
+  maxFontSize: number;
+  /** Minimum font size for auto-sizing */
+  minFontSize: number;
+  /** Available container width for inline layout (px) */
+  availableWidth: number;
+  /** Currency prefix label (e.g. "$", "EUR") */
+  prefix?: string;
+  /** Token symbol displayed as suffix (e.g. "ETH") */
+  suffix?: string;
+  /** Gap between prefix and input (px) */
+  prefixGap: number;
+  /** Gap between input and suffix (px) */
+  suffixGap: number;
+  /** Selection / cursor highlight color (web) */
   selectionColor: string;
-  handleSimpleChangeText: (text: string) => void;
-  inputLoading?: boolean;
-  inputPlaceholder?: string;
-  inputEditable?: boolean;
-  inputKeyboardType?: IInputProps['keyboardType'];
-  inputReturnKeyType?: IInputProps['returnKeyType'];
-  onInputFocus?: IInputProps['onFocus'];
-  onInputBlur?: IInputProps['onBlur'];
+  /** Called when user changes the input text */
+  onChangeText: (text: string) => void;
+  /** Placeholder text shown when input is empty */
+  placeholder?: string;
+  /** Whether the input is editable */
+  editable?: boolean;
+  /** Keyboard type */
+  keyboardType?: IInputProps['keyboardType'];
+  /** Return key type */
+  returnKeyType?: IInputProps['returnKeyType'];
+  /** Focus event handler */
+  onFocus?: IInputProps['onFocus'];
+  /** Blur event handler */
+  onBlur?: IInputProps['onBlur'];
+  /** Ref for the web TextInput element (web only) */
   inputRef: RefObject<TextInput | null>;
-  autoSizeTextValue: string;
-  autoSizeInputTextColor?: string;
-  autoSizePlaceholderColor?: string;
-  autoSizeSelectionColor?: string;
-  autoSizeTransparentColor?: string;
+  /** Text value for the native HybridView (may differ from value, e.g. "0" for empty) */
+  nativeText: string;
+  /** Input text color (Android-normalized on native) */
+  textColor?: string;
+  /** Placeholder text color (Android-normalized on native) */
+  placeholderColor?: string;
+  /** Selection highlight color (Android-normalized on native) */
+  nativeSelectionColor?: string;
+  /** Input background color (Android-normalized on native) */
+  backgroundColor?: string;
+  /** Callback for native HybridView ref (native only) */
   onHybridRef: (ref: { focus?: () => void } | null) => void;
 };
