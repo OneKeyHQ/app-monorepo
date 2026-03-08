@@ -1,3 +1,5 @@
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+
 import { AutoSizeInputView } from '@onekeyfe/react-native-auto-size-input';
 import {
   type HybridView,
@@ -80,6 +82,37 @@ export function AutoSizeInput({
   autoSizeTransparentColor,
   onHybridRef,
 }: IAutoSizeInputProps) {
+  // Local state tracks what the native Nitro HybridView currently displays.
+  // When sanitization produces a value identical to the parent prop (e.g. "123456a" → "123456"
+  // but form value was already "123456"), Nitro's prop diffing skips the update.
+  // By setting localText to the raw input first, then correcting it in useLayoutEffect,
+  // we create a real prop change that Nitro will deliver to the native component.
+  const [localText, setLocalText] = useState(autoSizeTextValue);
+  const prevPropRef = useRef(autoSizeTextValue);
+
+  // Sync localText when parent prop changes (e.g. percentage button, token switch)
+  if (prevPropRef.current !== autoSizeTextValue) {
+    prevPropRef.current = autoSizeTextValue;
+    if (localText !== autoSizeTextValue) {
+      setLocalText(autoSizeTextValue);
+    }
+  }
+
+  // Correct localText back to the canonical value after raw input diverges
+  useLayoutEffect(() => {
+    if (localText !== autoSizeTextValue) {
+      setLocalText(autoSizeTextValue);
+    }
+  }, [localText, autoSizeTextValue]);
+
+  const handleLocalChangeText = useCallback(
+    (raw: string) => {
+      setLocalText(raw); // Track what native currently has
+      handleSimpleChangeText(raw); // Parent sanitizes and updates form
+    },
+    [handleSimpleChangeText],
+  );
+
   const inlineMeasureText = displayValue || inputPlaceholder || '0';
   const inlineAmountTextWidthPx = Math.ceil(
     estimateInlineTextWidthPx(inlineMeasureText, simpleFontSize) +
@@ -112,7 +145,7 @@ export function AutoSizeInput({
   );
   let autoSizeTextAlign: 'center' | 'left' | 'right' = 'center';
   if (currencyLabel) {
-    autoSizeTextAlign = 'left';
+    autoSizeTextAlign = 'left'; 
   } else if (inlineTokenSymbol) {
     autoSizeTextAlign = 'right';
   }
@@ -125,7 +158,7 @@ export function AutoSizeInput({
           height: Math.ceil(simpleMaxFontSize * 1.4),
           minHeight: Math.ceil(simpleMinFontSize * 1.4),
         }}
-        text={autoSizeTextValue}
+        text={localText}
         placeholder={inputPlaceholder ?? '0'}
         prefix={currencyLabel ?? ''}
         suffix={inlineTokenSymbol ?? ''}
@@ -150,7 +183,7 @@ export function AutoSizeInput({
         showBorder={false}
         inputBackgroundColor={autoSizeTransparentColor}
         contentAutoWidth
-        onChangeText={wrapNitroCallback(handleSimpleChangeText)}
+        onChangeText={wrapNitroCallback(handleLocalChangeText)}
         onFocus={
           wrapNitroCallback(() => {
             onInputFocus?.({} as never);

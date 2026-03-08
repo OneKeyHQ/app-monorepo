@@ -131,15 +131,42 @@ const formatWrappedTokenSymbol = ({
 };
 
 const sanitizeAmountInputText = (text: string): string => {
-  let sanitizedText = text.replace(/[。,，,]/g, '.');
-  const firstDecimalIndex = sanitizedText.indexOf('.');
+  // 1. Normalize locale-specific decimal separators to '.'
+  //    Covers: 。(fullwidth period), ，(fullwidth comma), ,(comma used as
+  //    decimal separator in de/fr/es/pt/ru/vi/id/it/uk locales)
+  let sanitizedText = text.replace(/[。，,]/g, '.');
 
+  // 2. Strip all non-numeric characters (no letters, no symbols)
+  sanitizedText = sanitizedText.replace(/[^\d.]/g, '');
+
+  // 3. Deduplicate decimal points — keep only the first one
+  const firstDecimalIndex = sanitizedText.indexOf('.');
   if (firstDecimalIndex !== -1) {
     const integerPart = sanitizedText.slice(0, firstDecimalIndex + 1);
     const decimalPart = sanitizedText
       .slice(firstDecimalIndex + 1)
       .replace(/\./g, '');
     sanitizedText = `${integerPart}${decimalPart}`;
+  }
+
+  // 4. Auto-prepend "0" if input starts with "." (e.g., ".5" -> "0.5")
+  if (sanitizedText.startsWith('.')) {
+    sanitizedText = `0${sanitizedText}`;
+  }
+
+  // 5. Remove leading zeros before significant digits (keep "0" and "0.xxx")
+  if (sanitizedText.length > 1 && sanitizedText.startsWith('0')) {
+    if (!sanitizedText.startsWith('0.')) {
+      sanitizedText = sanitizedText.replace(/^0+/, '') || '0';
+      if (sanitizedText.startsWith('.')) {
+        sanitizedText = `0${sanitizedText}`;
+      }
+    }
+  }
+
+  // 6. Always preserve at least "0" — never return empty string
+  if (!sanitizedText) {
+    sanitizedText = '0';
   }
 
   return sanitizedText;
@@ -238,7 +265,8 @@ function SendAutoSizeAmountInputComponent(
 
   const handleSimpleChangeText = useCallback(
     (text: string) => {
-      onChange?.(sanitizeAmountInputText(text));
+      const sanitized = sanitizeAmountInputText(text);
+      onChange?.(sanitized);
     },
     [onChange],
   );
@@ -319,8 +347,8 @@ function SendAutoSizeAmountInputComponent(
     Math.ceil(estimateTextWidthPx(' ', simpleFontSize)),
   );
   let autoSizeTextValue = displayValue;
-  if (displayValue === '') {
-    autoSizeTextValue = platformEnv.isNativeIOS ? '0' : '';
+  if (!displayValue) {
+    autoSizeTextValue = platformEnv.isNative ? '0' : '';
   }
 
   const amountInputNode = inputLoading ? (
