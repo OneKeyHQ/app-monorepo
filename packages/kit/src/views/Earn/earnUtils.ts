@@ -35,6 +35,53 @@ const NetworkIdToNameMap: Record<string, string> = Object.fromEntries(
   Object.entries(NetworkNameToIdMap).map(([name, id]) => [id, name]),
 );
 
+function getEarnTargetTab() {
+  return platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Earn;
+}
+
+function findTargetStack(
+  state?: NavigationState,
+  targetTab = getEarnTargetTab(),
+) {
+  if (!state) return undefined;
+
+  const mainRoute = state.routes.find((item) => item.name === ERootRoutes.Main);
+  const mainState = (mainRoute as { state?: NavigationState })?.state;
+  if (!mainState) return undefined;
+
+  const tabRoute = mainState.routes.find((item) => item.name === targetTab);
+  if (!tabRoute) return undefined;
+
+  const tabState = (tabRoute as { state?: NavigationState })?.state;
+  const targetKey = tabState?.key ?? tabRoute.key;
+  const topRoute = tabState?.routes?.[tabState.index ?? 0];
+  const firstRoute = tabState?.routes?.[0];
+
+  return { targetKey, tabState, topRoute, firstRoute };
+}
+
+function dispatchToTargetStack({
+  action,
+  rootNavigation,
+  targetKey,
+}: {
+  action:
+    | ReturnType<typeof StackActions.push>
+    | ReturnType<typeof StackActions.replace>
+    | ReturnType<typeof StackActions.popToTop>
+    | ReturnType<typeof StackActions.popTo>;
+  rootNavigation: typeof rootNavigationRef.current;
+  targetKey: string;
+}) {
+  if (!rootNavigation) {
+    return;
+  }
+
+  // @ts-expect-error target is added at runtime for navigator selection
+  action.target = targetKey;
+  rootNavigation.dispatch(action);
+}
+
 export const EarnNetworkUtils = {
   // convert network name to network id
   getNetworkIdByName(networkName: string): string | undefined {
@@ -66,30 +113,9 @@ export async function safePushToEarnRoute(
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
 
-  const targetTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Earn;
+  const targetTab = getEarnTargetTab();
 
   const rootNavigation = rootNavigationRef.current;
-  const findTargetStack = (state?: NavigationState) => {
-    if (!state) return undefined;
-    // Find tab navigator state under Main
-    const mainRoute = state.routes.find(
-      (item) => item.name === ERootRoutes.Main,
-    );
-    const mainState = (mainRoute as { state?: NavigationState })?.state;
-    if (!mainState) return undefined;
-
-    // Find the target tab route
-    const tabRoute = mainState.routes.find((item) => item.name === targetTab);
-    if (!tabRoute) return undefined;
-
-    // Stack navigator inside the tab
-    const tabState = (tabRoute as { state?: NavigationState })?.state;
-    // Prefer inner stack key; fall back to tab route key
-    const targetKey = tabState?.key ?? tabRoute.key;
-    return { targetKey, tabState };
-  };
 
   if (platformEnv.isNative) {
     void timerUtils.wait(150).then(() => {
@@ -109,7 +135,7 @@ export async function safePushToEarnRoute(
     // Pre-query the Discovery tab's stack state. All tab states are available
     // since lazy: false, so this works before any tab switch.
     const preQueryState = rootNavigation
-      ? findTargetStack(rootNavigation.getRootState?.())
+      ? findTargetStack(rootNavigation.getRootState?.(), targetTab)
       : undefined;
     const targetKey = preQueryState?.targetKey;
 
@@ -122,18 +148,19 @@ export async function safePushToEarnRoute(
       // updates only the tab selection. This avoids the iOS Release issue
       // where simultaneous selectedPage + children changes caused the native
       // tab bar to drop the selectedPage update.
-      const { tabState } = preQueryState;
-      const topRoute = tabState?.routes?.[tabState.index || 0];
+      const { topRoute } = preQueryState;
       if (topRoute?.name === route) {
-        const action = StackActions.replace(route, params);
-        // @ts-expect-error target is added at runtime for navigator selection
-        action.target = targetKey;
-        rootNavigation.dispatch(action);
+        dispatchToTargetStack({
+          action: StackActions.replace(route, params),
+          rootNavigation,
+          targetKey,
+        });
       } else {
-        const action = StackActions.push(route, params);
-        // @ts-expect-error target is added at runtime for navigator selection
-        action.target = targetKey;
-        rootNavigation.dispatch(action);
+        dispatchToTargetStack({
+          action: StackActions.push(route, params),
+          rootNavigation,
+          targetKey,
+        });
       }
       navigation.switchTab(targetTab);
     } else {
@@ -164,24 +191,28 @@ export async function safePushToEarnRoute(
     return;
   }
 
-  const targetStack = findTargetStack(rootNavigation.getRootState?.());
+  const targetStack = findTargetStack(
+    rootNavigation.getRootState?.(),
+    targetTab,
+  );
   const targetKey = targetStack?.targetKey;
-  const tabState = targetStack?.tabState;
-  const topRoute = tabState?.routes?.[tabState.index || 0];
+  const topRoute = targetStack?.topRoute;
 
   if (targetKey) {
     if (topRoute?.name === route) {
-      const action = StackActions.replace(route, params);
-      // @ts-expect-error target is added at runtime for navigator selection
-      action.target = targetKey;
-      rootNavigation.dispatch(action);
+      dispatchToTargetStack({
+        action: StackActions.replace(route, params),
+        rootNavigation,
+        targetKey,
+      });
       return;
     }
 
-    const action = StackActions.push(route, params);
-    // @ts-expect-error target is added at runtime for navigator selection
-    action.target = targetKey;
-    rootNavigation.dispatch(action);
+    dispatchToTargetStack({
+      action: StackActions.push(route, params),
+      rootNavigation,
+      targetKey,
+    });
   } else {
     // Fallback: navigate as before (may reuse route)
     rootNavigation.navigate(ERootRoutes.Main, {
@@ -301,6 +332,11 @@ export const EarnNavigation = {
       tab?: 'assets' | 'portfolio' | 'faqs';
     },
   ) {
+    const earnHomeParams = {
+      mode: 'earn' as const,
+      tab: params?.tab ?? 'assets',
+    };
+
     if (platformEnv.isNative) {
       await navigation.popToMainRoute();
       switchTab(ETabRoutes.Discovery);
@@ -321,13 +357,30 @@ export const EarnNavigation = {
     }
 
     switchTab(ETabRoutes.Earn);
-    await timerUtils.wait(50);
-    navigation.popToTop();
-    await timerUtils.wait(80);
-    appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
-    appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
-      tab: params?.tab ?? 'assets',
-    });
+
+    await timerUtils.wait(0);
+
+    const rootNavigation = rootNavigationRef.current;
+    const targetStack = rootNavigation
+      ? findTargetStack(rootNavigation.getRootState?.(), ETabRoutes.Earn)
+      : undefined;
+    const targetKey = targetStack?.targetKey;
+
+    if (rootNavigation && targetKey) {
+      dispatchToTargetStack({
+        action: StackActions.popTo(ETabEarnRoutes.EarnHome, earnHomeParams),
+        rootNavigation,
+        targetKey,
+      });
+    } else {
+      navigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Earn,
+        params: {
+          screen: ETabEarnRoutes.EarnHome,
+          params: earnHomeParams,
+        },
+      });
+    }
     await timerUtils.wait(0);
   },
 
