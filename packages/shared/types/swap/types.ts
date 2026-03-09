@@ -743,10 +743,18 @@ export interface ISwapQuoteEventInfo {
   eventId: string;
 }
 
+export interface ISwapQuoteEventError {
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  errorMessage?: string;
+  eventId?: string;
+}
+
 export type ISwapQuoteEventData =
   | ISwapQuoteEventAutoSlippage
   | ISwapQuoteEventQuoteResult
-  | ISwapQuoteEventInfo;
+  | ISwapQuoteEventInfo
+  | ISwapQuoteEventError;
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {

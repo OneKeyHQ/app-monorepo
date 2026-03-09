@@ -32,7 +32,6 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
-import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useAccountDeFiOverviewAtom,
@@ -42,12 +41,24 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { showResourceDetailsDialog } from '../../../components/Resource';
 
 function HomeOverviewContainer() {
   const num = 0;
   const {
     activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
   } = useActiveAccount({ num });
+  const resourceDialogInstance = useRef<IDialogInstance | null>(null);
+  const handleResourceDetailsOnPress = useCallback(() => {
+    if (resourceDialogInstance.current) return;
+    resourceDialogInstance.current = showResourceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        resourceDialogInstance.current = null;
+      },
+    });
+  }, [account?.id, network?.id]);
   const intl = useIntl();
 
   const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
@@ -270,7 +281,6 @@ function HomeOverviewContainer() {
   ]);
 
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
-  const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
@@ -317,19 +327,6 @@ function HomeOverviewContainer() {
       },
     });
   }, [account, network, deriveInfoItems]);
-
-  const handleResourceDetailsOnPress = useCallback(() => {
-    if (resourceDialogInstance?.current) {
-      return;
-    }
-    resourceDialogInstance.current = showResourceDetailsDialog({
-      accountId: account?.id ?? '',
-      networkId: network?.id ?? '',
-      onClose: () => {
-        resourceDialogInstance.current = null;
-      },
-    });
-  }, [account?.id, network?.id]);
 
   const balanceString = useMemo(() => {
     // Prevent showing stale balance from previous wallet/account.
@@ -378,7 +375,7 @@ function HomeOverviewContainer() {
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
-          <Skeleton.Heading5Xl />
+          <Skeleton.Heading5Xl my="$-0.5" />
         ) : (
           <XStack alignItems="center" gap="$3">
             <XStack
@@ -433,7 +430,7 @@ function HomeOverviewContainer() {
           })}
         </Button>
       ) : undefined}
-      {vaultSettings?.hasResource ? (
+      {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
           onPress={handleResourceDetailsOnPress}
           variant="tertiary"

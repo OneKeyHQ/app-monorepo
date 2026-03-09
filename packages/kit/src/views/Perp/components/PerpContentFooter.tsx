@@ -1,10 +1,7 @@
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Page, XStack, useMedia } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpFooterActions } from '../../../components/Footer';
@@ -17,16 +14,15 @@ function PerpNetworkStatus() {
   const [networkStatus] = usePerpsNetworkStatusAtom();
   const connected = Boolean(networkStatus?.connected);
   const pingMs = networkStatus?.pingMs;
-  const intl = useIntl();
 
-  const label = useMemo(() => {
+  const monoLabel = useMemo(() => {
     if (connected && pingMs !== null && pingMs !== undefined) {
-      return `${intl.formatMessage({ id: ETranslations.perp_online })} ${pingMs}ms`;
+      return `${pingMs}ms`;
     }
     return undefined;
-  }, [connected, pingMs, intl]);
+  }, [connected, pingMs]);
 
-  return <NetworkStatusBadge connected={connected} label={label} />;
+  return <NetworkStatusBadge connected={connected} monoLabel={monoLabel} />;
 }
 
 export function PerpContentFooter() {

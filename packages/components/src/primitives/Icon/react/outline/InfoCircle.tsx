@@ -7,12 +7,7 @@ const SvgInfoCircle = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M13 17h-2v-5h-1v-2h3z" />
-    <Path
-      fillRule="evenodd"
-      d="M13 9h-2V7h2zm-1.5-.5h1v-1h-1z"
-      clipRule="evenodd"
-    />
+    <Path d="M13 17h-2v-5h-1v-2h3zm0-8h-2V7h2z" />
     <Path
       fillRule="evenodd"
       d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2m0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16"

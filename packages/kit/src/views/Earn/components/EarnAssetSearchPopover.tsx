@@ -128,7 +128,7 @@ function EarnAssetSearchDialogContent({
       },
       {
         key: EAvailableAssetsTypeEnum.FixedRate as ICategoryKey,
-        label: intl.formatMessage({ id: ETranslations.earn_fixed_apy }),
+        label: intl.formatMessage({ id: ETranslations.earn_fixed_income }),
       },
       {
         key: EAvailableAssetsTypeEnum.Staking as ICategoryKey,
