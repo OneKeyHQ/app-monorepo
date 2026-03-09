@@ -240,11 +240,12 @@ function PerpAccountPanel() {
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (
-        <XStack gap="$2.5">
+        <XStack gap="$2.5" alignItems="center">
           <Button
             borderRadius="$full"
             flex={1}
             size="medium"
+            h={36}
             variant="secondary"
             onPress={() =>
               showDepositWithdrawDialog(
@@ -264,6 +265,8 @@ function PerpAccountPanel() {
           <IconButton
             borderRadius="$full"
             size="medium"
+            h={36}
+            w={36}
             variant="secondary"
             icon="AlignTopOutline"
             iconSize="$4.5"
