@@ -2,6 +2,7 @@ import { StackActions } from '@react-navigation/native';
 
 import {
   navigateFromOverlayToTab,
+  resetAboveMainRoute,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -241,15 +242,26 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
-    // Use navigateFromOverlayToTab to atomically remove overlay routes
-    // (FullScreenPush/ActionCenter) and switch tab. This avoids the native
-    // UITabBarController window-nil race where RNSScreenStack retries
-    // exhaust on stacks inside detached tab views.
+
+    const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
+
     defaultLogger.app.router.switchTab(ETabRoutes.Home);
-    await navigateFromOverlayToTab({
-      targetTab: ETabRoutes.Home,
-      switchTab: (tab) => navigation.switchTab(tab),
-    });
+
+    if (alreadyOnUrlAccountPage) {
+      // When already on UrlAccountPage (e.g. second scan), skip
+      // switchTab(pop:true) which would pop the existing page and trigger
+      // expensive RNSScreenStack retry storms on orphaned screen stacks.
+      // Instead, just remove overlays and replace the page in-place.
+      resetAboveMainRoute();
+      await timerUtils.wait(100);
+    } else {
+      // Standard flow: remove overlays, switch tab (with pop), then push.
+      await navigateFromOverlayToTab({
+        targetTab: ETabRoutes.Home,
+        switchTab: (tab) => navigation.switchTab(tab),
+      });
+    }
+
     defaultLogger.app.router.switchTabDone(ETabRoutes.Home);
     const navState = rootNavigationRef.current?.getRootState();
     const focusedRoute = navState?.routes?.[navState?.index ?? 0];
@@ -267,12 +279,24 @@ export const urlAccountNavigation = {
       stackDepth: tabStack?.routes?.length,
       topRoute: tabStackTopRouteName,
     });
-    rootNavigationRef.current?.dispatch(
-      StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
-        address: params.address,
-        networkId: networkSegment,
-      }),
-    );
+
+    const routeParams = {
+      address: params.address,
+      networkId: networkSegment,
+    };
+
+    if (alreadyOnUrlAccountPage) {
+      // Replace the existing UrlAccountPage with new params.
+      // This avoids pop+push cycle that causes iOS window-nil freeze.
+      rootNavigationRef.current?.dispatch(
+        StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams),
+      );
+    } else {
+      rootNavigationRef.current?.dispatch(
+        StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, routeParams),
+      );
+    }
+
     const navStateAfter = rootNavigationRef.current?.getRootState();
     const focusedRouteAfter =
       navStateAfter?.routes?.[navStateAfter?.index ?? 0];

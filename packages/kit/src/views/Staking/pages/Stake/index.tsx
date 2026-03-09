@@ -62,6 +62,7 @@ function BasicStakePage() {
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
+      networkId,
       tokenIsNative: tokenInfo?.token?.isNative,
       approveSpenderAddress,
       backendApproveType: protocolInfo?.approve?.approveType,
@@ -71,6 +72,7 @@ function BasicStakePage() {
     protocolInfo?.approve?.approveType,
     tokenInfo?.token?.isNative,
     approveSpenderAddress,
+    networkId,
   ]);
   const { removePermitCache } = useEarnActions().current;
 
