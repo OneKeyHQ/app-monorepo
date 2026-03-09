@@ -526,7 +526,7 @@ function AccountRecipients({
           sections.find((s) => s.walletId === walletId)?.title ?? '';
         const displayName = walletName
           ? `${walletName} / ${account.name ?? ''}`
-          : account.name ?? '';
+          : (account.name ?? '');
 
         return (
           <QuickSelectListItem
