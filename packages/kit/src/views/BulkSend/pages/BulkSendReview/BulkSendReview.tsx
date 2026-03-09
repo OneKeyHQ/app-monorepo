@@ -3,7 +3,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   Page,
   Toast,
   YStack,
@@ -534,17 +533,6 @@ function BaseBulkSendReview({
           {/* Fee Error Alert - Top Section */}
           <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
 
-          {/* Multi-tx Split Alert */}
-          {isTransferSplit ? (
-            <YStack px="$5">
-              <Alert
-                icon="InfoCircleOutline"
-                type="info"
-                title={`Your transaction has been split into ${transferTxCount} transactions`}
-              />
-            </YStack>
-          ) : null}
-
           {/* Grand Summary - Top Section */}
           <BulkSendReviewGrandSummary />
 
@@ -558,6 +546,8 @@ function BaseBulkSendReview({
               isMultiTxs={isMultiTxs}
               onFeeChange={handleFeeChange}
               editFeeEnabled={vaultSettings?.editFeeEnabled}
+              transferTxCount={transferTxCount}
+              isTransferSplit={isTransferSplit}
             />
           </YStack>
 
