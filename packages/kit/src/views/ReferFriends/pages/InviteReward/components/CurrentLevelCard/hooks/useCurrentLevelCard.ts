@@ -4,6 +4,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+
 import type {
   ICurrentLevelCardProps,
   IUseCurrentLevelCardReturn,
@@ -83,6 +85,8 @@ export function useCurrentLevelCard(
           },
         }));
       }
+
+      commissionRates = sortCommissionRateItems(commissionRates);
     }
 
     return {

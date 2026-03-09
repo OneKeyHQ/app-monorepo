@@ -9055,7 +9055,7 @@ __metadata:
     "@wagmi/core": "npm:2.21.0"
     "@walletconnect/sign-client": "npm:2.21.9"
     "@walletconnect/universal-provider": "npm:2.21.9"
-    agentation: "npm:^2.2.0"
+    agentation: "npm:^2.3.0"
     allotment: "npm:^1.20.5"
     array.prototype.toreversed: "npm:^1.1.2"
     axios: "npm:^1.13.2"
@@ -19886,9 +19886,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"agentation@npm:^2.2.0":
-  version: 2.2.0
-  resolution: "agentation@npm:2.2.0"
+"agentation@npm:^2.3.0":
+  version: 2.3.0
+  resolution: "agentation@npm:2.3.0"
   peerDependencies:
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
@@ -19897,7 +19897,7 @@ __metadata:
       optional: true
     react-dom:
       optional: true
-  checksum: 10/f7e9ad1225c4063ad2840ca039f7af63578c60de3e1d8ef3e62443f0bdd740d8780a5d1ac359306cb9f3364a4174c4da664bf3318502eeff4802fd773b9cd7c0
+  checksum: 10/8c076feddef83242db18358e1fd4b61ce62763c33912442528c92f331e76b98ce2148cf779944c49d4beb29504f380dd73ce21b756b43ad679f08214a86c91ac
   languageName: node
   linkType: hard
 
