@@ -703,12 +703,16 @@ export default class ServicePassword extends ServiceBase {
         } finally {
           this._mergeDuplicateHDWalletsExecuted = true;
         }
-        try {
-          await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
-            password: verifyingPassword,
-          });
-        } catch (e) {
-          console.error('Address book migration error', e);
+        if (!this._migrateRemoveHashExecuted) {
+          try {
+            await this.backgroundApi.serviceAddressBook.migrateRemoveHash({
+              password: verifyingPassword,
+            });
+          } catch (e) {
+            console.error('Address book migration error', e);
+          } finally {
+            this._migrateRemoveHashExecuted = true;
+          }
         }
       })();
     }
@@ -716,6 +720,8 @@ export default class ServicePassword extends ServiceBase {
   }
 
   _mergeDuplicateHDWalletsExecuted = false;
+
+  _migrateRemoveHashExecuted = false;
 
   // ui ------------------------------
   promptPasswordVerifyMutex = new Semaphore(1);
