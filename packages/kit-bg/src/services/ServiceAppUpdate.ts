@@ -1,5 +1,6 @@
 import semver from 'semver';
 
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type { IResponseAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
@@ -11,7 +12,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

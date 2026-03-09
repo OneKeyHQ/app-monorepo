@@ -164,7 +164,6 @@ export class KeyringQr extends KeyringQrBase {
           // **** sign psbt
           psbtHex = sdk.btc.parsePSBT(checkIsDefined(signatureUr));
         } catch (_error) {
-          // eslint-disable-next-line @cspell/spellchecker
           // oxlint-disable-next-line @cspell/spellchecker
           // ERROR throw from node_modules/@keystonehq/keystone-sdk/dist/chains/bitcoin.js
           //        throw new OneKeyLocalError('type not match');

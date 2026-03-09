@@ -52,6 +52,7 @@ export interface ISimpleDbPerpData {
   hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   dexAbstractionEnabledUsers?: Record<string, boolean>; // user address -> HIP-3 DEX abstraction enabled status
   referralPromptOptedOut?: Record<string, boolean>; // user address -> whether user has opted out of referral promotion
+  perpsSharePromptShown?: boolean; // whether the once-per-app Perps share prompt has been shown
   tokenSearchAliases?: ITokenSearchAliases; // token search aliases from server
   tokenSelectorTabs?: IPerpDynamicTab[]; // dynamic token selector tabs from server
 }
@@ -286,6 +287,22 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           ...prev?.referralPromptOptedOut,
           [userAddress.toLowerCase()]: optedOut,
         },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getPerpsSharePromptShown(): Promise<boolean> {
+    const config = await this.getPerpData();
+    return config.perpsSharePromptShown ?? false;
+  }
+
+  @backgroundMethod()
+  async setPerpsSharePromptShown(shown: boolean): Promise<void> {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        perpsSharePromptShown: shown,
       }),
     );
   }
