@@ -280,7 +280,9 @@ export const EarnNavigation = {
     }
 
     const networkName = EarnNetworkUtils.getShareNetworkParam(networkId);
-    const baseUrl = `/earn/${networkName}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
+    // Keep original symbol casing for unknown tokens (e.g. Pendle PT-sUSDe-29MAY2025);
+    // normalizeToEarnSymbol handles known symbols on parse regardless of casing.
+    const baseUrl = `/earn/${networkName}/${symbol}/${provider.toLowerCase()}`;
     const queryParams = new URLSearchParams();
 
     if (vault) {
