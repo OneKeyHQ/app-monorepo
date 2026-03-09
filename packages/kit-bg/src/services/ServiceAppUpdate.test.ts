@@ -6,16 +6,14 @@
 //
 // yarn jest packages/kit-bg/src/services/ServiceAppUpdate.test.ts
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-
 import {
   EAppUpdateStatus,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
-
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 // ---------------------------------------------------------------------------
 // In-memory atom mock — replaces appUpdatePersistAtom with a synchronous store

@@ -23,7 +23,6 @@ function HdKeyImport() {
   const [data, setData] = useState(defaultData);
   // const [data, setData] = useState('');
 
-  // eslint-disable-next-line @cspell/spellchecker
   // oxlint-disable-next-line @cspell/spellchecker
   /*
   "0x4B7115aD9623A528f1845eaf85D166dE1E869BFB"
@@ -82,7 +81,6 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
 
           const ur = await urDecoder.promiseResultUR;
 
-          // eslint-disable-next-line @cspell/spellchecker
           // oxlint-disable-next-line @cspell/spellchecker
           /*
             if (ur.type === 'crypto-hdkey') {
