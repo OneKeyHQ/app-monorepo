@@ -9,7 +9,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -37,8 +36,6 @@ export interface IManagePositionContentProps {
   // Borrow-specific params
   reserveAddress?: string;
   marketAddress?: string;
-  borrowReserves?: IBorrowReserveItem;
-
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
@@ -102,7 +99,6 @@ export function ManagePositionContent({
   type = EManagePositionType.Staking,
   reserveAddress,
   marketAddress,
-  borrowReserves,
   defaultTab,
   onTabChange,
   showApyDetail = false,
@@ -424,7 +420,6 @@ export function ManagePositionContent({
         fallbackTokenImageUri={resolvedTokenImageUri}
         protocolInfo={resolvedProtocolInfo}
         earnAccount={earnAccount ?? undefined}
-        borrowReserves={borrowReserves}
         depositDisabled={depositDisabled}
         withdrawDisabled={withdrawDisabled}
         stakeBeforeFooter={stakeBeforeFooter}
@@ -518,7 +513,6 @@ export function ManagePositionContent({
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={resolvedProtocolInfo}
       earnAccount={earnAccount ?? undefined}
-      borrowReserves={borrowReserves}
       depositDisabled={depositDisabled}
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}

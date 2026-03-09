@@ -26,7 +26,6 @@ import {
   EEarnLabels,
   type IBorrowAsset,
   type IBorrowAssetsList,
-  type IBorrowReserveItem,
   type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
@@ -61,7 +60,6 @@ export const WithdrawSection = ({
   borrowMarketAddress,
   borrowReserveAddress,
   borrowAction,
-  borrowReserves: _borrowReserves,
   defaultCollateralReserveAddress,
   borrowActionLabel,
   receiveInputConfig,
@@ -85,7 +83,6 @@ export const WithdrawSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
-  borrowReserves?: IBorrowReserveItem;
   defaultCollateralReserveAddress?: string;
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
@@ -653,8 +650,39 @@ export const WithdrawSection = ({
     ],
   );
 
+  // Fetch fresh collateral positions from API instead of using stale props
+  const { result: freshBorrowReserves, isLoading: collateralLoading } =
+    usePromiseResult(
+      async () => {
+        if (
+          !useBorrowApi ||
+          !borrowMarketAddress ||
+          !accountId ||
+          !providerName ||
+          borrowApiCtx.borrowApiParams?.action !== 'repay'
+        ) {
+          return undefined;
+        }
+        return backgroundApiProxy.serviceStaking.getBorrowReserves({
+          provider: providerName,
+          networkId,
+          marketAddress: borrowMarketAddress,
+          accountId,
+        });
+      },
+      [
+        useBorrowApi,
+        borrowMarketAddress,
+        accountId,
+        networkId,
+        providerName,
+        borrowApiCtx.borrowApiParams?.action,
+      ],
+      { watchLoading: true },
+    );
+
   const collateralAssets = useMemo(() => {
-    const suppliedAssets = _borrowReserves?.supplied?.assets ?? [];
+    const suppliedAssets = freshBorrowReserves?.supplied?.assets ?? [];
     return suppliedAssets
       .filter((item) => item.canBeCollateral)
       .map((item) => ({
@@ -665,7 +693,7 @@ export const WithdrawSection = ({
           description: item.suppliedAmount.description,
         },
       }));
-  }, [_borrowReserves?.supplied?.assets]);
+  }, [freshBorrowReserves?.supplied?.assets]);
 
   const onBorrowRepayWithCollateralConfirm = useCallback(
     async ({
@@ -810,6 +838,7 @@ export const WithdrawSection = ({
           onTokenSelect={handleTokenSelect}
           isInModalContext={isInModalContext}
           collateralAssets={collateralAssets}
+          collateralLoading={!!collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
           debtBalance={
             protocolInfo?.debtBalance !== undefined
