@@ -22,7 +22,7 @@ import networkUtils, {
 
 export function BatchCreateAccountButton({
   focusedWalletInfo,
-  activeAccount,
+  activeAccount: _activeAccount,
   onClose,
 }: {
   focusedWalletInfo:
