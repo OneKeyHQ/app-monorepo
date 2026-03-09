@@ -119,9 +119,14 @@ function ExchangeOpenRedirect() {
         </YStack>
       </Page.Body>
       <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.receive_open_exchange,
-        })}
+        onConfirmText={intl.formatMessage(
+          {
+            id: ETranslations.receive_open_exchange,
+          },
+          {
+            exchange: exchangeName,
+          },
+        )}
         onConfirm={handleOpenExchange}
         confirmButtonProps={{ variant: 'secondary' }}
       />
