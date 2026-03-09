@@ -81,8 +81,7 @@ export function BatchCreateAccountButton({
     if (!defaultNetworkId) {
       defaultNetworkId = networkIdsCompatible?.find(
         (id) =>
-          networkUtils.isEvmNetwork({ networkId: id }) &&
-          isNetworkEnabled(id),
+          networkUtils.isEvmNetwork({ networkId: id }) && isNetworkEnabled(id),
       );
     }
 
