@@ -3127,6 +3127,7 @@
   "receive.address_copied": "已複製地址 \"{address}\"",
   "receive.address_unconfirmed_alert_message": "地址未驗證",
   "receive.hide_unverified_address": "隱藏未驗證的地址",
+  "receive.open_exchange": "打開 {exchange}",
   "receive.opening_exchange_in_seconds": "正在開啟 {exchange}，請稍等 {count} 秒...",
   "receive.send_asset_warning_message": "僅支援接收 {network} 網路資產",
   "receive.show_address_any": "仍然顯示地址",

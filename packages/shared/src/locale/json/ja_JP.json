@@ -3127,6 +3127,7 @@
   "receive.address_copied": "あなたのアドレス \"{address}\" がコピーされました",
   "receive.address_unconfirmed_alert_message": "住所が未確認です",
   "receive.hide_unverified_address": "未確認の住所を隠す",
+  "receive.open_exchange": "オープン {exchange}",
   "receive.opening_exchange_in_seconds": "{count, plural, one {# 秒} Other {# 秒}}で{exchange}を開いています...",
   "receive.send_asset_warning_message": "このアドレスには{network}ネットワークの資産のみを送信してください",
   "receive.show_address_any": "それでも住所を表示",

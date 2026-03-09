@@ -3127,6 +3127,7 @@
   "receive.address_copied": "Il tuo indirizzo \"{address}\" è stato copiato",
   "receive.address_unconfirmed_alert_message": "Indirizzo non verificato",
   "receive.hide_unverified_address": "Nascondi indirizzo non verificato",
+  "receive.open_exchange": "Apri {exchange}",
   "receive.opening_exchange_in_seconds": "Apertura {exchange} in {count, plural, one {# secondo} other {# secondi}}...",
   "receive.send_asset_warning_message": "Invia solo asset della rete {network} a questo indirizzo",
   "receive.show_address_any": "Mostra comunque l'indirizzo",

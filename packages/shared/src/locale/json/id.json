@@ -3127,6 +3127,7 @@
   "receive.address_copied": "Alamat Anda \"{address}\" telah disalin",
   "receive.address_unconfirmed_alert_message": "Alamat belum terverifikasi",
   "receive.hide_unverified_address": "Sembunyikan alamat yang tidak diverifikasi",
+  "receive.open_exchange": "Buka {exchange}",
   "receive.opening_exchange_in_seconds": "Membuka {exchange} dalam {count, plural, one {# detik} other {# detik}}...",
   "receive.send_asset_warning_message": "Kirimkan aset jaringan {network} saja ke alamat ini",
   "receive.show_address_any": "Tampilkan alamat tetap",

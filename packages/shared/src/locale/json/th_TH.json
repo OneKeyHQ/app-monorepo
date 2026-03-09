@@ -3127,6 +3127,7 @@
   "receive.address_copied": "ที่อยู่ของคุณ \"{address}\" ได้ถูกคัดลอกแล้ว",
   "receive.address_unconfirmed_alert_message": "ที่อยู่ยังไม่ได้รับการยืนยัน",
   "receive.hide_unverified_address": "ซ่อนที่อยู่ที่ไม่ได้รับการยืนยัน",
+  "receive.open_exchange": "เปิด {exchange}",
   "receive.opening_exchange_in_seconds": "正在打开 {exchange}，请稍等 {count, plural, one {# 秒} Other {# 秒}}...",
   "receive.send_asset_warning_message": "ส่งเฉพาะสินทรัพย์ของเครือข่าย {network} ไปยังที่อยู่นี้เท่านั้น",
   "receive.show_address_any": "แสดงที่อยู่อย่างไรก็ตาม",

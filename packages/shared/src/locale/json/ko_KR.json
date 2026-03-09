@@ -3127,6 +3127,7 @@
   "receive.address_copied": "당신의 주소 \"{address}\"가 복사되었습니다",
   "receive.address_unconfirmed_alert_message": "주소 미확인",
   "receive.hide_unverified_address": "인증되지 않은 주소 숨기기",
+  "receive.open_exchange": "열기 {exchange}",
   "receive.opening_exchange_in_seconds": "열기 {exchange} {count, plural, one {#초} Other {#초}}...",
   "receive.send_asset_warning_message": "이 주소로 {network} 네트워크 자산만 보내주세요",
   "receive.show_address_any": "그래도 주소 보기",

@@ -73,17 +73,17 @@ function ExchangeOpenRedirect() {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const handleOpenExchange = useCallback(() => {
+  const handleOpenExchange = useCallback(async () => {
     if (hasOpenedRef.current) return;
     hasOpenedRef.current = true;
-    void openExchangeApp(exchangeSource);
+    await openExchangeApp(exchangeSource);
     navigation.popToTop();
   }, [exchangeSource, navigation, openExchangeApp]);
 
   // Auto-open when countdown reaches 0
   useEffect(() => {
     if (countdown === 0) {
-      handleOpenExchange();
+      void handleOpenExchange();
     }
   }, [countdown, handleOpenExchange]);
 
@@ -119,7 +119,9 @@ function ExchangeOpenRedirect() {
         </YStack>
       </Page.Body>
       <Page.Footer
-        onConfirmText={`Open ${exchangeName}`}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.receive_open_exchange,
+        })}
         onConfirm={handleOpenExchange}
         confirmButtonProps={{ variant: 'secondary' }}
       />

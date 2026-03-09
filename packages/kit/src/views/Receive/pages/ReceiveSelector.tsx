@@ -302,18 +302,26 @@ function ReceiveSelectorContent() {
                 exchangeSource: config.id,
               });
             } else {
-              const address =
-                await backgroundApiProxy.serviceAccount.getAccountAddressForApi(
-                  {
-                    accountId: tokenAccountId,
-                    networkId: tokenNetworkId,
-                  },
-                );
-              if (!address) return;
-              navigation.push(EModalReceiveRoutes.ExchangeOpenRedirect, {
-                exchangeSource: config.id,
-                address,
-              });
+              try {
+                const address =
+                  await backgroundApiProxy.serviceAccount.getAccountAddressForApi(
+                    {
+                      accountId: tokenAccountId,
+                      networkId: tokenNetworkId,
+                    },
+                  );
+                if (!address) return;
+                navigation.push(EModalReceiveRoutes.ExchangeOpenRedirect, {
+                  exchangeSource: config.id,
+                  address,
+                });
+              } catch (_error) {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  }),
+                });
+              }
             }
           },
         });

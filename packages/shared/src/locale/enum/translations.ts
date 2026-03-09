@@ -3132,6 +3132,7 @@
   receive_address_copied = 'receive.address_copied',
   receive_address_unconfirmed_alert_message = 'receive.address_unconfirmed_alert_message',
   receive_hide_unverified_address = 'receive.hide_unverified_address',
+  receive_open_exchange = 'receive.open_exchange',
   receive_opening_exchange_in_seconds = 'receive.opening_exchange_in_seconds',
   receive_send_asset_warning_message = 'receive.send_asset_warning_message',
   receive_show_address_any = 'receive.show_address_any',
