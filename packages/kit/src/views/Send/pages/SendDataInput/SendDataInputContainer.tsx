@@ -769,14 +769,9 @@ function SendDataInputContainer() {
                     currentTo?.raw === selectedAddress &&
                     currentTo?.resolved
                   ) {
-                    void form.trigger('to');
                     return;
                   }
-                  form.setValue(
-                    'to',
-                    { raw: selectedAddress },
-                    { shouldValidate: true },
-                  );
+                  form.setValue('to', { raw: selectedAddress });
                 };
 
                 const isFromAccount =
@@ -859,7 +854,6 @@ function SendDataInputContainer() {
             })}
             confirmButtonProps={{
               loading: false,
-              disabled: !form.formState.isValid,
             }}
           />
         </Page.Footer>
