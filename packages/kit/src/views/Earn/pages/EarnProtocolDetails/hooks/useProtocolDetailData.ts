@@ -6,7 +6,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
-import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnTokenInfo,
   IEarnWithdrawActionIcon,
@@ -24,7 +23,7 @@ export function useProtocolDetailData({
   accountId: string;
   networkId: string;
   indexedAccountId: string | undefined;
-  symbol: ISupportedSymbol;
+  symbol: string;
   provider: string;
   vault: string | undefined;
 }) {

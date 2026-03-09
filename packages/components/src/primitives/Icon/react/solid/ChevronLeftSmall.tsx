@@ -7,7 +7,7 @@ const SvgChevronLeftSmall = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M15.414 12 10 17.414 8.586 16l4-4-4-4L10 6.586z" />
+    <Path d="m15.414 8-4 4 4 4L14 17.414 8.586 12 14 6.586z" />
   </Svg>
 );
 export default SvgChevronLeftSmall;

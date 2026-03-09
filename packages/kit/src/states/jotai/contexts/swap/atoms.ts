@@ -580,6 +580,11 @@ export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<{
   quoteId: string;
 }>({ states: [], quoteId: '' });
 
+export const {
+  atom: swapQuoteEventErrorAtom,
+  use: useSwapQuoteEventErrorAtom,
+} = contextAtom<string>('');
+
 export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
   contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(
     undefined,
