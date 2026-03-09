@@ -130,11 +130,15 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
 
   @backgroundMethod()
   async clearRecentRecipients() {
+    // Run migration first so old v1 data won't restore after clear
+    await this.migrateFromOldStorage();
     await this.setRawData({ recentRecipients: {} });
   }
 
   @backgroundMethod()
   async deleteRecentRecipient({ recipientId }: { recipientId: string }) {
+    // Run migration first so old v1 data won't restore deleted entries
+    await this.migrateFromOldStorage();
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
       delete recentRecipients[recipientId];
