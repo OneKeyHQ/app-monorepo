@@ -76,6 +76,7 @@ import DashboardContent from '../Dashboard/DashboardContent';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+import type { IEarnBorrowPagerViewRef } from '../../../Earn/components/EarnBorrowPagerView';
 import type { RouteProp } from '@react-navigation/core';
 import type { WebView } from 'react-native-webview';
 
@@ -351,6 +352,7 @@ function MobileBrowser() {
   // Refs for inner tab containers (Market/Earn) to sync after freeze/unfreeze
   const marketTabsRef = useRef<ITabContainerRef>(null);
   const earnTabsRef = useRef<ITabContainerRef>(null);
+  const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
   // Determine if outer PagerView should be used (phone only, not tablet/dual-screen)
   const useOuterPager =
@@ -428,6 +430,7 @@ function MobileBrowser() {
             showDiscoveryPage={showDiscoveryPage}
             marketTabsRef={marketTabsRef}
             earnTabsRef={earnTabsRef}
+            earnBorrowPagerRef={earnBorrowPagerRef}
             marketContent={
               <MarketHomeWithProvider isFocused tabsRef={marketTabsRef} />
             }
@@ -437,6 +440,8 @@ function MobileBrowser() {
                 showContent
                 defaultTab={earnTab}
                 tabsRef={earnTabsRef}
+                useSwipePager={useOuterPager}
+                earnBorrowPagerRef={earnBorrowPagerRef}
               />
             }
             browserContent={

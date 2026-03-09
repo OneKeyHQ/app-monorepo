@@ -681,6 +681,31 @@ index 19d935e..5506285 100644
    onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
    onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
    onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;
+diff --git a/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts b/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts
+index 1cfa9ba..aad70ae 100644
+--- a/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts
++++ b/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts
+@@ -21,6 +21,20 @@ export interface NativeProps extends ViewProps {
+     overScrollMode?: WithDefault<'auto' | 'always' | 'never', 'auto'>;
+     overdrag?: WithDefault<boolean, false>;
+     keyboardDismissMode?: WithDefault<'none' | 'on-drag', 'none'>;
++    /**
++    * Controls the sensitivity of scroll gestures on Android.
++    * Higher values make scrolling less sensitive.
++    * Valid range: 2 - 8
++    * @platform android
++    */
++    scrollSensitivity?: Int32;
++    /**
++    * When true on an inner PagerView, enables gesture coordination with
++    * a parent (outer) PagerView. At sub-tab boundaries the inner pager's
++    * gesture recognizer will not begin, allowing the outer pager to take over.
++    * @platform ios
++    */
++    nestedScrollEnabled?: WithDefault<boolean, false>;
+     onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
+     onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
+     onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;
 diff --git a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
 index 19d935e..5506285 100644
 --- a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts

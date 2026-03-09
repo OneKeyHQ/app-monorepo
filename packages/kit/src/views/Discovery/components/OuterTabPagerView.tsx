@@ -9,6 +9,7 @@ import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
 import type { PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
@@ -46,6 +47,7 @@ interface IOuterTabPagerViewProps {
   browserContent: React.ReactNode;
   marketTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnTabsRef?: React.RefObject<ITabContainerRef | null>;
+  earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
 }
 
 // --- Component ---
@@ -58,6 +60,7 @@ function OuterTabPagerViewComponent({
   browserContent,
   marketTabsRef,
   earnTabsRef,
+  earnBorrowPagerRef,
 }: IOuterTabPagerViewProps) {
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
   const outerPagerRef = useRef<PagerView>(null);
@@ -112,6 +115,8 @@ function OuterTabPagerViewComponent({
           if (position === 0) {
             marketTabsRef?.current?.syncCurrentPage();
           } else if (position === 1) {
+            // Resync middle layer (earn/borrow) first, then inner tabs
+            earnBorrowPagerRef?.current?.syncCurrentPage();
             earnTabsRef?.current?.syncCurrentPage();
           }
         });
@@ -122,7 +127,7 @@ function OuterTabPagerViewComponent({
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }
     },
-    [marketTabsRef, earnTabsRef],
+    [marketTabsRef, earnTabsRef, earnBorrowPagerRef],
   );
 
   // Determine which pages should be rendered
