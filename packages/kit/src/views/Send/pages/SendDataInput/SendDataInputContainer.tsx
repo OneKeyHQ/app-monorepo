@@ -758,9 +758,9 @@ function SendDataInputContainer() {
                   if (selectedNote) {
                     form.setValue('note', selectedNote);
                   }
-                  const currentTo = form.getValues(
-                    'to',
-                  ) as IAddressInputValue | undefined;
+                  const currentTo = form.getValues('to') as
+                    | IAddressInputValue
+                    | undefined;
                   // Skip resetting when the same address is already resolved,
                   // otherwise we'd wipe the resolved state and the validation
                   // won't re-trigger (same raw text), causing the Next button
