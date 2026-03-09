@@ -9,30 +9,35 @@ import { TabsDraggableFlatList } from './TabsDraggableFlatList';
 
 import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
-const Container = React.forwardRef<any, PropsWithChildren<CollapsibleProps>>(
-  ({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
-    return (
-      <NativeTabs.Container
-        ref={ref}
-        headerContainerStyle={{
-          shadowOpacity: 0,
-          elevation: 0,
-          ...(headerContainerStyle as any),
-        }}
-        pagerProps={
-          {
-            scrollSensitivity: 4,
-            ...pagerProps,
-          } as any
-        }
-        renderTabBar={(tabProps: any) => <TabBar {...tabProps} />}
-        {...props}
-      >
-        {children}
-      </NativeTabs.Container>
-    );
-  },
-);
+interface IExtendedContainerProps extends CollapsibleProps {
+  useNativeHeaderAnimation?: boolean;
+}
+
+const Container = React.forwardRef<
+  any,
+  PropsWithChildren<IExtendedContainerProps>
+>(({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
+  return (
+    <NativeTabs.Container
+      ref={ref}
+      headerContainerStyle={{
+        shadowOpacity: 0,
+        elevation: 0,
+        ...(headerContainerStyle as any),
+      }}
+      pagerProps={
+        {
+          scrollSensitivity: 4,
+          ...pagerProps,
+        } as any
+      }
+      renderTabBar={(tabProps: any) => <TabBar {...tabProps} />}
+      {...props}
+    >
+      {children}
+    </NativeTabs.Container>
+  );
+});
 Container.displayName = 'NativeTabsContainer';
 
 export const Tabs = {

@@ -270,6 +270,8 @@ const EarnMainTabsComponent = ({
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
       onTabChange={handleTabChange}
+      useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+      pagerProps={{ nestedScrollEnabled: true } as any}
       {...mergedContainerProps}
     >
       <Tabs.Tab name={tabNames.assets}>

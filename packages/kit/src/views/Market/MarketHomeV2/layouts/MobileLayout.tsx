@@ -206,6 +206,8 @@ function MobileLayoutComponent({
         renderTabBar={renderTabBar}
         initialTabName={initialTabName}
         onTabChange={onTabChangeHandler}
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        pagerProps={{ nestedScrollEnabled: true } as any}
         {...containerProps}
       >
         <Tabs.Tab name={watchlistTabName}>
