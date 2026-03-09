@@ -155,7 +155,7 @@ export function PerpsActivityCenterAction({
     () => perpConfigCommon?.activityCards ?? [],
     [perpConfigCommon?.activityCards],
   );
-  const activityCenterTitle = '活动中心';
+  const activityCenterTitle = intl.formatMessage({ id: ETranslations.perps_activity_hub });
   const hasActivityCards = activityCards.length > 0;
 
   const handleOpenReferReward = useCallback(() => {
