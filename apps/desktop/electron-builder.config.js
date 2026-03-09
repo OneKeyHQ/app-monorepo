@@ -4,7 +4,8 @@ const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
 const { getDesktopBuildVariant } = require('./scripts/build-variant');
 
-const { artifactPrefix, iconPngPath, liquidIconName } = getDesktopBuildVariant();
+const { artifactPrefix, iconPngPath, liquidIconName } =
+  getDesktopBuildVariant();
 
 module.exports = {
   ...baseElectronBuilderConfig,

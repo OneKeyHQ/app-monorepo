@@ -2,7 +2,8 @@
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const { getDesktopBuildVariant } = require('./scripts/build-variant');
 
-const { artifactPrefix, iconIcnsPath, liquidIconName } = getDesktopBuildVariant();
+const { artifactPrefix, iconIcnsPath, liquidIconName } =
+  getDesktopBuildVariant();
 
 module.exports = {
   ...baseElectronBuilderConfig,

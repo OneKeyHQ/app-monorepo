@@ -1,8 +1,11 @@
 function getDesktopBuildVariant() {
-  const buildVariant = String(process.env.ONEKEY_BUILD_VARIANT || '').toLowerCase();
+  const buildVariant = String(
+    process.env.ONEKEY_BUILD_VARIANT || '',
+  ).toLowerCase();
   const allowSkipGpg =
-    String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || '').toLowerCase() ===
-    'true';
+    String(
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || '',
+    ).toLowerCase() === 'true';
   const isSkipGpgVariant = buildVariant === 'skip_gpg' || allowSkipGpg;
 
   const artifactPrefix = isSkipGpgVariant
