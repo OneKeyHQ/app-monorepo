@@ -8,10 +8,8 @@ import {
   Stack,
   Toast,
   ToastContent,
-  popActionCenterPages,
-  popScanModalPages,
+  resetAboveMainRoute,
   useClipboard,
-  waitForScanModalClosed,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -161,10 +159,13 @@ const useParseQRCode = () => {
 
       const closeScanPage = async () => {
         if (popNavigation) {
-          await popScanModalPages();
-          await popActionCenterPages();
-          // Wait until scan modal is no longer current (or 400ms max). Faster than fixed 350ms when stack updates early (OK-50182).
-          await waitForScanModalClosed();
+          // Atomically remove all overlay routes (scan modal, ActionCenter,
+          // FullScreenPush, etc.) via CommonActions.reset instead of sequential
+          // goBack() calls. This avoids the native UITabBarController
+          // window-nil race condition where RNSScreenStack retries exhaust on
+          // stacks inside detached tab views (OK-50182).
+          resetAboveMainRoute();
+          await timerUtils.wait(100);
         }
       };
 
@@ -220,10 +221,15 @@ const useParseQRCode = () => {
           {
             const { coinGeckoId } = result.data as IMarketDetailValue;
             if (coinGeckoId) {
-              await closeScanPage();
-              void marketNavigation.pushDetailPageFromDeeplink(navigation, {
-                coinGeckoId,
-              });
+              if (popNavigation) {
+                void marketNavigation.pushDetailPageFromOverlay(navigation, {
+                  coinGeckoId,
+                });
+              } else {
+                void marketNavigation.pushDetailPageFromDeeplink(navigation, {
+                  coinGeckoId,
+                });
+              }
             }
           }
           break;
