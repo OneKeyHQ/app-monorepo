@@ -333,6 +333,16 @@ class ServiceAccountSelector extends ServiceBase {
           account = undefined;
           canCreateAddress = true;
         }
+      } else if (!isOthersWallet && wallet && !indexedAccountId) {
+        // When all accounts are deleted, allow creating the first account
+        // for HD wallets, HW wallets, and QR wallets
+        const isHdOrHwOrQrWallet =
+          accountUtils.isHdWallet({ walletId: wallet.id }) ||
+          accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id });
+        if (isHdOrHwOrQrWallet) {
+          canCreateAddress = true;
+        }
       }
     } else {
       // single network

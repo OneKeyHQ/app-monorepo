@@ -22,7 +22,10 @@ import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCa
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   EJotaiContextStoreNames,
   useDevSettingsPersistAtom,
@@ -40,13 +43,13 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import {
   normalizeToEarnProvider,
   normalizeToEarnSymbol,
 } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IEarnAlert,
+  IEarnText,
   IEarnTokenInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -112,12 +115,14 @@ const ProtocolHeader = ({
   apyDetail,
   tokenInfo,
   maturity,
+  maturityText,
   onShare,
 }: {
   symbol: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
   tokenInfo?: IEarnTokenInfo;
   maturity?: IStakeEarnDetail['maturity'];
+  maturityText?: IEarnText;
   onShare?: () => void;
 }) => {
   const intl = useIntl();
@@ -128,6 +133,9 @@ const ProtocolHeader = ({
   }, [navigation]);
 
   const formattedMaturityDate = useMemo(() => {
+    if (maturityText?.text) {
+      return maturityText.text;
+    }
     if (!maturity?.date) return undefined;
     try {
       const date = new Date(maturity.date);
@@ -140,21 +148,22 @@ const ProtocolHeader = ({
     } catch {
       return maturity.date;
     }
-  }, [maturity?.date, intl]);
+  }, [maturity?.date, maturityText?.text, intl]);
 
   return (
-    <YStack>
-      {/* Token icon and name with My Portfolio button - always show */}
-      <XStack jc="space-between" ai="center" h="$9">
-        <XStack gap="$2" ai="center">
-          <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
-          <SizableText size="$bodyLgMedium">
-            {tokenInfo?.token.symbol || symbol}
-          </SizableText>
+    <YStack gap="$2.5">
+      <XStack jc="space-between" ai="center">
+        <XStack gap="$3" ai="center" minWidth={0} flex={1}>
+          <XStack gap="$2" ai="center" flexShrink={0}>
+            <Token size="xs" tokenImageUri={tokenInfo?.token.logoURI} />
+            <SizableText size="$bodyLgMedium">
+              {tokenInfo?.token.symbol || symbol}
+            </SizableText>
+          </XStack>
           {formattedMaturityDate ? (
             <>
-              <Divider vertical h="$4" />
-              <SizableText size="$bodyLgMedium" color="$textSubdued">
+              <Divider vertical h="$6" />
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
                 {formattedMaturityDate}
               </SizableText>
             </>
@@ -162,7 +171,7 @@ const ProtocolHeader = ({
         </XStack>
       </XStack>
 
-      <XStack gap="$2" ai="center" pt="$2.5">
+      <XStack gap="$2" ai="center">
         <EarnText
           text={
             apyDetail?.description || {
@@ -295,7 +304,7 @@ function ChartSection({
   return (
     <YStack gap="$3">
       {/* High and Low values */}
-      {gtMd && high !== null && low !== null ? (
+      {gtMd && !isPendleProvider && high !== null && low !== null ? (
         <XStack gap="$4" pt="$6">
           <YStack>
             <SizableText size="$bodySm" color="$textSubdued">
@@ -323,12 +332,12 @@ function ChartSection({
         showUnderlyingApyToggle={showUnderlyingApyToggle}
         primaryApyLabel={
           isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.earn_fixed_apy })
+            ? intl.formatMessage({ id: ETranslations.earn_fixed_income })
             : undefined
         }
         secondaryApyLabel={
           isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.earn_base_apy })
+            ? intl.formatMessage({ id: ETranslations.defi_underlying_apy })
             : undefined
         }
       />
@@ -512,6 +521,7 @@ const DetailsPartComponent = ({
                 apyDetail={detailInfo.apyDetail}
                 tokenInfo={tokenInfo}
                 maturity={detailInfo.maturity}
+                maturityText={detailInfo.nums?.maturity}
                 onShare={onShare}
               />
               <ChartSection
@@ -607,13 +617,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const { shareText } = useShare();
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
+  const { indexedAccount } = activeAccount;
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
 
   // Parse route params, support both normal and share link routes
   const resolvedParams = useMemo<{
     networkId: string;
-    symbol: ISupportedSymbol;
+    symbol: string;
     provider: string;
     vault: string | undefined;
   }>(() => {
@@ -635,9 +646,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
       if (!networkId) {
         throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
-      }
-      if (!symbol) {
-        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
       }
       if (!normalizedProvider) {
         throw new OneKeyLocalError(
@@ -664,8 +672,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     };
   }, [route.params]);
 
-  const accountId = account?.id || '';
-  const indexedAccountId = indexedAccount?.id;
+  // For cross-network: only use othersWalletAccountId (external wallets),
+  // NEVER account?.id which is network-specific and will mismatch.
+  const accountId = selectedAccount.othersWalletAccountId || '';
+  const indexedAccountId =
+    selectedAccount.indexedAccountId || indexedAccount?.id;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
   const { detailInfo, tokenInfo, isLoading, refreshData, refreshAccount } =
@@ -700,6 +711,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   // Use custom hook for breadcrumb management
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({
+    accountReady: activeAccount.ready,
+    accountId,
+    indexedAccountId,
+    networkId,
     symbol,
     provider,
     tokenInfo,

@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,6 +18,7 @@ import {
   useSplitViewType,
   useTheme,
 } from '../../../hooks';
+import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -181,6 +181,7 @@ export function TabStackNavigator<RouteName extends string>({
       labeled
       hapticFeedbackEnabled
       disablePageAnimations
+      ignoreBottomInsets
       sidebarAdaptable={false}
       tabBarHidden={hidden}
       tabBarActiveTintColor={theme.iconActive.val}

@@ -517,7 +517,7 @@ const InAppNotification = () => {
               isRead: false,
             });
           }, 80);
-          toast.close();
+          toast?.close();
         },
       });
     };

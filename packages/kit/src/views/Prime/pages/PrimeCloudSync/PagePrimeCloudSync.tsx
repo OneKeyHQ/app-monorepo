@@ -296,9 +296,9 @@ function EnableOneKeyCloudSwitchListItem({
       {showKeylessCloudSync ? keylessSwitchItem : null}
       {showKeylessCloudSync && config?.isCloudSyncEnabledKeyless ? (
         <ListItem
-          title={intl.formatMessage({
+          title={`${intl.formatMessage({
             id: ETranslations.wallet_backup_now,
-          })}
+          })} ( Keyless )`}
           icon="RefreshCwOutline"
           drillIn
           onPress={onManualSyncKeyless}

@@ -34,6 +34,7 @@ function PerpMobileNetworkAlertComponent() {
     };
   }, [isDisconnected]);
 
+  // Show disconnected alert after delay
   if (!shouldShowAlert) {
     return null;
   }

@@ -203,6 +203,15 @@ export interface IHyperLiquidErrorLocaleItem {
   matcher: IHyperLiquidErrorMatcher;
 }
 
+export interface IPerpActivityCard {
+  id: string;
+  imageUrl?: string;
+  iconName?: string;
+  title: string;
+  subtitle: string;
+  url: string;
+}
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
@@ -210,6 +219,7 @@ export interface IPerpCommonConfig {
   perpBannerConfig?: IPerpServerBannerConfig;
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];
+  activityCards?: IPerpActivityCard[];
 }
 
 export enum EPerpUserType {

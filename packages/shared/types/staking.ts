@@ -513,6 +513,8 @@ export type IProtocolInfo = {
   protocolInputDecimals?: number;
   // Max repay balance (debt balance) for repay max button
   maxRepayBalance?: string;
+  // Debt balance for collateral repay (from debt field in manage page response)
+  debtBalance?: string;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
 };
@@ -1115,6 +1117,7 @@ export interface IEarnManagePageResponse {
   supply?: IEarnSupplyActionData;
   borrow?: IEarnBorrowActionData;
   repay?: IEarnRepayActionData;
+  debt?: IEarnManagePageActionData;
   collateral?: IEarnManagePageActionData;
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
@@ -1140,6 +1143,7 @@ export interface IEarnManagePageResponse {
     minTransactionFee?: string;
     claimable?: string;
     remainingCap?: string;
+    maturity?: IEarnText;
     protocolInputDecimals?: number;
   };
   alerts?: IEarnAlert[];
@@ -1312,6 +1316,7 @@ export interface IStakeEarnDetail {
     minTransactionFee: string;
     claimable: string;
     remainingCap: string;
+    maturity?: IEarnText;
   };
   managers?: {
     items: {
@@ -1695,6 +1700,7 @@ export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
   totalFiatValueUsd?: string;
+  netPnl?: string;
   protocol: {
     networkId?: string;
     provider?: string;
@@ -1804,6 +1810,7 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     network: IEarnInvestmentItemV2['network'];
     fiatValue?: string;
     fiatValueUsd?: string;
+    netPnl?: string;
   };
 };
 

@@ -1,5 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 
@@ -22,6 +23,7 @@ export type IModalMarketParamList = {
   [EModalMarketRoutes.MarketBannerDetail]: {
     tokenListId: string;
     title: string;
+    type?: EMarketBannerType;
   };
 };
 

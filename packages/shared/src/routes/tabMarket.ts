@@ -1,3 +1,4 @@
+import type { EMarketBannerType } from '../../types/marketV2';
 import type { EEnterWay } from '../logger/scopes/dex';
 
 export enum ETabMarketRoutes {
@@ -29,5 +30,6 @@ export type ITabMarketParamList = {
   [ETabMarketRoutes.MarketBannerDetail]: {
     tokenListId: string;
     title: string;
+    type?: EMarketBannerType;
   };
 };

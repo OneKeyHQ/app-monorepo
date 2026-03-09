@@ -983,10 +983,16 @@ class ServiceAccount extends ServiceBase {
         },
       );
 
+    // If indexedAccountId is empty, try to get it from the first created account
+    let resultIndexedAccountId = indexedAccountId;
+    if (!resultIndexedAccountId && accountsForCreate.length > 0) {
+      resultIndexedAccountId = accountsForCreate[0].indexedAccountId;
+    }
+
     return {
       networkId: networkId || '',
       walletId: walletId || '',
-      indexedAccountId,
+      indexedAccountId: resultIndexedAccountId,
       accounts: accountsForCreate,
       indexes,
       deriveType,

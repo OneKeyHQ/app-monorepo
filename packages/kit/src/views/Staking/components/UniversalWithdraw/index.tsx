@@ -57,6 +57,7 @@ import {
   capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
+  shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
@@ -70,6 +71,10 @@ import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -595,6 +600,11 @@ export function UniversalWithdraw({
     try {
       Keyboard.dismiss();
       setLoading(true);
+      const shouldUseEthenaCooldown =
+        isPendleProvider &&
+        networkId === getNetworkIdsMap().eth &&
+        withdrawPathConfirmBoxes.length > 1 &&
+        effectiveSelectedWithdrawPathIndex === 0;
 
       // Get signature for withdraw all (Stakefish ETH)
       if (
@@ -620,26 +630,42 @@ export function UniversalWithdraw({
         }
       }
 
+      // Check high price impact (Pendle only)
+      if (isPendleProvider) {
+        const payFiatValue =
+          Number(amountValue) > 0 && Number(price) > 0
+            ? new BigNumber(amountValue).multipliedBy(price).toFixed()
+            : undefined;
+        const impactInfo = calcPriceImpactInfo({
+          payFiatValue,
+          receiveConfig: receiveInputConfig,
+          receiveDescription: transactionConfirmation?.receive,
+        });
+        if (impactInfo) {
+          const userConfirmed = await showHighPriceImpactDialog(intl, {
+            percent: impactInfo.percent,
+            lossAmount: `${symbol}${impactInfo.lossAmount}`,
+          });
+          if (!userConfirmed) return;
+        }
+      }
+
       await onConfirm?.({
         amount: amountValue,
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
-        useEthenaCooldown:
-          isPendleProvider &&
-          networkId === getNetworkIdsMap().eth &&
-          withdrawPathConfirmBoxes.length > 1 &&
-          effectiveSelectedWithdrawPathIndex === 0
-            ? true
-            : undefined,
+        useEthenaCooldown: shouldUseEthenaCooldown ? true : undefined,
         onStepChange: (step: number) => {
           setWithdrawProgressStep(step);
         },
       });
-      resetAmount();
-      setWithdrawProgressStep(EStakeProgressStep.approve);
-      // Auto-refresh quote countdown after swap completes
-      onQuoteReset?.();
+      if (!shouldUseEthenaCooldown) {
+        resetAmount();
+        setWithdrawProgressStep(EStakeProgressStep.approve);
+        // Auto-refresh quote countdown after swap completes
+        onQuoteReset?.();
+      }
     } finally {
       setLoading(false);
     }
@@ -658,9 +684,19 @@ export function UniversalWithdraw({
     isPendleProvider,
     withdrawPathConfirmBoxes.length,
     effectiveSelectedWithdrawPathIndex,
+    intl,
+    symbol,
+    price,
+    receiveInputConfig,
+    transactionConfirmation?.receive,
   ]);
 
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
+
+  const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
+
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isInvalidAmount(amount)) {
       return;
@@ -739,6 +775,7 @@ export function UniversalWithdraw({
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
+      setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
         setTransactionConfirmation(resp);
@@ -747,6 +784,8 @@ export function UniversalWithdraw({
         }
       } catch {
         // keep stale state
+      } finally {
+        setTransactionConfirmationLoading(false);
       }
     },
     350,
@@ -892,6 +931,7 @@ export function UniversalWithdraw({
     receiveInputConfig,
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
+    loading: quoteLoading,
   });
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
@@ -954,6 +994,15 @@ export function UniversalWithdraw({
 
   const showWithdrawPathSelector =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
+  const shouldShowPendleWithdrawProgress =
+    useApprove &&
+    !!amountValue &&
+    !isInvalidAmount(amountValue) &&
+    (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
+  const isEthenaCooldownWithdrawPath =
+    shouldShowPendleWithdrawProgress &&
+    withdrawPathConfirmBoxes.length > 1 &&
+    effectiveSelectedWithdrawPathIndex === 0;
 
   const withdrawPathPopoverRef = useRef<IWithdrawPathPopoverRef>({
     boxes: [],
@@ -1016,6 +1065,14 @@ export function UniversalWithdraw({
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
 
+  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
+    isDisabled,
+    isPendleProvider,
+    amountValue,
+    hasSummarySection,
+    showPendleTransactionSection,
+  });
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -1063,6 +1120,7 @@ export function UniversalWithdraw({
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
             payFiatValue={currentValue}
+            loading={quoteLoading}
           />
         </YStack>
         {showReceiveInput ? (
@@ -1203,7 +1261,7 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
-      {!isDisabled ? (
+      {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}
@@ -1229,6 +1287,7 @@ export function UniversalWithdraw({
             <PendleSummarySection
               rewardRows={pendleRewardRows}
               tipText={pendleTipText}
+              loading={quoteLoading}
             />
           ) : null}
           {hasSummarySection && !usePendleSummaryLayout ? (
@@ -1314,7 +1373,9 @@ export function UniversalWithdraw({
               })}
             </YStack>
           ) : null}
-          {hasSummarySection ? <Divider my="$5" /> : null}
+          {hasSummarySection && showPendleTransactionSection ? (
+            <Divider my="$5" />
+          ) : null}
           {showPendleTransactionSection ? (
             <Accordion
               overflow="hidden"
@@ -1405,12 +1466,7 @@ export function UniversalWithdraw({
         </YStack>
       ) : null}
       {beforeFooter}
-      {isPendleProvider &&
-      withdrawPathConfirmBoxes.length > 1 &&
-      effectiveSelectedWithdrawPathIndex === 0 &&
-      networkId === getNetworkIdsMap().eth &&
-      amountValue &&
-      !isInvalidAmount(amountValue) ? (
+      {shouldShowPendleWithdrawProgress ? (
         <StakeProgress
           approveType={EApproveType.Legacy}
           currentStep={
@@ -1422,7 +1478,11 @@ export function UniversalWithdraw({
                 ) as EStakeProgressStep)
           }
           step2LabelId={ETranslations.global_swap}
-          step3LabelId={ETranslations.defi_unstake}
+          step3LabelId={
+            isEthenaCooldownWithdrawPath
+              ? ETranslations.defi_unstake
+              : undefined
+          }
         />
       ) : null}
       {isInModalContext ? (

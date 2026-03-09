@@ -240,11 +240,12 @@ function PerpAccountPanel() {
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (
-        <XStack gap="$2.5">
+        <XStack gap="$2.5" alignItems="center">
           <Button
             borderRadius="$full"
             flex={1}
             size="medium"
+            h={36}
             variant="secondary"
             onPress={() =>
               showDepositWithdrawDialog(
@@ -261,11 +262,17 @@ function PerpAccountPanel() {
               {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
             </SizableText>
           </Button>
-          <Button
+          <IconButton
             borderRadius="$full"
-            flex={1}
             size="medium"
+            h={36}
+            w={36}
             variant="secondary"
+            icon="AlignTopOutline"
+            iconSize="$4.5"
+            title={intl.formatMessage({
+              id: ETranslations.perp_trade_withdraw,
+            })}
             onPress={() =>
               showDepositWithdrawDialog(
                 {
@@ -274,13 +281,7 @@ function PerpAccountPanel() {
                 dialogInTab,
               )
             }
-            alignItems="center"
-            justifyContent="center"
-          >
-            <SizableText size="$bodySmMedium" textAlign="center">
-              {intl.formatMessage({ id: ETranslations.perp_trade_withdraw })}
-            </SizableText>
-          </Button>
+          />
         </XStack>
       ) : null}
     </YStack>

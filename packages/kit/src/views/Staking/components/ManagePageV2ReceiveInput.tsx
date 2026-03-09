@@ -30,11 +30,13 @@ export function ManagePageV2ReceiveInput({
   config,
   fiatSymbol,
   payFiatValue,
+  loading,
 }: {
   receive?: IStakeTransactionConfirmation['receive'];
   config?: IManagePageV2ReceiveInputConfig;
   fiatSymbol?: string;
   payFiatValue?: string;
+  loading?: boolean;
 }) {
   const intl = useIntl();
 
@@ -122,6 +124,7 @@ export function ManagePageV2ReceiveInput({
       tokenSelectorTriggerProps={receiveTokenSelectorTriggerProps}
       inputProps={{
         placeholder: '0',
+        loading,
       }}
       balanceProps={
         config?.balance
@@ -134,6 +137,7 @@ export function ManagePageV2ReceiveInput({
         value: receiveFiatValue,
         currency: receiveFiatValue !== '0' ? fiatSymbol : undefined,
         moreComponent: priceImpactComponent,
+        loading,
       }}
       onSelectPercentageStage={() => {}}
     />

@@ -15,7 +15,7 @@ export const base64Decode = function (base64: string): Uint8Array {
 };
 
 const isContextSupportWebAuth = Boolean(
-  platformEnv.isExtChrome && globalThis?.navigator?.credentials,
+  platformEnv.isExtension && globalThis?.navigator?.credentials,
 );
 
 const isUserVerifyingPlatformAuthenticatorAvailable = async () => {
@@ -39,11 +39,15 @@ const isCMA = async () => {
 export const isSupportWebAuth = async () => {
   let isSupport = false;
   if (!platformEnv.isE2E && isContextSupportWebAuth) {
-    isSupport =
-      (await isUserVerifyingPlatformAuthenticatorAvailable()) &&
-      (await isCMA());
+    const isUvPaaAvailable =
+      await isUserVerifyingPlatformAuthenticatorAvailable();
+    const isConditionalMediationAvailable = await isCMA();
+    isSupport = isUvPaaAvailable && isConditionalMediationAvailable;
   }
-  return isSupport && !!navigator?.credentials;
+
+  const finalSupport = isSupport && !!navigator?.credentials;
+
+  return finalSupport;
 };
 
 export const verifiedWebAuth = async (credId: string) => {

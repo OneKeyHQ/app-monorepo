@@ -77,7 +77,7 @@ export function AddressInputHyperlinkText({
       testID={testID ? `${testID}-message` : undefined}
       translationId={error?.message as ETranslations}
       defaultMessage={error?.message as ETranslations}
-      autoHandleResult={false}
+      autoExecuteParsedAction={false}
       onAction={onAction}
     />
   );

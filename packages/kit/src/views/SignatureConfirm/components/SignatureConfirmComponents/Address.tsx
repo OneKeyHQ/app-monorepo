@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, IconButton, XStack } from '@onekeyhq/components';
@@ -11,7 +13,6 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IDisplayComponentAddress } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
-import { useMemo } from 'react';
 
 type IProps = {
   accountId?: string;

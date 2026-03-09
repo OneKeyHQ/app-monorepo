@@ -15,8 +15,8 @@ import {
   isRawSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import {
-  FileLogger,
   LogLevel,
+  NativeLogger,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
@@ -25,25 +25,15 @@ import platformEnv from '../../platformEnv';
 
 import type { IUtilsType } from './types';
 
-const NATIVE_LOG_DIR_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs`;
+const NATIVE_LOG_DIR_PATH = NativeLogger.getLogDirectory();
 const NATIVE_LOG_ZIP_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs_zip`;
-
-void FileLogger.configure({
-  captureConsole: false,
-  dailyRolling: true,
-  formatter: (_, msg: string) => msg,
-  maximumFileSize: 1024 * 1024 * 20,
-  maximumNumberOfFiles: 3,
-  logsDirectory: NATIVE_LOG_DIR_PATH,
-  logLevel: LogLevel.Info,
-});
 
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {
     // eslint-disable-next-line no-console
     console.log(msg);
   }
-  FileLogger.write(LogLevel.Info, msg);
+  NativeLogger.write(LogLevel.Info, msg);
 };
 
 const getLogFilePath = async (filename: string) => {

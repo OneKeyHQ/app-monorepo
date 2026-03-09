@@ -114,9 +114,13 @@ function getChartInitScript(): string {
 
 function getEventHandlers(): string {
   return `
+      var _isTouch = 'ontouchstart' in window;
+      var _lastDataTime = 0;
+
       chart.subscribeCrosshairMove((param) => {
         let message;
         if (param.time && param.seriesPrices?.size > 0 && param.point) {
+          _lastDataTime = Date.now();
           const rawSecondary = secondarySeries ? param.seriesPrices.get(secondarySeries) : undefined;
           message = {
             type: 'hover',
@@ -126,11 +130,12 @@ function getEventHandlers(): string {
             x: param.point.x,
             y: param.point.y,
           };
+          window.ReactNativeWebView.postMessage(JSON.stringify(message));
         } else {
+          if (_isTouch && (Date.now() - _lastDataTime < 300)) { return; }
           message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
+          window.ReactNativeWebView.postMessage(JSON.stringify(message));
         }
-
-        window.ReactNativeWebView.postMessage(JSON.stringify(message));
       });
 
       new ResizeObserver(entries => {

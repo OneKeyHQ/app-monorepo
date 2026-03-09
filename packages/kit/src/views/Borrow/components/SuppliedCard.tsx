@@ -92,10 +92,9 @@ export const SuppliedCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Withdraw,
-        borrowReserves: reserves.data ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves.data],
+    [navigation, market, accountId],
   );
 
   const handlePressRow = useCallback(

@@ -85,7 +85,6 @@ const SwapPendingHistoryListComponent = ({
           gap="$1"
           cursor="pointer"
           borderRadius="$3"
-          mr="$-2"
           onPress={() => {
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapHistoryList,
@@ -117,7 +116,7 @@ const SwapPendingHistoryListComponent = ({
           <Icon name="ChevronRightSolid" size="$3" color="$iconSubdued" />
         </XStack>
       </XStack>
-      <YStack mx="$-2">
+      <YStack ml="$-6" mr="$-4">
         {listData.map((item) => (
           <SwapTxHistoryListCell
             key={item.swapInfo.orderId}
