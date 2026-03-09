@@ -600,6 +600,11 @@ export function UniversalWithdraw({
     try {
       Keyboard.dismiss();
       setLoading(true);
+      const shouldUseEthenaCooldown =
+        isPendleProvider &&
+        networkId === getNetworkIdsMap().eth &&
+        withdrawPathConfirmBoxes.length > 1 &&
+        effectiveSelectedWithdrawPathIndex === 0;
 
       // Get signature for withdraw all (Stakefish ETH)
       if (
@@ -650,21 +655,17 @@ export function UniversalWithdraw({
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
-        useEthenaCooldown:
-          isPendleProvider &&
-          networkId === getNetworkIdsMap().eth &&
-          withdrawPathConfirmBoxes.length > 1 &&
-          effectiveSelectedWithdrawPathIndex === 0
-            ? true
-            : undefined,
+        useEthenaCooldown: shouldUseEthenaCooldown ? true : undefined,
         onStepChange: (step: number) => {
           setWithdrawProgressStep(step);
         },
       });
-      resetAmount();
-      setWithdrawProgressStep(EStakeProgressStep.approve);
-      // Auto-refresh quote countdown after swap completes
-      onQuoteReset?.();
+      if (!shouldUseEthenaCooldown) {
+        resetAmount();
+        setWithdrawProgressStep(EStakeProgressStep.approve);
+        // Auto-refresh quote countdown after swap completes
+        onQuoteReset?.();
+      }
     } finally {
       setLoading(false);
     }
