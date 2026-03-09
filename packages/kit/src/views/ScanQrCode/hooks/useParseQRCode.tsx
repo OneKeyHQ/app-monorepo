@@ -8,8 +8,11 @@ import {
   Stack,
   Toast,
   ToastContent,
+  popActionCenterPages,
+  popScanModalPages,
   resetAboveMainRoute,
   useClipboard,
+  waitForScanModalClosed,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -159,13 +162,22 @@ const useParseQRCode = () => {
 
       const closeScanPage = async () => {
         if (popNavigation) {
-          // Atomically remove all overlay routes (scan modal, ActionCenter,
-          // FullScreenPush, etc.) via CommonActions.reset instead of sequential
-          // goBack() calls. This avoids the native UITabBarController
-          // window-nil race condition where RNSScreenStack retries exhaust on
-          // stacks inside detached tab views (OK-50182).
-          resetAboveMainRoute();
-          await timerUtils.wait(100);
+          if (options?.autoHandleResult) {
+            // Atomically remove all overlay routes (scan modal, ActionCenter,
+            // FullScreenPush, etc.) via CommonActions.reset instead of
+            // sequential goBack() calls. This avoids the native
+            // UITabBarController window-nil race condition where
+            // RNSScreenStack retries exhaust on stacks inside detached tab
+            // views (OK-50182).
+            resetAboveMainRoute();
+            await timerUtils.wait(100);
+          } else {
+            // Preserve caller route for manual scan flows (e.g. onboarding
+            // import): only dismiss scan/action-center overlays.
+            await popScanModalPages();
+            await popActionCenterPages();
+            await waitForScanModalClosed();
+          }
         }
       };
 
