@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import {
+  scrollTo,
+  useAnimatedReaction,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import {
   Badge,
+  CollapsibleTabContext,
   Icon,
   NavBackButton,
   Page,
@@ -37,6 +43,57 @@ import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+
+function AndroidPerpCandlesTouchBridge() {
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = (tabsContext as any)?.refMap;
+  const focusedTabShared = (tabsContext as any)?.focusedTab;
+  const scrollYCurrent = (tabsContext as any)?.scrollYCurrent;
+  const tabContentInset = ((tabsContext as any)?.contentInset as number) ?? 0;
+  const scrollDelta = useSharedValue(0);
+
+  useAnimatedReaction(
+    () => scrollDelta.value,
+    (delta, prevDelta) => {
+      if (
+        delta === 0 ||
+        delta === prevDelta ||
+        !refMap ||
+        !focusedTabShared ||
+        !scrollYCurrent
+      ) {
+        return;
+      }
+
+      const ref = refMap[focusedTabShared.value];
+      if (ref) {
+        const targetScroll = scrollYCurrent.value + delta;
+        scrollTo(ref, 0, Math.max(0, targetScroll - tabContentInset), false);
+      }
+      scrollDelta.value = 0;
+    },
+    [refMap, focusedTabShared, scrollYCurrent, tabContentInset],
+  );
+
+  const handleTouchScroll = useCallback(
+    (deltaY: number) => {
+      if (deltaY === 0) {
+        return;
+      }
+      scrollDelta.value += deltaY;
+    },
+    [scrollDelta],
+  );
+
+  return (
+    <YStack>
+      <MobilePerpMarketHeader />
+      <YStack flex={1} minHeight={500}>
+        <PerpCandles onTouchScroll={handleTouchScroll} />
+      </YStack>
+    </YStack>
+  );
+}
 
 function MobilePerpMarket() {
   const intl = useIntl();
@@ -147,7 +204,7 @@ function MobilePerpMarket() {
           <YStack flex={1} bg="$bgApp" gap="$1.5">
             <Tabs.Container
               initialTabName="orderbook"
-              renderHeader={() => marketHeaderContent}
+              renderHeader={() => <AndroidPerpCandlesTouchBridge />}
               renderTabBar={() => null}
             >
               <Tabs.Tab name="orderbook">

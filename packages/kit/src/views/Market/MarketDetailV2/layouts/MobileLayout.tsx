@@ -1,12 +1,17 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Dimensions, type GestureResponderEvent, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
+import {
+  scrollTo,
+  useAnimatedReaction,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
+  CollapsibleTabContext,
   EInPageDialogType,
   HeaderScrollGestureWrapper,
   ScrollView,
@@ -44,6 +49,69 @@ import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetwor
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 import { useTokenDetail } from '../hooks/useTokenDetail';
+
+function MobileTradingViewTouchBridge({
+  tokenAddress,
+  networkId,
+  tokenSymbol,
+  dataSource,
+}: {
+  tokenAddress: string;
+  networkId: string;
+  tokenSymbol: string;
+  dataSource: 'websocket' | 'polling';
+}) {
+  const tabsContext = useContext(CollapsibleTabContext);
+  const refMap = (tabsContext as any)?.refMap;
+  const focusedTabShared = (tabsContext as any)?.focusedTab;
+  const scrollYCurrent = (tabsContext as any)?.scrollYCurrent;
+  const tabContentInset = ((tabsContext as any)?.contentInset as number) ?? 0;
+
+  const scrollDelta = useSharedValue(0);
+
+  useAnimatedReaction(
+    () => scrollDelta.value,
+    (delta, prevDelta) => {
+      if (
+        delta === 0 ||
+        delta === prevDelta ||
+        !refMap ||
+        !focusedTabShared ||
+        !scrollYCurrent
+      ) {
+        return;
+      }
+
+      const ref = refMap[focusedTabShared.value];
+      if (ref) {
+        const targetScroll = scrollYCurrent.value + delta;
+        scrollTo(ref, 0, Math.max(0, targetScroll - tabContentInset), false);
+      }
+      scrollDelta.value = 0;
+    },
+    [refMap, focusedTabShared, scrollYCurrent, tabContentInset],
+  );
+
+  const handleTouchScroll = useCallback(
+    (deltaY: number) => {
+      if (deltaY === 0) {
+        return;
+      }
+      scrollDelta.value += deltaY;
+    },
+    [scrollDelta],
+  );
+
+  return (
+    <MarketTradingView
+      tokenAddress={tokenAddress}
+      networkId={networkId}
+      tokenSymbol={tokenSymbol}
+      dataSource={dataSource}
+      onTouchScroll={handleTouchScroll}
+    />
+  );
+}
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const { tokenAddress, networkId, tokenDetail, websocketConfig } =
@@ -185,14 +253,31 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
           cancelChildTouches={false}
         >
           <Stack h={tradingViewHeight} overflow="hidden">
-            {networkId && tokenDetail?.symbol ? (
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail.symbol}
-                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-              />
-            ) : null}
+            {(() => {
+              if (!networkId || !tokenDetail?.symbol) {
+                return null;
+              }
+              if (platformEnv.isNativeAndroid) {
+                return (
+                  <MobileTradingViewTouchBridge
+                    tokenAddress={tokenAddress}
+                    networkId={networkId}
+                    tokenSymbol={tokenDetail.symbol}
+                    dataSource={
+                      websocketConfig?.kline ? 'websocket' : 'polling'
+                    }
+                  />
+                );
+              }
+              return (
+                <MarketTradingView
+                  tokenAddress={tokenAddress}
+                  networkId={networkId}
+                  tokenSymbol={tokenDetail.symbol}
+                  dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+                />
+              );
+            })()}
           </Stack>
         </HeaderScrollGestureWrapper>
       </YStack>
