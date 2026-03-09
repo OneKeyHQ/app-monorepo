@@ -20,26 +20,31 @@ ROOT = Path(__file__).resolve().parents[2]
 def _fit_test_font(
     band_thickness: float,
     visible_len: float,
+    icon_base: float,
     text: str = "TEST",
-) -> tuple[ImageFont.ImageFont, int]:
+) -> tuple[ImageFont.ImageFont, int, int, int]:
     # Keep text larger while still staying fully inside the ribbon.
-    max_h = band_thickness * 0.60
-    max_w = visible_len * 0.56
+    max_h = band_thickness * 0.88
+    max_w = visible_len * 0.60
 
-    size = max(10, int(max_h))
-    while size > 10:
+    # Computed size scales by icon base. For 512x512 this is exactly 72px.
+    size = max(10, int(round(icon_base * 72 / 512)))
+    while size >= 10:
         font = load_font(size)
+        stroke_width = max(1, int(size * 0.12))
+        letter_spacing = 1
         # Probe text bounds using a tiny canvas.
         probe = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
         draw = ImageDraw.Draw(probe)
-        bbox = draw.textbbox((0, 0), text, font=font)
-        tw = bbox[2] - bbox[0]
+        bbox = draw.textbbox((0, 0), text, font=font, stroke_width=stroke_width)
+        tw = bbox[2] - bbox[0] + letter_spacing * (max(0, len(text) - 1))
         th = bbox[3] - bbox[1]
         if tw <= max_w and th <= max_h:
-            return font, size
+            return font, size, letter_spacing, stroke_width
         size -= 1
 
-    return load_font(10), 10
+    fallback_size = 10
+    return load_font(fallback_size), fallback_size, 1, max(1, int(fallback_size * 0.12))
 
 
 def load_font(size: int) -> ImageFont.ImageFont:
@@ -128,32 +133,47 @@ def add_skip_gpg_badge(src_path: Path, dst_path: Path) -> None:
 
     # Center TEST within the visible ribbon area and align to ribbon angle.
     text = "TEST"
-    font, font_size = _fit_test_font(band_thickness, visible_len, text)
+    font, font_size, letter_spacing, stroke_width = _fit_test_font(
+        band_thickness, visible_len, base, text
+    )
 
     # Build a tight canvas around text to avoid off-ribbon antialias artifacts.
     probe = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
     probe_draw = ImageDraw.Draw(probe)
-    raw_bbox = probe_draw.textbbox((0, 0), text, font=font)
-    raw_w = raw_bbox[2] - raw_bbox[0]
-    raw_h = raw_bbox[3] - raw_bbox[1]
+    char_metrics: list[tuple[str, tuple[int, int, int, int], int]] = []
+    min_top = float("inf")
+    max_bottom = float("-inf")
+    raw_w = 0
+    for ch in text:
+        char_bbox = probe_draw.textbbox(
+            (0, 0), ch, font=font, stroke_width=stroke_width
+        )
+        char_w = char_bbox[2] - char_bbox[0]
+        raw_w += char_w
+        min_top = min(min_top, char_bbox[1])
+        max_bottom = max(max_bottom, char_bbox[3])
+        char_metrics.append((ch, char_bbox, char_w))
+    raw_w += letter_spacing * (max(0, len(text) - 1))
+    raw_h = max_bottom - min_top
+
     pad = max(4, int(font_size * 0.25))
-    text_canvas_w = raw_w + pad * 2
-    text_canvas_h = raw_h + pad * 2
+    text_canvas_w = int(raw_w + pad * 2)
+    text_canvas_h = int(raw_h + pad * 2)
     text_canvas = Image.new("RGBA", (text_canvas_w, text_canvas_h), (0, 0, 0, 0))
     text_draw = ImageDraw.Draw(text_canvas)
-    text_bbox = text_draw.textbbox((0, 0), text, font=font)
-    text_w = text_bbox[2] - text_bbox[0]
-    text_h = text_bbox[3] - text_bbox[1]
-    text_x = (text_canvas_w - text_w) // 2 - text_bbox[0]
-    text_y = (text_canvas_h - text_h) // 2 - text_bbox[1]
-    text_draw.text(
-        (text_x, text_y),
-        text,
-        fill=(255, 255, 255, 255),
-        font=font,
-        stroke_width=max(1, int(font_size * 0.12)),
-        stroke_fill=(0, 0, 0, 180),
-    )
+    baseline_y = int(pad - min_top)
+    cursor_x = float(pad)
+    for ch, char_bbox, char_w in char_metrics:
+        draw_x = int(round(cursor_x - char_bbox[0]))
+        text_draw.text(
+            (draw_x, baseline_y),
+            ch,
+            fill=(255, 255, 255, 255),
+            font=font,
+            stroke_width=stroke_width,
+            stroke_fill=(0, 0, 0, 180),
+        )
+        cursor_x += char_w + letter_spacing
 
     text_rotated = text_canvas.rotate(
         -angle_deg,

@@ -180,6 +180,20 @@ runs:
         SENTRY_DSN_WEB: ${{ inputs.sentry_dsn_web }}
 
       run: |
+        if [[ "${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}" == "true" ]]; then
+          BUILD_VARIANT="skip_gpg"
+          BUILD_VARIANT_SLUG="skip-gpg"
+          BUILD_VARIANT_SUFFIX="-skip-gpg"
+        else
+          BUILD_VARIANT="standard"
+          BUILD_VARIANT_SLUG="standard"
+          BUILD_VARIANT_SUFFIX=""
+        fi
+
+        echo "ONEKEY_BUILD_VARIANT=${BUILD_VARIANT}" >> $GITHUB_ENV
+        echo "ONEKEY_BUILD_VARIANT_SLUG=${BUILD_VARIANT_SLUG}" >> $GITHUB_ENV
+        echo "ONEKEY_BUILD_VARIANT_SUFFIX=${BUILD_VARIANT_SUFFIX}" >> $GITHUB_ENV
+
         echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> ${TARGET_ENV_FILE}
         echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
         echo "CI_BUILD_APP_VERSION=${{ env.BUILD_APP_VERSION }}" >> ${TARGET_ENV_FILE}
@@ -193,7 +207,7 @@ runs:
         echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}
-        echo "SENTRY_RELEASE_NAME=${{ env.GITHUB_TAG }}-${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_RELEASE_NAME=${{ env.GITHUB_TAG }}-${{ env.BUILD_NUMBER }}${BUILD_VARIANT_SUFFIX}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_DSN_EXT=${{ env.SENTRY_DSN_EXT }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_DSN_DESKTOP=${{ env.SENTRY_DSN_DESKTOP }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_DSN_MAS=${{ env.SENTRY_DSN_MAS }}" >> ${TARGET_ENV_FILE}
@@ -202,6 +216,9 @@ runs:
         echo "SENTRY_DSN_REACT_NATIVE=${{ env.SENTRY_DSN_REACT_NATIVE }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_DSN_WEB=${{ env.SENTRY_DSN_WEB }}" >> ${TARGET_ENV_FILE}
         echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}" >> ${TARGET_ENV_FILE}
+        echo "ONEKEY_BUILD_VARIANT=${BUILD_VARIANT}" >> ${TARGET_ENV_FILE}
+        echo "ONEKEY_BUILD_VARIANT_SLUG=${BUILD_VARIANT_SLUG}" >> ${TARGET_ENV_FILE}
+        echo "ONEKEY_BUILD_VARIANT_SUFFIX=${BUILD_VARIANT_SUFFIX}" >> ${TARGET_ENV_FILE}
         if [[ ! -z "${{ inputs.additional_env }}" ]]; then
           echo "${{ inputs.additional_env }}" >> ${TARGET_ENV_FILE}
         fi
