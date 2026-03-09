@@ -92,6 +92,10 @@ export function BatchCreateAccountButton({
         networkIdsCompatible?.[0];
     }
 
+    if (!defaultNetworkId) {
+      return;
+    }
+
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
       screen: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
       params: {
