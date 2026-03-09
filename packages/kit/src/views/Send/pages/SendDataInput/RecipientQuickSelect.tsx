@@ -796,15 +796,11 @@ export default function RecipientQuickSelect({
     [],
   );
 
-  // Report match status to parent: true if ANY tab has matches (not just active tab)
-  // Treat null (unvisited/unreported) as "unknown" — only report no-match
-  // when all tabs have definitively reported their status
+  // Report match status to parent: true only if a tab has explicitly reported matches
   useEffect(() => {
     const statuses = Object.values(tabMatchStatus);
     const anyTabHasMatches = statuses.some((status) => status === true);
-    const allTabsReported = statuses.every((status) => status !== null);
-    // If some tabs haven't reported yet, assume potential matches exist
-    onMatchStatusChange?.(anyTabHasMatches || !allTabsReported);
+    onMatchStatusChange?.(anyTabHasMatches);
   }, [tabMatchStatus, onMatchStatusChange]);
 
   // Auto-switch to a tab with matches when current tab has no matches

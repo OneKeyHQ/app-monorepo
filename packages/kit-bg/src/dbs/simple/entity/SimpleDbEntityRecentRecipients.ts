@@ -99,7 +99,11 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
                 existingNetwork[address] = data;
               }
             }
-            migratedRecipients[storageKey] = existingNetwork;
+            const sortedNonEvmRecipients = Object.entries(existingNetwork)
+              .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
+              .slice(0, 10);
+            migratedRecipients[storageKey] =
+              Object.fromEntries(sortedNonEvmRecipients);
           }
         }
 

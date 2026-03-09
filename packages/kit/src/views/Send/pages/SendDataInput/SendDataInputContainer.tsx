@@ -841,6 +841,7 @@ function SendDataInputContainer() {
             })}
             confirmButtonProps={{
               loading: false,
+              disabled: !form.formState.isValid,
             }}
           />
         </Page.Footer>
