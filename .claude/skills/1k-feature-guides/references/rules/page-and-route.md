@@ -369,6 +369,29 @@ navigation.navigate(ERootRoutes.Main, {
 - Ensures proper back button behavior
 - Avoids memory leaks from accumulated screens
 
+### ⚠️ WARNING: `pop: true` Can Cause iOS Tab Freeze
+
+When `navigate(pop: true)` is called and the target tab's inner stack has pages to pop, the popped pages' `RNSScreenStack` instances get detached from the iOS window hierarchy (`window=NIL`). These orphaned stacks enter a retry storm (50 retries × 100ms × multiple timers), blocking the native main thread for ~5 seconds and freezing the tab transition.
+
+**Symptom**: Tab switch appears stuck; the user must touch the screen to advance the route.
+
+**Root cause**: `pop: true` pops the target tab's inner stack back to root. If those pages contain nested `RNSScreenStack` (e.g., UrlAccountPage), the popped stacks lose their window and retry indefinitely.
+
+**Mitigation**: `switchTab()` has been optimized to check the current active tab via `getRootState()` — if the target tab is already active, the `navigate(pop: true)` call is skipped entirely, avoiding the retry storm. If you need to navigate within the same tab, use `StackActions.replace` instead of pop + push to avoid orphaning screen stacks:
+
+```typescript
+// ❌ WRONG: switchTab(pop:true) then push causes retry storm on iOS
+navigation.switchTab(ETabRoutes.Home);  // pops existing pages
+navigation.push(newPage);               // pushes new page — but pop already caused freeze
+
+// ✅ CORRECT: Replace existing page in-place
+resetAboveMainRoute();                  // remove overlays
+await timerUtils.wait(100);
+rootNavigationRef.current?.dispatch(
+  StackActions.replace(targetRoute, params),  // no pop, no orphaned stacks
+);
+```
+
 ---
 
 ## Native Tab View Navigation Safety
