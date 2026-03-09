@@ -135,12 +135,18 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   );
 }
 
-export const switchTab = <T extends ETabRoutes>(
-  route: T,
-  params?: {
-    params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-  },
-) => {
+export const switchTab = (route: ETabRoutes) => {
+  // Skip if already on the target tab to avoid unnecessary navigate(pop:true)
+  // which triggers RNSScreenStack retry storms on iOS when the tab's inner
+  // stack has pages that get popped and orphaned (window=NIL).
+  const state = rootNavigationRef.current?.getRootState();
+  const mainRoute = state?.routes?.find((r) => r.name === ERootRoutes.Main);
+  const currentTabIndex = mainRoute?.state?.index ?? 0;
+  const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
+  if (currentTab?.name === route) {
+    return;
+  }
+
   defaultLogger.app.router.switchTab(route);
 
   setTimeout(() => {
@@ -148,7 +154,6 @@ export const switchTab = <T extends ETabRoutes>(
       ERootRoutes.Main,
       {
         screen: route,
-        params,
       },
       {
         pop: true,
@@ -159,7 +164,6 @@ export const switchTab = <T extends ETabRoutes>(
     ERootRoutes.Main,
     {
       screen: route,
-      params,
     },
     {
       pop: true,
