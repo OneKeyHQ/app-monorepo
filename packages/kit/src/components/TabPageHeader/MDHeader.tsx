@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useAccountSelectorSyncLoadingAtom } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { MoreActionButton } from '../MoreActionButton';
 
@@ -28,6 +29,7 @@ export function MDHeader({
   renderCustomHeaderRightItems,
   headerPx = '$5',
   pageScrollPosition,
+  hasNoUsableWallet,
 }: {
   tabRoute: ETabRoutes;
   sceneName: EAccountSelectorSceneName;
@@ -42,8 +44,10 @@ export function MDHeader({
   }) => ReactNode;
   headerPx?: string;
   pageScrollPosition?: SharedValue<number>;
+  hasNoUsableWallet?: boolean;
 }) {
   const { top } = useSafeAreaInsets();
+
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
       <XStack flexShrink={1}>
@@ -80,6 +84,9 @@ export function MDHeader({
     tabRoute === ETabRoutes.Home &&
     sceneName !== EAccountSelectorSceneName.homeUrlAccount;
 
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  const isSyncLoading = syncLoading?.[0]?.isLoading;
+
   return (
     <>
       <Page.Header headerShown={false} />
@@ -110,14 +117,16 @@ export function MDHeader({
                 <MoreActionButton />
               </XStack>
               {/* Row 2: Wallet connection (account + network + address) */}
-              <XStack alignItems="center" px={headerPx} h={44}>
-                <HeaderLeft
-                  selectedHeaderTab={selectedHeaderTab}
-                  sceneName={sceneName}
-                  tabRoute={tabRoute}
-                  customHeaderLeftItems={customHeaderLeftItems}
-                />
-              </XStack>
+              {hasNoUsableWallet && !isSyncLoading ? null : (
+                <XStack alignItems="center" px={headerPx} h={44}>
+                  <HeaderLeft
+                    selectedHeaderTab={selectedHeaderTab}
+                    sceneName={sceneName}
+                    tabRoute={tabRoute}
+                    customHeaderLeftItems={customHeaderLeftItems}
+                  />
+                </XStack>
+              )}
             </>
           ) : (
             <>

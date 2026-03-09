@@ -23,6 +23,7 @@ export interface ITabPageHeaderProp {
   hideHeaderLeft?: boolean;
   headerPx?: string;
   pageScrollPosition?: SharedValue<number>;
+  hasNoUsableWallet?: boolean;
 }
 
 export interface ITabPageHeaderContainerProps {

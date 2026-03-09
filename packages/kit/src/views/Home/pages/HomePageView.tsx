@@ -46,7 +46,10 @@ import {
   useAccountOverviewActions,
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorSyncLoadingAtom,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
@@ -591,12 +594,30 @@ export function HomePageView({
     setTabPageHeight(height);
   }, []);
 
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  const isSyncLoading = syncLoading?.[0]?.isLoading;
+
+  const hasNoUsableWallet = useMemo(
+    () =>
+      !wallet ||
+      (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) && !account),
+    [wallet, account],
+  );
+
   const homePage = useMemo(() => {
     if (!ready) {
-      return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
+      return (
+        <TabPageHeader
+          sceneName={sceneName}
+          tabRoute={ETabRoutes.Home}
+          hasNoUsableWallet={hasNoUsableWallet}
+        />
+      );
     }
 
-    let content = (
+    let content = isSyncLoading ? (
+      <Stack flex={1} justifyContent="center" alignItems="center" />
+    ) : (
       <ScrollView
         h="100%"
         contentContainerStyle={{
@@ -609,7 +630,7 @@ export function HomePageView({
       </ScrollView>
     );
 
-    if (wallet) {
+    if (!hasNoUsableWallet) {
       content = platformEnv.isNative ? (
         <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
       ) : (
@@ -624,7 +645,11 @@ export function HomePageView({
             {platformEnv.isNative ? (
               <Stack h={tabPageHeight} />
             ) : (
-              <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
+              <TabPageHeader
+                sceneName={sceneName}
+                tabRoute={ETabRoutes.Home}
+                hasNoUsableWallet={hasNoUsableWallet}
+              />
             )}
             <NetworkAlert />
             {content}
@@ -641,6 +666,7 @@ export function HomePageView({
                 <TabPageHeader
                   sceneName={sceneName}
                   tabRoute={ETabRoutes.Home}
+                  hasNoUsableWallet={hasNoUsableWallet}
                 />
               </YStack>
             ) : null}
@@ -650,7 +676,8 @@ export function HomePageView({
     );
   }, [
     ready,
-    wallet,
+    hasNoUsableWallet,
+    isSyncLoading,
     tabPageHeight,
     sceneName,
     handleTabPageLayout,

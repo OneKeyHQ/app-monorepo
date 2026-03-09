@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useAccountSelectorSyncLoadingAtom } from '../../states/jotai/contexts/accountSelector';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
 import {
@@ -26,21 +27,29 @@ export { DiscoveryHeaderSegment };
 function InPageHeader({
   tabRoute,
   sceneName,
+  hasNoUsableWallet,
 }: {
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
+  hasNoUsableWallet?: boolean;
 }) {
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  const isSyncLoading = syncLoading?.[0]?.isLoading;
+
   const item = useMemo(() => {
     if (
       tabRoute === ETabRoutes.Home &&
       sceneName !== EAccountSelectorSceneName.homeUrlAccount
     ) {
+      if (hasNoUsableWallet && !isSyncLoading) {
+        return null;
+      }
       return <WalletConnectionGroup tabRoute={tabRoute} />;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return <UrlAccountPageHeader />;
     }
-  }, [sceneName, tabRoute]);
+  }, [sceneName, tabRoute, hasNoUsableWallet, isSyncLoading]);
 
   if (!item) {
     return null;
@@ -59,6 +68,7 @@ function BaseDesktopTabPageHeader({
   selectedHeaderTab,
   customHeaderRightItems,
   customHeaderLeftItems,
+  hasNoUsableWallet,
 }: ITabPageHeaderProp) {
   const renderHeaderLeft = useCallback(
     () => (
@@ -131,7 +141,11 @@ function BaseDesktopTabPageHeader({
             : undefined
         }
       />
-      <InPageHeader tabRoute={tabRoute} sceneName={sceneName} />
+      <InPageHeader
+        tabRoute={tabRoute}
+        sceneName={sceneName}
+        hasNoUsableWallet={hasNoUsableWallet}
+      />
     </>
   );
 }
@@ -148,6 +162,7 @@ export function TabPageHeader({
   hideHeaderLeft = false,
   headerPx,
   pageScrollPosition,
+  hasNoUsableWallet,
 }: ITabPageHeaderProp) {
   const media = useMedia();
 
@@ -179,6 +194,7 @@ export function TabPageHeader({
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
         pageScrollPosition={pageScrollPosition}
+        hasNoUsableWallet={hasNoUsableWallet}
       />
     );
   }
@@ -193,6 +209,7 @@ export function TabPageHeader({
       customHeaderLeftItems={customHeaderLeftItems}
       hideHeaderLeft={hideHeaderLeft}
       renderCustomHeaderRightItems={renderCustomHeaderRightItems}
+      hasNoUsableWallet={hasNoUsableWallet}
     />
   );
 }

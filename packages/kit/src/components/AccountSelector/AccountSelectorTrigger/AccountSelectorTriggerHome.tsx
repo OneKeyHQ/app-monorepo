@@ -1,4 +1,10 @@
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { Spinner } from '@onekeyhq/components';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import {
+  useAccountSelectorSyncLoadingAtom,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
 
@@ -16,12 +22,24 @@ export function AccountSelectorTriggerHome({
   hideAddress?: boolean;
 }) {
   const {
-    activeAccount: { network, vaultSettings },
+    activeAccount: { network, vaultSettings, wallet, account },
   } = useActiveAccount({
     num,
   });
   const resolvedLinkNetworkId =
     linkNetworkId ?? (!network?.isAllNetworks ? network?.id : undefined);
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  const isSyncLoading = syncLoading?.[num]?.isLoading;
+
+  if (
+    !wallet ||
+    (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) && !account)
+  ) {
+    if (isSyncLoading) {
+      return <Spinner size="small" />;
+    }
+    return null;
+  }
 
   return (
     <AccountSelectorTriggerBase

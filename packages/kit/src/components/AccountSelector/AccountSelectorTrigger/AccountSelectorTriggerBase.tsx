@@ -79,6 +79,14 @@ export function AccountSelectorTriggerBase({
     showAccountSelector();
   }, [isTriggerDisabled, showAccountSelector]);
 
+  // Hide the trigger entirely when there's no usable wallet (except in web
+  // dapp mode where it shows a "Connect" button).
+  const hideNoWalletTrigger =
+    !platformEnv.isWebDappMode &&
+    (!wallet ||
+      (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+        !account));
+
   const contentView = useMemo(
     () => (
       <XStack
@@ -219,6 +227,10 @@ export function AccountSelectorTriggerBase({
     EShortcutEvents.AccountSelector,
     handleAccountSelectorPress,
   );
+
+  if (hideNoWalletTrigger) {
+    return null;
+  }
 
   return spotlightProps ? (
     <SpotlightView {...spotlightProps}>{content}</SpotlightView>
