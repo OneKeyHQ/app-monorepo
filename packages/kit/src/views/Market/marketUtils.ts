@@ -100,17 +100,14 @@ export const marketNavigation = {
       targetTab: ETabRoutes.Market,
       switchTab: (tab) => navigation.switchTab(tab),
     });
-    navigation.navigate(
-      ERootRoutes.Main,
-      {
-        screen: ETabRoutes.Market,
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetail,
         params: {
-          screen: ETabMarketRoutes.MarketDetail,
-          params: {
-            token: coinGeckoId,
-          },
+          token: coinGeckoId,
         },
       },
-    );
+    });
   },
 };
