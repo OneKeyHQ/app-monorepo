@@ -274,7 +274,7 @@ async function main() {
     console.log('Added to Lokalise');
     console.log('');
     console.log('Next steps:');
-    console.log('  1. Run: yarn workspace @onekeyhq/shared i18n:pull');
+    console.log('  1. Run: yarn i18n:pull');
     console.log(`  2. Use in code: ETranslations.${key.replace(/\./g, '_')}`);
     console.log('');
   } catch (error) {

@@ -74,7 +74,7 @@ function search(keyword) {
   const grouped = {};
   for (const { key, value } of results) {
     const prefix = key.includes('__')
-      ? key.split('__')[0].split('_')[0]
+      ? key.split('__')[0]
       : key.split(/[._]/)[0];
     if (!grouped[prefix]) {
       grouped[prefix] = [];
