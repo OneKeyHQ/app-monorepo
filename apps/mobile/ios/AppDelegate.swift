@@ -118,13 +118,32 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func bundleURL() -> URL? {
 #if DEBUG
-    return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    let metroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(DEBUG): metroURL=\(metroURL?.absoluteString ?? "nil")")
+    return metroURL
 #else
     // Check for updated bundle via dynamic bridge (avoids Nitro module import)
-    if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle() {
-      return URL(string: bundlePath)
+    if let bundlePath = NitroModuleBridge.currentBundleMainJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      let exists = FileManager.default.fileExists(atPath: bundleFilePath)
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): otaPath=\(bundlePath), exists=\(exists)")
+
+      if exists {
+        if isFileURL, let fileURL = URL(string: bundlePath) {
+          NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file URL=\(fileURL.absoluteString)")
+          return fileURL
+        }
+        let fileURL = URL(fileURLWithPath: bundlePath)
+        NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): using OTA file path=\(fileURL.absoluteString)")
+        return fileURL
+      }
+
+      NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): OTA path not found, will fallback")
     }
-    return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    let fallbackURL = Bundle.main.url(forResource: "main", withExtension: "jsbundle")
+    NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback main.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
+    return fallbackURL
 #endif
   }
 }

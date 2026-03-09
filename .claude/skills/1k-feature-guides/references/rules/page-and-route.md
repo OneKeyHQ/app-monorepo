@@ -371,6 +371,67 @@ navigation.navigate(ERootRoutes.Main, {
 
 ---
 
+## Native Tab View Navigation Safety
+
+### ⚠️ CRITICAL: Overlay Dismissal with Native UITabBarController
+
+When the app uses native `UITabBarController` (`@onekeyfe/react-native-tab-view`), **non-selected tabs' views are removed from the iOS window hierarchy**. This means any `RNSScreenStack` inside an inactive tab has `window=NIL` and cannot process navigation updates.
+
+**Problem**: Calling `goBack()` to pop overlay routes (Modal, FullScreenPush) triggers React Navigation to reconcile nested stacks inside those routes. If a nested stack is inside a tab that has lost its window, the native `setPushViewControllers` is SKIPPED and retries 50 times (~5 seconds) before giving up. The navigation appears frozen until the user touches the screen.
+
+**Rule**: When navigating from an overlay route to a tab page, **never use sequential `goBack()` calls**. Use `navigateFromOverlayToTab()` or `resetAboveMainRoute()` instead.
+
+```typescript
+// ❌ WRONG: Sequential goBack() causes window-nil race condition
+await popScanModalPages();
+await popActionCenterPages();  // Stack inside detached tab = window NIL = FAIL
+navigation.switchTab(ETabRoutes.Home);
+navigation.push(targetPage);
+
+// ✅ CORRECT: Use navigateFromOverlayToTab utility
+await popScanModalPages();           // Dismiss modal with animation
+await waitForScanModalClosed();
+await navigateFromOverlayToTab({     // Atomically reset + switch tab
+  targetTab: ETabRoutes.Home,
+  switchTab: (tab) => navigation.switchTab(tab),
+});
+navigation.push(targetPage);         // Safe to push now
+
+// ✅ ALSO CORRECT: Use resetAboveMainRoute directly
+await popScanModalPages();
+await waitForScanModalClosed();
+resetAboveMainRoute();               // Atomically remove all overlay routes
+navigation.switchTab(ETabRoutes.Home);
+await timerUtils.wait(100);          // Wait for navigator to settle
+navigation.push(targetPage);
+```
+
+**Key utilities** (exported from `@onekeyhq/components`):
+- `navigateFromOverlayToTab()` — Safe overlay-to-tab navigation with atomic reset
+- `resetAboveMainRoute()` — Atomically remove all routes above Main via `CommonActions.reset`
+
+### Why `switchTab()` alone cannot activate the target tab
+
+When overlay routes (FullScreenPush, Modal) are stacked above Main, calling `switchTab()` only changes `UITabBarController.selectedIndex` internally. The target tab's view is **NOT** added to the window hierarchy because the overlay route's view is still the topmost visible layer. The `UITabBarController` only manages views within its own container — if that container is obscured by an overlay, the tab view stays detached.
+
+```
+Root State: [Main, FullScreenPush, Modal]
+                    ↑ overlay is topmost visible view
+                    UITabBarController's tab views are underneath, not in window
+
+switchTab(Home) → selectedIndex changes, but Home tab's view still has window=NIL
+goBack() to pop FullScreenPush → nested stack update fails (window=NIL)
+```
+
+Therefore, **you must use `resetAboveMainRoute()` to atomically remove all overlays first**, making Main the topmost route. Only then will `switchTab()` cause the target tab's view to enter the window hierarchy.
+
+**When to watch out**:
+- Any code that calls `goBack()` on root navigator while a FullScreenPush or Modal is active
+- Any flow that dismisses overlay pages and then navigates to a different tab
+- Cross-tab navigation after closing settings/action center pages
+
+---
+
 ## Files Reference
 
 | Purpose | Location |

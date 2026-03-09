@@ -11,6 +11,9 @@ export enum ETableSortType {
 
 export interface ITableColumn<T> {
   title: ReactNode;
+  // When provided, renders the title with an inline sort icon instead of
+  // the default external sort icon rendered by Column.
+  renderTitle?: (sortIcon: ReactNode) => ReactNode;
   dataIndex: string;
   titleProps?: ISizableTextProps;
   columnProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;

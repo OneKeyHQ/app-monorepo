@@ -16,6 +16,7 @@ import {
   Popover,
   SegmentControl,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -84,6 +85,7 @@ type IBorrowRepayPositionProps = Omit<
     params: IRepayWithCollateralConfirmParams,
   ) => Promise<void>;
   collateralAssets: IRepayCollateralAsset[];
+  collateralLoading?: boolean;
   defaultCollateralReserveAddress?: string;
   debtBalance?: string;
 };
@@ -228,6 +230,7 @@ function RepayWithCollateralForm({
   beforeFooter,
   isInModalContext = true,
   collateralAssets,
+  collateralLoading,
   defaultCollateralReserveAddress,
   onRepayWithCollateralConfirm,
 }: Omit<IBorrowRepayPositionProps, 'onWalletConfirm'>) {
@@ -665,6 +668,21 @@ function RepayWithCollateralForm({
 
   const collateralTrigger = useMemo(() => {
     if (!selectedCollateral) {
+      if (collateralLoading) {
+        return (
+          <XStack
+            alignItems="center"
+            m="$1.5"
+            mb="$0"
+            p="$2"
+            borderRadius="$2"
+            maxWidth="$44"
+          >
+            <Skeleton w="$7" h="$7" mr="$2" radius="round" />
+            <Skeleton w="$16" h="$6" />
+          </XStack>
+        );
+      }
       return null;
     }
 
@@ -715,7 +733,12 @@ function RepayWithCollateralForm({
         })}
       />
     );
-  }, [collateralAssets, collateralPopoverTitle, selectedCollateral]);
+  }, [
+    collateralAssets,
+    collateralLoading,
+    collateralPopoverTitle,
+    selectedCollateral,
+  ]);
 
   const usingAmountText = useMemo(() => quote?.swapIn ?? '0', [quote?.swapIn]);
 
@@ -958,7 +981,15 @@ function RepayWithCollateralForm({
           >
             {quoteSummary ? (
               <>
-                <BorrowInfoItem title={quoteSummary} />
+                <BorrowInfoItem
+                  title={
+                    <EarnText
+                      text={{ text: quoteSummary }}
+                      color="$text"
+                      size="$bodyMdMedium"
+                    />
+                  }
+                />
                 <Divider />
               </>
             ) : null}
@@ -987,20 +1018,9 @@ function RepayWithCollateralForm({
             ) : null}
 
             <BorrowInfoItem
-              title={
-                <XStack alignItems="center" gap="$1.5">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.slippage_tolerance_title,
-                    })}
-                  </SizableText>
-                  <Icon
-                    name="InfoCircleOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                </XStack>
-              }
+              title={intl.formatMessage({
+                id: ETranslations.slippage_tolerance_title,
+              })}
             >
               <XStack
                 alignItems="center"
@@ -1055,6 +1075,7 @@ export function BorrowRepayPosition({
   onWalletConfirm,
   onRepayWithCollateralConfirm,
   collateralAssets,
+  collateralLoading,
   defaultCollateralReserveAddress,
   debtBalance,
   ...props
@@ -1076,8 +1097,11 @@ export function BorrowRepayPosition({
     },
   ];
 
-  // Only enable collateral repay when API returns both debt and collateral fields
-  const isCollateralRepayEnabled = collateralAssets.length > 0 && !!debtBalance;
+  // Show collateral repay when debt exists AND collateral data is either
+  // still loading (optimistic) or confirmed available. Falls back to
+  // wallet-only if the second API returns empty or fails.
+  const isCollateralRepayEnabled =
+    !!debtBalance && (!!collateralLoading || collateralAssets.length > 0);
 
   if (!isCollateralRepayEnabled) {
     return (
@@ -1121,6 +1145,7 @@ export function BorrowRepayPosition({
           {...props}
           onRepayWithCollateralConfirm={onRepayWithCollateralConfirm}
           collateralAssets={collateralAssets}
+          collateralLoading={collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
           debtBalance={debtBalance}
         />

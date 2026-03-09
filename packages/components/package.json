@@ -4,7 +4,7 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
-    "@bottom-tabs/react-navigation": "1.1.0",
+    "@onekeyfe/react-native-tab-view": "1.1.33",
     "@react-navigation/bottom-tabs": "7.10.1",
     "@react-navigation/elements": "2.9.5",
     "@react-navigation/native": "7.1.28",
@@ -16,7 +16,6 @@
     "moti": "^0.25.3",
     "qrcode": "^1.5.0",
     "react-hook-form": "^7.22.1",
-    "react-native-bottom-tabs": "1.1.0",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
     "react-native-root-siblings": "^5.0.1",
