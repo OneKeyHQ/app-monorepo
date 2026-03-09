@@ -21,7 +21,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
@@ -339,7 +338,6 @@ function RecentRecipients(props: IRecentRecipientsProps) {
 
         // Determine network type for data source strategy
         const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
-        const isBtcNetwork = networkUtils.isBTCNetwork(networkId);
         let recipientAddresses: string[] = [];
         // Map to store extra info: time, network name, and memo/tag
         let recipientExtraMap: Map<
@@ -403,8 +401,6 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             let apiNetworkId = networkId;
             if (isEvmNetwork) {
               apiNetworkId = 'evm--1';
-            } else if (isBtcNetwork) {
-              apiNetworkId = 'btc--0';
             }
             const { supported, data: apiRecipients } =
               await backgroundApiProxy.serviceHistory.fetchTransferRecipients({
