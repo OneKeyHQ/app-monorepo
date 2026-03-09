@@ -769,9 +769,14 @@ function SendDataInputContainer() {
                     currentTo?.raw === selectedAddress &&
                     currentTo?.resolved
                   ) {
+                    void form.trigger('to');
                     return;
                   }
-                  form.setValue('to', { raw: selectedAddress });
+                  form.setValue(
+                    'to',
+                    { raw: selectedAddress },
+                    { shouldValidate: true },
+                  );
                 };
 
                 const isFromAccount =
