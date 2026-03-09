@@ -10,12 +10,15 @@ import type {
   IDBDevice,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function BatchCreateAccountButton({
   focusedWalletInfo,
@@ -38,22 +41,57 @@ export function BatchCreateAccountButton({
     if (!focusedWalletInfo?.wallet?.id) {
       return;
     }
+    const walletId = focusedWalletInfo?.wallet?.id || '';
+
     await backgroundApiProxy.serviceAccount.generateWalletsMissingMetaWithUserInteraction(
-      {
-        walletId: focusedWalletInfo?.wallet?.id || '',
-      },
+      { walletId },
     );
     await backgroundApiProxy.serviceBatchCreateAccount.prepareBatchCreate();
+
+    const ethNetworkId = getNetworkIdsMap().eth;
+
+    // Check if Ethereum is enabled in portfolio
+    const allNetworksState =
+      await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+    const isEthEnabled = isEnabledNetworksInAllNetworks({
+      networkId: ethNetworkId,
+      enabledNetworks: allNetworksState.enabledNetworks,
+      disabledNetworks: allNetworksState.disabledNetworks,
+      isTestnet: false,
+    });
+
+    let defaultNetworkId = ethNetworkId;
+
+    if (!isEthEnabled) {
+      // Get compatible networks for this wallet
+      const { networkIdsCompatible } =
+        await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+          { walletId },
+        );
+      // Find the first enabled EVM network
+      const firstEnabledEvmNetworkId = networkIdsCompatible?.find(
+        (id) =>
+          networkUtils.isEvmNetwork({ networkId: id }) &&
+          isEnabledNetworksInAllNetworks({
+            networkId: id,
+            enabledNetworks: allNetworksState.enabledNetworks,
+            disabledNetworks: allNetworksState.disabledNetworks,
+            isTestnet: false,
+          }),
+      );
+      if (firstEnabledEvmNetworkId) {
+        defaultNetworkId = firstEnabledEvmNetworkId;
+      }
+    }
+
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
       screen: EAccountManagerStacksRoutes.BatchCreateAccountPreview,
       params: {
-        walletId: focusedWalletInfo?.wallet?.id || '',
-        networkId: networkUtils.toNetworkIdFallback({
-          networkId: activeAccount?.network?.id,
-        }),
+        walletId,
+        networkId: defaultNetworkId,
       },
     });
-  }, [focusedWalletInfo, navigation, activeAccount]);
+  }, [focusedWalletInfo, navigation]);
 
   return (
     <ActionList.Item
