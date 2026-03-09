@@ -207,7 +207,7 @@ index fd3530e..d8cded7 100644
        childrenViews.removeAt(index)
        notifyItemRemoved(index)
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..9fc8e5e 100644
+index d52f532..dbe6893 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 @@ -12,7 +12,7 @@
@@ -219,7 +219,7 @@ index d52f532..9fc8e5e 100644
  
  @property(nonatomic, strong) UIPageViewController *nativePageViewController;
  @property(nonatomic, strong) NSMutableArray<UIViewController *> *nativeChildrenViewControllers;
-@@ -29,6 +29,16 @@ @implementation RNCPagerViewComponentView {
+@@ -29,6 +29,18 @@ @implementation RNCPagerViewComponentView {
      BOOL _overdrag;
      NSString *_layoutDirection;
      BOOL _scrollEnabled;
@@ -233,18 +233,20 @@ index d52f532..9fc8e5e 100644
 +    NSInteger _pendingGoToIndex;
 +    // _nestedScrollEnabled: when YES, this inner PagerView coordinates gestures with an outer PagerView
 +    BOOL _nestedScrollEnabled;
++    // _blockerGesture: gate gesture that blocks inner scroll at page boundaries when nested
++    UIPanGestureRecognizer *_blockerGesture;
  }
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -67,6 +77,7 @@ - (void)initializeNativePageViewController {
+@@ -67,6 +79,7 @@ - (void)initializeNativePageViewController {
      }
  
      [self applyScrollEnabled];
-+    [self applyNestedScrollGestureDelegate];
++    [self applyNestedScrollBlocker];
  }
  
  - (instancetype)initWithFrame:(CGRect)frame
-@@ -80,6 +91,9 @@ - (instancetype)initWithFrame:(CGRect)frame
+@@ -80,6 +93,9 @@ - (instancetype)initWithFrame:(CGRect)frame
          _layoutDirection = @"ltr";
          _overdrag = NO;
          _scrollEnabled = YES;
@@ -254,7 +256,7 @@ index d52f532..9fc8e5e 100644
      }
      
      return self;
-@@ -96,6 +110,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
+@@ -96,6 +112,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
  #pragma mark - React API
  
  - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -264,7 +266,7 @@ index d52f532..9fc8e5e 100644
      UIViewController *vc = [UIViewController new];
      [vc.view addSubview:childComponentView];
      [_nativeChildrenViewControllers insertObject:vc atIndex:index];
-@@ -103,13 +120,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
+@@ -103,13 +122,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
  }
  
  - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -289,7 +291,7 @@ index d52f532..9fc8e5e 100644
      }
  }
  
-@@ -127,10 +154,23 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
+@@ -127,10 +156,29 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
  
  
  -(void)prepareForRecycle {
@@ -304,6 +306,12 @@ index d52f532..9fc8e5e 100644
 +    // Clear view controllers before recycling
 +    [_nativeChildrenViewControllers removeAllObjects];
 +
++    // Remove blocker gesture before recycling
++    if (_blockerGesture != nil) {
++        [self removeGestureRecognizer:_blockerGesture];
++        _blockerGesture = nil;
++    }
++
      [super prepareForRecycle];
      _nativePageViewController = nil;
      _currentIndex = -1;
@@ -313,19 +321,19 @@ index d52f532..9fc8e5e 100644
  }
  
  - (void)shouldDismissKeyboard:(RNCViewPagerKeyboardDismissMode)dismissKeyboard {
-@@ -183,6 +223,11 @@ - (void)updateProps:(const facebook::react::Props::Shared &)props oldProps:(cons
+@@ -183,6 +231,11 @@ - (void)updateProps:(const facebook::react::Props::Shared &)props oldProps:(cons
          _overdrag = newScreenProps.overdrag;
      }
  
 +    if (oldScreenProps.nestedScrollEnabled != newScreenProps.nestedScrollEnabled) {
 +        _nestedScrollEnabled = newScreenProps.nestedScrollEnabled;
-+        [self applyNestedScrollGestureDelegate];
++        [self applyNestedScrollBlocker];
 +    }
 +
      [super updateProps:props oldProps:oldProps];
  }
  
-@@ -200,12 +245,21 @@ - (void)enableSwipe {
+@@ -200,12 +253,21 @@ - (void)enableSwipe {
  - (void)goTo:(NSInteger)index animated:(BOOL)animated {
      NSInteger numberOfPages = _nativeChildrenViewControllers.count;
      
@@ -347,7 +355,7 @@ index d52f532..9fc8e5e 100644
          return;
      }
      
-@@ -223,28 +277,105 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
+@@ -223,28 +285,105 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
  - (void)setPagerViewControllers:(NSInteger)index
                        direction:(UIPageViewControllerNavigationDirection)direction
                         animated:(BOOL)animated{
@@ -459,7 +467,7 @@ index d52f532..9fc8e5e 100644
      }];
  }
  
-@@ -252,6 +383,11 @@ - (void)setPagerViewControllers:(NSInteger)index
+@@ -252,6 +391,11 @@ - (void)setPagerViewControllers:(NSInteger)index
  - (UIViewController *)nextControllerForController:(UIViewController *)controller
                                        inDirection:(UIPageViewControllerNavigationDirection)direction {
      NSUInteger numberOfPages = _nativeChildrenViewControllers.count;
@@ -471,7 +479,7 @@ index d52f532..9fc8e5e 100644
      NSInteger index = [_nativeChildrenViewControllers indexOfObject:controller];
      
      if (index == NSNotFound) {
-@@ -274,13 +410,24 @@ - (UIViewController *)currentlyDisplayed {
+@@ -274,13 +418,24 @@ - (UIViewController *)currentlyDisplayed {
  #pragma mark - UIScrollViewDelegate
  
  - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
@@ -497,7 +505,7 @@ index d52f532..9fc8e5e 100644
      eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Settling });
      
      if (!_overdrag) {
-@@ -300,12 +447,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
+@@ -300,12 +455,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
  }
  
  - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -519,7 +527,7 @@ index d52f532..9fc8e5e 100644
      BOOL isHorizontal = [self isHorizontal];
      CGFloat contentOffset = isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y;
      CGFloat frameSize = isHorizontal ? scrollView.frame.size.width : scrollView.frame.size.height;
-@@ -357,13 +513,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
+@@ -357,13 +521,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
          didFinishAnimating:(BOOL)finished
     previousViewControllers:(nonnull NSArray<UIViewController *> *)previousViewControllers
         transitionCompleted:(BOOL)completed {
@@ -539,45 +547,74 @@ index d52f532..9fc8e5e 100644
      }
  }
  
-@@ -401,6 +562,37 @@ - (void)setScrollEnabledImperatively:(BOOL)scrollEnabled {
+@@ -401,6 +570,66 @@ - (void)setScrollEnabledImperatively:(BOOL)scrollEnabled {
      [self applyScrollEnabled];
  }
  
 +#pragma mark - Nested Scroll Gesture Coordination
 +
-+- (void)applyNestedScrollGestureDelegate {
++- (void)applyNestedScrollBlocker {
 +    if (scrollView == nil) return;
-+    for (UIGestureRecognizer *gr in scrollView.gestureRecognizers) {
-+        if ([gr isKindOfClass:[UIPanGestureRecognizer class]]) {
-+            gr.delegate = _nestedScrollEnabled ? self : nil;
-+        }
++
++    if (_nestedScrollEnabled && _blockerGesture == nil) {
++        _blockerGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(blockerGestureFired:)];
++        _blockerGesture.delegate = self;
++        // Cancel touches so the blocker never actually scrolls anything
++        _blockerGesture.cancelsTouchesInView = NO;
++        _blockerGesture.delaysTouchesBegan = NO;
++        [self addGestureRecognizer:_blockerGesture];
++        // Inner scroll view pan must wait for the blocker to fail before it can begin
++        [scrollView.panGestureRecognizer requireGestureRecognizerToFail:_blockerGesture];
++    } else if (!_nestedScrollEnabled && _blockerGesture != nil) {
++        [self removeGestureRecognizer:_blockerGesture];
++        _blockerGesture = nil;
 +    }
 +}
 +
-+// When nestedScrollEnabled is YES, this inner PagerView at its first/last page
-+// will not begin its gesture, allowing the outer PagerView to take over.
++// The blocker gesture never actually does anything — it only serves as a gate
++- (void)blockerGestureFired:(UIPanGestureRecognizer *)recognizer {
++    // Immediately cancel so it doesn't interfere with other gestures
++    if (recognizer.state == UIGestureRecognizerStateBegan) {
++        recognizer.state = UIGestureRecognizerStateCancelled;
++    }
++}
++
++#pragma mark - UIGestureRecognizerDelegate
++
 +- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
-+    if (!_nestedScrollEnabled) return YES;
-+    if (![gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) return YES;
++    if (gestureRecognizer != _blockerGesture) return YES;
++    if (!_nestedScrollEnabled) return NO;
++    if (![gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) return NO;
 +
 +    UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gestureRecognizer;
 +    CGPoint velocity = [pan velocityInView:self];
 +    NSInteger pageCount = _nativeChildrenViewControllers.count;
 +
-+    if (pageCount == 0) return YES;
++    if (pageCount == 0) return NO;
 +
-+    // At first page, swiping right (positive velocity.x) → let outer handle
-+    if (_currentIndex == 0 && velocity.x > 0) return NO;
-+    // At last page, swiping left (negative velocity.x) → let outer handle
-+    if (_currentIndex == pageCount - 1 && velocity.x < 0) return NO;
++    BOOL isLtr = [self isLtrLayout];
++    NSInteger firstPageIndex = isLtr ? 0 : pageCount - 1;
++    NSInteger lastPageIndex = isLtr ? pageCount - 1 : 0;
 +
-+    return YES;
++    // At first page, swiping backward → blocker begins → inner scroll blocked → outer takes over
++    if (_currentIndex == firstPageIndex && velocity.x > 0) return YES;
++    // At last page, swiping forward → blocker begins → inner scroll blocked → outer takes over
++    if (_currentIndex == lastPageIndex && velocity.x < 0) return YES;
++
++    // Not at boundary or swiping inward → blocker fails → inner scroll works normally
++    return NO;
++}
++
++// Allow the blocker to be recognized simultaneously so it doesn't steal from vertical scrolls
++- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
++    if (gestureRecognizer == _blockerGesture) return YES;
++    return NO;
 +}
 +
  #pragma mark - Helpers
  
  - (BOOL)isHorizontalRtlLayout {
-@@ -427,10 +619,12 @@ - (BOOL)isLtrLayout {
+@@ -427,10 +656,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];
