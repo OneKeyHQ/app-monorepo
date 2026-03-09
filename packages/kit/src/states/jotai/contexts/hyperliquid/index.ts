@@ -15,14 +15,9 @@ export {
   useSubscriptionActiveAtom,
   usePerpsAllAssetCtxsAtom,
   usePerpsLedgerUpdatesAtom,
-  usePerpsTriggerUxStateAtom,
 } from './atoms';
 
-export type {
-  ITradingFormData,
-  IBBOPriceMode,
-  IPerpsTriggerOrderType,
-} from './atoms';
+export type { ITradingFormData, IBBOPriceMode } from './atoms';
 
 export { useHyperliquidActions } from './actions';
 

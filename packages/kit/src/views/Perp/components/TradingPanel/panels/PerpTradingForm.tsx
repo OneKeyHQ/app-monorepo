@@ -21,7 +21,6 @@ import type { ICheckedState } from '@onekeyhq/components';
 import {
   useHyperliquidActions,
   usePerpsActivePositionAtom,
-  usePerpsTriggerUxStateAtom,
   useTradingFormAtom,
   useTradingFormComputedAtom,
   useTradingFormEnvAtom,
@@ -35,14 +34,17 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCustomSettingsAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPriceToSignificantDigits,
+  getTriggerEffectivePrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
@@ -64,8 +66,7 @@ interface IPerpTradingFormProps {
   isMobile?: boolean;
 }
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
-type ITriggerOrderType = 'stopMarket' | 'stopLimit' | 'takeMarket' | 'takeLimit';
-type ITriggerDropdownValue = ITriggerOrderType | 'scale' | 'twap';
+type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 
 function MobileDepositButton() {
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
@@ -90,7 +91,6 @@ function PerpTradingForm({
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
 
   const [formData] = useTradingFormAtom();
-  const [, setPerpsTriggerUxState] = usePerpsTriggerUxStateAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const intl = useIntl();
@@ -109,14 +109,23 @@ function PerpTradingForm({
   const { universe } = perpsSelectedSymbol;
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
-  const [primaryOrderType, setPrimaryOrderType] = useState<IPrimaryOrderType>(
-    formData.type === 'limit' ? 'limit' : 'market',
-  );
-  const [triggerOrderType, setTriggerOrderType] =
-    useState<ITriggerOrderType>('stopMarket');
+
+  const [perpsCustomSettings, setPerpsCustomSettings] =
+    usePerpsCustomSettingsAtom();
+
+  // Derive primaryOrderType from formData.orderMode
+  const primaryOrderType: IPrimaryOrderType =
+    formData.orderMode === 'trigger' ? 'trigger' : formData.type;
+  // Trigger order type: prefer formData, fall back to persisted setting
+  const triggerOrderType =
+    formData.triggerOrderType ??
+    perpsCustomSettings.lastTriggerOrderType ??
+    ETriggerOrderType.STOP_MARKET;
+  // Only triggerMenuOpen stays as local state (pure UI)
   const [triggerMenuOpen, setTriggerMenuOpen] = useState(false);
-  const [triggerPrice, setTriggerPrice] = useState('');
-  const [triggerReduceOnly, setTriggerReduceOnly] = useState(false);
+  // Trigger price and reduceOnly from atom
+  const triggerPrice = formData.triggerPrice ?? '';
+  const triggerReduceOnly = formData.triggerReduceOnly ?? true;
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
       actions.current.updateTradingForm(updates);
@@ -125,17 +134,6 @@ function PerpTradingForm({
   );
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
-
-  useEffect(() => {
-    if (primaryOrderType === 'trigger') {
-      return;
-    }
-    const nextPrimaryType: IPrimaryOrderType =
-      formData.type === 'limit' ? 'limit' : 'market';
-    if (nextPrimaryType !== primaryOrderType) {
-      setPrimaryOrderType(nextPrimaryType);
-    }
-  }, [formData.type, primaryOrderType]);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
@@ -199,13 +197,22 @@ function PerpTradingForm({
     updateForm,
   ]);
 
-  // Reference Price: Get the effective trading price (limit price or market price)
+  // Reference Price: Get the effective trading price (limit price, market price, or trigger effective price)
   const [, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
-    if (formData.type === 'limit' && formData.price) {
+    if (formData.orderMode === 'trigger' && formData.triggerOrderType) {
+      price = getTriggerEffectivePrice({
+        triggerOrderType: formData.triggerOrderType,
+        triggerPrice: formData.triggerPrice,
+        executionPrice: formData.executionPrice,
+        midPrice:
+          midPriceBN.isFinite() && midPriceBN.gt(0)
+            ? midPriceBN.toFixed()
+            : undefined,
+      });
+    } else if (formData.type === 'limit' && formData.price) {
       price = new BigNumber(formData.price);
-    }
-    if (formData.type === 'market') {
+    } else if (formData.type === 'market') {
       price = midPriceBN;
     }
     return [
@@ -218,6 +225,10 @@ function PerpTradingForm({
   }, [
     formData.type,
     formData.price,
+    formData.orderMode,
+    formData.triggerOrderType,
+    formData.triggerPrice,
+    formData.executionPrice,
     midPriceBN,
     activeAsset?.universe?.szDecimals,
   ]);
@@ -363,19 +374,19 @@ function PerpTradingForm({
     () => [
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_stop_market }),
-        value: 'stopMarket' as ITriggerDropdownValue,
+        value: ETriggerOrderType.STOP_MARKET as ITriggerDropdownValue,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_stop_limit }),
-        value: 'stopLimit' as ITriggerDropdownValue,
+        value: ETriggerOrderType.STOP_LIMIT as ITriggerDropdownValue,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_tp_market }),
-        value: 'takeMarket' as ITriggerDropdownValue,
+        value: ETriggerOrderType.TAKE_MARKET as ITriggerDropdownValue,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_tp_limit }),
-        value: 'takeLimit' as ITriggerDropdownValue,
+        value: ETriggerOrderType.TAKE_LIMIT as ITriggerDropdownValue,
       },
       {
         label: 'Scale',
@@ -394,27 +405,27 @@ function PerpTradingForm({
     () => [
       {
         label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
-        value: 'market' as const,
+        value: 'market' as string,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
-        value: 'limit' as const,
+        value: 'limit' as string,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_stop_market }),
-        value: 'stopMarket' as const,
+        value: ETriggerOrderType.STOP_MARKET as string,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_stop_limit }),
-        value: 'stopLimit' as const,
+        value: ETriggerOrderType.STOP_LIMIT as string,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_tp_market }),
-        value: 'takeMarket' as const,
+        value: ETriggerOrderType.TAKE_MARKET as string,
       },
       {
         label: intl.formatMessage({ id: ETranslations.perp_order_tp_limit }),
-        value: 'takeLimit' as const,
+        value: ETriggerOrderType.TAKE_LIMIT as string,
       },
     ],
     [intl],
@@ -422,21 +433,28 @@ function PerpTradingForm({
 
   const applyPrimaryOrderType = useCallback(
     (nextType: IPrimaryOrderType) => {
-      setPrimaryOrderType(nextType);
       if (nextType === 'trigger') {
+        // Use persisted trigger type when switching to trigger tab
+        const persistedType =
+          perpsCustomSettings.lastTriggerOrderType ??
+          ETriggerOrderType.STOP_MARKET;
         const isLimitTrigger =
-          triggerOrderType === 'stopLimit' || triggerOrderType === 'takeLimit';
+          persistedType === ETriggerOrderType.STOP_LIMIT ||
+          persistedType === ETriggerOrderType.TAKE_LIMIT;
         updateForm({
+          orderMode: 'trigger',
+          triggerOrderType: persistedType,
           type: isLimitTrigger ? 'limit' : 'market',
           bboPriceMode: null,
         });
         return;
       }
       updateForm({
+        orderMode: 'standard',
         type: nextType,
       });
     },
-    [triggerOrderType, updateForm],
+    [perpsCustomSettings.lastTriggerOrderType, updateForm],
   );
 
   const handleTriggerOrderTypeChange = useCallback(
@@ -448,314 +466,57 @@ function PerpTradingForm({
       if (nextType === 'scale' || nextType === 'twap') {
         return;
       }
-      setPrimaryOrderType('trigger');
-      setTriggerOrderType(nextType);
-      const isLimitTrigger = nextType === 'stopLimit' || nextType === 'takeLimit';
+      const isLimitTrigger =
+        nextType === ETriggerOrderType.STOP_LIMIT ||
+        nextType === ETriggerOrderType.TAKE_LIMIT;
       updateForm({
+        orderMode: 'trigger',
+        triggerOrderType: nextType,
         type: isLimitTrigger ? 'limit' : 'market',
         bboPriceMode: null,
       });
+      // Persist last selected trigger type
+      setPerpsCustomSettings({
+        ...perpsCustomSettings,
+        lastTriggerOrderType: nextType,
+      });
     },
-    [updateForm],
+    [updateForm, perpsCustomSettings, setPerpsCustomSettings],
   );
 
-  const isTriggerMode = primaryOrderType === 'trigger';
+  const isTriggerMode = formData.orderMode === 'trigger';
   const isTriggerLimitOrder =
-    triggerOrderType === 'stopLimit' || triggerOrderType === 'takeLimit';
-
-  useEffect(() => {
-    if (!isTriggerMode || !midPrice) {
-      return;
-    }
-    const mid = new BigNumber(midPrice || 0);
-    if (!mid.isFinite() || mid.lte(0)) {
-      return;
-    }
-    if (triggerPrice) {
-      return;
-    }
-    const side = formData.side;
-    const isStopType =
-      triggerOrderType === 'stopMarket' || triggerOrderType === 'stopLimit';
-    const isLong = side === 'long';
-    const shouldBeBelow = (isStopType && isLong) || (!isStopType && !isLong);
-    const multiplier = shouldBeBelow ? 0.995 : 1.005;
-    setTriggerPrice(formatPriceToSignificantDigits(mid.multipliedBy(multiplier)));
-  }, [formData.side, isTriggerMode, midPrice, triggerOrderType, triggerPrice]);
+    triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
+    triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
 
   useEffect(() => {
     if (!isTriggerMode || !isTriggerLimitOrder || !midPrice) {
       return;
     }
-    if (formData.price) {
+    if (formData.executionPrice) {
       return;
     }
     updateForm({
-      price: formatPriceToSignificantDigits(midPrice),
+      executionPrice: formatPriceToSignificantDigits(midPrice),
     });
   }, [
-    formData.price,
+    formData.executionPrice,
     isTriggerLimitOrder,
     isTriggerMode,
     midPrice,
     updateForm,
   ]);
 
-  const checkboxSize = isMobile ? '$3.5' : '$4';
-  const tpLabelKey = isMobile
-    ? ETranslations.perp_tp
-    : ETranslations.perp_trade_tp_price;
-  const slLabelKey = isMobile
-    ? ETranslations.perp_sl
-    : ETranslations.perp_trade_sl_price;
-  const triggerTabLabel = isTriggerMode
-    ? triggerTypeOptions.find((item) => item.value === triggerOrderType)?.label ||
-      'Trigger'
-    : 'Trigger';
-  const mobileSelectedOrderType = isTriggerMode
-    ? triggerOrderType
-    : primaryOrderType;
-  useEffect(() => {
-    setPerpsTriggerUxState({
-      isTriggerMode,
-      triggerOrderType,
-      triggerPrice,
-      reduceOnly: triggerReduceOnly,
-    });
-  }, [
-    isTriggerMode,
-    triggerOrderType,
-    triggerPrice,
-    triggerReduceOnly,
-    setPerpsTriggerUxState,
-  ]);
-
-  return (
-    <YStack gap={isMobile ? '$2.5' : '$4'} pt={isMobile ? '$0' : '$2.5'}>
-      {isMobile ? (
-        <>
-          <XStack alignItems="center" flex={1} gap="$2.5">
-            <YStack flex={1}>
-              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-            </YStack>
-            <LeverageAdjustModal isMobile={isMobile} />
-          </XStack>
-
-          <XStack alignItems="center" flex={1} gap="$2.5">
-            <YStack flex={1}>
-              <Select
-                items={mobileOrderTypeOptions}
-                title={intl.formatMessage({
-                  id: ETranslations.perp_trade_order_type,
-                })}
-                value={mobileSelectedOrderType}
-                disabled={isSubmitting}
-                onChange={(nextValue) => {
-                  if (typeof nextValue !== 'string') {
-                    return;
-                  }
-                  if (nextValue === 'market' || nextValue === 'limit') {
-                    applyPrimaryOrderType(nextValue);
-                    return;
-                  }
-                  handleTriggerOrderTypeChange(nextValue);
-                }}
-                placement="bottom-start"
-                renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
-                  <XStack
-                    onPress={onPress}
-                    disabled={disabledTrigger}
-                    height={32}
-                    bg="$bgSubdued"
-                    borderRadius="$2"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    px="$3"
-                    flex={1}
-                  >
-                    <SizableText size="$bodyMdMedium">{label}</SizableText>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      color="$iconSubdued"
-                      size="$4"
-                    />
-                  </XStack>
-                )}
-                floatingPanelProps={{
-                  width: 180,
-                }}
-              />
-            </YStack>
-          </XStack>
-        </>
-      ) : (
-        <>
-          <YStack gap="$2">
-            <XStack alignItems="center" flex={1} gap="$3">
-              <YStack flex={1}>
-                <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-              </YStack>
-              <LeverageAdjustModal isMobile={isMobile} />
-            </XStack>
-
-            <XStack
-              h={38}
-              alignItems="center"
-              borderBottomWidth="$px"
-              borderBottomColor="$borderSubdued"
-            >
-              {orderTypeOptions.map((option) => {
-                const isFocused = primaryOrderType === option.value;
-                return (
-                  <XStack
-                    h={38}
-                    key={option.value}
-                    mr="$4"
-                    alignItems="center"
-                    position="relative"
-                    onPress={() => {
-                      if (!isSubmitting) {
-                        applyPrimaryOrderType(option.value);
-                      }
-                    }}
-                    cursor="default"
-                  >
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={isFocused ? '$text' : '$textSubdued'}
-                    >
-                      {option.name}
-                    </SizableText>
-                    {isFocused ? (
-                      <YStack
-                        position="absolute"
-                        bottom={0}
-                        left={0}
-                        right={0}
-                        h="$0.5"
-                        bg="$text"
-                        borderRadius={1}
-                      />
-                    ) : null}
-                  </XStack>
-                );
-              })}
-              <Select
-                items={triggerTypeOptions}
-                title="Trigger"
-                value={triggerOrderType}
-                onOpenChange={setTriggerMenuOpen}
-                onChange={handleTriggerOrderTypeChange}
-                disabled={isSubmitting}
-                placement="bottom-start"
-                floatingPanelProps={{ width: 180 }}
-                renderTrigger={({ onPress, disabled: disabledTrigger }) => (
-                  <XStack
-                    h={38}
-                    alignItems="center"
-                    position="relative"
-                    gap="$1"
-                    onPress={() => {
-                      if (!disabledTrigger) {
-                        onPress?.();
-                      }
-                    }}
-                  >
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={isTriggerMode ? '$text' : '$textSubdued'}
-                    >
-                      {triggerTabLabel}
-                    </SizableText>
-                    <Icon
-                      name={
-                        triggerMenuOpen
-                          ? 'ChevronUpSmallOutline'
-                          : 'ChevronDownSmallOutline'
-                      }
-                      color={isTriggerMode ? '$icon' : '$iconSubdued'}
-                      size="$4"
-                    />
-                    {isTriggerMode ? (
-                      <YStack
-                        position="absolute"
-                        bottom={0}
-                        left={0}
-                        right={0}
-                        h="$0.5"
-                        bg="$text"
-                        borderRadius={1}
-                      />
-                    ) : null}
-                  </XStack>
-                )}
-              />
-            </XStack>
-          </YStack>
-        </>
-      )}
-
-      <YStack
-        gap="$2.5"
-        {...(!isMobile && {
-          flex: 1,
-          p: '$2.5',
-          borderWidth: '$px',
-          borderColor: '$borderSubdued',
-          borderRadius: '$2',
-        })}
-      >
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_available,
-            })}
-          </SizableText>
-          <XStack alignItems="center" gap="$1">
-            <PerpsAccountNumberValue
-              value={availableToTrade}
-              skeletonWidth={60}
-            />
-            <MobileDepositButton />
-          </XStack>
-        </XStack>
-
-        {isMobile ? null : (
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_current_position,
-              })}
-            </SizableText>
-            {perpsAccountLoading?.selectAccountLoading ? (
-              <Skeleton width={60} height={16} />
-            ) : (
-              <SizableText
-                size="$bodySmMedium"
-                color={getTradingSideTextColor(
-                  selectedSymbolPositionSide as ITradeSide,
-                )}
-              >
-                {selectedSymbolPositionValue} {perpsSelectedDisplayName}
-              </SizableText>
-            )}
-          </XStack>
-        )}
-      </YStack>
-
-      {isTriggerMode ? (
+  const renderPriceInputSection = () => {
+    if (isTriggerMode) {
+      return (
         <YStack gap={isMobile ? '$2.5' : '$3'}>
           <PriceInput
             label={intl.formatMessage({
               id: ETranslations.dexmarket_pro_trigger_price,
             })}
-            onUseMidPrice={() => {
-              if (midPrice) {
-                setTriggerPrice(formatPriceToSignificantDigits(midPrice));
-              }
-            }}
             value={triggerPrice}
-            onChange={setTriggerPrice}
+            onChange={(value) => updateForm({ triggerPrice: value })}
             szDecimals={universe?.szDecimals ?? 2}
             isMobile={isMobile}
             disabled={isSubmitting}
@@ -765,19 +526,22 @@ function PerpTradingForm({
               onUseMidPrice={() => {
                 if (midPrice) {
                   updateForm({
-                    price: formatPriceToSignificantDigits(midPrice),
+                    executionPrice: formatPriceToSignificantDigits(midPrice),
                   });
                 }
               }}
-              value={formData.price}
-              onChange={(value) => updateForm({ price: value })}
+              value={formData.executionPrice ?? ''}
+              onChange={(value) => updateForm({ executionPrice: value })}
               szDecimals={universe?.szDecimals ?? 2}
               isMobile={isMobile}
               disabled={isSubmitting}
             />
           ) : null}
         </YStack>
-      ) : formData.type === 'limit' || isMobile ? (
+      );
+    }
+    if (formData.type === 'limit' || isMobile) {
+      return (
         <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
           {isBBOActive && formData.type === 'limit' ? (
             <YStack flex={1}>
@@ -864,7 +628,388 @@ function PerpTradingForm({
             </Badge>
           ) : null}
         </XStack>
-      ) : null}
+      );
+    }
+    return null;
+  };
+
+  const renderBottomSection = () => {
+    if (shouldShowEnableTradingButton && isMobile) {
+      return null;
+    }
+    if (isTriggerMode) {
+      return (
+        <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
+          <XStack alignItems="center" gap="$2">
+            <Checkbox
+              value={triggerReduceOnly}
+              onChange={(checked) =>
+                updateForm({ triggerReduceOnly: !!checked })
+              }
+              disabled={isSubmitting}
+              containerProps={{
+                p: 0,
+                alignItems: 'center',
+                ...(!isMobile && { cursor: 'pointer' }),
+              }}
+              width={checkboxSizeVal}
+              height={checkboxSizeVal}
+              {...(isMobile && { p: '$0' })}
+            />
+            <SizableText
+              size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
+              color="$text"
+            >
+              Reduce Only
+            </SizableText>
+          </XStack>
+        </YStack>
+      );
+    }
+    return (
+      <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
+        <XStack alignItems="center" gap="$2">
+          <Checkbox
+            value={formData.hasTpsl}
+            onChange={handleTpslCheckboxChange}
+            disabled={isSubmitting}
+            containerProps={{
+              p: 0,
+              alignItems: 'center',
+              ...(!isMobile && { cursor: 'pointer' }),
+            }}
+            width={checkboxSizeVal}
+            height={checkboxSizeVal}
+            {...(isMobile && { p: '$0' })}
+          />
+
+          {isMobile ? (
+            <Popover
+              renderContent={() => (
+                <YStack px="$5" pt="$2" pb="$4">
+                  <SizableText size="$bodyMd">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_tooltip,
+                    })}
+                  </SizableText>
+                </YStack>
+              )}
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  dashColor="$textSubdued"
+                  dashThickness={0.5}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </DashText>
+              }
+              title={intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            />
+          ) : (
+            <Tooltip
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_tp_sl_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodyMd"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  cursor="help"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </DashText>
+              }
+            />
+          )}
+        </XStack>
+
+        {formData.hasTpsl ? (
+          <YStack gap="$2">
+            <TpSlFormInput
+              type="tp"
+              label={intl.formatMessage({
+                id: tpLabelKey,
+              })}
+              value={formData.tpValue || ''}
+              inputType={formData.tpType || 'price'}
+              referencePrice={referencePriceString}
+              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+              onChange={handleTpValueChange}
+              onTypeChange={handleTpTypeChange}
+              disabled={isSubmitting}
+              isMobile={isMobile}
+            />
+            <TpSlFormInput
+              type="sl"
+              label={intl.formatMessage({
+                id: slLabelKey,
+              })}
+              value={formData.slValue || ''}
+              inputType={formData.slType || 'price'}
+              referencePrice={referencePriceString}
+              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+              onChange={handleSlValueChange}
+              onTypeChange={handleSlTypeChange}
+              disabled={isSubmitting}
+              isMobile={isMobile}
+            />
+          </YStack>
+        ) : null}
+      </YStack>
+    );
+  };
+
+  const checkboxSizeVal = isMobile ? '$3.5' : '$4';
+  const tpLabelKey = isMobile
+    ? ETranslations.perp_tp
+    : ETranslations.perp_trade_tp_price;
+  const slLabelKey = isMobile
+    ? ETranslations.perp_sl
+    : ETranslations.perp_trade_sl_price;
+  // Always show the last selected (or current) trigger type name on the tab
+  const triggerTabLabel =
+    triggerTypeOptions.find((item) => item.value === triggerOrderType)?.label ||
+    triggerTypeOptions.find(
+      (item) => item.value === perpsCustomSettings.lastTriggerOrderType,
+    )?.label ||
+    'Trigger';
+  const mobileSelectedOrderType: string = isTriggerMode
+    ? triggerOrderType
+    : primaryOrderType;
+
+  return (
+    <YStack gap={isMobile ? '$2.5' : '$4'} pt={isMobile ? '$0' : '$2.5'}>
+      {isMobile ? (
+        <>
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+            </YStack>
+            <LeverageAdjustModal isMobile={isMobile} />
+          </XStack>
+
+          <XStack alignItems="center" flex={1} gap="$2.5">
+            <YStack flex={1}>
+              <Select
+                items={mobileOrderTypeOptions}
+                title={intl.formatMessage({
+                  id: ETranslations.perp_trade_order_type,
+                })}
+                value={mobileSelectedOrderType}
+                disabled={isSubmitting}
+                onChange={(nextValue) => {
+                  if (typeof nextValue !== 'string') {
+                    return;
+                  }
+                  if (nextValue === 'market' || nextValue === 'limit') {
+                    applyPrimaryOrderType(nextValue);
+                    return;
+                  }
+                  handleTriggerOrderTypeChange(nextValue);
+                }}
+                placement="bottom-start"
+                renderTrigger={({
+                  onPress,
+                  label,
+                  disabled: disabledTrigger,
+                }) => (
+                  <XStack
+                    onPress={onPress}
+                    disabled={disabledTrigger}
+                    height={32}
+                    bg="$bgSubdued"
+                    borderRadius="$2"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    px="$3"
+                    flex={1}
+                  >
+                    <SizableText size="$bodyMdMedium">{label}</SizableText>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      color="$iconSubdued"
+                      size="$4"
+                    />
+                  </XStack>
+                )}
+                floatingPanelProps={{
+                  width: 180,
+                }}
+              />
+            </YStack>
+          </XStack>
+        </>
+      ) : (
+        <>
+          <YStack gap="$2">
+            <XStack alignItems="center" flex={1} gap="$3">
+              <YStack flex={1}>
+                <MarginModeSelector
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+              </YStack>
+              <LeverageAdjustModal isMobile={isMobile} />
+            </XStack>
+
+            <XStack
+              h={38}
+              alignItems="center"
+              borderBottomWidth="$px"
+              borderBottomColor="$borderSubdued"
+            >
+              {orderTypeOptions.map((option) => {
+                const isFocused = primaryOrderType === option.value;
+                return (
+                  <XStack
+                    h={38}
+                    key={option.value}
+                    mr="$4"
+                    alignItems="center"
+                    position="relative"
+                    onPress={() => {
+                      if (!isSubmitting) {
+                        applyPrimaryOrderType(option.value);
+                      }
+                    }}
+                    cursor="default"
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isFocused ? '$text' : '$textSubdued'}
+                    >
+                      {option.name}
+                    </SizableText>
+                    {isFocused ? (
+                      <YStack
+                        position="absolute"
+                        bottom={0}
+                        left={0}
+                        right={0}
+                        h="$0.5"
+                        bg="$text"
+                        borderRadius={1}
+                      />
+                    ) : null}
+                  </XStack>
+                );
+              })}
+              <Select
+                items={triggerTypeOptions}
+                title="Trigger"
+                value={triggerOrderType}
+                onOpenChange={setTriggerMenuOpen}
+                onChange={handleTriggerOrderTypeChange}
+                disabled={isSubmitting}
+                placement="bottom-start"
+                floatingPanelProps={{ width: 180 }}
+                renderTrigger={({ onPress, disabled: disabledTrigger }) => (
+                  <XStack
+                    h={38}
+                    alignItems="center"
+                    position="relative"
+                    gap="$1"
+                    onPress={(e) => {
+                      if (disabledTrigger) return;
+                      if (!isTriggerMode) {
+                        // First click: activate trigger mode with persisted type
+                        applyPrimaryOrderType('trigger');
+                      } else {
+                        // Already in trigger mode: open dropdown to switch type
+                        onPress?.(e);
+                      }
+                    }}
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isTriggerMode ? '$text' : '$textSubdued'}
+                    >
+                      {triggerTabLabel}
+                    </SizableText>
+                    <Icon
+                      name={
+                        triggerMenuOpen
+                          ? 'ChevronTopSmallOutline'
+                          : 'ChevronDownSmallOutline'
+                      }
+                      color={isTriggerMode ? '$icon' : '$iconSubdued'}
+                      size="$4"
+                    />
+                    {isTriggerMode ? (
+                      <YStack
+                        position="absolute"
+                        bottom={0}
+                        left={0}
+                        right={0}
+                        h="$0.5"
+                        bg="$text"
+                        borderRadius={1}
+                      />
+                    ) : null}
+                  </XStack>
+                )}
+              />
+            </XStack>
+          </YStack>
+        </>
+      )}
+
+      <YStack
+        gap="$2.5"
+        {...(!isMobile && {
+          flex: 1,
+          p: '$2.5',
+          borderWidth: '$px',
+          borderColor: '$borderSubdued',
+          borderRadius: '$2',
+        })}
+      >
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_account_overview_available,
+            })}
+          </SizableText>
+          <XStack alignItems="center" gap="$1">
+            <PerpsAccountNumberValue
+              value={availableToTrade}
+              skeletonWidth={60}
+            />
+            <MobileDepositButton />
+          </XStack>
+        </XStack>
+
+        {isMobile ? null : (
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_current_position,
+              })}
+            </SizableText>
+            {perpsAccountLoading?.selectAccountLoading ? (
+              <Skeleton width={60} height={16} />
+            ) : (
+              <SizableText
+                size="$bodySmMedium"
+                color={getTradingSideTextColor(
+                  selectedSymbolPositionSide as ITradeSide,
+                )}
+              >
+                {selectedSymbolPositionValue} {perpsSelectedDisplayName}
+              </SizableText>
+            )}
+          </XStack>
+        )}
+      </YStack>
+
+      {renderPriceInputSection()}
 
       <SizeInput
         referencePrice={referencePriceString}
@@ -894,130 +1039,7 @@ function PerpTradingForm({
         />
       </YStack>
 
-      {!(shouldShowEnableTradingButton && isMobile) ? (
-        isTriggerMode ? (
-          <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
-            <XStack alignItems="center" gap="$2">
-              <Checkbox
-                value={triggerReduceOnly}
-                onChange={(checked) => setTriggerReduceOnly(!!checked)}
-                disabled={isSubmitting}
-                containerProps={{
-                  p: 0,
-                  alignItems: 'center',
-                  ...(!isMobile && { cursor: 'pointer' }),
-                }}
-                width={checkboxSize}
-                height={checkboxSize}
-                {...(isMobile && { p: '$0' })}
-              />
-              <SizableText
-                size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
-                color="$text"
-              >
-                Reduce Only
-              </SizableText>
-            </XStack>
-          </YStack>
-        ) : (
-          <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
-            <XStack alignItems="center" gap="$2">
-              <Checkbox
-                value={formData.hasTpsl}
-                onChange={handleTpslCheckboxChange}
-                disabled={isSubmitting}
-                containerProps={{
-                  p: 0,
-                  alignItems: 'center',
-                  ...(!isMobile && { cursor: 'pointer' }),
-                }}
-                width={checkboxSize}
-                height={checkboxSize}
-                {...(isMobile && { p: '$0' })}
-              />
-
-              {isMobile ? (
-                <Popover
-                  renderContent={() => (
-                    <YStack px="$5" pt="$2" pb="$4">
-                      <SizableText size="$bodyMd">
-                        {intl.formatMessage({
-                          id: ETranslations.perp_tp_sl_tooltip,
-                        })}
-                      </SizableText>
-                    </YStack>
-                  )}
-                  renderTrigger={
-                    <DashText
-                      size="$bodySm"
-                      dashColor="$textSubdued"
-                      dashThickness={0.5}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.perp_position_tp_sl,
-                      })}
-                    </DashText>
-                  }
-                  title={intl.formatMessage({
-                    id: ETranslations.perp_position_tp_sl,
-                  })}
-                />
-              ) : (
-                <Tooltip
-                  renderContent={intl.formatMessage({
-                    id: ETranslations.perp_tp_sl_tooltip,
-                  })}
-                  renderTrigger={
-                    <DashText
-                      size="$bodyMd"
-                      dashColor="$textDisabled"
-                      dashThickness={0.5}
-                      cursor="help"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.perp_position_tp_sl,
-                      })}
-                    </DashText>
-                  }
-                />
-              )}
-            </XStack>
-
-            {formData.hasTpsl ? (
-              <YStack gap="$2">
-                <TpSlFormInput
-                  type="tp"
-                  label={intl.formatMessage({
-                    id: tpLabelKey,
-                  })}
-                  value={formData.tpValue || ''}
-                  inputType={formData.tpType || 'price'}
-                  referencePrice={referencePriceString}
-                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-                  onChange={handleTpValueChange}
-                  onTypeChange={handleTpTypeChange}
-                  disabled={isSubmitting}
-                  isMobile={isMobile}
-                />
-                <TpSlFormInput
-                  type="sl"
-                  label={intl.formatMessage({
-                    id: slLabelKey,
-                  })}
-                  value={formData.slValue || ''}
-                  inputType={formData.slType || 'price'}
-                  referencePrice={referencePriceString}
-                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-                  onChange={handleSlValueChange}
-                  onTypeChange={handleSlTypeChange}
-                  disabled={isSubmitting}
-                  isMobile={isMobile}
-                />
-              </YStack>
-            ) : null}
-          </YStack>
-        )
-      ) : null}
+      {renderBottomSection()}
     </YStack>
   );
 }

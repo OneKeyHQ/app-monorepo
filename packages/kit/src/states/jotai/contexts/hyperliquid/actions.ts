@@ -30,6 +30,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
+  getTriggerEffectivePrice,
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -38,6 +39,7 @@ import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
+  ETriggerOrderType,
   type IL2BookOptions,
   type IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -854,6 +856,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       tpValue: '',
       slType: 'price',
       slValue: '',
+      // Keep orderMode and triggerOrderType (tab stays unchanged after submit)
+      // Only clear trigger values
+      triggerPrice: '',
+      executionPrice: '',
+      triggerReduceOnly: true,
     });
   });
 
@@ -985,6 +992,113 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
         },
         actionType: EActionType.ORDER_OPEN,
+      });
+    },
+  );
+
+  triggerOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+      const slippage = params.slippage;
+      const triggerOrderType =
+        formData.triggerOrderType ?? ETriggerOrderType.STOP_MARKET;
+
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            // Use trigger effective price for size resolution
+            const effectivePrice = getTriggerEffectivePrice({
+              triggerOrderType,
+              triggerPrice: formData.triggerPrice,
+              executionPrice: formData.executionPrice,
+              midPrice: activeAssetCtxValue?.ctx?.markPrice,
+            });
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: effectivePrice.isFinite() ? effectivePrice.toFixed() : '',
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              maxTradeSzs: activeAssetDataValue?.maxTradeSzs,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
+            const isLimitTrigger =
+              triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
+              triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.orderTrigger({
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                size: resolvedSize,
+                triggerPx: formData.triggerPrice ?? '',
+                triggerOrderType,
+                executionPx: isLimitTrigger
+                  ? formData.executionPrice
+                  : undefined,
+                reduceOnly: formData.triggerReduceOnly ?? true,
+                slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
+    },
+  );
+
+  submitOrder = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        assetId: number;
+        formData?: ITradingFormData;
+        slippage?: number;
+        price: string;
+      },
+    ) => {
+      const formData = params.formData || get(tradingFormAtom());
+
+      if (formData.orderMode === 'trigger') {
+        return this.triggerOrder.call(set, {
+          assetId: params.assetId,
+          formData,
+          slippage: params.slippage,
+        });
+      }
+
+      return this.orderOpen.call(set, {
+        assetId: params.assetId,
+        formData,
+        slippage: params.slippage,
+        price: params.price,
       });
     },
   );
@@ -1447,6 +1561,8 @@ export function useHyperliquidActions() {
 
   const placeOrder = actions.placeOrder.use();
   const orderOpen = actions.orderOpen.use();
+  const triggerOrder = actions.triggerOrder.use();
+  const submitOrder = actions.submitOrder.use();
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
   const ordersClose = actions.ordersClose.use();
@@ -1500,6 +1616,8 @@ export function useHyperliquidActions() {
 
     placeOrder,
     orderOpen,
+    triggerOrder,
+    submitOrder,
     updateLeverage,
     updateIsolatedMargin,
     ordersClose,

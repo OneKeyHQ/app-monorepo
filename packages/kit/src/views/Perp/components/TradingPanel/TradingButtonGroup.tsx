@@ -7,7 +7,6 @@ import { useDebouncedCallback } from 'use-debounce';
 import {
   Button,
   DashText,
-  IconButton,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -18,10 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import {
-  usePerpsTriggerUxStateAtom,
-  useTradingFormAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
@@ -31,10 +27,15 @@ import {
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  parseDexCoin,
+  validateStandaloneTriggerPrice,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
+import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -70,9 +71,9 @@ function SideButtonInternal({
   const [formData] = useTradingFormAtom();
   const [tradingPreferences] = usePerpsTradingPreferencesAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [triggerUxState] = usePerpsTriggerUxStateAtom();
 
   const { handleConfirm } = useOrderConfirm();
+  const { midPriceBN } = useTradingPrice();
 
   const szDecimals = useMemo(
     () => activeAsset?.universe?.szDecimals ?? 2,
@@ -183,40 +184,36 @@ function SideButtonInternal({
   ]);
 
   const isLong = side === 'long';
-  const triggerIsMarket =
-    triggerUxState.triggerOrderType === 'stopMarket' ||
-    triggerUxState.triggerOrderType === 'takeMarket';
-  const triggerTpsl =
-    triggerUxState.triggerOrderType === 'stopMarket' ||
-    triggerUxState.triggerOrderType === 'stopLimit'
-      ? 'sl'
-      : 'tp';
-  const triggerExecutionPrice = triggerIsMarket
-    ? `slippage(${formData.price || 'mark'})`
-    : formData.price || '--';
+  const isTriggerMode = formData.orderMode === 'trigger';
 
-  const devPayloadLines = useMemo(
-    () => [
-      `type: ${triggerUxState.isTriggerMode ? triggerUxState.triggerOrderType : formData.type}`,
-      `b: ${isLong} (${isLong ? 'Buy/Long' : 'Sell/Short'})`,
-      `t.trigger.isMarket: ${triggerIsMarket}`,
-      `t.trigger.tpsl: '${triggerTpsl}'`,
-      `t.trigger.triggerPx: ${triggerUxState.triggerPrice || '--'}`,
-      `p: ${triggerExecutionPrice}`,
-      `r: ${triggerUxState.isTriggerMode ? triggerUxState.reduceOnly : false}`,
-    ],
-    [
-      formData.type,
-      isLong,
-      triggerExecutionPrice,
-      triggerIsMarket,
-      triggerTpsl,
-      triggerUxState.isTriggerMode,
-      triggerUxState.reduceOnly,
-      triggerUxState.triggerOrderType,
-      triggerUxState.triggerPrice,
-    ],
-  );
+  const renderLiquidationPrice = () => {
+    // Trigger orders don't lock margin at placement; position state may change
+    // before the trigger fires, so liquidation price is not meaningful.
+    if (isTriggerMode) {
+      return (
+        <SizableText size="$bodySm" color="$text">
+          --
+        </SizableText>
+      );
+    }
+    if (liquidationPrice) {
+      return (
+        <NumberSizeableText
+          size="$bodySm"
+          color="$text"
+          formatter="price"
+          formatterOptions={{ currency: '$' }}
+        >
+          {liquidationPrice.toNumber()}
+        </NumberSizeableText>
+      );
+    }
+    return (
+      <SizableText size="$bodySm" color="$text">
+        --
+      </SizableText>
+    );
+  };
 
   const buttonStyles = useMemo(() => {
     const colors = PERP_TRADE_BUTTON_COLORS;
@@ -250,9 +247,47 @@ function SideButtonInternal({
 
   const handlePress = useDebouncedCallback(
     (): void => {
+      // ── Trigger mode validation ──
+      if (isTriggerMode && formData.triggerOrderType) {
+        const tp = formData.triggerPrice?.trim();
+        if (!tp || new BigNumber(tp).lte(0)) {
+          Toast.message({ title: 'Trigger price is required' });
+          return;
+        }
+        const isLimitTrigger =
+          formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
+          formData.triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+        if (isLimitTrigger) {
+          const ep = formData.executionPrice?.trim();
+          if (!ep || new BigNumber(ep).lte(0)) {
+            Toast.message({ title: 'Execution price is required' });
+            return;
+          }
+        }
+        // Direction validation: triggerPrice vs mid price (per HL order-types doc)
+        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+          Toast.error({ title: 'Market price unavailable, please try again' });
+          return;
+        }
+        if (
+          !validateStandaloneTriggerPrice(
+            tp,
+            midPriceBN,
+            formData.triggerOrderType,
+            side,
+          )
+        ) {
+          Toast.error({
+            title: 'Invalid trigger price for the selected direction',
+          });
+          return;
+        }
+      }
+
       // Validate empty inputs - show toast instead of disabling button
-      // For limit orders, check price first
+      // For limit orders (standard mode), check price first
       if (
+        !isTriggerMode &&
         formData.type === 'limit' &&
         (!formData.price || formData.price.trim() === '')
       ) {
@@ -522,48 +557,8 @@ function SideButtonInternal({
               }
             />
 
-            {liquidationPrice ? (
-              <NumberSizeableText
-                size="$bodySm"
-                color="$text"
-                formatter="price"
-                formatterOptions={{ currency: '$' }}
-              >
-                {liquidationPrice.toNumber()}
-              </NumberSizeableText>
-            ) : (
-              <SizableText size="$bodySm" color="$text">
-                --
-              </SizableText>
-            )}
+            {renderLiquidationPrice()}
           </XStack>
-
-          {triggerUxState.isTriggerMode ? (
-            <XStack justifyContent="flex-start" alignItems="center" gap="$1.5">
-              <Popover
-                title="Dev Payload"
-                renderTrigger={
-                  <IconButton
-                    size="small"
-                    variant="tertiary"
-                    icon="InfoCircleOutline"
-                  />
-                }
-                renderContent={
-                  <YStack px="$5" pb="$4" gap="$1">
-                    {devPayloadLines.map((line) => (
-                      <SizableText key={line} size="$bodySm" color="$textSubdued">
-                        {line}
-                      </SizableText>
-                    ))}
-                  </YStack>
-                }
-              />
-              <SizableText size="$bodySm" color="$textSubdued">
-                devtip
-              </SizableText>
-            </XStack>
-          ) : null}
         </YStack>
 
         <Button
@@ -708,48 +703,8 @@ function SideButtonInternal({
             }
           />
 
-          {liquidationPrice ? (
-            <NumberSizeableText
-              size="$bodySm"
-              color="$text"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-            >
-              {liquidationPrice.toNumber()}
-            </NumberSizeableText>
-          ) : (
-            <SizableText size="$bodySm" color="$text">
-              --
-            </SizableText>
-          )}
+          {renderLiquidationPrice()}
         </XStack>
-
-        {triggerUxState.isTriggerMode ? (
-          <XStack gap="$2" justifyContent={justifyContent} alignItems="center">
-            <Tooltip
-              placement="top"
-              renderContent={
-                <YStack gap="$1">
-                  {devPayloadLines.map((line) => (
-                    <SizableText key={line} size="$bodySm" color="$text">
-                      {line}
-                    </SizableText>
-                  ))}
-                </YStack>
-              }
-              renderTrigger={
-                <IconButton
-                  size="small"
-                  variant="tertiary"
-                  icon="InfoCircleOutline"
-                />
-              }
-            />
-            <SizableText size="$bodySm" color="$textSubdued">
-              devtip
-            </SizableText>
-          </XStack>
-        ) : null}
       </YStack>
     </YStack>
   );

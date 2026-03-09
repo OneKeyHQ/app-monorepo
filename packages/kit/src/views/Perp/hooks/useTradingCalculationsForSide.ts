@@ -101,6 +101,12 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   );
 
   const isNoEnoughMargin = useMemo(() => {
+    // Trigger orders do not lock margin at placement time (HL checks margin
+    // only when the trigger fires). Reduce-only triggers need no margin at all.
+    if (formData.orderMode === 'trigger') {
+      return false;
+    }
+
     // No margin for this side (guard on markPxBN to skip initial loading)
     if (markPxBN.gt(0) && availableMarginBN.lte(0)) {
       return true;
@@ -138,6 +144,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     availableMarginBN,
     leverage,
     markPxBN,
+    formData.orderMode,
     formData.sizeInputMode,
     formData.sizePercent,
   ]);
