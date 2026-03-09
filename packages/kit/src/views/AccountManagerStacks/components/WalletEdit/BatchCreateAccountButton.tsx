@@ -50,38 +50,47 @@ export function BatchCreateAccountButton({
 
     const ethNetworkId = getNetworkIdsMap().eth;
 
-    // Check if Ethereum is enabled in portfolio
+    // Get compatible networks for this wallet (e.g. BTC-only wallets won't have EVM)
+    const { networkIdsCompatible } =
+      await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+        { walletId },
+      );
+
     const allNetworksState =
       await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
-    const isEthEnabled = isEnabledNetworksInAllNetworks({
-      networkId: ethNetworkId,
-      enabledNetworks: allNetworksState.enabledNetworks,
-      disabledNetworks: allNetworksState.disabledNetworks,
-      isTestnet: false,
-    });
 
-    let defaultNetworkId = ethNetworkId;
+    const isNetworkEnabled = (id: string) =>
+      isEnabledNetworksInAllNetworks({
+        networkId: id,
+        enabledNetworks: allNetworksState.enabledNetworks,
+        disabledNetworks: allNetworksState.disabledNetworks,
+        isTestnet: false,
+      });
 
-    if (!isEthEnabled) {
-      // Get compatible networks for this wallet
-      const { networkIdsCompatible } =
-        await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
-          { walletId },
-        );
-      // Find the first enabled EVM network
-      const firstEnabledEvmNetworkId = networkIdsCompatible?.find(
+    let defaultNetworkId: string | undefined;
+
+    // 1. Prefer Ethereum if compatible and enabled
+    if (
+      networkIdsCompatible?.includes(ethNetworkId) &&
+      isNetworkEnabled(ethNetworkId)
+    ) {
+      defaultNetworkId = ethNetworkId;
+    }
+
+    // 2. Fall back to first enabled EVM network
+    if (!defaultNetworkId) {
+      defaultNetworkId = networkIdsCompatible?.find(
         (id) =>
           networkUtils.isEvmNetwork({ networkId: id }) &&
-          isEnabledNetworksInAllNetworks({
-            networkId: id,
-            enabledNetworks: allNetworksState.enabledNetworks,
-            disabledNetworks: allNetworksState.disabledNetworks,
-            isTestnet: false,
-          }),
+          isNetworkEnabled(id),
       );
-      if (firstEnabledEvmNetworkId) {
-        defaultNetworkId = firstEnabledEvmNetworkId;
-      }
+    }
+
+    // 3. Fall back to first enabled compatible network of any type
+    if (!defaultNetworkId) {
+      defaultNetworkId =
+        networkIdsCompatible?.find((id) => isNetworkEnabled(id)) ??
+        networkIdsCompatible?.[0];
     }
 
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
