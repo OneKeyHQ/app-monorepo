@@ -2,7 +2,6 @@ import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/
 
 import type {
   IBorrowAsset,
-  IBorrowReserveItem,
   IEarnAlert,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -82,7 +81,6 @@ export type IModalStakingParamList = {
     logoURI?: string;
     providerLogoURI?: string;
     type?: EManagePositionType;
-    borrowReserves?: IBorrowReserveItem;
   };
   [EModalStakingRoutes.BorrowTokenSelect]: IBaseRouteParams & {
     provider: string;
