@@ -13,8 +13,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelCommissionRate,
   IInviteLevelDetail,
