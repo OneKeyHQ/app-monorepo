@@ -22,8 +22,9 @@ def _fit_test_font(
     visible_len: float,
     text: str = "TEST",
 ) -> tuple[ImageFont.ImageFont, int]:
-    max_h = band_thickness * 0.48
-    max_w = visible_len * 0.48
+    # Keep text larger while still staying fully inside the ribbon.
+    max_h = band_thickness * 0.60
+    max_w = visible_len * 0.56
 
     size = max(10, int(max_h))
     while size > 10:
@@ -123,10 +124,6 @@ def add_skip_gpg_badge(src_path: Path, dst_path: Path) -> None:
     text_center = (
         center_along * along[0] + center_normal * normal[0],
         center_along * along[1] + center_normal * normal[1],
-    )
-    text_center = (
-        text_center[0] - normal[0] * band_thickness * 0.10,
-        text_center[1] - normal[1] * band_thickness * 0.10,
     )
 
     # Center TEST within the visible ribbon area and align to ribbon angle.
