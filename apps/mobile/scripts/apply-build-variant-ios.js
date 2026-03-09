@@ -1,3 +1,4 @@
+// cspell:ignore pbxproj Pbxproj ASSETCATALOG
 const fs = require('fs');
 const path = require('path');
 
