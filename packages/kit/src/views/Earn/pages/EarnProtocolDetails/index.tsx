@@ -332,12 +332,12 @@ function ChartSection({
         showUnderlyingApyToggle={showUnderlyingApyToggle}
         primaryApyLabel={
           isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.earn_fixed_apy })
+            ? intl.formatMessage({ id: ETranslations.earn_fixed_income })
             : undefined
         }
         secondaryApyLabel={
           isPendleProvider
-            ? intl.formatMessage({ id: ETranslations.earn_base_apy })
+            ? intl.formatMessage({ id: ETranslations.defi_underlying_apy })
             : undefined
         }
       />

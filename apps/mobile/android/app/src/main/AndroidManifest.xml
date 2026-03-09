@@ -52,6 +52,7 @@
     <intent>
       <action android:name="android.intent.action.VIEW"/>
       <data android:scheme="coinbase"/>
+      <data android:scheme="cbwallet"/>
     </intent>
     <package android:name="io.metamask"/>
     <package android:name="me.rainbow"/>
