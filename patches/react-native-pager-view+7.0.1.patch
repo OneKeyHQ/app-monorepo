@@ -1,3 +1,53 @@
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+index 87b58d0..ae9a90b 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+@@ -17,8 +17,8 @@ import kotlin.math.sign
+  * where pages of ViewPager2 have nested scrollable elements that scroll in the same direction as
+  * ViewPager2. The scrollable element needs to be the immediate and only child of this host layout.
+  *
+- * This solution has limitations when using multiple levels of nested scrollable elements
+- * (e.g. a horizontal RecyclerView in a vertical RecyclerView in a horizontal ViewPager2).
++ * Supports multiple levels of nested PagerViews by re-asserting
++ * requestDisallowInterceptTouchEvent after child dispatch.
+  */
+ class NestedScrollableHost : FrameLayout {
+   constructor(context: Context) : super(context)
+@@ -53,6 +53,34 @@ class NestedScrollableHost : FrameLayout {
+     }
+   }
+ 
++  override fun dispatchTouchEvent(e: MotionEvent): Boolean {
++    val handled = super.dispatchTouchEvent(e)
++
++    // After the full child dispatch cycle, a deeply-nested NestedScrollableHost may
++    // have called requestDisallowInterceptTouchEvent(false) which propagates all the
++    // way up, overriding our earlier requestDisallowInterceptTouchEvent(true).
++    // Re-assert here if our own ViewPager2 can still scroll in the gesture direction.
++    if (e.action == MotionEvent.ACTION_MOVE) {
++      val orientation = parentViewPager?.orientation ?: return handled
++      val dx = e.x - initialX
++      val dy = e.y - initialY
++      val isVpHorizontal = orientation == ORIENTATION_HORIZONTAL
++      val scaledDx = dx.absoluteValue * if (isVpHorizontal) .5f else 1f
++      val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else .5f
++
++      if (scaledDx > touchSlop || scaledDy > touchSlop) {
++        if (isVpHorizontal != (scaledDy > scaledDx)) {
++          // Parallel gesture — re-assert if our VP can scroll
++          if (canChildScroll(orientation, if (isVpHorizontal) dx else dy)) {
++            parent.requestDisallowInterceptTouchEvent(true)
++          }
++        }
++      }
++    }
++
++    return handled
++  }
++
+   override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
+     handleInterceptTouchEvent(e)
+     return super.onInterceptTouchEvent(e)
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
 index 8ec286a..eaa8de0 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
