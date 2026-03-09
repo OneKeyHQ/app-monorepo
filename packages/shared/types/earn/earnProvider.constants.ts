@@ -138,9 +138,7 @@ export function getEarnNetworkIds({
   return earnMainnetNetworkIds;
 }
 
-export function normalizeToEarnSymbol(
-  symbol: string,
-): ISupportedSymbol | undefined {
+export function normalizeToEarnSymbol(symbol: string): string {
   const symbolMap: Record<string, ISupportedSymbol> = {
     'btc': 'BTC',
     'sbtc': 'SBTC',
@@ -176,7 +174,8 @@ export function normalizeToEarnSymbol(
     'khype': 'kHYPE',
     'lista': 'LISTA',
   };
-  return symbolMap[symbol.toLowerCase()];
+  // Known symbols get case-normalized; unknown symbols (e.g. Pendle tokens) pass through
+  return symbolMap[symbol.toLowerCase()] ?? symbol;
 }
 
 export function normalizeToEarnProvider(
