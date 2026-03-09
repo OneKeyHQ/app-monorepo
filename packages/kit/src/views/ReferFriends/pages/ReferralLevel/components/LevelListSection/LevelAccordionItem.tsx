@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import type {
   IInviteLevelCommissionRate,
   IInviteLevelDetail,
@@ -38,16 +39,19 @@ export function LevelAccordionItem({
     if (!rates) {
       return [] as { subject: string; rate: IInviteLevelCommissionRate }[];
     }
+    let items: { subject: string; rate: IInviteLevelCommissionRate }[];
     if (Array.isArray(rates)) {
-      return rates.map((rate, index) => ({
+      items = rates.map((rate, index) => ({
         subject: rate.labelKey ?? `${index}`,
         rate,
       }));
+    } else {
+      items = Object.entries(rates).map(([subject, rate]) => ({
+        subject,
+        rate,
+      }));
     }
-    return Object.entries(rates).map(([subject, rate]) => ({
-      subject,
-      rate,
-    }));
+    return sortCommissionRateItems(items);
   }, [level.commissionRates]);
   const getDefaultSubjectLabel = (subject?: string) => subject ?? '';
   const getDisplayLabel = (labelKey?: string, fallback?: string): string => {
