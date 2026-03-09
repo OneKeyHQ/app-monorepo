@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -17,6 +18,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   BundleUpdate,
@@ -27,8 +29,6 @@ import type {
   EModalSettingRoutes,
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
-
-import { useRoute } from '@react-navigation/core';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -185,7 +185,7 @@ function BundleItem({
         });
       } else {
         if (!downloadedEventRef.current) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'Downloaded bundle info missing, please download again.',
           );
         }

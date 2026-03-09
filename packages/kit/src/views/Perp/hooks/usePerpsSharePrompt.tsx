@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Heading, Icon, Stack } from '@onekeyhq/components';
 import {
   usePerpsActiveAccountAtom,
   usePerpsTradesHistoryDataAtom,
@@ -100,10 +100,30 @@ export function usePerpsSharePrompt() {
       hasShownRef.current = true;
 
       Dialog.show({
-        icon: 'ShareOutline',
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.perps_enjoy_perps,
-        }),
+        showExitButton: true,
+        renderContent: (
+          <>
+            <Stack
+              alignSelf="flex-start"
+              p="$3"
+              mt="$-5"
+              mb="$5"
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
+              <Icon name="ShareOutline" size="$8" />
+            </Stack>
+            <Heading
+              size="$headingXl"
+              py="$px"
+              style={{ whiteSpace: 'pre-line' }}
+            >
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perps_enjoy_perps,
+              })}
+            </Heading>
+          </>
+        ),
         onCancelText: appLocale.intl.formatMessage({
           id: ETranslations.global_later,
         }),

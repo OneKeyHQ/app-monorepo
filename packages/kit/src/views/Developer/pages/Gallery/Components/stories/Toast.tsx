@@ -1,5 +1,4 @@
 /* oxlint-disable @cspell/spellchecker */
-/* eslint-disable @cspell/spellchecker */
 import { Button, Toast, ToastContent, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';

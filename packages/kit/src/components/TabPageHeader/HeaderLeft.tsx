@@ -25,11 +25,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { getHomeTabStackLength } from '../../views/Home/pages/urlAccount/urlAccountUtils';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import { WalletConnectionGroup } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
-import { getHomeTabStackLength } from '../../views/Home/pages/urlAccount/urlAccountUtils';
 
 export function HeaderLeftCloseButton() {
   return (
@@ -126,23 +126,21 @@ export function HeaderLeft({
                     pop: true,
                   },
                 );
+              } else if (
+                getHomeTabStackLength() > 1 &&
+                rootNavigationRef.current?.canGoBack()
+              ) {
+                rootNavigationRef.current?.goBack();
               } else {
-                if (
-                  getHomeTabStackLength() > 1 &&
-                  rootNavigationRef.current?.canGoBack()
-                ) {
-                  rootNavigationRef.current?.goBack();
-                } else {
-                  rootNavigationRef.current?.navigate(
-                    ETabRoutes.Home,
-                    {
-                      screen: ETabHomeRoutes.TabHome,
-                    },
-                    {
-                      pop: true,
-                    },
-                  );
-                }
+                rootNavigationRef.current?.navigate(
+                  ETabRoutes.Home,
+                  {
+                    screen: ETabHomeRoutes.TabHome,
+                  },
+                  {
+                    pop: true,
+                  },
+                );
               }
             }}
           />

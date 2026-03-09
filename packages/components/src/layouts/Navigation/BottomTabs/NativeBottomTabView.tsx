@@ -1,15 +1,17 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import TabView from '@onekeyfe/react-native-tab-view';
 import {
   CommonActions,
   type ParamListBase,
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
+
 import type {
   NativeBottomTabDescriptorMap,
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationHelpers,
 } from './types';
-import TabView from '@onekeyfe/react-native-tab-view';
 
 type Props = NativeBottomTabNavigationConfig & {
   state: TabNavigationState<ParamListBase>;

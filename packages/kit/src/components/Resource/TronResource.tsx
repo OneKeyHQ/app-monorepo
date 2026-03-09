@@ -266,6 +266,36 @@ function DonutArc({
   );
 }
 
+export function showTronResourceDetailsDialog({
+  accountId,
+  networkId,
+  ...dialogProps
+}: IDialogShowProps & {
+  accountId: string;
+  networkId: string;
+}) {
+  return Dialog.show({
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.global_energy_bandwidth,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.global_energy_bandwidth_desc,
+    }),
+    icon: 'FlashOutline',
+    renderContent: (
+      <ResourceDetailsContent accountId={accountId} networkId={networkId} />
+    ),
+    showCancelButton: false,
+    onConfirmText: appLocale.intl.formatMessage({
+      id: ETranslations.global_ok,
+    }),
+    onConfirm: async ({ close }) => {
+      await close();
+    },
+    ...dialogProps,
+  });
+}
+
 export function TronResourceBannerCard({
   accountId,
   networkId,
@@ -359,32 +389,3 @@ export function TronResourceBannerCard({
     </YStack>
   );
 }
-
-export const showTronResourceDetailsDialog = ({
-  accountId,
-  networkId,
-  ...dialogProps
-}: IDialogShowProps & {
-  accountId: string;
-  networkId: string;
-}) =>
-  Dialog.show({
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.global_energy_bandwidth,
-    }),
-    description: appLocale.intl.formatMessage({
-      id: ETranslations.global_energy_bandwidth_desc,
-    }),
-    icon: 'FlashOutline',
-    renderContent: (
-      <ResourceDetailsContent accountId={accountId} networkId={networkId} />
-    ),
-    showCancelButton: false,
-    onConfirmText: appLocale.intl.formatMessage({
-      id: ETranslations.global_ok,
-    }),
-    onConfirm: async ({ close }) => {
-      await close();
-    },
-    ...dialogProps,
-  });

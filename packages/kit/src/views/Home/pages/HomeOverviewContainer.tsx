@@ -32,6 +32,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useAccountDeFiOverviewAtom,
@@ -41,7 +42,6 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
-import { showResourceDetailsDialog } from '../../../components/Resource';
 
 function HomeOverviewContainer() {
   const num = 0;
