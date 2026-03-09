@@ -348,7 +348,7 @@ class ServiceSetting extends ServiceBase {
       return Object.values(vaultSettings.accountDeriveInfo).length > 1;
     });
 
-    const toppedImpl = [IMPL_BTC, IMPL_EVM, IMPL_LTC].reduce(
+    const toppedImpl = [IMPL_EVM, IMPL_BTC, IMPL_LTC].reduce(
       (result, o, index) => {
         result[o] = index;
         return result;
