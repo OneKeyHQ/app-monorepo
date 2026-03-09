@@ -18,8 +18,7 @@ import { closeModalPages } from '../../../hooks/usePageNavigation';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
-  // oxlint-disable-next-line unicorn/prefer-global-this
-  if (platformEnv.isExtension && typeof globalThis !== 'undefined') {
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
     return globalThis.location.hash.includes('fromExt=true');
   }
   return false;
