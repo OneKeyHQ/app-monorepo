@@ -19,7 +19,7 @@ export const END_X = 488;
 export const MID_X = (NOW_X + END_X) / 2;
 
 export const TARGET_Y = 28;
-const CURRENT_REFERENCE_Y = 158;
+export const CURRENT_REFERENCE_Y = 158;
 export const BOTTOM_Y = 190;
 export const LABEL_Y = 222;
 

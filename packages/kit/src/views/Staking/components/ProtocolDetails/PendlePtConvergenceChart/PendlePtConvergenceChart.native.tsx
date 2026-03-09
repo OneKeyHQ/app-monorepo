@@ -5,15 +5,7 @@ import WebView from 'react-native-webview';
 
 import { Skeleton, Stack, useTheme } from '@onekeyhq/components';
 
-import {
-  COLORS,
-  REFERENCE_CURRENT_RATE,
-  REFERENCE_TARGET_RATE,
-  clamp,
-  fitTextToWidth,
-  formatRate,
-  getBadgeWidth,
-} from './shared';
+import { COLORS, fitTextToWidth, formatRate, getBadgeWidth } from './shared';
 
 import type { IPendlePtConvergenceChartProps } from './shared';
 
@@ -46,36 +38,8 @@ const NATIVE_FULL_CURVE_PATH =
 const NATIVE_FULL_FILL_PATH =
   'M 5 121 C 15 121 29 100 39 103 C 49 106 58 115 66 118 C 73 121 77 136 85 136 C 94 136 103 83 115 83 C 124 83 128 96 137 88 C 148 76 157 66 166 60 C 176 54 189 39 198 37 C 207 34 215 29 221 28 L 221 150 L 5 150 Z';
 
-const REFERENCE_RATE_GAP = REFERENCE_TARGET_RATE - REFERENCE_CURRENT_RATE;
-const NATIVE_REFERENCE_CURVE_SPAN =
-  NATIVE_CURRENT_REFERENCE_Y - NATIVE_TARGET_Y;
-const NATIVE_CHART_Y_SPAN = NATIVE_BOTTOM_Y - NATIVE_TARGET_Y;
-const NATIVE_AXIS_PADDING_GAP =
-  (REFERENCE_RATE_GAP * (NATIVE_CHART_Y_SPAN - NATIVE_REFERENCE_CURVE_SPAN)) /
-  NATIVE_REFERENCE_CURVE_SPAN;
-const NATIVE_MAX_CURVE_SCALE =
-  NATIVE_CHART_Y_SPAN / NATIVE_REFERENCE_CURVE_SPAN;
-
-function getNativeCurveScale({
-  currentRate,
-  targetRate,
-}: {
-  currentRate: number;
-  targetRate: number;
-}) {
-  const gap = Math.max(targetRate - currentRate, 0);
-  if (!Number.isFinite(gap) || REFERENCE_RATE_GAP <= 0) {
-    return 1;
-  }
-  const scaledSpan =
-    (NATIVE_CHART_Y_SPAN * gap) / (gap + NATIVE_AXIS_PADDING_GAP);
-  const rawScale = scaledSpan / NATIVE_REFERENCE_CURVE_SPAN;
-  return clamp(rawScale, 0, NATIVE_MAX_CURVE_SCALE);
-}
-
-function getNativeCurrentPointY(curveScale: number) {
-  return NATIVE_TARGET_Y + curveScale * NATIVE_REFERENCE_CURVE_SPAN;
-}
+// Curve shape is fixed (illustrative diagram); only right-side labels reflect actual prices.
+const NATIVE_CURRENT_Y = NATIVE_CURRENT_REFERENCE_Y;
 
 function escapeHtml(value: string) {
   const htmlEntityMap: Record<string, string> = {
@@ -100,7 +64,6 @@ function generateSvgHTML(params: {
   dotStrokeColor: string;
   currentY: number;
   currentBadgeWidth: number;
-  curveScale: number;
 }): string {
   const {
     midLabel,
@@ -114,13 +77,11 @@ function generateSvgHTML(params: {
     dotStrokeColor,
     currentY,
     currentBadgeWidth,
-    curveScale,
   } = params;
   const safeMidLabel = escapeHtml(midLabel);
   const safeTitleLabel = escapeHtml(titleLabel);
   const safeTargetLabel = escapeHtml(targetLabel);
   const safeCurrentLabel = escapeHtml(currentLabel);
-  const curveGroupTransform = `translate(0 ${NATIVE_TARGET_Y}) scale(1 ${curveScale}) translate(0 ${-NATIVE_TARGET_Y})`;
   const currentBadgeY = currentY - NATIVE_CURRENT_BADGE_HEIGHT / 2;
   const badgeTextClipX = NATIVE_AXIS_TEXT_X + NATIVE_AXIS_TEXT_PADDING;
   const badgeTextClipWidth = Math.max(
@@ -157,7 +118,7 @@ function generateSvgHTML(params: {
     <line x1="${NATIVE_END_X}" y1="0" x2="${NATIVE_END_X}" y2="${NATIVE_BOTTOM_Y}" stroke="${maturityLineColor}" stroke-width="1"/>
     <g clip-path="url(#convergenceClip)">
       <line x1="0" y1="${currentY}" x2="${NATIVE_CHART_WIDTH}" y2="${currentY}" stroke="${guideLineColor}" stroke-width="1" stroke-dasharray="2,2"/>
-      <g transform="${curveGroupTransform}">
+      <g>
         <path d="${NATIVE_FULL_FILL_PATH}" fill="url(#convergenceGrad)"/>
         <path d="${NATIVE_FULL_CURVE_PATH}" stroke="${COLORS.greenStroke}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 6" vector-effect="non-scaling-stroke" fill="none"/>
       </g>
@@ -182,8 +143,7 @@ export function PendlePtConvergenceChart({
   const { currentRate, targetRate, remainingDays, accountingSymbol, ptSymbol } =
     chart;
   const midLabel = `${remainingDays} days`;
-  const curveScale = getNativeCurveScale({ currentRate, targetRate });
-  const currentY = getNativeCurrentPointY(curveScale);
+  const currentY = NATIVE_CURRENT_Y;
   const currentRateText = formatRate(currentRate);
   const targetRateText = formatRate(targetRate);
   const textMutedColor = theme.textSubdued.val;
@@ -222,7 +182,6 @@ export function PendlePtConvergenceChart({
         dotStrokeColor,
         currentY,
         currentBadgeWidth,
-        curveScale,
       }),
     [
       midLabel,
@@ -236,7 +195,6 @@ export function PendlePtConvergenceChart({
       dotStrokeColor,
       currentY,
       currentBadgeWidth,
-      curveScale,
     ],
   );
 

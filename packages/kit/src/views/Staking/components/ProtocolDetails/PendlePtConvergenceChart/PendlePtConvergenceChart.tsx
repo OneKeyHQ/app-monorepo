@@ -12,6 +12,7 @@ import {
   BOTTOM_Y,
   CHART_WIDTH,
   COLORS,
+  CURRENT_REFERENCE_Y,
   DOT_X,
   END_X,
   FULL_CURVE_PATH,
@@ -22,8 +23,6 @@ import {
   SVG_HEIGHT,
   TARGET_Y,
   formatRate,
-  getCurrentPointY,
-  getCurveScale,
 } from './shared';
 
 import type { IPendlePtConvergenceChartProps } from './shared';
@@ -51,8 +50,8 @@ export function PendlePtConvergenceChart({
   const { currentRate, targetRate, remainingDays, accountingSymbol, ptSymbol } =
     chart;
   const midLabel = `${remainingDays} days`;
-  const curveScale = getCurveScale({ currentRate, targetRate });
-  const currentY = getCurrentPointY(curveScale) * scale;
+  // Curve shape is fixed (illustrative diagram); only right-side labels reflect actual prices.
+  const currentY = CURRENT_REFERENCE_Y * scale;
   const guideLineColor = theme.iconDisabled.val;
   const dotStrokeColor = theme.bg.val;
   const gradientId = `convergenceGrad-${chartId}`;
@@ -122,17 +121,15 @@ export function PendlePtConvergenceChart({
           <g clipPath={`url(#${clipId})`}>
             <line
               x1={0}
-              y1={currentY / scale}
+              y1={CURRENT_REFERENCE_Y}
               x2={CHART_WIDTH}
-              y2={currentY / scale}
+              y2={CURRENT_REFERENCE_Y}
               stroke={guideLineColor}
               strokeWidth={1}
               strokeDasharray="3,3"
               vectorEffect="non-scaling-stroke"
             />
-            <g
-              transform={`translate(0 ${TARGET_Y}) scale(1 ${curveScale}) translate(0 ${-TARGET_Y})`}
-            >
+            <g>
               <path d={FULL_FILL_PATH} fill={`url(#${gradientId})`} />
               <path
                 d={FULL_CURVE_PATH}
