@@ -6,7 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -565,11 +565,13 @@ class ServiceAccountProfile extends ServiceBase {
           );
 
           if (!isInRecipients) {
+            // Scope to current networkId instead of onekeyall to avoid
+            // loading all-network history on every address input change
             const localTxs =
               await this.backgroundApi.serviceHistory.getAccountsLocalHistoryTxs(
                 {
                   accountId,
-                  networkId: getNetworkIdsMap().onekeyall,
+                  networkId,
                   excludeTestNetwork: true,
                 },
               );
@@ -583,14 +585,6 @@ class ServiceAccountProfile extends ServiceBase {
               if (
                 decodedTx.status === EDecodedTxStatus.Failed ||
                 decodedTx.status === EDecodedTxStatus.Dropped
-              ) {
-                // eslint-disable-next-line no-continue
-                continue;
-              }
-              if (
-                !networkUtils.isEvmNetwork({
-                  networkId: decodedTx.networkId,
-                })
               ) {
                 // eslint-disable-next-line no-continue
                 continue;
