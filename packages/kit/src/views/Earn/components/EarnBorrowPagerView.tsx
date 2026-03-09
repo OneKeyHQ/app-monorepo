@@ -11,7 +11,10 @@ import { StyleSheet, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 
 import type { IEarnHomeMode } from './MarketSelector';
-import type { PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
+import type {
+  PageScrollStateChangedNativeEvent,
+  PagerViewOnPageSelectedEvent,
+} from 'react-native-pager-view';
 
 // --- Styles ---
 
@@ -52,10 +55,20 @@ function EarnBorrowPagerViewComponent(
   const modeRef = useRef(mode);
   modeRef.current = mode;
 
-  // Expose syncCurrentPage for freeze/unfreeze resync
+  // Track whether the user is actively dragging. Used to distinguish user swipes
+  // from spurious onPageSelected events fired by iOS when react-freeze unfreezes
+  // the native UIScrollView (which resets contentOffset to page 0).
+  const wasUserDragRef = useRef(false);
+
+  // Expose syncCurrentPage for freeze/unfreeze resync.
+  // Uses modeRef (React state) instead of currentIndexRef, because on iOS the
+  // spurious onPageSelected(0) during unfreeze may have already corrupted
+  // currentIndexRef to 0.
   useImperativeHandle(ref, () => ({
     syncCurrentPage: () => {
-      pagerRef.current?.setPageWithoutAnimation(currentIndexRef.current);
+      const index = MODE_TO_INDEX[modeRef.current];
+      pagerRef.current?.setPageWithoutAnimation(index);
+      currentIndexRef.current = index;
     },
   }));
 
@@ -68,11 +81,32 @@ function EarnBorrowPagerViewComponent(
     }
   }, [mode]);
 
-  // PagerView -> mode sync (gesture swiping)
+  // Track drag state: 'dragging' → wasUserDrag=true, 'idle' → wasUserDrag=false.
+  // A user swipe sequence is: dragging → settling → onPageSelected → idle.
+  // A freeze/unfreeze reset fires onPageSelected without any dragging event.
+  const handlePageScrollStateChanged = useCallback(
+    (e: PageScrollStateChangedNativeEvent) => {
+      const state = e.nativeEvent.pageScrollState;
+      if (state === 'dragging') {
+        wasUserDragRef.current = true;
+      } else if (state === 'idle') {
+        wasUserDragRef.current = false;
+      }
+    },
+    [],
+  );
+
+  // PagerView -> mode sync (gesture swiping only)
   const handlePageSelected = useCallback(
     (e: PagerViewOnPageSelectedEvent) => {
       const position = e.nativeEvent.position;
       currentIndexRef.current = position;
+
+      // Only propagate mode change when triggered by a user gesture.
+      // Ignore spurious onPageSelected fired by iOS when react-freeze
+      // unfreezes the native PagerView (UIScrollView resets to page 0).
+      if (!wasUserDragRef.current) return;
+
       const newMode = INDEX_TO_MODE[position];
       if (newMode && newMode !== modeRef.current) {
         onModeChange(newMode);
@@ -90,6 +124,7 @@ function EarnBorrowPagerViewComponent(
       overScrollMode="never"
       nestedScrollEnabled
       scrollSensitivity={4}
+      onPageScrollStateChanged={handlePageScrollStateChanged}
       onPageSelected={handlePageSelected}
     >
       <View key="earn" style={styles.page}>

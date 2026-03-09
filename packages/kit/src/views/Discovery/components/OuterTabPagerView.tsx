@@ -78,9 +78,6 @@ function OuterTabPagerViewComponent({
   const selectedHeaderTabRef = useRef(selectedHeaderTab);
   selectedHeaderTabRef.current = selectedHeaderTab;
 
-  // Track previous active index for freeze/unfreeze sync
-  const prevActiveIndexRef = useRef(initialPage);
-
   // --- Atom -> PagerView sync (programmatic switching) ---
   useEffect(() => {
     const index = TAB_TO_INDEX[selectedHeaderTab];
@@ -106,32 +103,49 @@ function OuterTabPagerViewComponent({
         return { ...prev, [position]: true };
       });
 
-      // Sync inner pager on re-activation (freeze/unfreeze resync)
-      const prevIndex = prevActiveIndexRef.current;
-      prevActiveIndexRef.current = position;
-
-      if (prevIndex !== position) {
-        requestAnimationFrame(() => {
-          if (position === 0) {
-            marketTabsRef?.current?.syncCurrentPage();
-          } else if (position === 1) {
-            // Resync middle layer (earn/borrow) first, then inner tabs
-            earnBorrowPagerRef?.current?.syncCurrentPage();
-            earnTabsRef?.current?.syncCurrentPage();
-          }
-        });
-      }
-
       // Update atom only if tab actually changed
       if (tab && tab !== selectedHeaderTabRef.current) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }
     },
-    [marketTabsRef, earnTabsRef, earnBorrowPagerRef],
+    [],
   );
 
   // Determine which pages should be rendered
   const activeIndex = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
+
+  // --- Freeze/unfreeze resync ---
+  //
+  // Why useEffect on activeIndex instead of requestAnimationFrame in onPageSelected:
+  //
+  // The Freeze/unfreeze is driven by `activeIndex`, which is derived from
+  // `selectedHeaderTab` (a Jotai atom updated asynchronously via setSelectedBrowserTab).
+  // If we schedule sync in onPageSelected via requestAnimationFrame, the rAF may fire
+  // BEFORE the async atom update triggers the React re-render that unfreezes the page.
+  //
+  // - iOS: UIScrollView ignores setContentOffset while the view is suspended by
+  //   react-freeze (Suspense), so the sync is a no-op and the PagerView resets to page 0.
+  // - Android: ViewPager2 (RecyclerView-based) is more tolerant — it queues the
+  //   setCurrentItem call and applies it even during layout transitions, so the issue
+  //   does not manifest.
+  //
+  // By using useEffect on activeIndex, we guarantee the sync runs AFTER the render
+  // commit that unfreezes the page, so the native PagerView is active and responsive.
+  const prevActiveIndexRef = useRef(activeIndex);
+  useEffect(() => {
+    const prev = prevActiveIndexRef.current;
+    prevActiveIndexRef.current = activeIndex;
+    if (prev === activeIndex) return;
+
+    requestAnimationFrame(() => {
+      if (activeIndex === 0) {
+        marketTabsRef?.current?.syncCurrentPage();
+      } else if (activeIndex === 1) {
+        earnBorrowPagerRef?.current?.syncCurrentPage();
+        earnTabsRef?.current?.syncCurrentPage();
+      }
+    });
+  }, [activeIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
 
   const marketPage = useMemo(
     () =>
