@@ -60,7 +60,7 @@ export function AvailableAssetsTabViewList() {
         type: EAvailableAssetsTypeEnum.SimpleEarn,
       },
       {
-        title: intl.formatMessage({ id: ETranslations.earn_fixed_apy }),
+        title: intl.formatMessage({ id: ETranslations.earn_fixed_income }),
         type: EAvailableAssetsTypeEnum.FixedRate,
       },
       {
