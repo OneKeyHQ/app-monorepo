@@ -412,8 +412,9 @@ function TxConfirmActions(props: IProps) {
         }
       }
 
-      // Fallback to transferInfo.to for regular transfers
-      if (!addressToSave && transferInfo?.to) {
+      // Fallback to transferInfo.to only for send flows (transferPayload present)
+      // to avoid saving contract addresses from dApp interactions
+      if (!addressToSave && transferInfo?.to && transferPayload) {
         addressToSave = transferInfo.to;
       }
 

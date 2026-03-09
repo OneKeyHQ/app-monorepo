@@ -23,19 +23,19 @@ export const calcPercentBalance = ({
 }) => {
   const valueNumber = BigNumber(balance);
 
-  // 空值处理
+  // Empty value handling
   if (valueNumber.isZero()) {
     return '';
   }
 
-  // 100% 保持完整精度，确保能发送全部余额
+  // 100% keeps full precision to ensure the entire balance can be sent
   if (percent === 100) {
     return decimals !== null && decimals !== undefined
       ? valueNumber.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
       : balance;
   }
 
-  // 计算百分比值
+  // Calculate percentage value
   const value = valueNumber.multipliedBy(percent).dividedBy(100);
 
   // Apply display rules for decimal formatting

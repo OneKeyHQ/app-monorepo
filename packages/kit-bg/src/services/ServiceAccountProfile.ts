@@ -6,6 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -21,7 +22,6 @@ import type {
   IQueryCheckAddressArgs,
   IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAddressInteractionStatus,
   EServerInteractedStatus,
@@ -35,6 +35,7 @@ import type {
   IProxyResponse,
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import {
@@ -578,6 +579,14 @@ class ServiceAccountProfile extends ServiceBase {
                 // eslint-disable-next-line no-continue
                 continue;
               }
+              // Skip failed/dropped transactions to avoid false interaction status
+              if (
+                decodedTx.status === EDecodedTxStatus.Failed ||
+                decodedTx.status === EDecodedTxStatus.Dropped
+              ) {
+                // eslint-disable-next-line no-continue
+                continue;
+              }
               if (
                 !networkUtils.isEvmNetwork({
                   networkId: decodedTx.networkId,
@@ -605,6 +614,16 @@ class ServiceAccountProfile extends ServiceBase {
           if (isInRecipients) {
             result.addressInteractionStatus =
               EAddressInteractionStatus.INTERACTED;
+            // Keep badges consistent with overridden status:
+            // remove interaction badges (warning/critical) that would contradict INTERACTED
+            if (result.addressBadges) {
+              result.addressBadges = result.addressBadges.filter(
+                (badge) =>
+                  badge.type === 'default' ||
+                  badge.type === 'info' ||
+                  badge.type === 'success',
+              );
+            }
           }
         } catch {
           // Keep original badges API result on failure
@@ -786,15 +805,12 @@ class ServiceAccountProfile extends ServiceBase {
       if (!currencyInfo) {
         throw new OneKeyLocalError('Currency not found');
       }
-      usdValue = Object.entries(value).reduce(
-        (acc, [n, v]) => {
-          acc[n] = new BigNumber(v)
-            .div(new BigNumber(currencyInfo.value))
-            .toFixed();
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
+      usdValue = Object.entries(value).reduce((acc, [n, v]) => {
+        acc[n] = new BigNumber(v)
+          .div(new BigNumber(currencyInfo.value))
+          .toFixed();
+        return acc;
+      }, {} as Record<string, string>);
     }
 
     const usdAccountValue = {
