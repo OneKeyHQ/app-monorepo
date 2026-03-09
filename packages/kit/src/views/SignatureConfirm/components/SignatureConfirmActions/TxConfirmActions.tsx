@@ -598,7 +598,7 @@ function TxConfirmActions(props: IProps) {
 
   const confirmText = useMemo(() => {
     if (signOnly) {
-      intl.formatMessage({ id: ETranslations.global_sign });
+      return intl.formatMessage({ id: ETranslations.global_sign });
     }
 
     if (sendFeeStatus.discountPercent === 100) {
@@ -609,15 +609,6 @@ function TxConfirmActions(props: IProps) {
       return intl.formatMessage({
         id: ETranslations.wallet_discounted_send,
       });
-    }
-
-    if (sendFeeStatus.discountPercent && sendFeeStatus.discountPercent > 0) {
-      return intl.formatMessage(
-        {
-          id: ETranslations.wallet_discount_number,
-        },
-        { number: sendFeeStatus.discountPercent },
-      );
     }
 
     return intl.formatMessage({ id: ETranslations.global_confirm });
