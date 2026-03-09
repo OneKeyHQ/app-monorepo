@@ -210,6 +210,12 @@ export function useImportAddressForm({
     [networkIdText, networksResp.publicKeyExportEnabled],
   );
 
+  useEffect(() => {
+    if (!isKeyExportEnabled && method === EImportMethod.PublicKey) {
+      setMethod(EImportMethod.Address);
+    }
+  }, [isKeyExportEnabled, method]);
+
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const isPublicKeyImport = useMemo(
     () => method === EImportMethod.PublicKey && isKeyExportEnabled,
