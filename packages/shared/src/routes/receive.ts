@@ -23,6 +23,7 @@ export enum EModalReceiveRoutes {
   BtcAddresses = 'BtcAddresses',
   BuyModal = 'Buy',
   DeriveTypesAddress = 'DeriveTypesAddress',
+  ExchangeOpenRedirect = 'ExchangeOpenRedirect',
 }
 
 export type IModalReceiveParamList = {
@@ -69,4 +70,8 @@ export type IModalReceiveParamList = {
   };
   [EModalReceiveRoutes.BuyModal]: IModalFiatCryptoParamList;
   [EModalReceiveRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
+  [EModalReceiveRoutes.ExchangeOpenRedirect]: {
+    exchangeSource: EExchangeId;
+    address: string;
+  };
 };
