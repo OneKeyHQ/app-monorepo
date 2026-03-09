@@ -159,6 +159,13 @@ function BatchCreateAccountPreviewPage({
   const deselectedExistingAccountsRef = useRef<{
     [pathIndex: number]: IBatchCreateAccount;
   }>({});
+  // Store deselection state per network+deriveType so switching preserves selections
+  const deselectedCacheRef = useRef<{
+    [cacheKey: string]: {
+      indexes: { [pathIndex: number]: true };
+      accounts: { [pathIndex: number]: IBatchCreateAccount };
+    };
+  }>({});
   const selectedIndexesCount = useMemo(
     () => Object.values(normalSelectedIndexes).filter(Boolean).length,
     [normalSelectedIndexes],
@@ -224,6 +231,7 @@ function BatchCreateAccountPreviewPage({
       setNormalSelectedIndexes({});
       setDeselectedExistingIndexes({});
       deselectedExistingAccountsRef.current = {};
+      deselectedCacheRef.current = {};
       setFrom(values.from);
       setCount(values.count);
       setDeriveType(values.deriveType);
@@ -325,15 +333,52 @@ function BatchCreateAccountPreviewPage({
     },
   );
 
+  const prevNetworkIdRef = useRef<string | undefined>(networkId);
+  const prevDeriveTypeRef = useRef<string | undefined>(deriveType);
+
+  // Save current deselection state to cache
+  const saveDeselectionToCache = useCallback(() => {
+    const prevNet = prevNetworkIdRef.current;
+    const prevDt = prevDeriveTypeRef.current;
+    if (prevNet) {
+      const key = `${prevNet}__${prevDt ?? ''}`;
+      deselectedCacheRef.current[key] = {
+        indexes: { ...deselectedExistingIndexes },
+        accounts: { ...deselectedExistingAccountsRef.current },
+      };
+    }
+  }, [deselectedExistingIndexes]);
+
+  // Restore deselection state from cache, or reset
+  const restoreDeselectionFromCache = useCallback(
+    (net: string, dt?: string) => {
+      const key = `${net}__${dt ?? ''}`;
+      const saved = deselectedCacheRef.current[key];
+      if (saved) {
+        setDeselectedExistingIndexes(saved.indexes);
+        deselectedExistingAccountsRef.current = saved.accounts;
+      } else {
+        setDeselectedExistingIndexes({});
+        deselectedExistingAccountsRef.current = {};
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     if (networkId) {
-      // reset deriveType and deselection state after network changed
+      if (prevNetworkIdRef.current !== networkId) {
+        saveDeselectionToCache();
+        prevNetworkIdRef.current = networkId;
+        // deriveType will reset to undefined on network change
+        prevDeriveTypeRef.current = undefined;
+        restoreDeselectionFromCache(networkId, undefined);
+      }
       setDeriveType(undefined);
       setResult([]);
-      setDeselectedExistingIndexes({});
-      deselectedExistingAccountsRef.current = {};
       // DeriveTypeSelectorFormInput shouldResetDeriveTypeWhenNetworkChanged will handle this internally
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [networkId, setResult]);
 
   const buildBalanceMapKey = useCallback(
@@ -514,9 +559,12 @@ function BatchCreateAccountPreviewPage({
           onItemsChange={setDeriveTypeItems}
           onChange={(v) => {
             if (deriveType !== v) {
+              saveDeselectionToCache();
               setDeriveType(v);
-              setDeselectedExistingIndexes({});
-              deselectedExistingAccountsRef.current = {};
+              prevDeriveTypeRef.current = v;
+              if (networkId) {
+                restoreDeselectionFromCache(networkId, v);
+              }
             }
           }}
           networkId={networkId || ''}
