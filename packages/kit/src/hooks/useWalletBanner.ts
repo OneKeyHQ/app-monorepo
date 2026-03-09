@@ -80,7 +80,7 @@ function useWalletBanner({
             EQRCodeHandlerNames.updatePreview,
           ],
           qrWalletScene: false,
-          autoHandleResult: true,
+          autoExecuteParsedAction: true,
           defaultHandler: openUrlExternal,
           account,
           network,
