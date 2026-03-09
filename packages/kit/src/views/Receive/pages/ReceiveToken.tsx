@@ -31,7 +31,6 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { EXCHANGE_CONFIGS } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -61,7 +60,6 @@ import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
-import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
@@ -92,8 +90,6 @@ function ReceiveToken() {
     btcUsedAddressPath,
     exchangeSource,
   } = route.params;
-
-  const { openExchangeApp } = useExchangeAppDetection();
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
     useAccountData({
@@ -247,32 +243,35 @@ function ReceiveToken() {
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
-  // Auto-copy address and open exchange app when coming from exchange flow
-  const hasAutoCopiedRef = useRef(false);
-  const handleCopyAddressRef = useRef(handleCopyAddress);
-  useEffect(() => {
-    handleCopyAddressRef.current = handleCopyAddress;
-  }, [handleCopyAddress]);
+  // Auto-navigate to ExchangeOpenRedirect after HW address verification
+  const hasNavigatedToRedirectRef = useRef(false);
   useEffect(() => {
     if (
       !exchangeSource ||
       !displayAddress ||
-      !shouldShowAddress ||
-      hasAutoCopiedRef.current
+      !isHardwareWallet ||
+      hasNavigatedToRedirectRef.current
     ) {
       return;
     }
-
-    hasAutoCopiedRef.current = true;
-    handleCopyAddressRef.current();
-
-    if (platformEnv.isNative) {
-      const timer = setTimeout(() => {
-        void openExchangeApp(exchangeSource);
-      }, 1000);
-      return () => clearTimeout(timer);
+    if (
+      addressState !== EAddressState.Verified &&
+      addressState !== EAddressState.ForceShow
+    ) {
+      return;
     }
-  }, [exchangeSource, displayAddress, shouldShowAddress, openExchangeApp]);
+    hasNavigatedToRedirectRef.current = true;
+    navigation.push(EModalReceiveRoutes.ExchangeOpenRedirect, {
+      exchangeSource,
+      address: displayAddress,
+    });
+  }, [
+    exchangeSource,
+    displayAddress,
+    isHardwareWallet,
+    addressState,
+    navigation,
+  ]);
 
   const throttledSyncBTCFreshAddress = useThrottledCallback(
     (params: { networkId: string; accountId: string }) => {
@@ -637,10 +636,6 @@ function ReceiveToken() {
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
 
-    const exchangeName = exchangeSource
-      ? EXCHANGE_CONFIGS[exchangeSource]?.name
-      : undefined;
-
     return (
       <YStack
         backgroundColor="$bgSubdued"
@@ -708,18 +703,6 @@ function ReceiveToken() {
             {renderCopyAddressButton()}
           </XStack>
         </YStack>
-        {exchangeSource &&
-        platformEnv.isNative &&
-        shouldShowAddress &&
-        exchangeName ? (
-          <Button
-            variant="primary"
-            size="large"
-            onPress={() => openExchangeApp(exchangeSource)}
-          >
-            {`Open ${exchangeName}`}
-          </Button>
-        ) : null}
         {renderVerifyAddressButton()}
         {shouldShowAddress && !isEnableBTCFreshAddressSetting ? (
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -780,8 +763,6 @@ function ReceiveToken() {
     walletId,
     navigation,
     isBtcUsedAddressVerifyMode,
-    exchangeSource,
-    openExchangeApp,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {

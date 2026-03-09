@@ -9,8 +9,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useReferFriends } from '../../../hooks/useReferFriends';
 
 const SHARE_PROMPT_MIN_TRADES = 3;
@@ -29,19 +31,12 @@ export function usePerpsSharePrompt() {
   const [tradesData] = usePerpsTradesHistoryDataAtom();
   const { shareReferRewards } = useReferFriends();
   const hasShownRef = useRef(false);
-  const optedOutCacheRef = useRef<Record<string, boolean>>({});
   const checkingRef = useRef(false);
-  const prevAccountRef = useRef<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (
-      prevAccountRef.current !== undefined &&
-      prevAccountRef.current !== currentAccount?.accountAddress
-    ) {
-      hasShownRef.current = false;
-    }
-    prevAccountRef.current = currentAccount?.accountAddress;
-  }, [currentAccount?.accountAddress]);
+  const hasBeenFocusedRef = useRef(false);
+  const pendingLoadRef = useRef(false);
+  const pendingCheckRef = useRef(false);
+  const currentAccountAddressRef = useRef(currentAccount?.accountAddress);
+  currentAccountAddressRef.current = currentAccount?.accountAddress;
 
   useEffect(() => {
     const accountAddress = currentAccount?.accountAddress;
@@ -52,6 +47,10 @@ export function usePerpsSharePrompt() {
       !tradesData?.isLoaded ||
       tradesData?.accountAddress?.toLowerCase() !== accountAddress.toLowerCase()
     ) {
+      if (!hasBeenFocusedRef.current) {
+        pendingLoadRef.current = true;
+        return;
+      }
       void backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
         accountAddress,
       );
@@ -68,17 +67,11 @@ export function usePerpsSharePrompt() {
       return;
     }
 
-    const addressKey = accountAddress.toLowerCase();
-
-    if (optedOutCacheRef.current[addressKey]) {
-      return;
-    }
-
     const fills = tradesData?.fills;
     if (
       !fills ||
       !tradesData?.isLoaded ||
-      tradesData?.accountAddress?.toLowerCase() !== addressKey
+      tradesData?.accountAddress?.toLowerCase() !== accountAddress.toLowerCase()
     ) {
       return;
     }
@@ -94,19 +87,13 @@ export function usePerpsSharePrompt() {
 
     checkingRef.current = true;
     try {
-      const optedOut =
-        await backgroundApiProxy.simpleDb.perp.getReferralPromptOptedOut(
-          accountAddress,
-        );
-      if (optedOut) {
-        optedOutCacheRef.current[addressKey] = true;
+      const hasPromptShown =
+        await backgroundApiProxy.simpleDb.perp.getPerpsSharePromptShown();
+      if (hasPromptShown) {
         return;
       }
 
-      if (
-        hasShownRef.current ||
-        prevAccountRef.current?.toLowerCase() !== addressKey
-      ) {
+      if (hasShownRef.current) {
         return;
       }
 
@@ -123,17 +110,10 @@ export function usePerpsSharePrompt() {
         onConfirmText: appLocale.intl.formatMessage({
           id: ETranslations.explore_share,
         }),
-        onCancel: () => {
-          void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
-            accountAddress,
-            true,
-          );
+        onClose: () => {
+          void backgroundApiProxy.simpleDb.perp.setPerpsSharePromptShown(true);
         },
         onConfirm: () => {
-          void backgroundApiProxy.simpleDb.perp.setReferralPromptOptedOut(
-            accountAddress,
-            true,
-          );
           void shareReferRewards(undefined, undefined, 'Perps', true);
         },
       });
@@ -142,7 +122,33 @@ export function usePerpsSharePrompt() {
     }
   }, [currentAccount?.accountAddress, tradesData, shareReferRewards]);
 
+  const checkAndShowPromptRef = useRef(checkAndShowPrompt);
+  checkAndShowPromptRef.current = checkAndShowPrompt;
+
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    if (isFocus && !hasBeenFocusedRef.current) {
+      hasBeenFocusedRef.current = true;
+      if (pendingLoadRef.current) {
+        pendingLoadRef.current = false;
+        const accountAddress = currentAccountAddressRef.current;
+        if (accountAddress) {
+          void backgroundApiProxy.serviceHyperliquid.loadTradesHistory(
+            accountAddress,
+          );
+        }
+      }
+      if (pendingCheckRef.current) {
+        pendingCheckRef.current = false;
+        void checkAndShowPromptRef.current();
+      }
+    }
+  });
+
   useEffect(() => {
+    if (!hasBeenFocusedRef.current) {
+      pendingCheckRef.current = true;
+      return;
+    }
     void checkAndShowPrompt();
   }, [checkAndShowPrompt]);
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
@@ -33,6 +34,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
+import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
@@ -137,10 +139,14 @@ function NativeBannerScroller({
   banners,
   handleBannerOnPress,
   handleDismiss,
+  leadingContent,
+  leadingContentWidth = 0,
 }: {
   banners: IWalletBanner[];
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
+  leadingContent?: ReactNode;
+  leadingContentWidth?: number;
 }) {
   // Track touch distance on JS thread to suppress onPress during drags.
   // Using JS-thread onTouchStart/onTouchMove instead of runOnJS from worklet
@@ -172,11 +178,15 @@ function NativeBannerScroller({
       (sum, b) => sum + (b.icon ? 200 : BANNER_ITEM_WIDTH),
       0,
     );
-    const totalWidth =
-      totalItemWidth + (banners.length - 1) * BANNER_GAP + BANNER_PADDING_H * 2;
+    let totalWidth = BANNER_PADDING_H * 2;
+    if (leadingContentWidth > 0) {
+      totalWidth += leadingContentWidth;
+      if (banners.length > 0) totalWidth += BANNER_GAP;
+    }
+    totalWidth += totalItemWidth + Math.max(0, banners.length - 1) * BANNER_GAP;
     const width = containerWidth || 375;
     return Math.max(0, totalWidth - width);
-  }, [banners, containerWidth]);
+  }, [banners, containerWidth, leadingContentWidth]);
 
   const panGesture = useMemo(
     () =>
@@ -207,6 +217,13 @@ function NativeBannerScroller({
         }),
     [translateX, startTranslateX, actualMaxTranslateX],
   );
+
+  useEffect(() => {
+    translateX.value = Math.min(
+      0,
+      Math.max(translateX.value, -actualMaxTranslateX),
+    );
+  }, [actualMaxTranslateX, translateX]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
@@ -242,6 +259,7 @@ function NativeBannerScroller({
               animatedStyle,
             ]}
           >
+            {leadingContent}
             {banners.map((item) => (
               <BannerItem
                 key={item.id}
@@ -276,10 +294,12 @@ function WebBannerScroller({
   banners,
   handleBannerOnPress,
   handleDismiss,
+  leadingContent,
 }: {
   banners: IWalletBanner[];
   handleBannerOnPress: (item: IWalletBanner) => void;
   handleDismiss: (item: IWalletBanner) => void;
+  leadingContent?: ReactNode;
 }) {
   const scrollViewRef = useRef<any>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -306,7 +326,7 @@ function WebBannerScroller({
       el.removeEventListener('scroll', onScroll);
       observer.disconnect();
     };
-  }, [getScrollElement, updateArrows, banners.length]);
+  }, [getScrollElement, updateArrows, banners.length, leadingContent]);
 
   const handleScrollLeft = useCallback(() => {
     const el = getScrollElement();
@@ -337,6 +357,7 @@ function WebBannerScroller({
           gap: BANNER_GAP,
         }}
       >
+        {leadingContent}
         {banners.map((item) => (
           <BannerItem
             key={item.id}
@@ -422,7 +443,7 @@ function WebBannerScroller({
 
 function WalletBanner() {
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, vaultSettings },
   } = useActiveAccount({ num: 0 });
 
   const closedBannerInitRef = useRef(false);
@@ -528,7 +549,19 @@ function WalletBanner() {
     void initLocalBanners();
   }, [initLocalBanners]);
 
-  if (banners.length === 0) {
+  const tronCard = useMemo(
+    () =>
+      vaultSettings?.hasResource && account?.id && network?.id ? (
+        <ResourceBannerCard
+          key={`${account.id}-${network.id}`}
+          accountId={account.id}
+          networkId={network.id}
+        />
+      ) : null,
+    [vaultSettings?.hasResource, account?.id, network?.id],
+  );
+
+  if (banners.length === 0 && !tronCard) {
     return null;
   }
 
@@ -538,6 +571,8 @@ function WalletBanner() {
         banners={banners}
         handleBannerOnPress={handleBannerOnPress}
         handleDismiss={handleDismiss}
+        leadingContent={tronCard}
+        leadingContentWidth={tronCard ? 220 : 0}
       />
     );
   }
@@ -547,6 +582,7 @@ function WalletBanner() {
       banners={banners}
       handleBannerOnPress={handleBannerOnPress}
       handleDismiss={handleDismiss}
+      leadingContent={tronCard}
     />
   );
 }

@@ -52,6 +52,7 @@
     <intent>
       <action android:name="android.intent.action.VIEW"/>
       <data android:scheme="coinbase"/>
+      <data android:scheme="cbwallet"/>
     </intent>
     <package android:name="io.metamask"/>
     <package android:name="me.rainbow"/>
@@ -66,7 +67,7 @@
     <package android:name="com.okinc.okex.gp"/>
   </queries>
   <application
-  android:usesCleartextTraffic="true"
+  android:usesCleartextTraffic="false"
    android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:allowBackup="false" android:theme="@style/AppTheme" android:largeHeap="true" android:supportsRtl="true">
     <meta-data
         android:name="com.google.android.play.billingclient.version"

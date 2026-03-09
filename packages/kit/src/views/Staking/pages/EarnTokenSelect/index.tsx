@@ -151,13 +151,30 @@ export default function EarnTokenSelectModal() {
   const assets = assetsList.assets;
 
   const filteredAssets = useMemo(() => {
+    const seen = new Set<string>();
+    const removeDuplicates = (list: IEarnTokenItem[]) =>
+      list.filter((item) => {
+        const key = item.info.uniqueKey
+          ? item.info.uniqueKey
+          : `${item.info.isNative ? 'native' : item.info.address}-${item.info.symbol}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     const keyword = searchKeyword.trim().toLowerCase();
-    if (!keyword) return assets;
-    return assets.filter((item) => {
-      const sym = item.info.symbol.toLowerCase();
-      const name = item.info.name.toLowerCase();
-      return sym.includes(keyword) || name.includes(keyword);
-    });
+    if (!keyword) return removeDuplicates(assets);
+    return removeDuplicates(
+      assets.filter((item) => {
+        const sym = item.info.symbol.toLowerCase();
+        const name = item.info.name.toLowerCase();
+        const addr = (item.info.address ?? '').toLowerCase();
+        return (
+          sym.includes(keyword) ||
+          name.includes(keyword) ||
+          addr.includes(keyword)
+        );
+      }),
+    );
   }, [assets, searchKeyword]);
 
   const handleSelect = useCallback(
