@@ -162,7 +162,7 @@ const useParseQRCode = () => {
 
       const closeScanPage = async () => {
         if (popNavigation) {
-          if (options?.autoHandleResult) {
+          if (options?.autoExecuteParsedAction) {
             // Atomically remove all overlay routes (scan modal, ActionCenter,
             // FullScreenPush, etc.) via CommonActions.reset instead of
             // sequential goBack() calls. This avoids the native
@@ -186,7 +186,8 @@ const useParseQRCode = () => {
         options,
       );
 
-      if (!options?.autoHandleResult) {
+      // Manual mode: close scanner overlays and return parsed data to caller.
+      if (!options?.autoExecuteParsedAction) {
         if (
           result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
           (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
@@ -196,6 +197,7 @@ const useParseQRCode = () => {
         }
         return result;
       }
+      // Auto-execution mode: run built-in route/action side effects by type.
       switch (result.type) {
         case EQRCodeHandlerType.REWARD_CENTER: {
           await closeScanPage();
