@@ -1700,6 +1700,7 @@ export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
   totalFiatValueUsd?: string;
+  netPnl?: string;
   protocol: {
     networkId?: string;
     provider?: string;
@@ -1809,6 +1810,7 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     network: IEarnInvestmentItemV2['network'];
     fiatValue?: string;
     fiatValueUsd?: string;
+    netPnl?: string;
   };
 };
 
