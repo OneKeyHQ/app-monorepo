@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet } from 'react-native';
 
-import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -12,6 +11,8 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
+
+import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { LayoutChangeEvent } from 'react-native';
