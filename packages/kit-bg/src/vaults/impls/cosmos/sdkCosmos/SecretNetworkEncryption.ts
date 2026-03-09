@@ -5,6 +5,7 @@ import { hexToBytes } from '@noble/hashes/utils';
 import { PolyfillCryptoProvider, SIV } from 'miscreant';
 
 import { decryptAsync } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 // Consensus seed from Secret Network mainnet genesis, used as HKDF salt.
@@ -48,7 +49,7 @@ export class SecretNetworkEncryption {
     fetchConsensusIoPubKey: () => Promise<Uint8Array>,
   ) {
     if (seed.length !== 32) {
-      throw new Error('Seed must be 32 bytes');
+      throw new OneKeyLocalError('Seed must be 32 bytes');
     }
     this.privkey = seed;
     this.pubkey = x25519.getPublicKey(this.privkey);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import {
   type DefaultNavigatorOptions,
   type NavigatorTypeBagBase,
@@ -12,13 +13,15 @@ import {
   useNavigationBuilder,
   useTheme,
 } from '@react-navigation/native';
+
+import { NativeBottomTabView } from './NativeBottomTabView';
+
 import type {
   NativeBottomTabNavigationConfig,
   NativeBottomTabNavigationEventMap,
   NativeBottomTabNavigationOptions,
   NativeBottomTabNavigationProp,
 } from './types';
-import { NativeBottomTabView } from './NativeBottomTabView';
 
 export type NativeBottomTabNavigatorProps = DefaultNavigatorOptions<
   ParamListBase,

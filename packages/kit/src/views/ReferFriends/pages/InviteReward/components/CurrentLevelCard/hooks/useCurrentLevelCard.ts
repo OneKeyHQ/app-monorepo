@@ -2,9 +2,8 @@ import { useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type {
   ICurrentLevelCardProps,
