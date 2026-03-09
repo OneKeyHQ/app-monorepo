@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import type TabView from '@onekeyfe/react-native-tab-view';
+import type { AppleIcon, TabRole } from '@onekeyfe/react-native-tab-view';
 import type {
   Descriptor,
   NavigationHelpers,
@@ -8,8 +11,6 @@ import type {
   TabNavigationState,
 } from '@react-navigation/native';
 import type { ImageSourcePropType, StyleProp, ViewStyle } from 'react-native';
-import type TabView from '@onekeyfe/react-native-tab-view';
-import type { AppleIcon, TabRole } from '@onekeyfe/react-native-tab-view';
 
 export type NativeBottomTabNavigationEventMap = {
   /**

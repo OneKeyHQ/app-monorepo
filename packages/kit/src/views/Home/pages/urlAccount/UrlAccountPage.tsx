@@ -16,9 +16,9 @@ import {
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -105,7 +105,6 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         }
       };
 
-      // eslint-disable-next-line @cspell/spellchecker
       // oxlint-disable-next-line @cspell/spellchecker
       // not full url like: /0x63ac73816EeB38514DaE6c46008baf55f1c59C9e
       if (!routeAddress && networkId) {

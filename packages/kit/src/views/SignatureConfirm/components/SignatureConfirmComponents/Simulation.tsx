@@ -1,12 +1,5 @@
 import { useEffect } from 'react';
 
-import {
-  LinearGradient,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -15,6 +8,14 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+
+import {
+  LinearGradient,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import {
   EParseTxComponentType,
   type IDisplayComponentSimulation,
