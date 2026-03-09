@@ -116,6 +116,7 @@ function MobileTradingViewTouchBridge({
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   const { tokenAddress, networkId, tokenDetail, websocketConfig } =
     useTokenDetail();
+  const tokenSymbol = tokenDetail?.symbol;
   const intl = useIntl();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
@@ -254,7 +255,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         >
           <Stack h={tradingViewHeight} overflow="hidden">
             {(() => {
-              if (!networkId || !tokenDetail?.symbol) {
+              if (!networkId || !tokenSymbol) {
                 return null;
               }
               if (platformEnv.isNativeAndroid) {
@@ -262,7 +263,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                   <MobileTradingViewTouchBridge
                     tokenAddress={tokenAddress}
                     networkId={networkId}
-                    tokenSymbol={tokenDetail.symbol}
+                    tokenSymbol={tokenSymbol}
                     dataSource={
                       websocketConfig?.kline ? 'websocket' : 'polling'
                     }
@@ -273,7 +274,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                 <MarketTradingView
                   tokenAddress={tokenAddress}
                   networkId={networkId}
-                  tokenSymbol={tokenDetail.symbol}
+                  tokenSymbol={tokenSymbol}
                   dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
                 />
               );
@@ -286,7 +287,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     handleHeaderHorizontalSwipe,
     networkId,
     tokenAddress,
-    tokenDetail?.symbol,
+    tokenSymbol,
     tradingViewHeight,
     websocketConfig?.kline,
   ]);
