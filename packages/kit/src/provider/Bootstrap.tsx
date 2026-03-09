@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
-import pRetry from 'p-retry';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
+import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import {

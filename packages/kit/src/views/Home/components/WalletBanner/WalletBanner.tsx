@@ -23,6 +23,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useWalletBanner } from '@onekeyhq/kit/src/hooks/useWalletBanner';
 import {
@@ -34,7 +35,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
-import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 12;
 const BANNER_PADDING_H = 20;
