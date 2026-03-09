@@ -882,9 +882,10 @@ export function AddressInputField(
             if (value.pending) {
               return;
             }
-            // When input is empty, mark as invalid without showing error text
+            // When input is empty, treat as "no error" (no red border).
+            // The Next button is already hidden via toResolved check.
             if (!value.raw?.trim()) {
-              return false;
+              return;
             }
             if (!value.resolved) {
               // Suppress error when quick select has matches (hint shown via description)
