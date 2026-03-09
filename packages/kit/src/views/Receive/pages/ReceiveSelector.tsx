@@ -23,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import openUrlUtils, {
   openFiatCryptoUrl,
   openUrlExternal,
@@ -44,8 +45,8 @@ import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActio
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
 
 import type { IListItemProps } from '../../../components/ListItem';
-import type { ImageSourcePropType } from 'react-native';
 import type { RouteProp } from '@react-navigation/core';
+import type { ImageSourcePropType } from 'react-native';
 
 const EXCHANGE_LOGOS: Record<EExchangeId, ImageSourcePropType> = {
   [EExchangeId.Binance]: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_binance.png'),
@@ -89,7 +90,7 @@ function ReceiveOptions({
       }}
       {...props}
     >
-      <YStack bg="$neutral3" p="$3" borderRadius="$full">
+      <YStack bg="$neutral3" p="$2" borderRadius="$full">
         <Icon name={icon} color="$iconActive" />
       </YStack>
       <ListItem.Text gap="$1" flex={1} primary={title} secondary={subtitle} />
@@ -285,14 +286,35 @@ function ReceiveSelectorContent() {
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
-            navigation.push(EModalReceiveRoutes.ReceiveToken, {
-              networkId: selectedToken.networkId ?? networkId,
-              accountId: selectedToken.accountId ?? accountId,
-              walletId,
-              token: selectedToken,
-              indexedAccountId,
-              exchangeSource: config.id,
-            });
+            const tokenNetworkId = selectedToken.networkId ?? networkId ?? '';
+            const tokenAccountId = selectedToken.accountId ?? accountId ?? '';
+            const isHardware =
+              accountUtils.isHwWallet({ walletId }) ||
+              accountUtils.isQrWallet({ walletId });
+
+            if (isHardware) {
+              navigation.push(EModalReceiveRoutes.ReceiveToken, {
+                networkId: tokenNetworkId,
+                accountId: tokenAccountId,
+                walletId,
+                token: selectedToken,
+                indexedAccountId,
+                exchangeSource: config.id,
+              });
+            } else {
+              const address =
+                await backgroundApiProxy.serviceAccount.getAccountAddressForApi(
+                  {
+                    accountId: tokenAccountId,
+                    networkId: tokenNetworkId,
+                  },
+                );
+              if (!address) return;
+              navigation.push(EModalReceiveRoutes.ExchangeOpenRedirect, {
+                exchangeSource: config.id,
+                address,
+              });
+            }
           },
         });
         return;
@@ -443,12 +465,14 @@ function ReceiveSelectorContent() {
               outlineColor: '$neutral3',
               outlineStyle: 'solid',
             }}
+            py="$3"
+            gap="$1"
           >
             <SizableText
               size="$bodyMdMedium"
               color="$textSubdued"
               px="$5"
-              pt="$4"
+              pt="$2"
               pb="$1"
             >
               {intl.formatMessage({
@@ -460,12 +484,12 @@ function ReceiveSelectorContent() {
                 key={config.id}
                 drillIn
                 onPress={() => handleExchangePress(config)}
+                gap="$4"
               >
                 <Image
-                  w="$8"
-                  h="$8"
-                  borderRadius="$2"
-                  borderCurve="continuous"
+                  w="$10"
+                  h="$10"
+                  borderRadius="$full"
                   source={EXCHANGE_LOGOS[config.id]}
                 />
                 <ListItem.Text flex={1} primary={config.name} />
