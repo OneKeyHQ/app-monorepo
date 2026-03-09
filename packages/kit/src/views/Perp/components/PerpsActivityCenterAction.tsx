@@ -223,7 +223,7 @@ export function PerpsActivityCenterAction({
             {hasActivityCards ? (
               <YStack gap="$2.5" mt="$4">
                 <SizableText size="$headingXs" color="$text">
-                  {`当前活动 (${activityCards.length})`}
+                  {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${activityCards.length})`}
                 </SizableText>
                 <YStack gap="$2">
                   {activityCards.map((item) => (
