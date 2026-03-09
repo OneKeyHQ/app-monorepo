@@ -22,20 +22,13 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
 
   override enableCache = false;
 
-  private migrationDone = false;
-
-  private async migrateFromOldStorage(): Promise<void> {
-    if (this.migrationDone) {
-      return;
-    }
-
+  async migrateFromOldStorage(): Promise<void> {
     try {
       // Read from old storage key
       const oldKey = `${SIMPLE_DB_KEY_PREFIX}:${OLD_ENTITY_NAME}`;
       const oldDataStr = await this.appStorage.getItem(oldKey);
 
       if (!oldDataStr) {
-        this.migrationDone = true;
         return;
       }
 
@@ -47,7 +40,8 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
           };
           oldData = parsed?.data;
         } catch {
-          this.migrationDone = true;
+          // Corrupted old data, just remove it
+          await this.appStorage.removeItem(oldKey);
           return;
         }
       } else {
@@ -58,7 +52,7 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
       }
 
       if (!oldData?.recentRecipients) {
-        this.migrationDone = true;
+        await this.appStorage.removeItem(oldKey);
         return;
       }
 
@@ -121,9 +115,8 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
 
       // Remove old storage key after successful migration
       await this.appStorage.removeItem(oldKey);
-      this.migrationDone = true;
-    } catch {
-      this.migrationDone = false;
+    } catch (e) {
+      console.error('Recent recipients migration error', e);
     }
   }
 
@@ -135,15 +128,11 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
 
   @backgroundMethod()
   async clearRecentRecipients() {
-    // Run migration first so old v1 data won't restore after clear
-    await this.migrateFromOldStorage();
     await this.setRawData({ recentRecipients: {} });
   }
 
   @backgroundMethod()
   async deleteRecentRecipient({ recipientId }: { recipientId: string }) {
-    // Run migration first so old v1 data won't restore deleted entries
-    await this.migrateFromOldStorage();
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
       delete recentRecipients[recipientId];
@@ -159,9 +148,6 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
     networkId: string;
     limit?: number;
   }): Promise<{ address: string; updatedAt: number; networkId?: string }[]> {
-    // Try to migrate from old storage on first access
-    await this.migrateFromOldStorage();
-
     const rawData = await this.getRawData();
     const recentRecipients = rawData?.recentRecipients ?? {};
 
