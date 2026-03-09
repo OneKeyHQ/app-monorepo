@@ -8786,17 +8786,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-auto-size-input@npm:^1.1.29":
-  version: 1.1.34
-  resolution: "@onekeyfe/react-native-auto-size-input@npm:1.1.34"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: 0.33.2
-  checksum: 10/84be68f8611f19c81ffc042bd12411cfaafa2b2b4ed0307cd8c59aff904fd006260389f9971d280a45f69f41a0225929c3784cb912c1a941227bbff0fefc6dba
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/react-native-background-thread@npm:1.1.33":
   version: 1.1.33
   resolution: "@onekeyfe/react-native-background-thread@npm:1.1.33"
@@ -9002,7 +8991,7 @@ __metadata:
     "@onekeyfe/hd-transport-electron": "npm:1.1.24"
     "@onekeyfe/hd-web-sdk": "npm:1.1.24"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.63"
-    "@onekeyfe/react-native-auto-size-input": "npm:^1.1.29"
+    "@onekeyfe/react-native-auto-size-input": "npm:1.1.33"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
     "@polkadot/extension-inject": "npm:0.54.1"
