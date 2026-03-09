@@ -10,6 +10,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
@@ -41,6 +43,19 @@ function demoError(error: unknown, apiName: string) {
   if (!platformEnv.isNative) {
     console.error('Hyperliquid API Error:', error);
   }
+}
+
+function SkeletonPreviewButton() {
+  const navigation = useAppNavigation();
+  return (
+    <Button
+      onPress={() => {
+        navigation.push(EModalSettingRoutes.SettingDevPerpSkeletonPreview);
+      }}
+    >
+      Open Full-Page Skeleton Preview
+    </Button>
+  );
 }
 
 export function PerpApiTests() {
@@ -514,6 +529,10 @@ const PerpGallery = () => (
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="PerpGallery"
     elements={[
+      {
+        title: 'Mobile Full-Page Skeleton',
+        element: <SkeletonPreviewButton />,
+      },
       {
         title: 'Hyperliquid API Test 2862',
         element: <PerpApiTests />,

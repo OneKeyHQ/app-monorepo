@@ -208,6 +208,10 @@ const SkeletonGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Skeleton'),
 );
+const PerpMobileSkeletonGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpMobileSkeleton'),
+);
 const SliderGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider'),
@@ -580,6 +584,10 @@ export const galleryScreenList: {
   },
   { name: EGalleryRoutes.ComponentListItem, component: ListItemGallery },
   { name: EGalleryRoutes.ComponentSkeleton, component: SkeletonGallery },
+  {
+    name: EGalleryRoutes.ComponentPerpMobileSkeleton,
+    component: PerpMobileSkeletonGallery,
+  },
   { name: EGalleryRoutes.ComponentCheckbox, component: CheckboxGallery },
   { name: EGalleryRoutes.ComponentActionList, component: ActionListGallery },
   { name: EGalleryRoutes.ComponentPopover, component: PopoverGallery },

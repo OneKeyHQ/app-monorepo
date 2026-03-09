@@ -22,7 +22,9 @@ import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliqui
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
+  usePerpsAllMidsAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { PerpMobileLayoutSkeleton } from './PerpMobileLayoutSkeleton';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
@@ -118,6 +120,7 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
+  const [allMids] = usePerpsAllMidsAtom();
   const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
 
@@ -134,6 +137,10 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
+  if (allMids === null) {
+    return <PerpMobileLayoutSkeleton />;
+  }
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}
