@@ -24,6 +24,10 @@ import {
   IMPL_COSMOS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -33,8 +37,11 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
+import type { SecretNetworkEncryption } from '../vaults/impls/cosmos/sdkCosmos/SecretNetworkEncryption';
+import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
+import type VaultCosmos from '../vaults/impls/cosmos/Vault';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -165,7 +172,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       networkId,
     });
     if (!network) {
-      throw new OneKeyLocalError('Invalid chainId');
+      return undefined;
     }
 
     try {
@@ -720,6 +727,90 @@ class ProviderApiCosmos extends ProviderApiBase {
       signer: params.signerAddress,
       signDoc: params.signDoc,
     });
+  }
+
+  // Enigma (Secret Network) support
+  private async _getOrCreateEnigmaUtils(
+    request: IJsBridgeMessagePayload,
+    chainId: string,
+  ): Promise<SecretNetworkEncryption> {
+    const networkId = this.convertCosmosChainId(chainId);
+    if (!networkId) throw new OneKeyLocalError('Invalid chainId');
+
+    const account = await this._getAccount(request, networkId);
+
+    const { accountInfo } = account;
+    const walletId = accountInfo?.walletId ?? '';
+    const accountId = accountInfo?.accountId ?? account.account.id;
+
+    let password = await this.backgroundApi.servicePassword.getCachedPassword();
+
+    if (!password) {
+      const result = (await this.backgroundApi.serviceDApp.openModal({
+        request,
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.CosmosEnigmaUnlockModal,
+        ],
+        params: {
+          walletId,
+          accountId,
+          networkId: accountInfo?.networkId ?? networkId,
+        },
+        fullScreen: true,
+      })) as { password: string };
+      password = result.password;
+    }
+
+    const vault = (await vaultFactory.getVault({
+      networkId: accountInfo?.networkId ?? networkId,
+      accountId,
+    })) as VaultCosmos;
+
+    return vault.getOrCreateEnigmaUtils({ password });
+  }
+
+  @providerApiMethod()
+  public async getEnigmaPubKey(
+    request: IJsBridgeMessagePayload,
+    params: { chainId: string },
+  ): Promise<string> {
+    const utils = await this._getOrCreateEnigmaUtils(request, params.chainId);
+    const pubkey = await utils.getPubkey();
+    return bytesToHex(pubkey);
+  }
+
+  @providerApiMethod()
+  public async enigmaEncrypt(
+    request: IJsBridgeMessagePayload,
+    params: { chainId: string; contractCodeHash: string; msg: object },
+  ): Promise<string> {
+    const utils = await this._getOrCreateEnigmaUtils(request, params.chainId);
+    const encrypted = await utils.encrypt(params.contractCodeHash, params.msg);
+    return bytesToHex(encrypted);
+  }
+
+  @providerApiMethod()
+  public async enigmaDecrypt(
+    request: IJsBridgeMessagePayload,
+    params: { chainId: string; ciphertext: string; nonce: string },
+  ): Promise<string> {
+    const utils = await this._getOrCreateEnigmaUtils(request, params.chainId);
+    const decrypted = await utils.decrypt(
+      hexToBytes(params.ciphertext),
+      hexToBytes(params.nonce),
+    );
+    return bytesToHex(decrypted);
+  }
+
+  @providerApiMethod()
+  public async enigmaGetTxEncryptionKey(
+    request: IJsBridgeMessagePayload,
+    params: { chainId: string; nonce: string },
+  ): Promise<string> {
+    const utils = await this._getOrCreateEnigmaUtils(request, params.chainId);
+    const key = await utils.getTxEncryptionKey(hexToBytes(params.nonce));
+    return bytesToHex(key);
   }
 
   @providerApiMethod()

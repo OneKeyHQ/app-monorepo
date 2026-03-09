@@ -1,3 +1,4 @@
-declare module 'react-native-collapsible-tab-view/lib/module/hooks' {
-  export * from 'react-native-collapsible-tab-view/lib/typescript/src/hooks';
-}
+// This file previously declared types for the deep import path
+// 'react-native-collapsible-tab-view/lib/module/hooks'.
+// Now we import directly from 'react-native-collapsible-tab-view',
+// so types are resolved via the package's "types" field.

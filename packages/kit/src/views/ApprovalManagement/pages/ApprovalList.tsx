@@ -36,6 +36,7 @@ import {
   useSelectedTokensAtom,
   useTokenMapAtom,
 } from '../../../states/jotai/contexts/approvalList';
+import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import ApprovalActions from '../components/ApprovalActions';
 import { useBulkRevoke } from '../hooks/useBulkRevoke';
 
@@ -86,8 +87,21 @@ function ApprovalList() {
   const [{ tokenMap }] = useTokenMapAtom();
   const [{ contractMap }] = useContractMapAtom();
 
+  const { result: availableWallets } = usePromiseResult(async () => {
+    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
+      ignoreEmptySingletonWalletAccounts: true,
+      ignoreNonBackedUpWallets: true,
+    });
+    return wallets.filter(
+      (w) =>
+        !accountUtils.isQrWallet({ walletId: w.id }) &&
+        !accountUtils.isOthersWallet({ walletId: w.id }) &&
+        !w.deprecated,
+    );
+  }, []);
+
   const { run } = usePromiseResult(async () => {
-    if (!searchNetworkId) {
+    if (!searchNetworkId || !availableWallets?.length) {
       return;
     }
 
@@ -141,6 +155,7 @@ function ApprovalList() {
       });
     }
   }, [
+    availableWallets,
     updateApprovalListState,
     accountId,
     searchNetworkId,
@@ -378,6 +393,21 @@ function ApprovalList() {
       />
     );
   };
+
+  if (availableWallets && availableWallets.length === 0) {
+    return (
+      <Page>
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.global_approval_list,
+          })}
+        />
+        <Page.Body>
+          <EmptyNoWalletView />
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page>

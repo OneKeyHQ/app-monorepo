@@ -13,3 +13,10 @@ export enum EAppSyncStorageKeys {
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
 }
+
+// Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,
+// readable by native code (app update / bundle update) to control verification behavior.
+export enum EDevSettingSyncStorageKeys {
+  onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
+  onekey_bundle_skip_gpg_verification = 'onekey_bundle_skip_gpg_verification',
+}

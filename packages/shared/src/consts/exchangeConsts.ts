@@ -10,6 +10,8 @@ export interface IExchangeConfig {
   iconName: 'BinanceBrand' | 'OkxBrand' | 'CoinbaseBrand';
   /** URL scheme for canOpenURL detection (e.g., 'bnc://') */
   deepLinkScheme: string;
+  /** Alternative URL for canOpenURL detection when app uses a different scheme than deepLinkScheme */
+  detectionUrl?: string;
   /** URL to open the exchange app */
   appOpenUrl: string;
   iconBgColor: string;
@@ -44,7 +46,8 @@ export const EXCHANGE_CONFIGS: Record<EExchangeId, IExchangeConfig> = {
     name: 'Coinbase',
     iconName: 'CoinbaseBrand',
     deepLinkScheme: 'coinbase://',
-    appOpenUrl: 'coinbase://wallet',
+    detectionUrl: 'cbwallet://',
+    appOpenUrl: 'https://www.coinbase.com/',
     iconBgColor: '$blue6',
     iconColor: '$blue11',
     helpArticleId: '12561338',

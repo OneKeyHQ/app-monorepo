@@ -66,7 +66,6 @@ export function useAccountSelectorCreateAddress() {
         !account ||
         !account.walletId ||
         !account.networkId ||
-        !account.indexedAccountId ||
         !account.deriveType
       ) {
         Toast.error({
@@ -133,10 +132,13 @@ export function useAccountSelectorCreateAddress() {
         }
 
         // TODO: cancel creating workflow by close checking device UI dialog
+        // If indexedAccountId is empty, create the first account (index 0) for all networks
+        const indexes = account?.indexedAccountId ? undefined : [0];
         const result =
           await serviceBatchCreateAccount.addDefaultNetworkAccounts({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
+            indexes,
             customNetworks,
             ...hwUiControlParams,
           });
@@ -147,9 +149,22 @@ export function useAccountSelectorCreateAddress() {
         ) {
           throw new OneKeyErrorAirGapAccountNotFound();
         }
+
+        // If indexedAccountId was empty, get the first indexed account from wallet
+        let resultIndexedAccountId = account?.indexedAccountId;
+        if (!resultIndexedAccountId && account?.walletId) {
+          const { accounts: indexedAccounts } =
+            await serviceAccount.getIndexedAccountsOfWallet({
+              walletId: account.walletId,
+            });
+          if (indexedAccounts.length > 0) {
+            resultIndexedAccountId = indexedAccounts[0].id;
+          }
+        }
+
         return handleAddAccounts({
           walletId: account?.walletId,
-          indexedAccountId: account?.indexedAccountId,
+          indexedAccountId: resultIndexedAccountId,
           accounts: [],
         });
       };
@@ -160,11 +175,14 @@ export function useAccountSelectorCreateAddress() {
             await addAccountsForAllNetwork();
             return;
           }
+          // If indexedAccountId is empty, create the first account (index 0)
+          const indexes = account?.indexedAccountId ? undefined : [0];
           const result = await serviceAccount.addHDOrHWAccounts({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,
             deriveType: account?.deriveType,
+            indexes,
             createAllDeriveTypes,
             ...hwUiControlParams,
           });
@@ -188,10 +206,22 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
+          let indexedAccountId = account.indexedAccountId;
+          if (!indexedAccountId) {
+            await serviceAccount.addIndexedAccount({
+              walletId: account.walletId,
+              indexes: [0],
+              skipIfExists: true,
+            });
+            indexedAccountId = accountUtils.buildIndexedAccountId({
+              walletId: account.walletId,
+              index: 0,
+            });
+          }
           await createQrWalletAccount({
             walletId: account.walletId,
             networkId: account.networkId,
-            indexedAccountId: account.indexedAccountId,
+            indexedAccountId,
           });
 
           try {
