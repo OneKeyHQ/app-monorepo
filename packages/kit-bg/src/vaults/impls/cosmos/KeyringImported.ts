@@ -2,6 +2,7 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
+
 import { SecretNetworkEncryption } from './sdkCosmos/SecretNetworkEncryption';
 
 import type { IDBAccount } from '../../../dbs/local/types';

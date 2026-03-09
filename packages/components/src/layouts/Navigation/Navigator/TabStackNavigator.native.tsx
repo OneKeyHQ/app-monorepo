@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,6 +18,7 @@ import {
   useSplitViewType,
   useTheme,
 } from '../../../hooks';
+import { createNativeBottomTabNavigator } from '../BottomTabs';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 

@@ -40,6 +40,5 @@ describe('Kaspa Address Tests', () => {
   });
 });
 
-// eslint-disable-next-line unicorn/require-module-specifiers
 // oxlint-disable-next-line unicorn/require-module-specifiers
 export {};

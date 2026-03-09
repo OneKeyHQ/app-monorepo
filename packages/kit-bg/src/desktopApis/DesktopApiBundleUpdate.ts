@@ -587,7 +587,7 @@ class DesktopApiAppBundleUpdate {
 
       // Verify all extracted files against metadata SHA256 hashes
       if (!fs.existsSync(metadataFilePath)) {
-        throw new Error('metadata.json not found after extraction');
+        throw new OneKeyLocalError('metadata.json not found after extraction');
       }
       const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
       const metadata = JSON.parse(metadataContent) as Record<string, string>;

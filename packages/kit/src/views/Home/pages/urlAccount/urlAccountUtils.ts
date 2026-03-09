@@ -256,11 +256,16 @@ export const urlAccountNavigation = {
     const mainRoute = focusedRoute?.state;
     const focusedTab = mainRoute?.routes?.[mainRoute?.index ?? 0];
     const tabStack = focusedTab?.state;
+    const tabStackRoutes = tabStack?.routes;
+    const tabStackTopRouteName =
+      tabStackRoutes && tabStackRoutes.length > 0
+        ? tabStackRoutes[tabStackRoutes.length - 1]?.name
+        : undefined;
     defaultLogger.app.router.navState({
       action: 'pushUrlAccountPage:afterWait',
       focusedTab: focusedTab?.name,
       stackDepth: tabStack?.routes?.length,
-      topRoute: tabStack?.routes?.[tabStack?.routes?.length - 1]?.name,
+      topRoute: tabStackTopRouteName,
     });
     rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
@@ -275,12 +280,16 @@ export const urlAccountNavigation = {
     const focusedTabAfter =
       mainRouteAfter?.routes?.[mainRouteAfter?.index ?? 0];
     const tabStackAfter = focusedTabAfter?.state;
+    const tabStackAfterRoutes = tabStackAfter?.routes;
+    const tabStackAfterTopRouteName =
+      tabStackAfterRoutes && tabStackAfterRoutes.length > 0
+        ? tabStackAfterRoutes[tabStackAfterRoutes.length - 1]?.name
+        : undefined;
     defaultLogger.app.router.navState({
       action: 'pushUrlAccountPage:afterDispatch',
       focusedTab: focusedTabAfter?.name,
       stackDepth: tabStackAfter?.routes?.length,
-      topRoute:
-        tabStackAfter?.routes?.[tabStackAfter?.routes?.length - 1]?.name,
+      topRoute: tabStackAfterTopRouteName,
     });
   },
   async pushOrReplaceUrlAccountPage(
