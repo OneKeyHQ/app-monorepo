@@ -135,22 +135,40 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   );
 }
 
+const getActiveTabFromRef = (
+  ref: typeof rootNavigationRef,
+): string | undefined => {
+  const s = ref.current?.getRootState();
+  if (!s) return undefined;
+  const main = s.routes?.find((r) => r.name === ERootRoutes.Main);
+  const idx = main?.state?.index ?? 0;
+  return main?.state?.routes?.[idx]?.name;
+};
+
 export const switchTab = (route: ETabRoutes) => {
-  // Skip if already on the target tab to avoid unnecessary navigate(pop:true)
-  // which triggers RNSScreenStack retry storms on iOS when the tab's inner
-  // stack has pages that get popped and orphaned (window=NIL).
-  const state = rootNavigationRef.current?.getRootState();
-  const mainRoute = state?.routes?.find((r) => r.name === ERootRoutes.Main);
-  const currentTabIndex = mainRoute?.state?.index ?? 0;
-  const currentTab = mainRoute?.state?.routes?.[currentTabIndex];
-  if (currentTab?.name === route) {
-    return;
-  }
+  // Skip per-ref navigate if already on the target tab to avoid unnecessary
+  // navigate(pop:true) which triggers RNSScreenStack retry storms on iOS
+  // when the tab's inner stack has pages that get popped and orphaned.
+  const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
 
   defaultLogger.app.router.switchTab(route);
 
   setTimeout(() => {
-    tabletMainViewNavigationRef.current?.navigate(
+    const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
+    if (tabletActiveTab !== undefined && tabletActiveTab !== route) {
+      tabletMainViewNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: route,
+        },
+        {
+          pop: true,
+        },
+      );
+    }
+  });
+  if (rootActiveTab !== route) {
+    rootNavigationRef.current?.navigate(
       ERootRoutes.Main,
       {
         screen: route,
@@ -159,16 +177,7 @@ export const switchTab = (route: ETabRoutes) => {
         pop: true,
       },
     );
-  });
-  rootNavigationRef.current?.navigate(
-    ERootRoutes.Main,
-    {
-      screen: route,
-    },
-    {
-      pop: true,
-    },
-  );
+  }
 
   defaultLogger.app.router.switchTabDone(route);
 };
