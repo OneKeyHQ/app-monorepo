@@ -74,7 +74,12 @@ export const PendleRewardRow: FC<IPendleRewardRowProps> = ({
           </Stack>
         ) : (
           <>
-            <XStack gap="$1" alignItems="center" flexWrap="wrap">
+            <XStack
+              gap="$1"
+              alignItems="center"
+              flexWrap="wrap"
+              justifyContent="flex-end"
+            >
               <SizableText
                 size={reward.description.size || '$bodyMdMedium'}
                 color={reward.description.color ?? '$text'}

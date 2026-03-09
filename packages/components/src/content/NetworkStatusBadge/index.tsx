@@ -12,6 +12,7 @@ export type INetworkStatusBadgeProps = {
   connected: boolean;
   indicator?: ReactElement;
   label?: string;
+  monoLabel?: string;
   badgeSize?: ComponentProps<typeof Badge>['badgeSize'];
   minWidth?: ComponentProps<typeof Badge>['minWidth'];
 };
@@ -20,6 +21,7 @@ export function NetworkStatusBadge({
   connected,
   indicator,
   label,
+  monoLabel,
   badgeSize = 'md',
   minWidth,
 }: INetworkStatusBadgeProps) {
@@ -80,13 +82,18 @@ export function NetworkStatusBadge({
       cursor="default"
     >
       {indicatorElement}
-      <Badge.Text
-        size="$bodySmMedium"
-        fontFamily="$monoRegular"
-        fontVariant={['tabular-nums']}
-      >
-        {badgeLabel}
-      </Badge.Text>
+      <Badge.Text size="$bodySmMedium">{badgeLabel}</Badge.Text>
+      {monoLabel ? (
+        <Badge.Text
+          size="$bodySmMedium"
+          fontFamily="$monoRegular"
+          fontVariant={['tabular-nums']}
+          minWidth={40}
+          textAlign="right"
+        >
+          {monoLabel}
+        </Badge.Text>
+      ) : null}
     </Badge>
   );
 }

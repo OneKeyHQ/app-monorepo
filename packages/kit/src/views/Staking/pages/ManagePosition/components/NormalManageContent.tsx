@@ -13,7 +13,6 @@ import {
   EStakingActionType,
 } from '@onekeyhq/shared/types/staking';
 import type {
-  IBorrowReserveItem,
   IEarnHistoryActionIcon,
   IEarnManagePageActionData,
   IEarnManagePageResponse,
@@ -69,7 +68,6 @@ interface INormalManageContentProps {
   ongoingValidator?: IEarnSelectField;
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
-  borrowReserves?: IBorrowReserveItem;
   preferManagePageActionText?: boolean;
 }
 
@@ -102,7 +100,6 @@ export function NormalManageContent({
   fallbackTokenImageUri,
   ongoingValidator,
   managePageData,
-  borrowReserves,
   type = EManagePositionType.Staking,
   preferManagePageActionText = false,
 }: INormalManageContentProps) {
@@ -721,7 +718,6 @@ export function NormalManageContent({
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionPrimary}
-          borrowReserves={borrowReserves}
           borrowActionLabel={borrowActionLabelPrimary}
           receiveInputConfig={stakeReceiveInputConfig}
           pendleSlippage={pendleSlippageValue}
@@ -747,7 +743,6 @@ export function NormalManageContent({
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionSecondary}
-          borrowReserves={borrowReserves}
           defaultCollateralReserveAddress={
             managePageData?.collateral?.data?.reserveAddress
           }

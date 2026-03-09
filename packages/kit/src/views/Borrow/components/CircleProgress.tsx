@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import Svg, { Circle } from 'react-native-svg';
 
@@ -10,6 +10,7 @@ interface ICircleProgressProps {
   strokeWidth?: number;
   progressColor?: string;
   trackColor?: string;
+  children?: ReactNode;
 }
 
 export function CircleProgress({
@@ -18,6 +19,7 @@ export function CircleProgress({
   strokeWidth = 4,
   progressColor,
   trackColor,
+  children,
 }: ICircleProgressProps) {
   const theme = useTheme();
   const defaultProgressColor = theme.textSuccess.val;
@@ -76,7 +78,7 @@ export function CircleProgress({
           origin={`${center}, ${center}`}
         />
       </Svg>
-      {/* Center percentage text */}
+      {/* Center label */}
       <YStack
         position="absolute"
         top={0}
@@ -86,9 +88,11 @@ export function CircleProgress({
         alignItems="center"
         justifyContent="center"
       >
-        <SizableText size="$bodyMdMedium" color="$text">
-          {percentageText}%
-        </SizableText>
+        {children ?? (
+          <SizableText size="$bodyMdMedium" color="$text">
+            {percentageText}%
+          </SizableText>
+        )}
       </YStack>
     </XStack>
   );
