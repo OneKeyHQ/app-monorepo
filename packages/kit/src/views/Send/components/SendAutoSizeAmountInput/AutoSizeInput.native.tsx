@@ -120,10 +120,10 @@ export function AutoSizeInput({
   return (
     <Stack width="100%" alignItems="center" py="$1">
       <AutoSizeInputView
+        contentCentered
         style={{
-          width: autoSizeContainerWidth,
-          height: Math.ceil(simpleMaxFontSize * 1.4),
-          minHeight: Math.ceil(simpleMinFontSize * 1.4),
+          width: '100%',
+          height: 64,
         }}
         text={autoSizeTextValue}
         placeholder={inputPlaceholder ?? '0'}
