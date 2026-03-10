@@ -764,7 +764,8 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           lastUpdateDialogShownAt: currentUpdateInfo.lastUpdateDialogShownAt,
           onConfirm: () => {
             const fileType = getUpdateFileType({
-              latestVersion: params?.latestVersion ?? currentUpdateInfo.latestVersion,
+              latestVersion:
+                params?.latestVersion ?? currentUpdateInfo.latestVersion,
               jsBundleVersion:
                 params?.jsBundleVersion ?? currentUpdateInfo.jsBundleVersion,
             });
