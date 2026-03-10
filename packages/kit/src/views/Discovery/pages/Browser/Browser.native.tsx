@@ -432,7 +432,10 @@ function MobileBrowser() {
             earnTabsRef={earnTabsRef}
             earnBorrowPagerRef={earnBorrowPagerRef}
             marketContent={
-              <MarketHomeWithProvider isFocused tabsRef={marketTabsRef} />
+              <MarketHomeWithProvider
+                isFocused={selectedHeaderTab === ETranslations.global_market}
+                tabsRef={marketTabsRef}
+              />
             }
             earnContent={
               <EarnHomeWithProvider
