@@ -28,7 +28,7 @@ if ! command -v actool &> /dev/null; then
     echo "Warning: actool not found. Skipping Liquid Glass icon compilation."
     echo "This tool requires Xcode. macOS 26+ SDK is needed for Liquid Glass icon compilation."
     echo "Creating empty Assets.car placeholder to prevent build failure."
-    # 创建空的 Assets.car 占位符，防止构建失败
+    # Create empty Assets.car placeholder to prevent build failure.
     touch "$OUTPUT_PATH/Assets.car"
     exit 0
 fi
@@ -46,7 +46,7 @@ if [ ! -d "$ICON_PATH" ]; then
         echo "Warning: Icon source not found at $ICON_PATH"
         echo "Skipping Liquid Glass icon compilation."
         echo "Creating empty Assets.car placeholder to prevent build failure."
-        # 创建空的 Assets.car 占位符，防止构建失败
+        # Create empty Assets.car placeholder to prevent build failure.
         touch "$OUTPUT_PATH/Assets.car"
         exit 0
     fi
