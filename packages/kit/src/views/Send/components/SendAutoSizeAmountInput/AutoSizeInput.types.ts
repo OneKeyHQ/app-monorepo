@@ -1,33 +1,33 @@
-import type { RefObject } from 'react';
-
 import type { IInputProps } from '@onekeyhq/components';
 
-import type { TextInput } from 'react-native';
+export type IAutoSizeInputRef = {
+  focus: () => void;
+};
 
 export type IAutoSizeInputProps = {
-  displayValue: string;
-  simpleFontSize: number;
-  simpleMaxFontSize: number;
-  simpleMinFontSize: number;
+  // Controlled input text used by both web and native implementations.
+  // iOS native can pass a hidden pulse marker to force prop write-back.
+  value: string;
+  fontSize: number;
+  maxFontSize: number;
+  minFontSize: number;
   availableInlineWidth: number;
   currencyLabel?: string;
   inlineTokenSymbol?: string;
   inlinePrefixGapPx: number;
   inlineSuffixGapPx: number;
+  // Shared selection color for web/native text cursor and selection.
   selectionColor: string;
-  handleSimpleChangeText: (text: string) => void;
-  inputLoading?: boolean;
-  inputPlaceholder?: string;
-  inputEditable?: boolean;
-  inputKeyboardType?: IInputProps['keyboardType'];
-  inputReturnKeyType?: IInputProps['returnKeyType'];
-  onInputFocus?: IInputProps['onFocus'];
-  onInputBlur?: IInputProps['onBlur'];
-  inputRef: RefObject<TextInput | null>;
-  autoSizeTextValue: string;
-  autoSizeInputTextColor?: string;
-  autoSizePlaceholderColor?: string;
-  autoSizeSelectionColor?: string;
-  autoSizeTransparentColor?: string;
-  onHybridRef: (ref: { focus?: () => void } | null) => void;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  editable?: boolean;
+  keyboardType?: IInputProps['keyboardType'];
+  returnKeyType?: IInputProps['returnKeyType'];
+  onFocus?: IInputProps['onFocus'];
+  onBlur?: IInputProps['onBlur'];
+  // Shared text color for amount/prefix/suffix in native auto-size input.
+  textColor?: string;
+  placeholderColor?: string;
+  // Background color is currently used by native auto-size input.
+  backgroundColor?: string;
 };
