@@ -299,12 +299,14 @@ class ServiceKeylessWallet extends ServiceBase {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify();
 
-    return localDb.createKeylessWallet({
+    const result = await localDb.createKeylessWallet({
       password,
       packSetId,
       name,
       avatar: avatarInfo,
     });
+    await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    return result;
   }
 
   @backgroundMethod()

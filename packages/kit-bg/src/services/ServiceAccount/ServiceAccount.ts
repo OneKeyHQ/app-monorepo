@@ -3246,6 +3246,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
+      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
     }
 
@@ -3409,6 +3410,7 @@ class ServiceAccount extends ServiceBase {
 
     const wallet = await this.getWalletSafe({ walletId });
     const keylessOwnerId = wallet?.keylessDetailsInfo?.keylessOwnerId;
+    const isKeylessWallet = !!wallet?.isKeyless;
 
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
@@ -3418,6 +3420,9 @@ class ServiceAccount extends ServiceBase {
       walletId,
       isRemoveToMocked,
     });
+    if (isKeylessWallet) {
+      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    }
 
     // WARNING:
     // Use setTimeout to change React Native's render scheduling to avoid exceptions penetrating the scheduler and causing crashes.
