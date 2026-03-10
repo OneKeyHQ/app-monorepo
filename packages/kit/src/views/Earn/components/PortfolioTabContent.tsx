@@ -595,10 +595,12 @@ const ProtocolAirdrop = ({
   airdropAssets,
   stakedSymbol,
   stakedVault,
+  isPendle,
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
   stakedSymbol?: string;
   stakedVault?: string;
+  isPendle?: boolean;
 }) => {
   const intl = useIntl();
   const isDesktopLayout = useIsDesktopLayout();
@@ -619,7 +621,9 @@ const ProtocolAirdrop = ({
   }
 
   const title = intl.formatMessage({
-    id: ETranslations.defi_claimable_protocol_rewards,
+    id: isPendle
+      ? ETranslations.defi_unstaking_via_ethena
+      : ETranslations.defi_claimable_protocol_rewards,
   });
   const rowMinHeight = 38;
   const primaryTextSize = '$bodyMdMedium';
@@ -1104,6 +1108,7 @@ const PortfolioItemComponent = ({
           airdropAssets={portfolioItem.airdropAssets}
           stakedSymbol={portfolioItem.assets[0]?.token.info.symbol}
           stakedVault={portfolioItem.assets[0]?.metadata.protocol.vault}
+          isPendle={isPendle}
         />
       </YStack>
     </PortfolioPendingTxsProvider>
