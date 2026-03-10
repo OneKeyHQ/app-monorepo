@@ -18,7 +18,7 @@ import {
   useSplitMainView,
   useSplitSubView,
 } from '@onekeyhq/components';
-// import type { ITabContainerRef } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
@@ -58,6 +58,7 @@ import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
@@ -75,6 +76,7 @@ import DashboardContent from '../Dashboard/DashboardContent';
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+import type { IEarnBorrowPagerViewRef } from '../../../Earn/components/EarnBorrowPagerView';
 import type { RouteProp } from '@react-navigation/core';
 import type { WebView } from 'react-native-webview';
 
@@ -236,6 +238,14 @@ function MobileBrowser() {
       tab: ETranslations;
       openUrl?: boolean;
     }) => {
+      // State machine: when WebView is open (displayHomePage === false) and
+      // switching to a non-Browser tab, first collapse the WebView back to
+      // Dashboard before switching the main tab.
+      // If the target is Browser itself, do NOT collapse the WebView.
+      if (!displayHomePage && event.tab !== ETranslations.global_browser) {
+        setDisplayHomePage(true);
+      }
+
       await backgroundApiProxy.serviceSetting.setSelectedBrowserTab(event.tab);
       if (event.tab === ETranslations.global_browser && event.openUrl) {
         setTimeout(() => {
@@ -247,7 +257,7 @@ function MobileBrowser() {
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchDiscoveryTabInNative, listener);
     };
-  }, []);
+  }, [displayHomePage, setDisplayHomePage]);
 
   // For risk detection
   useEffect(() => {
@@ -339,49 +349,14 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  // Edge swipe detection for switching between Market / Browser / Earn
-  // Disabled for this version
-  // const marketTabsRef = useRef<ITabContainerRef>(null);
-  // const earnTabsRef = useRef<ITabContainerRef>(null);
+  // Refs for inner tab containers (Market/Earn) to sync after freeze/unfreeze
+  const marketTabsRef = useRef<ITabContainerRef>(null);
+  const earnTabsRef = useRef<ITabContainerRef>(null);
+  const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
-  // const MARKET_TAB_COUNT = 2;
-  // const EARN_TAB_COUNT = 3;
-
-  // const switchToMarket = useCallback(() => {
-  //   void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
-  //     ETranslations.global_market,
-  //   );
-  // }, []);
-  // const switchToBrowser = useCallback(() => {
-  //   void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
-  //     ETranslations.global_browser,
-  //   );
-  // }, []);
-  // const switchToEarn = useCallback(() => {
-  //   void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
-  //     ETranslations.global_earn,
-  //   );
-  // }, []);
-
-  // Tab order (left → right): Market → Earn → Browser
-  // const marketSwipeHandlers = useEdgeSwipeDetection({
-  //   tabsRef: marketTabsRef,
-  //   tabCount: MARKET_TAB_COUNT,
-  //   onSwipeLeft: switchToEarn, // Market → Earn
-  // });
-
-  // const earnSwipeHandlers = useEdgeSwipeDetection({
-  //   tabsRef: earnTabsRef,
-  //   tabCount: EARN_TAB_COUNT,
-  //   onSwipeLeft: switchToBrowser, // Earn → Browser
-  //   onSwipeRight: switchToMarket, // Earn → Market
-  // });
-
-  // const browserSwipeHandlers = useEdgeSwipeDetection({
-  //   tabCount: 1,
-  //   onSwipeRight: switchToEarn, // Browser → Earn
-  //   screenEdgeWidth: 30,
-  // });
+  // Determine if outer PagerView should be used (phone only, not tablet/dual-screen)
+  const useOuterPager =
+    !isTabletMainView && !isTabletDetailView && !isDualScreen;
 
   const INITIAL_TAB_PAGE_HEIGHT_IOS = 153;
   const INITIAL_TAB_PAGE_HEIGHT_ANDROID = 100;
@@ -447,81 +422,142 @@ function MobileBrowser() {
         </XStack>
       )}
       <Page.Body>
-        {/* Market Tab */}
-        {isShowContent ? (
-          <View
-            style={{
-              flex: 1,
-              display:
-                selectedHeaderTab === ETranslations.global_market
-                  ? 'flex'
-                  : 'none',
-            }}
-          >
-            <MarketHomeWithProvider
-              isFocused={selectedHeaderTab === ETranslations.global_market}
-            />
-          </View>
-        ) : null}
-        {/* Browser Tab */}
-        <Stack
-          flex={1}
-          zIndex={3}
-          display={
-            selectedHeaderTab === ETranslations.global_browser
-              ? undefined
-              : 'none'
-          }
-        >
-          <HandleRebuildBrowserData />
-          <Stack flex={1}>
-            <View
-              style={{
-                display: showDiscoveryPage ? 'flex' : 'none',
-                flex: showDiscoveryPage ? 1 : undefined,
-              }}
-            >
-              <DashboardContent onScroll={handleScroll} />
-            </View>
-            {!isTabletMainView ? (
-              <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
-            ) : null}
-          </Stack>
-          <Freeze freeze={!displayBottomBar}>
-            <Animated.View
-              style={[
-                toolbarAnimatedStyle,
-                {
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                },
-              ]}
-            >
-              <MobileBrowserBottomBar
-                id={activeTabId ?? ''}
-                onGoBackHomePage={handleGoBackHome}
+        {/* HandleRebuildBrowserData must mount early regardless of active tab */}
+        <HandleRebuildBrowserData />
+        {useOuterPager ? (
+          <OuterTabPagerView
+            selectedHeaderTab={selectedHeaderTab}
+            showDiscoveryPage={showDiscoveryPage}
+            marketTabsRef={marketTabsRef}
+            earnTabsRef={earnTabsRef}
+            earnBorrowPagerRef={earnBorrowPagerRef}
+            marketContent={
+              <MarketHomeWithProvider
+                isFocused={selectedHeaderTab === ETranslations.global_market}
+                nestedPager={useOuterPager}
+                tabsRef={marketTabsRef}
               />
-            </Animated.View>
-          </Freeze>
-        </Stack>
-        {isShowContent ? (
-          <View
-            style={{
-              flex: 1,
-              display:
-                selectedHeaderTab === ETranslations.global_earn
-                  ? 'flex'
-                  : 'none',
-            }}
-          >
-            <EarnHomeWithProvider
-              showHeader={false}
-              showContent={selectedHeaderTab === ETranslations.global_earn}
-              defaultTab={earnTab}
-            />
-          </View>
-        ) : null}
+            }
+            earnContent={
+              <EarnHomeWithProvider
+                showHeader={false}
+                showContent
+                defaultTab={earnTab}
+                tabsRef={earnTabsRef}
+                useSwipePager={useOuterPager}
+                earnBorrowPagerRef={earnBorrowPagerRef}
+              />
+            }
+            browserContent={
+              <Stack flex={1} zIndex={3}>
+                <Stack flex={1}>
+                  <View
+                    style={{
+                      display: showDiscoveryPage ? 'flex' : 'none',
+                      flex: showDiscoveryPage ? 1 : undefined,
+                    }}
+                  >
+                    <DashboardContent onScroll={handleScroll} />
+                  </View>
+                  <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                </Stack>
+                <Freeze freeze={!displayBottomBar}>
+                  <Animated.View
+                    style={[
+                      toolbarAnimatedStyle,
+                      {
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                      },
+                    ]}
+                  >
+                    <MobileBrowserBottomBar
+                      id={activeTabId ?? ''}
+                      onGoBackHomePage={handleGoBackHome}
+                    />
+                  </Animated.View>
+                </Freeze>
+              </Stack>
+            }
+          />
+        ) : (
+          <>
+            {/* Tablet / DualScreen: keep legacy display:none/flex switching */}
+            {isShowContent ? (
+              <View
+                style={{
+                  flex: 1,
+                  display:
+                    selectedHeaderTab === ETranslations.global_market
+                      ? 'flex'
+                      : 'none',
+                }}
+              >
+                <MarketHomeWithProvider
+                  isFocused={selectedHeaderTab === ETranslations.global_market}
+                />
+              </View>
+            ) : null}
+            <Stack
+              flex={1}
+              zIndex={3}
+              display={
+                selectedHeaderTab === ETranslations.global_browser
+                  ? undefined
+                  : 'none'
+              }
+            >
+              <Stack flex={1}>
+                <View
+                  style={{
+                    display: showDiscoveryPage ? 'flex' : 'none',
+                    flex: showDiscoveryPage ? 1 : undefined,
+                  }}
+                >
+                  <DashboardContent onScroll={handleScroll} />
+                </View>
+                {!isTabletMainView ? (
+                  <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
+                ) : null}
+              </Stack>
+              <Freeze freeze={!displayBottomBar}>
+                <Animated.View
+                  style={[
+                    toolbarAnimatedStyle,
+                    {
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                    },
+                  ]}
+                >
+                  <MobileBrowserBottomBar
+                    id={activeTabId ?? ''}
+                    onGoBackHomePage={handleGoBackHome}
+                  />
+                </Animated.View>
+              </Freeze>
+            </Stack>
+            {isShowContent ? (
+              <View
+                style={{
+                  flex: 1,
+                  display:
+                    selectedHeaderTab === ETranslations.global_earn
+                      ? 'flex'
+                      : 'none',
+                }}
+              >
+                <EarnHomeWithProvider
+                  showHeader={false}
+                  showContent={selectedHeaderTab === ETranslations.global_earn}
+                  defaultTab={earnTab}
+                />
+              </View>
+            ) : null}
+          </>
+        )}
       </Page.Body>
       {showDiscoveryPage ? (
         <YStack
