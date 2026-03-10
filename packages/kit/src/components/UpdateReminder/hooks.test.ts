@@ -264,6 +264,7 @@ const appUpd = g.__mockAppUpd;
 const bundleUpd = g.__mockBundleUpd;
 const mockDialogShow = g.__mockDialogShow;
 const mockToastError = g.__mockToastError;
+const mockOpenUrlExternal = g.__mockOpenUrlExternal;
 const mockPlatformEnv = g.__mockPlatformEnv;
 const mockAtomHolder = g.__mockAtomHolder;
 
@@ -1254,6 +1255,58 @@ describe('useAppUpdateInfo useEffect', () => {
       // showUpdateDialog → dialog.show
       expect(mockDialogShow).toHaveBeenCalled();
       mockPlatformEnv.isDesktop = false;
+    });
+
+    test('status=done + jsBundle + storeUrl + native → confirm should not open store url', async () => {
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      mockPlatformEnv.isNative = true;
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.notify,
+        storeUrl: 'https://apps.apple.com/app/id123',
+      });
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.ready,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      const dialogParams = mockDialogShow.mock.calls.at(-1)?.[0];
+      expect(dialogParams).toBeTruthy();
+
+      await act(async () => {
+        dialogParams.onConfirm?.();
+        jest.runAllTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+      expect(nav.pushModal).toHaveBeenCalledWith(
+        'AppUpdateModal',
+        expect.objectContaining({ screen: 'DownloadVerify' }),
+      );
+      mockPlatformEnv.isNative = false;
     });
   });
 });
