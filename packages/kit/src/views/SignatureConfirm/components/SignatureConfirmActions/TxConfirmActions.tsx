@@ -37,6 +37,7 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -57,7 +58,6 @@ import {
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IProps = {
   accountId: string;
@@ -135,10 +135,7 @@ function TxConfirmActions(props: IProps) {
   ).result;
 
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
-    usePreCheckFeeInfo({
-      accountId,
-      networkId,
-    });
+    usePreCheckFeeInfo();
 
   const submitTxs = useCallback(async () => {
     const { serviceSend, serviceAccount } = backgroundApiProxy;
@@ -260,6 +257,8 @@ function TxConfirmActions(props: IProps) {
     // fee info pre-check
     if (sendSelectedFeeInfo) {
       const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+        accountId,
+        networkId,
         feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
         feeSymbol:
           sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
@@ -340,6 +339,12 @@ function TxConfirmActions(props: IProps) {
           swapInfo,
           stakingInfo,
         }),
+        txnParseType: isUndefined(result?.[0].decodedTx.txParseType)
+          ? undefined
+          : result?.[0].decodedTx.txParseType,
+        txnOrigin: isUndefined(sourceInfo?.origin)
+          ? undefined
+          : sourceInfo.origin,
         feeToken: isUndefined(sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative)
           ? undefined
           : `${sendSelectedFeeInfo?.feeInfos?.[0]?.totalNative} ${nativeTokenInfo.info?.symbol}`,
@@ -538,6 +543,11 @@ function TxConfirmActions(props: IProps) {
     return false;
   }, [decodedTxs]);
 
+  const isConfirmInitializing = useMemo(
+    () => !txFeeInfoInit || !decodedTxsInit || isBuildingDecodedTxs,
+    [txFeeInfoInit, decodedTxsInit, isBuildingDecodedTxs],
+  );
+
   const isSubmitDisabled = useMemo(() => {
     if (!txFeeInfoInit || !decodedTxsInit) return true;
 
@@ -588,7 +598,7 @@ function TxConfirmActions(props: IProps) {
 
   const confirmText = useMemo(() => {
     if (signOnly) {
-      intl.formatMessage({ id: ETranslations.global_sign });
+      return intl.formatMessage({ id: ETranslations.global_sign });
     }
 
     if (sendFeeStatus.discountPercent === 100) {
@@ -601,15 +611,6 @@ function TxConfirmActions(props: IProps) {
       });
     }
 
-    if (sendFeeStatus.discountPercent && sendFeeStatus.discountPercent > 0) {
-      return intl.formatMessage(
-        {
-          id: ETranslations.wallet_discount_number,
-        },
-        { number: sendFeeStatus.discountPercent },
-      );
-    }
-
     return intl.formatMessage({ id: ETranslations.global_confirm });
   }, [intl, sendFeeStatus.discountPercent, signOnly]);
 
@@ -618,7 +619,7 @@ function TxConfirmActions(props: IProps) {
       <Page.FooterActions
         confirmButtonProps={{
           disabled: isSubmitDisabled,
-          loading: sendTxStatus.isSubmitting,
+          loading: sendTxStatus.isSubmitting || isConfirmInitializing,
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
         cancelButtonProps={{

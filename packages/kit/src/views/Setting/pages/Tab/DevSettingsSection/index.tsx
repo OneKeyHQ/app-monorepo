@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
-import { I18nManager } from 'react-native';
+import { Dimensions, I18nManager } from 'react-native';
 
 import {
   Accordion,
@@ -469,6 +469,10 @@ const BaseDevSettingsSection = () => {
                       react_native_dsn: platformEnv.isNative
                         ? process.env.SENTRY_DSN_REACT_NATIVE
                         : '',
+                      windowHeight: Dimensions.get('window').height,
+                      windowWidth: Dimensions.get('window').width,
+                      screenHeight: Dimensions.get('screen').height,
+                      screenWidth: Dimensions.get('screen').width,
                     },
                   });
                 }}
@@ -524,7 +528,7 @@ const BaseDevSettingsSection = () => {
               </SectionFieldItem>
 
               <SectionPressItem
-                icon="SwapHorOutline"
+                icon="SwitchHorOutline"
                 title="force RTL"
                 subtitle="强制启用 RTL 布局"
                 drillIn={false}
@@ -594,25 +598,6 @@ const BaseDevSettingsSection = () => {
                   Dialog.confirm({
                     renderContent: <NetInfo />,
                   });
-                }}
-              />
-
-              <SectionPressItem
-                icon="ArrowTopCircleOutline"
-                title="Dev App Update Settings"
-                onPress={() => {
-                  navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
-                }}
-              />
-
-              <SectionPressItem
-                icon="OnekeyDeviceCustom"
-                title="FirmwareUpdateDevSettings"
-                testID="firmware-update-dev-settings-menu"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevFirmwareUpdateModal,
-                  );
                 }}
               />
 
@@ -702,6 +687,46 @@ const BaseDevSettingsSection = () => {
                     title: 'Image',
                     renderContent: <ImagePanel />,
                   });
+                }}
+              />
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+
+        <Accordion.Item value="appUpdate">
+          <DevSettingsAccordionTrigger
+            title="App Update"
+            description="App update, JS bundle, firmware update"
+            icon="ArrowTopCircleOutline"
+          />
+          <Accordion.HeightAnimator animation="quick">
+            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
+              <SectionPressItem
+                icon="ArrowTopCircleOutline"
+                title="App Update Test"
+                subtitle="Simulate update failures"
+                onPress={() => {
+                  navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
+                }}
+              />
+              <SectionPressItem
+                icon="CodeOutline"
+                title="JS Bundle Manager"
+                subtitle="Manage and switch JS bundles"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevBundleManagerModal,
+                  );
+                }}
+              />
+              <SectionPressItem
+                icon="OnekeyDeviceCustom"
+                title="Firmware Update Dev Settings"
+                testID="firmware-update-dev-settings-menu"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+                  );
                 }}
               />
             </Accordion.Content>
@@ -1108,7 +1133,7 @@ const BaseDevSettingsSection = () => {
               ) : null}
 
               <SectionFieldItem
-                icon="TradingViewCandlesOutline"
+                icon="TradeOutline"
                 name="useLocalTradingViewUrl"
                 title="使用本地 TradingView URL"
                 subtitle={
@@ -1225,6 +1250,15 @@ const BaseDevSettingsSection = () => {
                 name="enableKeylessDebugInfo"
                 title="启用 Keyless 调试信息"
                 subtitle="显示 Keyless 登录/恢复调试信息"
+              >
+                <Switch size={ESwitchSize.small} />
+              </SectionFieldItem>
+
+              <SectionFieldItem
+                icon="CloudOutline"
+                name="enableKeylessCloudSyncFeature"
+                title="启用 Keyless 云端同步"
+                subtitle="开启后在 OneKey Cloud 展示 Keyless 同步开关"
               >
                 <Switch size={ESwitchSize.small} />
               </SectionFieldItem>

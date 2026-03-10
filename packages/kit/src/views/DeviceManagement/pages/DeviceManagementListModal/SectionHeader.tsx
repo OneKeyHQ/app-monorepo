@@ -9,8 +9,8 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function SectionHeader() {
   const intl = useIntl();
@@ -39,23 +39,12 @@ function SectionHeader() {
           })}
         </SizableText>
       </YStack>
-      <YStack ai="center" jc="center" gap="$0.5" onPress={onAddDevice}>
-        <IconButton
-          icon="PlusLargeOutline"
-          size="small"
-          variant="primary"
-          onPress={onAddDevice}
-        />
-        <SizableText
-          size="$bodySmMedium"
-          color="$textSubdued"
-          userSelect="none"
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_add,
-          })}
-        </SizableText>
-      </YStack>
+      <IconButton
+        icon="PlusLargeOutline"
+        size="small"
+        variant="primary"
+        onPress={onAddDevice}
+      />
     </XStack>
   );
 }

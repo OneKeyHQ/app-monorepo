@@ -6,24 +6,29 @@ import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
 const DeviceList = LazyLoadRootTabPage(
   () =>
-    import('../../../views/DeviceManagement/pages/DeviceManagementListModal'),
+    import(
+      /* webpackPrefetch: true */ '../../../views/DeviceManagement/pages/DeviceManagementListModal'
+    ),
 );
 
 const DeviceDetail = LazyLoadRootTabPage(
-  () => import('../../../views/DeviceManagement/pages/DeviceDetailsModal'),
+  () =>
+    import(
+      /* webpackPrefetch: true */ '../../../views/DeviceManagement/pages/DeviceDetailsModal'
+    ),
 );
 
 const HardwareTroubleshooting = LazyLoadRootTabPage(
   () =>
     import(
-      '../../../views/DeviceManagement/pages/HardwareTroubleshootingModal'
+      /* webpackPrefetch: true */ '../../../views/DeviceManagement/pages/HardwareTroubleshootingModal'
     ),
 );
 
 const BuyOneKeyHardwareWallet = LazyLoadRootTabPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'
+      /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'
     ),
 );
 

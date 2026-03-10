@@ -19,7 +19,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
+import {
+  useKeyboardEventWithoutNavigation,
+  useSafeAreaInsets,
+} from '../../hooks';
 import { Button, XStack } from '../../primitives';
 
 import { DialogContext } from './context';
@@ -119,7 +122,7 @@ const useSafeKeyboardAnimationStyle = () => {
     paddingBottom: keyboardHeightValue.value + bottom,
   }));
 
-  useKeyboardEvent({
+  useKeyboardEventWithoutNavigation({
     keyboardWillShow: (e) => {
       const height = e.endCoordinates.height;
       const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;

@@ -173,7 +173,7 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
   const options: IStackNavigationOptions = {
     headerShown: false,
     presentation: 'card',
-    gestureEnabled: false,
+    gestureEnabled: platformEnv.isNativeIOS,
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
   };

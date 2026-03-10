@@ -18,7 +18,10 @@ import {
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   PRIVACY_POLICY_URL,
   TERMS_OF_SERVICE_URL,
@@ -44,7 +47,7 @@ function CustomCheckbox({
       gap="$3"
       alignItems="center"
       onPress={() => onChange(!value)}
-      cursor="pointer"
+      cursor="default"
       hoverStyle={{
         opacity: 0.8,
       }}
@@ -75,9 +78,11 @@ function CustomCheckbox({
 
 export function HyperliquidTermsContent({
   onConfirm,
+  onClose,
   renderDelay = 0,
 }: {
   onConfirm: () => void;
+  onClose?: () => void;
   renderDelay?: number;
 }) {
   const intl = useIntl();
@@ -195,9 +200,13 @@ export function HyperliquidTermsContent({
                     <SizableText
                       size="$bodySm"
                       color="$textInteractive"
-                      cursor="pointer"
                       onPress={() => {
-                        openUrlExternal(TERMS_OF_SERVICE_URL);
+                        if (platformEnv.isDesktop || platformEnv.isNative) {
+                          onClose?.();
+                          openUrlInDiscovery({ url: TERMS_OF_SERVICE_URL });
+                        } else {
+                          openUrlExternal(TERMS_OF_SERVICE_URL);
+                        }
                       }}
                       hoverStyle={{
                         borderBottomWidth: 1,
@@ -216,7 +225,6 @@ export function HyperliquidTermsContent({
                       id: ETranslations.perp_term_content_4,
                     })}{' '}
                     <SizableText
-                      cursor="pointer"
                       hoverStyle={{
                         borderBottomWidth: 1,
                         borderBottomColor: '$textInteractive',
@@ -228,7 +236,12 @@ export function HyperliquidTermsContent({
                       size="$bodySm"
                       color="$textInteractive"
                       onPress={() => {
-                        openUrlExternal(PRIVACY_POLICY_URL);
+                        if (platformEnv.isDesktop || platformEnv.isNative) {
+                          onClose?.();
+                          openUrlInDiscovery({ url: PRIVACY_POLICY_URL });
+                        } else {
+                          openUrlExternal(PRIVACY_POLICY_URL);
+                        }
                       }}
                     >
                       {intl.formatMessage({
@@ -264,6 +277,10 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
             );
             await dialog.close();
             resolve(true);
+          }}
+          onClose={() => {
+            void dialog.close();
+            resolve(false);
           }}
         />
       ),

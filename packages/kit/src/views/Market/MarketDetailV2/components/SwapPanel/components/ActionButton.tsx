@@ -7,12 +7,13 @@ import { Button, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   EModalSwapRoutes,
@@ -68,10 +69,13 @@ export function ActionButton({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
-  const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
@@ -146,10 +150,10 @@ export function ActionButton({
     return {
       formatter: 'value',
       formatterOptions: {
-        currency: settingsValue.currencyInfo.symbol,
+        currency: '$',
       },
     };
-  }, [settingsValue.currencyInfo.symbol]);
+  }, []);
 
   const shouldCreateAddress = usePromiseResult(async () => {
     let result = false;
@@ -232,8 +236,8 @@ export function ActionButton({
 
   let isButtonDisabled = Boolean(
     (shouldDisable || disabled || !hasAmount) &&
-      !shouldCreateAddress?.result &&
-      !noAccount,
+    !shouldCreateAddress?.result &&
+    !noAccount,
   );
 
   if (!hasAmount && !hasClickedWithoutAmount) {
@@ -244,6 +248,12 @@ export function ActionButton({
 
   if (!supportSpeedSwap) {
     shouldUseColoredStyle = true;
+  }
+
+  if (platformEnv.isWeb && noAccount) {
+    buttonText = intl.formatMessage({ id: ETranslations.global_connect });
+    shouldUseColoredStyle = false;
+    isButtonDisabled = false;
   }
 
   const buttonStyleProps = shouldUseColoredStyle
@@ -272,6 +282,10 @@ export function ActionButton({
 
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
+      if (platformEnv.isWeb && noAccount) {
+        showAccountSelector();
+        return;
+      }
       if (!supportSpeedSwap) {
         handleJumpToSwapAction();
         return;
@@ -329,6 +343,7 @@ export function ActionButton({
       shouldCreateAddress?.result,
       onPress,
       handleJumpToSwapAction,
+      showAccountSelector,
       createAddress,
       activeAccount?.wallet?.id,
       activeAccount?.indexedAccount?.id,

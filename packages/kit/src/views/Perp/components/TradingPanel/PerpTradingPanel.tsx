@@ -17,6 +17,7 @@ import {
 
 import { useOrderConfirm, useTradingPrice } from '../../hooks';
 
+import { PerpFeeTierPopover } from './components/PerpFeeTierPopover';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
@@ -117,8 +118,8 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const content = (
     <YStack
       gap="$2"
-      pt={isMobile ? undefined : '$3'}
-      px={isMobile ? undefined : '$2.5'}
+      pl={isMobile ? undefined : '$3'}
+      pr={isMobile ? undefined : '$5'}
       flex={isMobile ? 1 : undefined}
       justifyContent={isMobile ? 'space-between' : undefined}
     >
@@ -136,6 +137,9 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
           isNoEnoughMargin={isNoEnoughMargin}
         />
       )}
+      {!isMobile && !perpsAccountStatus.accountNotSupport ? (
+        <PerpFeeTierPopover />
+      ) : null}
     </YStack>
   );
   return (

@@ -70,21 +70,14 @@ export const Card = ({
           </Accordion.Trigger>
           {/* Header remains visible when collapsed */}
           {renderHeader}
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content
-              animation="quick"
-              exitStyle={{ opacity: 0 }}
-              px="0"
-              py="$2"
-            >
-              {renderFilter ? (
-                <Stack mt="$3" mb="$5" px="$5">
-                  {renderFilter}
-                </Stack>
-              ) : null}
-              {children}
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
+          <Accordion.Content px="0" py="$2">
+            {renderFilter ? (
+              <Stack mt="$3" mb="$5" px="$5">
+                {renderFilter}
+              </Stack>
+            ) : null}
+            {children}
+          </Accordion.Content>
         </Accordion.Item>
       </Accordion>
     </Stack>

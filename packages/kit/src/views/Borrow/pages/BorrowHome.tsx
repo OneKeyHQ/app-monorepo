@@ -8,13 +8,13 @@ import {
   XStack,
   YStack,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowAlert } from '@onekeyhq/shared/types/staking';
 
 import { NoAddressWarning } from '../../Staking/components/ProtocolDetails/NoAddressWarning';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { BorrowProvider, useBorrowContext } from '../BorrowProvider';
 import { BorrowAlerts } from '../components/BorrowAlerts';
 import { BorrowCard } from '../components/BorrowCard';
@@ -44,7 +44,7 @@ const BorrowPendingBridge = ({
   pendingTxs?: IStakePendingTx[];
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
 }) => {
-  const { setPendingTxs, refreshBorrowDataRef } = useBorrowContext();
+  const { setPendingTxs, refreshAllBorrowData } = useBorrowContext();
   const pendingIdsRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -56,8 +56,8 @@ const BorrowPendingBridge = ({
   }, [pendingTxs, setPendingTxs]);
 
   const handleRefresh = useCallback(async () => {
-    await refreshBorrowDataRef.current?.();
-  }, [refreshBorrowDataRef]);
+    await refreshAllBorrowData();
+  }, [refreshAllBorrowData]);
 
   useEffect(() => {
     if (!onRegisterBorrowRefresh) return undefined;
@@ -72,41 +72,59 @@ const BorrowPendingBridge = ({
 
 const BorrowHomeContent = memo(
   ({ header, isActive = true }: IBorrowHomeProps) => {
+    const tabBarHeight = useScrollContentTabBarOffset();
     const { gtMd, gtLg } = useMedia();
     const intl = useIntl();
     const [activeTab, setActiveTab] = useState<IBorrowTab>('supply');
+    const [tabHeights, setTabHeights] = useState({ supply: 0, borrow: 0 });
+    const updateTabHeight = useCallback(
+      (tab: IBorrowTab, h: number) =>
+        setTabHeights((prev) =>
+          prev[tab] === h ? prev : { ...prev, [tab]: h },
+        ),
+      [],
+    );
+    const maxTabHeight = Math.max(tabHeights.supply, tabHeights.borrow);
     const [healthFactorAlerts, setHealthFactorAlerts] = useState<
       IBorrowAlert[] | undefined
     >(undefined);
-    const { reserves, market } = useBorrowContext();
+    const { reserves, market, earnAccount, refreshAllBorrowData } =
+      useBorrowContext();
     const { activeAccount } = useActiveAccount({ num: 0 });
-    const { earnAccount, refreshAccount } = useEarnAccount({
-      networkId: market?.networkId,
-    });
     const alerts = useMemo(
-      () => [...(reserves?.alerts ?? []), ...(healthFactorAlerts ?? [])],
-      [reserves?.alerts, healthFactorAlerts],
+      () => [...(reserves.data?.alerts ?? []), ...(healthFactorAlerts ?? [])],
+      [reserves.data?.alerts, healthFactorAlerts],
     );
     const accountId = activeAccount.account?.id ?? '';
     const walletId = activeAccount.wallet?.id;
     const indexedAccountId = activeAccount.indexedAccount?.id;
-    const showNoAddressWarning = useMemo(() => {
-      if (!market?.networkId || !activeAccount.ready) {
-        return false;
-      }
-      return (!accountId && !indexedAccountId) || !earnAccount?.accountAddress;
-    }, [
-      accountId,
-      indexedAccountId,
-      earnAccount?.accountAddress,
-      market?.networkId,
-      activeAccount.ready,
-    ]);
+    const hasConnectedWallet = useMemo(
+      () =>
+        activeAccount.ready &&
+        Boolean(walletId || accountId || indexedAccountId),
+      [activeAccount.ready, walletId, accountId, indexedAccountId],
+    );
+    const showNoAddressWarning = useMemo(
+      () =>
+        hasConnectedWallet &&
+        Boolean(accountId || indexedAccountId) &&
+        Boolean(market?.networkId) &&
+        !earnAccount.data?.accountAddress,
+      [
+        hasConnectedWallet,
+        accountId,
+        indexedAccountId,
+        market?.networkId,
+        earnAccount.data?.accountAddress,
+      ],
+    );
     const hasAlerts = Boolean(alerts?.length) || showNoAddressWarning;
 
+    const refreshEarnAccount = earnAccount.refresh;
     const handleCreateAddress = useCallback(async () => {
-      await refreshAccount();
-    }, [refreshAccount]);
+      await refreshEarnAccount();
+      await refreshAllBorrowData();
+    }, [refreshEarnAccount, refreshAllBorrowData]);
 
     const tabOptions = useMemo(
       () => [
@@ -125,7 +143,10 @@ const BorrowHomeContent = memo(
     const isMidWidth = gtMd && !gtLg;
 
     return (
-      <ScrollView flex={1}>
+      <ScrollView
+        flex={1}
+        contentContainerStyle={{ paddingBottom: tabBarHeight }}
+      >
         {header ? <YStack pb="$4">{header}</YStack> : null}
         <YStack flex={1} px="$5" pb="$10">
           <Markets />
@@ -170,24 +191,58 @@ const BorrowHomeContent = memo(
             </XStack>
           ) : (
             // Mobile layout - tabbed
+            // Both tabs stay mounted via position:absolute overlay so
+            // FlatList items are pre-rendered and switching is instant.
+            // minHeight = max(both tabs) prevents container from shrinking
+            // on tab switch, which would clamp scroll position to 0.
             <YStack flex={1} gap="$5">
               <SegmentControl
                 value={activeTab}
                 options={tabOptions}
-                onChange={(value) => setActiveTab(value as IBorrowTab)}
+                onChange={(value) => {
+                  setActiveTab(value as IBorrowTab);
+                }}
                 fullWidth
               />
-              {activeTab === 'supply' ? (
-                <YStack gap="$5">
+              <YStack
+                position="relative"
+                {...(maxTabHeight > 0 && { minHeight: maxTabHeight })}
+              >
+                <YStack
+                  gap="$5"
+                  onLayout={(e) =>
+                    updateTabHeight('supply', e.nativeEvent.layout.height)
+                  }
+                  {...(activeTab !== 'supply' && {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    opacity: 0,
+                    pointerEvents: 'none' as const,
+                  })}
+                >
                   <SuppliedCard />
                   <SupplyCard />
                 </YStack>
-              ) : (
-                <YStack gap="$5">
+                <YStack
+                  gap="$5"
+                  onLayout={(e) =>
+                    updateTabHeight('borrow', e.nativeEvent.layout.height)
+                  }
+                  {...(activeTab !== 'borrow' && {
+                    position: 'absolute' as const,
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    opacity: 0,
+                    pointerEvents: 'none' as const,
+                  })}
+                >
                   <BorrowedCard />
                   <BorrowCard />
                 </YStack>
-              )}
+              </YStack>
             </YStack>
           )}
         </YStack>

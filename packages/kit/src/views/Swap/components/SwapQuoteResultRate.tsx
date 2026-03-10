@@ -21,7 +21,6 @@ import SwapRefreshButton from './SwapRefreshButton';
 interface ISwapQuoteResultRateProps {
   rate?: string;
   isBest?: boolean;
-  isFreeOneKeyFee?: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   providerIcon?: string;
@@ -37,7 +36,6 @@ const SwapQuoteResultRate = ({
   isBest,
   quoting,
   fromToken,
-  isFreeOneKeyFee,
   toToken,
   providerIcon,
   isLoading,
@@ -94,8 +92,8 @@ const SwapQuoteResultRate = ({
         >
           {`1 ${
             isReverse
-              ? toToken?.symbol?.toUpperCase() ?? '-'
-              : fromToken?.symbol?.toUpperCase() ?? '-'
+              ? (toToken?.symbol?.toUpperCase() ?? '-')
+              : (fromToken?.symbol?.toUpperCase() ?? '-')
           } = `}
           <NumberSizeableText
             size="$bodyMd"
@@ -143,28 +141,32 @@ const SwapQuoteResultRate = ({
             opacity={openResult ? 0 : 1}
             // gap="$2"
           >
-            {isBest && !isFreeOneKeyFee ? (
+            {isBest ? (
               <Badge badgeSize="sm" marginRight="$2" badgeType="success">
                 {intl.formatMessage({
                   id: ETranslations.global_best,
                 })}
               </Badge>
             ) : null}
-            {isFreeOneKeyFee ? (
-              <Badge badgeSize="sm" marginRight="$2" badgeType="info">
-                {intl.formatMessage({
-                  id: ETranslations.swap_stablecoin_0_fee,
-                })}
-              </Badge>
-            ) : null}
-            {/* <XStack> */}
-            <Image
-              source={{ uri: providerIcon }}
-              w="$5"
-              h="$5"
-              borderRadius="$1"
-            />
-            {/* </XStack> */}
+            <Stack position="relative" w="$5" h="$5">
+              <Image
+                source={{ uri: providerIcon }}
+                w="$5"
+                h="$5"
+                borderRadius="$1"
+              />
+              <Stack
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                borderRadius="$1"
+                borderWidth="$px"
+                borderColor="$borderSubdued"
+                pointerEvents="none"
+              />
+            </Stack>
           </XStack>
         )}
         {!quoting && onOpenResult ? (

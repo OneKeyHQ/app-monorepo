@@ -181,10 +181,9 @@ function createCopyPlugin(basePath: string): RspackPluginInstance {
         to: 'manifest.json',
         transform() {
           // eslint-disable-next-line import/no-dynamic-require
-          const manifest = require(path.join(
-            basePath,
-            'src/manifest',
-          )) as Record<string, unknown>;
+          const manifest = require(
+            path.join(basePath, 'src/manifest'),
+          ) as Record<string, unknown>;
           return Buffer.from(JSON.stringify(manifest, null, 2));
         },
       },

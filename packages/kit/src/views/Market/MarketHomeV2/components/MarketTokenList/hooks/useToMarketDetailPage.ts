@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  ESplitViewType,
   rootNavigationRef,
-  useIsTabletDetailView,
-  useIsTabletMainView,
+  useSplitViewType,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -45,8 +45,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
   const tokenDetailActions = useTokenDetailActions();
-  const isTabletMainView = useIsTabletMainView();
-  const isTabletDetailView = useIsTabletDetailView();
+  const splitViewType = useSplitViewType();
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
@@ -108,7 +107,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         tokenDetailActions.current.clearTokenDetail();
 
         // Clean existing token detail pages in tablet split view mode before pushing new one
-        if (isTabletMainView || isTabletDetailView) {
+        if (splitViewType !== ESplitViewType.UNKNOWN) {
+          navigation.switchTab(ETabRoutes.Discovery);
           appEventBus.emit(
             EAppEventBusNames.CleanTokenDetailInTabletDetailView,
             undefined,
@@ -123,8 +123,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       tokenDetailActions,
       options?.switchToMarketTabFirst,
       options?.from,
-      isTabletMainView,
-      isTabletDetailView,
+      splitViewType,
     ],
   );
 

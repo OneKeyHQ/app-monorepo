@@ -12,7 +12,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Alert,
-  Dialog,
   Divider,
   Empty,
   HeaderButtonGroup,
@@ -89,23 +88,11 @@ function HeaderRight({
   }, [closePopover, navigation]);
 
   const handleMarkAllReadPress = useCallback(async () => {
-    await closePopover?.();
-    Dialog.show({
-      icon: 'CheckRadioOutline',
-      title: intl.formatMessage({
-        id: ETranslations.global_mark_all_as_confirmation_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.global_mark_all_as_confirmation_desc,
-      }),
-      onConfirm: async () => {
-        await backgroundApiProxy.serviceNotification.markNotificationReadAll();
-        setTimeout(() => {
-          onClearUnread();
-        }, 100);
-      },
-    });
-  }, [closePopover, intl, onClearUnread]);
+    await backgroundApiProxy.serviceNotification.markNotificationReadAll();
+    setTimeout(() => {
+      onClearUnread();
+    }, 100);
+  }, [onClearUnread]);
 
   return (
     <HeaderButtonGroup {...style}>
@@ -585,8 +572,8 @@ export function NotificationListView({
             </Stack>
           ) : (
             <Empty
-              pt={170}
-              icon="BellOutline"
+              pt={112}
+              illustration="Notification"
               title={intl.formatMessage({
                 id: ETranslations.notifications_empty_title,
               })}

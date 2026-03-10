@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMedalWin = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 16a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm0 0a6.97 6.97 0 0 1-4-1.255v6.291a.75.75 0 0 0 1.085.671l2.58-1.29a.75.75 0 0 1 .67 0l2.58 1.29a.75.75 0 0 0 1.085-.67v-6.292A6.97 6.97 0 0 1 12 16Z"
+      fillRule="evenodd"
+      d="M12 1a8 8 0 0 1 5 14.242v8.376l-5-2.5-5 2.5v-8.376A8 8 0 0 1 12 1m3 15.416A8 8 0 0 1 12 17a8 8 0 0 1-3-.584v3.966l3-1.5 3 1.5zM12 3a6 6 0 1 0 0 12 6 6 0 0 0 0-12"
+      clipRule="evenodd"
     />
   </Svg>
 );

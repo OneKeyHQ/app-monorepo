@@ -70,6 +70,8 @@ function AllNetworksManager() {
     [],
   );
 
+  const [missingAddressCount, setMissingAddressCount] = useState(0);
+
   const [isCreatingMissingAddresses, setIsCreatingMissingAddresses] =
     useState(false);
 
@@ -91,7 +93,10 @@ function AllNetworksManager() {
       walletId,
       indexedAccountId,
       accountId,
-      networks,
+      networks: {
+        mainNetworks: networks.mainNetworks,
+        frequentlyUsedNetworks: networks.frequentlyUsedNetworks,
+      },
       networksState,
       setNetworksState,
       enabledNetworks,
@@ -101,12 +106,18 @@ function AllNetworksManager() {
       setIsCreatingEnabledAddresses,
       isCreatingMissingAddresses,
       setIsCreatingMissingAddresses,
+      missingAddressCount,
+      setMissingAddressCount,
+      accountNetworkValues: {},
+      accountNetworkValueCurrency: undefined,
+      accountDeFiOverview: {},
     }),
     [
       walletId,
       indexedAccountId,
       accountId,
-      networks,
+      networks.mainNetworks,
+      networks.frequentlyUsedNetworks,
       networksState,
       setNetworksState,
       enabledNetworks,
@@ -115,6 +126,7 @@ function AllNetworksManager() {
       isCreatingMissingAddresses,
       setIsCreatingEnabledAddresses,
       setIsCreatingMissingAddresses,
+      missingAddressCount,
     ],
   );
 

@@ -18,12 +18,16 @@ export const Tabs = {
   MasonryFlashList: List,
   TabBar,
   TabBarItem,
-} as unknown as typeof NativeTabs & {
+} as unknown as Omit<typeof NativeTabs, 'Container'> & {
+  Container: typeof Container;
   TabBar: typeof TabBar;
   TabBarItem: typeof TabBarItem;
 };
 
 export type { ITabContainerRef, ITabContainerProps } from './Container';
+export type { ITabBarVariant, ITabBarItemProps } from './TabBar';
 export * from './hooks';
 
 export { startViewTransition } from './utils';
+export { CollapsibleTabContext } from './CollapsibleTabContext';
+export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';

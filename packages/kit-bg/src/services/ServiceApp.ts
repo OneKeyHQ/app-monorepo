@@ -9,11 +9,11 @@ import {
   isAvailable,
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -40,6 +40,7 @@ import { appIsLocked } from '../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
+import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 
@@ -88,6 +89,13 @@ class ServiceApp extends ServiceBase {
       console.error('appStorage.clear() error');
     }
     defaultLogger.setting.page.clearDataStep('appStorage-clear');
+
+    // clean secure storage (WebAuth password)
+    try {
+      await biologyAuthUtils.deletePassword();
+    } catch {
+      console.error('deleteWebAuthPassword error');
+    }
 
     try {
       appStorage.syncStorage.clearAll();

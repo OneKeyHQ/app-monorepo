@@ -312,7 +312,7 @@ class ServiceMasterPassword extends ServiceBase {
     const securityTypeHash = await sha512Pro({
       data: [
         'EB36A58F-E51C-4520-BB41-5437768CE668',
-        `${securityType}`,
+        securityType,
         accountSalt,
         masterPasswordHash,
         primeUserId,
@@ -1021,6 +1021,9 @@ class ServiceMasterPassword extends ServiceBase {
                       serverPwdHash: pwdHash,
                     },
                   );
+                if (!oldLocalItem) {
+                  return null;
+                }
                 if (!oldLocalItem.rawDataJson) {
                   throw new OneKeyLocalError('No raw data json');
                 }

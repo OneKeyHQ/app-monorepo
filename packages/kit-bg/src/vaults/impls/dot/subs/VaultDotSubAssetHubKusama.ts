@@ -175,9 +175,8 @@ class VaultDotSubAssetHubKusama extends VaultDotSubCommon {
 
     const accountHex = u8aToHex(decodeAddress(context.accountAddress));
     const queries = assetIds.map((assetId) => [assetId, accountHex] as const);
-    const balances = await context.apiPromise.query.assets.account.multi(
-      queries,
-    );
+    const balances =
+      await context.apiPromise.query.assets.account.multi(queries);
 
     const tokens: IServerAccountTokenItem[] = [];
     balances.forEach((balanceOption, index) => {

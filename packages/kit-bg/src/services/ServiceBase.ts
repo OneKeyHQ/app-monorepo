@@ -63,7 +63,7 @@ export default class ServiceBase {
           await this.backgroundApi.simpleDb.prime.getAuthToken();
         if (authToken) {
           // TODO use cookie instead of simpleDb
-          config.headers['X-Onekey-Request-Token'] = `${authToken}`;
+          config.headers['X-Onekey-Request-Token'] = authToken;
         }
         return config;
       });
@@ -181,9 +181,7 @@ export default class ServiceBase {
 
   @backgroundMethod()
   async hideDialogLoading(
-    _payload?:
-      | IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading]
-      | undefined,
+    _payload?: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
   ) {
     this.clearHideDialogLoadingTimer();
     appEventBus.emit(EAppEventBusNames.HideDialogLoading, undefined);
@@ -192,9 +190,7 @@ export default class ServiceBase {
   }
 
   clearHideDialogLoadingTimer(
-    _payload?:
-      | IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading]
-      | undefined,
+    _payload?: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
   ) {
     // console.log('DialogLoading>>clear', payload, hideTimer);
 

@@ -50,6 +50,7 @@ function AccountValue(accountValue: {
   const {
     linkedAccountId,
     linkedNetworkId,
+    walletId,
     mergeDeriveAssetsEnabled,
     isSingleAddress,
     enabledNetworksCompatibleWithWalletId,
@@ -133,12 +134,10 @@ function AccountValue(accountValue: {
         string,
       ];
 
-      const deriveType: IAccountDeriveTypes = accountUtils.isValidDeriveType(
-        _deriveType,
-      )
-        ? (_deriveType as IAccountDeriveTypes)
-        : 'default';
+      const deriveType: IAccountDeriveTypes =
+        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
       if (
+        _walletId === walletId &&
         enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId) &&
         networkInfoMap[networkId] &&
         (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
@@ -171,6 +170,7 @@ function AccountValue(accountValue: {
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
     accountDeFiOverview,
+    walletId,
   ]);
 
   return accountValueString ? (

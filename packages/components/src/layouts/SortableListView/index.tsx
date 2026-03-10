@@ -54,10 +54,10 @@ import type {
   ListRenderItemInfo,
 } from 'react-native';
 
-// oxlint-disable-next-line unicorn/prefer-global-this
+// eslint-disable-next-line unicorn/prefer-global-this
 if (typeof window !== 'undefined') {
   Object.defineProperty(
-    // oxlint-disable-next-line unicorn/prefer-global-this
+    // eslint-disable-next-line unicorn/prefer-global-this
     window,
     '__react-beautiful-dnd-disable-dev-warnings',
     {
@@ -307,11 +307,14 @@ function BaseSortableListView<T>(
                       : {}
                   }
                   drag={noop}
-                  dragProps={Object.keys(dragHandleProps).reduce((acc, key) => {
-                    const reloadKey = key.replace(/^data-/, '');
-                    acc[reloadKey] = dragHandleProps[key];
-                    return acc;
-                  }, {} as Record<string, any>)}
+                  dragProps={Object.keys(dragHandleProps).reduce(
+                    (acc, key) => {
+                      const reloadKey = key.replace(/^data-/, '');
+                      acc[reloadKey] = dragHandleProps[key];
+                      return acc;
+                    },
+                    {} as Record<string, any>,
+                  )}
                   isDragging={false}
                   item={item}
                   getIndex={() => index}
@@ -376,7 +379,7 @@ function BaseSortableListView<T>(
             );
             overridePaddingBottom += useFlashList
               ? 0
-              : getItemLayout?.(data, index)?.length ?? 0;
+              : (getItemLayout?.(data, index)?.length ?? 0);
           }
           const ListViewComponent = useFlashList ? FlashList : ListView;
           return (

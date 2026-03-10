@@ -9,7 +9,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
@@ -28,14 +27,14 @@ import { Card } from './Card';
 type IBorrowAsset = IBorrowReserveItem['borrow']['assets'][number];
 
 export const BorrowCard = () => {
-  const { reserves, market, borrowDataStatus } = useBorrowContext();
+  const { reserves, market, borrowDataStatus, earnAccount } =
+    useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
   const { gtMd } = useMedia();
-  const accountId = earnAccount?.account?.id || '';
-  const walletId = earnAccount?.walletId || '';
-  const indexedAccountId = earnAccount?.account?.indexedAccountId;
+  const accountId = earnAccount.data?.account?.id || '';
+  const walletId = earnAccount.data?.walletId || '';
+  const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
 
   const handleManageBorrow = useCallback(
     (item: IBorrowAsset) => {
@@ -51,10 +50,9 @@ export const BorrowCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Borrow,
-        borrowReserves: reserves ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves],
+    [navigation, market, accountId],
   );
 
   const handlePressRow = useCallback(
@@ -73,7 +71,8 @@ export const BorrowCard = () => {
           indexedAccountId,
         });
       } else {
-        // Mobile: open Borrow dialog
+        // Mobile: block disabled borrow assets (e.g. already supplied)
+        if (item.borrowButton?.disabled) return;
         handleManageBorrow(item);
       }
     },
@@ -84,6 +83,21 @@ export const BorrowCard = () => {
     borrowDataStatus === EBorrowDataStatus.LoadingMarkets ||
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
+
+  // Per-row disabled state: dim + block tap for disabled borrow assets on mobile.
+  // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
+  const getListItemProps = useCallback(
+    (item: IBorrowAsset) => {
+      if (gtMd) return undefined;
+      return item.borrowButton?.disabled ? { disabled: true } : undefined;
+    },
+    [gtMd],
+  );
+
+  const borrowListProps = useMemo(
+    () => ({ listItemProps: getListItemProps }),
+    [getListItemProps],
+  );
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
@@ -197,13 +211,14 @@ export const BorrowCard = () => {
   return (
     <Card title={labels.assetsToBorrow}>
       <BorrowTableList<IBorrowAsset>
-        data={reserves?.borrow?.assets || []}
+        data={reserves.data?.borrow?.assets || []}
         isLoading={showLoading}
         columns={gtMd ? desktopColumns : mobileColumns}
         onPressRow={handlePressRow}
         emptyContent={labels.noAssetsToBorrow}
         defaultSortKey="available"
         defaultSortDirection="desc"
+        listProps={borrowListProps}
       />
     </Card>
   );

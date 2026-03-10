@@ -1,18 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgMessageQuestion = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M11 14h2v2.01h-2zm0-2.086c0-1.286.977-1.895 1.315-2.124l.004-.004a1.1 1.1 0 0 0 .267-.225.2.2 0 0 0 .026-.048.507.507 0 0 0-.49-.6.507.507 0 0 0-.499.515h-2c0-1.38 1.11-2.515 2.5-2.515s2.5 1.135 2.5 2.515c0 1.128-.743 1.716-1.18 2.012l-.005.003c-.204.14-.307.217-.377.3a.3.3 0 0 0-.046.073.3.3 0 0 0-.015.098v1h-2z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M12.022 11.663c.102-.676.48-1.042.86-1.3.37-.252.742-.58.742-1.185 0-.837-.672-1.515-1.5-1.515-.83 0-1.5.678-1.5 1.515m1.374 11.358 2.74-2.27a1 1 0 0 1 .638-.23h2.626a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-12a2 2 0 0 0-2 2v10.036a2 2 0 0 0 2 2h2.65a1 1 0 0 1 .642.233z"
-    />
-    <Path
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth={0.75}
-      d="M11.125 14.5a.875.875 0 1 0 1.75 0 .875.875 0 0 0-1.75 0Z"
+      fillRule="evenodd"
+      d="M21.002 3v16.036h-5.627l-3.38 2.802-3.343-2.802h-5.65V3zm-16 14.036h4.377L12 19.233l2.377-1.967.278-.23h4.347V5h-14z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -602,7 +602,7 @@ function findMarginTier(
 ): IMarginTier | null {
   if (!marginTiers.length) return null;
 
-  const sortedTiers = [...marginTiers].toReversed();
+  const sortedTiers = marginTiers.toReversed();
   for (const tier of sortedTiers) {
     if (totalValue.gte(new BigNumber(tier.lowerBound))) {
       return tier;
@@ -938,9 +938,9 @@ function formatLargeNumber(
   value: string | number | undefined | null,
   decimals = 2,
 ): string {
-  if (value == null || value === undefined) return '0';
+  if (value === null || value === undefined) return '0';
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (Number.isNaN(num) || num == null) return '0';
+  if (Number.isNaN(num) || num === null || num === undefined) return '0';
 
   if (num >= 1e12) {
     return `${(num / 1e12).toFixed(decimals)}T`;
@@ -1238,6 +1238,41 @@ export function parseDexCoin(coin: string): {
   };
 }
 
+export interface ITokenSearchAliasItem {
+  subtitle?: string;
+  aliases: string[];
+}
+
+export type ITokenSearchAliases = Record<string, ITokenSearchAliasItem>;
+
+/**
+ * Find token symbols by search alias
+ * @param query - Search query (already lowercased)
+ * @param serverAliases - Server-provided aliases
+ * @returns Matched symbol list
+ */
+export function findTokensByAlias(
+  query: string,
+  serverAliases?: ITokenSearchAliases,
+): string[] {
+  if (!serverAliases || Object.keys(serverAliases).length === 0) {
+    return [];
+  }
+
+  return Object.entries(serverAliases)
+    .filter(([, item]) =>
+      item.aliases?.some((alias) => alias.toLowerCase().includes(query)),
+    )
+    .map(([symbol]) => symbol);
+}
+
+export function getTokenSubtitle(
+  tokenName: string,
+  serverAliases?: ITokenSearchAliases,
+): string | undefined {
+  return serverAliases?.[tokenName]?.subtitle;
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1298,4 +1333,6 @@ export default {
   resolveTradingSizeBN,
   parseSignatureToRSV,
   getHyperliquidTokenImageUrl,
+  findTokensByAlias,
+  getTokenSubtitle,
 };

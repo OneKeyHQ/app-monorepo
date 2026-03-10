@@ -1,4 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-  <path stroke="currentColor" stroke-linejoin="round" stroke-width="2"
-    d="M20.245 10.298 9.051 3.384C7.719 2.561 6 3.52 6 5.086v13.828c0 1.566 1.719 2.524 3.051 1.702l11.194-6.914a2 2 0 0 0 0-3.404Z" />
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+  <path fill-rule="evenodd" d="M21.97 12 5 22V2l16.97 10ZM7 18.5 18.03 12 7 5.499V18.5Z" clip-rule="evenodd"/>
 </svg>

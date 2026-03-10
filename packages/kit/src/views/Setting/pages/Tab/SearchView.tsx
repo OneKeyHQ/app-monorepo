@@ -98,7 +98,9 @@ export function SearchView({
                     <TabSettingsListGrid
                       key={config.item.title}
                       item={config.item}
-                      titleMatch={config.matches?.[0]}
+                      titleMatch={config.matches?.find(
+                        (m) => m.key === 'title',
+                      )}
                     />
                   ))}
                 </TabSettingsSection>
@@ -111,7 +113,7 @@ export function SearchView({
   ) : (
     <YStack flex={1} ai="center" jc="center">
       <Empty
-        icon="SearchOutline"
+        illustration="SearchDocument"
         title={intl.formatMessage({
           id: ETranslations.global_no_results,
         })}

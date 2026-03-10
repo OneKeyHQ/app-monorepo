@@ -7,10 +7,21 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
   release-desktop-mas:
-    runs-on: macos-latest
+    runs-on: macos-26
     strategy:
       matrix:
         node-version: [24.x]
@@ -22,7 +33,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -41,6 +52,11 @@ jobs:
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
       - name: 'Setup ENV'
         run: |
           eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
@@ -51,47 +67,37 @@ jobs:
 
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
           scope: '@onekeyhq'
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-            **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-
       - name: Install Dep
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn
-
-      - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn postinstall
+          yarn install --immutable
 
       # - name: Setup Code Signing file
       #   run: |
       #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
+      - name: Compile macOS Liquid Glass Icon
+        run: |
+          cd apps/desktop
+          bash scripts/compile-liquid-icon.sh
+
+      - name: Verify Liquid Glass Icon
+        run: |
+          cd apps/desktop
+          bash scripts/verify-icon-compatibility.sh
+
       - name: Install the Apple certificate and provisioning profile for build mas
         env:
           MAC_INSTALL_P12_BASE64: ${{secrets.MAC_INSTALL_P12_BASE64}}
@@ -156,7 +162,9 @@ jobs:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
         run: |
-          xcrun altool --validate-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+          PKG_FILE=$(ls ./apps/desktop/build-electron/mas-universal/*.pkg)
+          echo "Found package: $PKG_FILE"
+          xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: upload mas for Testflight
         continue-on-error: true
@@ -164,7 +172,9 @@ jobs:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
         run: |
-          xcrun altool --upload-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
+          PKG_FILE=$(ls ./apps/desktop/build-electron/mas-universal/*.pkg)
+          echo "Uploading package: $PKG_FILE"
+          xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

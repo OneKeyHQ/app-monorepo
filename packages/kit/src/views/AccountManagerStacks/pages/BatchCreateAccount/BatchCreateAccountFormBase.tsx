@@ -71,7 +71,7 @@ function AdvancedSettingsFormField({
         to,
       },
     );
-    return `${text}`;
+    return text;
   }, [countValue, fromValue, intl]);
 
   return (

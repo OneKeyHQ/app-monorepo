@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgLuggagePackage = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10 17H8V9h2zm6 0h-2V9h2z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h1M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M9 6h6m0 0h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1M7 20v1m0-1h10m0 0v1M9 10v6m6-6v6"
+      fillRule="evenodd"
+      d="M16 5h5v16h-3v1h-2v-1H8v1H6v-1H3V5h5V2h8zM5 19h14V7H5zm5-14h4V4h-4z"
+      clipRule="evenodd"
     />
   </Svg>
 );

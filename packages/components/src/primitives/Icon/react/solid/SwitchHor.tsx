@@ -1,13 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSwitchHor = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M15.793 2.293a1 1 0 0 1 1.414 0L20.5 5.586a2 2 0 0 1 0 2.828l-3.293 3.293a1 1 0 0 1-1.414-1.414L18.086 8H4a1 1 0 0 1 0-2h14.086l-2.293-2.293a1 1 0 0 1 0-1.414m-7.586 10a1 1 0 0 1 0 1.414L5.914 16H20a1 1 0 1 1 0 2H5.914l2.293 2.293a1 1 0 1 1-1.414 1.414L3.5 18.414a2 2 0 0 1 0-2.828l3.293-3.293a1 1 0 0 1 1.414 0"
-      clipRule="evenodd"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m9.414 13-3 3H21v2H6.414l3 3L8 22.414 2.586 17 8 11.586zm12-6L16 12.414 14.586 11l3-3H3V6h14.586l-3-3L16 1.586z" />
   </Svg>
 );
 export default SvgSwitchHor;

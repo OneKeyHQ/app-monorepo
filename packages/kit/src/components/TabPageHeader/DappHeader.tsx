@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,14 +19,17 @@ import {
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  DOWNLOAD_MOBILE_APP_URL,
+  DOWNLOAD_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -41,7 +44,6 @@ import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { ListItem } from '../ListItem';
 
 import {
-  DownloadButton,
   HeaderNotificationIconButton,
   LanguageButton,
   ThemeButton,
@@ -54,7 +56,13 @@ import { UniversalSearchInput } from './UniversalSearchInput';
 
 import type { ITabPageHeaderProp } from './type';
 
-function LanguageListItem() {
+function LanguageListItem({
+  open,
+  onOpenChange: onOpenChangeProp,
+}: {
+  open?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+}) {
   const intl = useIntl();
   const { options, value, onChange } = useLanguageSelector();
   const label = useMemo(() => {
@@ -68,7 +76,9 @@ function LanguageListItem() {
       title={title}
       items={options}
       value={value}
+      open={open}
       onChange={onChange}
+      onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{
         disableDrag: true,
@@ -93,7 +103,13 @@ function LanguageListItem() {
   );
 }
 
-function CurrencyListItem() {
+function CurrencyListItem({
+  open,
+  onOpenChange: onOpenChangeProp,
+}: {
+  open?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+}) {
   const [settings] = useSettingsPersistAtom();
   const sections = useCurrencySections();
   const formatSections = useMemo(() => {
@@ -138,7 +154,9 @@ function CurrencyListItem() {
       title={title}
       sections={formatSections}
       value={settings.currencyInfo.id}
+      open={open}
       onChange={handleChange}
+      onOpenChange={onOpenChangeProp}
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{
         disableDrag: true,
@@ -169,19 +187,40 @@ function ThemeListItem() {
   const tabOptions = useMemo(
     () => [
       {
-        label: <Icon name="LaptopOutline" size="$4" />,
+        label: (
+          <Icon
+            my="$0.5"
+            name="LaptopOutline"
+            size="$4"
+            color={theme === 'system' ? '$iconInverse' : '$icon'}
+          />
+        ),
         value: 'system' as const,
       },
       {
-        label: <Icon name="SunOutline" size="$4" />,
+        label: (
+          <Icon
+            my="$0.5"
+            name="SunOutline"
+            size="$4"
+            color={theme === 'light' ? '$iconInverse' : '$icon'}
+          />
+        ),
         value: 'light' as const,
       },
       {
-        label: <Icon name="MoonOutline" size="$4" />,
+        label: (
+          <Icon
+            my="$0.5"
+            name="MoonOutline"
+            size="$4"
+            color={theme === 'dark' ? '$iconInverse' : '$icon'}
+          />
+        ),
         value: 'dark' as const,
       },
     ],
-    [],
+    [theme],
   );
   const handleChange = useCallback(async (value: unknown) => {
     await backgroundApiProxy.serviceSetting.setTheme(
@@ -223,6 +262,51 @@ function DownloadOneKeyWalletListItem() {
   );
 }
 
+function DownloadAppButton() {
+  const handlePress = useCallback(() => {
+    openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
+  }, []);
+
+  return (
+    <Button
+      size="small"
+      h="$8"
+      icon="DownloadOutline"
+      bg="#49DF58"
+      color="#000000"
+      iconColor="#000000"
+      hoverStyle={{ bg: '#3ECC4D' }}
+      pressStyle={{ bg: '#35B844' }}
+      onPress={handlePress}
+    >
+      APP
+    </Button>
+  );
+}
+
+function SearchButton() {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const handlePress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+      screen: EUniversalSearchPages.UniversalSearch,
+    });
+  }, [navigation]);
+
+  return (
+    <XStack ai="center" px="$1.5" py="$1.5" borderRadius="$2" bg="$bgStrong">
+      <HeaderIconButton
+        size="small"
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_search_everything,
+        })}
+        onPress={handlePress}
+      />
+    </XStack>
+  );
+}
+
 // function Web3GuideListItem() {
 //   const intl = useIntl();
 //   const handlePress = useCallback(() => {
@@ -257,16 +341,21 @@ function AnnouncementListItem() {
   );
 }
 
-function SettingListItem() {
+function SettingListItem({
+  onBeforeNavigate,
+}: {
+  onBeforeNavigate?: () => void;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
+    onBeforeNavigate?.();
     await closePopover?.();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
-  }, [closePopover, navigation]);
+  }, [closePopover, navigation, onBeforeNavigate]);
   return (
     <ListItem
       title={intl.formatMessage({ id: ETranslations.settings_settings })}
@@ -276,6 +365,51 @@ function SettingListItem() {
       }}
       onPress={handlePress}
     />
+  );
+}
+
+function MoreDappActionContent() {
+  const [activeSelect, setActiveSelect] = useState<
+    'language' | 'currency' | null
+  >(null);
+  const [languageKey, setLanguageKey] = useState(0);
+  const [currencyKey, setCurrencyKey] = useState(0);
+
+  const handleLanguageOpenChange = useCallback((isOpen: boolean) => {
+    setActiveSelect(isOpen ? 'language' : null);
+  }, []);
+
+  const handleCurrencyOpenChange = useCallback((isOpen: boolean) => {
+    setActiveSelect(isOpen ? 'currency' : null);
+  }, []);
+
+  const closeAllDropdowns = useCallback(() => {
+    setActiveSelect(null);
+    setLanguageKey((prev) => prev + 1);
+    setCurrencyKey((prev) => prev + 1);
+  }, []);
+
+  return (
+    <YStack py="$3">
+      <ThemeListItem />
+      <LanguageListItem
+        key={languageKey}
+        open={activeSelect === 'language'}
+        onOpenChange={handleLanguageOpenChange}
+      />
+      <CurrencyListItem
+        key={currencyKey}
+        open={activeSelect === 'currency'}
+        onOpenChange={handleCurrencyOpenChange}
+      />
+      <DownloadOneKeyWalletListItem />
+      {/* <Web3GuideListItem /> */}
+      <YStack py="$1.5" px="$3">
+        <Divider />
+      </YStack>
+      <AnnouncementListItem />
+      <SettingListItem onBeforeNavigate={closeAllDropdowns} />
+    </YStack>
   );
 }
 
@@ -305,61 +439,22 @@ function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
           size={size}
         />
       }
-      renderContent={
-        <YStack py="$3">
-          <ThemeListItem />
-          <LanguageListItem />
-          <CurrencyListItem />
-          <DownloadOneKeyWalletListItem />
-          {/* <Web3GuideListItem /> */}
-          <YStack py="$1.5" px="$3">
-            <Divider />
-          </YStack>
-          <AnnouncementListItem />
-          <SettingListItem />
-        </YStack>
-      }
+      renderContent={<MoreDappActionContent />}
     />
   );
 }
 
-function DepositButton() {
-  const intl = useIntl();
+function RightActions({
+  tabRoute,
+  customHeaderRightItems,
+  customToolbarItems,
+}: {
+  tabRoute: ETabRoutes;
+  customHeaderRightItems?: ReactNode;
+  customToolbarItems?: ReactNode;
+}) {
+  const { gtLg } = useMedia();
   const navigation = useAppNavigation();
-  const {
-    activeAccount: { wallet, account, network, indexedAccount },
-  } = useActiveAccount({
-    num: 0,
-  });
-
-  const shouldShow = useMemo(() => {
-    return !!account && !!wallet;
-  }, [account, wallet]);
-
-  const handlePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId: network?.id ?? '',
-        accountId: account?.id ?? '',
-        walletId: wallet?.id ?? '',
-        indexedAccountId: indexedAccount?.id,
-      },
-    });
-  }, [navigation, network?.id, account?.id, wallet?.id, indexedAccount?.id]);
-
-  if (!shouldShow) {
-    return null;
-  }
-
-  return (
-    <Button size="small" variant="primary" onPress={handlePress}>
-      {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-    </Button>
-  );
-}
-
-function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   const {
     activeAccount: { wallet, account },
   } = useActiveAccount({
@@ -367,18 +462,45 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
   });
 
   const isWalletConnected = !!wallet && !!account;
+  const isPerpsTab = tabRoute === ETabRoutes.Perp;
+
+  const handleSearchPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+      screen: EUniversalSearchPages.UniversalSearch,
+    });
+  }, [navigation]);
+
+  const intl = useIntl();
 
   return (
     <XStack ai="center" gap="$2">
-      <XStack
-        ai="center"
-        px={isWalletConnected ? '$1.5' : undefined}
-        borderRadius="$2"
-        bg={isWalletConnected ? '$bgStrong' : undefined}
-      >
-        <WalletConnectionForWeb tabRoute={tabRoute} />
-      </XStack>
-      <DepositButton />
+      {gtLg ? (
+        <SearchButton />
+      ) : (
+        <HeaderIconButton
+          size="small"
+          icon="SearchOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_search_everything,
+          })}
+          onPress={handleSearchPress}
+        />
+      )}
+      {isPerpsTab && customHeaderRightItems ? (
+        customHeaderRightItems
+      ) : (
+        <>
+          <XStack
+            ai="center"
+            px={isWalletConnected ? '$1.5' : undefined}
+            borderRadius="$2"
+            bg={isWalletConnected ? '$bgStrong' : undefined}
+          >
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+          </XStack>
+        </>
+      )}
+      {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}
       <XStack
         ai="center"
         gap="$2.5"
@@ -387,12 +509,12 @@ function RightActions({ tabRoute }: { tabRoute: ETabRoutes }) {
         borderRadius="$2"
         bg="$bgStrong"
       >
+        {customToolbarItems}
         <HeaderNotificationIconButton
           testID="header-right-notification"
           size="small"
         />
         <MoreDappAction size="small" />
-        <DownloadButton size="small" />
         <LanguageButton size="small" />
         <ThemeButton size="small" />
       </XStack>
@@ -435,6 +557,8 @@ export function DappHeader({
   sceneName,
   tabRoute,
   hideSearch,
+  customHeaderRightItems,
+  customToolbarItems,
 }: ITabPageHeaderProp) {
   const { gtMd } = useMedia();
   const { config } = useAccountSelectorContextData();
@@ -450,21 +574,19 @@ export function DappHeader({
       config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <RightActions tabRoute={tabRoute} />
+            <RightActions
+              tabRoute={tabRoute}
+              customHeaderRightItems={customHeaderRightItems}
+              customToolbarItems={customToolbarItems}
+            />
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [config, tabRoute],
+    [config, customHeaderRightItems, customToolbarItems, tabRoute],
   );
 
   const renderDesktopHeaderTitle = useCallback(
-    () => (
-      <HeaderTitle sceneName={sceneName}>
-        <XStack maxWidth={288} width="100%">
-          <UniversalSearchInput />
-        </XStack>
-      </HeaderTitle>
-    ),
+    () => <HeaderTitle sceneName={sceneName} />,
     [sceneName],
   );
 
@@ -485,16 +607,19 @@ export function DappHeader({
 
   if (gtMd) {
     return (
-      <Page.Header
-        headerTitleAlign="center"
-        headerShadowVisible={false}
-        headerStyle={{
-          backgroundColor: 'transparent',
-        }}
-        headerTitle={renderDesktopHeaderTitle}
-        headerRight={renderDesktopHeaderRight}
-        headerLeft={renderDesktopHeaderLeft}
-      />
+      <>
+        <Page.Header
+          headerTitleAlign="center"
+          headerShadowVisible={false}
+          headerStyle={{
+            backgroundColor: 'transparent',
+          }}
+          headerTitle={renderDesktopHeaderTitle}
+          headerRight={renderDesktopHeaderRight}
+          headerLeft={renderDesktopHeaderLeft}
+        />
+        <XStack h="$px" bg="$borderSubdued" />
+      </>
     );
   }
 
@@ -510,10 +635,11 @@ export function DappHeader({
         headerRight={renderMobileHeaderRight}
       />
       {!hideSearch ? (
-        <XStack px="$5" pt="$2" pb="$2">
+        <XStack px="$pagePadding" pt="$2" pb="$2">
           <UniversalSearchInput />
         </XStack>
       ) : null}
+      <XStack h="$px" bg="$borderSubdued" />
     </>
   );
 }

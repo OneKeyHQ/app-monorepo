@@ -5,21 +5,25 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
+  Image,
   InteractiveIcon,
   SizableText,
   XStack,
   YStack,
+  useIsSplitView,
   useMedia,
-  useOrientation,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import {
+  StockIsOpenBadge,
+  SubtitleBadge,
+} from '../../../components/PerpsBadges';
 import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
@@ -41,7 +45,7 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
 }: ITokenDetailHeaderLeftProps) {
-  const isLandscape = useOrientation();
+  const isLandscape = useIsSplitView();
   const { width: windowScreenWidth } = useWindowDimensions();
   const screenWidth = useMemo(() => {
     return isLandscape ? windowScreenWidth / 2 : windowScreenWidth;
@@ -71,6 +75,7 @@ export function TokenDetailHeaderLeft({
     logoUrl = '',
     extraData,
     communityRecognized,
+    stock,
   } = tokenDetail || {};
 
   const { website, twitter } = extraData || {};
@@ -106,9 +111,6 @@ export function TokenDetailHeaderLeft({
           }
         : {})}
     >
-      {!platformEnv.isNative && !md ? marketStar : null}
-      {isNative && !platformEnv.isNative && !md ? shareButton : null}
-
       <XStack gap="$3" ai="center">
         <Token
           size="md"
@@ -120,7 +122,10 @@ export function TokenDetailHeaderLeft({
         <YStack>
           <XStack ai="center" gap="$1">
             <SizableText
-              size="$bodyLgMedium"
+              size="$headingLg"
+              $gtMd={{
+                size: '$heading2xl',
+              }}
               color="$text"
               numberOfLines={1}
               maxWidth="$60"
@@ -128,7 +133,19 @@ export function TokenDetailHeaderLeft({
             >
               {symbol}
             </SizableText>
+            {stock?.sourceLogoUri ? (
+              <Image
+                width={14}
+                height={14}
+                borderRadius="$full"
+                source={{ uri: stock.sourceLogoUri }}
+              />
+            ) : null}
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
+            {stock?.subtitle ? (
+              <SubtitleBadge subtitle={stock.subtitle} />
+            ) : null}
+            {stock ? <StockIsOpenBadge isOpen={stock.isOpen} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">
@@ -197,7 +214,7 @@ export function TokenDetailHeaderLeft({
                         />
                       ) : null}
 
-                      {networkId && address !== SUI_TYPE_ARG ? (
+                      {networkId && address && address !== SUI_TYPE_ARG ? (
                         <ShareButton
                           networkId={networkId}
                           address={address}

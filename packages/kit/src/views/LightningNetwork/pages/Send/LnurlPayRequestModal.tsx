@@ -124,7 +124,7 @@ function LnurlPayRequestModal() {
       const amountSats =
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
-          : formValue.amount ?? 0;
+          : (formValue.amount ?? 0);
 
       const amount = new BigNumber(amountSats).times(1000).toNumber(); // convert to millisatoshis
       try {

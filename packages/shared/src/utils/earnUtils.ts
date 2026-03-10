@@ -1,4 +1,11 @@
 import { EEarnProviderEnum } from '../../types/earn';
+import { EApproveType } from '../../types/staking';
+import {
+  MorphoBundlerContract,
+  PendleRouterContract,
+} from '../consts/addresses';
+
+import networkUtils from './networkUtils';
 
 import type { IEarnPermitCacheKey } from '../../types/earn';
 import type { IEarnText, IEarnToken } from '../../types/staking';
@@ -34,6 +41,8 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
+
 const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
 
 const isStakefishProvider = createProviderCheck(EEarnProviderEnum.Stakefish);
@@ -47,10 +56,84 @@ const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
 const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   return (
     isMorphoProvider({ providerName }) ||
+    isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
     isMomentumProvider({ providerName })
   );
 };
+
+const providerApproveSpenderOverrides: Partial<
+  Record<EEarnProviderEnum, string>
+> = {
+  [EEarnProviderEnum.Pendle]: PendleRouterContract,
+};
+
+const providerApproveTypeOverrides: Partial<
+  Record<EEarnProviderEnum, EApproveType>
+> = {
+  [EEarnProviderEnum.Pendle]: EApproveType.Legacy,
+};
+
+function resolveEarnApproveSpenderAddress({
+  providerName,
+  protocolVault,
+  backendApproveTarget,
+}: {
+  providerName: string;
+  protocolVault?: string;
+  backendApproveTarget?: string;
+}) {
+  const providerKey = getEarnProviderEnumKey(providerName);
+  if (providerKey && providerApproveSpenderOverrides[providerKey]) {
+    return providerApproveSpenderOverrides[providerKey];
+  }
+  return isVaultBasedProvider({ providerName })
+    ? (protocolVault ?? '')
+    : (backendApproveTarget ?? '');
+}
+
+function resolveEarnApproveType({
+  providerName,
+  networkId,
+  tokenIsNative,
+  approveSpenderAddress,
+  backendApproveType,
+}: {
+  providerName: string;
+  networkId: string;
+  tokenIsNative?: boolean;
+  approveSpenderAddress?: string;
+  backendApproveType?: EApproveType;
+}) {
+  if (tokenIsNative || !approveSpenderAddress) {
+    return undefined;
+  }
+  // ERC20 approve only applies to EVM networks
+  if (!networkUtils.isEvmNetwork({ networkId })) {
+    return undefined;
+  }
+  const providerKey = getEarnProviderEnumKey(providerName);
+  if (providerKey && providerApproveTypeOverrides[providerKey]) {
+    return providerApproveTypeOverrides[providerKey];
+  }
+  return backendApproveType ?? EApproveType.Legacy;
+}
+
+function resolveEarnAllowanceSpenderAddress({
+  approveType,
+  approveSpenderAddress,
+}: {
+  approveType?: EApproveType;
+  approveSpenderAddress?: string;
+}) {
+  if (!approveSpenderAddress) {
+    return '';
+  }
+  if (approveType === EApproveType.Permit) {
+    return MorphoBundlerContract;
+  }
+  return approveSpenderAddress;
+}
 
 const isValidatorProvider = ({ providerName }: { providerName: string }) => {
   return (
@@ -126,6 +209,7 @@ export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
+  isPendleProvider,
   isListaProvider,
   isLidoProvider,
   isBabylonProvider,
@@ -139,6 +223,9 @@ export default {
   isUSDTonETHNetwork,
   isVaultBasedProvider,
   isValidatorProvider,
+  resolveEarnApproveSpenderAddress,
+  resolveEarnApproveType,
+  resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
   extractAmountFromText,
 };

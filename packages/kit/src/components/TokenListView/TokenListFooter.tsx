@@ -330,7 +330,7 @@ function TokenListFooter(props: IProps) {
   }, [run]);
 
   return (
-    <Stack>
+    <Stack mx={tableLayout ? undefined : '$2'}>
       {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem
           onPress={handleOnPressLowValueTokens}
@@ -338,8 +338,8 @@ function TokenListFooter(props: IProps) {
           {...(tableLayout && plainMode
             ? undefined
             : {
-                px: '$0',
-                mx: '$0',
+                px: '$3',
+                mx: 0,
               })}
         >
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
@@ -392,12 +392,16 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          <Stack flexGrow={1} flexBasis={0} justifyContent="flex-end">
+          <Stack
+            flexGrow={1}
+            flexBasis={0}
+            justifyContent="center"
+            alignItems="flex-end"
+          >
             <NumberSizeableText
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               formatter="value"
               formatterOptions={{ currency: settings.currencyInfo.symbol }}
-              flex={1}
               textAlign="right"
             >
               {smallBalanceTokensFiatValue}
@@ -412,8 +416,8 @@ function TokenListFooter(props: IProps) {
           {...(tableLayout && plainMode
             ? undefined
             : {
-                px: '$0',
-                mx: '$0',
+                px: '$3',
+                mx: 0,
               })}
         >
           <XStack alignItems="center" gap="$3" flex={1}>

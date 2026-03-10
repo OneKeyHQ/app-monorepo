@@ -31,7 +31,11 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 
 import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
@@ -131,13 +135,12 @@ export const useReferFriends = () => {
             params,
           });
         } else {
-          navigation.switchTab<ETabRoutes.ReferFriends>(
-            ETabRoutes.ReferFriends,
-            {
-              screen: ETabReferFriendsRoutes.TabInviteReward,
-              params,
-            },
-          );
+          navigation.switchTab(ETabRoutes.ReferFriends);
+          await timerUtils.wait(50);
+          rootNavigationRef.current?.reset({
+            index: 0,
+            routes: [{ name: ETabReferFriendsRoutes.TabInviteReward, params }],
+          });
         }
       } else {
         void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
@@ -156,12 +159,11 @@ export const useReferFriends = () => {
             params,
           });
         } else {
-          navigation.switchTab<ETabRoutes.ReferFriends>(
-            ETabRoutes.ReferFriends,
-            {
-              screen: ETabReferFriendsRoutes.TabHardwareSalesReward,
-              params,
-            },
+          navigation.switchTab(ETabRoutes.ReferFriends);
+          await timerUtils.wait(50);
+          rootNavigationRef.current?.navigate(
+            ETabReferFriendsRoutes.TabHardwareSalesReward,
+            params,
           );
         }
       } else {
@@ -194,10 +196,17 @@ export const useReferFriends = () => {
       });
     } else {
       // Web: use Tab
-      navigation.switchTab<ETabRoutes.ReferFriends>(ETabRoutes.ReferFriends, {
-        screen: shouldShowInviteReward
-          ? ETabReferFriendsRoutes.TabInviteReward
-          : ETabReferFriendsRoutes.TabReferAFriend,
+      navigation.switchTab(ETabRoutes.ReferFriends);
+      await timerUtils.wait(50);
+      rootNavigationRef.current?.reset({
+        index: 0,
+        routes: [
+          {
+            name: shouldShowInviteReward
+              ? ETabReferFriendsRoutes.TabInviteReward
+              : ETabReferFriendsRoutes.TabReferAFriend,
+          },
+        ],
       });
     }
   }, [navigation]);
@@ -212,21 +221,34 @@ export const useReferFriends = () => {
       copyAsUrl = false,
     ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const myReferralCode =
-        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-
+      let myReferralCode = '';
+      if (isLogin) {
+        try {
+          // Fetch fresh primary code from API to avoid stale cache
+          const summary =
+            await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+          myReferralCode = summary.inviteCode || '';
+        } catch {
+          // Fall back to cached code on API failure
+          myReferralCode =
+            await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+        }
+      } else {
+        myReferralCode =
+          await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+      }
       const postConfig: IInvitePostConfig | undefined =
         await backgroundApiProxy.serviceReferralCode.getPostConfig();
 
       const sourceConfig: IInvitePostConfig['locales']['Earn'] =
         source === 'Perps' && postConfig?.locales.Perps
           ? postConfig.locales.Perps
-          : postConfig?.locales.Earn ?? {
+          : (postConfig?.locales.Earn ?? {
               title: '',
               subtitle: '',
               for_you: { title: '', subtitle: '' },
               for_your_friend: { title: '', subtitle: '' },
-            };
+            });
 
       const getReferralUrl = (code: string) =>
         buildReferralUrl({
@@ -239,19 +261,19 @@ export const useReferFriends = () => {
         ? getReferralUrl(myReferralCode)
         : myReferralCode;
 
-      const handleConfirm = () => {
+      const handleConfirm = async () => {
         if (isLogin) {
           if (platformEnv.isNative) {
             navigation.pushModal(EModalRoutes.ReferFriendsModal, {
               screen: EModalReferFriendsRoutes.InviteReward,
             });
           } else {
-            navigation.switchTab<ETabRoutes.ReferFriends>(
-              ETabRoutes.ReferFriends,
-              {
-                screen: ETabReferFriendsRoutes.TabInviteReward,
-              },
-            );
+            navigation.switchTab(ETabRoutes.ReferFriends);
+            await timerUtils.wait(50);
+            navigation.reset({
+              index: 0,
+              routes: [{ name: ETabReferFriendsRoutes.TabInviteReward }],
+            });
           }
         } else {
           void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
@@ -377,10 +399,11 @@ export const useReferFriends = () => {
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
-          openUrlExternal(REFERRAL_HELP_LINK);
-        },
-        cancelButtonProps: {
-          iconAfter: 'OpenOutline',
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
+          } else {
+            openUrlExternal(REFERRAL_HELP_LINK);
+          }
         },
         onConfirmText: intl.formatMessage({
           id: isLogin

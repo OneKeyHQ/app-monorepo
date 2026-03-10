@@ -5,10 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedReaction,
-  useSharedValue,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
 import {
@@ -226,15 +223,6 @@ export default function ImportPhraseOrPrivateKey() {
   };
 
   const { height } = useReanimatedKeyboardAnimation();
-  const keyboardHeight = useSharedValue<number>(0);
-
-  useAnimatedReaction(
-    () => height.get(),
-    (value) => {
-      const v = Math.abs(value);
-      keyboardHeight.value = v;
-    },
-  );
 
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
@@ -267,7 +255,7 @@ export default function ImportPhraseOrPrivateKey() {
             id: ETranslations.import_phrase_or_private_key,
           })}
         />
-        <OnboardingLayout.Body constrained={false}>
+        <OnboardingLayout.Body constrained={false} bottomOffset={150}>
           <OnboardingLayout.ConstrainedContent gap="$5">
             <SegmentControl
               value={selected}
@@ -346,11 +334,6 @@ export default function ImportPhraseOrPrivateKey() {
                 </YStack>
               )}
             </HeightTransition>
-            <Animated.View
-              style={{
-                height: keyboardHeight,
-              }}
-            />
             {gtMd ? (
               <Button size="large" variant="primary" onPress={handleConfirm}>
                 {intl.formatMessage({ id: ETranslations.global_confirm })}

@@ -30,6 +30,7 @@ import {
   sortTokensByPrice,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IExchangeFilter } from '@onekeyhq/shared/types/exchange';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type {
   IAccountToken,
@@ -117,6 +118,7 @@ type IProps = {
   plainMode?: boolean;
   limit?: number;
   deferTokenManagement?: boolean;
+  exchangeFilter?: IExchangeFilter;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -158,6 +160,7 @@ function TokenListViewCmp(props: IProps) {
     plainMode,
     limit,
     deferTokenManagement,
+    exchangeFilter,
   } = props;
 
   const intl = useIntl();
@@ -249,6 +252,27 @@ function TokenListViewCmp(props: IProps) {
       resultTokens = resultTokens.filter((item) => !item.defiMarked);
     }
 
+    if (exchangeFilter?.supportedAssets) {
+      resultTokens = resultTokens.filter((item) => {
+        const symbolUpper = (
+          item.commonSymbol ??
+          item.symbol ??
+          ''
+        ).toUpperCase();
+
+        if (item.isAggregateToken) {
+          return Object.values(exchangeFilter.supportedAssets).some(
+            (networkAssets) =>
+              networkAssets[symbolUpper]?.withdrawEnable === true,
+          );
+        }
+
+        const networkAssets =
+          exchangeFilter.supportedAssets[item.networkId ?? ''];
+        return networkAssets?.[symbolUpper]?.withdrawEnable === true;
+      });
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
@@ -264,6 +288,7 @@ function TokenListViewCmp(props: IProps) {
     keepDefaultZeroBalanceTokens,
     homeDefaultTokenMap,
     customTokens,
+    exchangeFilter,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -479,21 +504,14 @@ function TokenListViewCmp(props: IProps) {
   const renderPlainModeFooter = useCallback(() => {
     if (overFlowState.isOverflow && overFlowState.isSliced) {
       return (
-        <XStack py="$3" jc="center" ai="center">
+        <XStack pt="$3" px="$5" jc="center" ai="center">
           <Button
-            size="small"
+            size="medium"
             variant="secondary"
             onPress={() =>
               setOverFlowState((prev) => ({ ...prev, isSliced: false }))
             }
-            $md={
-              {
-                flexGrow: 1,
-                flexBasis: 0,
-                size: 'medium',
-                borderRadius: '$full',
-              } as any
-            }
+            flex={1}
           >
             {intl.formatMessage({ id: ETranslations.global_show_more })}
           </Button>
@@ -520,21 +538,14 @@ function TokenListViewCmp(props: IProps) {
           </Stack>
         ) : null}
         {overFlowState.isOverflow && !overFlowState.isSliced ? (
-          <XStack jc="center" ai="center" pt="$3">
+          <XStack jc="center" ai="center" pt="$3" px="$5">
             <Button
-              size="small"
+              size="medium"
               variant="secondary"
               onPress={() =>
                 setOverFlowState((prev) => ({ ...prev, isSliced: true }))
               }
-              $md={
-                {
-                  flexGrow: 1,
-                  flexBasis: 0,
-                  size: 'medium',
-                  borderRadius: '$full',
-                } as any
-              }
+              flex={1}
             >
               {intl.formatMessage({ id: ETranslations.global_show_less })}
             </Button>
@@ -559,19 +570,7 @@ function TokenListViewCmp(props: IProps) {
 
   if (plainMode) {
     if (showSkeleton) {
-      return (
-        <ListLoading
-          itemProps={
-            tableLayout
-              ? undefined
-              : {
-                  mx: '$0',
-                  px: '$0',
-                }
-          }
-          isTokenSelectorView={!tableLayout}
-        />
-      );
+      return <ListLoading isTokenSelectorView={!tableLayout} />;
     }
 
     if (!limitedTokens || limitedTokens.length === 0) {
@@ -611,11 +610,12 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
             {...(tableLayout
               ? undefined
               : {
-                  mx: '$0',
-                  px: '$0',
+                  mx: '$2',
+                  px: '$3',
                 })}
           />
         ))}
@@ -628,6 +628,7 @@ function TokenListViewCmp(props: IProps) {
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
@@ -664,6 +665,7 @@ function TokenListViewCmp(props: IProps) {
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
             withAggregateBadge={withAggregateBadge}
+            showProcessingState={!!exchangeFilter}
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&

@@ -3,12 +3,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   SORT_MAP,
+  getNativeTokenInfo,
   getNetworkLogoUri,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
@@ -34,12 +35,23 @@ export function useMarketWatchlistTokenList({
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
     initialSortType,
   );
-  const [isLoadingMore] = useState(false);
-  const [hasMore] = useState(false);
+  const isLoadingMore = false;
+  const hasMore = false;
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const pageIndex = useCarouselIndex();
 
+  // Split watchlist into spot and perps items
+  const spotItems = useMemo(
+    () => watchlist.filter((item) => !item.perpsCoin && item.chainId),
+    [watchlist],
+  );
+  const perpsItems = useMemo(
+    () => watchlist.filter((item) => !!item.perpsCoin),
+    [watchlist],
+  );
+
+  // ── Spot data fetching (existing logic) ──
   const {
     result: apiResult,
     isLoading: apiLoading,
@@ -47,26 +59,26 @@ export function useMarketWatchlistTokenList({
   } = usePromiseResult(
     async () => {
       if (!watchlist || watchlist.length === 0) {
-        // For empty watchlist, still simulate a brief loading period for better UX
         if (isInitialLoad) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
         return { list: [] } as const;
       }
-      const tokenAddressList = watchlist
-        .filter((item) => item.chainId)
-        .map((item) => ({
-          chainId: item.chainId,
-          contractAddress: item.contractAddress,
-          isNative: item.isNative ?? false, // Use stored isNative field from watchlist
-        }));
+      if (spotItems.length === 0) {
+        return { list: [] } as const;
+      }
+      const tokenAddressList = spotItems.map((item) => ({
+        chainId: item.chainId,
+        contractAddress: item.contractAddress,
+        isNative: item.isNative ?? false,
+      }));
       const response =
         await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
           tokenAddressList,
         });
       return response;
     },
-    [watchlist, isInitialLoad],
+    [watchlist, spotItems, isInitialLoad],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
@@ -77,100 +89,158 @@ export function useMarketWatchlistTokenList({
     },
   );
 
-  // Combined loading state: show loading during initial load or when API is loading
+  // ── Perps data: backend API (category=all — watchlist needs all tokens) ──
+  const { result: perpsApiResult } = usePromiseResult(
+    async () => {
+      if (perpsItems.length === 0) return null;
+      const [tokenListData, tokenSearchAliases] = await Promise.all([
+        backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+          category: 'all',
+        }),
+        backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+      ]);
+      return { tokenListData, tokenSearchAliases };
+    },
+    [perpsItems.length],
+    {
+      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  // Combined loading state
   const isLoading = isInitialLoad || apiLoading;
 
-  useEffect(() => {
-    if (!apiResult || !apiResult.list) return;
-
-    // Use chainId + contractAddress combination for unique mapping
-    const tokenMap: Record<
-      string,
-      { chainId: string; sortIndex: number; isNative: boolean }
-    > = {};
-    watchlist.forEach((w) => {
-      const key = `${w.chainId}:${w.contractAddress.toLowerCase()}`;
-      tokenMap[key] = {
-        chainId: w.chainId,
-        sortIndex: w.sortIndex ?? 0,
-        isNative: w.isNative ?? false,
-      };
-    });
-
-    const transformed: IMarketToken[] = apiResult.list.map((item) => {
-      // Get isNative from watchlist data since API doesn't return it
-      let address = item.address;
-      const networkId = item.networkId || '';
-      const key = `${networkId}:${address.toLowerCase()}`;
-
-      const tokenInfo = tokenMap[key];
-      const chainId = tokenInfo?.chainId || networkId;
-      const networkLogoUri = getNetworkLogoUri(chainId);
-      const sortIndex = tokenInfo?.sortIndex;
-      let isNative = tokenInfo?.isNative ?? false; // Get isNative from watchlist
-
-      // TODO: Remove this after we have a better way to handle native tokens
-      // Special handling for native tokens (short addresses)
-      if (address.length < 30) {
-        if (item.symbol === 'SUI' && networkId === 'sui--mainnet') {
-          address = '0x2::sui::SUI';
-        } else {
-          address = '';
-        }
-        isNative = true;
-      }
-
-      // Add isNative to the API item
-      const itemWithNative = {
-        ...item,
-        address,
-        isNative,
-      } as IMarketTokenListItem & { isNative: boolean };
-
-      return transformApiItemToToken(itemWithNative, {
-        chainId,
-        networkLogoUri,
-        sortIndex,
+  // ── Build perps IMarketToken items from backend ──
+  const perpsTokenMap = useMemo(() => {
+    const tokens = perpsApiResult?.tokenListData?.tokens;
+    if (!tokens) return new Map<string, IMarketToken>();
+    const aliases = perpsApiResult?.tokenSearchAliases;
+    const map = new Map<string, IMarketToken>();
+    for (const t of tokens) {
+      map.set(t.name, {
+        id: `perps_${t.name}`,
+        name: t.displayName,
+        symbol: t.displayName,
+        address: '',
+        decimals: 0,
+        price: Number(t.markPrice),
+        change24h: t.change24hPercent,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: Number(t.volume24h || 0),
+        tokenImageUri: t.tokenImageUrl,
+        networkLogoUri: '',
+        networkId: '',
+        chainId: '',
+        perpsCoin: t.name,
+        maxLeverage: t.maxLeverage,
+        perpsSubtitle: getTokenSubtitle(t.name, aliases),
       });
-    });
+    }
+    return map;
+  }, [perpsApiResult]);
+
+  // ── Merge spot + perps into transformedData ──
+  useEffect(() => {
+    // Transform spot items
+    const spotTransformed: IMarketToken[] = [];
+    if (apiResult?.list) {
+      const tokenMap: Record<
+        string,
+        { chainId: string; sortIndex: number; isNative: boolean }
+      > = {};
+      spotItems.forEach((w) => {
+        const { isNative, normalizedAddress } = getNativeTokenInfo(
+          w.isNative,
+          w.contractAddress,
+        );
+        const key = `${w.chainId}:${normalizedAddress}`;
+        tokenMap[key] = {
+          chainId: w.chainId,
+          sortIndex: w.sortIndex ?? 0,
+          isNative,
+        };
+      });
+
+      apiResult.list
+        .filter(
+          (item) => item && item.address !== null && item.address !== undefined,
+        )
+        .forEach((item) => {
+          const networkId = item.networkId || '';
+          const { normalizedAddress } = getNativeTokenInfo(
+            item.isNative,
+            item.address,
+          );
+          const key = `${networkId}:${normalizedAddress}`;
+          const tokenInfo = tokenMap[key];
+          const chainId = tokenInfo?.chainId || networkId;
+          const networkLogoUri = getNetworkLogoUri(chainId);
+          const sortIndex = tokenInfo?.sortIndex;
+
+          spotTransformed.push(
+            transformApiItemToToken(item, {
+              chainId,
+              networkLogoUri,
+              sortIndex,
+            }),
+          );
+        });
+    }
 
     // Build result array in watchlist order to maintain correct sorting
-    const filteredTransformed = watchlist
+    const merged = watchlist
       .map((watchlistItem) => {
-        // Find corresponding token in transformed data
-        const found = transformed.find((token) => {
-          const tokenKey = token.address.toLowerCase();
-          const watchlistKey = watchlistItem.contractAddress.toLowerCase();
-          const chainMatches = watchlistItem.chainId === token.chainId;
-          return tokenKey === watchlistKey && chainMatches;
-        });
+        // Perps item — look up from perpsTokenMap
+        if (watchlistItem.perpsCoin) {
+          const perpsToken = perpsTokenMap.get(watchlistItem.perpsCoin);
+          if (perpsToken) {
+            return { ...perpsToken, sortIndex: watchlistItem.sortIndex ?? 0 };
+          }
+          // Perps token not found in universe (may be delisted) — skip
+          return undefined;
+        }
 
+        // Spot item — find in spotTransformed
+        const found = spotTransformed.find((token) => {
+          const { normalizedAddress: tokenKey } = getNativeTokenInfo(
+            token.isNative,
+            token.address,
+          );
+          const { normalizedAddress: watchlistKey } = getNativeTokenInfo(
+            watchlistItem.isNative,
+            watchlistItem.contractAddress,
+          );
+          return (
+            tokenKey === watchlistKey && watchlistItem.chainId === token.chainId
+          );
+        });
         return found;
       })
-      .filter(Boolean); // Remove undefined items
+      .filter(Boolean);
 
-    setTransformedData(filteredTransformed);
+    setTransformedData(merged);
 
-    // Reset initial load state after first data arrives
     if (isInitialLoad) {
       setIsInitialLoad(false);
     }
-  }, [apiResult, watchlist, isInitialLoad]);
+  }, [apiResult, watchlist, spotItems, perpsTokenMap, isInitialLoad]);
 
   // Sorting
   const sortedData = useMemo(() => {
     if (!sortBy || !sortType) {
-      // Default: use sortIndex for natural watchlist ordering (ascending)
-      return [...transformedData].toSorted((a, b) => {
+      return transformedData.toSorted((a, b) => {
         const av = a.sortIndex ?? 0;
         const bv = b.sortIndex ?? 0;
         return av - bv;
       });
     }
 
-    // Custom sorting
     const key = SORT_MAP[sortBy] || sortBy;
-    return [...transformedData].toSorted((a, b) => {
+    return transformedData.toSorted((a, b) => {
       const av = a[key] as number;
       const bv = b[key] as number;
       if (av === bv) return 0;
@@ -181,7 +251,6 @@ export function useMarketWatchlistTokenList({
   const totalCount = sortedData.length;
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 1;
 
-  // Auto-adjust currentPage when totalPages changes (data-driven approach)
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(Math.max(1, totalPages));
@@ -202,15 +271,11 @@ export function useMarketWatchlistTokenList({
     void refetchData();
   }, [refetchData]);
 
-  // Add isNetworkSwitching state for consistency with normal token list
-  // Watchlist doesn't switch networks, so always false
-  const isNetworkSwitching = false;
-
   return {
     data: paginatedData,
     isLoading,
     isLoadingMore,
-    isNetworkSwitching,
+    isNetworkSwitching: false,
     canLoadMore: hasMore,
     currentPage,
     totalPages,

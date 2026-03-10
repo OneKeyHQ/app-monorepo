@@ -35,6 +35,53 @@ const NetworkIdToNameMap: Record<string, string> = Object.fromEntries(
   Object.entries(NetworkNameToIdMap).map(([name, id]) => [id, name]),
 );
 
+function getEarnTargetTab() {
+  return platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Earn;
+}
+
+function findTargetStack(
+  state?: NavigationState,
+  targetTab = getEarnTargetTab(),
+) {
+  if (!state) return undefined;
+
+  const mainRoute = state.routes.find((item) => item.name === ERootRoutes.Main);
+  const mainState = (mainRoute as { state?: NavigationState })?.state;
+  if (!mainState) return undefined;
+
+  const tabRoute = mainState.routes.find((item) => item.name === targetTab);
+  if (!tabRoute) return undefined;
+
+  const tabState = (tabRoute as { state?: NavigationState })?.state;
+  const targetKey = tabState?.key ?? tabRoute.key;
+  const topRoute = tabState?.routes?.[tabState.index ?? 0];
+  const firstRoute = tabState?.routes?.[0];
+
+  return { targetKey, tabState, topRoute, firstRoute };
+}
+
+function dispatchToTargetStack({
+  action,
+  rootNavigation,
+  targetKey,
+}: {
+  action:
+    | ReturnType<typeof StackActions.push>
+    | ReturnType<typeof StackActions.replace>
+    | ReturnType<typeof StackActions.popToTop>
+    | ReturnType<typeof StackActions.popTo>;
+  rootNavigation: typeof rootNavigationRef.current;
+  targetKey: string;
+}) {
+  if (!rootNavigation) {
+    return;
+  }
+
+  // @ts-expect-error target is added at runtime for navigator selection
+  action.target = targetKey;
+  rootNavigation.dispatch(action);
+}
+
 export const EarnNetworkUtils = {
   // convert network name to network id
   getNetworkIdByName(networkName: string): string | undefined {
@@ -66,40 +113,72 @@ export async function safePushToEarnRoute(
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
 
-  const targetTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Earn;
+  const targetTab = getEarnTargetTab();
 
-  navigation.switchTab(targetTab);
+  const rootNavigation = rootNavigationRef.current;
+
   if (platformEnv.isNative) {
     void timerUtils.wait(150).then(() => {
       appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
         tab: ETranslations.global_earn,
       });
     });
+
+    // EarnHome is not registered in the Discovery tab's stack navigator on
+    // native, so navigating to it would fail. Switching to the Earn sub-tab
+    // via the event above is sufficient to show the Earn home view.
+    if (route === ETabEarnRoutes.EarnHome) {
+      navigation.switchTab(targetTab);
+      return;
+    }
+
+    // Pre-query the Discovery tab's stack state. All tab states are available
+    // since lazy: false, so this works before any tab switch.
+    const preQueryState = rootNavigation
+      ? findTargetStack(rootNavigation.getRootState?.(), targetTab)
+      : undefined;
+    const targetKey = preQueryState?.targetKey;
+
+    if (rootNavigation && targetKey) {
+      // Push the route onto the Discovery stack BEFORE switching tabs.
+      // StackActions.push with target dispatches directly to the child stack
+      // navigator without updating the tab navigator's selectedPage. By
+      // pushing first and switching tab after, the two state changes are
+      // separated: the push updates only the Discovery stack, then switchTab
+      // updates only the tab selection. This avoids the iOS Release issue
+      // where simultaneous selectedPage + children changes caused the native
+      // tab bar to drop the selectedPage update.
+      const { topRoute } = preQueryState;
+      if (topRoute?.name === route) {
+        dispatchToTargetStack({
+          action: StackActions.replace(route, params),
+          rootNavigation,
+          targetKey,
+        });
+      } else {
+        dispatchToTargetStack({
+          action: StackActions.push(route, params),
+          rootNavigation,
+          targetKey,
+        });
+      }
+      navigation.switchTab(targetTab);
+    } else {
+      navigation.switchTab(targetTab);
+      (rootNavigation ?? navigation).navigate(ERootRoutes.Main, {
+        screen: targetTab,
+        params: {
+          screen: route,
+          params,
+        },
+      });
+    }
+    return;
   }
+
+  navigation.switchTab(targetTab);
+
   await timerUtils.wait(0);
-
-  const rootNavigation = rootNavigationRef.current;
-  const findTargetStack = (state?: NavigationState) => {
-    if (!state) return undefined;
-    // Find tab navigator state under Main
-    const mainRoute = state.routes.find(
-      (item) => item.name === ERootRoutes.Main,
-    );
-    const mainState = (mainRoute as { state?: NavigationState })?.state;
-    if (!mainState) return undefined;
-
-    // Find the target tab route
-    const tabRoute = mainState.routes.find((item) => item.name === targetTab);
-    if (!tabRoute) return undefined;
-
-    // Stack navigator inside the tab
-    const tabState = (tabRoute as { state?: NavigationState })?.state;
-    // Prefer inner stack key; fall back to tab route key
-    const targetKey = tabState?.key ?? tabRoute.key;
-    return { targetKey, tabState };
-  };
 
   if (!rootNavigation) {
     navigation.navigate(ERootRoutes.Main, {
@@ -112,24 +191,28 @@ export async function safePushToEarnRoute(
     return;
   }
 
-  const targetStack = findTargetStack(rootNavigation.getRootState?.());
+  const targetStack = findTargetStack(
+    rootNavigation.getRootState?.(),
+    targetTab,
+  );
   const targetKey = targetStack?.targetKey;
-  const tabState = targetStack?.tabState;
-  const topRoute = tabState?.routes?.[tabState.index || 0];
+  const topRoute = targetStack?.topRoute;
 
   if (targetKey) {
     if (topRoute?.name === route) {
-      const action = StackActions.replace(route, params);
-      // @ts-expect-error target is added at runtime for navigator selection
-      action.target = targetKey;
-      rootNavigation.dispatch(action);
+      dispatchToTargetStack({
+        action: StackActions.replace(route, params),
+        rootNavigation,
+        targetKey,
+      });
       return;
     }
 
-    const action = StackActions.push(route, params);
-    // @ts-expect-error target is added at runtime for navigator selection
-    action.target = targetKey;
-    rootNavigation.dispatch(action);
+    dispatchToTargetStack({
+      action: StackActions.push(route, params),
+      rootNavigation,
+      targetKey,
+    });
   } else {
     // Fallback: navigate as before (may reuse route)
     rootNavigation.navigate(ERootRoutes.Main, {
@@ -228,7 +311,9 @@ export const EarnNavigation = {
     }
 
     const networkName = EarnNetworkUtils.getShareNetworkParam(networkId);
-    const baseUrl = `/earn/${networkName}/${symbol.toLowerCase()}/${provider.toLowerCase()}`;
+    // Keep original symbol casing for unknown tokens (e.g. Pendle PT-sUSDe-29MAY2025);
+    // normalizeToEarnSymbol handles known symbols on parse regardless of casing.
+    const baseUrl = `/earn/${networkName}/${symbol}/${provider.toLowerCase()}`;
     const queryParams = new URLSearchParams();
 
     if (vault) {
@@ -247,24 +332,55 @@ export const EarnNavigation = {
       tab?: 'assets' | 'portfolio' | 'faqs';
     },
   ) {
+    const earnHomeParams = {
+      mode: 'earn' as const,
+      tab: params?.tab ?? 'assets',
+    };
+
     if (platformEnv.isNative) {
       await navigation.popToMainRoute();
-      await timerUtils.wait(50);
       switchTab(ETabRoutes.Discovery);
-      await timerUtils.wait(50);
       appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
         tab: ETranslations.global_earn,
       });
-    } else {
-      switchTab(ETabRoutes.Earn);
+      navigation.popToTop();
+      appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
+      // Delay SwitchEarnTab to allow EarnMainTabs to mount and register
+      // its listener after popToMainRoute triggers a re-render. Since we
+      // already awaited popToMainRoute above, we are no longer in the
+      // synchronous touch event context, so timers will flush normally.
+      await timerUtils.wait(150);
+      appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
+        tab: params?.tab ?? 'assets',
+      });
+      return;
     }
-    await timerUtils.wait(50);
-    navigation.popToTop();
-    await timerUtils.wait(80);
-    appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
-    appEventBus.emit(EAppEventBusNames.SwitchEarnTab, {
-      tab: params?.tab ?? 'assets',
-    });
+
+    switchTab(ETabRoutes.Earn);
+
+    await timerUtils.wait(0);
+
+    const rootNavigation = rootNavigationRef.current;
+    const targetStack = rootNavigation
+      ? findTargetStack(rootNavigation.getRootState?.(), ETabRoutes.Earn)
+      : undefined;
+    const targetKey = targetStack?.targetKey;
+
+    if (rootNavigation && targetKey) {
+      dispatchToTargetStack({
+        action: StackActions.popTo(ETabEarnRoutes.EarnHome, earnHomeParams),
+        rootNavigation,
+        targetKey,
+      });
+    } else {
+      navigation.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Earn,
+        params: {
+          screen: ETabEarnRoutes.EarnHome,
+          params: earnHomeParams,
+        },
+      });
+    }
     await timerUtils.wait(0);
   },
 
@@ -274,6 +390,7 @@ export const EarnNavigation = {
       symbol: string;
       filterNetworkId?: string;
       logoURI?: string;
+      defaultCategory?: 'simpleEarn' | 'fixedRate';
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);

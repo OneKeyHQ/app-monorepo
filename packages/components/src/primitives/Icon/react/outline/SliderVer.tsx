@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgSliderVer = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M17 14V4m0 10a3 3 0 1 1 0 6 3 3 0 1 1 0-6M7 20v-8m0 0a3 3 0 1 1 0-6m0 6a3 3 0 1 0 0-6m0 0V4"
+      fillRule="evenodd"
+      d="M8 5.126a4 4 0 0 1 0 7.748V21H6v-8.126a4 4 0 0 1 0-7.748V3h2zM7 7a2 2 0 1 0 0 4 2 2 0 1 0 0-4m11 6.126a4 4 0 1 1-2 0V3h2zM17 15a2 2 0 1 0 0 4 2 2 0 1 0 0-4"
+      clipRule="evenodd"
     />
   </Svg>
 );

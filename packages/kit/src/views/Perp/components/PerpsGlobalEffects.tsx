@@ -54,7 +54,6 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -65,6 +64,7 @@ import {
   useOrderBookTickOptionsAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsSharePrompt } from '../hooks/usePerpsSharePrompt';
 
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
@@ -75,7 +75,7 @@ function useSyncContextOrderBookOptionsToGlobal() {
   const orderBookTickOptionsRef = useRef(orderBookTickOptions);
   orderBookTickOptionsRef.current = orderBookTickOptions;
 
-  const isFocusedRef = useRef(true);
+  const isFocusedRef = useRef(false);
 
   const updateGlobalOrderBookOptions = useCallback(
     async (
@@ -333,6 +333,8 @@ function useHyperliquidAccountSelect() {
 
   const [{ refreshHook: activeAccountRefreshHook }] =
     usePerpsActiveAccountRefreshHookAtom();
+  const hasBeenFocusedRef = useRef(false);
+  const pendingSelectRef = useRef(false);
 
   const selectPerpsAccount = useCallback(async () => {
     if (!globalDeriveType) {
@@ -344,7 +346,7 @@ function useHyperliquidAccountSelect() {
       'selectPerpsAccount______555_address',
       activeAccount.account?.address,
     );
-    const _account = await actions.current.changeActivePerpsAccount({
+    await actions.current.changeActivePerpsAccount({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
       accountId: activeAccount?.account?.id || null,
       walletId: activeAccount?.wallet?.id || null,
@@ -365,7 +367,21 @@ function useHyperliquidAccountSelect() {
   const selectPerpsAccountRef = useRef(selectPerpsAccount);
   selectPerpsAccountRef.current = selectPerpsAccount;
 
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    if (isFocus && !hasBeenFocusedRef.current) {
+      hasBeenFocusedRef.current = true;
+      if (pendingSelectRef.current) {
+        pendingSelectRef.current = false;
+        void selectPerpsAccountRef.current();
+      }
+    }
+  });
+
   useEffect(() => {
+    if (!hasBeenFocusedRef.current) {
+      pendingSelectRef.current = true;
+      return;
+    }
     void selectPerpsAccount();
   }, [selectPerpsAccount]);
 
@@ -376,6 +392,10 @@ function useHyperliquidAccountSelect() {
       await timerUtils.wait(600);
       if (!perpsAccountAddressRef.current) {
         if (payload?.accounts?.find((item) => item.coinType === COINTYPE_ETH)) {
+          if (!hasBeenFocusedRef.current) {
+            pendingSelectRef.current = true;
+            return;
+          }
           await selectPerpsAccountRef.current();
         }
       }
@@ -388,6 +408,10 @@ function useHyperliquidAccountSelect() {
 
   useUpdateEffect(() => {
     if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
+      if (!hasBeenFocusedRef.current) {
+        pendingSelectRef.current = true;
+        return;
+      }
       void selectPerpsAccountRef.current();
     }
   }, [accountIsAutoCreating, indexedAccountAddressCreationState]);
@@ -476,16 +500,21 @@ function WebSocketSubscriptionUpdate() {
 
 function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
-  useEffect(() => {
-    void (async () => {
-      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-      const currentToken = await perpsActiveAssetAtom.get();
-      await actions.current.changeActiveAsset({
-        coin: currentToken.coin,
-        force: true,
-      });
-    })();
-  }, [actions]);
+  const initDoneRef = useRef(false);
+
+  useListenTabFocusState(ETabRoutes.Perp, (isFocus: boolean) => {
+    if (isFocus && !initDoneRef.current) {
+      initDoneRef.current = true;
+      void (async () => {
+        await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+        const currentToken = await perpsActiveAssetAtom.get();
+        await actions.current.changeActiveAsset({
+          coin: currentToken.coin,
+          force: true,
+        });
+      })();
+    }
+  });
 }
 
 function useHyperliquidScreenLockHandler() {
@@ -618,6 +647,7 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
+  usePerpsSharePrompt();
 
   return (
     <>
@@ -630,13 +660,10 @@ function PerpsGlobalEffectsView() {
 }
 
 const PerpsGlobalEffectsMemo = memo(() => {
-  console.log('PerpsGlobalEffectsMemo___mouted');
-
-  return (
-    <GlobalJotaiReady>
-      <PerpsGlobalEffectsView />
-    </GlobalJotaiReady>
-  );
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('PerpsGlobalEffectsMemo___mouted');
+  }
+  return <PerpsGlobalEffectsView />;
 });
 PerpsGlobalEffectsMemo.displayName = 'PerpsGlobalEffectsMemo';
 

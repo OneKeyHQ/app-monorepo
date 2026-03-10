@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 import { debounce, isEqual, noop, upperFirst } from 'lodash';
+import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,8 +14,8 @@ import {
   getDialogInstances,
   getFormInstances,
   rootNavigationRef,
-  useIsTabletDetailView,
   useShortcuts,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
@@ -27,6 +28,10 @@ import {
   EUpdateFileType,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
+import {
+  PERPS_CONFIG_FETCH_MAX_RETRIES,
+  PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+} from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -54,6 +59,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
@@ -69,7 +75,7 @@ const useOnLockCallback = platformEnv.isDesktop
 
 const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
-  : () => ({} as ReturnType<typeof useAppUpdateInfo>);
+  : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
@@ -266,9 +272,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabEarn:
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Earn, {
-                screen: ETabEarnRoutes.EarnHome,
-              });
+              navigation.switchTab(ETabRoutes.Earn);
             });
             break;
           case EShortcutEvents.TabSwap:
@@ -301,13 +305,19 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Discovery);
             });
             break;
+          case EShortcutEvents.TabDeveloper:
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Developer);
+            });
+            break;
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
-              navigation.switchTab(ETabRoutes.MultiTabBrowser, {
-                screen: EMultiTabBrowserRoutes.MultiTabBrowser,
-                params: {
-                  action: 'create_new_tab',
-                },
+              navigation.switchTab(ETabRoutes.MultiTabBrowser);
+              void timerUtils.wait(50).then(() => {
+                appEventBus.emit(
+                  EAppEventBusNames.CreateNewBrowserTab,
+                  undefined,
+                );
               });
             } else {
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
@@ -383,11 +393,21 @@ export const useFetchMarketBasicConfig = () => {
 };
 
 export const useFetchPerpConfig = () => {
-  useRunAfterTokensDone({
-    run: () => {
-      void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
-    },
-  });
+  useEffect(() => {
+    void pRetry(
+      (attemptNumber) => {
+        if (attemptNumber === 1) {
+          return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+        }
+        return backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+      },
+      {
+        retries: PERPS_CONFIG_FETCH_MAX_RETRIES,
+        minTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+        maxTimeout: PERPS_CONFIG_FETCH_RETRY_INTERVAL_MS,
+      },
+    ).catch(noop);
+  }, []);
 };
 
 const launchFloatingIconEvent = async (intl: IntlShape) => {
@@ -586,7 +606,7 @@ export const useRemindDevelopmentBuildExtension =
     : noop;
 
 export const useTabletDetailView = () => {
-  const isTabletDetailView = useIsTabletDetailView();
+  const isTabletDetailView = useSplitSubView();
   const appNavigation = useAppNavigation();
   useEffect(() => {
     if (isTabletDetailView) {

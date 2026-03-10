@@ -1324,7 +1324,10 @@ async function loadKeyMarks(sessionId = state.currentSessionId) {
     const rows = Object.entries(data.marks)
       .map(([name, info]) => {
         const sinceStart = info.first?.sinceSessionStartMs;
-        const timing = sinceStart != null ? formatMs(sinceStart) : '-';
+        const timing =
+          sinceStart !== null && sinceStart !== undefined
+            ? formatMs(sinceStart)
+            : '-';
         return `<tr>
           <td class="py-1 pr-4 font-mono text-xs">${name}</td>
           <td class="py-1 pr-4 text-right">${timing}</td>
@@ -1394,22 +1397,24 @@ async function loadHomeRefresh(sessionId = state.currentSessionId) {
           <div class="text-xs text-slate-400">Refresh Window</div>
           <div class="font-semibold">${formatMs(data.span || 0)}</div>
           <div class="text-xs text-slate-400">Start: ${
-            data.startSinceSessionStartMs != null
+            data.startSinceSessionStartMs !== null &&
+            data.startSinceSessionStartMs !== undefined
               ? formatMs(data.startSinceSessionStartMs)
               : '-'
           } → End: ${
-      data.endSinceSessionStartMs != null
-        ? formatMs(data.endSinceSessionStartMs)
-        : '-'
-    }</div>
+            data.endSinceSessionStartMs !== null &&
+            data.endSinceSessionStartMs !== undefined
+              ? formatMs(data.endSinceSessionStartMs)
+              : '-'
+          }</div>
         </div>
         <div>
           <div class="text-xs text-slate-400">Function Calls</div>
           <div class="font-semibold">${
             data.totals?.functionCalls || 0
           } calls, ${formatMs(
-      data.totals?.functionTotalDuration || 0,
-    )} total</div>
+            data.totals?.functionTotalDuration || 0,
+          )} total</div>
         </div>
       </div>
       ${
@@ -1464,8 +1469,8 @@ async function loadJsBlock(sessionId = state.currentSessionId) {
         <div class="border border-dark-border rounded p-3 mb-2">
           <div class="flex justify-between items-center mb-2">
             <div class="font-semibold text-red-400">#${i + 1} Block: ${formatMs(
-          w.span,
-        )}</div>
+              w.span,
+            )}</div>
             <div class="text-xs text-slate-400">${
               w.totals?.functionCalls || 0
             } function calls</div>
@@ -1524,8 +1529,8 @@ async function loadLowFps(sessionId = state.currentSessionId) {
             <div class="text-xs text-slate-400">FPS: ${
               w.fps?.min?.toFixed(0) || '-'
             } - ${w.fps?.max?.toFixed(0) || '-'} (avg ${
-          w.fps?.avg?.toFixed(1) || '-'
-        })</div>
+              w.fps?.avg?.toFixed(1) || '-'
+            })</div>
           </div>
           ${
             topFns

@@ -10,6 +10,7 @@ import {
   EVideoResizeMode,
   Image,
   LinearGradient,
+  Page,
   SizableText,
   Stack,
   Video,
@@ -20,9 +21,9 @@ import {
 } from '@onekeyhq/components';
 import { useIsFirstFocused } from '@onekeyhq/kit/src/hooks/useIsFirstFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 
 import type { ImageSourcePropType } from 'react-native';
 import type { OnProgressData, ReactVideoSource } from 'react-native-video';
@@ -250,13 +251,13 @@ function ButtonContainer() {
   }
 
   return (
-    <YStack width="100%" gap="$4" p="$5" testID="blank-page-mobile-buttons">
+    <YStack width="100%" gap="$4" py="$5" testID="blank-page-mobile-buttons">
       <Button size="large" variant="primary" onPress={onAddDevice}>
         {intl.formatMessage({
           id: ETranslations.global_connect_hardware_wallet,
         })}
       </Button>
-      <XStack h="$9" px="$5" justifyContent="center" alignItems="center">
+      <XStack h="$9" justifyContent="center" alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_onekey_prompt_dont_have_yet,
@@ -285,7 +286,7 @@ function DeviceGuideViewContent() {
   return (
     <YStack
       w="100%"
-      h="100%"
+      flex={1}
       gap="$8"
       bg="$bgApp"
       testID="blank-page"
@@ -294,36 +295,35 @@ function DeviceGuideViewContent() {
     >
       <VideoContainer />
 
-      <XStack
-        h="100%"
-        w="100%"
-        justifyContent="space-between"
-        alignItems={undefined}
-        flexDirection="column-reverse"
-        px="0px"
-        position="relative"
-        zIndex={1}
-        $gtMd={{
-          alignItems: 'center',
-          flexDirection: 'row',
-          px: '10%',
-        }}
-      >
-        <YStack
-          gap="$0"
-          maxWidth={undefined}
+      <Page.Container flex={1} position="relative" zIndex={1}>
+        <XStack
+          h="100%"
+          w="100%"
+          justifyContent="space-between"
           alignItems={undefined}
+          flexDirection="column-reverse"
+          px="0px"
           $gtMd={{
-            gap: '$10',
-            maxWidth: 480,
-            alignItems: 'flex-start',
-            marginTop: -48,
+            alignItems: 'center',
+            flexDirection: 'row',
           }}
         >
-          <DescriptionInfo />
-          <ButtonContainer />
-        </YStack>
-      </XStack>
+          <YStack
+            gap="$0"
+            maxWidth={undefined}
+            alignItems={undefined}
+            $gtMd={{
+              gap: '$10',
+              maxWidth: 480,
+              alignItems: 'flex-start',
+              marginTop: -48,
+            }}
+          >
+            <DescriptionInfo />
+            <ButtonContainer />
+          </YStack>
+        </XStack>
+      </Page.Container>
     </YStack>
   );
 }

@@ -166,6 +166,7 @@ class BaseApiProvider {
     await Promise.all(
       stages.map(async (n) => {
         if (n.condition) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return n.value();
         }
         return Promise.resolve();

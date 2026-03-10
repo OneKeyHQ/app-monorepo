@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPiano = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9 13v8m6-8v8M7.5 4v9h3V4zm6 0v9h3V4zM6 21h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2"
+      fillRule="evenodd"
+      d="M21 22H3V3h18zM5 20h3v-6H6.5V5H5zm6.5-6H10v6h4v-6h-1.5V5h-1zm6 0H16v6h3V5h-1.5zm-9-2h1V5h-1zm6 0h1V5h-1z"
+      clipRule="evenodd"
     />
   </Svg>
 );

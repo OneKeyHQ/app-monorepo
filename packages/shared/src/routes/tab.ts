@@ -23,6 +23,10 @@ export enum ETabRoutes {
   MultiTabBrowser = 'MultiTabBrowser',
   DeviceManagement = 'DeviceManagement',
   ReferFriends = 'ReferFriends',
+  BulkSend = 'BulkSend',
+  // Used by sub-pages (e.g. ApprovalList, BulkSend) that render a clean
+  // TabPageHeader without the parent tab's account-selector controls.
+  SubPage = 'SubPage',
 }
 
 export type ITabStackParamList = {
@@ -37,4 +41,6 @@ export type ITabStackParamList = {
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
   [ETabRoutes.DeviceManagement]: ITabDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: ITabReferFriendsParamList;
+  [ETabRoutes.BulkSend]: undefined;
+  [ETabRoutes.SubPage]: undefined;
 };

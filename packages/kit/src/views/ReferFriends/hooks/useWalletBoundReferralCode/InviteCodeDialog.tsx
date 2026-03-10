@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Dialog,
@@ -15,6 +16,7 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -55,6 +57,35 @@ export function InviteCodeDialog({
       referralCode: defaultReferralCode || '',
     },
   });
+
+  // Fetch cached invite code on mount
+  const { result: cachedCode } = usePromiseResult(
+    () => backgroundApiProxy.serviceReferralCode.getCachedInviteCode(),
+    [],
+  );
+
+  // Update form default value when cachedCode loads
+  useEffect(() => {
+    if (cachedCode && !form.getValues('referralCode')) {
+      form.setValue('referralCode', cachedCode);
+    }
+  }, [cachedCode, form]);
+
+  // Save to cache when input changes (debounced)
+  const handleCodeChange = useDebouncedCallback((value: string) => {
+    void backgroundApiProxy.serviceReferralCode.setCachedInviteCode(value);
+  }, 500);
+
+  // Watch form changes
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      if (value.referralCode !== undefined) {
+        handleCodeChange(value.referralCode);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, handleCodeChange]);
+
   const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
   const { walletsWithStatus, isLoading: isLoadingWallets } =
     useFetchWalletsWithBoundStatus();

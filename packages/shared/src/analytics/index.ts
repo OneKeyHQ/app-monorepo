@@ -74,13 +74,11 @@ export class Analytics {
       // Lazy load IP Table adapter to avoid circular dependencies in tests
       let ipTableAdapter;
       try {
-        const { isSupportIpTablePlatform } = await import(
-          '../utils/ipTableUtils'
-        );
+        const { isSupportIpTablePlatform } =
+          await import('../utils/ipTableUtils');
         if (isSupportIpTablePlatform()) {
-          const { createIpTableAdapter } = await import(
-            '../request/helpers/ipTableAdapter'
-          );
+          const { createIpTableAdapter } =
+            await import('../request/helpers/ipTableAdapter');
           ipTableAdapter = createIpTableAdapter(baseConfig);
         }
       } catch (error) {
@@ -146,9 +144,9 @@ export class Analytics {
     } as Record<string, string>;
     if (
       !platformEnv.isNative &&
-      // oxlint-disable-next-line unicorn/prefer-global-this
+      // eslint-disable-next-line unicorn/prefer-global-this
       typeof window !== 'undefined' &&
-      // oxlint-disable-next-line unicorn/prefer-global-this
+      // eslint-disable-next-line unicorn/prefer-global-this
       'location' in window
     ) {
       event.currentUrl = globalThis.location.href;

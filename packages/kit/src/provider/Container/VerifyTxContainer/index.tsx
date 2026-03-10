@@ -9,10 +9,7 @@ import {
 import { usePreCheckFeeInfo } from '../../../views/SignatureConfirm/hooks/usePreCheckFeeInfo';
 
 function BasicVerifyTxContainer() {
-  const { showFeeInfoOverflowConfirm } = usePreCheckFeeInfo({
-    accountId: '',
-    networkId: '',
-  });
+  const { showFeeInfoOverflowConfirm } = usePreCheckFeeInfo();
 
   const handler = useCallback(
     async ({ promiseId }: { promiseId: number }) => {

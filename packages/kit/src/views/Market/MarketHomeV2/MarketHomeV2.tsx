@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -150,6 +152,9 @@ function BaseMarketHome() {
 }
 
 export function MarketHomeV2() {
+  if (process.env.NODE_ENV !== 'production') {
+    debugLandingLog('MarketHomeV2 render');
+  }
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -169,17 +174,31 @@ export function MarketHomeV2() {
 
 function BaseMarketHomeWithProvider({
   isFocused = true,
+  tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
   const { mobileProps } = useMarketHomeLayoutProps();
-  return isFocused ? <MobileLayout {...mobileProps} /> : null;
+  return isFocused ? (
+    <MobileLayout
+      {...mobileProps}
+      tabsRef={tabsRef}
+      nestedPager={nestedPager}
+    />
+  ) : null;
 }
 
 export function MarketHomeWithProvider({
   isFocused = true,
+  tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
+  tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -192,7 +211,11 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider isFocused={isFocused} />
+        <BaseMarketHomeWithProvider
+          isFocused={isFocused}
+          tabsRef={tabsRef}
+          nestedPager={nestedPager}
+        />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );

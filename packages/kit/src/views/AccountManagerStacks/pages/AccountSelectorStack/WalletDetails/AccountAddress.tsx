@@ -31,9 +31,9 @@ export function AccountAddress({
   //     //   network: '11',
   //   },
   // );
-  const noAddressMessage = `${intl.formatMessage({
+  const noAddressMessage = intl.formatMessage({
     id: ETranslations.wallet_no_address,
-  })}`;
+  });
 
   if (hideAddress) {
     return null;

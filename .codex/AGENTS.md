@@ -46,8 +46,8 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 ### Deep Verification Protocol
 
 **MANDATORY CHECKS:**
-- Run complete `yarn lint` (accept 10-minute timeout for quality)
-- Execute `yarn tsc:only` for TypeScript validation
+- Run `yarn lint:staged` on staged files before committing
+- Run `yarn tsc:staged` for TypeScript validation of staged files
 - Verify no circular dependencies introduced
 - Test on all affected platforms
 - Validate against existing code patterns
@@ -125,14 +125,14 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 ### Development Tools & Quality Assurance
 
-**CRITICAL QUALITY COMMANDS** (YOU MUST run these after any code changes):
-- `yarn lint` - **MANDATORY** comprehensive linting (TypeScript, ESLint, folder structure, i18n) 
-  - **Expected runtime**: 5-10 minutes (NEVER skip due to timeout)
+**CRITICAL QUALITY COMMANDS** (YOU MUST run these before committing):
+- `yarn lint:staged` - **MANDATORY** lint staged files only
+  - **Expected runtime**: Fast, only checks modified files
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
   - **When it fails**: Check specific error categories and fix systematically
-- `yarn tsc:only` - **REQUIRED** TypeScript type checking
-  - **Expected runtime**: 30-60 seconds
-  - **Failure scenarios**: Circular dependencies, type mismatches, missing imports
+- `yarn tsc:staged` - **REQUIRED** TypeScript type checking on staged files
+  - **Expected runtime**: Fast, only checks modified files
+  - **Failure scenarios**: Type mismatches, missing imports
   - **Action required**: Fix ALL TypeScript errors before proceeding
 - `yarn test` - **MANDATORY** Jest test execution
   - **Expected runtime**: 2-5 minutes depending on test scope
@@ -140,13 +140,13 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 
 **DEVELOPMENT QUALITY WORKFLOW**:
 1. Make code changes
-2. Run `yarn tsc:only` immediately to catch type errors
-3. Run `yarn lint` to ensure code quality (accept full timeout)
+2. Stage your changes with `git add`
+3. Run `yarn lint:staged` to catch linting errors in staged files
+4. Run `yarn tsc:staged` to catch type errors in staged files
 4. Run `yarn test` to verify functionality
 5. Only proceed if ALL commands pass without errors or warnings
 
 **OTHER TOOLS**:
-- `yarn lint:only` - ESLint only (use for quick syntax checks)
 - `yarn clean` - Clean all build artifacts and node_modules
 - `yarn reinstall` - Full clean install (use when dependency issues occur)
 
@@ -201,8 +201,7 @@ OneKey is an open-source multi-chain crypto wallet with a monorepo architecture 
 **BEFORE ADDING ANY IMPORT:**
 1. Verify the import respects the hierarchy above
 2. Check if the import creates a circular dependency
-3. Run `yarn tsc:only` to validate no circular dependency introduced
-4. If unsure, find an alternative approach that respects the hierarchy
+3. If unsure, find an alternative approach that respects the hierarchy
 
 **COMMON VIOLATIONS TO AVOID:**
 - ❌ Importing from `@onekeyhq/kit` in `@onekeyhq/components`

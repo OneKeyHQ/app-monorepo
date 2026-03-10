@@ -1,15 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Switch, XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
+import { useToOnBoardingPage } from '../../Onboarding/hooks/useToOnBoardingPage';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
-import { useEarnAccount } from '../../Staking/hooks/useEarnAccount';
 import { EManagePositionType } from '../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { EBorrowDataStatus } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
@@ -28,18 +29,46 @@ import { Card } from './Card';
 type ISupplyAsset = IBorrowReserveItem['supply']['assets'][number];
 
 export const SupplyCard = () => {
-  const { reserves, market, borrowDataStatus } = useBorrowContext();
+  const { reserves, market, borrowDataStatus, earnAccount } =
+    useBorrowContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { earnAccount } = useEarnAccount({ networkId: market?.networkId });
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const { gtMd, gtLg } = useMedia();
   const [showZeroBalance, setShowZeroBalance] = useState(true);
-  const accountId = earnAccount?.account?.id || '';
-  const walletId = earnAccount?.walletId || '';
-  const indexedAccountId = earnAccount?.account?.indexedAccountId;
+  const accountId = earnAccount.data?.account?.id || '';
+  const walletId = earnAccount.data?.walletId || '';
+  const indexedAccountId = earnAccount.data?.account?.indexedAccountId;
+  const noConnectedWallet = useMemo(
+    () =>
+      activeAccount.ready &&
+      !activeAccount.wallet?.id &&
+      !activeAccount.account?.id &&
+      !activeAccount.indexedAccount?.id,
+    [
+      activeAccount.ready,
+      activeAccount.wallet?.id,
+      activeAccount.account?.id,
+      activeAccount.indexedAccount?.id,
+    ],
+  );
+
+  const toOnBoardingPage = useToOnBoardingPage();
+
+  // Use ref to hold the latest value of noConnectedWallet.
+  // This avoids stale closure issues caused by TableList's custom memo
+  // comparator (compareTableListProps) which uses stringify for columns
+  // (losing function references) and skips onPressRow comparison.
+  const noConnectedWalletRef = useRef(noConnectedWallet);
+  noConnectedWalletRef.current = noConnectedWallet;
 
   const handleManageSupply = useCallback(
     (item: ISupplyAsset) => {
+      // Read from ref to avoid stale closure from TableList memo caching
+      if (noConnectedWalletRef.current) {
+        void toOnBoardingPage();
+        return;
+      }
       if (!market) return;
 
       BorrowNavigation.pushToBorrowManagePosition(navigation, {
@@ -52,10 +81,9 @@ export const SupplyCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Supply,
-        borrowReserves: reserves ?? undefined,
       });
     },
-    [navigation, market, accountId, reserves],
+    [noConnectedWalletRef, toOnBoardingPage, navigation, market, accountId],
   );
 
   const handlePressRow = useCallback(
@@ -74,7 +102,10 @@ export const SupplyCard = () => {
           indexedAccountId,
         });
       } else {
-        // Mobile: open Supply dialog
+        // Mobile: block disabled supply assets (e.g. already borrowed)
+        if (!noConnectedWalletRef.current && item.supplyButton?.disabled) {
+          return;
+        }
         handleManageSupply(item);
       }
     },
@@ -86,18 +117,35 @@ export const SupplyCard = () => {
     borrowDataStatus === EBorrowDataStatus.WaitingForAccount ||
     borrowDataStatus === EBorrowDataStatus.LoadingReserves;
 
+  // Per-row disabled state: dim + block tap for disabled supply assets on mobile.
+  // Desktop rows navigate to details (still useful), so only mobile rows are disabled.
+  // Uses noConnectedWalletRef to avoid stale closure from TableList memo.
+  const getListItemProps = useCallback(
+    (item: ISupplyAsset) => {
+      if (gtMd) return undefined;
+      if (noConnectedWalletRef.current) return undefined;
+      return item.supplyButton?.disabled ? { disabled: true } : undefined;
+    },
+    [gtMd],
+  );
+
+  const supplyListProps = useMemo(
+    () => ({ listItemProps: getListItemProps }),
+    [getListItemProps],
+  );
+
   // Filter data based on showZeroBalance (mobile always shows all assets)
   const filteredAssets = useMemo(() => {
-    if (!reserves?.supply?.assets) return [];
+    if (!reserves.data?.supply?.assets) return [];
     // Mobile: always show all assets
-    if (!gtMd) return reserves.supply.assets;
+    if (!gtMd) return reserves.data.supply.assets;
     // Desktop: filter based on showZeroBalance toggle
-    if (showZeroBalance) return reserves.supply.assets;
-    return reserves.supply.assets.filter((asset) => {
+    if (showZeroBalance) return reserves.data.supply.assets;
+    return reserves.data.supply.assets.filter((asset) => {
       const balance = new BigNumber(asset?.walletBalance?.title?.text || '0');
       return balance.gt(0);
     });
-  }, [reserves?.supply?.assets, showZeroBalance, gtMd]);
+  }, [reserves.data?.supply?.assets, showZeroBalance, gtMd]);
 
   const labels = useMemo(
     () => ({
@@ -213,17 +261,25 @@ export const SupplyCard = () => {
             buttonText={<EarnText text={{ text: labels.supply }} />}
             item={item}
             onPress={() => handleManageSupply(item)}
-            needAdditionButton={gtLg}
+            needAdditionButton={gtLg ? !noConnectedWallet : undefined}
             accountId={accountId}
             walletId={walletId}
             indexedAccountId={indexedAccountId}
-            disabled={item.supplyButton?.disabled}
+            disabled={noConnectedWallet ? false : item.supplyButton?.disabled}
           />
         ),
         flex: 1,
       },
     ],
-    [handleManageSupply, gtLg, accountId, walletId, indexedAccountId, labels],
+    [
+      handleManageSupply,
+      gtLg,
+      noConnectedWallet,
+      accountId,
+      walletId,
+      indexedAccountId,
+      labels,
+    ],
   );
 
   return (
@@ -236,6 +292,7 @@ export const SupplyCard = () => {
         emptyContent={labels.noAssetsToSupply}
         defaultSortKey="balance"
         defaultSortDirection="desc"
+        listProps={supplyListProps}
       />
     </Card>
   );

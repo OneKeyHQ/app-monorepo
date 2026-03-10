@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { YStack } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
@@ -63,6 +63,7 @@ export type ISwapPanelContentProps = {
   currentMarketToken?: ISwapToken;
   enableAddressTypeSelector: boolean;
   activeAccount: IAccountSelectorActiveAccountInfo;
+  speedCheckError?: string;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -87,6 +88,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     isWrapped,
     hasInitialReady,
     currentMarketToken,
+    speedCheckError,
   } = props;
 
   const {
@@ -126,7 +128,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       const maxAmount = BigNumber.max(
         0,
         balance.minus(new BigNumber(reserveGas)),
-      ).decimalPlaces(balanceToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
+      ).decimalPlaces(
+        Number(balanceToken?.decimals ?? 6),
+        BigNumber.ROUND_DOWN,
+      );
 
       if (tradeType === ESwapDirection.BUY) {
         setPaymentAmount(maxAmount);
@@ -172,7 +177,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tradeType === ESwapDirection.BUY
           ? paymentAmountRef.current?.toFixed()
           : sellAmountRef.current?.toFixed(),
-      ).decimalPlaces(balanceToken?.decimals ?? 0, BigNumber.ROUND_DOWN);
+      ).decimalPlaces(
+        Number(balanceToken?.decimals ?? 0),
+        BigNumber.ROUND_DOWN,
+      );
       if (tradeType === ESwapDirection.BUY) {
         setPaymentAmount(changeAmount);
         tokenBuyInputRef.current?.setValue(changeAmount.toFixed());
@@ -193,7 +201,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 
-      <YStack gap="$2" mt="$2">
+      <YStack gap="$3">
         {/* Token input section */}
         <SwapPanelTop
           enableAddressTypeSelector={enableAddressTypeSelector}
@@ -248,7 +256,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         ) : null}
       </YStack>
 
+      {speedCheckError ? (
+        <SizableText size="$bodyMd" color="$textCritical">
+          {speedCheckError}
+        </SizableText>
+      ) : null}
+
       {!isApproved &&
+      !speedCheckError &&
       currentInputAmount.gt(0) &&
       balance.gte(currentInputAmount) ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />
@@ -266,6 +281,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           balance={balance}
           isWrapped={isWrapped}
           networkId={networkId}
+          disabled={!!speedCheckError}
           onSwapAction={() =>
             swapAnalytics.logSwapAction({
               tradeType,

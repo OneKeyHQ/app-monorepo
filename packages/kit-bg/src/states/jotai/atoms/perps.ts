@@ -20,6 +20,7 @@ import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
 // #region Active Account
@@ -148,7 +149,7 @@ export const {
       details?.activatedOk &&
       details?.internalRebateBoundOk;
     const isReadOnlyAccount = account?.accountId
-      ? accountUtils.isOthersAccount({ accountId: account.accountId })
+      ? accountUtils.isWatchingAccount({ accountId: account.accountId })
       : false;
     const accountNotSupport =
       (!account?.accountAddress && !account?.indexedAccountId) ||
@@ -264,6 +265,16 @@ export const {
   },
 });
 
+// Token Selector Dynamic Tabs (from server config)
+// null = not loaded yet, [] = loaded but server returned no tabs
+export const {
+  target: perpTokenSelectorTabsAtom,
+  use: usePerpTokenSelectorTabsAtom,
+} = globalAtom<IPerpDynamicTab[] | null>({
+  name: EAtomNames.perpTokenSelectorTabsAtom,
+  initialValue: null,
+});
+
 export type IPerpFavoritesDisplayMode = 'price' | 'percent';
 
 export interface IPerpTokenFavorites {
@@ -302,6 +313,7 @@ export const {
 // #region Settings & Config
 export interface IPerpsCommonConfigPersistAtom {
   perpConfigCommon: IPerpCommonConfig;
+  perpConfigLoaded?: boolean;
 }
 export const {
   target: perpsCommonConfigPersistAtom,
@@ -311,8 +323,9 @@ export const {
   persist: true,
   initialValue: {
     perpConfigCommon: {
-      disablePerp: true, // Default to hide perps tab, will be overridden by server config
+      disablePerp: true, // Default to hide perps tab, gated by perpConfigLoaded
     },
+    perpConfigLoaded: false,
   },
 });
 
@@ -455,6 +468,7 @@ export const {
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;
+  pingMs?: number | null;
 }
 
 export const {
@@ -542,21 +556,13 @@ export const {
 });
 
 export interface IPerpsLayoutState {
-  main: {
-    marketRatio: number;
-  };
-  leftPanel: {
-    chartsRatio: number;
-  };
-  orderBook: {
+  orderBook?: {
     visible: boolean;
   };
   resetAt?: number;
 }
 
-export const DEFAULT_PERPS_LAYOUT_STATE: Omit<IPerpsLayoutState, 'resetAt'> = {
-  main: { marketRatio: 90 },
-  leftPanel: { chartsRatio: 60 },
+export const DEFAULT_PERPS_LAYOUT_STATE: IPerpsLayoutState = {
   orderBook: { visible: true },
 };
 
@@ -566,3 +572,18 @@ export const { target: perpsLayoutStateAtom, use: usePerpsLayoutStateAtom } =
     persist: true,
     initialValue: DEFAULT_PERPS_LAYOUT_STATE,
   });
+
+// #region Footer Ticker
+export type IPerpsFooterTickerMode = 'popular' | 'favorites' | 'none';
+
+export const {
+  target: perpsFooterTickerModePersistAtom,
+  use: usePerpsFooterTickerModePersistAtom,
+} = globalAtom<{ mode: IPerpsFooterTickerMode }>({
+  name: EAtomNames.perpsFooterTickerModePersistAtom,
+  persist: true,
+  initialValue: {
+    mode: 'popular',
+  },
+});
+// #endregion

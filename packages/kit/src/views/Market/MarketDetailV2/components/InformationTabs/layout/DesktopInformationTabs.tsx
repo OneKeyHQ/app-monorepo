@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Tabs, YStack } from '@onekeyhq/components';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -35,7 +36,7 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
       top={0}
       zIndex={10}
     >
-      <Tabs.TabBar {...props} />
+      <Tabs.TabBar {...props} textSize="$bodyMdMedium" />
       <StickyHeader firstTabName={firstTabName} />
     </YStack>
   );
@@ -139,6 +140,7 @@ export function DesktopInformationTabs({
       key={tabsKey}
       renderTabBar={renderTabBar}
       onTabChange={handleTabChange}
+      disableScroll={!platformEnv.isNative}
     >
       {tabs}
     </Tabs.Container>

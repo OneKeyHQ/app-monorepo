@@ -108,6 +108,8 @@ export class SendScene extends BaseScene {
     tokenAddress,
     feeToken,
     feeFiatValue,
+    txnParseType,
+    txnOrigin,
     tronIsResourceRentalNeeded,
     tronIsResourceRentalEnabled,
     tronIsSwapTrxEnabled,
@@ -118,6 +120,8 @@ export class SendScene extends BaseScene {
   }: {
     network: string | undefined;
     txnType: string | undefined;
+    txnParseType: string | undefined;
+    txnOrigin: string | undefined;
     interactContract: string | undefined;
     tokenType: string | undefined;
     tokenSymbol: string | undefined;
@@ -135,6 +139,8 @@ export class SendScene extends BaseScene {
     return {
       network,
       txnType,
+      txnParseType,
+      txnOrigin,
       interactContract,
       tokenType,
       tokenSymbol,

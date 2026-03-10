@@ -38,6 +38,7 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
 export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://1key.so',
   'https://onekey.so',
+  'https://onekeytest.com',
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
 ];
 
@@ -84,8 +85,9 @@ export function isProviderApiPrivateAllowedMethod(method?: string) {
 
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {
   return (
-    !!origin &&
-    (origin.endsWith('.onekey.so') ||
+    origin &&
+    (origin?.endsWith('.onekey.so') ||
+      origin?.endsWith('.onekeytest.com') ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }

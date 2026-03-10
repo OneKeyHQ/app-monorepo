@@ -4,7 +4,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIsFocused } from '@react-navigation/core';
 import { get, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Button, Dialog, Stack, Toast, XStack } from '@onekeyhq/components';
 import type { IDBCreateHwWalletParamsBase } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -40,7 +41,6 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useHelpLink } from '../../../hooks/useHelpLink';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
@@ -240,8 +240,6 @@ export function useDeviceConnect({
     [navigation],
   );
 
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
-
   const _handleNotActivatedDevicePress = useCallback(
     ({ deviceType }: { deviceType: IDeviceType }) => {
       const dialog = Dialog.show({
@@ -304,7 +302,7 @@ export function useDeviceConnect({
                         flex={1}
                         size="large"
                         $gtMd={{ size: 'medium' } as any}
-                        onPress={() => Linking.openURL(requestsUrl)}
+                        onPress={() => showIntercom()}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
@@ -340,7 +338,7 @@ export function useDeviceConnect({
         showFooter: false,
       });
     },
-    [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
+    [handleRestoreWalletPress, handleSetupNewWalletPress, intl],
   );
 
   // Shared device connection handler

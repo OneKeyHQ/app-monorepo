@@ -11,8 +11,15 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import {
+  MarketPerpsStarV2,
+  MarketStarV2,
+} from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
+import {
+  LeverageBadge,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -40,8 +47,6 @@ export const useColumnsDesktop = (
   copyFrom?: ECopyFrom,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
 
   return [
@@ -55,13 +60,18 @@ export const useColumnsDesktop = (
       columnWidth: 50,
       render: (_: unknown, record: IMarketToken) => (
         <Stack pl="$2">
-          <MarketStarV2
-            chainId={record.chainId || networkId || ''}
-            contractAddress={record.address}
-            from={watchlistFrom || EWatchlistFrom.Homepage}
-            tokenSymbol={record.symbol}
-            size="small"
-          />
+          {record.perpsCoin ? (
+            <MarketPerpsStarV2 perpsCoin={record.perpsCoin} size="small" />
+          ) : (
+            <MarketStarV2
+              chainId={record.chainId || networkId || ''}
+              contractAddress={record.address}
+              from={watchlistFrom || EWatchlistFrom.Homepage}
+              tokenSymbol={record.symbol}
+              size="small"
+              isNative={record.isNative}
+            />
+          )}
         </Stack>
       ),
       renderSkeleton: () => (
@@ -72,18 +82,46 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
       columnWidth: 200,
-      render: (_: unknown, record: IMarketToken) => (
-        <TokenIdentityItem
-          tokenLogoURI={record.tokenImageUri}
-          networkLogoURI={record.networkLogoUri}
-          networkId={record.networkId}
-          symbol={record.symbol}
-          address={record.address}
-          showCopyButton
-          copyFrom={copyFrom || ECopyFrom.Homepage}
-          communityRecognized={record.communityRecognized}
-        />
-      ),
+      render: (_: unknown, record: IMarketToken) =>
+        record.perpsCoin ? (
+          <XStack alignItems="center" gap="$3" userSelect="none">
+            <Token
+              size="md"
+              borderRadius="$full"
+              tokenImageUri={record.tokenImageUri}
+              fallbackIcon="CryptoCoinOutline"
+            />
+            <Stack flex={1} minWidth={0}>
+              <XStack alignItems="center" gap="$1">
+                <SizableText
+                  size="$bodyLgMedium"
+                  numberOfLines={1}
+                  maxWidth="$32"
+                >
+                  {record.symbol}
+                </SizableText>
+                {record.maxLeverage ? (
+                  <LeverageBadge leverage={record.maxLeverage} />
+                ) : null}
+                {record.perpsSubtitle ? (
+                  <SubtitleBadge subtitle={record.perpsSubtitle} />
+                ) : null}
+              </XStack>
+            </Stack>
+          </XStack>
+        ) : (
+          <TokenIdentityItem
+            tokenLogoURI={record.tokenImageUri}
+            networkLogoURI={record.networkLogoUri}
+            networkId={record.networkId}
+            symbol={record.symbol}
+            address={record.address}
+            showCopyButton
+            copyFrom={copyFrom || ECopyFrom.Homepage}
+            communityRecognized={record.communityRecognized}
+            stock={record.stock}
+          />
+        ),
       renderSkeleton: () => (
         <XStack alignItems="center" gap="$3">
           <XStack position="relative">
@@ -105,7 +143,7 @@ export const useColumnsDesktop = (
           <NumberSizeableText
             size="$bodyMd"
             formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
-            formatterOptions={{ currency, capAtMaxT: true }}
+            formatterOptions={{ currency: '$', capAtMaxT: true }}
           >
             {text}
           </NumberSizeableText>
@@ -135,36 +173,40 @@ export const useColumnsDesktop = (
       },
       renderSkeleton: () => <Skeleton width={60} height={16} />,
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.global_market_cap }),
-      dataIndex: 'marketCap',
-      columnProps: { flex: 1 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="marketCap"
-          formatterOptions={{ currency, capAtMaxT: true }}
-        >
-          {text === 0 ? '--' : text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={80} height={16} />,
-    },
-    {
-      title: intl.formatMessage({ id: ETranslations.global_liquidity }),
-      dataIndex: 'liquidity',
-      columnProps: { flex: 1.2 },
-      render: (text: number) => (
-        <NumberSizeableText
-          size="$bodyMd"
-          formatter="marketCap"
-          formatterOptions={{ currency }}
-        >
-          {text === 0 ? '--' : text}
-        </NumberSizeableText>
-      ),
-      renderSkeleton: () => <Skeleton width={100} height={16} />,
-    },
+    isWatchlistMode
+      ? undefined
+      : {
+          title: intl.formatMessage({ id: ETranslations.global_market_cap }),
+          dataIndex: 'marketCap',
+          columnProps: { flex: 1 },
+          render: (text: number) => (
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ currency: '$', capAtMaxT: true }}
+            >
+              {text === 0 ? '--' : text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={80} height={16} />,
+        },
+    isWatchlistMode
+      ? undefined
+      : {
+          title: intl.formatMessage({ id: ETranslations.global_liquidity }),
+          dataIndex: 'liquidity',
+          columnProps: { flex: 1.2 },
+          render: (text: number) => (
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ currency: '$' }}
+            >
+              {text === 0 ? '--' : text}
+            </NumberSizeableText>
+          ),
+          renderSkeleton: () => <Skeleton width={100} height={16} />,
+        },
     {
       title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
       dataIndex: 'turnover',
@@ -173,31 +215,33 @@ export const useColumnsDesktop = (
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency }}
+          formatterOptions={{ currency: '$' }}
         >
           {text === 0 ? '--' : text}
         </NumberSizeableText>
       ),
       renderSkeleton: () => <Skeleton width={100} height={16} />,
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
-      dataIndex: 'transactions',
-      columnProps: { flex: 1 },
-      render: (text: number, record: IMarketToken) => (
-        <Txns transactions={text} walletInfo={record.walletInfo} />
-      ),
-      renderSkeleton: () => (
-        <YStack gap="$1" alignItems="flex-start">
-          <Skeleton width={50} height={14} />
-          <XStack gap="$1">
-            <Skeleton width={20} height={12} />
-            <Skeleton width={20} height={12} />
-          </XStack>
-        </YStack>
-      ),
-    },
-    gtLg
+    isWatchlistMode
+      ? undefined
+      : {
+          title: intl.formatMessage({ id: ETranslations.dexmarket_txns }),
+          dataIndex: 'transactions',
+          columnProps: { flex: 1 },
+          render: (text: number, record: IMarketToken) => (
+            <Txns transactions={text} walletInfo={record.walletInfo} />
+          ),
+          renderSkeleton: () => (
+            <YStack gap="$1" alignItems="flex-start">
+              <Skeleton width={50} height={14} />
+              <XStack gap="$1">
+                <Skeleton width={20} height={12} />
+                <Skeleton width={20} height={12} />
+              </XStack>
+            </YStack>
+          ),
+        },
+    gtLg && !isWatchlistMode
       ? {
           title: intl.formatMessage({ id: ETranslations.dexmarket_traders }),
           dataIndex: 'uniqueTraders',
@@ -210,7 +254,7 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-    gtXl
+    gtXl && !isWatchlistMode
       ? {
           title: intl.formatMessage({ id: ETranslations.dexmarket_holders }),
           dataIndex: 'holders',

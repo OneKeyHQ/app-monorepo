@@ -28,9 +28,11 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
+  onBeforeLogout,
   onLogoutSuccess,
 }: {
   handleActionListClose: () => void;
+  onBeforeLogout?: () => void;
   onLogoutSuccess?: () => Promise<void>;
 }) {
   const { logout, user } = useOneKeyAuth();
@@ -163,6 +165,18 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       />
       <ActionList.Item
         label={intl.formatMessage({
+          id: ETranslations.prime_my_order,
+        })}
+        icon="CartOutline"
+        onClose={handleActionListClose}
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeMyOrders,
+          });
+        }}
+      />
+      <ActionList.Item
+        label={intl.formatMessage({
           id: ETranslations.prime_log_out,
         })}
         icon="LogoutOutline"
@@ -180,6 +194,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               id: ETranslations.prime_log_out,
             }),
             onConfirm: async () => {
+              onBeforeLogout?.();
               defaultLogger.prime.subscription.onekeyIdLogout({
                 reason: 'PrimeUserInfoMoreButton Logout Button',
               });
@@ -194,8 +209,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
 }
 
 export function PrimeUserInfoMoreButton({
+  onBeforeLogout,
   onLogoutSuccess,
 }: {
+  onBeforeLogout?: () => void;
   onLogoutSuccess?: () => Promise<void>;
 }) {
   const renderItems = useCallback(
@@ -207,10 +224,11 @@ export function PrimeUserInfoMoreButton({
     }) => (
       <PrimeUserInfoMoreButtonDropDownMenu
         handleActionListClose={handleActionListClose}
+        onBeforeLogout={onBeforeLogout}
         onLogoutSuccess={onLogoutSuccess}
       />
     ),
-    [onLogoutSuccess],
+    [onBeforeLogout, onLogoutSuccess],
   );
   return (
     <ActionList

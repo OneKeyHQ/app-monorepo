@@ -22,7 +22,7 @@ function MarketBannerItemSkeletonComponent() {
         minWidth: 180,
         maxWidth: 256,
         width: 'auto',
-        h: '100%',
+        h: 'auto',
         p: '$4',
         gap: '$3',
         alignItems: 'center',

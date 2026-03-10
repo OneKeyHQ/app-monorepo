@@ -8,8 +8,8 @@ import { init } from './utils/init';
 
 const PageIndex = lazy(() => import('./pages/PageIndex'));
 const PageWebEmbedApi = lazy(() => import('./pages/PageWebEmbedApi'));
-const PageWebEmbedPrimePurchase = lazy(() =>
-  import('./pages/PageWebEmbedPrimePurchase'),
+const PageWebEmbedPrimePurchase = lazy(
+  () => import('./pages/PageWebEmbedPrimePurchase'),
 );
 
 const container = document.getElementById('root');

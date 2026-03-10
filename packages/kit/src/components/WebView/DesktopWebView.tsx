@@ -60,6 +60,7 @@ void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url) => {
 });
 
 // Used for webview type referencing
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const WEBVIEW_TAG = 'webview';
 
 const DesktopWebView = forwardRef(
@@ -80,6 +81,7 @@ const DesktopWebView = forwardRef(
       // @ts-expect-error
       onNewWindow,
       onDomReady,
+      onShouldStartLoadWithRequest,
       ...props
     }: ComponentProps<typeof WEBVIEW_TAG> &
       IElectronWebViewEvents &
@@ -169,6 +171,16 @@ const DesktopWebView = forwardRef(
           event: DidStartNavigationEvent,
         ) => {
           const { isMainFrame, url } = event ?? {};
+          if (isMainFrame && onShouldStartLoadWithRequest && url) {
+            const shouldLoad = onShouldStartLoadWithRequest({
+              url,
+              isTopFrame: true,
+            });
+            if (!shouldLoad) {
+              webviewRef.current?.stop();
+              return;
+            }
+          }
           if (isMainFrame) {
             setDesktopLoadError(false);
             setIsDomReady(false);
@@ -232,6 +244,7 @@ const DesktopWebView = forwardRef(
       onPageTitleUpdated,
       onDidStartNavigation,
       onLoadEnd,
+      onShouldStartLoadWithRequest,
     ]);
     if (isDev && props.preload) {
       console.warn(

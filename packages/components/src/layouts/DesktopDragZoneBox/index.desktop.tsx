@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Stack } from '../../primitives';
 
 import type { IDesktopDragZoneBoxProps } from './index.type';
@@ -45,6 +46,6 @@ function DesktopDragZoneBoxMac({
   );
 }
 
-export const DesktopDragZoneBox = platformEnv.isDesktopMac
+export const DesktopDragZoneBox = platformEnv.isDesktopWithCustomTitleBar
   ? DesktopDragZoneBoxMac
   : BaseDesktopDragZoneBox;

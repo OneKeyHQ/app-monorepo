@@ -8,16 +8,24 @@ import {
   ListView,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ScrollableFilterBar,
+  useScrollableFilterBar,
+} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllAssetsFilteredAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpTokenSelectorConfigPersistAtom,
+  usePerpTokenSelectorTabsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -35,6 +43,7 @@ import {
 
 import {
   type IFavoriteItem,
+  usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
@@ -45,28 +54,36 @@ import { FavoritesEmptyState } from './FavoritesEmptyState';
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 import type { ITokenSelectorListItem } from './PerpTokenSelector';
+import type { LayoutChangeEvent } from 'react-native';
 
 function TabItem({
+  id,
   name,
   isFocused,
   onPress,
 }: {
+  id: string;
   name: string;
   isFocused: boolean;
   onPress: () => void;
 }) {
+  const { handleItemLayout } = useScrollableFilterBar();
   return (
     <XStack
-      pb="$3"
-      ml="$5"
-      mr="$2"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
+      alignItems="center"
+      justifyContent="center"
+      px="$2.5"
+      py="$1.5"
+      borderRadius="$full"
+      userSelect="none"
+      cursor="default"
+      backgroundColor={isFocused ? '$bgActive' : '$transparent'}
       onPress={onPress}
-      cursor="pointer"
+      onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
     >
       <SizableText
-        size="$headingXs"
+        numberOfLines={1}
+        size="$bodyMdMedium"
         color={isFocused ? '$text' : '$textSubdued'}
       >
         {name}
@@ -85,36 +102,40 @@ function MobileTokenSelectorModal({
   const actions = useHyperliquidActions();
   const { searchQuery, setSearchQuery } = usePerpTokenSelector();
 
-  const handleSelectToken = async (symbol: string) => {
-    try {
-      onLoadingChange(true);
-      navigation.popStack();
-      await actions.current.changeActiveAsset({ coin: symbol });
-    } catch (error) {
-      console.error('Failed to switch token:', error);
-    } finally {
-      onLoadingChange(false);
-    }
-  };
+  const handleSelectToken = useCallback(
+    async (symbol: string) => {
+      try {
+        onLoadingChange(true);
+        navigation.popStack();
+        await actions.current.changeActiveAsset({ coin: symbol });
+      } catch (error) {
+        console.error('Failed to switch token:', error);
+      } finally {
+        onLoadingChange(false);
+      }
+    },
+    [onLoadingChange, navigation, actions],
+  );
 
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const { favoriteItems } = usePerpsFavorites();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
+  const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
+  const dynamicTabs = useMemo(() => dynamicTabsRaw ?? [], [dynamicTabsRaw]);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
   const tabLabels = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
-      all: 'PERPS',
-      hip3: 'HIP3',
+      all: intl.formatMessage({ id: ETranslations.perps_token_selector_perps }),
     }),
     [intl],
   );
   const setActiveTab = useCallback(
-    (tab: 'all' | 'hip3' | 'favorites') => {
+    (tab: string) => {
       setSelectorConfig((prev) => ({
         field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
         direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
@@ -201,7 +222,6 @@ function MobileTokenSelectorModal({
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
-        if (activeTab === 'hip3' && dexIndex !== 1) return [];
         const ctxs = assetCtxsByDexTyped[dexIndex] || [];
         return assets.map((asset, index) => {
           const normalizedAssetId =
@@ -229,7 +249,7 @@ function MobileTokenSelectorModal({
         assetId: entry.assetId,
       }));
     } else {
-      const sorted = [...combinedEntries].toSorted((a, b) =>
+      const sorted = combinedEntries.toSorted((a, b) =>
         sortCompare(
           { asset: a.asset, sortValues: a.sortValues },
           { asset: b.asset, sortValues: b.sortValues },
@@ -251,16 +271,43 @@ function MobileTokenSelectorModal({
       );
     }
 
+    // Check if activeTab is a dynamic tab
+    const dynamicTab = dynamicTabs.find((t) => t.tabId === activeTab);
+    if (dynamicTab) {
+      const tokenSet = new Set(dynamicTab.tokens);
+      const matchingIds = new Set(
+        combinedEntries
+          .filter((entry) => tokenSet.has(entry.asset.name))
+          .map((entry) => `${entry.dexIndex}-${entry.assetId}`),
+      );
+      return result.filter((item) =>
+        matchingIds.has(`${item.dexIndex}-${item.assetId}`),
+      );
+    }
+
     return result;
   }, [
     activeTab,
     assetCtxsByDex,
     assetsByDex,
     computeSortValues,
+    dynamicTabs,
     favoriteItems,
     sortCompare,
     selectorConfig?.field,
   ]);
+
+  // Show all server-configured dynamic tabs regardless of search results.
+  // Filtering by search-filtered assetsByDex would hide tabs during search.
+  const visibleDynamicTabs = dynamicTabs;
+
+  usePerpActiveTabValidation({
+    activeTab,
+    setActiveTab,
+    assetsByDex,
+    dynamicTabs: dynamicTabsRaw,
+    visibleDynamicTabs,
+  });
 
   const keyExtractor = useCallback(
     (item: { dexIndex: number; assetId?: number; index: number }) => {
@@ -311,10 +358,10 @@ function MobileTokenSelectorModal({
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.token_selector_title })}
+        title={intl.formatMessage({ id: ETranslations.perps_search_perps })}
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({
-            id: ETranslations.global_search_asset,
+            id: ETranslations.global_search,
           }),
           onChangeText: ({ nativeEvent }) => {
             const afterTrim = nativeEvent.text.trim();
@@ -323,26 +370,41 @@ function MobileTokenSelectorModal({
           searchBarInputValue: undefined, // keep value undefined to make SearchBar Input debounce works
         }}
       />
-      <XStack
-        mb="$2"
+      <Stack
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
+        flexShrink={0}
       >
-        <XStack flex={1}>
-          {(['favorites', 'all', 'hip3'] as const).map((tabKey) => (
+        <ScrollableFilterBar
+          selectedItemId={activeTab}
+          itemGap="$2"
+          itemPr="$3"
+          contentContainerStyle={{ px: '$4', pb: '$2.5' }}
+        >
+          {(['favorites', 'all'] as const).map((tabKey) => (
             <TabItem
               key={tabKey}
+              id={tabKey}
               name={tabLabels[tabKey]}
               isFocused={activeTab === tabKey}
               onPress={() => setActiveTab(tabKey)}
             />
           ))}
-        </XStack>
-      </XStack>
+          {visibleDynamicTabs.map((tab) => (
+            <TabItem
+              key={tab.tabId}
+              id={tab.tabId}
+              name={tab.name}
+              isFocused={activeTab === tab.tabId}
+              onPress={() => setActiveTab(tab.tabId)}
+            />
+          ))}
+        </ScrollableFilterBar>
+      </Stack>
       <XStack
         px="$5"
         pb="$3"
-        pt="$1"
+        pt="$3"
         justifyContent="space-between"
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
@@ -351,8 +413,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('volume24h')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"
@@ -374,8 +436,8 @@ function MobileTokenSelectorModal({
           gap="$1"
           alignItems="center"
           onPress={() => handleSortPress('change24hPercent')}
-          cursor="pointer"
           userSelect="none"
+          cursor="default"
         >
           <SizableText
             size="$bodySm"

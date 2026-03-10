@@ -115,7 +115,7 @@ const mapTransferInfo = (
   const symbol = info?.symbol ?? '';
   const resolvedAddress = info?.address?.trim()
     ? info.address
-    : tokenAddressMap[symbol] ?? '';
+    : (tokenAddressMap[symbol] ?? '');
 
   return {
     address: resolvedAddress,

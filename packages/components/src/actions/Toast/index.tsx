@@ -11,6 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
+import { usePageWidth } from '../../hooks/usePage';
 import { useMedia } from '../../hooks/useStyle';
 import {
   Icon,
@@ -19,7 +20,6 @@ import {
   View,
   XStack,
   YStack,
-  // oxlint-disable-next-line import/no-cycle
 } from '../../primitives';
 import { Spinner } from '../../primitives/Spinner/Spinner';
 
@@ -127,7 +127,8 @@ export function ToastContent({
   actions?: IToastProps['actions'];
   actionsAlign?: 'left' | 'right';
 }) {
-  const { height, width } = useWindowDimensions();
+  const { height } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   const media = useMedia();
   useEffect(
     () => () => {
@@ -142,7 +143,7 @@ export function ToastContent({
       maxHeight={height - 100}
       $platform-native={{
         maxHeight: height - 200,
-        width: Math.min(width, 640) - 64,
+        width: Math.min(pageWidth, 640) - 64,
       }}
       $platform-web={{
         overflow: 'hidden',
@@ -251,6 +252,7 @@ function toastMessage({
   onClose,
 }: IToastBaseProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
+  if (!handleClose) return;
   return showMessage({
     renderContent: (props) => (
       <ToastContent
@@ -279,7 +281,7 @@ function ToastNotificationContent({
   onClose,
   onPress,
 }: IToastNotificationProps) {
-  const { width } = useWindowDimensions();
+  const pageWidth = usePageWidth();
   useEffect(
     () => () => {
       onClose?.();
@@ -304,7 +306,7 @@ function ToastNotificationContent({
       onPress={handlePress}
       flex={1}
       $platform-native={{
-        width: Math.min(width, 640) - 64,
+        width: Math.min(pageWidth, 640) - 64,
       }}
     >
       <XStack
@@ -354,6 +356,7 @@ function toastNotification({
   onClose,
 }: IToastNotificationProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
+  if (!handleClose) return;
   return showMessage({
     renderContent: (_props) => (
       <ToastNotificationContent

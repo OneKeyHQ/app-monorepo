@@ -10,35 +10,37 @@ import {
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const useOrientation = () => {
-  const [isLandscape, setIsLandscape] = useState(
-    Dimensions.get('window').width > Dimensions.get('window').height,
-  );
-
-  const isSpanning = useIsSpanningInDualScreen();
-
-  useEffect(() => {
-    const handleOrientationChange = (
-      event: ScreenOrientation.OrientationChangeEvent,
-    ) => {
-      setIsLandscape(
-        event.orientationInfo.orientation ===
-          ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
-          event.orientationInfo.orientation ===
-            ScreenOrientation.Orientation.LANDSCAPE_RIGHT,
+export const useIsSplitView = isDualScreenDevice()
+  ? () => {
+      const isSpanning = useIsSpanningInDualScreen();
+      return isSpanning;
+    }
+  : () => {
+      const [isLandscape, setIsLandscape] = useState(
+        Dimensions.get('window').width > Dimensions.get('window').height,
       );
-    };
+      useEffect(() => {
+        const handleOrientationChange = (
+          event: ScreenOrientation.OrientationChangeEvent,
+        ) => {
+          setIsLandscape(
+            event.orientationInfo.orientation ===
+              ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
+              event.orientationInfo.orientation ===
+                ScreenOrientation.Orientation.LANDSCAPE_RIGHT,
+          );
+        };
 
-    const subscription = ScreenOrientation.addOrientationChangeListener(
-      handleOrientationChange,
-    );
-    return () => {
-      ScreenOrientation.removeOrientationChangeListener(subscription);
-    };
-  }, []);
+        const subscription = ScreenOrientation.addOrientationChangeListener(
+          handleOrientationChange,
+        );
+        return () => {
+          ScreenOrientation.removeOrientationChangeListener(subscription);
+        };
+      }, []);
 
-  return isDualScreenDevice() ? isSpanning : isLandscape;
-};
+      return isLandscape;
+    };
 
 export const useIsWebHorizontalLayout = () => {
   const { gtMd } = useMedia();

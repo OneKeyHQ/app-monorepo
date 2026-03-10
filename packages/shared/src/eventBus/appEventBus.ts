@@ -458,6 +458,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowRookieShare]: {
     data: IRookieShareData;
   };
+  [EAppEventBusNames.CreateNewBrowserTab]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

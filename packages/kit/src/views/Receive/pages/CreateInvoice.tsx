@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -64,6 +64,14 @@ function CreateInvoice() {
 
   const amountValue = form.watch('amount');
   const [lnUnit, setLnUnit] = useState(ELightningUnit.SATS);
+
+  useEffect(() => {
+    if (!amountValue || lnUnit !== ELightningUnit.BTC) return;
+    const dotIndex = amountValue.indexOf('.');
+    if (dotIndex !== -1 && amountValue.length - dotIndex - 1 > 8) {
+      form.setValue('amount', amountValue.slice(0, dotIndex + 9));
+    }
+  }, [amountValue, lnUnit, form]);
   const { result: invoiceConfig } = usePromiseResult(
     () => serviceLightning.getInvoiceConfig({ networkId }),
     [networkId, serviceLightning],
@@ -82,13 +90,13 @@ function CreateInvoice() {
       maxSendAmount:
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertSatsToBtc(invoiceConfig?.maxSendAmount ?? 0)
-          : invoiceConfig?.maxSendAmount ?? 0,
+          : (invoiceConfig?.maxSendAmount ?? 0),
       maxReceiveAmount:
         lnUnit === ELightningUnit.BTC
           ? chainValueUtils.convertSatsToBtc(
               invoiceConfig?.maxReceiveAmount ?? 0,
             )
-          : invoiceConfig?.maxReceiveAmount ?? 0,
+          : (invoiceConfig?.maxReceiveAmount ?? 0),
     };
   }, [invoiceConfig, lnUnit]);
 

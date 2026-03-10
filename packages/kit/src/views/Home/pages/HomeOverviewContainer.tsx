@@ -9,7 +9,6 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -27,13 +26,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { perfMark } from '@onekeyhq/shared/src/performance/mark';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { calculateAccountTokensValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -46,21 +43,29 @@ import {
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
-import type { FontSizeTokens } from 'tamagui';
-
 function HomeOverviewContainer() {
   const num = 0;
   const {
     activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
   } = useActiveAccount({ num });
+  const resourceDialogInstance = useRef<IDialogInstance | null>(null);
+  const handleResourceDetailsOnPress = useCallback(() => {
+    if (resourceDialogInstance.current) return;
+    resourceDialogInstance.current = showResourceDetailsDialog({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      onClose: () => {
+        resourceDialogInstance.current = null;
+      },
+    });
+  }, [account?.id, network?.id]);
   const intl = useIntl();
 
   const [isRefreshingWorth, setIsRefreshingWorth] = useState(false);
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
+  const [isRefreshingDeFiList, setIsRefreshingDeFiList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
-  const [isRefreshingApprovalList, setIsRefreshingApprovalList] =
-    useState(false);
 
   const listRefreshKey = useRef('');
 
@@ -89,9 +94,16 @@ function HomeOverviewContainer() {
     };
   }, []);
 
+  const prevWalletIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
+      const walletChanged =
+        prevWalletIdRef.current !== undefined &&
+        prevWalletIdRef.current !== wallet.id;
+      prevWalletIdRef.current = wallet.id;
+
       if (
+        walletChanged ||
         network.isAllNetworks ||
         (wallet.type === WALLET_TYPE_HD && !wallet.backuped)
       ) {
@@ -149,8 +161,8 @@ function HomeOverviewContainer() {
         setIsRefreshingTokenList(isRefreshing);
         setIsRefreshingNftList(isRefreshing);
         setIsRefreshingHistoryList(isRefreshing);
-        setIsRefreshingApprovalList(isRefreshing);
         setIsRefreshingWorth(isRefreshing);
+        setIsRefreshingDeFiList(isRefreshing);
         return;
       }
 
@@ -160,8 +172,8 @@ function HomeOverviewContainer() {
         setIsRefreshingNftList(isRefreshing);
       } else if (type === EHomeTab.HISTORY) {
         setIsRefreshingHistoryList(isRefreshing);
-      } else if (type === EHomeTab.APPROVALS) {
-        setIsRefreshingApprovalList(isRefreshing);
+      } else if (type === EHomeTab.DEFI) {
+        setIsRefreshingDeFiList(isRefreshing);
       }
       setIsRefreshingWorth(isRefreshing);
       if (isRefreshing) {
@@ -268,9 +280,7 @@ function HomeOverviewContainer() {
     wallet,
   ]);
 
-  const { md } = useMedia();
   const balanceDialogInstance = useRef<IDialogInstance | null>(null);
-  const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
     if (isRefreshingWorth) return;
@@ -284,7 +294,7 @@ function HomeOverviewContainer() {
     isRefreshingTokenList ||
     isRefreshingNftList ||
     isRefreshingHistoryList ||
-    isRefreshingApprovalList;
+    isRefreshingDeFiList;
 
   const refreshButton = useMemo(() => {
     return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
@@ -318,20 +328,19 @@ function HomeOverviewContainer() {
     });
   }, [account, network, deriveInfoItems]);
 
-  const handleResourceDetailsOnPress = useCallback(() => {
-    if (resourceDialogInstance?.current) {
-      return;
-    }
-    resourceDialogInstance.current = showResourceDetailsDialog({
-      accountId: account?.id ?? '',
-      networkId: network?.id ?? '',
-      onClose: () => {
-        resourceDialogInstance.current = null;
-      },
-    });
-  }, [account?.id, network?.id]);
-
   const balanceString = useMemo(() => {
+    // Prevent showing stale balance from previous wallet/account.
+    // useMemo runs synchronously before the reset useEffect, so there's a
+    // render frame where account has switched but accountWorth still holds
+    // old data. Return '0' until the atom catches up.
+    if (
+      accountWorth.accountId &&
+      account?.id &&
+      accountWorth.accountId !== account.id &&
+      accountWorth.accountId !== account.indexedAccountId
+    ) {
+      return '0';
+    }
     return new BigNumber(
       calculateAccountTokensValue({
         accountId: account?.id ?? '',
@@ -344,6 +353,7 @@ function HomeOverviewContainer() {
       .toFixed();
   }, [
     account?.id,
+    account?.indexedAccountId,
     network?.id,
     accountWorth,
     vaultSettings?.mergeDeriveAssetsEnabled,
@@ -352,11 +362,6 @@ function HomeOverviewContainer() {
 
   const debouncedBalanceString = useDebounce(balanceString, 100);
 
-  const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
-    { length: 17, size: '$headingXl' },
-    { length: 13, size: '$heading4xl' },
-  ];
-  const defaultBalanceSize = '$heading5xl';
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
     formatterOptions: { currency: settings.currencyInfo.symbol },
@@ -369,13 +374,6 @@ function HomeOverviewContainer() {
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
-        <AllNetworksManagerTrigger
-          num={0}
-          containerProps={{
-            ml: '$1',
-          }}
-          showSkeleton={showSkeleton}
-        />
         {showSkeleton ? (
           <Skeleton.Heading5Xl my="$-0.5" />
         ) : (
@@ -405,20 +403,13 @@ function HomeOverviewContainer() {
             >
               <NumberSizeableTextWrapper
                 hideValue
+                splitDecimal
                 flexShrink={1}
                 minWidth={0}
+                fontSize={48}
+                lineHeight={48}
+                fontWeight={500}
                 {...numberFormatter}
-                size={
-                  md
-                    ? balanceSizeList.find(
-                        (item) =>
-                          numberFormatAsRenderText(
-                            String(debouncedBalanceString),
-                            numberFormatter,
-                          ).length >= item.length,
-                      )?.size ?? defaultBalanceSize
-                    : defaultBalanceSize
-                }
               >
                 {debouncedBalanceString}
               </NumberSizeableTextWrapper>
@@ -439,7 +430,7 @@ function HomeOverviewContainer() {
           })}
         </Button>
       ) : undefined}
-      {vaultSettings?.hasResource ? (
+      {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
           onPress={handleResourceDetailsOnPress}
           variant="tertiary"

@@ -1,11 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCoinsAdd = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16 13h2v2h-2v2h-2v-2h-2v-2h2v-2h2z" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M9 5a5 5 0 0 0-.941 9.912 7 7 0 0 1 5.112-7.67A5 5 0 0 0 9 5m6.33 2.008a7 7 0 1 0-6.66 9.985 7 7 0 1 0 6.66-9.985M15 9a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 2a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1v-1a1 1 0 0 1 1-1"
+      d="M9 3a7 7 0 0 1 6.328 4.008 7 7 0 1 1-6.657 9.983A7 7 0 0 1 9 3m5.718 6.008a5 5 0 1 0 .566 9.985 5 5 0 0 0-.566-9.985M9 5a5 5 0 0 0-.941 9.91 7 7 0 0 1 5.11-7.667A4.99 4.99 0 0 0 8.999 5Z"
       clipRule="evenodd"
     />
   </Svg>

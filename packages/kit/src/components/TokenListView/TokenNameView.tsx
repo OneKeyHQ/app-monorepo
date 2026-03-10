@@ -115,9 +115,10 @@ function TokenNameView(props: IProps) {
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>
             {network?.isAggregateNetwork
-              ? tokenHasBalanceNetwork?.name ?? firstAggregateTokenNetwork?.name
-              : (network?.name || tokenHasBalanceNetwork?.name) ??
-                firstAggregateTokenNetwork?.name}
+              ? (tokenHasBalanceNetwork?.name ??
+                firstAggregateTokenNetwork?.name)
+              : ((network?.name || tokenHasBalanceNetwork?.name) ??
+                firstAggregateTokenNetwork?.name)}
           </Badge.Text>
         </Badge>
       ) : null}

@@ -27,6 +27,9 @@ module.exports = function (api) {
         ],
       ],
       plugins: [
+        // Strip jest.mock() calls when bundling for react-native-harness
+        process.env.RN_HARNESS === 'true' &&
+          require.resolve('./babel-plugin-jest-compat.js'),
         // fix Reanimated error: [Reanimated] Tried to synchronously call a non-worklet function on the UI thread.
         //  in react-native-gesture-handler
         require('@babel/plugin-transform-shorthand-properties'),

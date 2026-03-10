@@ -8,9 +8,13 @@ on:
       - completed
   workflow_dispatch:
 
+env:
+  NODE_ENV: production
+  YARN_ENABLE_GLOBAL_CACHE: true
+
 jobs:
   release-native-bundle:
-    runs-on: macos-latest
+    runs-on: macos-26
     strategy:
       matrix:
         node-version: [24.x]
@@ -22,7 +26,7 @@ jobs:
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
       - name: Checkout Source Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           lfs: true
 
@@ -51,43 +55,23 @@ jobs:
 
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
           registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
           scope: '@onekeyhq'
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-            **/node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock', '**/patches/**') }}
-
       - name: Install Dep
-        if: steps.yarn-cache.outputs.cache-hit != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          yarn
-
-      - name: Run postinstall only (cache hit)
-        if: steps.yarn-cache.outputs.cache-hit == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn postinstall
+          yarn install --immutable
 
       - name: Build Bundle
         env:
@@ -115,6 +99,15 @@ jobs:
           path: |
             ./apps/mobile/out-dir-bundle
             !**/.DS_Store
+
+      - name: Upload QA Bundles
+        uses: originalix/actions/qa-bundle-upload@feat/qa-bundle-upload # TODO: replace with onekeyhq/actions/qa-bundle-upload@main after testing
+        with:
+          server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+          upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+          bundle-dir: ./apps/mobile/out-dir-bundle-zip
+          commit-hash: ${{ github.sha }}
+          branch: ${{ github.ref_name }}
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

@@ -45,33 +45,21 @@ function PortfolioBase({
       [gtLg],
     );
 
-  // If no account address, show no data message
-  if (!accountAddress) {
-    return (
-      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_details_nodata,
-          })}
-        </SizableText>
-      </Stack>
-    );
-  }
-
   return (
     <Tabs.FlatList<IMarketAccountPortfolioItem>
-      data={portfolioData}
+      showsVerticalScrollIndicator={false}
+      data={accountAddress ? portfolioData : []}
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       contentContainerStyle={{
+        flexGrow: 1,
         paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
       }}
       renderItem={renderItem}
       keyExtractor={(item: IMarketAccountPortfolioItem) =>
         `${item.accountAddress}-${item.tokenAddress}`
       }
-      showsVerticalScrollIndicator
       ListEmptyComponent={
-        isRefreshing ? (
+        accountAddress && isRefreshing ? (
           <PortfolioSkeleton />
         ) : (
           <Stack flex={1} alignItems="center" justifyContent="center" p="$8">

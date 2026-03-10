@@ -105,11 +105,11 @@ function ApprovalListViewCmp(props: IProps) {
   }, [inTabList]);
 
   const showSkeleton = useMemo(() => {
-    if (!approvalListState.initialized && approvalListState.isRefreshing) {
+    if (!approvalListState.initialized) {
       return true;
     }
     return false;
-  }, [approvalListState.initialized, approvalListState.isRefreshing]);
+  }, [approvalListState.initialized]);
 
   const EmptyComponentElement = useMemo(() => {
     if (showSkeleton) {
@@ -186,6 +186,7 @@ function ApprovalListViewCmp(props: IProps) {
     <ListComponent
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
+      showsVerticalScrollIndicator={false}
       ref={ListComponentRef as any}
       nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
       refreshControl={

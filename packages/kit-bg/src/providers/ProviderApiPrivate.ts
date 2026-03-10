@@ -450,6 +450,8 @@ class ProviderApiPrivate extends ProviderApiBase {
   async wallet_addBrowserUrlToRiskWhiteList(request: IJsBridgeMessagePayload) {
     console.log('ProviderApiPrivate.addBrowserUrlToRiskWhiteList', request);
     if (request.origin) {
+      request.scope = request.scope || this.providerName;
+      await this.backgroundApi.serviceDApp.openRiskWhiteListModal(request);
       await this.backgroundApi.serviceDiscovery.addBrowserUrlToRiskWhiteList(
         request.origin,
       );
@@ -536,7 +538,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new OneKeyLocalError('webembed webview bridge not ready.');
     }
 
-    const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
+    const webviewOrigin = bg?.webEmbedBridge?.remoteInfo?.origin || '';
     if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
       throw new OneKeyLocalError(
         `callWebEmbedApiProxy not allowed origin: ${
