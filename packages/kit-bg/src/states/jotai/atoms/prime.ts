@@ -55,7 +55,6 @@ export const {
   initialValue: {
     isCloudSyncEnabled: false,
     isCloudSyncEnabledKeyless: false,
-    currentCloudSyncKeylessWalletId: null,
   },
 });
 

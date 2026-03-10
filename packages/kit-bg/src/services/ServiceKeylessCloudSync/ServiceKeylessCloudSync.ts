@@ -421,11 +421,18 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (this.currentCloudSyncKeylessWalletIdCache !== undefined) {
       return this.currentCloudSyncKeylessWalletIdCache;
     }
-    const { currentCloudSyncKeylessWalletId } =
+    const { currentCloudSyncKeylessWalletId, isCloudSyncEnabledKeyless } =
       await primeCloudSyncPersistAtom.get();
-    if (currentCloudSyncKeylessWalletId !== undefined) {
+    if (currentCloudSyncKeylessWalletId) {
       this.currentCloudSyncKeylessWalletIdCache =
         currentCloudSyncKeylessWalletId;
+      return this.currentCloudSyncKeylessWalletIdCache;
+    }
+    if (
+      currentCloudSyncKeylessWalletId === null &&
+      !isCloudSyncEnabledKeyless
+    ) {
+      this.currentCloudSyncKeylessWalletIdCache = null;
       return this.currentCloudSyncKeylessWalletIdCache;
     }
     const keylessWallet = await this.getKeylessWallet();

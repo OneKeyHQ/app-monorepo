@@ -3441,8 +3441,9 @@ class ServiceAccount extends ServiceBase {
       isRemoveToMocked,
     });
     if (isKeylessWallet) {
-      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
-        null,
+      const { wallets } = await localDb.getAllWallets();
+      await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
+        wallets,
       );
       await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     }
