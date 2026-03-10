@@ -359,7 +359,17 @@ class ServiceAccount extends ServiceBase {
     // TODO remove
     // await timerUtils.wait(1500, { devOnly: true });
     const { wallets } = await this.getAllWallets();
-    const wallet = wallets.find((w) => w.isKeyless);
+    const wallet = wallets
+      .filter((w) => w.isKeyless)
+      .toSorted((a, b) => {
+        const orderDiff =
+          (a.walletOrder ?? a.walletNo ?? 0) -
+          (b.walletOrder ?? b.walletNo ?? 0);
+        if (orderDiff !== 0) {
+          return orderDiff;
+        }
+        return a.id.localeCompare(b.id);
+      })[0];
     if (wallet) {
       await localDb.refillWalletInfo({
         wallet,
@@ -3199,6 +3209,10 @@ class ServiceAccount extends ServiceBase {
       );
     }
     ensureSensitiveTextEncoded(password);
+
+    if (isKeylessWallet && (await this.getKeylessWallet())) {
+      throw new OneKeyLocalError('Keyless wallet already exists');
+    }
 
     let shouldCheckDuplicate = true;
 

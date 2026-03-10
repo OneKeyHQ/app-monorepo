@@ -39,11 +39,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }
 
   async getKeylessWallet(): Promise<IDBWallet | null> {
-    const keylessWallet = await localDb.getKeylessWallet();
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
     await this.setPersistedCurrentCloudSyncKeylessWalletId(
       keylessWallet?.id ?? null,
     );
-    return keylessWallet;
+    return keylessWallet ?? null;
   }
 
   async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
@@ -393,7 +394,17 @@ class ServiceKeylessCloudSync extends ServiceBase {
     wallets: IDBWallet[],
   ): Promise<string | null> {
     const currentCloudSyncKeylessWalletId =
-      wallets.find((wallet) => wallet.isKeyless)?.id ?? null;
+      wallets
+        .filter((wallet) => wallet.isKeyless)
+        .toSorted((a, b) => {
+          const orderDiff =
+            (a.walletOrder ?? a.walletNo ?? 0) -
+            (b.walletOrder ?? b.walletNo ?? 0);
+          if (orderDiff !== 0) {
+            return orderDiff;
+          }
+          return a.id.localeCompare(b.id);
+        })[0]?.id ?? null;
     if (
       this.currentCloudSyncKeylessWalletIdCache ===
       currentCloudSyncKeylessWalletId

@@ -296,6 +296,9 @@ class ServiceKeylessWallet extends ServiceBase {
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
   }> {
+    if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
+      throw new OneKeyLocalError('Keyless wallet already exists');
+    }
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify();
 
