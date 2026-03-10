@@ -35,13 +35,13 @@ const WRAPPED_SYMBOL_MAX_FONT_SIZE = 24;
 const WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX = 16;
 const WRAPPED_SYMBOL_BREAK_CHARS = new Set([' ', '-', '_', '/', '.']);
 // iOS-only hidden marker used to force a native prop delta without visible UI change.
-const IOS_FORCE_WRITEBACK_MARKER = '\u200B';
+const IOS_FORCE_WRITE_BACK_MARKER = '\u200B';
 
-const stripIOSForceWritebackMarker = (text: string) =>
+const stripIOSForceWriteBackMarker = (text: string) =>
   text.replace(/\u200B/g, '');
 
-const makeIOSForceWritebackPulseText = (text: string) =>
-  `${text}${IOS_FORCE_WRITEBACK_MARKER}`;
+const makeIOSForceWriteBackPulseText = (text: string) =>
+  `${text}${IOS_FORCE_WRITE_BACK_MARKER}`;
 
 const getAmountFontSize = (length: number, scale = 1): number => {
   let size: number;
@@ -244,7 +244,7 @@ function SendAutoSizeAmountInputComponent(
   const [layoutWidth, setLayoutWidth] = useState(0);
   const autoSizeInputRef = useRef<IAutoSizeInputRef | null>(null);
   const [forcedNativeText, setForcedNativeText] = useState<string | null>(null);
-  const forceWritebackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+  const forceWriteBackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const { width: windowWidth } = useWindowDimensions();
@@ -261,14 +261,14 @@ function SendAutoSizeAmountInputComponent(
 
   const inputValue = controlledValue ?? '';
 
-  const clearForceWritebackTimer = useCallback(() => {
-    if (forceWritebackTimerRef.current) {
-      clearTimeout(forceWritebackTimerRef.current);
-      forceWritebackTimerRef.current = null;
+  const clearForceWriteBackTimer = useCallback(() => {
+    if (forceWriteBackTimerRef.current) {
+      clearTimeout(forceWriteBackTimerRef.current);
+      forceWriteBackTimerRef.current = null;
     }
   }, []);
 
-  useEffect(() => () => clearForceWritebackTimer(), [clearForceWritebackTimer]);
+  useEffect(() => () => clearForceWriteBackTimer(), [clearForceWriteBackTimer]);
 
   useEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -279,7 +279,7 @@ function SendAutoSizeAmountInputComponent(
       if (prev === null) {
         return prev;
       }
-      const normalizedPrev = stripIOSForceWritebackMarker(prev);
+      const normalizedPrev = stripIOSForceWriteBackMarker(prev);
       return normalizedPrev === inputValue ? null : prev;
     });
   }, [inputValue]);
@@ -292,19 +292,19 @@ function SendAutoSizeAmountInputComponent(
       // iOS native input can keep stale text when parent value does not change.
       // Force a pulse write-back so native receives a prop change every time.
       if (platformEnv.isNativeIOS && sanitizedText !== text) {
-        clearForceWritebackTimer();
-        const pulseText = makeIOSForceWritebackPulseText(sanitizedText);
+        clearForceWriteBackTimer();
+        const pulseText = makeIOSForceWriteBackPulseText(sanitizedText);
         setForcedNativeText(pulseText);
-        forceWritebackTimerRef.current = setTimeout(() => {
+        forceWriteBackTimerRef.current = setTimeout(() => {
           setForcedNativeText(sanitizedText);
-          forceWritebackTimerRef.current = null;
+          forceWriteBackTimerRef.current = null;
         }, 0);
       } else {
-        clearForceWritebackTimer();
+        clearForceWriteBackTimer();
         setForcedNativeText((prev) => (prev === null ? prev : null));
       }
     },
-    [clearForceWritebackTimer, onChange],
+    [clearForceWriteBackTimer, onChange],
   );
 
   const handleInputLayout = useCallback(
@@ -323,7 +323,7 @@ function SendAutoSizeAmountInputComponent(
     ? (forcedNativeText ?? inputValue)
     : inputValue;
   const effectiveValue = platformEnv.isNativeIOS
-    ? stripIOSForceWritebackMarker(effectiveValueRaw)
+    ? stripIOSForceWriteBackMarker(effectiveValueRaw)
     : effectiveValueRaw;
   const normalizedTokenSymbol = useMemo(
     () => normalizeTokenSymbol(tokenSymbol),
