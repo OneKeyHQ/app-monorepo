@@ -86,6 +86,7 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
+      origin?.endsWith('.onekeytest.com') ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }
