@@ -195,7 +195,8 @@ Slack is optional. If configured:
 
 - failures will send a message
 - regressions will send a message
-- normal success does NOT send a message
+- recovered runs will send a message after a previous failure/regression
+- normal success remains quiet
 
 Set webhook via env:
 
@@ -203,6 +204,21 @@ Set webhook via env:
 SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..." \
 yarn perf:ios:release
 ```
+
+Notification structure:
+
+- Header: severity + target (`[P1] Perf Regression | Ext Release`)
+- Summary: one-sentence conclusion with metric/threshold/delta
+- Metrics: current vs threshold + delta + exceed count
+- Stability: the 3 individual runs
+- Diagnosis: representative session hotspots / key marks
+- Links: dashboard deep link (`?sessionId=...`) and `report.json` if configured
+
+Recommended extra config for readable links:
+
+- `PERF_DASHBOARD_BASE_URL`: a reachable performance-server URL, for example `http://perf-machine:9527`
+- `PERF_REPORT_BASE_URL`: a reachable base URL that maps to `PERF_JOB_OUTPUT_ROOT`
+- `PERF_ALERT_STATE_ROOT`: where the notifier stores last-alert state (used for recovered notifications and repeat counts)
 
 ## Local config file (avoid env vars)
 
@@ -217,7 +233,10 @@ Example:
   "slackWebhookUrl": "https://hooks.slack.com/services/...",
   "sessionsDir": "/Users/<you>/perf-sessions",
   "perfServerUrl": "http://localhost:9527",
-  "androidAvdName": "Pixel_7_Pro_API_34"
+  "androidAvdName": "Pixel_7_Pro_API_34",
+  "dashboardBaseUrl": "http://perf-machine:9527",
+  "reportBaseUrl": "https://perf.example.com/reports",
+  "alertStateRoot": "/Users/<you>/perf-alert-state"
 }
 ```
 
@@ -228,6 +247,9 @@ Core:
 - `PERF_SESSIONS_DIR`: where sessions are written/read (default: `$HOME/perf-sessions`)
 - `PERF_SERVER_URL`: performance-server URL for health check (default: `http://localhost:9527`)
 - `SLACK_WEBHOOK_URL`: optional Slack Incoming Webhook URL
+- `PERF_DASHBOARD_BASE_URL`: optional public dashboard base URL used in Slack links
+- `PERF_REPORT_BASE_URL`: optional public report base URL used in Slack links
+- `PERF_ALERT_STATE_ROOT`: optional directory used to persist last alert state
 
 Note:
 

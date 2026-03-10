@@ -23,7 +23,7 @@ const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
 const { nowId } = require('./lib/id');
-const { postSlackWebhook } = require('./lib/slack');
+const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
 const {
   ensurePerfServerRunning,
   checkPerfServer,
@@ -56,40 +56,6 @@ function makeLogger() {
     // eslint-disable-next-line no-console
     console.log(prefix, ...args);
   };
-}
-
-function buildSlackText({ status, meta, runs, agg, thresholds, outputDir }) {
-  const lines = [];
-  lines.push(`${status}: Desktop release Perf Regression Guard`);
-  if (meta?.git?.sha) lines.push(`commit: ${meta.git.sha}`);
-  if (meta?.startedAt) lines.push(`time: ${meta.startedAt}`);
-  lines.push(`output: ${outputDir}`);
-  lines.push('');
-  lines.push('runs:');
-  for (const r of runs) {
-    const m = r.metrics || {};
-    lines.push(
-      `#${r.runIndex} session=${r.sessionId} start=${
-        m.tokensStartMs ?? 'n/a'
-      }ms span=${m.tokensSpanMs ?? 'n/a'}ms functionCalls=${
-        m.functionCallCount ?? 'n/a'
-      }`,
-    );
-  }
-  lines.push('');
-  lines.push(
-    `median: start=${agg.tokensStartMs ?? 'n/a'}ms span=${
-      agg.tokensSpanMs ?? 'n/a'
-    }ms functionCalls=${agg.functionCallCount ?? 'n/a'}`,
-  );
-  lines.push(
-    `thresholds: start=${thresholds.tokensStartMs ?? 'n/a'}ms span=${
-      thresholds.tokensSpanMs ?? 'n/a'
-    }ms functionCalls=${thresholds.functionCallCount ?? 'n/a'} (strategy=${
-      thresholds.strategy || 'median'
-    })`,
-  );
-  return lines.join('\n');
 }
 
 async function buildDesktop({ repoRoot }) {
@@ -337,11 +303,14 @@ async function main() {
   const startedAt = new Date().toISOString();
   const meta = {
     startedAt,
+    jobId,
     sessionsDir,
     serverUrl,
     markName,
     runCount,
     mode: 'release',
+    targetKey: 'desktop.release',
+    targetLabel: 'Desktop Release',
     desktop: {
       mainPath,
       rendererIndex,
@@ -472,23 +441,19 @@ async function main() {
       thresholds,
       derivedDir,
       runs: runResults,
+      values,
       agg,
       regression: exceed,
     };
 
     writeJson(path.join(outputDir, 'report.json'), report);
 
-    if (exceed.triggered && slackWebhookUrl) {
-      const text = buildSlackText({
-        status: 'REGRESSION',
-        meta,
-        runs: runResults,
-        agg,
-        thresholds,
-        outputDir,
-      });
-      await postSlackWebhook(slackWebhookUrl, { text });
-    }
+    await notifyPerfResult({
+      report,
+      outputRoot,
+      slackWebhookUrl,
+      localConfig,
+    });
 
     writeJson(path.join(outputDir, 'job-result.json'), {
       status: exceed.triggered ? 'regression' : 'ok',
@@ -504,11 +469,14 @@ async function main() {
     const message = err?.stack || err?.message || String(err);
     writeJson(path.join(outputDir, 'job-error.json'), { error: message });
 
-    if (slackWebhookUrl) {
-      await postSlackWebhook(slackWebhookUrl, {
-        text: `FAILED: Desktop release Perf Regression Guard\n${message}\noutput: ${outputDir}`,
-      }).catch(() => {});
-    }
+    await notifyPerfFailure({
+      meta,
+      outputDir,
+      outputRoot,
+      slackWebhookUrl,
+      localConfig,
+      errorMessage: message,
+    });
 
     jobState.status = 'failed';
     jobState.meta.finishedAt = new Date().toISOString();
