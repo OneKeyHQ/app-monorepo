@@ -56,7 +56,7 @@ export function AvailableAssetsTabViewList() {
   const tabData = useMemo(
     () => [
       {
-        title: intl.formatMessage({ id: ETranslations.global_earn }),
+        title: intl.formatMessage({ id: ETranslations.defi_simple_earn }),
         type: EAvailableAssetsTypeEnum.SimpleEarn,
       },
       {
