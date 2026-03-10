@@ -345,20 +345,8 @@ const EarningsField = ({
 }) => {
   const netPnl = asset.metadata?.netPnl;
   const secondLine = useMemo(() => {
-    if (netPnl && Number(netPnl) !== 0) {
-      return (
-        <NumberSizeableText
-          formatter="balance"
-          size="$bodySm"
-          color="$textSubdued"
-          formatterOptions={{
-            tokenSymbol: asset.token.info.symbol,
-            showPlusMinusSigns: true,
-          }}
-        >
-          {netPnl}
-        </NumberSizeableText>
-      );
+    if (netPnl) {
+      return null;
     }
     if (asset?.totalReward) {
       return (
@@ -377,7 +365,18 @@ const EarningsField = ({
       );
     }
     return null;
-  }, [netPnl, asset?.totalReward, asset.token.info.symbol]);
+  }, [netPnl, asset?.totalReward]);
+
+  if (netPnl) {
+    return (
+      <FieldWrapper asset={asset}>
+        <SizableText size="$bodyMdMedium" color="$textSuccess">
+          {netPnl}
+        </SizableText>
+      </FieldWrapper>
+    );
+  }
+
   return (
     <FieldWrapper asset={asset}>
       <YStack jc="center" flex={1} gap="$1">
@@ -392,21 +391,11 @@ const MobilePnlSection = memo(
   ({ asset }: { asset: IEarnPortfolioInvestment['assets'][number] }) => {
     const intl = useIntl();
     const netPnl = asset.metadata?.netPnl;
-    if (netPnl && Number(netPnl) !== 0) {
+    if (netPnl) {
       return (
-        <XStack ai="center" gap="$1">
-          <NumberSizeableText
-            formatter="balance"
-            size="$bodySm"
-            color="$textSubdued"
-            formatterOptions={{
-              tokenSymbol: asset.token.info.symbol,
-              showPlusMinusSigns: true,
-            }}
-          >
-            {netPnl}
-          </NumberSizeableText>
-        </XStack>
+        <SizableText size="$bodySm" color="$textSuccess">
+          {netPnl}
+        </SizableText>
       );
     }
     if (asset.totalReward) {
@@ -942,12 +931,21 @@ const PortfolioItemComponent = ({
                 ? {
                     renderExpandedContent: (asset) => (
                       <YStack gap="$5">
-                        {/* Est. 24h earnings */}
+                        {/* Earnings / Net P&L */}
                         <XStack ai="center" gap="$1">
-                          <EarnText
-                            size="$bodyLgMedium"
-                            text={asset.earnings24h?.title}
-                          />
+                          {asset.metadata?.netPnl ? (
+                            <SizableText
+                              size="$bodyLgMedium"
+                              color="$textSuccess"
+                            >
+                              {asset.metadata.netPnl}
+                            </SizableText>
+                          ) : (
+                            <EarnText
+                              size="$bodyLgMedium"
+                              text={asset.earnings24h?.title}
+                            />
+                          )}
                           <SizableText size="$bodyMd" color="$textSubdued">
                             {earningsColumnLabel}
                           </SizableText>
