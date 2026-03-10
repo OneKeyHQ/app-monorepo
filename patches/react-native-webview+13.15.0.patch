@@ -2,22 +2,22 @@ diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactna
 index 07f73fd..a5def40 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
-@@ -19,6 +19,11 @@ import android.webkit.WebView;
- import android.webkit.WebViewClient;
- import android.widget.FrameLayout;
+@@ -34,7 +34,10 @@
  
-+import android.net.Uri;
+ import java.util.ArrayList;
+ import java.util.Collections;
 +import java.util.HashSet;
+ import java.util.List;
 +import java.util.Locale;
 +import java.util.Set;
-+
- import androidx.annotation.RequiresApi;
- import androidx.core.content.ContextCompat;
  
-@@ -50,6 +54,96 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
-  
-      protected static final int COMMON_PERMISSION_REQUEST = 3;
-  
+ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEventListener {
+     protected static final FrameLayout.LayoutParams FULLSCREEN_LAYOUT_PARAMS = new FrameLayout.LayoutParams(
+@@ -49,6 +52,115 @@
+             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+ 
+     protected static final int COMMON_PERMISSION_REQUEST = 3;
++
 +    private static Set<String> sMediaPermissionWhitelist = new HashSet<>();
 +    private static Set<String> sMediaPermissionWhitelistDomainKeys = new HashSet<>();
 +
@@ -126,11 +126,10 @@ index 07f73fd..a5def40 100644
 +            return false;
 +        }
 +    }
-+
+ 
      protected RNCWebView mWebView;
  
-     protected View mVideoView;
-@@ -152,9 +177,19 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+@@ -152,9 +264,19 @@
              String androidPermission = null;
  
              if (requestedResource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
@@ -208,10 +207,10 @@ diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_mod
 index 7f5c24d..0e5f807 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-@@ -22,6 +22,7 @@
-static NSString *const MessageHandlerName = @"ReactNativeWebView";
-static NSURLCredential* clientAuthenticationCredential;
-static NSDictionary* customCertificatesForHost;
+@@ -22,6 +22,90 @@
+ static NSString *const MessageHandlerName = @"ReactNativeWebView";
+ static NSURLCredential* clientAuthenticationCredential;
+ static NSDictionary* customCertificatesForHost;
 +static NSSet<NSString *> *sMediaPermissionWhitelist;
 +static NSSet<NSString *> *sMediaPermissionWhitelistDomainKeys;
 +
@@ -308,7 +307,7 @@ static NSDictionary* customCertificatesForHost;
        [webView loadRequest:request];
      }
      else {
-@@ -1149,6 +1150,10 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
+@@ -1149,6 +1150,11 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
    customCertificatesForHost = certificates;
  }
  
