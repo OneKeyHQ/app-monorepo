@@ -1,17 +1,12 @@
-import { useCallback, useContext, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Dimensions, type GestureResponderEvent, View } from 'react-native';
-import {
-  scrollTo,
-  useAnimatedReaction,
-  useSharedValue,
-} from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
-  CollapsibleTabContext,
   EInPageDialogType,
   HeaderScrollGestureWrapper,
   ScrollView,
@@ -24,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -61,46 +57,7 @@ function MobileTradingViewTouchBridge({
   tokenSymbol: string;
   dataSource: 'websocket' | 'polling';
 }) {
-  const tabsContext = useContext(CollapsibleTabContext);
-  const refMap = (tabsContext as any)?.refMap;
-  const focusedTabShared = (tabsContext as any)?.focusedTab;
-  const scrollYCurrent = (tabsContext as any)?.scrollYCurrent;
-  const tabContentInset = ((tabsContext as any)?.contentInset as number) ?? 0;
-
-  const scrollDelta = useSharedValue(0);
-
-  useAnimatedReaction(
-    () => scrollDelta.value,
-    (delta, prevDelta) => {
-      if (
-        delta === 0 ||
-        delta === prevDelta ||
-        !refMap ||
-        !focusedTabShared ||
-        !scrollYCurrent
-      ) {
-        return;
-      }
-
-      const ref = refMap[focusedTabShared.value];
-      if (ref) {
-        const targetScroll = scrollYCurrent.value + delta;
-        scrollTo(ref, 0, Math.max(0, targetScroll - tabContentInset), false);
-      }
-      scrollDelta.value = 0;
-    },
-    [refMap, focusedTabShared, scrollYCurrent, tabContentInset],
-  );
-
-  const handleTouchScroll = useCallback(
-    (deltaY: number) => {
-      if (deltaY === 0) {
-        return;
-      }
-      scrollDelta.value += deltaY;
-    },
-    [scrollDelta],
-  );
+  const handleTouchScroll = useMobileTabTouchScrollBridge();
 
   return (
     <MarketTradingView
