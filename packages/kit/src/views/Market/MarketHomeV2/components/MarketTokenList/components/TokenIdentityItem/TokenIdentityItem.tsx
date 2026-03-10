@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 
 import {
   Icon,
+  Image,
   NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
@@ -14,11 +15,12 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { SubtitleBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -71,6 +73,10 @@ interface ITokenIdentityItemProps {
    * Whether the token is community recognized.
    */
   communityRecognized?: boolean;
+  /**
+   * Stock info for tokenized real-world assets.
+   */
+  stock?: IMarketStockInfo;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -85,12 +91,10 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   volume,
   copyFrom = ECopyFrom.Homepage,
   communityRecognized,
+  stock,
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
-
   // Use hook to get network logo with async fallback
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: networkLogoURI,
@@ -155,7 +159,16 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           >
             {symbol}
           </SizableText>
+          {stock?.sourceLogoUri ? (
+            <Image
+              width={14}
+              height={14}
+              borderRadius="$full"
+              source={{ uri: stock.sourceLogoUri }}
+            />
+          ) : null}
           {communityRecognized ? <CommunityRecognizedBadge /> : null}
+          {stock?.subtitle ? <SubtitleBadge subtitle={stock.subtitle} /> : null}
         </XStack>
         {shouldShowSecondRow ? (
           <XStack alignItems="center" gap="$1" height="$4">
@@ -165,7 +178,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
                 color="$textSubdued"
                 numberOfLines={1}
                 formatter="marketCap"
-                formatterOptions={{ currency }}
+                formatterOptions={{ currency: '$' }}
               >
                 {volume}
               </NumberSizeableText>

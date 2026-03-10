@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,18 +11,17 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMarketBasicConfig } from '../../../hooks/useMarketBasicConfig';
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
-import { MarketPerpsCategorySelector } from './MarketPerpsCategorySelector';
 import { MarketPerpsTokenListItem } from './MarketPerpsTokenListItem';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
 import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketPerpsFlatListProps {
+  selectedCategoryId: string;
   listContainerProps: {
     paddingBottom: number;
   };
@@ -31,35 +30,17 @@ interface IMobileMarketPerpsFlatListProps {
 const EMPTY_DATA: IMarketPerpsToken[] = [];
 
 function MobileMarketPerpsFlatListImpl({
+  selectedCategoryId,
   listContainerProps,
 }: IMobileMarketPerpsFlatListProps) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const { navigateToPerps } = usePerpsNavigation();
   const intl = useIntl();
-
-  const { perpsCategories } = useMarketBasicConfig();
-
-  // Auto-select first category when categories load
-  useEffect(() => {
-    if (!selectedCategoryId && perpsCategories.length > 0) {
-      setSelectedCategoryId(perpsCategories[0].categoryId);
-    }
-  }, [perpsCategories, selectedCategoryId]);
 
   const { tokens, isLoading } = useMarketPerpsTokenList({
     selectedCategoryId,
   });
 
   const handleTokenPress = navigateToPerps;
-
-  const categoryTabs = useMemo(
-    () =>
-      perpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [perpsCategories],
-  );
 
   const renderItem: FlatListProps<IMarketPerpsToken>['renderItem'] =
     useCallback(
@@ -81,22 +62,6 @@ function MobileMarketPerpsFlatListImpl({
       index,
     }),
     [],
-  );
-
-  const ListHeaderComponent = useMemo(
-    () => (
-      <MarketPerpsCategorySelector
-        categories={categoryTabs}
-        selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
-        containerStyle={{
-          px: '$5',
-          pt: '$3',
-          pb: '$2',
-        }}
-      />
-    ),
-    [categoryTabs, selectedCategoryId],
   );
 
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;
@@ -127,10 +92,9 @@ function MobileMarketPerpsFlatListImpl({
       maxToRenderPerBatch={20}
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
-      ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
+        paddingTop: 8 + (platformEnv.isNative ? 248 : 0),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

@@ -24,11 +24,11 @@ import {
   IMPL_COSMOS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDAppConnectionModal,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -37,12 +37,13 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
-import type { SecretNetworkEncryption } from '../vaults/impls/cosmos/sdkCosmos/SecretNetworkEncryption';
 import { vaultFactory } from '../vaults/factory';
+
 import ProviderApiBase from './ProviderApiBase';
 
-import type VaultCosmos from '../vaults/impls/cosmos/Vault';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { SecretNetworkEncryption } from '../vaults/impls/cosmos/sdkCosmos/SecretNetworkEncryption';
+import type VaultCosmos from '../vaults/impls/cosmos/Vault';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 interface ISignOptions {

@@ -201,7 +201,7 @@ export function ImportSingleChainBase({
                   onPress: async () => {
                     const result = await start({
                       handlers: [],
-                      autoHandleResult: false,
+                      autoExecuteParsedAction: false,
                     });
                     form.setValue('input', result.raw);
                   },

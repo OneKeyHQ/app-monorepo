@@ -24,8 +24,8 @@ import {
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
@@ -254,7 +254,6 @@ export function FirmwareChangeFirmwareWarn({
 
   tips.push({
     content: intl.formatMessage({
-      // eslint-disable-next-line @cspell/spellchecker
       // oxlint-disable-next-line @cspell/spellchecker
       id: ETranslations.device_wipe_data_bannner,
     }),

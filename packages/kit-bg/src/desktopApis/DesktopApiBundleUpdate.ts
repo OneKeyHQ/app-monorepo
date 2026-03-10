@@ -587,7 +587,7 @@ class DesktopApiAppBundleUpdate {
 
       // Verify all extracted files against metadata SHA256 hashes
       if (!fs.existsSync(metadataFilePath)) {
-        throw new Error('metadata.json not found after extraction');
+        throw new OneKeyLocalError('metadata.json not found after extraction');
       }
       const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
       const metadata = JSON.parse(metadataContent) as Record<string, string>;
@@ -890,6 +890,12 @@ class DesktopApiAppBundleUpdate {
     return Promise.resolve(this.isSkipGPGAllowed(skipGPGVerification));
   }
 
+  async isSkipGpgVerificationAllowed() {
+    return Promise.resolve(
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true',
+    );
+  }
+
   /**
    * Test function to delete jsBundle files
    * @param appVersion - Application version
@@ -1056,8 +1062,9 @@ class DesktopApiAppBundleUpdate {
     return app.getVersion();
   }
 
-  async getNativeBuildNumber() {
-    return process.env.BUILD_NUMBER || '';
+  async getNativeBuildNumber(): Promise<string> {
+    const buildNumber = process.env.BUILD_NUMBER;
+    return typeof buildNumber === 'string' ? buildNumber : '';
   }
 
   async getJsBundlePath() {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
@@ -109,7 +110,7 @@ const verifyPackage: IVerifyPackage = async (params) => {
 
 const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
   if (!downloadedEvent?.downloadedFile || !downloadedEvent?.downloadUrl) {
-    throw new Error('NOT_FOUND_PACKAGE');
+    throw new OneKeyLocalError('NOT_FOUND_PACKAGE');
   }
   await globalThis.desktopApiProxy.appUpdate.installPackage({
     ...downloadedEvent,
@@ -193,6 +194,8 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
   switchBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
+  isSkipGpgVerificationAllowed: () =>
+    globalThis.desktopApiProxy.bundleUpdate.isSkipGpgVerificationAllowed(),
   isBundleExists: (appVersion, bundleVersion) =>
     globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
       appVersion,

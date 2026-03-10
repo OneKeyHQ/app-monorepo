@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -17,6 +18,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   BundleUpdate,
@@ -27,8 +29,6 @@ import type {
   EModalSettingRoutes,
   IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
-
-import { useRoute } from '@react-navigation/core';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -43,6 +43,12 @@ type IBundleInfo = {
   commitHash?: string;
   changeLog?: string;
 };
+
+function normalizeCommitHash(commitHash?: string) {
+  return String(commitHash || '')
+    .trim()
+    .toLowerCase();
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -59,6 +65,7 @@ function BundleItem({
   onDownloadStart,
   onDownloadEnd,
   gpgSkipped,
+  skipGpgVerificationAllowed,
 }: {
   bundle: IBundleInfo;
   version: string;
@@ -68,6 +75,7 @@ function BundleItem({
   onDownloadStart: () => void;
   onDownloadEnd: () => void;
   gpgSkipped: boolean;
+  skipGpgVerificationAllowed: boolean;
 }) {
   const downloadPercent = useDownloadProgress();
   const [status, setStatus] = useState<
@@ -83,8 +91,7 @@ function BundleItem({
   }, [alreadyDownloaded, status]);
 
   const handleDownload = useCallback(async () => {
-    const skipGPGVerification =
-      !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
+    const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
     onDownloadStart();
     setStatus('downloading');
     setErrorMessage('');
@@ -146,11 +153,17 @@ function BundleItem({
     } finally {
       onDownloadEnd();
     }
-  }, [bundle, version, onDownloadStart, onDownloadEnd, gpgSkipped]);
+  }, [
+    bundle,
+    version,
+    onDownloadStart,
+    onDownloadEnd,
+    gpgSkipped,
+    skipGpgVerificationAllowed,
+  ]);
 
   const handleInstall = useCallback(async () => {
-    const skipGPGVerification =
-      !!process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped;
+    const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
     setStatus('installing');
     defaultLogger.app.jsBundleDev.installBundle({
       version,
@@ -172,7 +185,7 @@ function BundleItem({
         });
       } else {
         if (!downloadedEventRef.current) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'Downloaded bundle info missing, please download again.',
           );
         }
@@ -217,7 +230,13 @@ function BundleItem({
         error: errMsg,
       });
     }
-  }, [alreadyDownloaded, bundle, version, gpgSkipped]);
+  }, [
+    alreadyDownloaded,
+    bundle,
+    version,
+    gpgSkipped,
+    skipGpgVerificationAllowed,
+  ]);
 
   const downloadDisabled = isDownloading && status !== 'downloading';
 
@@ -343,24 +362,33 @@ export default function SettingDevBundleList() {
   const [downloadedSet, setDownloadedSet] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
   const [gpgSkipped, setGpgSkipped] = useState(false);
+  const [skipGpgVerificationAllowed, setSkipGpgVerificationAllowed] =
+    useState(false);
 
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
+  const currentCommitHash = normalizeCommitHash(platformEnv.githubSHA);
+  const currentBundleLabel =
+    skipGpgVerificationAllowed && currentCommitHash
+      ? currentCommitHash.slice(0, 8)
+      : `#${currentBundleVersion}`;
 
   useEffect(() => {
     let isMounted = true;
     void (async () => {
       try {
-        const [data, skipGpg, localBundles] = await Promise.all([
+        const [data, skipGpg, localBundles, isSkipAllowed] = await Promise.all([
           backgroundApiProxy.serviceAppUpdate.devFetchBundlesForVersion(
             version,
           ),
           backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification(),
           BundleUpdate.listLocalBundles().catch(() => []),
+          BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false),
         ]);
         if (!isMounted) return;
 
         setGpgSkipped(skipGpg);
+        setSkipGpgVerificationAllowed(Boolean(isSkipAllowed));
         setBundles(data);
 
         const downloaded = new Set<string>(
@@ -427,9 +455,9 @@ export default function SettingDevBundleList() {
           <YStack px="$5" py="$4" gap="$3">
             <XStack alignItems="center" justifyContent="space-between">
               <SizableText size="$bodySm" color="$textSubdued">
-                {`Current: v${currentAppVersion} #${currentBundleVersion}`}
+                {`Current: v${currentAppVersion} ${currentBundleLabel}`}
               </SizableText>
-              {process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION && gpgSkipped ? (
+              {skipGpgVerificationAllowed && gpgSkipped ? (
                 <Badge badgeType="warning" badgeSize="sm">
                   <Badge.Text>GPG Skipped</Badge.Text>
                 </Badge>
@@ -444,7 +472,9 @@ export default function SettingDevBundleList() {
               overflow="hidden"
             >
               {bundles.map((bundle, index) => (
-                <YStack key={bundle.bundleVersion}>
+                <YStack
+                  key={`${bundle.bundleVersion}-${bundle.commitHash || index}`}
+                >
                   {index > 0 ? (
                     <XStack mx="$4">
                       <Divider />
@@ -453,15 +483,26 @@ export default function SettingDevBundleList() {
                   <BundleItem
                     bundle={bundle}
                     version={version}
-                    isCurrentBundle={
-                      version === currentAppVersion &&
-                      bundle.bundleVersion === currentBundleVersion
-                    }
+                    isCurrentBundle={(() => {
+                      if (version !== currentAppVersion) {
+                        return false;
+                      }
+                      if (skipGpgVerificationAllowed) {
+                        const bundleCommitHash = normalizeCommitHash(
+                          bundle.commitHash,
+                        );
+                        if (bundleCommitHash && currentCommitHash) {
+                          return bundleCommitHash === currentCommitHash;
+                        }
+                      }
+                      return bundle.bundleVersion === currentBundleVersion;
+                    })()}
                     alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
                     isDownloading={isDownloading}
                     onDownloadStart={handleDownloadStart}
                     onDownloadEnd={handleDownloadEnd}
                     gpgSkipped={gpgSkipped}
+                    skipGpgVerificationAllowed={skipGpgVerificationAllowed}
                   />
                 </YStack>
               ))}

@@ -494,6 +494,10 @@ function TableListRow<T>({
           opacity={isExpanded ? 1 : 0}
           maxHeight={isExpanded ? 1000 : 0}
           overflow="hidden"
+          {...(!isExpanded && {
+            pointerEvents: 'none' as const,
+            display: 'none' as const,
+          })}
         >
           {expandable.renderExpandedContent(item, index)}
         </YStack>

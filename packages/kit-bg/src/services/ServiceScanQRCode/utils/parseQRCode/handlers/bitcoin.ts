@@ -4,7 +4,6 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IBitcoinValue, IQRCodeHandler } from '../type';
 
-// eslint-disable-next-line @cspell/spellchecker
 // oxlint-disable-next-line @cspell/spellchecker
 // bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=20.3&label=Luke-Jr
 

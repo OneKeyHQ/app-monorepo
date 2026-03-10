@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
-import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -257,6 +257,8 @@ export const BundleUpdate: IBundleUpdate = {
     }, 2500);
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
+  isSkipGpgVerificationAllowed: () =>
+    Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),

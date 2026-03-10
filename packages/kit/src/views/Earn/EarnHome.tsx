@@ -41,6 +41,7 @@ import { isBorrowTag } from '../Staking/utils/utils';
 
 import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
+import { EarnBorrowPagerView } from './components/EarnBorrowPagerView';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnPageContainer } from './components/EarnPageContainer';
@@ -55,6 +56,7 @@ import { useEarnPortfolio } from './hooks/useEarnPortfolio';
 import { useFAQListInfo } from './hooks/useFAQListInfo';
 import { useStakingPendingTxsByInfo } from './hooks/useStakingPendingTxs';
 
+import type { IEarnBorrowPagerViewRef } from './components/EarnBorrowPagerView';
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
 
 const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
@@ -66,11 +68,15 @@ function BasicEarnHome({
   showContent,
   overrideDefaultTab,
   tabsRef,
+  useSwipePager,
+  earnBorrowPagerRef,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
   overrideDefaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  useSwipePager?: boolean;
+  earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -401,6 +407,57 @@ function BasicEarnHome({
   }
 
   if (platformEnv.isNative) {
+    // Phone with swipe pager: EarnBorrowPagerView replaces display:none/flex
+    if (useSwipePager) {
+      return (
+        <YStack flex={1}>
+          <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
+          <EarnBorrowPagerView
+            ref={earnBorrowPagerRef}
+            mode={defaultMode}
+            onModeChange={handleModeChange}
+            earnContent={
+              <>
+                <EarnMainTabs
+                  faqList={faqList || []}
+                  isFaqLoading={isFaqLoading}
+                  defaultTab={defaultTab}
+                  portfolioData={portfolioData}
+                  containerProps={mobileContainerProps}
+                  tabsRef={tabsRef}
+                  nestedPager={useSwipePager}
+                />
+                {showHeader && showContent ? (
+                  <YStack
+                    position="absolute"
+                    top={-20}
+                    left={0}
+                    bg="$bgApp"
+                    pt="$5"
+                    width="100%"
+                  >
+                    <TabPageHeader
+                      sceneName={EAccountSelectorSceneName.home}
+                      tabRoute={ETabRoutes.Earn}
+                    />
+                  </YStack>
+                ) : null}
+              </>
+            }
+            borrowContent={
+              <BorrowHome
+                isActive={isBorrowMode}
+                pendingTxs={borrowPendingTxs}
+                onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+                onBorrowNetworksChange={handleBorrowNetworksChange}
+              />
+            }
+          />
+        </YStack>
+      );
+    }
+
+    // Tablet / dual-screen: keep existing display:none/flex logic
     const marketSelectorHeader = (
       <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
     );
@@ -430,7 +487,6 @@ function BasicEarnHome({
               bg="$bgApp"
               pt="$5"
               width="100%"
-              // onLayout={handleTabPageLayout}
             >
               <TabPageHeader
                 sceneName={EAccountSelectorSceneName.home}
@@ -520,11 +576,15 @@ export function EarnHomeWithProvider({
   showContent = true,
   defaultTab,
   tabsRef,
+  useSwipePager,
+  earnBorrowPagerRef,
 }: {
   showHeader?: boolean;
   showContent?: boolean;
   defaultTab?: 'assets' | 'portfolio' | 'faqs';
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  useSwipePager?: boolean;
+  earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -540,6 +600,8 @@ export function EarnHomeWithProvider({
           showContent={showContent}
           overrideDefaultTab={defaultTab}
           tabsRef={tabsRef}
+          useSwipePager={useSwipePager}
+          earnBorrowPagerRef={earnBorrowPagerRef}
         />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
