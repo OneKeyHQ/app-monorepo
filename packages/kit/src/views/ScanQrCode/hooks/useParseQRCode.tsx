@@ -8,6 +8,8 @@ import {
   Stack,
   Toast,
   ToastContent,
+  popActionCenterPages,
+  popScanModalPages,
   resetAboveMainRoute,
   useClipboard,
 } from '@onekeyhq/components';
@@ -159,13 +161,22 @@ const useParseQRCode = () => {
 
       const closeScanPage = async () => {
         if (popNavigation) {
-          // Atomically remove all overlay routes (scan modal, ActionCenter,
-          // FullScreenPush, etc.) via CommonActions.reset instead of sequential
-          // goBack() calls. This avoids the native UITabBarController
-          // window-nil race condition where RNSScreenStack retries exhaust on
-          // stacks inside detached tab views (OK-50182).
-          resetAboveMainRoute();
-          await timerUtils.wait(100);
+          if (options?.autoExecuteParsedAction) {
+            // Atomically remove all overlay routes (scan modal, ActionCenter,
+            // FullScreenPush, etc.) via CommonActions.reset instead of
+            // sequential goBack() calls. This avoids the native
+            // UITabBarController window-nil race condition where
+            // RNSScreenStack retries exhaust on stacks inside detached tab
+            // views (OK-50182).
+            resetAboveMainRoute();
+            await timerUtils.wait(100);
+          } else {
+            // Preserve caller route for manual scan flows (e.g. onboarding
+            // import): only dismiss scan/action-center overlays.
+            await popScanModalPages();
+            await popActionCenterPages();
+            await waitForScanModalClosed();
+          }
         }
       };
 
@@ -174,7 +185,8 @@ const useParseQRCode = () => {
         options,
       );
 
-      if (!options?.autoHandleResult) {
+      // Manual mode: close scanner overlays and return parsed data to caller.
+      if (!options?.autoExecuteParsedAction) {
         if (
           result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
           (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
@@ -184,6 +196,7 @@ const useParseQRCode = () => {
         }
         return result;
       }
+      // Auto-execution mode: run built-in route/action side effects by type.
       switch (result.type) {
         case EQRCodeHandlerType.REWARD_CENTER: {
           await closeScanPage();

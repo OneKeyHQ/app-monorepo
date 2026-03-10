@@ -1,7 +1,6 @@
 import { memo } from 'react';
 
 import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
 import { AddressDisplay } from '../../../AddressDisplay';
@@ -21,7 +20,6 @@ function HolderItemSmallBase({
   networkId,
 }: IHolderItemSmallProps) {
   const { styles } = useHoldersLayoutSmall();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
   const { rank, displayPercentage, accountAddress, fiatValue } =
     useHolderItemData({ item, index });
 
@@ -59,7 +57,7 @@ function HolderItemSmallBase({
         {...styles.value}
         formatter="marketCap"
         formatterOptions={{
-          currency: settingsPersistAtom.currencyInfo.symbol,
+          currency: '$',
         }}
       >
         {fiatValue}

@@ -5,6 +5,7 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
+  Image,
   InteractiveIcon,
   SizableText,
   XStack,
@@ -19,6 +20,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import {
+  StockIsOpenBadge,
+  SubtitleBadge,
+} from '../../../components/PerpsBadges';
 import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
@@ -70,6 +75,7 @@ export function TokenDetailHeaderLeft({
     logoUrl = '',
     extraData,
     communityRecognized,
+    stock,
   } = tokenDetail || {};
 
   const { website, twitter } = extraData || {};
@@ -127,7 +133,19 @@ export function TokenDetailHeaderLeft({
             >
               {symbol}
             </SizableText>
+            {stock?.sourceLogoUri ? (
+              <Image
+                width={14}
+                height={14}
+                borderRadius="$full"
+                source={{ uri: stock.sourceLogoUri }}
+              />
+            ) : null}
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
+            {stock?.subtitle ? (
+              <SubtitleBadge subtitle={stock.subtitle} />
+            ) : null}
+            {stock ? <StockIsOpenBadge isOpen={stock.isOpen} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">

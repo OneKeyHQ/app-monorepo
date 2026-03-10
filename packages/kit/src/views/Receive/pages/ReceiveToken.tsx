@@ -724,7 +724,7 @@ function ReceiveToken() {
             color="$textSubdued"
             size="$bodyMd"
             translationId={ETranslations.wallet_receive_note_fresh_address}
-            autoHandleResult={false}
+            autoExecuteParsedAction={false}
             onAction={() => {
               console.log('HyperlinkText onAction');
               navigation.push(EModalReceiveRoutes.BtcAddresses, {

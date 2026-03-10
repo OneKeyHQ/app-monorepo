@@ -4,7 +4,6 @@ import { throttle } from 'lodash';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { NumberSizeableText } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 class MarketTokenPriceEvent {
   private tokenPriceMap = new Map<
@@ -136,9 +135,6 @@ export function MarketTokenPrice({
   tokenName: string;
   lastUpdated?: string;
 } & ISizableTextProps) {
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
-
   const lastUpdateDate = useMemo(() => {
     if (
       typeof lastUpdated === 'string' &&
@@ -164,7 +160,7 @@ export function MarketTokenPrice({
       userSelect="none"
       formatter="price"
       size={size}
-      formatterOptions={{ currency }}
+      formatterOptions={{ currency: '$' }}
       {...props}
     >
       {tokenPrice}
@@ -185,14 +181,12 @@ export function BaseMarketTokenPrice({
   tokenName: string;
   lastUpdated?: string;
 } & ISizableTextProps) {
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
   return (
     <NumberSizeableText
       userSelect="none"
       formatter="price"
       size={size}
-      formatterOptions={{ currency }}
+      formatterOptions={{ currency: '$' }}
       {...props}
     >
       {price}

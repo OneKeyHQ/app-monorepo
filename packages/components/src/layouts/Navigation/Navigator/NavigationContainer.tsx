@@ -26,10 +26,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabRoutes,
-  ITabStackParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -135,36 +132,49 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   );
 }
 
-export const switchTab = <T extends ETabRoutes>(
-  route: T,
-  params?: {
-    params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-  },
-) => {
+const getActiveTabFromRef = (
+  ref: typeof rootNavigationRef,
+): string | undefined => {
+  const s = ref.current?.getRootState();
+  if (!s) return undefined;
+  const main = s.routes?.find((r) => r.name === ERootRoutes.Main);
+  const idx = main?.state?.index ?? 0;
+  return main?.state?.routes?.[idx]?.name;
+};
+
+export const switchTab = (route: ETabRoutes) => {
+  // Skip per-ref navigate if already on the target tab to avoid unnecessary
+  // navigate(pop:true) which triggers RNSScreenStack retry storms on iOS
+  // when the tab's inner stack has pages that get popped and orphaned.
+  const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
+
   defaultLogger.app.router.switchTab(route);
 
   setTimeout(() => {
-    tabletMainViewNavigationRef.current?.navigate(
+    const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
+    if (tabletActiveTab !== undefined && tabletActiveTab !== route) {
+      tabletMainViewNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: route,
+        },
+        {
+          pop: true,
+        },
+      );
+    }
+  });
+  if (rootActiveTab !== route) {
+    rootNavigationRef.current?.navigate(
       ERootRoutes.Main,
       {
         screen: route,
-        params,
       },
       {
         pop: true,
       },
     );
-  });
-  rootNavigationRef.current?.navigate(
-    ERootRoutes.Main,
-    {
-      screen: route,
-      params,
-    },
-    {
-      pop: true,
-    },
-  );
+  }
 
   defaultLogger.app.router.switchTabDone(route);
 };

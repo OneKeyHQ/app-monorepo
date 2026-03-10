@@ -186,7 +186,7 @@ function ImportAddressCore({
                     onPress: async () => {
                       const result = await start({
                         handlers: [],
-                        autoHandleResult: false,
+                        autoExecuteParsedAction: false,
                       });
                       form.setValue('publicKeyValue', result.raw);
                     },

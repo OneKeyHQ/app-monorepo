@@ -119,6 +119,13 @@ function EarnAssetSearchDialogContent({
   const [selectedCategory, setSelectedCategory] = useState<ICategoryKey>(
     EAvailableAssetsTypeEnum.SimpleEarn,
   );
+  const dialogContentHeight = useMemo(() => {
+    if (!windowHeight) {
+      return 360;
+    }
+
+    return Math.min(Math.max(windowHeight - 280, 320), 520);
+  }, [windowHeight]);
 
   const categoryTabs = useMemo(
     () => [
@@ -190,7 +197,7 @@ function EarnAssetSearchDialogContent({
   );
 
   return (
-    <YStack gap="$2" py="$2" height={windowHeight * 0.65}>
+    <YStack gap="$2" py="$2" height={dialogContentHeight}>
       <YStack px="$2">
         <SearchBar
           autoFocus
@@ -207,6 +214,7 @@ function EarnAssetSearchDialogContent({
         tabs={categoryTabs}
       />
       <ListView
+        flex={1}
         data={filteredAssets}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
