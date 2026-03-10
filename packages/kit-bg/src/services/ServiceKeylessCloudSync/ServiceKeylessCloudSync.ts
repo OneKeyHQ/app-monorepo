@@ -368,13 +368,34 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   currentKeylessWalletIdCache: string | null | undefined;
 
+  async setPersistedCurrentKeylessWalletId(
+    currentKeylessWalletId: string | null,
+  ) {
+    this.currentKeylessWalletIdCache = currentKeylessWalletId;
+    await primeCloudSyncPersistAtom.set((v) => {
+      if (v.currentKeylessWalletId === currentKeylessWalletId) {
+        return v;
+      }
+      return {
+        ...v,
+        currentKeylessWalletId,
+      };
+    });
+  }
+
   async getCurrentKeylessWalletId(): Promise<string | null> {
     if (this.currentKeylessWalletIdCache !== undefined) {
       return this.currentKeylessWalletIdCache;
     }
+    const { currentKeylessWalletId } = await primeCloudSyncPersistAtom.get();
+    if (currentKeylessWalletId !== undefined) {
+      this.currentKeylessWalletIdCache = currentKeylessWalletId;
+      return this.currentKeylessWalletIdCache;
+    }
     const keylessWallet = await this.getKeylessWallet();
-    this.currentKeylessWalletIdCache = keylessWallet?.id ?? null;
-    return this.currentKeylessWalletIdCache;
+    const walletId = keylessWallet?.id ?? null;
+    await this.setPersistedCurrentKeylessWalletId(walletId);
+    return walletId;
   }
 
   setKeylessCloudSyncCredentialCache(
@@ -435,6 +456,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (shouldEnableKeyless) {
       const keylessWallet = await this.getKeylessWallet();
       if (!keylessWallet) {
+        await this.setPersistedCurrentKeylessWalletId(null);
         await primeCloudSyncPersistAtom.set((v) => ({
           ...v,
           isCloudSyncEnabledKeyless: false,
@@ -450,6 +472,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         });
         return false;
       }
+      await this.setPersistedCurrentKeylessWalletId(keylessWallet.id);
 
       const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
       if (isCloudSyncEnabled) {
