@@ -16,32 +16,6 @@ import type {
 const wrapNitroCallback = nitroCallback;
 type IAutoSizeInputRef = HybridView<AutoSizeInputProps, AutoSizeInputMethods>;
 
-const estimateInlineTextWidthPx = (text: string, fontSize: number) => {
-  let width = 0;
-  for (const char of text) {
-    if (/[0-9]/.test(char)) {
-      width += fontSize * 0.58;
-    } else if (/[A-Z]/.test(char)) {
-      width += fontSize * 0.62;
-    } else if (/[a-z]/.test(char)) {
-      width += fontSize * 0.52;
-    } else if (char === ' ') {
-      width += fontSize * 0.28;
-    } else if (['.', ',', ':', ';'].includes(char)) {
-      width += fontSize * 0.24;
-    } else if (['+', '-'].includes(char)) {
-      width += fontSize * 0.34;
-    } else if (['$', '€', '¥', '£', '₹', '₿', 'Ξ'].includes(char)) {
-      width += fontSize * 0.44;
-    } else if (['(', ')', '[', ']'].includes(char)) {
-      width += fontSize * 0.36;
-    } else {
-      width += fontSize * 0.56;
-    }
-  }
-  return width;
-};
-
 const mapAutoSizeKeyboardType = (keyboardType?: string): string | undefined => {
   switch (keyboardType) {
     case 'decimal-pad':
@@ -58,11 +32,8 @@ const mapAutoSizeKeyboardType = (keyboardType?: string): string | undefined => {
 };
 
 export function AutoSizeInput({
-  displayValue,
-  simpleFontSize,
   simpleMaxFontSize,
   simpleMinFontSize,
-  availableInlineWidth,
   currencyLabel,
   inlineTokenSymbol,
   inlinePrefixGapPx,
