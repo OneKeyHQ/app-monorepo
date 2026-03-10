@@ -2,10 +2,6 @@
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
-const { getDesktopBuildVariant } = require('./scripts/build-variant');
-
-const { artifactPrefix, iconPngPath, liquidIconName } =
-  getDesktopBuildVariant();
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -44,8 +40,8 @@ module.exports = {
         'to': 'Assets.car',
       },
     ],
-    'icon': iconPngPath,
-    'artifactName': `${artifactPrefix}-\${version}-mac-\${arch}.\${ext}`,
+    'icon': 'app/build/static/images/icons/512x512.png',
+    'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
     'gatekeeperAssess': true, // Changed from false - required for CloudKit with Developer ID
     'darkModeSupport': false,
@@ -63,7 +59,7 @@ module.exports = {
       'OneKey_Desktop_DeveloperId.provisionprofile',
     ),
     'extendInfo': {
-      'CFBundleIconName': liquidIconName,
+      'CFBundleIconName': 'OneKeyLogo',
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
@@ -79,8 +75,8 @@ module.exports = {
       },
     ],
     'extraFiles': DLLs,
-    'icon': iconPngPath,
-    'artifactName': `${artifactPrefix}-\${version}-win-\${arch}.\${ext}`,
+    'icon': 'app/build/static/images/icons/512x512.png',
+    'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
@@ -91,8 +87,8 @@ module.exports = {
         'to': 'bin/bridge',
       },
     ],
-    'icon': iconPngPath,
-    'artifactName': `${artifactPrefix}-\${version}-linux-\${arch}.\${ext}`,
+    'icon': 'app/build/static/images/icons/512x512.png',
+    'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
     'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],

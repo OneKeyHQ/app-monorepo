@@ -86,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-zips${{ env.ONEKEY_BUILD_VARIANT_SUFFIX }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: release-native-bundle-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/mobile/out-dir-bundle-zip
             !**/.DS_Store
@@ -95,7 +95,7 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-sources${{ env.ONEKEY_BUILD_VARIANT_SUFFIX }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: release-native-bundle-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/mobile/out-dir-bundle
             !**/.DS_Store
@@ -117,7 +117,7 @@ jobs:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: React-Native-Bundle
-          artifact-name: OneKey-Native-Bundle${{ env.ONEKEY_BUILD_VARIANT_SUFFIX }}
+          artifact-name: OneKey-Native-Bundle
           artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
