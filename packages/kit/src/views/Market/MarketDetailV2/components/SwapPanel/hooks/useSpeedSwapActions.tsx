@@ -206,6 +206,7 @@ export function useSpeedSwapActions(props: {
         await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           networkId: tradeTokenNetworkId,
           contractAddress: tradeTokenContractAddress,
+          currency: 'usd',
         });
       if (tokenDetail?.length) {
         setTradeTokenDetail({
@@ -892,6 +893,7 @@ export function useSpeedSwapActions(props: {
               contractAddress: balanceToken?.contractAddress ?? '',
               accountId: netAccountRes.result?.id ?? '',
               accountAddress: netAccountRes.result?.addressDetail.address ?? '',
+              currency: 'usd',
             });
           if (tokenDetail?.length) {
             setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
@@ -935,10 +937,12 @@ export function useSpeedSwapActions(props: {
         backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           networkId: fromToken.networkId ?? '',
           contractAddress: fromToken.contractAddress ?? '',
+          currency: 'usd',
         }),
         backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           networkId: toToken.networkId ?? '',
           contractAddress: toToken.contractAddress ?? '',
+          currency: 'usd',
         }),
       ]);
       if (fromTokenPrice?.length && toTokenPrice?.length) {
