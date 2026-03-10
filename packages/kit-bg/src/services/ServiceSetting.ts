@@ -474,9 +474,7 @@ class ServiceSetting extends ServiceBase {
   public async restoreFiatPaySiteWhitelistFromPersist() {
     const { fiatPaySiteWhitelist } =
       await settingsFiatPaySiteWhitelistPersistAtom.get();
-    if (fiatPaySiteWhitelist.length > 0) {
-      await this.syncFiatPaySiteWhitelistToRuntime(fiatPaySiteWhitelist);
-    }
+    await this.syncFiatPaySiteWhitelistToRuntime(fiatPaySiteWhitelist);
   }
 
   @backgroundMethod()
