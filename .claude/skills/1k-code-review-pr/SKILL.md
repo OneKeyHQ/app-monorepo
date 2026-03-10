@@ -115,10 +115,10 @@ Run `git diff origin/x...HEAD --name-only` and match:
 
 | Changed Files Match | Load |
 |---------------------|------|
-| `package.json`, lockfiles, `node_modules` patches | [security-and-supply-chain.md] — full supply-chain review |
-| `**/auth/**`, `**/vault/**`, `**/signing/**`, `**/crypto/**`, `manifest.json` | [security-and-supply-chain.md] — full security review |
+| `package.json`, lockfiles, `node_modules` patches, `patches/*.patch` | [security-and-supply-chain.md] — full supply-chain review |
+| `**/auth/**`, `**/vault/**`, `**/signing/**`, `**/crypto/**`, `manifest.json`, `**/manifest/*.js` | [security-and-supply-chain.md] — full security review |
 | Any `.ts`/`.tsx` with business logic | [code-quality-patterns.md] — hooks, race conditions, null safety |
-| `.android.ts`, `.ios.ts`, `.native.ts`, native modules, `BigNumber` usage | [onekey-platform-patterns.md] — platform crashes & numeric safety |
+| `.android.ts(x)`, `.ios.ts(x)`, `.native.ts(x)`, `.desktop.ts(x)`, `.ext.ts(x)`, `.web.ts(x)`, native modules, `BigNumber` usage | [onekey-platform-patterns.md] — platform crashes & numeric safety |
 | Shell scripts (`.sh`), CI workflows (`.yml`) | [onekey-platform-patterns.md] — build & CI section |
 
 **Always check** regardless of file type:
@@ -146,8 +146,8 @@ apps/*               <- imports all
 ```bash
 # Quick hierarchy violation check on changed files
 git diff origin/x...HEAD --name-only | grep -E '\.tsx?$' | \
-  xargs grep -l "from.*@onekeyhq" 2>/dev/null | \
-  while read f; do echo "=== $f ==="; grep "from.*@onekeyhq" "$f"; done
+  while IFS= read -r f; do [ -f "$f" ] && grep -l "from.*@onekeyhq" "$f" 2>/dev/null; done | \
+  while IFS= read -r f; do echo "=== $f ==="; grep "from.*@onekeyhq" "$f"; done
 ```
 
 ## File Risk Classification
@@ -228,7 +228,7 @@ Do NOT generate auto-fix for:
 
 After generating the report, if there are findings that meet the comment threshold:
 
-**Comment threshold**: 🔵 High confidence + 🟡 中 priority or above. This means:
+**Comment threshold**: 🔴 高 priority (any confidence) OR 🟡 中 priority with 🔵 High confidence. This means:
 - All 🔴 高 findings (regardless of confidence)
 - All 🟡 中 findings with 🔵 High confidence (cross-validated or confirmed from code)
 - Excludes: 🟢 低 findings, and 🟡 中 with 🟠 Medium or ⚪ Low confidence
