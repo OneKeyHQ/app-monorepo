@@ -1,4 +1,6 @@
 export interface IMarketTokenDetail {
+  networkId?: string;
+  isNative?: boolean;
   address: string;
   logoUrl: string;
   name: string;
@@ -19,6 +21,7 @@ export interface IMarketTokenDetail {
     warningMessage?: string;
   };
   price?: string;
+  priceConverted?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -90,6 +93,7 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
   [key: string]: unknown;
 }
 
@@ -109,6 +113,12 @@ export interface IMarketTokenListItemExtraData {
   website?: string;
   twitter?: string;
   [key: string]: unknown;
+}
+
+export interface IMarketStockInfo {
+  subtitle: string;
+  sourceLogoUri: string;
+  isOpen: boolean;
 }
 
 export interface IMarketTokenListItem {
@@ -182,6 +192,7 @@ export interface IMarketTokenListItem {
   chainId?: string;
   communityRecognized?: boolean;
   isNative?: boolean;
+  stock?: IMarketStockInfo;
 }
 
 export interface IMarketTokenListResponse {
