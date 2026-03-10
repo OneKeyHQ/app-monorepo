@@ -425,6 +425,7 @@ function BasicEarnHome({
                   portfolioData={portfolioData}
                   containerProps={mobileContainerProps}
                   tabsRef={tabsRef}
+                  nestedPager={useSwipePager}
                 />
                 {showHeader && showContent ? (
                   <YStack

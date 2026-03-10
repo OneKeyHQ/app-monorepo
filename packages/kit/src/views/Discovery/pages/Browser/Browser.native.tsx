@@ -434,6 +434,7 @@ function MobileBrowser() {
             marketContent={
               <MarketHomeWithProvider
                 isFocused={selectedHeaderTab === ETranslations.global_market}
+                nestedPager={useOuterPager}
                 tabsRef={marketTabsRef}
               />
             }
