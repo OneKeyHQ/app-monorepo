@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import { type LayoutChangeEvent, useWindowDimensions } from 'react-native';
 
 import {
   Icon,
@@ -26,7 +26,7 @@ import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { AutoSizeInput } from './AutoSizeInput';
 
-import type { LayoutChangeEvent, TextInput } from 'react-native';
+import type { IAutoSizeInputRef } from './AutoSizeInput.types';
 
 const INLINE_SYMBOL_MAX_LENGTH = 12;
 const WRAPPED_SYMBOL_FONT_SCALE = 0.5;
@@ -222,7 +222,7 @@ function SendAutoSizeAmountInputComponent(
     inputProps,
     reversible,
     onChange,
-    value,
+    value: controlledValue,
     valueProps,
     tokenSymbol,
     extraContent,
@@ -234,20 +234,15 @@ function SendAutoSizeAmountInputComponent(
   const { md } = useMedia();
   const theme = useTheme();
   const fontSizeScale = md ? 1.2 : 1.5;
-  const selectionColor = theme.bgPrimaryActive.val;
-  const transparentColor = theme.transparent.val;
-  const inputTextColor = theme.text.val;
-  const placeholderColor = theme.textDisabled.val;
-  const autoSizeSelectionColor = normalizeAutoSizeNativeColor(selectionColor);
-  const autoSizeTransparentColor =
-    normalizeAutoSizeNativeColor(transparentColor);
-  const autoSizeInputTextColor = normalizeAutoSizeNativeColor(inputTextColor);
-  const autoSizePlaceholderColor =
-    normalizeAutoSizeNativeColor(placeholderColor);
+  const selectionColor =
+    normalizeAutoSizeNativeColor(theme.bgPrimaryActive.val) ??
+    theme.bgPrimaryActive.val;
+  const backgroundColor = normalizeAutoSizeNativeColor(theme.transparent.val);
+  const textColor = normalizeAutoSizeNativeColor(theme.text.val);
+  const placeholderColor = normalizeAutoSizeNativeColor(theme.textDisabled.val);
 
   const [layoutWidth, setLayoutWidth] = useState(0);
-  const inputRef = useRef<TextInput>(null);
-  const autoSizeInputRef = useRef<{ focus?: () => void } | null>(null);
+  const autoSizeInputRef = useRef<IAutoSizeInputRef | null>(null);
   const [forcedNativeText, setForcedNativeText] = useState<string | null>(null);
   const forceWritebackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -259,16 +254,12 @@ function SendAutoSizeAmountInputComponent(
 
   useImperativeHandle(ref, () => ({
     focus: () => {
-      if (platformEnv.isNative) {
-        autoSizeInputRef.current?.focus?.();
-        return;
-      }
-      inputRef.current?.focus();
+      autoSizeInputRef.current?.focus?.();
     },
     focusPercentageButton: () => {},
   }));
 
-  const displayValue = value ?? '';
+  const inputValue = controlledValue ?? '';
 
   const clearForceWritebackTimer = useCallback(() => {
     if (forceWritebackTimerRef.current) {
@@ -289,11 +280,11 @@ function SendAutoSizeAmountInputComponent(
         return prev;
       }
       const normalizedPrev = stripIOSForceWritebackMarker(prev);
-      return normalizedPrev === displayValue ? null : prev;
+      return normalizedPrev === inputValue ? null : prev;
     });
-  }, [displayValue]);
+  }, [inputValue]);
 
-  const handleSimpleChangeText = useCallback(
+  const handleChangeText = useCallback(
     (text: string) => {
       const sanitizedText = sanitizeAmountInputText(text);
       onChange?.(sanitizedText);
@@ -328,12 +319,12 @@ function SendAutoSizeAmountInputComponent(
   );
 
   // Android keeps using the controlled value directly; pulse write-back is iOS-only.
-  const effectiveDisplayValueRaw = platformEnv.isNativeIOS
-    ? (forcedNativeText ?? displayValue)
-    : displayValue;
-  const effectiveDisplayValue = platformEnv.isNativeIOS
-    ? stripIOSForceWritebackMarker(effectiveDisplayValueRaw)
-    : effectiveDisplayValueRaw;
+  const effectiveValueRaw = platformEnv.isNativeIOS
+    ? (forcedNativeText ?? inputValue)
+    : inputValue;
+  const effectiveValue = platformEnv.isNativeIOS
+    ? stripIOSForceWritebackMarker(effectiveValueRaw)
+    : effectiveValueRaw;
   const normalizedTokenSymbol = useMemo(
     () => normalizeTokenSymbol(tokenSymbol),
     [tokenSymbol],
@@ -345,15 +336,15 @@ function SendAutoSizeAmountInputComponent(
     : normalizedTokenSymbol;
 
   const currencyLabel = inputProps?.leftAddOnProps?.label as string | undefined;
-  const inputLoading = inputProps?.loading;
-  const inputPlaceholder = inputProps?.placeholder ?? '0';
-  const inputEditable = inputProps?.editable ?? true;
-  const inputKeyboardType = inputProps?.keyboardType ?? 'decimal-pad';
-  const inputReturnKeyType = inputProps?.returnKeyType;
-  const onInputFocus = inputProps?.onFocus;
-  const onInputBlur = inputProps?.onBlur;
-  const simpleFontSize = getAmountFontSize(
-    effectiveDisplayValue?.length || 0,
+  const isLoading = inputProps?.loading;
+  const placeholder = inputProps?.placeholder ?? '0';
+  const editable = inputProps?.editable ?? true;
+  const keyboardType = inputProps?.keyboardType ?? 'decimal-pad';
+  const returnKeyType = inputProps?.returnKeyType;
+  const onFocus = inputProps?.onFocus;
+  const onBlur = inputProps?.onBlur;
+  const fontSize = getAmountFontSize(
+    effectiveValue?.length || 0,
     fontSizeScale,
   );
   const availableInlineWidth = Math.max(
@@ -362,14 +353,14 @@ function SendAutoSizeAmountInputComponent(
   );
   const isCompactInlineWidth =
     !md && availableInlineWidth > 0 && availableInlineWidth < 360;
-  const simpleMaxFontSize = Math.round(56 * fontSizeScale);
-  const simpleMinFontSize = Math.round(
+  const maxFontSize = Math.round(56 * fontSizeScale);
+  const minFontSize = Math.round(
     (isCompactInlineWidth ? 12 : 14) * fontSizeScale,
   );
   const wrappedSymbolFontSize = Math.max(
     WRAPPED_SYMBOL_MIN_FONT_SIZE,
     Math.min(
-      Math.round(simpleFontSize * WRAPPED_SYMBOL_FONT_SCALE),
+      Math.round(fontSize * WRAPPED_SYMBOL_FONT_SCALE),
       WRAPPED_SYMBOL_MAX_FONT_SIZE,
     ),
   );
@@ -395,46 +386,42 @@ function SendAutoSizeAmountInputComponent(
   const inlinePrefixGapPx = 0;
   const inlineSuffixGapPx = Math.max(
     4,
-    Math.ceil(estimateTextWidthPx(' ', simpleFontSize)),
+    Math.ceil(estimateTextWidthPx(' ', fontSize)),
   );
-  let autoSizeTextValue = effectiveDisplayValueRaw;
-  if (effectiveDisplayValue === '') {
-    autoSizeTextValue = platformEnv.isNativeIOS ? '0' : '';
+  // Keep one unified value prop for web/native.
+  // iOS native needs "0" when empty to keep caret behavior stable.
+  let autoSizeValue = effectiveValueRaw;
+  if (effectiveValue === '') {
+    autoSizeValue = platformEnv.isNativeIOS ? '0' : '';
   }
 
-  const amountInputNode = inputLoading ? (
+  const amountInputNode = isLoading ? (
     <Stack py="$4">
       <Skeleton h="$12" w="$40" />
     </Stack>
   ) : (
     <AutoSizeInput
-      displayValue={displayValue}
-      simpleFontSize={simpleFontSize}
-      simpleMaxFontSize={simpleMaxFontSize}
-      simpleMinFontSize={simpleMinFontSize}
+      ref={autoSizeInputRef}
+      value={autoSizeValue}
+      fontSize={fontSize}
+      maxFontSize={maxFontSize}
+      minFontSize={minFontSize}
       availableInlineWidth={availableInlineWidth}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}
       inlinePrefixGapPx={inlinePrefixGapPx}
       inlineSuffixGapPx={inlineSuffixGapPx}
       selectionColor={selectionColor}
-      handleSimpleChangeText={handleSimpleChangeText}
-      inputLoading={inputLoading}
-      inputPlaceholder={inputPlaceholder}
-      inputEditable={inputEditable}
-      inputKeyboardType={inputKeyboardType}
-      inputReturnKeyType={inputReturnKeyType}
-      onInputFocus={onInputFocus}
-      onInputBlur={onInputBlur}
-      inputRef={inputRef}
-      autoSizeTextValue={autoSizeTextValue}
-      autoSizeInputTextColor={autoSizeInputTextColor}
-      autoSizePlaceholderColor={autoSizePlaceholderColor}
-      autoSizeSelectionColor={autoSizeSelectionColor}
-      autoSizeTransparentColor={autoSizeTransparentColor}
-      onHybridRef={(hybridViewRef) => {
-        autoSizeInputRef.current = hybridViewRef;
-      }}
+      onChangeText={handleChangeText}
+      placeholder={placeholder}
+      editable={editable}
+      keyboardType={keyboardType}
+      returnKeyType={returnKeyType}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      textColor={textColor}
+      placeholderColor={placeholderColor}
+      backgroundColor={backgroundColor}
     />
   );
 
