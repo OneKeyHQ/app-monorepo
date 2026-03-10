@@ -1419,7 +1419,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       const keylessWalletId =
         activeMode === ECloudSyncMode.Keyless
           ? keylessCloudSyncCredential?.keylessWalletId ||
-            (await this.getCurrentKeylessWalletId())
+            (await this.getCurrentCloudSyncKeylessWalletId())
           : undefined;
       const result = await this.getSyncCredentialWithCache({
         activeMode,
@@ -1453,8 +1453,8 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getCurrentKeylessWalletId() {
-    return this.backgroundApi.serviceKeylessCloudSync.getCurrentKeylessWalletId();
+  async getCurrentCloudSyncKeylessWalletId() {
+    return this.backgroundApi.serviceKeylessCloudSync.getCurrentCloudSyncKeylessWalletId();
   }
 
   buildSyncCredentialWithKeylessCredential(

@@ -306,7 +306,7 @@ class ServiceKeylessWallet extends ServiceBase {
       avatar: avatarInfo,
     });
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-    await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentKeylessWalletId(
+    await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
       result.wallet.id,
     );
     return result;

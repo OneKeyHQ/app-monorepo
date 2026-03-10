@@ -227,7 +227,7 @@ class ServiceV4Migration extends ServiceBase {
         // Check if V5 has user-created wallets (HD, HW, Imported, Watching)
         // Exclude system default wallets (imported, watching, external)
         const { wallets } = await localDb.getAllWallets();
-        await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentKeylessWalletIdWithWallets(
+        await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
           wallets,
         );
         const userWallets = wallets.filter((wallet) => {

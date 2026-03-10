@@ -389,7 +389,7 @@ class ServiceAccount extends ServiceBase {
         ),
       );
     }
-    await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentKeylessWalletIdWithWallets(
+    await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
       wallets,
     );
     // Filter out keyless wallets if excludeKeylessWallet is true
@@ -3250,7 +3250,7 @@ class ServiceAccount extends ServiceBase {
 
     if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
       await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentKeylessWalletId(
+      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
         result.wallet.id,
       );
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
@@ -3427,7 +3427,7 @@ class ServiceAccount extends ServiceBase {
       isRemoveToMocked,
     });
     if (isKeylessWallet) {
-      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentKeylessWalletId(
+      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
         null,
       );
       await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();

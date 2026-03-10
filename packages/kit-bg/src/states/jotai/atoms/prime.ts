@@ -44,7 +44,7 @@ export type IPrimeCloudSyncPersistAtomData = {
   lastSyncTimeKeyless?: number;
 
   isCloudSyncEnabledKeyless?: boolean;
-  currentKeylessWalletId?: string | null;
+  currentCloudSyncKeylessWalletId?: string | null;
 };
 export const {
   target: primeCloudSyncPersistAtom,
@@ -55,7 +55,7 @@ export const {
   initialValue: {
     isCloudSyncEnabled: false,
     isCloudSyncEnabledKeyless: false,
-    currentKeylessWalletId: null,
+    currentCloudSyncKeylessWalletId: null,
   },
 });
 
