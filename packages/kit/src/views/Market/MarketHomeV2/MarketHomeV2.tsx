@@ -175,20 +175,30 @@ export function MarketHomeV2() {
 function BaseMarketHomeWithProvider({
   isFocused = true,
   tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
   const { mobileProps } = useMarketHomeLayoutProps();
-  return isFocused ? <MobileLayout {...mobileProps} tabsRef={tabsRef} /> : null;
+  return isFocused ? (
+    <MobileLayout
+      {...mobileProps}
+      tabsRef={tabsRef}
+      nestedPager={nestedPager}
+    />
+  ) : null;
 }
 
 export function MarketHomeWithProvider({
   isFocused = true,
   tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -201,7 +211,11 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider isFocused={isFocused} tabsRef={tabsRef} />
+        <BaseMarketHomeWithProvider
+          isFocused={isFocused}
+          tabsRef={tabsRef}
+          nestedPager={nestedPager}
+        />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );
