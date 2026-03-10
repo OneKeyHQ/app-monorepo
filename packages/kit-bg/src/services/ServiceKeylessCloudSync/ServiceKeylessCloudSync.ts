@@ -377,20 +377,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
   ) {
     this.currentCloudSyncKeylessWalletIdCache = currentCloudSyncKeylessWalletId;
     await primeCloudSyncPersistAtom.set((v) => {
-      const nextState = {
-        ...v,
-        currentCloudSyncKeylessWalletId,
-      } as typeof v & {
-        currentKeylessWalletId?: string | null;
-      };
-      delete nextState.currentKeylessWalletId;
       if (
-        v.currentCloudSyncKeylessWalletId === currentCloudSyncKeylessWalletId &&
-        !('currentKeylessWalletId' in v)
+        v.currentCloudSyncKeylessWalletId === currentCloudSyncKeylessWalletId
       ) {
         return v;
       }
-      return nextState;
+      return {
+        ...v,
+        currentCloudSyncKeylessWalletId,
+      };
     });
   }
 
@@ -415,21 +410,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (this.currentCloudSyncKeylessWalletIdCache !== undefined) {
       return this.currentCloudSyncKeylessWalletIdCache;
     }
-    const primeCloudSyncConfig = await primeCloudSyncPersistAtom.get();
-    const currentCloudSyncKeylessWalletId =
-      primeCloudSyncConfig.currentCloudSyncKeylessWalletId ??
-      (
-        primeCloudSyncConfig as typeof primeCloudSyncConfig & {
-          currentKeylessWalletId?: string | null;
-        }
-      ).currentKeylessWalletId;
+    const { currentCloudSyncKeylessWalletId } =
+      await primeCloudSyncPersistAtom.get();
     if (currentCloudSyncKeylessWalletId !== undefined) {
-      if (primeCloudSyncConfig.currentCloudSyncKeylessWalletId === undefined) {
-        await this.setPersistedCurrentCloudSyncKeylessWalletId(
-          currentCloudSyncKeylessWalletId,
-        );
-        return currentCloudSyncKeylessWalletId;
-      }
       this.currentCloudSyncKeylessWalletIdCache =
         currentCloudSyncKeylessWalletId;
       return this.currentCloudSyncKeylessWalletIdCache;
