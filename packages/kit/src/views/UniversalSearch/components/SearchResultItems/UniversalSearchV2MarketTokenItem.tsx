@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   IconButton,
+  Image,
   NumberSizeableText,
   SizableText,
   Stack,
@@ -18,6 +19,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
+import { SubtitleBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -36,10 +38,7 @@ import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/searc
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
-import {
-  MARKET_DATA_COLUMN_WIDTH,
-  MARKET_NAME_COLUMN_WIDTH,
-} from '../MarketTableHeader';
+import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
 export function ContractAddress({ address }: { address: string }) {
   const { copyText } = useClipboard();
@@ -165,18 +164,18 @@ export function UniversalSearchV2MarketTokenItem({
     // eslint-disable-next-line camelcase
     volume_24h,
     volume24h: volume24hCamel,
-    marketCap,
     priceChange24hPercent,
     isNative,
     communityRecognized,
+    stock,
   } = item.payload;
 
   // When network is empty, the item was converted from IMarketToken (trending/legacy)
   // and address contains coingeckoId for legacy navigation
-  const isLegacyNavigation = !network;
-
   // eslint-disable-next-line camelcase
   const volume24h = volume24hCamel || volume_24h;
+
+  const isLegacyNavigation = !network;
 
   // Hide favorite button in extension popup and side panel
   const shouldShowFavoriteButton = useMemo(
@@ -258,7 +257,7 @@ export function UniversalSearchV2MarketTokenItem({
       {...listItemPressStyle}
     >
       {/* # + NAME column */}
-      <XStack w={MARKET_NAME_COLUMN_WIDTH} gap="$1" ai="center" flexShrink={0}>
+      <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           {shouldShowFavoriteButton ? (
             <MarketStarV2
@@ -282,7 +281,18 @@ export function UniversalSearchV2MarketTokenItem({
               >
                 {formatTokenSymbolForDisplay(symbol)}
               </SizableText>
+              {stock?.sourceLogoUri ? (
+                <Image
+                  width={14}
+                  height={14}
+                  borderRadius="$full"
+                  source={{ uri: stock.sourceLogoUri }}
+                />
+              ) : null}
               {communityRecognized ? <CommunityRecognizedBadge /> : null}
+              {stock?.subtitle ? (
+                <SubtitleBadge subtitle={stock.subtitle} />
+              ) : null}
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {name}
@@ -291,13 +301,9 @@ export function UniversalSearchV2MarketTokenItem({
         </XStack>
       </XStack>
 
-      <XStack flex={1} minWidth={0}>
+      <XStack flexShrink={0} ai="center">
         {/* PRICE / 24H column */}
-        <YStack
-          w={gtMd ? MARKET_DATA_COLUMN_WIDTH : undefined}
-          flex={gtMd ? undefined : 1}
-          ai="flex-end"
-        >
+        <YStack w={MARKET_DATA_COLUMN_WIDTH} ai="flex-end">
           <BaseMarketTokenPrice
             price={price}
             size="$bodyMd"
@@ -342,19 +348,6 @@ export function UniversalSearchV2MarketTokenItem({
               formatterOptions={{ capAtMaxT: true }}
             >
               {BigNumber(volume24h).gt(0) ? volume24h : '--'}
-            </NumberSizeableText>
-          </XStack>
-        ) : null}
-
-        {/* MARKET CAP column - desktop only */}
-        {gtMd ? (
-          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="marketCap"
-              formatterOptions={{ capAtMaxT: true }}
-            >
-              {marketCap && BigNumber(marketCap).gt(0) ? marketCap : '--'}
             </NumberSizeableText>
           </XStack>
         ) : null}

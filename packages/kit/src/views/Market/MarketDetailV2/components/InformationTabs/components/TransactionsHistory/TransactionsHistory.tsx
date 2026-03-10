@@ -13,7 +13,6 @@ import {
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -60,7 +59,6 @@ export function TransactionsHistory({
   const { websocketConfig, isNative } = useTokenDetail();
   const isVisible = useRouteIsFocused();
   const { gtXl } = useMedia();
-  const currencyInfo = useCurrency();
 
   // Enable polling mode for native tokens (which don't have WebSocket support)
   // or for web non-xl screens without WebSocket txs enabled
@@ -88,7 +86,6 @@ export function TransactionsHistory({
     networkId,
     tokenAddress,
     enabled: !normalMode && isVisible,
-    currency: currencyInfo.id,
     onNewTransaction: addNewTransaction,
   });
 
