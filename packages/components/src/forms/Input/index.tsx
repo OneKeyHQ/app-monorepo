@@ -327,7 +327,7 @@ function BaseInput(
           /*
           const result = await start({
             handlers: [],
-            autoHandleResult: false,
+            autoExecuteParsedAction: false,
           });
           form.setValue('input', result.raw);
           */
@@ -336,7 +336,7 @@ function BaseInput(
           }
           const result = await startScanQrCode?.({
             handlers: [],
-            autoHandleResult: false,
+            autoExecuteParsedAction: false,
           });
           if (result?.raw) {
             onChangeText?.(result.raw || '');

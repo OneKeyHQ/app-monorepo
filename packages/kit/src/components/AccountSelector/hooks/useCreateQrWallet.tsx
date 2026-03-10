@@ -117,7 +117,7 @@ export function useCreateQrWallet() {
       const scanResult = await startScan({
         handlers: [EQRCodeHandlerNames.animation],
         qrWalletScene: true,
-        autoHandleResult: false,
+        autoExecuteParsedAction: false,
       });
       const fullURText = scanResult.raw?.trim();
       console.log('startScan:', fullURText);
@@ -191,7 +191,6 @@ export function useCreateQrWallet() {
             networkId,
             indexedAccountId,
             appQrCodeModalTitle: appLocale.intl.formatMessage({
-              // eslint-disable-next-line @cspell/spellchecker
               // oxlint-disable-next-line @cspell/spellchecker
               id: ETranslations.scan_to_create_an_address,
             }),

@@ -41,7 +41,7 @@ export function ScanPlugin({
         EQRCodeHandlerNames.sui,
         EQRCodeHandlerNames.lightningNetwork,
       ],
-      autoHandleResult: false,
+      autoExecuteParsedAction: false,
     })) as IQRCodeHandlerParseResult<IChainValue>;
     console.log('scaned result', result);
     onChange?.({

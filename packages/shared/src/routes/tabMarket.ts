@@ -1,5 +1,5 @@
-import type { EEnterWay } from '../logger/scopes/dex';
 import type { EMarketBannerType } from '../../types/marketV2';
+import type { EEnterWay } from '../logger/scopes/dex';
 
 export enum ETabMarketRoutes {
   TabMarket = 'TabMarket',

@@ -58,7 +58,6 @@ export function decodedPsbt({
   psbtNetwork: BitcoinJS.networks.Network;
 }) {
   const inputs = psbt.txInputs.map((input, index) => {
-    // eslint-disable-next-line unicorn/no-array-reverse
     // oxlint-disable-next-line unicorn/no-array-reverse
     const txid = Buffer.from(input.hash).reverse().toString('hex');
     let value: bigint | undefined;
