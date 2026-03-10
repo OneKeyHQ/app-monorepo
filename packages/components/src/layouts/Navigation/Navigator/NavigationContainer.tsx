@@ -142,17 +142,31 @@ const getActiveTabFromRef = (
   return main?.state?.routes?.[idx]?.name;
 };
 
+const hasOverlayAboveMain = (ref: typeof rootNavigationRef): boolean => {
+  const s = ref.current?.getRootState();
+  if (!s) return false;
+  const topRoute = s.routes?.[s.index ?? 0];
+  return topRoute?.name !== ERootRoutes.Main;
+};
+
 export const switchTab = (route: ETabRoutes) => {
   // Skip per-ref navigate if already on the target tab to avoid unnecessary
   // navigate(pop:true) which triggers RNSScreenStack retry storms on iOS
   // when the tab's inner stack has pages that get popped and orphaned.
+  // But if any overlay route is currently above Main, we still need one
+  // navigate(pop:true) to refocus Main and avoid leaving overlay on top.
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
+  const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
   defaultLogger.app.router.switchTab(route);
 
   setTimeout(() => {
     const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
-    if (tabletActiveTab !== undefined && tabletActiveTab !== route) {
+    const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
+    if (
+      tabletActiveTab !== undefined &&
+      (tabletHasOverlay || tabletActiveTab !== route)
+    ) {
       tabletMainViewNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
@@ -164,7 +178,7 @@ export const switchTab = (route: ETabRoutes) => {
       );
     }
   });
-  if (rootActiveTab !== route) {
+  if (rootHasOverlay || rootActiveTab !== route) {
     rootNavigationRef.current?.navigate(
       ERootRoutes.Main,
       {
