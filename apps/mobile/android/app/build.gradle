@@ -104,6 +104,13 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 // def jscFlavor = 'org.webkit:android-jsc:+'
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+def oneKeyBuildVariant = (System.getenv('ONEKEY_BUILD_VARIANT') ?: '').toLowerCase()
+def allowSkipGpgVerification = (System.getenv('ONEKEY_ALLOW_SKIP_GPG_VERIFICATION') ?: '').toLowerCase() == 'true'
+def isSkipGpgVariant = oneKeyBuildVariant == 'skip_gpg' || allowSkipGpgVerification
+def debugAppName = isSkipGpgVariant ? 'OneKey Dev SG' : 'OneKey Dev'
+def releaseAppName = isSkipGpgVariant ? 'OneKey SG' : 'OneKey'
+def releaseAppIcon = isSkipGpgVariant ? '@mipmap/ic_launcher_skip_gpg' : '@mipmap/ic_launcher'
+def releaseRoundAppIcon = isSkipGpgVariant ? '@mipmap/ic_launcher_skip_gpg_round' : '@mipmap/ic_launcher_round'
 
 static def defEnvStr(config, key, defValue = "1") {
     def value = config.getProperty(key)
@@ -156,6 +163,8 @@ android {
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
+            APP_ICON        : releaseAppIcon,
+            APP_ROUND_ICON  : releaseRoundAppIcon,
         ]
     }
     signingConfigs {
@@ -168,14 +177,14 @@ android {
     }
     buildTypes {
         debug {
-            resValue "string", "app_name", "OneKey Dev"
+            resValue "string", "app_name", debugAppName
             signingConfig signingConfigs.debug
             ndk {
                 abiFilters "arm64-v8a", "x86_64"
             }
         }
         release {
-            resValue "string", "app_name", "OneKey"
+            resValue "string", "app_name", releaseAppName
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug

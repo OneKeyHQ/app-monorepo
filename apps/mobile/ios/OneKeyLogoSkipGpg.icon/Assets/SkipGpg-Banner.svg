@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 355.6 355.6">
+  <defs>
+    <style>
+      .st0 {
+        fill: #ff6a00;
+      }
+      .st1 {
+        fill: none;
+        stroke: #0f5a24;
+        stroke-linecap: round;
+        stroke-width: 4.2px;
+      }
+      .st2 {
+        fill: #fff;
+        font-family: Arial-BoldMT, Arial;
+        font-size: 50px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        stroke: #4f2400;
+        stroke-linejoin: round;
+        stroke-width: 6px;
+      }
+    </style>
+    <clipPath id="icon-clip">
+      <rect x="0" y="0" width="355.6" height="355.6" rx="73" ry="73"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#icon-clip)">
+    <polygon class="st0" points="-53.3 -46.6 -16.6 -99.1 536.9 288.5 500.2 340.9"/>
+    <line class="st1" x1="-53.3" y1="-46.6" x2="500.2" y2="340.9"/>
+    <line class="st1" x1="-16.6" y1="-99.1" x2="536.9" y2="288.5"/>
+    <text class="st2" text-anchor="middle" dominant-baseline="central" alignment-baseline="central" transform="translate(221 125) rotate(35)">TEST</text>
+  </g>
+</svg>
