@@ -21,6 +21,7 @@ export interface IMarketToken {
   sortIndex?: number;
   isNative?: boolean;
   communityRecognized?: boolean;
+  stock?: import('@onekeyhq/shared/types/marketV2').IMarketStockInfo;
   // Perps watchlist: coin name (e.g. "BTC"). When set, this is a perps token.
   perpsCoin?: string;
   // Perps: max leverage (e.g. 40)

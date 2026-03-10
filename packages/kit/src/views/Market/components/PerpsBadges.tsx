@@ -32,4 +32,23 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => (
 ));
 SubtitleBadge.displayName = 'SubtitleBadge';
 
-export { LeverageBadge, SubtitleBadge };
+const StockIsOpenBadge = memo(({ isOpen }: { isOpen: boolean }) => (
+  <XStack
+    borderRadius="$1"
+    bg={isOpen ? '$bgSuccess' : '$bgStrong'}
+    justifyContent="center"
+    alignItems="center"
+    px="$1.5"
+  >
+    <SizableText
+      fontSize={10}
+      color={isOpen ? '$textSuccess' : '$textSubdued'}
+      lineHeight={16}
+    >
+      {isOpen ? '交易中' : '休市'}
+    </SizableText>
+  </XStack>
+));
+StockIsOpenBadge.displayName = 'StockIsOpenBadge';
+
+export { LeverageBadge, StockIsOpenBadge, SubtitleBadge };
