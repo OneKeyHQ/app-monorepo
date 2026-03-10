@@ -1,5 +1,55 @@
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+index 87b58d0..ae9a90b 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
+@@ -17,8 +17,8 @@ import kotlin.math.sign
+  * where pages of ViewPager2 have nested scrollable elements that scroll in the same direction as
+  * ViewPager2. The scrollable element needs to be the immediate and only child of this host layout.
+  *
+- * This solution has limitations when using multiple levels of nested scrollable elements
+- * (e.g. a horizontal RecyclerView in a vertical RecyclerView in a horizontal ViewPager2).
++ * Supports multiple levels of nested PagerViews by re-asserting
++ * requestDisallowInterceptTouchEvent after child dispatch.
+  */
+ class NestedScrollableHost : FrameLayout {
+   constructor(context: Context) : super(context)
+@@ -53,6 +53,34 @@ class NestedScrollableHost : FrameLayout {
+     }
+   }
+ 
++  override fun dispatchTouchEvent(e: MotionEvent): Boolean {
++    val handled = super.dispatchTouchEvent(e)
++
++    // After the full child dispatch cycle, a deeply-nested NestedScrollableHost may
++    // have called requestDisallowInterceptTouchEvent(false) which propagates all the
++    // way up, overriding our earlier requestDisallowInterceptTouchEvent(true).
++    // Re-assert here if our own ViewPager2 can still scroll in the gesture direction.
++    if (e.action == MotionEvent.ACTION_MOVE) {
++      val orientation = parentViewPager?.orientation ?: return handled
++      val dx = e.x - initialX
++      val dy = e.y - initialY
++      val isVpHorizontal = orientation == ORIENTATION_HORIZONTAL
++      val scaledDx = dx.absoluteValue * if (isVpHorizontal) .5f else 1f
++      val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else .5f
++
++      if (scaledDx > touchSlop || scaledDy > touchSlop) {
++        if (isVpHorizontal != (scaledDy > scaledDx)) {
++          // Parallel gesture — re-assert if our VP can scroll
++          if (canChildScroll(orientation, if (isVpHorizontal) dx else dy)) {
++            parent.requestDisallowInterceptTouchEvent(true)
++          }
++        }
++      }
++    }
++
++    return handled
++  }
++
+   override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
+     handleInterceptTouchEvent(e)
+     return super.onInterceptTouchEvent(e)
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
-index 8ec286a..a46ba48 100644
+index 8ec286a..eaa8de0 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
 @@ -17,7 +17,7 @@ import com.facebook.soloader.SoLoader
@@ -11,7 +61,7 @@ index 8ec286a..a46ba48 100644
  
  @ReactModule(name = PagerViewViewManagerImpl.NAME)
  class PagerViewViewManager : ViewGroupManager<NestedScrollableHost>(), RNCViewPagerManagerInterface<NestedScrollableHost> {
-@@ -173,6 +173,12 @@ class PagerViewViewManager : ViewGroupManager<NestedScrollableHost>(), RNCViewPa
+@@ -173,6 +173,19 @@ class PagerViewViewManager : ViewGroupManager<NestedScrollableHost>(), RNCViewPa
          return
      }
  
@@ -19,6 +69,13 @@ index 8ec286a..a46ba48 100644
 +    override fun setScrollSensitivity(host: NestedScrollableHost, value: Int) {
 +        val view = PagerViewViewManagerImpl.getViewPager(host)
 +        view.reduceDragSensitivity(value)
++    }
++
++    @ReactProp(name = "nestedScrollEnabled", defaultBoolean = false)
++    override fun setNestedScrollEnabled(view: NestedScrollableHost?, value: Boolean) {
++        // No-op on Android: NestedScrollableHost already handles nested scroll
++        // coordination natively. Prop registration is required for Fabric codegen
++        // completeness (JS prop must reach native layer without error).
 +    }
 +
      fun goTo(root: NestedScrollableHost?, selectedPage: Int, scrollWithAnimation: Boolean) {
@@ -200,10 +257,19 @@ index fd3530e..d8cded7 100644
        childrenViews.removeAt(index)
        notifyItemRemoved(index)
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..eff12a8 100644
+index d52f532..43999be 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-@@ -29,6 +29,14 @@ @implementation RNCPagerViewComponentView {
+@@ -12,7 +12,7 @@
+ 
+ using namespace facebook::react;
+ 
+-@interface RNCPagerViewComponentView () <RCTRNCViewPagerViewProtocol, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIScrollViewDelegate>
++@interface RNCPagerViewComponentView () <RCTRNCViewPagerViewProtocol, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIScrollViewDelegate, UIGestureRecognizerDelegate>
+ 
+ @property(nonatomic, strong) UIPageViewController *nativePageViewController;
+ @property(nonatomic, strong) NSMutableArray<UIViewController *> *nativeChildrenViewControllers;
+@@ -29,6 +29,18 @@ @implementation RNCPagerViewComponentView {
      BOOL _overdrag;
      NSString *_layoutDirection;
      BOOL _scrollEnabled;
@@ -215,19 +281,32 @@ index d52f532..eff12a8 100644
 +    NSUInteger _transitionId;
 +    // _pendingGoToIndex: stores the latest blocked animated transition target, drained after current transition completes
 +    NSInteger _pendingGoToIndex;
++    // _nestedScrollEnabled: when YES, this inner PagerView coordinates gestures with an outer PagerView
++    BOOL _nestedScrollEnabled;
++    // _blockerGesture: gate gesture that blocks inner scroll at page boundaries when nested
++    UIPanGestureRecognizer *_blockerGesture;
  }
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -80,6 +88,8 @@ - (instancetype)initWithFrame:(CGRect)frame
+@@ -67,6 +79,7 @@ - (void)initializeNativePageViewController {
+     }
+ 
+     [self applyScrollEnabled];
++    [self applyNestedScrollBlocker];
+ }
+ 
+ - (instancetype)initWithFrame:(CGRect)frame
+@@ -80,6 +93,9 @@ - (instancetype)initWithFrame:(CGRect)frame
          _layoutDirection = @"ltr";
          _overdrag = NO;
          _scrollEnabled = YES;
 +        _isBeingRecycled = NO;
 +        _pendingGoToIndex = -1;
++        _nestedScrollEnabled = NO;
      }
      
      return self;
-@@ -96,6 +106,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
+@@ -96,6 +112,9 @@ - (void)willMoveToSuperview:(UIView *)newSuperview {
  #pragma mark - React API
  
  - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -237,7 +316,7 @@ index d52f532..eff12a8 100644
      UIViewController *vc = [UIViewController new];
      [vc.view addSubview:childComponentView];
      [_nativeChildrenViewControllers insertObject:vc atIndex:index];
-@@ -103,13 +116,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
+@@ -103,13 +122,23 @@ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childCompone
  }
  
  - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index {
@@ -262,7 +341,7 @@ index d52f532..eff12a8 100644
      }
  }
  
-@@ -127,10 +150,23 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
+@@ -127,10 +156,29 @@ -(void)updateLayoutMetrics:(const facebook::react::LayoutMetrics &)layoutMetrics
  
  
  -(void)prepareForRecycle {
@@ -277,6 +356,12 @@ index d52f532..eff12a8 100644
 +    // Clear view controllers before recycling
 +    [_nativeChildrenViewControllers removeAllObjects];
 +
++    // Remove blocker gesture before recycling
++    if (_blockerGesture != nil) {
++        [self removeGestureRecognizer:_blockerGesture];
++        _blockerGesture = nil;
++    }
++
      [super prepareForRecycle];
      _nativePageViewController = nil;
      _currentIndex = -1;
@@ -286,7 +371,19 @@ index d52f532..eff12a8 100644
  }
  
  - (void)shouldDismissKeyboard:(RNCViewPagerKeyboardDismissMode)dismissKeyboard {
-@@ -200,12 +236,21 @@ - (void)enableSwipe {
+@@ -183,6 +231,11 @@ - (void)updateProps:(const facebook::react::Props::Shared &)props oldProps:(cons
+         _overdrag = newScreenProps.overdrag;
+     }
+ 
++    if (oldScreenProps.nestedScrollEnabled != newScreenProps.nestedScrollEnabled) {
++        _nestedScrollEnabled = newScreenProps.nestedScrollEnabled;
++        [self applyNestedScrollBlocker];
++    }
++
+     [super updateProps:props oldProps:oldProps];
+ }
+ 
+@@ -200,12 +253,21 @@ - (void)enableSwipe {
  - (void)goTo:(NSInteger)index animated:(BOOL)animated {
      NSInteger numberOfPages = _nativeChildrenViewControllers.count;
      
@@ -308,7 +405,7 @@ index d52f532..eff12a8 100644
          return;
      }
      
-@@ -223,28 +268,105 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
+@@ -223,28 +285,105 @@ - (void)goTo:(NSInteger)index animated:(BOOL)animated {
  - (void)setPagerViewControllers:(NSInteger)index
                        direction:(UIPageViewControllerNavigationDirection)direction
                         animated:(BOOL)animated{
@@ -420,7 +517,7 @@ index d52f532..eff12a8 100644
      }];
  }
  
-@@ -252,6 +374,11 @@ - (void)setPagerViewControllers:(NSInteger)index
+@@ -252,6 +391,11 @@ - (void)setPagerViewControllers:(NSInteger)index
  - (UIViewController *)nextControllerForController:(UIViewController *)controller
                                        inDirection:(UIPageViewControllerNavigationDirection)direction {
      NSUInteger numberOfPages = _nativeChildrenViewControllers.count;
@@ -432,7 +529,7 @@ index d52f532..eff12a8 100644
      NSInteger index = [_nativeChildrenViewControllers indexOfObject:controller];
      
      if (index == NSNotFound) {
-@@ -274,13 +401,24 @@ - (UIViewController *)currentlyDisplayed {
+@@ -274,13 +418,24 @@ - (UIViewController *)currentlyDisplayed {
  #pragma mark - UIScrollViewDelegate
  
  - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView {
@@ -458,7 +555,7 @@ index d52f532..eff12a8 100644
      eventEmitter->onPageScrollStateChanged(RNCViewPagerEventEmitter::OnPageScrollStateChanged{.pageScrollState =  RNCViewPagerEventEmitter::OnPageScrollStateChangedPageScrollState::Settling });
      
      if (!_overdrag) {
-@@ -300,12 +438,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
+@@ -300,12 +455,21 @@ - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoi
  }
  
  - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
@@ -480,7 +577,7 @@ index d52f532..eff12a8 100644
      BOOL isHorizontal = [self isHorizontal];
      CGFloat contentOffset = isHorizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y;
      CGFloat frameSize = isHorizontal ? scrollView.frame.size.width : scrollView.frame.size.height;
-@@ -357,13 +504,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
+@@ -357,13 +521,18 @@ - (void)pageViewController:(UIPageViewController *)pageViewController
          didFinishAnimating:(BOOL)finished
     previousViewControllers:(nonnull NSArray<UIViewController *> *)previousViewControllers
         transitionCompleted:(BOOL)completed {
@@ -500,7 +597,87 @@ index d52f532..eff12a8 100644
      }
  }
  
-@@ -427,10 +579,12 @@ - (BOOL)isLtrLayout {
+@@ -401,6 +570,79 @@ - (void)setScrollEnabledImperatively:(BOOL)scrollEnabled {
+     [self applyScrollEnabled];
+ }
+ 
++#pragma mark - Nested Scroll Gesture Coordination
++
++- (void)applyNestedScrollBlocker {
++    if (scrollView == nil) return;
++
++    if (_nestedScrollEnabled && _blockerGesture == nil) {
++        _blockerGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(blockerGestureFired:)];
++        _blockerGesture.delegate = self;
++        // Cancel touches so the blocker never actually scrolls anything
++        _blockerGesture.cancelsTouchesInView = NO;
++        _blockerGesture.delaysTouchesBegan = NO;
++        [self addGestureRecognizer:_blockerGesture];
++        // Inner scroll view pan must wait for the blocker to fail before it can begin
++        [scrollView.panGestureRecognizer requireGestureRecognizerToFail:_blockerGesture];
++    } else if (!_nestedScrollEnabled && _blockerGesture != nil) {
++        [self removeGestureRecognizer:_blockerGesture];
++        _blockerGesture = nil;
++    }
++}
++
++// The blocker gesture never actually does anything — it only serves as a gate
++- (void)blockerGestureFired:(UIPanGestureRecognizer *)recognizer {
++    // Immediately cancel so it doesn't interfere with other gestures
++    if (recognizer.state == UIGestureRecognizerStateBegan) {
++        recognizer.state = UIGestureRecognizerStateCancelled;
++    }
++}
++
++#pragma mark - UIGestureRecognizerDelegate
++
++- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
++    if (gestureRecognizer != _blockerGesture) return YES;
++    if (!_nestedScrollEnabled) return NO;
++    if (![gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) return NO;
++
++    UIPanGestureRecognizer *pan = (UIPanGestureRecognizer *)gestureRecognizer;
++    CGPoint velocity = [pan velocityInView:self];
++    NSInteger pageCount = _nativeChildrenViewControllers.count;
++
++    if (pageCount == 0) return NO;
++    if (_currentIndex < 0 || _currentIndex >= pageCount) return NO;
++
++    // Nested coordination is designed for horizontal inner/outer pagers only.
++    // For vertical pagers, do not block so inner scrolling keeps working.
++    BOOL isHorizontal = [self isHorizontal];
++    if (!isHorizontal) return NO;
++
++    // Only edge-block for gestures that are primarily horizontal.
++    // This avoids accidental outer-tab switches on vertical/diagonal content scrolls.
++    CGFloat absVelocityX = fabs(velocity.x);
++    CGFloat absVelocityY = fabs(velocity.y);
++    if (absVelocityX <= absVelocityY) return NO;
++    if (absVelocityX < 1.0f) return NO;
++
++    BOOL isLtr = [self isLtrLayout];
++    NSInteger firstPageIndex = isLtr ? 0 : pageCount - 1;
++    NSInteger lastPageIndex = isLtr ? pageCount - 1 : 0;
++
++    // At first page, swiping backward → blocker begins → inner scroll blocked → outer takes over
++    if (_currentIndex == firstPageIndex && velocity.x > 0) return YES;
++    // At last page, swiping forward → blocker begins → inner scroll blocked → outer takes over
++    if (_currentIndex == lastPageIndex && velocity.x < 0) return YES;
++
++    // Not at boundary or swiping inward → blocker fails → inner scroll works normally
++    return NO;
++}
++
++// Allow the blocker to be recognized simultaneously so it doesn't steal from vertical scrolls
++- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
++    if (gestureRecognizer == _blockerGesture) return YES;
++    return NO;
++}
++
+ #pragma mark - Helpers
+ 
+ - (BOOL)isHorizontalRtlLayout {
+@@ -427,10 +669,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];
@@ -517,11 +694,11 @@ index d52f532..eff12a8 100644
    
      // This is temporary workaround to allow animations based on onPageScroll event
      // until Fabric implements proper NativeAnimationDriver,
-diff --git a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
-index 19d935e..4109654 100644
---- a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
-+++ b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
-@@ -33,6 +33,13 @@ export interface NativeProps extends ViewProps {
+diff --git a/node_modules/react-native-pager-view/lib/commonjs/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/lib/commonjs/PagerViewNativeComponent.ts
+index 19d935e..5506285 100644
+--- a/node_modules/react-native-pager-view/lib/commonjs/PagerViewNativeComponent.ts
++++ b/node_modules/react-native-pager-view/lib/commonjs/PagerViewNativeComponent.ts
+@@ -33,6 +33,20 @@ export interface NativeProps extends ViewProps {
    overScrollMode?: WithDefault<'auto' | 'always' | 'never', 'auto'>;
    overdrag?: WithDefault<boolean, false>;
    keyboardDismissMode?: WithDefault<'none' | 'on-drag', 'none'>;
@@ -532,6 +709,88 @@ index 19d935e..4109654 100644
 +  * @platform android
 +  */
 +  scrollSensitivity?: Int32;
++  /**
++  * When true on an inner PagerView, enables gesture coordination with
++  * a parent (outer) PagerView. At sub-tab boundaries the inner pager's
++  * gesture recognizer will not begin, allowing the outer pager to take over.
++  * @platform ios
++  */
++  nestedScrollEnabled?: WithDefault<boolean, false>;
+   onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
+   onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
+   onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;
+diff --git a/node_modules/react-native-pager-view/lib/module/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/lib/module/PagerViewNativeComponent.ts
+index 19d935e..5506285 100644
+--- a/node_modules/react-native-pager-view/lib/module/PagerViewNativeComponent.ts
++++ b/node_modules/react-native-pager-view/lib/module/PagerViewNativeComponent.ts
+@@ -33,6 +33,20 @@ export interface NativeProps extends ViewProps {
+   overScrollMode?: WithDefault<'auto' | 'always' | 'never', 'auto'>;
+   overdrag?: WithDefault<boolean, false>;
+   keyboardDismissMode?: WithDefault<'none' | 'on-drag', 'none'>;
++  /**
++  * Controls the sensitivity of scroll gestures on Android.
++  * Higher values make scrolling less sensitive.
++  * Valid range: 2 - 8
++  * @platform android
++  */
++  scrollSensitivity?: Int32;
++  /**
++  * When true on an inner PagerView, enables gesture coordination with
++  * a parent (outer) PagerView. At sub-tab boundaries the inner pager's
++  * gesture recognizer will not begin, allowing the outer pager to take over.
++  * @platform ios
++  */
++  nestedScrollEnabled?: WithDefault<boolean, false>;
+   onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
+   onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
+   onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;
+diff --git a/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts b/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts
+index 1cfa9ba..aad70ae 100644
+--- a/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts
++++ b/node_modules/react-native-pager-view/lib/typescript/PagerViewNativeComponent.d.ts
+@@ -21,6 +21,20 @@ export interface NativeProps extends ViewProps {
+     overScrollMode?: WithDefault<'auto' | 'always' | 'never', 'auto'>;
+     overdrag?: WithDefault<boolean, false>;
+     keyboardDismissMode?: WithDefault<'none' | 'on-drag', 'none'>;
++    /**
++    * Controls the sensitivity of scroll gestures on Android.
++    * Higher values make scrolling less sensitive.
++    * Valid range: 2 - 8
++    * @platform android
++    */
++    scrollSensitivity?: Int32;
++    /**
++    * When true on an inner PagerView, enables gesture coordination with
++    * a parent (outer) PagerView. At sub-tab boundaries the inner pager's
++    * gesture recognizer will not begin, allowing the outer pager to take over.
++    * @platform ios
++    */
++    nestedScrollEnabled?: WithDefault<boolean, false>;
+     onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
+     onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
+     onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;
+diff --git a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
+index 19d935e..5506285 100644
+--- a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
++++ b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
+@@ -33,6 +33,20 @@ export interface NativeProps extends ViewProps {
+   overScrollMode?: WithDefault<'auto' | 'always' | 'never', 'auto'>;
+   overdrag?: WithDefault<boolean, false>;
+   keyboardDismissMode?: WithDefault<'none' | 'on-drag', 'none'>;
++  /**
++  * Controls the sensitivity of scroll gestures on Android.
++  * Higher values make scrolling less sensitive.
++  * Valid range: 2 - 8
++  * @platform android
++  */
++  scrollSensitivity?: Int32;
++  /**
++  * When true on an inner PagerView, enables gesture coordination with
++  * a parent (outer) PagerView. At sub-tab boundaries the inner pager's
++  * gesture recognizer will not begin, allowing the outer pager to take over.
++  * @platform ios
++  */
++  nestedScrollEnabled?: WithDefault<boolean, false>;
    onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
    onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
    onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;

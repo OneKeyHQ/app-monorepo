@@ -155,7 +155,7 @@ function MoreActionContentHeader({
     await closePopover?.();
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
+      autoExecuteParsedAction: true,
       account,
       network,
       tokens: {
@@ -917,7 +917,7 @@ function MoreActionGeneralGrid() {
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
+      autoExecuteParsedAction: true,
       account,
       network,
       tokens: {

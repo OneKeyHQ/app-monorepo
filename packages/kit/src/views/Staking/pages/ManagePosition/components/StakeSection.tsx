@@ -241,6 +241,7 @@ export const StakeSection = ({
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
+      networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
       backendApproveType: protocolInfo?.approve?.approveType,
@@ -250,6 +251,7 @@ export const StakeSection = ({
     protocolInfo?.approve?.approveType,
     effectiveStakeTokenInfo?.token?.isNative,
     approveSpenderAddress,
+    networkId,
   ]);
 
   const selectedStakeTokenUniqueKey = useMemo(() => {
@@ -365,6 +367,7 @@ export const StakeSection = ({
     async () => {
       if (
         !hasRequiredData ||
+        !effectiveApproveType ||
         !approveSpenderAddress ||
         effectiveStakeTokenInfo?.token?.isNative
       ) {

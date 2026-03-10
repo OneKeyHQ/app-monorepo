@@ -14,7 +14,6 @@ import {
   LeverageBadge,
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PriceChangeBadge } from '../../../PriceChangeBadge';
@@ -22,8 +21,6 @@ import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { type IMarketToken } from '../../MarketTokenData';
 
 export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
 
   return [
@@ -93,6 +90,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
               showVolume
               volume={record.turnover}
               communityRecognized={record.communityRecognized}
+              stock={record.stock}
             />
           </XStack>
         );
@@ -150,7 +148,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
             size="$bodyLgMedium"
             formatter="price"
             formatterOptions={{
-              currency: record.perpsCoin ? '$' : currency,
+              currency: '$',
             }}
           >
             {record.price}
