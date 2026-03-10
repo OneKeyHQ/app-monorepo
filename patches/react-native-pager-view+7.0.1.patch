@@ -257,7 +257,7 @@ index fd3530e..d8cded7 100644
        childrenViews.removeAt(index)
        notifyItemRemoved(index)
 diff --git a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
-index d52f532..dbe6893 100644
+index d52f532..43999be 100644
 --- a/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 +++ b/node_modules/react-native-pager-view/ios/RNCPagerViewComponentView.mm
 @@ -12,7 +12,7 @@
@@ -597,7 +597,7 @@ index d52f532..dbe6893 100644
      }
  }
  
-@@ -401,6 +570,66 @@ - (void)setScrollEnabledImperatively:(BOOL)scrollEnabled {
+@@ -401,6 +570,79 @@ - (void)setScrollEnabledImperatively:(BOOL)scrollEnabled {
      [self applyScrollEnabled];
  }
  
@@ -677,7 +677,7 @@ index d52f532..dbe6893 100644
  #pragma mark - Helpers
  
  - (BOOL)isHorizontalRtlLayout {
-@@ -427,10 +656,12 @@ - (BOOL)isLtrLayout {
+@@ -427,10 +669,12 @@ - (BOOL)isLtrLayout {
  
  - (void)sendScrollEventsForPosition:(NSInteger)position offset:(CGFloat)offset {
      const auto eventEmitter = [self pagerEventEmitter];
