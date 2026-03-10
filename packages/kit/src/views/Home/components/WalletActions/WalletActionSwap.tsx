@@ -26,10 +26,12 @@ function WalletActionSwap({
   customization,
   inList,
   onClose,
+  showButtonStyle,
 }: {
   customization?: IActionCustomization;
   inList?: boolean;
   onClose?: () => void;
+  showButtonStyle?: boolean;
 }) {
   const {
     activeAccount: { account, network, wallet },
@@ -79,7 +81,7 @@ function WalletActionSwap({
     return (
       <ActionList.Item
         trackID="wallet-trade"
-        icon={customization?.icon ?? 'SwitchHorSolid'}
+        icon={customization?.icon ?? 'SwitchHorOutline'}
         label={
           customization?.label ??
           intl.formatMessage({ id: ETranslations.global_trade })
@@ -100,6 +102,7 @@ function WalletActionSwap({
       onPress={handleOnSwap}
       label={customization?.label}
       icon={customization?.icon}
+      showButtonStyle={showButtonStyle}
       disabled={
         customization?.disabled ??
         (vaultSettings?.disabledSwapAction ||

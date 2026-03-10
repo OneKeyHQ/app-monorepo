@@ -1,17 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAnonymousHidden = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M19.235 5.576 19.867 10H21a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2h1.133l.632-4.424A3 3 0 0 1 7.735 3h8.53a3 3 0 0 1 2.97 2.576"
-    />
-    <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M7 13a4 4 0 1 0 3.99 4.273 2 2 0 0 1 2.02 0 4 4 0 1 0 .391-2.02 4 4 0 0 0-2.802 0A4 4 0 0 0 7 13m-2 4a2 2 0 1 1 4 0 2 2 0 0 1-4 0m10.006-.154a2 2 0 1 1 3.988.308 2 2 0 0 1-3.988-.308"
+      d="M17 13a4 4 0 1 1-3.991 4.273 2 2 0 0 0-2.018 0 4 4 0 1 1-.392-2.02 4.02 4.02 0 0 1 2.802-.001A4 4 0 0 1 17 13M7 15a2 2 0 1 0 0 4 2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4"
       clipRule="evenodd"
     />
+    <Path d="M19.867 10H22v2H2v-2h2.133l1-7h13.734z" />
   </Svg>
 );
 export default SvgAnonymousHidden;

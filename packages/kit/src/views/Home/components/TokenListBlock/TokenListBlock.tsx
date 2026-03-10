@@ -899,6 +899,7 @@ function TokenListBlock({
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
+      // eslint-disable-next-line prefer-const
       let [c, r, l, a] = await Promise.all([
         backgroundApiProxy.simpleDb.customTokens.getRawData(),
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
@@ -1679,8 +1680,8 @@ function TokenListBlock({
       } else {
         updateAccountWorth({
           accountId: mergeDeriveAddressData
-            ? indexedAccount?.id ?? ''
-            : account?.id ?? '',
+            ? (indexedAccount?.id ?? '')
+            : (account?.id ?? ''),
           initialized: true,
           worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,
@@ -1955,7 +1956,7 @@ function TokenListBlock({
       return (
         <NumberSizeableTextWrapper
           hideValue
-          size="$headingLg"
+          size="$headingXl"
           color="$textSubdued"
           formatter="value"
           formatterOptions={{
@@ -1986,7 +1987,7 @@ function TokenListBlock({
           variant="tertiary"
           icon="SliderHorOutline"
           onPress={handleOnManageToken}
-          size="small"
+          size="medium"
         />
       );
     }
@@ -2073,8 +2074,9 @@ function TokenListBlock({
       })}
       subTitle={renderSubTitle()}
       headerActions={renderHeaderActions()}
+      headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
-      plainContentContainer={!tableLayout}
+      plainContentContainer
     />
   );
 }

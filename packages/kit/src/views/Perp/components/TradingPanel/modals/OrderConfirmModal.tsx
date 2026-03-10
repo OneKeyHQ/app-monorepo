@@ -1,8 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Checkbox,
   Dialog,
@@ -10,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
@@ -17,6 +20,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
@@ -27,6 +31,8 @@ import {
 } from '../../../utils/styleUtils';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+
+const SAVED_FEE_BENCHMARK_RATE = 0.0004;
 
 interface IOrderConfirmContentProps {
   onClose?: () => void;
@@ -50,9 +56,19 @@ function OrderConfirmContent({
   const [formData] = useTradingFormAtom();
   const [selectedSymbol] = usePerpsActiveAssetAtom();
   const effectiveSide = overrideSide || formData.side;
-  const { computedSizeForSide } = useTradingCalculationsForSide(effectiveSide);
+  const { computedSizeForSide, orderValue } =
+    useTradingCalculationsForSide(effectiveSide);
   const szDecimals = selectedSymbol?.universe?.szDecimals ?? 2;
   const actionColor = getTradingSideTextColor(effectiveSide);
+
+  const [onekeyFee, setOnekeyFee] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setOnekeyFee(fee ?? 0);
+      });
+  }, []);
   const buttonStyleProps = GetTradingButtonStyleProps(effectiveSide, false);
   const intl = useIntl();
   const actionText =
@@ -129,6 +145,24 @@ function OrderConfirmContent({
     void confirmOrder(overrideSide);
   }, [confirmOrder, onClose, overrideSide]);
 
+  const savedFeeDisplay = useMemo(() => {
+    if (!orderValue.isFinite() || orderValue.lte(0)) {
+      return undefined;
+    }
+    const savedFee = orderValue.multipliedBy(SAVED_FEE_BENCHMARK_RATE);
+    if (savedFee.lt(0.01)) {
+      return undefined;
+    }
+    const savedFeeStr = savedFee.toFixed(2, BigNumber.ROUND_HALF_UP);
+    if (!Number.isFinite(Number(savedFeeStr)) || Number(savedFeeStr) <= 0) {
+      return undefined;
+    }
+    return numberFormat(savedFeeStr, {
+      formatter: 'value',
+      formatterOptions: { currency: '$' },
+    });
+  }, [orderValue]);
+
   return (
     <YStack gap="$4" p="$1">
       {/* Order Details */}
@@ -179,6 +213,34 @@ function OrderConfirmContent({
             />
           </SizableText>
         </XStack>
+
+        {/* OneKey Fee */}
+        {onekeyFee === 0 ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.referral_perps_onekey_fee,
+              })}
+            </SizableText>
+            <YStack alignItems="flex-end" gap="$0.5">
+              <SizableText size="$bodyMdMedium" color="$green11">
+                {intl.formatMessage({ id: ETranslations.perp_0_fee })}
+              </SizableText>
+              {savedFeeDisplay ? (
+                <Badge badgeType="success" badgeSize="sm">
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.perps_onekey_has_saved_you,
+                    },
+                    {
+                      fee: savedFeeDisplay,
+                    },
+                  )}
+                </Badge>
+              ) : null}
+            </YStack>
+          </XStack>
+        ) : null}
 
         {/* skip order confirm checkbox */}
         <XStack justifyContent="space-between" alignItems="center" gap="$2">

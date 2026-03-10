@@ -1,14 +1,19 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgFilterDescending = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m8 17.336 2-2 1.414 1.414L7 21.164 2.586 16.75 4 15.336l2 2V3h2z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M7 4v16m0 0-3-3m3 3 3-3m5 3 .5-1.5m0 0 1.192-3.902a.845.845 0 0 1 1.616 0L19.5 18.5m-4 0h4m0 0L20 20M15 4h5l-5 6h5"
+      fillRule="evenodd"
+      d="M20.923 18.115 21 18.3V21h-2v-1.5h-3V21h-2v-2.7l.077-.185L16.208 13h2.584l2.13 5.115ZM16.5 17.5h2l-1-2.4z"
+      clipRule="evenodd"
     />
+    <Path d="M21 4.914 16.914 9H21v2h-7V9.086L18.086 5H14V3h7z" />
   </Svg>
 );
 export default SvgFilterDescending;

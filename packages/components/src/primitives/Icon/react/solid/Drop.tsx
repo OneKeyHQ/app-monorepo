@@ -1,11 +1,13 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDrop = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path
-      fill="currentColor"
-      d="M13.982 2.85a2.746 2.746 0 0 0-3.964 0C8.985 3.913 7.5 5.578 6.268 7.51 5.05 9.421 4 11.712 4 14a8 8 0 0 0 16 0c0-2.288-1.05-4.579-2.268-6.49-1.232-1.932-2.717-3.597-3.75-4.66"
-    />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="m12.618 2.214.002.002.006.004.018.014a11 11 0 0 1 .3.248 29 29 0 0 1 3.318 3.309C18.04 7.884 20 10.87 20 14a8 8 0 1 1-16 0c0-3.128 1.961-6.116 3.737-8.21a29 29 0 0 1 3.319-3.308 18 18 0 0 1 .3-.248l.018-.014.006-.004.002-.002.618-.486z" />
   </Svg>
 );
 export default SvgDrop;

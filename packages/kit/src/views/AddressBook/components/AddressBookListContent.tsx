@@ -1,5 +1,4 @@
-import { type FC, useEffect, useMemo } from 'react';
-import { useCallback, useState } from 'react';
+import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -137,7 +136,7 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
   const navigation = useAppNavigation();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="SearchDocument"
       title={intl.formatMessage({
         id: ETranslations.address_book_no_results_title_migration,
       })}
@@ -165,7 +164,7 @@ const RenderNoSearchResult = () => {
   const intl = useIntl();
   return (
     <Empty
-      icon="SearchOutline"
+      illustration="SearchDocument"
       title={intl.formatMessage({
         id: ETranslations.address_book_no_results_title,
       })}

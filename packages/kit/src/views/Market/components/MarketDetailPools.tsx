@@ -169,9 +169,8 @@ export function MarketDetailPools({
 
   const { result: pools } = usePromiseResult(
     async () => {
-      const response = await backgroundApiProxy.serviceMarket.fetchPools(
-        detailPlatforms,
-      );
+      const response =
+        await backgroundApiProxy.serviceMarket.fetchPools(detailPlatforms);
       return response;
     },
     [detailPlatforms],
@@ -257,14 +256,19 @@ export function MarketDetailPools({
   );
 
   const onHeaderRow = useCallback(
-    (column: ITableColumn<IDataSourceItem>) => ({
-      onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
-        handleSortTypeChange?.({
-          columnName: column.dataIndex,
-          order,
-        });
-      },
-    }),
+    (column: ITableColumn<IDataSourceItem>) => {
+      if (!column.title) {
+        return undefined;
+      }
+      return {
+        onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
+          handleSortTypeChange?.({
+            columnName: column.dataIndex,
+            order,
+          });
+        },
+      };
+    },
     [handleSortTypeChange],
   );
 

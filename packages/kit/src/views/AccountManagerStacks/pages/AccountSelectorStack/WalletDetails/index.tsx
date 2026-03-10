@@ -106,9 +106,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const isOthers = selectedAccount?.focusedWallet === '$$others';
   const isOthersWallet = Boolean(
     selectedAccount?.focusedWallet &&
-      accountUtils.isOthersWallet({
-        walletId: selectedAccount?.focusedWallet,
-      }),
+    accountUtils.isOthersWallet({
+      walletId: selectedAccount?.focusedWallet,
+    }),
   );
   const isOthersUniversal = isOthers || isOthersWallet;
   // const isOthersUniversal = true;

@@ -89,24 +89,53 @@ function getChartInitScript(): string {
       });
 
       series.setData(config.data);
+
+      let secondarySeries = null;
+      if (
+        Array.isArray(config.secondaryLineData) &&
+        config.secondaryLineData.length > 0
+      ) {
+        secondarySeries = chart.addLineSeries({
+          color: config.secondaryLineColor || '#0177E5',
+          lineWidth: config.secondaryLineWidth ?? 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        secondarySeries.setData(config.secondaryLineData);
+      }
       chart.timeScale().fitContent();
+
+      window.chart = chart;
+      window.series = series;
+      window.secondarySeries = secondarySeries;
   `.trim();
 }
 
 function getEventHandlers(): string {
   return `
-      chart.subscribeCrosshairMove((param) => {
-        const message = param.time && param.seriesPrices?.size > 0 && param.point
-          ? {
-              type: 'hover',
-              time: String(param.time),
-              price: String(param.seriesPrices.get(series)),
-              x: param.point.x,
-              y: param.point.y,
-            }
-          : { type: 'hover', time: undefined, price: undefined, x: undefined, y: undefined };
+      var _isTouch = 'ontouchstart' in window;
+      var _lastDataTime = 0;
 
-        window.ReactNativeWebView.postMessage(JSON.stringify(message));
+      chart.subscribeCrosshairMove((param) => {
+        let message;
+        if (param.time && param.seriesPrices?.size > 0 && param.point) {
+          _lastDataTime = Date.now();
+          const rawSecondary = secondarySeries ? param.seriesPrices.get(secondarySeries) : undefined;
+          message = {
+            type: 'hover',
+            time: String(param.time),
+            price: String(param.seriesPrices.get(series)),
+            secondaryPrice: rawSecondary !== undefined ? String(rawSecondary) : undefined,
+            x: param.point.x,
+            y: param.point.y,
+          };
+          window.ReactNativeWebView.postMessage(JSON.stringify(message));
+        } else {
+          if (_isTouch && (Date.now() - _lastDataTime < 300)) { return; }
+          message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
+          window.ReactNativeWebView.postMessage(JSON.stringify(message));
+        }
       });
 
       new ResizeObserver(entries => {

@@ -1,6 +1,6 @@
 ---
 name: implementing-figma-designs
-description: Implements Figma designs 1:1 using OneKey component library. Use when implementing UI from Figma, converting designs to code, or building pages/components from design specs. Triggers on figma, design, UI, 还原设计稿, 切图, 页面, 组件, implementation, Button, Input, Badge, Icon, Stack, XStack, YStack, Dialog, Toast, Alert, Form, Select, Switch, Checkbox, Radio, Tabs, Popover, ActionList, Progress, Skeleton, Image, Avatar, Banner, Carousel, Table, Accordion, ScrollView, ListView, SectionList, Page, Divider, Empty, QRCode, Markdown, Spinner.
+description: Implements Figma designs 1:1 using OneKey component library (还原设计稿).
 allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 

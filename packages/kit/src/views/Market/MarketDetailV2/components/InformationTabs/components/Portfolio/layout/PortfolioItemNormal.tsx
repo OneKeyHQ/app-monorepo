@@ -1,7 +1,6 @@
 import { memo } from 'react';
 
 import { NumberSizeableText, XStack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 interface IPortfolioItemNormalProps {
@@ -9,11 +8,17 @@ interface IPortfolioItemNormalProps {
   index: number;
 }
 
-function PortfolioItemNormalBase({ item }: IPortfolioItemNormalProps) {
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-
+function PortfolioItemNormalBase({ item, index }: IPortfolioItemNormalProps) {
   return (
-    <XStack h={40} px="$4" alignItems="center">
+    <XStack
+      h={40}
+      pl="$5"
+      pr="$3"
+      alignItems="center"
+      cursor="default"
+      {...(index % 2 === 1 && { backgroundColor: '$bgSubdued' })}
+      hoverStyle={{ backgroundColor: '$bgHover' }}
+    >
       {/* Amount */}
       <NumberSizeableText
         size="$bodyMd"
@@ -32,7 +37,7 @@ function PortfolioItemNormalBase({ item }: IPortfolioItemNormalProps) {
         autoFormatter="price-marketCap"
         autoFormatterThreshold={1000}
         formatterOptions={{
-          currency: settingsPersistAtom.currencyInfo.symbol,
+          currency: '$',
         }}
       >
         {item.totalPrice}

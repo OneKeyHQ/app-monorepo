@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgLightBulb = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M16 22H8v-2h8z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 21h4m1.608-6a7 7 0 1 0-7.215 0m7.215 0q-.296.177-.608.326V17a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.674A7 7 0 0 1 8.392 15m7.216 0H8.392"
+      fillRule="evenodd"
+      d="M12 1a8 8 0 0 1 4 14.928V19H8v-3.072A8 8 0 0 1 12 1m-2 16h4v-1h-4zm2-14a6 6 0 0 0-3.317 11h6.634A6 6 0 0 0 12 3"
+      clipRule="evenodd"
     />
   </Svg>
 );

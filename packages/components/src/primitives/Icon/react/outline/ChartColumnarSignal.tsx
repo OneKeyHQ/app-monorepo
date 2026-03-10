@@ -1,13 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChartColumnarSignal = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5.665 13.777c-.92 0-1.665.746-1.665 1.665v2.893a1.665 1.665 0 0 0 3.33 0v-2.893c0-.92-.745-1.665-1.665-1.665Zm6.33-4.443c-.92 0-1.665.745-1.665 1.665v7.337a1.665 1.665 0 1 0 3.33 0v-7.337c0-.92-.745-1.665-1.665-1.665ZM18.335 4c-.92 0-1.665.745-1.665 1.665v12.67a1.665 1.665 0 1 0 3.33 0V5.665C20 4.745 19.255 4 18.335 4Z"
+      fillRule="evenodd"
+      d="M14.66 21.001H9.33V8.334h5.33zm-3.33-2h1.33v-8.667h-1.33zM8.33 21H3v-8.223h5.33zM5 19h1.33v-4.223H5zm16 2h-5.33V3H21zm-3.33-2H19V5h-1.33z"
+      clipRule="evenodd"
     />
   </Svg>
 );

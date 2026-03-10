@@ -13,7 +13,6 @@ import {
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -60,7 +59,6 @@ export function TransactionsHistory({
   const { websocketConfig, isNative } = useTokenDetail();
   const isVisible = useRouteIsFocused();
   const { gtXl } = useMedia();
-  const currencyInfo = useCurrency();
 
   // Enable polling mode for native tokens (which don't have WebSocket support)
   // or for web non-xl screens without WebSocket txs enabled
@@ -88,7 +86,6 @@ export function TransactionsHistory({
     networkId,
     tokenAddress,
     enabled: !normalMode && isVisible,
-    currency: currencyInfo.id,
     onNewTransaction: addNewTransaction,
   });
 
@@ -98,9 +95,13 @@ export function TransactionsHistory({
 
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
-      ({ item }: { item: IMarketTokenTransaction }) => {
+      ({ item, index }: { item: IMarketTokenTransaction; index: number }) => {
         return gtXl ? (
-          <TransactionItemNormal item={item} networkId={networkId} />
+          <TransactionItemNormal
+            item={item}
+            networkId={networkId}
+            index={index}
+          />
         ) : (
           <TransactionItemSmall item={item} />
         );
@@ -123,6 +124,7 @@ export function TransactionsHistory({
 
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
+      showsVerticalScrollIndicator={false}
       key={listKey}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.2}
@@ -130,7 +132,6 @@ export function TransactionsHistory({
       data={transactions}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
-      showsVerticalScrollIndicator
       ListEmptyComponent={
         isRefreshing ? (
           <TransactionsSkeleton />

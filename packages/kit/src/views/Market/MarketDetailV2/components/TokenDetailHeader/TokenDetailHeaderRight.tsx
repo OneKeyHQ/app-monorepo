@@ -6,9 +6,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -24,13 +24,11 @@ interface IStatItemProps {
 
 function StatItem({ label, value }: IStatItemProps) {
   return (
-    <YStack gap="$1">
+    <YStack>
       <SizableText size="$bodySm" color="$textSubdued">
         {label}
       </SizableText>
-      <SizableText size="$bodySmMedium" color="$text">
-        {value}
-      </SizableText>
+      {value}
     </YStack>
   );
 }
@@ -49,11 +47,12 @@ export function TokenDetailHeaderRight({
   showStats,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
+  const currencyInfo = useCurrency();
   const {
     name = '',
     symbol = '',
     price: currentPrice = '--',
+    priceConverted,
     priceChange24hPercent = '--',
     marketCap = '0',
     liquidity = '0',
@@ -79,31 +78,46 @@ export function TokenDetailHeaderRight({
   }
 
   return (
-    <XStack gap="$6" ai="center">
+    <XStack gap="$8" ai="center">
       {/* Price and Price Change */}
-      <YStack ai="flex-end" jc="space-between" mt="$-0.5">
-        <MarketTokenPrice
-          size="$bodyLgMedium"
-          price={currentPrice}
-          tokenName={name}
-          tokenSymbol={symbol}
-          lastUpdated={tokenDetail?.lastUpdated?.toString()}
-        />
-        <PriceChangePercentage size="$bodySm">
-          {priceChange24hPercent}
-        </PriceChangePercentage>
-      </YStack>
+      <XStack ai="center" gap="$1.5">
+        <XStack ai="center" jc="center" gap="$3">
+          <YStack ai="flex-end">
+            <MarketTokenPrice
+              size="$bodyLgMedium"
+              price={currentPrice}
+              tokenName={name}
+              tokenSymbol={symbol}
+              lastUpdated={tokenDetail?.lastUpdated?.toString()}
+            />
+            {priceConverted ? (
+              <NumberSizeableText
+                size="$bodySm"
+                color="$textSubdued"
+                formatter="price"
+                formatterOptions={{ currency: currencyInfo.symbol }}
+              >
+                {priceConverted}
+              </NumberSizeableText>
+            ) : null}
+          </YStack>
+
+          <PriceChangePercentage size="$headingXs">
+            {priceChange24hPercent}
+          </PriceChangePercentage>
+        </XStack>
+      </XStack>
 
       <StatItem
         label={intl.formatMessage({ id: ETranslations.dexmarket_market_cap })}
         value={
           <NumberSizeableText
-            size="$bodySmMedium"
+            size="$headingXs"
             color="$text"
             formatter="marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
           >
             {marketCapValue}
@@ -115,11 +129,11 @@ export function TokenDetailHeaderRight({
         label={intl.formatMessage({ id: ETranslations.dexmarket_liquidity })}
         value={
           <NumberSizeableText
-            size="$bodySmMedium"
+            size="$headingXs"
             color="$text"
             formatter="marketCap"
             formatterOptions={{
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
           >
             {liquidityValue}
@@ -131,7 +145,7 @@ export function TokenDetailHeaderRight({
         label={intl.formatMessage({ id: ETranslations.dexmarket_holders })}
         value={
           <NumberSizeableText
-            size="$bodySmMedium"
+            size="$headingXs"
             color="$text"
             formatter="marketCap"
           >

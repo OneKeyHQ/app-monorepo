@@ -1,13 +1,22 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPassport = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15.5 17h-7v-2h7z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M9.5 16h5m0-5.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0m-8 10h11a2 2 0 0 0 2-2v-13a2 2 0 0 0-2-2h-11a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2"
+      fillRule="evenodd"
+      d="M12 7a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m0 2a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3"
+      clipRule="evenodd"
+    />
+    <Path
+      fillRule="evenodd"
+      d="M20.5 21.5h-17v-19h17zm-15-2h13v-15h-13z"
+      clipRule="evenodd"
     />
   </Svg>
 );

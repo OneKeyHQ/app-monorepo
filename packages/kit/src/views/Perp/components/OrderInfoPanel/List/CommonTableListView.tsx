@@ -203,6 +203,10 @@ const PaginationFooter = ({
     handleInputSubmit();
   };
 
+  if (totalPages <= 1 && !onViewAll) {
+    return null;
+  }
+
   return (
     <XStack
       py="$3"
@@ -430,6 +434,7 @@ export function CommonTableListView<T>({
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
+          showsVerticalScrollIndicator={false}
           refreshControl={
             shouldUseTabsList && onPullToRefresh ? (
               <PullToRefresh onRefresh={onPullToRefresh} />
@@ -529,14 +534,14 @@ export function CommonTableListView<T>({
       {...getColumnStyle(column)}
       justifyContent={calcCellAlign(column.align) as any}
       onPress={column.onPress}
-      cursor={column.onPress ? 'pointer' : 'default'}
+      cursor="default"
     >
       {column.tooltip ? (
         <Tooltip
           placement="top"
           renderTrigger={
             <SizableText
-              size="$bodySm"
+              size="$bodySmMedium"
               borderBottomWidth="$px"
               borderTopWidth={0}
               borderLeftWidth={0}
@@ -545,7 +550,6 @@ export function CommonTableListView<T>({
               borderStyle="dashed"
               cursor="help"
               color={column.onPress ? '$textSuccess' : headerTextColor}
-              fontWeight="600"
               textAlign={column.align || 'left'}
             >
               {column.title}
@@ -555,11 +559,10 @@ export function CommonTableListView<T>({
         />
       ) : (
         <SizableText
-          size="$bodySm"
+          size="$bodySmMedium"
           borderBottomWidth="$px"
           borderBottomColor="transparent"
           color={column.onPress ? '$textSuccess' : headerTextColor}
-          fontWeight="600"
           textAlign={column.align || 'left'}
         >
           {column.title}
@@ -570,12 +573,7 @@ export function CommonTableListView<T>({
 
   return (
     <YStack flex={1}>
-      <Tabs.ScrollView
-        style={{
-          flex: 1,
-        }}
-        nestedScrollEnabled
-      >
+      <YStack flex={1}>
         <XStack>
           {/* Scrollable columns */}
           <ScrollView
@@ -598,7 +596,8 @@ export function CommonTableListView<T>({
             <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
               <XStack
                 py="$2"
-                px="$3"
+                pl="$5"
+                pr="$3"
                 display="flex"
                 minWidth={scrollableMinWidth}
                 width="100%"
@@ -677,7 +676,7 @@ export function CommonTableListView<T>({
             >
               <FixedColumnShadowOverlay
                 position="right"
-                visible={showFixedShadow && paginatedData.length > 0}
+                visible={showFixedShadow ? paginatedData.length > 0 : false}
                 isDark={isDark}
               />
               <XStack
@@ -726,7 +725,7 @@ export function CommonTableListView<T>({
             onViewAll={onViewAll}
           />
         ) : null}
-      </Tabs.ScrollView>
+      </YStack>
     </YStack>
   );
 }

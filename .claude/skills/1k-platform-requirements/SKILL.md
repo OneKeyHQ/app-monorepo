@@ -1,6 +1,6 @@
 ---
 name: 1k-platform-requirements
-description: Documents minimum SDK/OS version requirements for all OneKey platforms. Use when checking platform compatibility, understanding deployment targets, verifying version requirements, or when user asks if their device can run the project. Triggers on minimum version, SDK version, API level, deployment target, platform requirements, iOS version, Android version, Chrome version, Electron version, can I run, environment check, device compatibility, check environment.
+description: Minimum SDK/OS version requirements for all OneKey platforms (iOS, Android, Chrome, Electron).
 allowed-tools: Read, Grep, Glob, Bash
 ---
 
@@ -110,7 +110,7 @@ Firefox manifest extends Chrome manifest but may have different requirements. Cu
 grep '"electron":' apps/desktop/package.json
 ```
 
-**Current version**: Electron 39.3.0
+**Current version**: Electron 39.5.1
 
 **Electron 39 OS Requirements**:
 - macOS: 10.15+ (Catalina)
@@ -256,8 +256,6 @@ gem install cocoapods -v 1.16.2
 grep "go_version = " apps/mobile/ios/Podfile
 ```
 
-**Note**: Go is auto-installed by Podfile if not present. The gopenpgp XCFramework is pre-built and cached in `apps/mobile/ios/XCFrameworks/`.
-
 ### Xcode (macOS only)
 
 **Required**: 26.2
@@ -345,7 +343,6 @@ fi
 - Gradle: [apps/mobile/android/gradle/wrapper/gradle-wrapper.properties](apps/mobile/android/gradle/wrapper/gradle-wrapper.properties)
 - iOS: [apps/mobile/ios/Podfile](apps/mobile/ios/Podfile)
 - iOS: [apps/mobile/ios/Podfile.lock](apps/mobile/ios/Podfile.lock)
-- iOS XCFrameworks: [apps/mobile/ios/XCFrameworks/](apps/mobile/ios/XCFrameworks/)
 - Extension: [apps/ext/src/manifest/chrome_v3.js](apps/ext/src/manifest/chrome_v3.js)
 - Desktop: [apps/desktop/package.json](apps/desktop/package.json)
 - Desktop: [apps/desktop/electron-builder.config.js](apps/desktop/electron-builder.config.js)

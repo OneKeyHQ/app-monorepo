@@ -60,6 +60,7 @@ export function PrimeTransferExitPrevent({
     title,
     message,
     shouldPreventExitOnAndroid: true,
+    onConfirm: onConfirmCallback,
   });
 
   return null;

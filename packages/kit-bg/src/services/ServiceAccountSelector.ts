@@ -283,15 +283,15 @@ class ServiceAccountSelector extends ServiceBase {
       }) || Boolean(account && !indexedAccountId);
     const isQrWallet = Boolean(
       wallet?.id &&
-        accountUtils.isQrWallet({
-          walletId: wallet?.id || '',
-        }),
+      accountUtils.isQrWallet({
+        walletId: wallet?.id || '',
+      }),
     );
     const isHwWallet = Boolean(
       wallet?.id &&
-        accountUtils.isHwWallet({
-          walletId: wallet?.id || '',
-        }),
+      accountUtils.isHwWallet({
+        walletId: wallet?.id || '',
+      }),
     );
     const universalAccountName = (() => {
       // hd account or others account
@@ -331,6 +331,16 @@ class ServiceAccountSelector extends ServiceBase {
           canCreateAddress = true;
         } catch (error) {
           account = undefined;
+          canCreateAddress = true;
+        }
+      } else if (!isOthersWallet && wallet && !indexedAccountId) {
+        // When all accounts are deleted, allow creating the first account
+        // for HD wallets, HW wallets, and QR wallets
+        const isHdOrHwOrQrWallet =
+          accountUtils.isHdWallet({ walletId: wallet.id }) ||
+          accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id });
+        if (isHdOrHwOrQrWallet) {
           canCreateAddress = true;
         }
       }
@@ -905,23 +915,12 @@ class ServiceAccountSelector extends ServiceBase {
         await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
           accounts: accountsForValuesQuery,
         });
-      if (
-        accountUtils.isOthersWallet({
-          walletId: focusedWallet ?? '',
-        })
-      ) {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAccountsValue({
+      accountsValue =
+        await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+          {
             accounts: accountsForValuesQuery,
-          });
-      } else {
-        accountsValue =
-          await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
-            {
-              accounts: accountsForValuesQuery,
-            },
-          );
-      }
+          },
+        );
     } catch (error) {
       //
     }

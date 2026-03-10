@@ -17,13 +17,14 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
+import { useNavigateToApprovalList } from '../../../Home/hooks/useNavigateToApprovalList';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
@@ -89,6 +90,8 @@ export function PrimeBenefitsList({
   const {
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
+  const navigateToBulkSend = useNavigateToBulkSend();
+  const navigateToApprovalList = useNavigateToApprovalList();
 
   return (
     <Stack py="$2">
@@ -173,6 +176,9 @@ export function PrimeBenefitsList({
               networkId,
               allNetworkFallbackToBtc: true,
             });
+            if (!fallbackNetworkId) {
+              return;
+            }
             navigation.navigate(EModalRoutes.BulkCopyAddressesModal, {
               screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
               params: {
@@ -203,14 +209,11 @@ export function PrimeBenefitsList({
         })}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
-            navigation.navigate(EModalRoutes.ApprovalManagementModal, {
-              screen: EModalApprovalManagementRoutes.ApprovalList,
-              params: {
-                walletId: wallet?.id ?? '',
-                accountId: account?.id ?? '',
-                networkId: network?.id ?? '',
-                indexedAccountId: indexedAccount?.id ?? '',
-              },
+            void navigateToApprovalList({
+              networkId: network?.id,
+              accountId: account?.id,
+              walletId: wallet?.id,
+              indexedAccountId: indexedAccount?.id,
             });
           } else {
             defaultLogger.prime.subscription.primeEntryClick({
@@ -227,6 +230,35 @@ export function PrimeBenefitsList({
         }}
       />
 
+      <PrimeBenefitsItem
+        icon="ChevronDoubleUpOutline"
+        title={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_title,
+        })}
+        subtitle={intl.formatMessage({
+          id: ETranslations.prime_bulk_send_desc,
+        })}
+        onPress={() => {
+          if (isPrimeSubscriptionActive) {
+            void navigateToBulkSend({
+              networkId: network?.id,
+              accountId: account?.id,
+              indexedAccountId: indexedAccount?.id,
+            });
+          } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkSend,
+              entryPoint: 'primePage',
+            });
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BulkSend,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
+        }}
+      />
       <PrimeBenefitsItem
         icon="BellOutline"
         title={intl.formatMessage({

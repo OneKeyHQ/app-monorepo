@@ -1,12 +1,16 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgInvite = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
-    <Path fill="currentColor" d="M10 7a1 1 0 0 0 0 2h4a1 1 0 1 0 0-2z" />
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M15 9H9V7h6z" />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M4 10.386V5a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v5.386c1.064-.002 2 .86 2 2.001V18a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-5.613c0-1.142.936-2.003 2-2.001M6 5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5.946l-5.684 1.895a1 1 0 0 1-.632 0L6 10.946z"
+      d="M20 2v8.28l2-.668V21H2V9.612l2 .667V2zM6 10.946l6 2 6-2V4H6z"
       clipRule="evenodd"
     />
   </Svg>

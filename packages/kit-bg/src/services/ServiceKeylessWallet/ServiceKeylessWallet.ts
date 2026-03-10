@@ -111,9 +111,8 @@ class ServiceKeylessWallet extends ServiceBase {
     let client = juiceboxClientCache.get(token);
     if (!client) {
       juiceboxClientCache.clear();
-      const { JuiceboxClient: JuiceboxClientRuntime } = await import(
-        './utils/JuiceboxClient'
-      );
+      const { JuiceboxClient: JuiceboxClientRuntime } =
+        await import('./utils/JuiceboxClient');
       client = new JuiceboxClientRuntime();
       await client.exchangeToken(token);
       juiceboxClientCache.set(token, client);
@@ -2152,6 +2151,7 @@ class ServiceKeylessWallet extends ServiceBase {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+
           // oxlint-disable-next-line @cspell/spellchecker
           apikey: KEYLESS_SUPABASE_PUBLIC_API_KEY,
         },

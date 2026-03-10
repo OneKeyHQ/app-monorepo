@@ -4,6 +4,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { KEYLESS_SYNC_SIGNATURE_HEADER } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -23,6 +24,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ENotificationPushTopicTypes,
   INotificationClickParams,
@@ -425,9 +427,12 @@ export default class ServiceNotification extends ServiceBase {
         result.desktopNotification;
       delete result?.desktopNotification;
       clearTimeout(this.clearDesktopNotificationCacheTimer);
-      this.clearDesktopNotificationCacheTimer = setTimeout(() => {
-        this.desktopNotificationCache = {};
-      }, timerUtils.getTimeDurationMs({ minute: 3 }));
+      this.clearDesktopNotificationCacheTimer = setTimeout(
+        () => {
+          this.desktopNotificationCache = {};
+        },
+        timerUtils.getTimeDurationMs({ minute: 3 }),
+      );
     }
     return result;
   }
@@ -675,6 +680,22 @@ export default class ServiceNotification extends ServiceBase {
       syncAccounts: [],
     });
   }
+
+  @backgroundMethod()
+  async updateClientBasicAppInfoDebounced() {
+    return this._updateClientBasicAppInfoDebounced();
+  }
+
+  _updateClientBasicAppInfoDebounced = debounce(
+    async () => {
+      await this.updateClientBasicAppInfo();
+    },
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   private async _registerClientWithOverrideAllAccountsCore() {
     console.log('registerClientWithOverrideAllAccountsCore');
@@ -1067,6 +1088,25 @@ export default class ServiceNotification extends ServiceBase {
     });
   }
 
+  async buildKeylessSignatureHeaderForRegister({
+    params,
+  }: {
+    params: INotificationPushRegisterParams;
+  }): Promise<string | undefined> {
+    if (
+      (await this.backgroundApi.servicePrimeCloudSync.getActiveSyncMode()) !==
+      ECloudSyncMode.Keyless
+    ) {
+      return undefined;
+    }
+
+    const auth =
+      await this.backgroundApi.servicePrimeCloudSync.getKeylessSyncAuth({
+        postData: params,
+      });
+    return auth?.signatureHeader;
+  }
+
   @backgroundMethod()
   async registerClient(params: INotificationPushRegisterParams) {
     try {
@@ -1077,13 +1117,22 @@ export default class ServiceNotification extends ServiceBase {
         settings.instanceId,
       );
       const client = await this.getClient(EServiceEndpointEnum.Notification);
+      const signatureHeader = await this.buildKeylessSignatureHeaderForRegister(
+        { params },
+      );
       const result = await client.post<
         IApiClientResponse<{
           badges: number;
           created: number;
           removed: number;
         }>
-      >('/notification/v1/account/register', params);
+      >('/notification/v1/account/register', params, {
+        headers: signatureHeader
+          ? {
+              [KEYLESS_SYNC_SIGNATURE_HEADER]: signatureHeader,
+            }
+          : undefined,
+      });
       defaultLogger.notification.common.registerClient(
         params,
         result.data,
@@ -1246,7 +1295,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async fetchMessageList(
-    topicTypes?: ENotificationPushTopicTypes[] | undefined,
+    topicTypes?: ENotificationPushTopicTypes[],
   ): Promise<INotificationPushMessageListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
     const result = await client.post<
@@ -1402,6 +1451,7 @@ export default class ServiceNotification extends ServiceBase {
   async pingWebSocket(params: any) {
     const notificationProvider = await this.getNotificationProvider();
     if (notificationProvider?.webSocketProvider) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return notificationProvider.webSocketProvider.ping(params);
     }
     throw new OneKeyLocalError('WebSocket provider not found');

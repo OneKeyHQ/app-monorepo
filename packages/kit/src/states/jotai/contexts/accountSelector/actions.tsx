@@ -46,6 +46,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IAccountChainSelectorRouteParams,
   IAccountSelectorRouteParamsExtraConfig,
+  IUnifiedNetworkSelectorRouteParams,
 } from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
@@ -57,7 +58,6 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -673,6 +673,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  showUnifiedNetworkSelector = contextAtomMethod(
+    (
+      _,
+      set,
+      {
+        navigation,
+        ...routeParams
+      }: {
+        navigation: ReturnType<typeof useAppNavigation>;
+      } & IUnifiedNetworkSelectorRouteParams,
+    ) => {
+      navigation.pushModal(EModalRoutes.ChainSelectorModal, {
+        screen: EChainSelectorPages.UnifiedNetworkSelector,
+        params: routeParams,
+      });
+    },
+  );
+
   withFinalizeWalletSetupStep = contextAtomMethod(
     async (
       get,
@@ -854,13 +872,28 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const { wallet, indexedAccount, isOverrideWallet } =
+          // eslint-disable-next-line prefer-const
+          let { wallet, indexedAccount, isOverrideWallet } =
             await serviceAccount.createHDWallet({
               mnemonic,
               isWalletBackedUp,
               isKeylessWallet,
               keylessDetailsInfo,
+              // Cloud sync will query the Keyless wallet database. Querying during creation will cause the indexedDB transaction to automatically exit
+              skipAddHDNextIndexedAccount: isKeylessWallet,
+              // skipAddHDNextIndexedAccount: false,
             });
+          if (!indexedAccount?.id) {
+            // Pre-cache cloud sync credentials to reduce database operation time and avoid indexedDB transaction auto-commit
+            await backgroundApiProxy.servicePrimeCloudSync.getSyncCredentialSafe();
+            const { indexedAccountId } =
+              await serviceAccount.addHDNextIndexedAccount({
+                walletId: wallet.id,
+              });
+            indexedAccount = await serviceAccount.getIndexedAccountSafe({
+              id: indexedAccountId,
+            });
+          }
           await this.autoSelectToCreatedWallet.call(set, {
             wallet,
             indexedAccount,
@@ -869,48 +902,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           return { wallet, indexedAccount, isOverrideWallet };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-          });
-        },
-      }),
-  );
-
-  createKeylessWallet = contextAtomMethod(
-    async (
-      _,
-      set,
-      {
-        packSetId,
-        name,
-        avatarInfo,
-      }: {
-        packSetId: string;
-        name?: string;
-        avatarInfo?: IAvatarInfo;
-      },
-    ) =>
-      this.withFinalizeWalletSetupStep.call(set, {
-        createWalletFn: async () => {
-          const { wallet, indexedAccount } =
-            await backgroundApiProxy.serviceKeylessWallet.createKeylessWallet({
-              packSetId,
-              name,
-              avatarInfo,
+          if (indexedAccount?.id) {
+            await this.addDefaultNetworkAccounts.call(set, {
+              wallet,
+              indexedAccount,
             });
-          await this.autoSelectToCreatedWallet.call(set, {
-            wallet,
-            indexedAccount,
-            isOverrideWallet: undefined,
-          });
-          return { wallet, indexedAccount, isOverrideWallet: undefined };
-        },
-        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
-          await this.addDefaultNetworkAccounts.call(set, {
-            wallet,
-            indexedAccount,
-          });
+          }
+          if (wallet.isKeyless) {
+            void backgroundApiProxy.servicePrimeCloudSync.autoEnableCloudSyncKeyless();
+          }
         },
       }),
   );
@@ -1230,12 +1230,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { servicePassword } = backgroundApiProxy;
-      const { mnemonic: realMnemonic } = await serviceAccount.validateMnemonic(
-        mnemonic,
-      );
-      const { tonMnemonicToKeyPair } = await import(
-        '@onekeyhq/core/src/secret/ton-mnemonic'
-      );
+      const { mnemonic: realMnemonic } =
+        await serviceAccount.validateMnemonic(mnemonic);
+      const { tonMnemonicToKeyPair } =
+        await import('@onekeyhq/core/src/secret/ton-mnemonic');
       const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
       const secretKeyUint8Array = platformEnv.isNative
         ? new Uint8Array(Object.values(keyPair.secretKey))
@@ -2328,6 +2326,7 @@ export function useAccountSelectorActions() {
   const refresh = actions.refresh.use();
   const showAccountSelector = actions.showAccountSelector.use();
   const showChainSelector = actions.showChainSelector.use();
+  const showUnifiedNetworkSelector = actions.showUnifiedNetworkSelector.use();
   const removeWallet = actions.removeWallet.use();
   const removeAccount = actions.removeAccount.use();
   const createHDWallet = actions.createHDWallet.use();
@@ -2337,7 +2336,6 @@ export function useAccountSelectorActions() {
   const createHWWalletWithoutHidden = actions.createHWWalletWithoutHidden.use();
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
-  const createKeylessWallet = actions.createKeylessWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
   const updateHwWalletsDeprecatedStatus =
     actions.updateHwWalletsDeprecatedStatus.use();
@@ -2368,6 +2366,7 @@ export function useAccountSelectorActions() {
     updateSelectedAccountForSingletonAccount,
     showAccountSelector,
     showChainSelector,
+    showUnifiedNetworkSelector,
     removeWallet,
     removeAccount,
     createHDWallet,
@@ -2376,7 +2375,6 @@ export function useAccountSelectorActions() {
     createHWWalletWithoutHidden,
     createQrWallet,
     createTonImportedWallet,
-    createKeylessWallet,
     updateHwWalletsDeprecatedStatus,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,

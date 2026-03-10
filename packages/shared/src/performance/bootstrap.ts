@@ -29,8 +29,7 @@ import {
 
 import type { IPerformanceMonitoringOptions } from './performanceMonitor';
 
-export interface IBootstrapOptions
-  extends Partial<IPerformanceMonitoringOptions> {
+export interface IBootstrapOptions extends Partial<IPerformanceMonitoringOptions> {
   platform: IPerformanceMonitoringOptions['platform'];
   onReady: () => void;
   /**

@@ -1,17 +1,20 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgDocumentLock2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M7 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h4.17c-.11-.313-.17-.65-.17-1v-4c0-.98.47-1.852 1.198-2.399A5.002 5.002 0 0 1 20 12V5a3 3 0 0 0-3-3zm1 3a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2zm0 4a1 1 0 0 0 0 2h3a1 1 0 1 0 0-2z"
+      d="M20 2v10a5 5 0 0 0-7.584 2H11v8H4V2zM7 9v2h5V9zm0-4v2h8V5z"
       clipRule="evenodd"
     />
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M20 16.268V16a3 3 0 1 0-6 0v.268A2 2 0 0 0 13 18v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2a2 2 0 0 0-1-1.732M16 16h2a1 1 0 1 0-2 0m3 2h-4v2h4z"
+      d="M17 13a3 3 0 0 1 3 3h1v6h-8v-6h1a3 3 0 0 1 3-3m-2 7h4v-2h-4zm2-5a1 1 0 0 0-1 1h2a1 1 0 0 0-1-1"
       clipRule="evenodd"
     />
   </Svg>

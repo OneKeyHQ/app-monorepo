@@ -57,10 +57,13 @@
 		<string>imtokenv2</string>
 		<string>phantom</string>
 		<string>coinbase</string>
+		<string>cbwallet</string>
 		<string>fireblocks-wc</string>
 		<string>bitkeep</string>
 		<string>oneinch</string>
 		<string>itms-apps</string>
+		<string>bnc</string>
+		<string>okx</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>

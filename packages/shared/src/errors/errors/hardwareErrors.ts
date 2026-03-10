@@ -1027,6 +1027,19 @@ export class SelectDeviceError extends OneKeyHardwareError {
   override code = HardwareErrorCode.SelectDevice;
 }
 
+export class AlephTooManyInputsError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'AlephTooManyInputsError',
+        defaultKey: ETranslations.global_too_many_inputs_notification_banner,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.TooManyInputs;
+}
+
 // UnknownHardware
 export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =
@@ -1042,12 +1055,17 @@ export class UnknownHardwareError extends OneKeyHardwareError {
       .filter(Boolean)
       .join(' : ');
     super(
-      normalizeErrorProps(props, {
-        defaultMessage: message || 'Unknown Hardware Error',
-        defaultKey: ETranslations.feedback_request_failed,
-        alwaysAppendDefaultMessage: true,
-        // defaultAutoToast: true,
-      }),
+      normalizeErrorProps(
+        {
+          info: { 'message': message },
+        },
+        {
+          defaultMessage: message || 'Unknown Hardware Error',
+          defaultKey: ETranslations.wallet_action_failed,
+          alwaysAppendDefaultMessage: false,
+          // defaultAutoToast: true,
+        },
+      ),
     );
   }
 }

@@ -1,11 +1,18 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgAddRow = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M5 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h6a1 1 0 1 0 0-2H5a1 1 0 0 1-1-1v-4h17a1 1 0 0 0 1-1V7a3 3 0 0 0-3-3zm15 12a1 1 0 1 0-2 0v2h-2a1 1 0 1 0 0 2h2v2a1 1 0 1 0 2 0v-2h2a1 1 0 1 0 0-2h-2z"
+      fillRule="evenodd"
+      d="M22 18h-7v4H9v-4H2v-4h20zm-11 2h2v-2h-2z"
+      clipRule="evenodd"
     />
+    <Path d="M22 12H2V3h20z" />
   </Svg>
 );
 export default SvgAddRow;

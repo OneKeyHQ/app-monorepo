@@ -2,7 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { RefreshControl, ScrollView } from 'react-native';
 
-import { IconButton, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import {
+  IconButton,
+  Skeleton,
+  XStack,
+  YStack,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
+import type { EPageType } from '@onekeyhq/components';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
@@ -29,8 +36,10 @@ import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
 import SwapProTradingPanel from './SwapProTradingPanel';
+import SwapTipsContainer from './SwapTipsContainer';
 
 interface ISwapProContainerProps {
+  pageType?: EPageType;
   onProSelectToken: (autoSearch?: boolean) => void;
   onOpenOrdersClick: (item: IFetchLimitOrderRes) => void;
   onSwapProActionClick: () => void;
@@ -52,6 +61,7 @@ interface ISwapProContainerProps {
 }
 
 const SwapProContainer = ({
+  pageType,
   onProSelectToken,
   onOpenOrdersClick,
   onSwapProActionClick,
@@ -80,6 +90,7 @@ const SwapProContainer = ({
   const [, setSwapProInputAmount] = useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapProSliderValue] = useSwapProSliderValueAtom();
+  const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
@@ -158,15 +169,19 @@ const SwapProContainer = ({
       contentContainerStyle={{
         flexGrow: 1,
         paddingHorizontal: 20,
+        paddingBottom: tabBarHeight,
       }}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0]}
+      stickyHeaderIndices={[1]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
+      <YStack mx="$-5">
+        <SwapTipsContainer pageType={pageType} />
+      </YStack>
       <XStack
         justifyContent="space-between"
         pb="$2"
@@ -182,7 +197,7 @@ const SwapProContainer = ({
           configLoading={isLoading}
         />
         <IconButton
-          icon="TradingViewCandlesOutline"
+          icon="TradeOutline"
           variant="tertiary"
           flexShrink={0}
           onPress={onProMarketDetail}

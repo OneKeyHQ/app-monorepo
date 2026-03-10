@@ -1,18 +1,21 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgCalculator = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      stroke="currentColor"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M5 8V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3M5 8h14"
+      fillRule="evenodd"
+      d="M9.75 15.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1m4.5-.75a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1M9.75 11a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1m4.5-.75a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1"
+      clipRule="evenodd"
     />
     <Path
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth={0.75}
-      d="M9.75 13.125a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Zm0 4.5a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Zm4.5-4.5a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Zm0 4.5a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Z"
+      fillRule="evenodd"
+      d="M20 22H4V2h16zM6 20h12V9H6zM6 7h12V4H6z"
+      clipRule="evenodd"
     />
   </Svg>
 );

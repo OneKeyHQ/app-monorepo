@@ -1,12 +1,15 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Button,
   Empty,
+  Icon,
+  LottieView,
   ScrollView,
   Select,
   SizableText,
@@ -80,8 +83,9 @@ const AnimatedProviderItem = memo(
     </MotiView>
   ),
 );
+AnimatedProviderItem.displayName = 'AnimatedProviderItem';
 
-// Animated skeleton item
+// Animated skeleton item - matches real card dimensions
 const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
   <MotiView
     from={{
@@ -91,6 +95,10 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
     animate={{
       opacity: 1,
       translateY: 0,
+    }}
+    exit={{
+      opacity: 0,
+      translateY: -8,
     }}
     transition={
       {
@@ -102,20 +110,17 @@ const AnimatedSkeletonItem = memo(({ index }: { index: number }) => (
   >
     <Stack
       borderRadius="$4"
-      borderWidth={1}
+      my="$2"
+      overflow="hidden"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
-      p="$3"
     >
-      <XStack alignItems="center" gap="$3">
-        <Skeleton width={40} height={40} radius="round" />
-        <YStack flex={1} gap="$2">
-          <Skeleton width={120} height={16} />
-          <Skeleton width={80} height={14} />
-        </YStack>
-      </XStack>
+      <Skeleton height={102} radius="square" />
     </Stack>
   </MotiView>
 ));
+AnimatedSkeletonItem.displayName = 'AnimatedSkeletonItem';
 
 const SwapProviderListPanel = ({
   refreshAction,
@@ -151,6 +156,13 @@ const SwapProviderListPanel = ({
   const prevQuoteEventIdRef = useRef(quoteEventTotalCount.eventId);
   // Track if waiting for new quote to prevent flash to empty state (OK-49718)
   const isWaitingForNewQuoteRef = useRef(false);
+
+  // ScrollView ref for auto-scrolling to selected provider (OK-49778)
+  const scrollViewRef = useRef<{
+    scrollTo: (options: { y: number; animated?: boolean }) => void;
+  } | null>(null);
+  // Track previous loading state for detecting when loading completes
+  const prevIsLoadingRef = useRef(false);
 
   // Reset cache when tokens change
   if (prevTokenKeyRef.current !== currentTokenKey) {
@@ -294,6 +306,36 @@ const SwapProviderListPanel = ({
     [displayList],
   );
 
+  // Auto-scroll to selected provider when loading completes (OK-49778)
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoading;
+
+    // Only scroll when loading just completed (transition from loading to not loading)
+    if (
+      wasLoading &&
+      !isLoading &&
+      currentSelectQuote &&
+      availableList.length > 0
+    ) {
+      const selectedIndex = availableList.findIndex(
+        (item) =>
+          item.info.provider === currentSelectQuote.info.provider &&
+          item.info.providerName === currentSelectQuote.info.providerName,
+      );
+
+      if (selectedIndex > 0 && scrollViewRef.current) {
+        // Estimate item height: ~120px per item (including padding and margins)
+        const estimatedItemHeight = 120;
+        const scrollY = selectedIndex * estimatedItemHeight;
+        // Add a small delay to ensure the list is rendered
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({ y: scrollY, animated: true });
+        }, 100);
+      }
+    }
+  }, [isLoading, currentSelectQuote, availableList]);
+
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
       setSwapManualSelect(item);
@@ -341,8 +383,7 @@ const SwapProviderListPanel = ({
             }
             selected={Boolean(
               item.info.provider === currentSelectQuote?.info.provider &&
-                item.info.providerName ===
-                  currentSelectQuote?.info.providerName,
+              item.info.providerName === currentSelectQuote?.info.providerName,
             )}
             fromTokenAmount={fromTokenAmount.value}
             fromToken={fromToken}
@@ -365,33 +406,263 @@ const SwapProviderListPanel = ({
     ],
   );
 
-  const renderLoadingSkeleton = useCallback(
-    () => (
-      <YStack gap="$2" px="$3" py="$2">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <AnimatedSkeletonItem key={index} index={index} />
-        ))}
-      </YStack>
-    ),
-    [],
-  );
-
   const renderEmptyState = useCallback(
     () => (
-      <MotiView
-        from={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'timing', duration: 200 } as any}
+      <Stack alignItems="center" justifyContent="center" py="$8">
+        <Empty
+          illustration="QuestionMark"
+          title={intl.formatMessage({
+            id: ETranslations.global_no_results,
+          })}
+        />
+      </Stack>
+    ),
+    [intl],
+  );
+
+  const renderInitialState = useCallback(
+    () => (
+      <XStack
+        overflow="hidden"
+        px="$10"
+        py="$12"
+        gap="$4"
+        justifyContent="space-between"
       >
-        <Stack flex={1} alignItems="center" justifyContent="center" py="$8">
-          <Empty
-            icon="SearchOutline"
-            title={intl.formatMessage({
-              id: ETranslations.global_no_results,
-            })}
-          />
-        </Stack>
-      </MotiView>
+        {/* Left Column */}
+        <YStack width="40%" justifyContent="space-between">
+          {/* Top Content */}
+          <YStack gap="$5" mt="$2" justifyContent="space-between">
+            {/* Title */}
+            <YStack>
+              <SizableText
+                color="$text"
+                style={{
+                  fontSize: 32,
+                  fontWeight: '900',
+                  lineHeight: 38,
+                  letterSpacing: -0.5,
+                }}
+                $platform-web={{
+                  // @ts-ignore
+                  WebkitTextStroke: '0.3px currentColor',
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_title_line1,
+                })}
+              </SizableText>
+              <SizableText
+                color="$text"
+                style={{
+                  fontSize: 32,
+                  fontWeight: '900',
+                  lineHeight: 38,
+                  letterSpacing: -0.5,
+                }}
+                $platform-web={{
+                  // @ts-ignore
+                  WebkitTextStroke: '0.3px currentColor',
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_title_line2,
+                })}
+              </SizableText>
+            </YStack>
+
+            {/* Description */}
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              style={{ lineHeight: 20 }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.swap_provider_panel_desc,
+              })}
+            </SizableText>
+
+            {/* Badges */}
+            <XStack gap="$2" mt={60} flexWrap="wrap">
+              <XStack
+                alignSelf="flex-start"
+                px="$2.5"
+                py="$1"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$borderSuccessSubdued"
+                bg="$bgSuccessSubdued"
+                alignItems="center"
+                gap="$2"
+              >
+                <Stack
+                  width={8}
+                  height={8}
+                  borderRadius="$full"
+                  bg="$iconSuccess"
+                />
+                <SizableText
+                  color="$textSuccess"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_badge_dexs,
+                  })}
+                </SizableText>
+              </XStack>
+
+              <XStack
+                alignSelf="flex-start"
+                px="$2.5"
+                py="$1"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$borderSubdued"
+                alignItems="center"
+              >
+                <SizableText
+                  color="$textSubdued"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_badge_chains,
+                  })}
+                </SizableText>
+              </XStack>
+
+              <XStack
+                alignSelf="flex-start"
+                px="$2.5"
+                py="$1"
+                borderRadius="$full"
+                borderWidth={1}
+                borderColor="$borderSubdued"
+                alignItems="center"
+              >
+                <SizableText
+                  color="$textSubdued"
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.swap_provider_panel_badge_availability,
+                  })}
+                </SizableText>
+              </XStack>
+            </XStack>
+          </YStack>
+        </YStack>
+
+        {/* Right Column - Feature List */}
+        <YStack width="50%" justifyContent="center" gap="$6">
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="DollarSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_zero_fee,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_zero_fee_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+
+          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
+
+          {/* MEV Shield */}
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="Shield2CheckSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_mev,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_mev_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+
+          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
+
+          {/* Smart Routing */}
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="SplitSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_routing,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_routing_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+
+          <Stack ml="$10" height={0.5} bg="$borderSubdued" opacity={0.5} />
+
+          {/* High Liquidity */}
+          <XStack alignItems="flex-start" gap="$3">
+            <Icon
+              name="HandCoinsSolid"
+              size="$7"
+              color="$iconSuccess"
+              flexShrink={0}
+            />
+            <YStack flex={1} gap="$1">
+              <SizableText size="$bodyMdMedium" color="$text" fontWeight="600">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_liquidity,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.swap_provider_panel_feature_liquidity_desc,
+                })}
+              </SizableText>
+            </YStack>
+          </XStack>
+        </YStack>
+      </XStack>
     ),
     [intl],
   );
@@ -402,160 +673,211 @@ const SwapProviderListPanel = ({
     !new BigNumber(fromTokenAmount.value).isZero() &&
     !new BigNumber(fromTokenAmount.value).isNaN();
   const shouldShowContent = hasFromAndToToken && hasFromAmount;
+
+  // Clear cache immediately when content should not be displayed (e.g., amount cleared)
+  // This prevents stale list data from persisting during AnimatePresence exit
+  if (!shouldShowContent) {
+    cachedListRef.current = [];
+    hadPreviousQuotesRef.current = false;
+    isRefreshingRef.current = false;
+  }
+
   const hasQuotes = displayList.length > 0;
+
+  // Whether the SSE total event has been received
+  const hasReceivedTotal = quoteEventTotalCount.count > 0;
+  // Number of skeleton placeholders for providers not yet received
+  const remainingSkeletonCount =
+    hasReceivedTotal && quoteEventFetching
+      ? Math.max(0, quoteEventTotalCount.count - displayList.length)
+      : 0;
+
+  const contentArea = (
+    <AnimatePresence>
+      {/* Phase 1: Spinner - no total event received yet (covers gap before loading starts) */}
+      {shouldShowContent && !hasQuotes && !hasReceivedTotal ? (
+        <MotiView
+          key="spinner"
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ type: 'timing', duration: 150 } as any}
+          exitTransition={{ type: 'timing', duration: 0 } as any}
+        >
+          <YStack alignItems="center" justifyContent="center" py="$16" gap="$3">
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+              autoPlay
+              loop
+              style={{
+                width: 48,
+                height: 20,
+              }}
+            />
+            <SizableText size="$bodyLgMedium" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.swap_page_button_fetching_quotes,
+              })}
+            </SizableText>
+          </YStack>
+        </MotiView>
+      ) : null}
+
+      {/* Phase 2+3: Data cards + skeleton placeholders for remaining */}
+      {shouldShowContent &&
+      (hasQuotes || (hasReceivedTotal && quoteEventFetching)) ? (
+        <MotiView
+          key="content"
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ type: 'timing', duration: 150 } as any}
+          exitTransition={{ type: 'timing', duration: 0 } as any}
+        >
+          <YStack px="$5" pb="$5">
+            {/* Available Providers */}
+            {availableList.length > 0 ? (
+              <YStack>{availableList.map((item) => renderItem(item))}</YStack>
+            ) : null}
+
+            {/* Skeleton placeholders for providers not yet received */}
+            {remainingSkeletonCount > 0 ? (
+              <YStack>
+                {Array.from({ length: remainingSkeletonCount }).map(
+                  (_, index) => (
+                    <AnimatedSkeletonItem
+                      key={`skeleton-${index}`}
+                      index={index}
+                    />
+                  ),
+                )}
+              </YStack>
+            ) : null}
+
+            {/* Unavailable Providers */}
+            {unavailableList.length > 0 ? (
+              <YStack>
+                <MotiView
+                  from={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={
+                    {
+                      type: 'timing',
+                      duration: 200,
+                    } as any
+                  }
+                >
+                  <SizableText
+                    size="$bodySmMedium"
+                    color="$textSubdued"
+                    px="$1"
+                    pt="$3"
+                    pb="$1"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.provider_unavailable,
+                    })}
+                  </SizableText>
+                </MotiView>
+                {unavailableList.map((item) => renderItem(item))}
+              </YStack>
+            ) : null}
+          </YStack>
+        </MotiView>
+      ) : null}
+
+      {/* Empty state - total received, all providers responded, no results */}
+      {shouldShowContent &&
+      !hasQuotes &&
+      hasReceivedTotal &&
+      !quoteEventFetching
+        ? renderEmptyState()
+        : null}
+    </AnimatePresence>
+  );
 
   return (
     <YStack
-      flex={1}
-      borderRadius="$4"
+      minHeight={480}
+      maxHeight={820}
+      borderRadius="$6"
       borderWidth={1}
       borderColor="$borderSubdued"
-      bg="$bg"
-      minWidth={360}
-      maxWidth={440}
+      elevationAndroid="$1"
+      $platform-web={{
+        boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+        // Limit max height to viewport height minus some spacing
+        maxHeight: 'calc(100vh - 200px)',
+      }}
+      style={{
+        shadowColor: 'rgba(0, 0, 0, 0.08)',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 24,
+      }}
     >
-      {/* Header */}
-      <XStack
-        px="$4"
-        py="$3"
-        alignItems="center"
-        justifyContent="space-between"
-        borderBottomWidth={1}
-        borderBottomColor="$borderSubdued"
-      >
-        <SizableText size="$headingMd" color="$text">
-          {intl.formatMessage({ id: ETranslations.provider_title })}
-        </SizableText>
-        {quoteLoading && shouldShowContent ? (
-          <Skeleton width={18} height={18} radius="round" />
-        ) : (
-          <SwapRefreshButton
-            refreshAction={refreshAction}
-            disabled={!hasQuotes}
-          />
-        )}
-      </XStack>
-
-      {/* Sort Selector with animation */}
-      <AnimatePresence>
-        {shouldShowContent && hasQuotes ? (
-          <MotiView
-            from={{ opacity: 0, translateY: -8 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            exit={{ opacity: 0, translateY: -8 }}
-            transition={{ type: 'timing', duration: 200 } as any}
-          >
-            <XStack px="$4" pt="$3">
-              <Select
-                title={intl.formatMessage({
-                  id: ETranslations.provider_sort_title,
-                })}
-                items={swapProviderSortSelectItems}
-                onChange={onSelectSortChange}
-                value={providerSort}
-                renderTrigger={({ value, label, placeholder }) => (
-                  <Button
-                    alignSelf="flex-start"
-                    variant="tertiary"
-                    size="small"
-                    icon="FilterSortSolid"
-                    iconAfter="ChevronDownSmallOutline"
-                  >
-                    <SizableText size="$bodySm">
-                      {value ? label : placeholder}
-                    </SizableText>
-                  </Button>
-                )}
-              />
-            </XStack>
-          </MotiView>
-        ) : null}
-      </AnimatePresence>
-
-      {/* Content */}
-      <ScrollView flex={1}>
-        <AnimatePresence>
-          {!shouldShowContent ? (
-            <MotiView
-              key="empty-input"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'timing', duration: 200 } as any}
-            >
-              <Stack
-                flex={1}
-                alignItems="center"
-                justifyContent="center"
-                py="$8"
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.swap_page_button_enter_amount,
-                  })}
-                </SizableText>
-              </Stack>
-            </MotiView>
-          ) : (isLoading || isWaitingForNewQuoteRef.current) && !hasQuotes ? (
-            <MotiView
-              key="loading"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: 'timing', duration: 150 } as any}
-            >
-              {renderLoadingSkeleton()}
-            </MotiView>
-          ) : !hasQuotes ? (
-            renderEmptyState()
+      {shouldShowContent ? (
+        <XStack
+          px="$6"
+          pt="$6"
+          pb="$3"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <SizableText size="$headingLg" color="$text">
+            {intl.formatMessage({ id: ETranslations.Limit_info_provider })}
+          </SizableText>
+          {quoteLoading ? (
+            <Skeleton width={18} height={18} radius="round" />
           ) : (
-            <MotiView
-              key="content"
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ type: 'timing', duration: 150 } as any}
-            >
-              <YStack px="$3" pb="$3">
-                {/* Available Providers */}
-                {availableList.length > 0 ? (
-                  <YStack>
-                    {availableList.map((item) => renderItem(item))}
-                  </YStack>
-                ) : null}
-
-                {/* Unavailable Providers */}
-                {unavailableList.length > 0 ? (
-                  <YStack>
-                    <MotiView
-                      from={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={
-                        {
-                          type: 'timing',
-                          duration: 200,
-                        } as any
-                      }
-                    >
-                      <SizableText
-                        size="$bodySmMedium"
-                        color="$textSubdued"
-                        px="$1"
-                        pt="$3"
-                        pb="$1"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.provider_unavailable,
-                        })}
-                      </SizableText>
-                    </MotiView>
-                    {unavailableList.map((item) => renderItem(item))}
-                  </YStack>
-                ) : null}
-              </YStack>
-            </MotiView>
+            <SwapRefreshButton
+              refreshAction={refreshAction}
+              disabled={!hasQuotes}
+            />
           )}
-        </AnimatePresence>
-      </ScrollView>
+        </XStack>
+      ) : null}
+
+      {/* Sort Selector */}
+      {shouldShowContent && hasQuotes ? (
+        <XStack px="$5" pt="$3">
+          <Select
+            title={intl.formatMessage({
+              id: ETranslations.provider_sort_title,
+            })}
+            items={swapProviderSortSelectItems}
+            onChange={onSelectSortChange}
+            value={providerSort}
+            renderTrigger={({ value, label, placeholder }) => (
+              <Button
+                alignSelf="flex-start"
+                variant="tertiary"
+                size="small"
+                icon="FilterSortSolid"
+                iconAfter="ChevronDownSmallOutline"
+              >
+                <SizableText size="$bodySm">
+                  {value ? label : placeholder}
+                </SizableText>
+              </Button>
+            )}
+          />
+        </XStack>
+      ) : null}
+
+      {/* Initial state - no tokens/amount selected - rendered outside ScrollView */}
+      {!shouldShowContent ? (
+        <Stack flex={1} justifyContent="center">
+          {renderInitialState()}
+        </Stack>
+      ) : null}
+
+      {/* ScrollView only shown when content is available */}
+      {shouldShowContent ? (
+        <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
+          {contentArea}
+        </ScrollView>
+      ) : null}
     </YStack>
   );
 };

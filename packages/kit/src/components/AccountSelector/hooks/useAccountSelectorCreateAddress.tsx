@@ -18,11 +18,11 @@ import type {
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -66,12 +66,15 @@ export function useAccountSelectorCreateAddress() {
         !account ||
         !account.walletId ||
         !account.networkId ||
-        !account.indexedAccountId ||
         !account.deriveType
       ) {
         Toast.error({
-          title: 'Create address failed',
-          message: 'Please select a valid account',
+          title: intl.formatMessage({
+            id: ETranslations.toast_create_address_failed_title,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.toast_create_address_failed_message,
+          }),
         });
         return;
       }
@@ -129,10 +132,13 @@ export function useAccountSelectorCreateAddress() {
         }
 
         // TODO: cancel creating workflow by close checking device UI dialog
+        // If indexedAccountId is empty, create the first account (index 0) for all networks
+        const indexes = account?.indexedAccountId ? undefined : [0];
         const result =
           await serviceBatchCreateAccount.addDefaultNetworkAccounts({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
+            indexes,
             customNetworks,
             ...hwUiControlParams,
           });
@@ -143,9 +149,22 @@ export function useAccountSelectorCreateAddress() {
         ) {
           throw new OneKeyErrorAirGapAccountNotFound();
         }
+
+        // If indexedAccountId was empty, get the first indexed account from wallet
+        let resultIndexedAccountId = account?.indexedAccountId;
+        if (!resultIndexedAccountId && account?.walletId) {
+          const { accounts: indexedAccounts } =
+            await serviceAccount.getIndexedAccountsOfWallet({
+              walletId: account.walletId,
+            });
+          if (indexedAccounts.length > 0) {
+            resultIndexedAccountId = indexedAccounts[0].id;
+          }
+        }
+
         return handleAddAccounts({
           walletId: account?.walletId,
-          indexedAccountId: account?.indexedAccountId,
+          indexedAccountId: resultIndexedAccountId,
           accounts: [],
         });
       };
@@ -156,11 +175,14 @@ export function useAccountSelectorCreateAddress() {
             await addAccountsForAllNetwork();
             return;
           }
+          // If indexedAccountId is empty, create the first account (index 0)
+          const indexes = account?.indexedAccountId ? undefined : [0];
           const result = await serviceAccount.addHDOrHWAccounts({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,
             deriveType: account?.deriveType,
+            indexes,
             createAllDeriveTypes,
             ...hwUiControlParams,
           });
@@ -184,10 +206,22 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
+          let indexedAccountId = account.indexedAccountId;
+          if (!indexedAccountId) {
+            await serviceAccount.addIndexedAccount({
+              walletId: account.walletId,
+              indexes: [0],
+              skipIfExists: true,
+            });
+            indexedAccountId = accountUtils.buildIndexedAccountId({
+              walletId: account.walletId,
+              index: 0,
+            });
+          }
           await createQrWalletAccount({
             walletId: account.walletId,
             networkId: account.networkId,
-            indexedAccountId: account.indexedAccountId,
+            indexedAccountId,
           });
 
           try {

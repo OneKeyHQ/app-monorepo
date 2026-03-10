@@ -1,4 +1,5 @@
 // oxlint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 // check  polyfillsPlatform.ext.ts  or   polyfillsPlatform.native.js
 import './setimmediateShim';
 import './globalShim';
@@ -16,3 +17,7 @@ shimArrayFlatMap();
 const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 
 shimArrayToSorted();
+
+const { shim: shimArrayToReversed } = require('array.prototype.toreversed');
+
+shimArrayToReversed();

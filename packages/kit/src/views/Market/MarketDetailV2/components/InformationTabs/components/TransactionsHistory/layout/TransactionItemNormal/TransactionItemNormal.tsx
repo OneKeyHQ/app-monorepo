@@ -7,7 +7,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { AddressDisplay } from '../../../AddressDisplay';
@@ -19,10 +18,12 @@ import { useTransactionsLayoutNormal } from './useTransactionsLayoutNormal';
 interface ITransactionItemNormalProps {
   item: IMarketTokenTransaction;
   networkId: string;
+  index: number;
 }
 
 function TransactionItemNormalBase({
   item,
+  index,
   networkId,
 }: ITransactionItemNormalProps) {
   const { styles, isSmallScreen } = useTransactionsLayoutNormal();
@@ -37,10 +38,17 @@ function TransactionItemNormalBase({
     value,
     formattedTime,
   } = useTransactionItemData({ item });
-  const [settingsPersistAtom] = useSettingsPersistAtom();
 
   return (
-    <XStack py="$1" px="$4" alignItems="center">
+    <XStack
+      py="$1"
+      pl="$5"
+      pr="$3"
+      alignItems="center"
+      cursor="default"
+      {...(index % 2 === 1 && { backgroundColor: '$bgSubdued' })}
+      hoverStyle={{ backgroundColor: '$bgHover' }}
+    >
       <SizableText size="$bodyMd" color="$textSubdued" {...styles.time}>
         {formattedTime}
       </SizableText>
@@ -76,7 +84,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
           >
             {value}
@@ -87,7 +95,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
           >
             {price}
@@ -101,7 +109,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
             {...styles.price}
           >
@@ -114,7 +122,7 @@ function TransactionItemNormalBase({
             autoFormatter="price-marketCap"
             formatterOptions={{
               capAtMaxT: true,
-              currency: settingsPersistAtom.currencyInfo.symbol,
+              currency: '$',
             }}
             {...styles.value}
           >

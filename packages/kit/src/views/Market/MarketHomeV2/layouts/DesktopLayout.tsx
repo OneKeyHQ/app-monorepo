@@ -1,26 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  Carousel,
-  Tabs,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { Tabs, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  MarketBannerList,
-  useMarketBannerList,
-} from '../components/MarketBanner';
+import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
+import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 
+import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
 import type { IMarketHomeTabValue } from '../types';
+import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 interface IDesktopLayoutProps {
   filterBarProps: {
@@ -48,98 +43,142 @@ const useIsFirstFocus = () => {
   }, [isFocused]);
   return isFirstFocus;
 };
+
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
   onTabChange,
 }: IDesktopLayoutProps) {
   const {
-    tabNames,
     watchlistTabName,
-    focusedTab,
-    carouselRef,
+    spotTabName,
+    perpsTabName,
+    showPerpsTab,
     handleTabChange,
-    defaultIndex,
-    handlePageChanged,
+    selectedTab,
   } = useMarketTabsLogic(onTabChange);
 
-  const { bannerList } = useMarketBannerList();
-  const hasBanner = Boolean(bannerList && bannerList.length > 0);
+  const isFocused = useIsFirstFocus();
 
-  const { height, containerStyle } = useMemo(() => {
-    const bannerHeight = hasBanner ? 0 : 120;
-    const computedHeight = platformEnv.isNative
-      ? undefined
-      : `calc(100vh - ${167 - bannerHeight}px)`;
-    const style: Record<string, any> = { height: computedHeight };
+  const initialTabName = useMemo(() => {
+    if (selectedTab === 'watchlist') return watchlistTabName;
+    if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
+    return spotTabName;
+  }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
 
-    if (platformEnv.isWebDappMode) {
-      style.paddingBottom = 100;
-    }
+  const containerProps = useMemo(
+    () => ({
+      allowHeaderOverscroll: true,
+      renderHeader: () => (
+        <YStack bg="$bgApp" pointerEvents="box-none">
+          <MarketBannerList />
+        </YStack>
+      ),
+    }),
+    [],
+  );
 
-    if (platformEnv.isDesktop) {
-      style.paddingBottom = 50;
-    }
-    return { height: computedHeight, containerStyle: style };
-  }, [hasBanner]);
+  // Portal target for sticky column headers.
+  // List components use createPortal to render their headers into this element.
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
+    setPortalTarget(el);
+  }, []);
 
-  const pageWidth = useTabContainerWidth();
-  const renderItem = useCallback(
-    ({ item, index }: { item: string; index: number }) => {
-      const selectedIndex = carouselRef.current?.getCurrentIndex();
-      const isNotFocused = !platformEnv.isNative && selectedIndex !== index;
-      if (item === watchlistTabName) {
-        return (
-          <YStack
-            px="$4"
-            height={height}
-            flex={1}
-            style={isNotFocused ? { contentVisibility: 'hidden' } : undefined}
-          >
-            <MarketWatchlistTokenList />
-          </YStack>
-        );
-      }
+  const renderTabBar = useCallback(
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        tabBarProps.onTabPress?.(name);
+      };
+      // Wrap TabBar + portal target in a single sticky container.
+      // Override TabBar's own sticky with position: relative so
+      // the outer wrapper controls stickiness for both.
       return (
-        <YStack
-          px="$4"
-          height={height}
-          flex={1}
-          style={isNotFocused ? { contentVisibility: 'hidden' } : undefined}
-        >
-          <MarketFilterBar {...filterBarProps} />
-          <MarketNormalTokenList networkId={selectedNetworkId} />
+        <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
+          <Tabs.TabBar
+            {...tabBarProps}
+            onTabPress={handleTabPress}
+            divider={false}
+            containerStyle={{ position: 'relative' as any }}
+          />
+          <div ref={portalRefCallback} />
         </YStack>
       );
     },
-    [filterBarProps, height, selectedNetworkId, watchlistTabName, carouselRef],
+    [portalRefCallback],
   );
 
-  const isFocused = useIsFirstFocus();
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
+
+  const onTabChangeHandler = useCallback(
+    ({ tabName }: { tabName: string }) => {
+      setActiveTabName(tabName);
+      handleTabChange(tabName);
+    },
+    [handleTabChange],
+  );
+
+  const listContainerProps = useMemo(() => {
+    if (platformEnv.isWebDappMode) {
+      return { paddingBottom: 100 };
+    }
+    if (platformEnv.isDesktop) {
+      return { paddingBottom: 50 };
+    }
+    return { paddingBottom: 0 };
+  }, []);
+
+  const stickyHeaderCtx = useMemo(
+    () => ({ portalTarget, activeTabName }),
+    [portalTarget, activeTabName],
+  );
+
   if (!isFocused) {
     return null;
   }
+
   return (
-    <YStack>
-      <MarketBannerList />
-      <Tabs.TabBar
-        divider={false}
-        onTabPress={handleTabChange}
-        tabNames={tabNames}
-        focusedTab={focusedTab}
-      />
-      <Carousel
-        pageWidth={pageWidth}
-        defaultIndex={defaultIndex}
-        onPageChanged={handlePageChanged}
-        disableAnimation
-        containerStyle={containerStyle}
-        ref={carouselRef as any}
-        loop={false}
-        showPagination={false}
-        data={tabNames}
-        renderItem={renderItem}
-      />
-    </YStack>
+    <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
+      <YStack flex={1}>
+        <Tabs.Container
+          renderTabBar={renderTabBar}
+          initialTabName={initialTabName}
+          onTabChange={onTabChangeHandler}
+          {...containerProps}
+        >
+          <Tabs.Tab name={watchlistTabName}>
+            <YStack px="$4" flex={1}>
+              <MarketWatchlistTokenList
+                tabIntegrated
+                tabName={watchlistTabName}
+                listContainerProps={listContainerProps}
+              />
+            </YStack>
+          </Tabs.Tab>
+          <Tabs.Tab name={spotTabName}>
+            <YStack px="$4" flex={1}>
+              <MarketNormalTokenList
+                networkId={selectedNetworkId}
+                tabIntegrated
+                tabName={spotTabName}
+                listContainerProps={listContainerProps}
+                toolbar={<MarketFilterBar {...filterBarProps} />}
+              />
+            </YStack>
+          </Tabs.Tab>
+          {showPerpsTab ? (
+            <Tabs.Tab name={perpsTabName}>
+              <YStack px="$4" flex={1}>
+                <MarketPerpsTokenList
+                  tabIntegrated
+                  tabName={perpsTabName}
+                  listContainerProps={listContainerProps}
+                />
+              </YStack>
+            </Tabs.Tab>
+          ) : null}
+        </Tabs.Container>
+      </YStack>
+    </DesktopStickyHeaderContext.Provider>
   );
 }

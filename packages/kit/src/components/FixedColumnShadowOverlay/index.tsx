@@ -1,11 +1,10 @@
 import { LinearGradient, Stack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
   type IShadowPosition,
   SHADOW_CONSTANTS,
   getNativeShadowGradientColors,
 } from '@onekeyhq/kit/src/hooks/useFixedColumnShadow';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface ISimpleEdgeShadowOverlayProps {
   /** Whether dark theme is active */

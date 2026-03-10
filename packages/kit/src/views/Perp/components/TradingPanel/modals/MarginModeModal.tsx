@@ -80,7 +80,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         borderRadius="$3"
         bg="$bgSubdued"
         onPress={() => setSelectedMode('cross')}
-        cursor="pointer"
+        cursor="default"
       >
         <XStack alignItems="center" gap="$3">
           <Checkbox value={selectedMode === 'cross'} />
@@ -101,7 +101,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         borderRadius="$3"
         bg="$bgSubdued"
         onPress={() => setSelectedMode('isolated')}
-        cursor="pointer"
+        cursor="default"
       >
         <XStack alignItems="center" gap="$3">
           <Checkbox value={selectedMode === 'isolated'} />

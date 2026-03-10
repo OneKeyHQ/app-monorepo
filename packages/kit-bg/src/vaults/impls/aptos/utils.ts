@@ -277,7 +277,7 @@ export async function getAccountResource(
 export async function getAccountCoinResource(
   client: AptosClient,
   address: string,
-  tokenAddress?: string | undefined,
+  tokenAddress?: string,
 ): Promise<MoveResource | undefined> {
   // The coin type to use, defaults to 0x1::aptos_coin::AptosCoin
   const typeTag = `${APTOS_COINSTORE}<${tokenAddress ?? APTOS_NATIVE_COIN}>`;
@@ -581,9 +581,8 @@ export async function buildSimpleTransaction(
 
   let gasUnitPrice: number | undefined = input.gasUnitPrice;
 
-  const { sequence_number: sequenceNumber } = await aptosClient.getAccount(
-    sender,
-  );
+  const { sequence_number: sequenceNumber } =
+    await aptosClient.getAccount(sender);
 
   if ('function' in payload) {
     // function

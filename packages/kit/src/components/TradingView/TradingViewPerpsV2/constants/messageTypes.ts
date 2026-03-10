@@ -17,4 +17,4 @@ export const PERPS_TV_MESSAGE_METHODS = {
   ORDER_CANCEL: 'tradingview_perpsOrderCancel',
 } as const;
 
-export type IMessageType = typeof MESSAGE_TYPES[keyof typeof MESSAGE_TYPES];
+export type IMessageType = (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];

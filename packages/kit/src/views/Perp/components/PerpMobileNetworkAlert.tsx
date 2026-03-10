@@ -6,7 +6,8 @@ import { Alert, SizableText } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-const ALERT_SHOW_DELAY_MS = 1500;
+// Delay to allow WebSocket auto-reconnection before showing alert
+const ALERT_SHOW_DELAY_MS = 5000;
 
 function PerpMobileNetworkAlertComponent() {
   const intl = useIntl();
@@ -33,17 +34,18 @@ function PerpMobileNetworkAlertComponent() {
     };
   }, [isDisconnected]);
 
+  // Show disconnected alert after delay
   if (!shouldShowAlert) {
     return null;
   }
 
   return (
     <Alert
-      type="critical"
+      type="default"
       fullBleed
-      icon="ChartColumnarSignalOutline"
+      icon="SignalOutline"
       descriptionComponent={
-        <SizableText size="$bodySm" color="$textCritical">
+        <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perps_offline_moblie,
           })}

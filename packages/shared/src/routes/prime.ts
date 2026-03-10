@@ -24,11 +24,13 @@ export enum EPrimePages {
   PrimeTransferPreview = 'PrimeTransferPreview',
   OneKeyId = 'OneKeyId',
   KeylessWallet = 'KeylessWallet',
+  PrimeMyOrders = 'PrimeMyOrders',
 }
 
 export enum EPrimeFeatures {
   OneKeyCloud = 'OneKeyCloud',
   BulkCopyAddresses = 'BulkCopyAddresses',
+  BulkSend = 'BulkSend',
   BulkRevoke = 'BulkRevoke',
   DeviceManagement = 'DeviceManagement',
   CloudTransfer = 'CloudTransfer',
@@ -71,4 +73,5 @@ export type IPrimeParamList = {
   [EPrimePages.KeylessWallet]: {
     mode?: EOnboardingV2KeylessWalletCreationMode;
   };
+  [EPrimePages.PrimeMyOrders]: undefined;
 };

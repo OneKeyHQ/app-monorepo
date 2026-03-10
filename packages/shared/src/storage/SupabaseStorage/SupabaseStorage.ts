@@ -9,7 +9,7 @@ import { SUPABASE_STORAGE_KEY_PREFIX } from './consts';
 const shouldUseSecureStorage = cacheUtils.memoizee(
   async () => {
     const isSupportSecureStorage =
-      await secureStorageInstance.supportSecureStorage();
+      await secureStorageInstance.supportSecureStorageWithoutInteraction();
     if (!isSupportSecureStorage) {
       return false;
     }

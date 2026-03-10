@@ -592,10 +592,13 @@ class ServiceNetwork extends ServiceBase {
       useDefaultPinnedNetworks,
     );
     networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
-    const networkIdsIndex = networkIds.reduce((result, item, index) => {
-      result[item] = index;
-      return result;
-    }, {} as Record<string, number>);
+    const networkIdsIndex = networkIds.reduce(
+      (result, item, index) => {
+        result[item] = index;
+        return result;
+      },
+      {} as Record<string, number>,
+    );
     const resp = await this.getNetworksByIds({ networkIds });
     const sorted = resp.networks.toSorted(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
@@ -1526,21 +1529,14 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
 
-    // filter out all network
-    const filteredData = Object.fromEntries(
-      Object.entries(data).filter(
-        ([networkId]) => !networkUtils.isAllNetwork({ networkId }),
-      ),
-    );
-
     return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks(
-      filteredData,
+      data,
     );
   }
 
   @backgroundMethod()
   async updateRecentNetwork({ networkId }: { networkId: string }) {
-    if (!networkId || networkUtils.isAllNetwork({ networkId })) {
+    if (!networkId) {
       return;
     }
     const timestamp = Date.now();
@@ -1613,11 +1609,8 @@ class ServiceNetwork extends ServiceBase {
         string,
       ];
 
-      const deriveType: IAccountDeriveTypes = accountUtils.isValidDeriveType(
-        _deriveType,
-      )
-        ? (_deriveType as IAccountDeriveTypes)
-        : 'default';
+      const deriveType: IAccountDeriveTypes =
+        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
 
       if (!networkInfoMap[networkId]) {
         const [globalDeriveType, vaultSettings] = await Promise.all([
@@ -1689,6 +1682,7 @@ class ServiceNetwork extends ServiceBase {
         chainSelectorNetworks,
         formattedAccountNetworkValues,
         accountDeFiOverview: localDeFiOverview,
+        zeroValue: true,
       };
     }
 

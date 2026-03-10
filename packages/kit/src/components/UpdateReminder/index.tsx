@@ -180,7 +180,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           },
         },
         [EAppUpdateStatus.done]: undefined,
-      } as Record<
+      }) as Record<
         EAppUpdateStatus,
         | {
             iconName: IIconProps['name'];
@@ -192,7 +192,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             }) => string;
           }
         | undefined
-      >),
+      >,
     [intl],
   );
   const styles = buildStyles();

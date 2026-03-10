@@ -94,7 +94,7 @@ export class FirmwareUpdateDetectMap {
         if (hasUpdateInfo) {
           const hasUpgrade = Boolean(
             detectCache?.updateInfo?.firmware?.hasUpgrade ||
-              detectCache?.updateInfo?.ble?.hasUpgrade,
+            detectCache?.updateInfo?.ble?.hasUpgrade,
           );
 
           let toFirmwareVersion;

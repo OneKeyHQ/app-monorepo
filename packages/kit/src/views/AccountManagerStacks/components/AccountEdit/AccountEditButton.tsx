@@ -84,9 +84,9 @@ function AccountEditButtonView({
     () =>
       Boolean(
         account &&
-          !indexedAccount &&
-          account?.id &&
-          accountUtils.isImportedAccount({ accountId: account?.id }),
+        !indexedAccount &&
+        account?.id &&
+        accountUtils.isImportedAccount({ accountId: account?.id }),
       ),
     [account, indexedAccount],
   );
@@ -95,9 +95,9 @@ function AccountEditButtonView({
     () =>
       Boolean(
         account &&
-          !indexedAccount &&
-          account?.id &&
-          accountUtils.isWatchingAccount({ accountId: account?.id }),
+        !indexedAccount &&
+        account?.id &&
+        accountUtils.isWatchingAccount({ accountId: account?.id }),
       ),
     [account, indexedAccount],
   );

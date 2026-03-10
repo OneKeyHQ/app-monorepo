@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Height to align with primary menu header (Mac drag area or logo area)
 const HEADER_ALIGNMENT_HEIGHT = 52;
-const EXPANDED_SUBMENU_WIDTH = 208;
+export const EXPANDED_SUBMENU_WIDTH = 208;
 const COLLAPSED_SUBMENU_WIDTH = MIN_SIDEBAR_WIDTH - 10;
 
 export interface ISubmenuColumnProps {
@@ -20,8 +20,8 @@ export function SubmenuColumn({
 }: ISubmenuColumnProps) {
   return (
     <Stack width={COLLAPSED_SUBMENU_WIDTH} flex={1}>
-      {/* Mac drag area - always bgSidebar, not affected by expand */}
-      {platformEnv.isDesktopMac ? (
+      {/* Desktop drag area - always bgSidebar, not affected by expand */}
+      {platformEnv.isDesktopWithCustomTitleBar ? (
         <XStack
           position="absolute"
           top={0}

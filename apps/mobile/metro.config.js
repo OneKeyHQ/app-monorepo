@@ -16,6 +16,9 @@ const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 
 const projectRoot = __dirname;
 
+// Pre-calculate monorepo root for use in multiple places
+const monorepoRoot = path.resolve(projectRoot, '../..');
+
 // Get Metro's default config for the project
 const defaultConfig = getDefaultConfig(projectRoot);
 
@@ -24,6 +27,41 @@ const sentryConfig = getSentryExpoConfig(projectRoot);
 const config = mergeConfig(defaultConfig, sentryConfig);
 
 config.projectRoot = projectRoot;
+
+// When running under React Native Harness, set unstable_serverRoot to the monorepo root
+// so Metro can resolve test files from packages/ (e.g. packages/shared/src/**/*.test.ts).
+// Rewrite the Expo virtual metro entry to apps/mobile/harness-entry.js (a thin wrapper
+// that require('./index.ts')). The harness resolver intercepts that require and replaces
+// it with the harness runtime entry point.
+if (process.env.RN_HARNESS === 'true') {
+  config.server = config.server || {};
+  config.server.unstable_serverRoot = monorepoRoot;
+  const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
+  config.server.rewriteRequestUrl = (url) => {
+    // Handle Expo virtual entry first (before the general rewrite)
+    if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
+      // oxlint-disable-next-line no-param-reassign
+      url = url.replace(
+        '/.expo/.virtual-metro-entry',
+        '/apps/mobile/harness-entry',
+      );
+      return expoRewrite(url);
+    }
+    // The harness constructs bundle URLs relative to projectRoot (apps/mobile/),
+    // but Metro resolves from unstable_serverRoot (monorepo root).
+    // Prefix all .bundle requests with /apps/mobile and normalize to translate:
+    //   /index.bundle              -> /apps/mobile/index.bundle
+    //   /jest-harness-setup.bundle -> /apps/mobile/jest-harness-setup.bundle
+    //   /../../packages/core/x.bundle -> /packages/core/x.bundle
+    const bundleMatch = url.match(/^(\/[^?]*\.bundle)(.*)/);
+    if (bundleMatch) {
+      const normalized = path.posix.normalize(`/apps/mobile${bundleMatch[1]}`);
+      // oxlint-disable-next-line no-param-reassign
+      url = normalized + bundleMatch[2];
+    }
+    return expoRewrite(url);
+  };
+}
 
 // Allow custom hot-reload and third-party extensions
 config.resolver = config.resolver || {};
@@ -41,16 +79,14 @@ config.resolver.assetExts = (config.resolver.assetExts || []).filter(
   (ext) => ext !== 'svgx',
 );
 config.transformer = config.transformer || {};
-config.transformer.babelTransformerPath = require.resolve(
-  './svgx-transformer.js',
-);
+config.transformer.babelTransformerPath =
+  require.resolve('./svgx-transformer.js');
 
 // Provide extra shims/polyfills for node modules
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  crypto: require.resolve(
-    '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js',
-  ),
+  crypto:
+    require.resolve('@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.native.js'),
   fs: require.resolve('react-native-level-fs'),
   path: require.resolve('path-browserify'),
   stream: require.resolve('readable-stream'),
@@ -75,6 +111,78 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   }
   return resolve(context, moduleName, platform);
 };
+
+// When running under React Native Harness, manually resolve subpath exports
+// for harness and vitest packages that Metro can't handle with unstable_enablePackageExports=false.
+// Also map lodash-es to lodash (matching Jest's moduleNameMapper for test compatibility).
+if (process.env.RN_HARNESS === 'true') {
+  const subpathPrefixes = ['@react-native-harness/', '@vitest/'];
+  const prevResolveRequest = config.resolver.resolveRequest;
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    // Handle absolute paths from monorepo root (e.g., /packages/core/src/...)
+    // These come from Harness test bundle requests after URL rewriting
+    if (moduleName.startsWith('/packages/')) {
+      const absolutePath = path.join(monorepoRoot, moduleName);
+      // Try to resolve with platform extensions
+      const extensions = [
+        '',
+        `.${platform}.ts`,
+        `.${platform}.tsx`,
+        '.ts',
+        '.tsx',
+        `.${platform}.js`,
+        `.${platform}.jsx`,
+        '.js',
+        '.jsx',
+      ];
+      for (const ext of extensions) {
+        const fullPath = absolutePath + ext;
+        if (fs.existsSync(fullPath)) {
+          return { type: 'sourceFile', filePath: fullPath };
+        }
+      }
+    }
+    // Handle paths that were incorrectly resolved by TsConfigResolver
+    // e.g., ./apps/mobile/packages/core/src/... -> /packages/core/src/...
+    if (moduleName.startsWith('./apps/mobile/packages/')) {
+      const correctedPath = moduleName.replace(/^\.\/apps\/mobile\//, '');
+      const absolutePath = path.join(monorepoRoot, correctedPath);
+      const extensions = [
+        '',
+        `.${platform}.ts`,
+        `.${platform}.tsx`,
+        '.ts',
+        '.tsx',
+        `.${platform}.js`,
+        `.${platform}.jsx`,
+        '.js',
+        '.jsx',
+      ];
+      for (const ext of extensions) {
+        const fullPath = absolutePath + ext;
+        if (fs.existsSync(fullPath)) {
+          return { type: 'sourceFile', filePath: fullPath };
+        }
+      }
+    }
+    // Map lodash-es to lodash (same as Jest moduleNameMapper: '^lodash-es$': 'lodash')
+    if (moduleName === 'lodash-es') {
+      return prevResolveRequest(context, 'lodash', platform);
+    }
+    if (
+      subpathPrefixes.some((prefix) => moduleName.startsWith(prefix)) &&
+      moduleName.split('/').length > 2
+    ) {
+      try {
+        const filePath = require.resolve(moduleName);
+        return { type: 'sourceFile', filePath };
+      } catch {
+        // noop
+      }
+    }
+    return prevResolveRequest(context, moduleName, platform);
+  };
+}
 
 // ---- Optional monorepo setup for Yarn workspaces (commented) ----
 // const workspaceRoot = path.resolve(projectRoot, '../..');

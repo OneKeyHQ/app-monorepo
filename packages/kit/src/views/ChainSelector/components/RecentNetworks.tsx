@@ -18,6 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
@@ -58,11 +59,13 @@ function RecentNetworks({
   setRecentNetworksHeight,
   availableNetworks,
   containerProps,
+  showAllNetwork = true,
 }: {
   onPressItem?: (network: IServerNetwork) => void;
   setRecentNetworksHeight?: (height: number) => void;
   availableNetworks?: IServerNetwork[];
   containerProps?: IStackProps;
+  showAllNetwork?: boolean;
 }) {
   const intl = useIntl();
 
@@ -82,9 +85,14 @@ function RecentNetworks({
           // ignore
         }
       }
+      if (!showAllNetwork) {
+        return networks.filter(
+          (n) => !networkUtils.isAllNetwork({ networkId: n.id }),
+        );
+      }
       return networks;
     },
-    [availableNetworks],
+    [availableNetworks, showAllNetwork],
     {
       initResult: [],
     },
@@ -112,35 +120,35 @@ function RecentNetworks({
     };
   }, [run]);
 
+  if (recentNetworks.length === 0) {
+    return null;
+  }
+
   return (
     <Stack onLayout={handleLayout} {...containerProps}>
-      {recentNetworks.length > 0 ? (
-        <>
-          <SectionList.SectionHeader
-            title={intl.formatMessage({
-              id: ETranslations.network_recent_used_network,
-            })}
-          >
-            <XStack justifyContent="flex-end" flex={1}>
-              <IconButton
-                size="small"
-                variant="tertiary"
-                icon="DeleteOutline"
-                onPress={handleClearRecentNetworks}
-              />
-            </XStack>
-          </SectionList.SectionHeader>
-          <XStack gap="$2.5" flexWrap="wrap" px="$5" pb="$5">
-            {recentNetworks.map((network) => (
-              <RecentNetworkItem
-                key={network.id}
-                network={network}
-                onPressItem={onPressItem}
-              />
-            ))}
-          </XStack>
-        </>
-      ) : null}
+      <SectionList.SectionHeader
+        title={intl.formatMessage({
+          id: ETranslations.network_recent_used_network,
+        })}
+      >
+        <XStack justifyContent="flex-end" flex={1}>
+          <IconButton
+            size="small"
+            variant="tertiary"
+            icon="DeleteOutline"
+            onPress={handleClearRecentNetworks}
+          />
+        </XStack>
+      </SectionList.SectionHeader>
+      <XStack gap="$2.5" flexWrap="wrap" px="$5" pb="$5">
+        {recentNetworks.map((network) => (
+          <RecentNetworkItem
+            key={network.id}
+            network={network}
+            onPressItem={onPressItem}
+          />
+        ))}
+      </XStack>
     </Stack>
   );
 }

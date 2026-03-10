@@ -29,7 +29,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
         ({
           ...rawData,
           ...params,
-        } as IReferralCodeData),
+        }) as IReferralCodeData,
     );
   }
 
@@ -39,7 +39,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
         ({
           ...rawData,
           postConfig: params,
-        } as IReferralCodeData),
+        }) as IReferralCodeData,
     );
   }
 
@@ -84,7 +84,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
               createdAt: Date.now(),
             },
           },
-        } as IReferralCodeData),
+        }) as IReferralCodeData,
     );
   }
 
@@ -94,7 +94,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
         ({
           ...rawData,
           postConfig: undefined,
-        } as IReferralCodeData),
+        }) as IReferralCodeData,
     );
   }
 
@@ -117,7 +117,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
         ({
           ...rawData,
           cachedInviteCode: code,
-        } as IReferralCodeData),
+        }) as IReferralCodeData,
     );
   }
 }

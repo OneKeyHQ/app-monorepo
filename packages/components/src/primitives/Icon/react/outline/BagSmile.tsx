@@ -1,12 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgBagSmile = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M10 8a2 2 0 1 0 4 0V7h2v1a4 4 0 1 1-8 0V7h2z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeWidth={2}
-      d="M15 8a3 3 0 0 1-6 0M4.883 5.875l-.75 12A2 2 0 0 0 6.129 20h11.742a2 2 0 0 0 1.996-2.125l-.75-12A2 2 0 0 0 17.121 4H6.88a2 2 0 0 0-1.996 1.875Z"
+      fillRule="evenodd"
+      d="M21.064 21H2.936L4.06 3h15.878l1.125 18Zm-16-2h13.872L18.06 5H5.939z"
+      clipRule="evenodd"
     />
   </Svg>
 );

@@ -749,10 +749,13 @@ export default class Vault extends VaultBase {
     let confirmed = false;
 
     // throw error after 2 minutes
-    const timeout = setTimeout(() => {
-      confirmed = true;
-      throw new OneKeyLocalError('Commit transaction timeout');
-    }, 2 * 60 * 1000);
+    const timeout = setTimeout(
+      () => {
+        confirmed = true;
+        throw new OneKeyLocalError('Commit transaction timeout');
+      },
+      2 * 60 * 1000,
+    );
     while (!confirmed) {
       const tx = await this.backgroundApi.serviceHistory.fetchTxDetails({
         networkId: this.networkId,

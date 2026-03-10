@@ -15,18 +15,25 @@ import type { INetworkWalletActionsConfig } from './types';
 
 const networkIds = getNetworkIdsMap();
 
+const isExtPopupOrSidePanel =
+  platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel;
+
 export const defaultWalletActionsConfig: INetworkWalletActionsConfig = {
-  mainActions: ['send', 'receive', 'swap'],
-  moreActions: ['buy', 'sell', 'explorer', 'copy', 'sign', 'reward', 'export'],
+  mainActions: isExtPopupOrSidePanel
+    ? ['send', 'receive', 'swap']
+    : ['send', 'receive', 'buy'],
+  moreActions: isExtPopupOrSidePanel
+    ? ['buy', 'explorer', 'copy', 'bulkSend', 'sign', 'reward', 'export']
+    : ['swap', 'explorer', 'copy', 'bulkSend', 'sign', 'reward', 'export'],
   moreActionGroups: [
     {
       type: 'trading',
-      actions: ['buy', 'sell'],
+      actions: isExtPopupOrSidePanel ? ['buy'] : ['swap'],
       order: 1,
     },
     {
       type: 'tools',
-      actions: ['explorer', 'copy', 'sign', 'reward'],
+      actions: ['explorer', 'copy', 'bulkSend', 'sign', 'reward'],
       order: 2,
     },
     {
@@ -45,10 +52,10 @@ export const detailedNetworkConfigs: Record<
     mainActions: ['send', 'receive', 'staking'],
     moreActions: [
       'buy',
-      'sell',
       'swap',
       'explorer',
       'copy',
+      'bulkSend',
       'sign',
       'vote',
       'reward',
@@ -57,12 +64,12 @@ export const detailedNetworkConfigs: Record<
     moreActionGroups: [
       {
         type: 'trading',
-        actions: ['buy', 'sell', 'swap'],
+        actions: ['buy', 'swap'],
         order: 1,
       },
       {
         type: 'tools',
-        actions: ['explorer', 'copy', 'sign', 'vote', 'reward'],
+        actions: ['explorer', 'copy', 'bulkSend', 'sign', 'vote', 'reward'],
         order: 2,
       },
       {

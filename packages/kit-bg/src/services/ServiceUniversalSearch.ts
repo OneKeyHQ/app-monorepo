@@ -16,7 +16,10 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import {
+  PROMISE_CONCURRENCY_LIMIT,
+  promiseAllSettledEnhanced,
+} from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   getFilteredTokenBySearchKey,
@@ -34,6 +37,7 @@ import type {
   IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
+  IUniversalSearchV2MarketToken,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -50,13 +54,7 @@ class ServiceUniversalSearch extends ServiceBase {
 
   private getAccountPriority(accountId?: string): number {
     if (!accountId) return 1;
-    const accountParams = { accountId };
-    if (
-      accountUtils.isHdAccount(accountParams) ||
-      accountUtils.isHwAccount(accountParams) ||
-      accountUtils.isQrAccount(accountParams) ||
-      accountUtils.isImportedAccount(accountParams)
-    ) {
+    if (accountUtils.isOwnAccount({ accountId })) {
       return 0; // Internal accounts first (HD/HW/QR/Imported)
     }
     return 1; // Others accounts (Watching/External)
@@ -81,14 +79,90 @@ class ServiceUniversalSearch extends ServiceBase {
       return [] as IUniversalSearchBatchResult;
     }
     if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
-      const items =
-        await this.backgroundApi.serviceMarket.fetchSearchTrending();
-      result[EUniversalSearchType.MarketToken] = {
-        items: items.map((item) => ({
-          type: EUniversalSearchType.MarketToken,
-          payload: item,
-        })),
-      };
+      try {
+        // Prefer V2 trending endpoint (has network badge, dynamic data)
+        const trendingItems =
+          await this.backgroundApi.serviceMarket.fetchTrendingV2();
+
+        const validTrendingItems = trendingItems.filter(
+          (item) => Boolean(item.price) && Number(item.price) > 0,
+        );
+        if (validTrendingItems.length) {
+          result[EUniversalSearchType.V2MarketToken] = {
+            items: validTrendingItems.map((item) => ({
+              type: EUniversalSearchType.V2MarketToken,
+              payload: item,
+            })),
+          };
+          return result;
+        }
+      } catch {
+        // V2 trending failed, fall through to searchRecommendTokens
+      }
+
+      try {
+        // Fallback to searchRecommendTokens from market basic config
+        const basicConfig =
+          await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
+        const recommendTokens = basicConfig?.data?.searchRecommendTokens;
+
+        if (recommendTokens?.length) {
+          const batchResult =
+            await this.backgroundApi.serviceMarketV2.fetchMarketTokenListBatch({
+              tokenAddressList: recommendTokens.map((t) => ({
+                contractAddress: t.contractAddress,
+                chainId: t.chainId,
+                isNative: t.isNative,
+              })),
+            });
+
+          const chainIdToNetworkId = new Map(
+            basicConfig?.data?.networkList?.map((n) => [
+              n.chainId,
+              n.networkId,
+            ]) ?? [],
+          );
+
+          const v2Items: IUniversalSearchV2MarketToken[] = recommendTokens
+            .map((configToken, index) => {
+              const batchItem = batchResult?.list?.[index];
+              const networkId =
+                batchItem?.networkId ??
+                chainIdToNetworkId.get(configToken.chainId) ??
+                configToken.chainId;
+              return {
+                type: EUniversalSearchType.V2MarketToken as const,
+                payload: {
+                  name: batchItem?.name ?? configToken.name,
+                  symbol: batchItem?.symbol ?? configToken.symbol,
+                  price: batchItem?.price ?? '0',
+                  address: batchItem?.address ?? configToken.contractAddress,
+                  network: networkId,
+                  logoUrl: batchItem?.logoUrl ?? configToken.logo ?? '',
+                  isNative: configToken.isNative,
+                  decimals: batchItem?.decimals ?? 18,
+                  liquidity: batchItem?.liquidity ?? '0',
+                  volume_24h: batchItem?.volume24h ?? '0',
+                  volume24h: batchItem?.volume24h,
+                  marketCap: batchItem?.marketCap,
+                  priceChange24hPercent: batchItem?.priceChange24hPercent,
+                  communityRecognized: batchItem?.communityRecognized,
+                },
+              };
+            })
+            .filter(
+              (item) =>
+                (Boolean(item.payload.address) || item.payload.isNative) &&
+                Number(item.payload.price) > 0,
+            );
+
+          if (v2Items.length) {
+            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+          }
+        }
+      } catch {
+        // searchRecommendTokens also failed
+      }
     }
     return result;
   }
@@ -356,21 +430,23 @@ class ServiceUniversalSearch extends ServiceBase {
           },
         );
 
-      const resp = await Promise.all(
-        networkAccounts.map((networkAccount) =>
-          this.backgroundApi.serviceToken.fetchAccountTokens({
-            accountId: networkAccount.account?.id ?? '',
-            mergeTokens: true,
-            networkId,
-            flag: 'universal-search',
-            saveToLocal: true,
-            indexedAccountId,
-          }),
+      const resp = await promiseAllSettledEnhanced(
+        networkAccounts.map(
+          (networkAccount) => () =>
+            this.backgroundApi.serviceToken.fetchAccountTokens({
+              accountId: networkAccount.account?.id ?? '',
+              mergeTokens: true,
+              networkId,
+              flag: 'universal-search',
+              saveToLocal: true,
+              indexedAccountId,
+            }),
         ),
+        { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
       );
 
       const { allTokenList, allTokenListMap } = getMergedDeriveTokenData({
-        data: resp,
+        data: resp.filter(Boolean),
         mergeDeriveAssetsEnabled: true,
       });
 
@@ -831,7 +907,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const indexedAccountsSearchResult = indexedAccountsFuse.search(searchTerm);
     const indexedAccountsResults = indexedAccountsSearchResult
       .slice(0, maxResults)
-      .map(async (i) => {
+      .map((i) => async () => {
         try {
           const wallet = await serviceAccount.getWalletSafe({
             walletId: i.item.walletId,
@@ -908,7 +984,7 @@ class ServiceUniversalSearch extends ServiceBase {
     const otherAccountsSearchResult = otherAccountsFuse.search(searchTerm);
     const otherAccountsResults = otherAccountsSearchResult
       .slice(0, maxResults)
-      .map(async (i) => {
+      .map((i) => async () => {
         try {
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: i.item.id,
@@ -957,8 +1033,14 @@ class ServiceUniversalSearch extends ServiceBase {
       });
 
     const allResults = [
-      ...(await Promise.all(indexedAccountsResults)),
-      ...(await Promise.all(otherAccountsResults)),
+      ...(await promiseAllSettledEnhanced(indexedAccountsResults, {
+        continueOnError: true,
+        concurrency: PROMISE_CONCURRENCY_LIMIT,
+      })),
+      ...(await promiseAllSettledEnhanced(otherAccountsResults, {
+        continueOnError: true,
+        concurrency: PROMISE_CONCURRENCY_LIMIT,
+      })),
     ]
       .filter(Boolean)
       // First sort by account type (HD/HW/QR/Imported first, then others)
@@ -1020,6 +1102,7 @@ class ServiceUniversalSearch extends ServiceBase {
             maxLeverage: number;
             midPx: string;
             dayNtlVlm: string;
+            subtitle?: string;
           }>;
         }>('/wallet/v1/proxy/hyperliquid/perpsAsset', {
           params: { query: input },
@@ -1035,6 +1118,7 @@ class ServiceUniversalSearch extends ServiceBase {
               maxLeverage: asset.maxLeverage,
               midPx: asset.midPx,
               dayNtlVlm: asset.dayNtlVlm,
+              subtitle: asset.subtitle,
             },
           })) ?? [];
 

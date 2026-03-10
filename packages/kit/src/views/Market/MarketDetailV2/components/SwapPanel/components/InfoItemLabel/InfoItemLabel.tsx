@@ -6,7 +6,9 @@ import {
   Popover,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 
 export const InfoItemLabel = ({
@@ -16,29 +18,46 @@ export const InfoItemLabel = ({
   title: string;
   questionMarkContent?: ReactNode;
 }) => {
+  const { gtMd } = useMedia();
   const questionMarkComponent = useMemo(
-    () => (
-      <Popover
-        placement="bottom"
-        title={title}
-        renderTrigger={
-          <Icon
-            name="InfoCircleOutline"
-            size="$4"
-            cursor="pointer"
-            color="$iconSubdued"
-          />
-        }
-        renderContent={
-          <Stack px="$2.5" py="$2">
-            <SizableText size="$bodyMd" color="$text">
-              {questionMarkContent}
-            </SizableText>
-          </Stack>
-        }
-      />
-    ),
-    [questionMarkContent, title],
+    () =>
+      gtMd ? (
+        <Tooltip
+          placement="bottom"
+          renderTrigger={
+            <Icon
+              name="InfoCircleOutline"
+              size="$4"
+              cursor="default"
+              color="$iconSubdued"
+            />
+          }
+          renderContent={
+            <SizableText size="$bodySm">{questionMarkContent}</SizableText>
+          }
+        />
+      ) : (
+        <Popover
+          placement="bottom"
+          title={title}
+          renderTrigger={
+            <Icon
+              name="InfoCircleOutline"
+              size="$4"
+              cursor="default"
+              color="$iconSubdued"
+            />
+          }
+          renderContent={
+            <Stack px="$2.5" py="$2">
+              <SizableText size="$bodyMd" color="$text">
+                {questionMarkContent}
+              </SizableText>
+            </Stack>
+          }
+        />
+      ),
+    [questionMarkContent, title, gtMd],
   );
   return (
     <XStack alignItems="center">

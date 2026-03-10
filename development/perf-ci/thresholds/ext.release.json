@@ -1,0 +1,8 @@
+{
+  "_comment": "Thresholds for Extension (browser extension) Release perf guard. Metrics: tokensStartMs (Home:refresh:start:tokens timestamp), tokensSpanMs (done-start), functionCallCount (#lines in function_call.log). Values are absolute; trigger when median > threshold (strategy=median).",
+  "_baseline_note": "Computed from sample sessions perf-ml7rzoph-3zbpjm / perf-ml7rzyc5-2za9rx / perf-ml7s08hi-d57uaz with +10% tolerance (median strategy tolerates 1 outlier run).",
+  "tokensStartMs": 3127,
+  "tokensSpanMs": 2390,
+  "functionCallCount": 432,
+  "strategy": "median"
+}

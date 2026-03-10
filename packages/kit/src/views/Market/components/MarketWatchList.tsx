@@ -170,7 +170,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
           ({ coingeckoId }) => coingeckoId,
         ),
         watchList: watchListCoingeckoIds,
-      } as IMarketCategory),
+      }) as IMarketCategory,
     [watchListCoingeckoIds],
   );
   const renderRecommend = useCallback(() => {

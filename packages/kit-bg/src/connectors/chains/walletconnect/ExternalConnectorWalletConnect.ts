@@ -21,9 +21,7 @@ import type { WalletConnectDappSideProvider } from '../../../services/ServiceWal
 import type { ConnectorEventMap } from '@wagmi/core';
 import type { Chain, Client, ProviderConnectInfo, ProviderMessage } from 'viem';
 
-export class ExternalConnectorWalletConnect
-  implements IExternalConnectorBase<WalletConnectDappSideProvider>
-{
+export class ExternalConnectorWalletConnect implements IExternalConnectorBase<WalletConnectDappSideProvider> {
   icon?: string | undefined;
 
   id = 'walletconnect';
@@ -55,12 +53,10 @@ export class ExternalConnectorWalletConnect
   }
 
   async connect(
-    parameters?:
-      | ({
-          chainId?: number | undefined;
-          isReconnecting?: boolean | undefined;
-        } & IWalletConnectConnectToWalletParams)
-      | undefined,
+    parameters?: {
+      chainId?: number | undefined;
+      isReconnecting?: boolean | undefined;
+    } & IWalletConnectConnectToWalletParams,
   ): Promise<IExternalConnectResult> {
     if (!parameters?.isReconnecting) {
       const session =
@@ -89,9 +85,9 @@ export class ExternalConnectorWalletConnect
     }
   }
 
-  getProvider(
-    parameters?: { chainId?: number | undefined } | undefined,
-  ): Promise<WalletConnectDappSideProvider> {
+  getProvider(parameters?: {
+    chainId?: number | undefined;
+  }): Promise<WalletConnectDappSideProvider> {
     checkIsDefined(this.connectionInfo.walletConnect?.topic);
     return this.backgroundApi.serviceWalletConnect.dappSide.getOrCreateProvider(
       {
@@ -112,9 +108,7 @@ export class ExternalConnectorWalletConnect
     throw new NotImplemented();
   }
 
-  getClient?(
-    parameters?: { chainId?: number | undefined } | undefined,
-  ): Promise<Client> {
+  getClient?(parameters?: { chainId?: number | undefined }): Promise<Client> {
     throw new NotImplemented();
   }
 
@@ -138,7 +132,7 @@ export class ExternalConnectorWalletConnect
     throw new NotImplemented();
   }
 
-  onDisconnect(error?: Error | undefined): void {
+  onDisconnect(error?: Error): void {
     throw new NotImplemented();
   }
 

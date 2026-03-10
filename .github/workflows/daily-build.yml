@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '30 19 * * 0,1,2,3,4,5,6'
   workflow_dispatch:
+    inputs:
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # get-commit-id:
@@ -58,6 +64,11 @@ jobs:
           echo '$build_number='$build_number
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
 
+      - name: Warn if GPG verification is skipped
+        if: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
       - name: 'Save workflow parameters'
         run: |
           mkdir -p ./workflow-data
@@ -67,6 +78,7 @@ jobs:
           # echo "WORKFLOW_GITHUB_REF_NAME=${{ github.ref_name }}" >> ./workflow-data/params.env
 
           echo "WORKFLOW_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ./workflow-data/params.env
+          echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}" >> ./workflow-data/params.env
       
       - name: Upload workflow parameters
         uses: actions/upload-artifact@v4

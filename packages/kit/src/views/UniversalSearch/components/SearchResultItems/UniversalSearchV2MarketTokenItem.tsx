@@ -5,18 +5,21 @@ import { useIntl } from 'react-intl';
 
 import {
   IconButton,
+  Image,
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
   YStack,
   rootNavigationRef,
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
+import { SubtitleBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -26,13 +29,16 @@ import {
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
-import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
 import { MarketStarV2 } from '../../../Market/components/MarketStarV2';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
 export function ContractAddress({ address }: { address: string }) {
   const { copyText } = useClipboard();
@@ -130,20 +136,23 @@ export function MarketTokenLiquidity({
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken;
-  searchStatus: ESearchStatus;
+  isTrending?: boolean;
 }
 
 export function UniversalSearchV2MarketTokenItem({
   item,
-  searchStatus,
+  isTrending,
 }: IUniversalSearchMarketTokenItemProps) {
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
+  const { gtMd } = useMedia();
+  const appNavigation = useAppNavigation();
   const universalSearchActions = useUniversalSearchActions();
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
   });
+
   const {
     logoUrl,
     price,
@@ -152,10 +161,21 @@ export function UniversalSearchV2MarketTokenItem({
     address,
     network,
     liquidity,
-    volume_24h: volume24h,
+    // eslint-disable-next-line camelcase
+    volume_24h,
+    volume24h: volume24hCamel,
+    priceChange24hPercent,
     isNative,
     communityRecognized,
+    stock,
   } = item.payload;
+
+  // When network is empty, the item was converted from IMarketToken (trending/legacy)
+  // and address contains coingeckoId for legacy navigation
+  // eslint-disable-next-line camelcase
+  const volume24h = volume24hCamel || volume_24h;
+
+  const isLegacyNavigation = !network;
 
   // Hide favorite button in extension popup and side panel
   const shouldShowFavoriteButton = useMemo(
@@ -165,43 +185,55 @@ export function UniversalSearchV2MarketTokenItem({
   );
 
   const handlePress = useCallback(() => {
-    rootNavigationRef.current?.goBack();
-    setTimeout(async () => {
-      // Use toMarketDetailPage hook for navigation
-      void toMarketDetailPage({
-        tokenAddress: address,
-        networkId: network,
-        symbol,
-        isNative,
-      });
+    if (isLegacyNavigation) {
+      // Legacy trending item: address contains coingeckoId, use legacy navigation
+      setTimeout(async () => {
+        appNavigation.push(EUniversalSearchPages.MarketDetail, {
+          token: address,
+        });
+        defaultLogger.market.token.searchToken({
+          tokenSymbol: symbol,
+          from: 'trendingList',
+        });
+      }, 80);
+    } else {
+      rootNavigationRef.current?.goBack();
+      setTimeout(async () => {
+        void toMarketDetailPage({
+          tokenAddress: address,
+          networkId: network,
+          symbol,
+          isNative,
+        });
 
-      defaultLogger.market.token.searchToken({
-        tokenSymbol: symbol,
-        from:
-          searchStatus === ESearchStatus.init ? 'trendingList' : 'searchList',
-      });
+        defaultLogger.market.token.searchToken({
+          tokenSymbol: symbol,
+          from: isTrending ? 'trendingList' : 'searchList',
+        });
 
-      // Only add to recent search list when not in trending section and symbol is not empty
-      if (searchStatus !== ESearchStatus.init && symbol?.trim()) {
-        setTimeout(() => {
-          universalSearchActions.current.addIntoRecentSearchList({
-            id: address,
-            text: symbol,
-            type: item.type,
-            timestamp: Date.now(),
-          });
-        }, 10);
-      }
-    }, 80);
+        if (!isTrending && symbol?.trim()) {
+          setTimeout(() => {
+            universalSearchActions.current.addIntoRecentSearchList({
+              id: address,
+              text: symbol,
+              type: item.type,
+              timestamp: Date.now(),
+            });
+          }, 10);
+        }
+      }, 80);
+    }
   }, [
+    isLegacyNavigation,
+    isTrending,
     address,
     network,
     symbol,
     isNative,
-    searchStatus,
     universalSearchActions,
     item.type,
     toMarketDetailPage,
+    appNavigation,
   ]);
 
   if (!isMounted) {
@@ -209,52 +241,117 @@ export function UniversalSearchV2MarketTokenItem({
   }
 
   return (
-    <ListItem
-      jc="space-between"
+    <Stack
+      flexDirection="row"
+      alignItems="center"
+      gap="$3"
+      alignSelf="stretch"
+      py="$2"
+      px="$3"
+      mx="$2"
+      minHeight="$11"
+      borderRadius="$3"
+      borderCurve="continuous"
+      overflow="hidden"
       onPress={handlePress}
-      renderAvatar={
-        <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
-      }
+      {...listItemPressStyle}
     >
-      <ListItem.Text
-        flex={1}
-        primary={
-          <XStack alignItems="center" gap="$1">
-            <SizableText
-              size="$bodyLgMedium"
-              numberOfLines={1}
-              maxWidth="$60"
-              flexShrink={1}
-            >
-              {symbol}
+      {/* # + NAME column */}
+      <XStack flex={1} minWidth={0} gap="$1" ai="center">
+        <XStack w="$8" ai="center" jc="center">
+          {shouldShowFavoriteButton ? (
+            <MarketStarV2
+              chainId={network}
+              contractAddress={address}
+              from={EWatchlistFrom.Search}
+              tokenSymbol={symbol}
+              size="small"
+              isNative={isNative}
+            />
+          ) : null}
+        </XStack>
+        <XStack ai="center" gap="$2" flex={1} minWidth={0}>
+          <MarketTokenIcon uri={logoUrl} size="sm" networkId={network} />
+          <YStack flex={1} minWidth={0}>
+            <XStack ai="center" gap="$1" minWidth={0}>
+              <SizableText
+                size="$bodyMdMedium"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {formatTokenSymbolForDisplay(symbol)}
+              </SizableText>
+              {stock?.sourceLogoUri ? (
+                <Image
+                  width={14}
+                  height={14}
+                  borderRadius="$full"
+                  source={{ uri: stock.sourceLogoUri }}
+                />
+              ) : null}
+              {communityRecognized ? <CommunityRecognizedBadge /> : null}
+              {stock?.subtitle ? (
+                <SubtitleBadge subtitle={stock.subtitle} />
+              ) : null}
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {name}
             </SizableText>
-            {communityRecognized ? <CommunityRecognizedBadge /> : null}
-          </XStack>
-        }
-        secondary={<ContractAddress address={address} />}
-      />
-      <XStack alignItems="center">
-        <YStack alignItems="flex-end">
+          </YStack>
+        </XStack>
+      </XStack>
+
+      <XStack flexShrink={0} ai="center">
+        {/* PRICE / 24H column */}
+        <YStack w={MARKET_DATA_COLUMN_WIDTH} ai="flex-end">
           <BaseMarketTokenPrice
             price={price}
-            size="$bodyLgMedium"
+            size="$bodyMd"
             tokenName={name}
             tokenSymbol={symbol}
           />
-          <MarketTokenLiquidity liquidity={liquidity} volume24h={volume24h} />
+          {priceChange24hPercent ? (
+            <NumberSizeableText
+              size="$bodySm"
+              formatter="priceChange"
+              color={
+                Number(priceChange24hPercent) >= 0
+                  ? '$textSuccess'
+                  : '$textCritical'
+              }
+              formatterOptions={{ showPlusMinusSigns: true }}
+            >
+              {priceChange24hPercent}
+            </NumberSizeableText>
+          ) : null}
         </YStack>
-        {shouldShowFavoriteButton ? (
-          <MarketStarV2
-            chainId={network}
-            contractAddress={address}
-            ml="$3"
-            from={EWatchlistFrom.Search}
-            tokenSymbol={symbol}
-            size="medium"
-            isNative={isNative}
-          />
+
+        {/* LIQUIDITY column - desktop only */}
+        {gtMd ? (
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ capAtMaxT: true }}
+            >
+              {BigNumber(liquidity).gt(0) ? liquidity : '--'}
+            </NumberSizeableText>
+          </XStack>
+        ) : null}
+
+        {/* VOLUME 24H column - desktop only */}
+        {gtMd ? (
+          <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end" ai="center">
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="marketCap"
+              formatterOptions={{ capAtMaxT: true }}
+            >
+              {BigNumber(volume24h).gt(0) ? volume24h : '--'}
+            </NumberSizeableText>
+          </XStack>
         ) : null}
       </XStack>
-    </ListItem>
+    </Stack>
   );
 }

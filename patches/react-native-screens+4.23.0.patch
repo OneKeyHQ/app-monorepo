@@ -1,0 +1,753 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+index 7055a0d..81ee02b 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+@@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.facebook.react.uimanager.UIManagerHelper
+ import com.swmansion.rnscreens.Screen.ActivityState
++import android.util.Log
+ import com.swmansion.rnscreens.events.ScreenDismissedEvent
+ import com.swmansion.rnscreens.gamma.common.FragmentProviding
+ 
+@@ -291,7 +292,24 @@ open class ScreenContainer(
+         }
+ 
+         if (hasFragments) {
+-            transaction.commitNowAllowingStateLoss()
++            // Guard against "FragmentManager is already executing transactions" crash.
++            // This race condition occurs when onDetachedFromWindow triggers removeMyFragments
++            // while performUpdates -> onUpdate is already committing a transaction on the same
++            // FragmentManager within the same UI frame (e.g. during rapid navigation).
++            // On catch, we defer the removal to the next frame where the FragmentManager
++            // will no longer be in a transaction.
++            // See: https://github.com/software-mansion/react-native-screens/issues/2318
++            // See: https://github.com/software-mansion/react-native-screens/issues/1506
++            try {
++                transaction.commitNowAllowingStateLoss()
++            } catch (e: IllegalStateException) {
++                Log.w("ScreenContainer", "FragmentManager already executing transactions, deferring fragment removal", e)
++                post {
++                    if (!fragmentManager.isDestroyed) {
++                        removeMyFragments(fragmentManager)
++                    }
++                }
++            }
+         }
+     }
+ 
+diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+index e37e40a..1e95f36 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
+@@ -31,6 +31,55 @@
+ #import "RNSTabsScreenViewController.h"
+ #import "RNSViewInteractionAware.h"
+ #import "UIScrollView+RNScreens.h"
++
++// MARK: - OneKey Native Logger Bridge (ObjC, for RNSScreenStack diagnostics)
++static void RNSScreenStackLog(NSString *message) {
++  NSString *fullMessage = [NSString stringWithFormat:@"[RNSScreenStack] %@ (ts=%.6f, main=%d)",
++                           message, CFAbsoluteTimeGetCurrent(), [NSThread isMainThread]];
++  Class logClass = NSClassFromString(@"ReactNativeNativeLogger.OneKeyLog");
++  if (logClass) {
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
++    [logClass performSelector:NSSelectorFromString(@"info::") withObject:@"RNSScreenStack" withObject:fullMessage];
++#pragma clang diagnostic pop
++  }
++  NSLog(@"%@", fullMessage);
++}
++
++static NSNotificationName const RNSBottomTabsContainerDidReattachNotification =
++    @"RNCTabViewContainerDidReattachNotification";
++
++static NSString *RNSSceneSummary(UIWindow *window)
++{
++#if TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_VISION
++  if (window == nil) {
++    return @"scene=nil";
++  }
++  if (@available(iOS 13.0, tvOS 13.0, *)) {
++    UIScene *scene = window.windowScene;
++    if (scene == nil) {
++      return @"scene=nil(windowHasNoScene)";
++    }
++    NSString *state = @"unknown";
++    switch (scene.activationState) {
++      case UISceneActivationStateForegroundActive:
++        state = @"foregroundActive";
++        break;
++      case UISceneActivationStateForegroundInactive:
++        state = @"foregroundInactive";
++        break;
++      case UISceneActivationStateBackground:
++        state = @"background";
++        break;
++      case UISceneActivationStateUnattached:
++        state = @"unattached";
++        break;
++    }
++    return [NSString stringWithFormat:@"scene=%p state=%@", scene, state];
++  }
++#endif
++  return @"scene=unavailable";
++}
+ #import "UIView+RNSUtility.h"
+ #import "integrations/RNSDismissibleModalProtocol.h"
+ #import "utils/UINavigationBar+RNSUtility.h"
+@@ -212,6 +261,11 @@ @implementation RNSScreenStackView {
+   RNSPercentDrivenInteractiveTransition *_interactionController;
+   __weak RNSScreenStackManager *_manager;
+   BOOL _updateScheduled;
++  BOOL _pendingContainerUpdate; // Set when push/modal updates are skipped due to window==nil
++  BOOL _pendingUpdateRetryScheduled; // Prevent duplicate retry timer scheduling
++  NSInteger _pendingUpdateRetryCount; // Guard against endless retry loops
++  NSInteger _pendingContainerUpdateRequestId; // Current pending request id
++  NSInteger _pendingContainerUpdateSeq; // Monotonic request id sequence
+   UIPanGestureRecognizer *_sinkEventsPanGestureRecognizer;
+ #ifdef RCT_NEW_ARCH_ENABLED
+   /// Screens that are subject of `ShadowViewMutation::Type::Delete` mutation
+@@ -267,6 +321,24 @@ - (void)initCommonProps
+   // the header will render in collapsed state which is perhaps a bug
+   // in UIKit but ¯\_(ツ)_/¯
+   [_controller setViewControllers:@[ [UIViewController new] ]];
++
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onApplicationDidBecomeActive:)
++                                               name:UIApplicationDidBecomeActiveNotification
++                                             object:nil];
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onSceneDidActivate:)
++                                               name:UISceneDidActivateNotification
++                                             object:nil];
++  [[NSNotificationCenter defaultCenter] addObserver:self
++                                           selector:@selector(onBottomTabsContainerDidReattach:)
++                                               name:RNSBottomTabsContainerDidReattachNotification
++                                             object:nil];
++}
++
++- (void)dealloc
++{
++  [[NSNotificationCenter defaultCenter] removeObserver:self];
+ }
+ 
+ #pragma mark - helper methods
+@@ -300,6 +372,153 @@ - (void)emitOnFinishTransitioningEvent
+ #endif
+ }
+ 
++- (BOOL)isContainerWindowReady
++{
++  return self.window != nil;
++}
++
++- (void)schedulePendingContainerUpdateRetry:(NSString *)reason
++{
++  __weak RNSScreenStackView *weakSelf = self;
++  dispatch_async(dispatch_get_main_queue(), ^{
++    RNSScreenStackView *strongSelf = weakSelf;
++    if (!strongSelf || !strongSelf->_pendingContainerUpdate) {
++      return;
++    }
++
++    UIViewController *parentVC = strongSelf->_controller.parentViewController;
++    const BOOL selfWindowReady = strongSelf.window != nil;
++    const BOOL superviewWindowReady = strongSelf.superview.window != nil;
++    const BOOL parentWindowReady = parentVC.viewIfLoaded.window != nil;
++    const BOOL ready = [strongSelf isContainerWindowReady];
++
++    RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: reason=%@, requestId=%ld, pending=%d, ready=%d, selfWindow=%@, superviewWindow=%@, parentWindow=%@, retryScheduled=%d, retryCount=%ld, %@",
++                                                 reason ?: @"NIL",
++                                                 (long)strongSelf->_pendingContainerUpdateRequestId,
++                                                 strongSelf->_pendingContainerUpdate,
++                                                 ready,
++                                                 selfWindowReady ? @"YES" : @"NIL",
++                                                 superviewWindowReady ? @"YES" : @"NIL",
++                                                 parentWindowReady ? @"YES" : @"NIL",
++                                                 strongSelf->_pendingUpdateRetryScheduled,
++                                                 (long)strongSelf->_pendingUpdateRetryCount,
++                                                 RNSSceneSummary(strongSelf.window)]);
++
++    if (ready) {
++      strongSelf->_pendingContainerUpdate = NO;
++      strongSelf->_pendingUpdateRetryScheduled = NO;
++      strongSelf->_pendingUpdateRetryCount = 0;
++      strongSelf->_pendingContainerUpdateRequestId = 0;
++      [strongSelf updateContainer];
++      return;
++    }
++
++    if (strongSelf->_pendingUpdateRetryScheduled) {
++      return;
++    }
++
++    static const NSInteger kMaxPendingRetryCount = 50;
++    static const int64_t kPendingRetryDelayMs = 100;
++    if (strongSelf->_pendingUpdateRetryCount >= kMaxPendingRetryCount) {
++      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: giving up after %ld retries (requestId=%ld)",
++                                                   (long)strongSelf->_pendingUpdateRetryCount,
++                                                   (long)strongSelf->_pendingContainerUpdateRequestId]);
++      RCTLogWarn(@"[RNSScreenStack] pendingContainerUpdate retries exhausted (%ld). "
++                 "This usually means goBack()/pop was called on a navigation stack inside a "
++                 "detached native tab view (UITabBarController). The stack's window is NIL so "
++                 "updates cannot be applied. Use resetAboveMainRoute() instead of sequential "
++                 "goBack() calls when dismissing overlay routes to avoid this race condition.",
++                 (long)kMaxPendingRetryCount);
++      return;
++    }
++
++    strongSelf->_pendingUpdateRetryScheduled = YES;
++    strongSelf->_pendingUpdateRetryCount += 1;
++    const NSInteger retryCount = strongSelf->_pendingUpdateRetryCount;
++    const NSInteger requestIdAtSchedule = strongSelf->_pendingContainerUpdateRequestId;
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPendingRetryDelayMs * NSEC_PER_MSEC)),
++                   dispatch_get_main_queue(),
++                   ^{
++      RNSScreenStackView *innerSelf = weakSelf;
++      if (!innerSelf) {
++        return;
++      }
++      innerSelf->_pendingUpdateRetryScheduled = NO;
++      if (!innerSelf->_pendingContainerUpdate) {
++        innerSelf->_pendingUpdateRetryCount = 0;
++        return;
++      }
++      if (innerSelf->_pendingContainerUpdateRequestId != requestIdAtSchedule) {
++        RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: stale retry timer ignored (scheduledRequestId=%ld, currentRequestId=%ld)",
++                                                     (long)requestIdAtSchedule,
++                                                     (long)innerSelf->_pendingContainerUpdateRequestId]);
++        return;
++      }
++      RNSScreenStackLog([NSString stringWithFormat:@"schedulePendingContainerUpdateRetry: retry timer fired (%ld/%ld) requestId=%ld",
++                                                   (long)retryCount,
++                                                   (long)kMaxPendingRetryCount,
++                                                   (long)requestIdAtSchedule]);
++      [innerSelf schedulePendingContainerUpdateRetry:@"retry-timer-fired"];
++    });
++  });
++}
++
++- (void)markPendingContainerUpdateWithReason:(NSString *)reason
++{
++  NSInteger previousRequestId = _pendingContainerUpdateRequestId;
++  _pendingContainerUpdateSeq += 1;
++  _pendingContainerUpdateRequestId = _pendingContainerUpdateSeq;
++  _pendingContainerUpdate = YES;
++  _pendingUpdateRetryScheduled = NO;
++  _pendingUpdateRetryCount = 0;
++  RNSScreenStackLog([NSString stringWithFormat:@"pendingContainerUpdate marked: reason=%@, requestId=%ld, previousRequestId=%ld, %@",
++                                               reason ?: @"NIL",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               (long)previousRequestId,
++                                               RNSSceneSummary(self.window)]);
++}
++
++- (void)onApplicationDidBecomeActive:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  RNSScreenStackLog([NSString stringWithFormat:@"onApplicationDidBecomeActive: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"application-did-become-active"];
++}
++
++- (void)onSceneDidActivate:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  RNSScreenStackLog([NSString stringWithFormat:@"onSceneDidActivate: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                               (long)_pendingContainerUpdateRequestId,
++                                               RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"scene-did-activate"];
++}
++
++- (void)onBottomTabsContainerDidReattach:(NSNotification *)notification
++{
++  if (!_pendingContainerUpdate) {
++    return;
++  }
++  NSString *reason = notification.userInfo[@"reason"];
++  UIViewController *parentVC = _controller.parentViewController;
++  RNSScreenStackLog([NSString
++      stringWithFormat:@"onBottomTabsContainerDidReattach: reason=%@, requestId=%ld, scheduling retry (selfWindow=%@, superviewWindow=%@, parentWindow=%@, parentVC=%@, %@)",
++                       reason ?: @"NIL",
++                       (long)_pendingContainerUpdateRequestId,
++                       self.window ? @"YES" : @"NIL",
++                       self.superview.window ? @"YES" : @"NIL",
++                       parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
++                       parentVC ? NSStringFromClass([parentVC class]) : @"NIL",
++                       RNSSceneSummary(self.window)]);
++  [self schedulePendingContainerUpdateRetry:@"bottom-tabs-container-reattached"];
++}
++
+ - (void)navigationController:(UINavigationController *)navigationController
+       willShowViewController:(UIViewController *)viewController
+                     animated:(BOOL)animated
+@@ -355,6 +574,13 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+ 
+ - (void)didMoveToWindow
+ {
++  RNSScreenStackLog([NSString stringWithFormat:@"didMoveToWindow: window=%@, viewControllers=%lu, parentVC=%@, pendingUpdate=%d, requestId=%ld, %@",
++        self.window ? @"YES" : @"NIL",
++        (unsigned long)_controller.viewControllers.count,
++        _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL",
++        _pendingContainerUpdate,
++        (long)_pendingContainerUpdateRequestId,
++        RNSSceneSummary(self.window)]);
+   [super didMoveToWindow];
+ #ifdef RCT_NEW_ARCH_ENABLED
+   // for handling nested stacks
+@@ -367,6 +593,14 @@ - (void)didMoveToWindow
+     [self maybeAddToParentAndUpdateContainer];
+   }
+ #endif
++
++  // When window is restored after a detach (e.g. iOS 26 SwiftUI TabView recreating
++  // UITabBarController), retry any push/modal operations that were skipped due to window==nil.
++  if (self.window != nil && _pendingContainerUpdate) {
++    RNSScreenStackLog(@"didMoveToWindow: retrying pending container update after window restored");
++    [self schedulePendingContainerUpdateRetry:@"didMoveToWindow-window-restored"];
++  }
++
+   if (self.window == nil) {
+     // When hot reload happens that would remove the whole stack, disabling the interaction on a screen out transition
+     // will not be matched with enabling the interactions on another screen's in transition. We need to make sure
+@@ -375,16 +609,29 @@ - (void)didMoveToWindow
+   }
+ }
+ 
++- (void)didMoveToSuperview
++{
++  [super didMoveToSuperview];
++  if (_pendingContainerUpdate) {
++    RNSScreenStackLog([NSString stringWithFormat:@"didMoveToSuperview: pending update detected, scheduling retry (requestId=%ld, %@)",
++                                                 (long)_pendingContainerUpdateRequestId,
++                                                 RNSSceneSummary(self.window)]);
++    [self schedulePendingContainerUpdateRetry:@"didMoveToSuperview"];
++  }
++}
++
+ - (void)maybeAddToParentAndUpdateContainer
+ {
+   BOOL wasScreenMounted = _controller.parentViewController != nil;
+   if (!self.window && !wasScreenMounted) {
+-    // We wait with adding to parent controller until the stack is mounted.
+-    // If we add it when window is not attached, some of the view transitions will be blocked (i.e.
+-    // modal transitions) and the internal view controler's state will get out of sync with what's
+-    // on screen without us knowing.
++    RNSScreenStackLog([NSString stringWithFormat:@"maybeAddToParentAndUpdateContainer: SKIPPED - window=nil, wasScreenMounted=NO"]);
++    if (_pendingContainerUpdate) {
++      [self schedulePendingContainerUpdateRetry:@"maybeAddToParentAndUpdateContainer-window-nil"];
++    }
+     return;
+   }
++  RNSScreenStackLog([NSString stringWithFormat:@"maybeAddToParentAndUpdateContainer: window=%@, wasScreenMounted=%d",
++        self.window ? @"YES" : @"NIL", wasScreenMounted]);
+   [self updateContainer];
+   if (!wasScreenMounted) {
+     // when stack hasn't been added to parent VC yet we do two things:
+@@ -405,10 +652,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+ {
+   if (!controller.parentViewController) {
+     UIView *parentView = (UIView *)self.reactSuperview;
++    BOOL isInsideSwiftUIContainer = NO;
+     while (parentView) {
+       if (parentView.reactViewController) {
+-        [parentView.reactViewController addChildViewController:controller];
+-        [self addSubview:controller.view];
++        UIViewController *candidateParent = parentView.reactViewController;
++        // Skip UIHostingController to avoid hierarchy inconsistency when used
++        // inside SwiftUI containers (e.g. react-native-bottom-tabs TabView).
++        // UIHostingController gets re-parented by SwiftUI during layout updates,
++        // which causes UIViewControllerHierarchyInconsistency crashes.
++        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
++          isInsideSwiftUIContainer = YES;
++          parentView = (UIView *)parentView.reactSuperview;
++          continue;
++        }
++        // When inside a SwiftUI container (e.g. react-native-bottom-tabs), SwiftUI's
++        // internal UIKitTabBarController may re-parent this controller during addSubview,
++        // causing UIViewControllerHierarchyInconsistency on iOS < 26.
++        // iOS 26+ relaxed this check. We catch the exception on older versions to prevent crash.
++        @try {
++          [candidateParent addChildViewController:controller];
++          [self addSubview:controller.view];
++        } @catch (NSException *exception) {
++          if (isInsideSwiftUIContainer &&
++              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
++            // SwiftUI re-parented the controller during addSubview — this is expected.
++            // Ensure the view is still in the hierarchy for rendering.
++            if (![controller.view isDescendantOfView:self]) {
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
++            }
++          } else {
++            @throw;
++          }
++        }
+ #if !TARGET_OS_TV
+         _controller.interactivePopGestureRecognizer.delegate = self;
+ #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
+@@ -417,7 +697,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+         }
+ #endif // Check for iOS >= 26.0
+ #endif
+-        [controller didMoveToParentViewController:parentView.reactViewController];
++        [controller didMoveToParentViewController:controller.parentViewController];
+         // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
+         // get triggered when the navigation controller is instantiated. As the only thing we do in
+         // that delegate method is ask nav header to update to the current state it does not hurt to
+@@ -467,6 +747,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+ {
+   // prevent re-entry
+   if (_updatingModals) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: RE-ENTRY blocked, scheduling update (presentedModals=%lu, newControllers=%lu)",
++          (unsigned long)_presentedModals.count, (unsigned long)controllers.count]);
+     _scheduleModalsUpdate = YES;
+     return;
+   }
+@@ -475,12 +757,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
+   // change in the list of presented modal was made.
+   if ([_presentedModals isEqualToArray:controllers]) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: NO CHANGE (modals=%lu)", (unsigned long)controllers.count]);
+     return;
+   }
+ 
++  RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: presentedModals=%lu, newControllers=%lu, window=%@, lastModalWindow=%@",
++        (unsigned long)_presentedModals.count,
++        (unsigned long)controllers.count,
++        self.window ? @"YES" : @"NIL",
++        _presentedModals.lastObject.view.window ? @"YES" : @"NIL"]);
++
+   // if view controller is not yet attached to window we skip updates now and run them when view
+   // is attached
+   if (self.window == nil && _presentedModals.lastObject.view.window == nil) {
++    RNSScreenStackLog(@"setModalViewControllers: SKIPPED - both window and lastModal.window are nil! setting _pendingContainerUpdate=YES");
++    [self markPendingContainerUpdateWithReason:@"setModalViewControllers-window-nil"];
++    [self schedulePendingContainerUpdateRetry:@"setModalViewControllers-window-nil"];
+     return;
+   }
+ 
+@@ -521,6 +813,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   __weak RNSScreenStackView *weakSelf = self;
+ 
+   void (^afterTransitions)(void) = ^{
++    RNSScreenStackLog(@"setModalViewControllers: afterTransitions called");
+     [weakSelf emitOnFinishTransitioningEvent];
+     weakSelf.updatingModals = NO;
+     if (weakSelf.scheduleModalsUpdate) {
+@@ -536,6 +829,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+   };
+ 
+   void (^finish)(void) = ^{
++    RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: finish() called, changeRootIndex=%lu", (unsigned long)changeRootIndex]);
+     NSUInteger oldCount = weakSelf.presentedModals.count;
+     if (changeRootIndex < oldCount) {
+       [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
+@@ -544,10 +838,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+         changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
+ 
+     if (!isAttached || changeRootIndex >= controllers.count) {
+-      // if change controller view is not attached, presenting modals will silently fail on iOS.
+-      // In such a case we trigger controllers update from didMoveToWindow.
+-      // We also don't run any present transitions if changeRootIndex is greater or equal to the size
+-      // of new controllers array. This means that no new controllers should be presented.
++      RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: finish() - no present needed (isAttached=%d, changeRootIndex=%lu, controllers=%lu)",
++            isAttached, (unsigned long)changeRootIndex, (unsigned long)controllers.count]);
++      if (!isAttached && changeRootIndex < controllers.count) {
++        RNSScreenStackLog(@"setModalViewControllers: finish() - detached while pending modal presentations, re-arming pending retry");
++        [weakSelf markPendingContainerUpdateWithReason:@"setModalViewControllers-finish-detached"];
++        [weakSelf schedulePendingContainerUpdateRetry:@"setModalViewControllers-finish-detached"];
++      }
+       afterTransitions();
+       return;
+     }
+@@ -624,16 +921,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+               ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
+                   RNSScreenStackAnimationNone
+               : YES;
++          RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: DISMISSING modal (animated=%d, owned=%d, ownedByThis=%d, class=%@)",
++                firstModalToBeDismissedPrefersAnimation, firstModalToBeDismissedIsOwned, firstModalToBeDismissedIsOwnedByThisStack,
++                NSStringFromClass([firstModalToBeDismissed class])]);
+           [changeRootController dismissViewControllerAnimated:firstModalToBeDismissedPrefersAnimation
+-                                                   completion:finish];
++                                                   completion:^{
++                                                     RNSScreenStackLog(@"setModalViewControllers: DISMISS completion called");
++                                                     finish();
++                                                   }];
+         } else {
+           // We need to wait for its dismissal and then run our presentation code.
+-          // This happens, e.g. when we have foreign modal presented on top of owned one & we dismiss foreign one and
+-          // immediately present another owned one. Dismissal of the foreign one will be triggered by foreign
+-          // controller.
++          RNSScreenStackLog([NSString stringWithFormat:@"setModalViewControllers: modal isBeingDismissed, waiting for transitionCoordinator (class=%@, coordinator=%@)",
++                NSStringFromClass([firstModalToBeDismissed class]),
++                [firstModalToBeDismissed transitionCoordinator] ? @"YES" : @"NIL"]);
+           [[firstModalToBeDismissed transitionCoordinator]
+               animateAlongsideTransition:nil
+                               completion:^(id<UIViewControllerTransitionCoordinatorContext> _) {
++                                RNSScreenStackLog(@"setModalViewControllers: transitionCoordinator completion called");
+                                 finish();
+                               }];
+         }
+@@ -670,12 +974,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+ {
+   // when there is no change we return immediately
+   if ([_controller.viewControllers isEqualToArray:controllers]) {
++    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: NO CHANGE (controllers=%lu)", (unsigned long)controllers.count]);
+     return;
+   }
+ 
++  RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: controllers=%lu, current=%lu, window=%@, transitionCoordinator=%@, superview=%@",
++        (unsigned long)controllers.count,
++        (unsigned long)_controller.viewControllers.count,
++        self.window ? @"YES" : @"NIL",
++        _controller.transitionCoordinator ? @"YES" : @"NIL",
++        self.superview ? @"YES" : @"NIL"]);
++
+   // if view controller is not yet attached to window we skip updates now and run them when view
+   // is attached
+-  if (self.window == nil) {
++  const BOOL containerReady = [self isContainerWindowReady];
++  if (!containerReady) {
++    UIViewController *parentVC = _controller.parentViewController;
++    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: SKIPPED - container window not ready! selfWindow=%@, superviewWindow=%@, parentWindow=%@, superview=%@, class=%@, setting _pendingContainerUpdate=YES",
++          self.window ? @"YES" : @"NIL",
++          self.superview.window ? @"YES" : @"NIL",
++          parentVC.viewIfLoaded.window ? @"YES" : @"NIL",
++          self.superview,
++          NSStringFromClass([self.superview class])]);
++    [self markPendingContainerUpdateWithReason:@"setPushViewControllers-window-nil"];
++    [self schedulePendingContainerUpdateRetry:@"setPushViewControllers-window-nil"];
+     return;
+   }
+   // when transition is ongoing, any updates made to the controller will not be reflected until the
+@@ -685,6 +1007,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+   // making any updated when transition is ongoing and schedule updates for when the transition
+   // is complete.
+   if (_controller.transitionCoordinator != nil) {
++    RNSScreenStackLog(@"setPushViewControllers: DEFERRED - transitionCoordinator active");
+     if (!_updateScheduled) {
+       _updateScheduled = YES;
+       __weak RNSScreenStackView *weakSelf = self;
+@@ -750,8 +1073,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+       NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
+       [newControllers removeLastObject];
+ 
++      RNSScreenStackLog([NSString stringWithFormat:@"PUSH path: setViewControllers(%lu) then pushViewController. controller.view.window=%@, controller.parentVC=%@",
++            (unsigned long)newControllers.count,
++            _controller.view.window ? @"YES" : @"NIL",
++            _controller.parentViewController ? NSStringFromClass([_controller.parentViewController class]) : @"NIL"]);
+       [_controller setViewControllers:newControllers animated:NO];
+       [_controller pushViewController:top animated:YES];
++      RNSScreenStackLog([NSString stringWithFormat:@"PUSH done: viewControllers count=%lu, topVC=%@",
++            (unsigned long)_controller.viewControllers.count,
++            NSStringFromClass([_controller.topViewController class])]);
+     } else {
+       // don't really know what this case could be, but may need to handle it
+       // somehow
+@@ -765,6 +1095,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+ 
+ - (void)updateContainer
+ {
++  RNSScreenStackLog([NSString stringWithFormat:@"updateContainer called, window=%@, reactSubviews=%lu",
++        self.window ? @"YES" : @"NIL", (unsigned long)_reactSubviews.count]);
++  _pendingContainerUpdate = NO;
+   NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
+   NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
+   for (RNSScreenView *screen in _reactSubviews) {
+@@ -816,6 +1149,10 @@ - (void)layoutSubviews
+       modal.view.frame = correctFrame;
+     }
+   }
++
++  if (_pendingContainerUpdate) {
++    [self schedulePendingContainerUpdateRetry:@"layoutSubviews"];
++  }
+ }
+ 
+ - (void)dismissOnReload
+@@ -868,13 +1205,17 @@ - (void)rnscreens_disableInteractions
+ {
+   // When transitioning between screens, disable interactions on stack subview which wraps the screens
+   // and sink all gesture events. This should work for nested stacks and stack inside bottom tabs, inside stack.
+-  self.subviews[0].userInteractionEnabled = NO;
++  if (self.subviews.count > 0) {
++    self.subviews[0].userInteractionEnabled = NO;
++  }
+   [self addGestureRecognizer:_sinkEventsPanGestureRecognizer];
+ }
+ 
+ - (void)rnscreens_enableInteractions
+ {
+-  self.subviews[0].userInteractionEnabled = YES;
++  if (self.subviews.count > 0) {
++    self.subviews[0].userInteractionEnabled = YES;
++  }
+   [self removeGestureRecognizer:_sinkEventsPanGestureRecognizer];
+ }
+ 
+diff --git a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
+index fc6257e..37067c0 100644
+--- a/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
++++ b/node_modules/react-native-screens/ios/bottom-tabs/host/RNSBottomTabsHostComponentView.mm
+@@ -147,22 +147,52 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+ {
+   if (!controller.parentViewController) {
+     UIView *parentView = (UIView *)self.reactSuperview;
++    BOOL isInsideSwiftUIContainer = NO;
+     while (parentView) {
+       if (parentView.reactViewController) {
+-        [parentView.reactViewController addChildViewController:controller];
+-        [self addSubview:controller.view];
+-
+-        // Enable auto-layout to ensure valid size of tabBarController.view.
+-        // In host tree, tabBarController.view is the only child of HostComponentView.
+-        controller.view.translatesAutoresizingMaskIntoConstraints = NO;
+-        [NSLayoutConstraint activateConstraints:@[
+-          [controller.view.topAnchor constraintEqualToAnchor:self.topAnchor],
+-          [controller.view.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
+-          [controller.view.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+-          [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
+-        ]];
+-
+-        [controller didMoveToParentViewController:parentView.reactViewController];
++        UIViewController *candidateParent = parentView.reactViewController;
++        // Skip UIHostingController to avoid hierarchy inconsistency when used
++        // inside SwiftUI containers (e.g. react-native-bottom-tabs TabView).
++        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
++          isInsideSwiftUIContainer = YES;
++          parentView = (UIView *)parentView.reactSuperview;
++          continue;
++        }
++        @try {
++          [candidateParent addChildViewController:controller];
++          [self addSubview:controller.view];
++        } @catch (NSException *exception) {
++          if (isInsideSwiftUIContainer &&
++              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
++            if (![controller.view isDescendantOfView:self]) {
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
++            }
++          } else {
++            @throw;
++          }
++        }
++
++        // Only set up auto-layout constraints if the view was successfully added.
++        // If both addSubview attempts failed (caught by @try/@catch), setting constraints
++        // on views without a common ancestor would create invalid/unsatisfiable constraints.
++        if ([controller.view isDescendantOfView:self]) {
++          // Enable auto-layout to ensure valid size of tabBarController.view.
++          // In host tree, tabBarController.view is the only child of HostComponentView.
++          controller.view.translatesAutoresizingMaskIntoConstraints = NO;
++          [NSLayoutConstraint activateConstraints:@[
++            [controller.view.topAnchor constraintEqualToAnchor:self.topAnchor],
++            [controller.view.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
++            [controller.view.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
++            [controller.view.trailingAnchor constraintEqualToAnchor:self.trailingAnchor]
++          ]];
++        }
++
++        [controller didMoveToParentViewController:controller.parentViewController];
+         break;
+       }
+       parentView = (UIView *)parentView.reactSuperview;
+diff --git a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
+index 40e92b6..9092dbc 100644
+--- a/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
++++ b/node_modules/react-native-screens/ios/gamma/split-view/RNSSplitViewHostComponentView.mm
+@@ -128,11 +128,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+ {
+   if (!controller.parentViewController) {
+     UIView *parentView = (UIView *)self.reactSuperview;
++    BOOL isInsideSwiftUIContainer = NO;
+     while (parentView) {
+       if (parentView.reactViewController) {
+-        [parentView.reactViewController addChildViewController:controller];
+-        [self addSubview:controller.view];
+-        [controller didMoveToParentViewController:parentView.reactViewController];
++        UIViewController *candidateParent = parentView.reactViewController;
++        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
++          isInsideSwiftUIContainer = YES;
++          parentView = (UIView *)parentView.reactSuperview;
++          continue;
++        }
++        @try {
++          [candidateParent addChildViewController:controller];
++          [self addSubview:controller.view];
++        } @catch (NSException *exception) {
++          if (isInsideSwiftUIContainer &&
++              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
++            if (![controller.view isDescendantOfView:self]) {
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
++            }
++          } else {
++            @throw;
++          }
++        }
++        [controller didMoveToParentViewController:controller.parentViewController];
+         break;
+       }
+       parentView = (UIView *)parentView.reactSuperview;
+diff --git a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
+index 3e21388..e4f4785 100644
+--- a/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
++++ b/node_modules/react-native-screens/ios/gamma/stack/host/RNSStackHostComponentView.mm
+@@ -52,11 +52,34 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+ {
+   if (!controller.parentViewController) {
+     UIView *parentView = (UIView *)self.reactSuperview;
++    BOOL isInsideSwiftUIContainer = NO;
+     while (parentView) {
+       if (parentView.reactViewController) {
+-        [parentView.reactViewController addChildViewController:controller];
+-        [self addSubview:controller.view];
+-        [controller didMoveToParentViewController:parentView.reactViewController];
++        UIViewController *candidateParent = parentView.reactViewController;
++        if ([NSStringFromClass([candidateParent class]) containsString:@"UIHostingController"]) {
++          isInsideSwiftUIContainer = YES;
++          parentView = (UIView *)parentView.reactSuperview;
++          continue;
++        }
++        @try {
++          [candidateParent addChildViewController:controller];
++          [self addSubview:controller.view];
++        } @catch (NSException *exception) {
++          if (isInsideSwiftUIContainer &&
++              [exception.name isEqualToString:@"UIViewControllerHierarchyInconsistency"]) {
++            if (![controller.view isDescendantOfView:self]) {
++              @try {
++                [self addSubview:controller.view];
++              } @catch (NSException *innerException) {
++                // addSubview triggered the same hierarchy exception again —
++                // the view will be managed by SwiftUI's container instead.
++              }
++            }
++          } else {
++            @throw;
++          }
++        }
++        [controller didMoveToParentViewController:controller.parentViewController];
+         break;
+       }
+       parentView = (UIView *)parentView.reactSuperview;

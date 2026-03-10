@@ -251,7 +251,7 @@ function TxFeeEditor(props: IProps) {
       ).toFixed(),
       maxBaseFee: originalMaxBaseFee.isGreaterThan(0)
         ? originalMaxBaseFee.toFixed()
-        : customFee?.gasEIP1559?.baseFeePerGas ?? '0',
+        : (customFee?.gasEIP1559?.baseFeePerGas ?? '0'),
       // fee utxo
       feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
       // fee sol
@@ -343,13 +343,13 @@ function TxFeeEditor(props: IProps) {
 
       feeNeoN3: customFee?.feeNeoN3 && {
         systemFee: new BigNumber(watchAllFields.neoN3SystemFee || 0)
-          .shiftedBy(customFee?.common?.feeDecimals)
+          .shiftedBy(feeDecimals)
           .toFixed(0),
         networkFee: new BigNumber(watchAllFields.neoN3NetworkFee || 0)
-          .shiftedBy(customFee?.common?.feeDecimals)
+          .shiftedBy(feeDecimals)
           .toFixed(0),
         priorityFee: new BigNumber(watchAllFields.neoN3PriorityFee || 0)
-          .shiftedBy(customFee?.common?.feeDecimals)
+          .shiftedBy(feeDecimals)
           .toFixed(0),
       },
     }),
@@ -383,6 +383,7 @@ function TxFeeEditor(props: IProps) {
       watchAllFields.neoN3NetworkFee,
       watchAllFields.neoN3PriorityFee,
       algoMinFee,
+      feeDecimals,
     ],
   );
 
@@ -940,9 +941,7 @@ function TxFeeEditor(props: IProps) {
                 </SizableText> */}
                 <SizableText
                   color={
-                    currentFeeIndex === index
-                      ? '$textInteractive'
-                      : '$textSubdued'
+                    currentFeeIndex === index ? '$textInverse' : '$textSubdued'
                   }
                   size="$bodyMdMedium"
                   textAlign="center"
@@ -1025,9 +1024,7 @@ function TxFeeEditor(props: IProps) {
         return false;
       }
 
-      const minExtraTip = new BigNumber(1).shiftedBy(
-        -customFee.common.feeDecimals,
-      );
+      const minExtraTip = new BigNumber(1).shiftedBy(-feeDecimals);
       if (extraTip.isNaN() || extraTip.isLessThan(minExtraTip)) {
         return intl.formatMessage(
           {
@@ -1035,13 +1032,13 @@ function TxFeeEditor(props: IProps) {
           },
           {
             amount: minExtraTip.toFixed(),
-            token: customFee.common.feeSymbol,
+            token: feeSymbol,
           },
         );
       }
       return true;
     },
-    [customFee.common.feeDecimals, customFee.common.feeSymbol, intl],
+    [feeDecimals, feeSymbol, intl],
   );
 
   const renderFeeEditorForm = useCallback(() => {
@@ -2084,6 +2081,10 @@ function TxFeeEditor(props: IProps) {
       appEventBus.off(EAppEventBusNames.TxFeeInfoChanged, callback);
     };
   }, []);
+
+  if (!customFee?.common) {
+    return null;
+  }
 
   return (
     <>

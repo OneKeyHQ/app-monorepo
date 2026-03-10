@@ -91,6 +91,10 @@ const SwapTokenSelectPage = ({
   const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
+  // Reset to the default token list immediately when the input is cleared.
+  const requestedSearchKeyword = searchKeyword
+    ? searchKeywordDebounce
+    : searchKeyword;
   const [swapAllSupportNetworks] = useSwapNetworksIncludeAllNetworkAtom();
   const [swapNetworksIncludeAllNetwork] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -187,7 +191,7 @@ const SwapTokenSelectPage = ({
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
-    searchKeywordDebounce,
+    requestedSearchKeyword,
     swapTypeSwitch,
   );
   const alertIndex = useMemo(
@@ -356,13 +360,36 @@ const SwapTokenSelectPage = ({
             address: rawItem.contractAddress,
           })
         : rawItem.contractAddress;
+
+      let badgeText: string | undefined;
+      if (rawItem.freeFeeObject && rawItem.freeFeeObject.tokenList) {
+        const targetToken =
+          type === ESwapDirectionType.FROM
+            ? toTokenRef.current
+            : fromTokenRef.current;
+        if (targetToken) {
+          const hasMatch = rawItem.freeFeeObject.tokenList.some((feeToken) =>
+            equalTokenNoCaseSensitive({
+              token1: targetToken,
+              token2: {
+                networkId: feeToken.networkId,
+                contractAddress: feeToken.contractAddress,
+              },
+            }),
+          );
+          if (hasMatch) {
+            badgeText = rawItem.freeFeeObject.tag;
+          }
+        }
+      }
+
       const tokenItem: ITokenListItemProps = {
-        isSearch: !!searchKeywordDebounce,
+        isSearch: !!requestedSearchKeyword,
         tokenImageSrc: rawItem.logoURI,
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
         networkImageSrc: rawItem.networkLogoURI,
-        tokenContrastAddress: searchKeywordDebounce
+        tokenContrastAddress: requestedSearchKeyword
           ? contractAddressDisplay
           : undefined,
         balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
@@ -380,6 +407,7 @@ const SwapTokenSelectPage = ({
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
         ),
+        badgeText,
       };
       return (
         <>
@@ -453,8 +481,9 @@ const SwapTokenSelectPage = ({
       disableNetworksOnClick,
       md,
       onSelectToken,
-      searchKeywordDebounce,
+      requestedSearchKeyword,
       settingsPersistAtom.currencyInfo.symbol,
+      type,
     ],
   );
 
@@ -587,7 +616,7 @@ const SwapTokenSelectPage = ({
           onSelectNetwork={onSelectCurrentNetwork}
           onDisableNetworksClick={disableNetworksOnClick}
         />
-        {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
+        {currentNetworkPopularTokens.length > 0 && !requestedSearchKeyword ? (
           <Divider mt="$2" />
         ) : null}
         <YStack flex={1}>
@@ -599,7 +628,7 @@ const SwapTokenSelectPage = ({
             estimatedItemSize={60}
             ListHeaderComponent={
               currentNetworkPopularTokens.length > 0 &&
-              !searchKeywordDebounce ? (
+              !requestedSearchKeyword ? (
                 <YStack px="$5" pt="$3" gap="$2">
                   <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
                     {intl.formatMessage({
@@ -633,7 +662,7 @@ const SwapTokenSelectPage = ({
                 </>
               ) : (
                 <Empty
-                  icon="SearchOutline"
+                  illustration="TwoBlocks"
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}

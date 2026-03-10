@@ -2,7 +2,12 @@ import { useCallback, useRef } from 'react';
 
 import { type ScrollView as ScrollViewNative } from 'react-native';
 
-import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
+import {
+  EPageType,
+  ScrollView,
+  YStack,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -20,9 +25,11 @@ import SwapAlertContainer from './SwapAlertContainer';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
+import SwapTipsContainer from './SwapTipsContainer';
 
 interface ISwapSwapMbContainerProps {
   pageType: EPageType;
+  swapTipsPageType?: EPageType;
   onSelectToken: (type: ESwapDirectionType) => void;
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
@@ -54,6 +61,7 @@ interface ISwapSwapMbContainerProps {
 
 const SwapSwapMbContainer = ({
   pageType,
+  swapTipsPageType,
   onSelectToken,
   fetchLoading,
   onSelectPercentageStage,
@@ -73,6 +81,7 @@ const SwapSwapMbContainer = ({
   swapRecentTokenPairs,
   supportNetworksList,
 }: ISwapSwapMbContainerProps) => {
+  const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollViewNative>(null);
   const onSearchClickCallback = useCallback(() => {
     onSelectToken(ESwapDirectionType.FROM);
@@ -97,7 +106,9 @@ const SwapSwapMbContainer = ({
       keyboardDismissMode="on-drag"
       ref={scrollViewRef}
       showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingBottom: tabBarHeight }}
     >
+      <SwapTipsContainer pageType={swapTipsPageType} />
       <YStack
         pt="$2.5"
         px="$5"

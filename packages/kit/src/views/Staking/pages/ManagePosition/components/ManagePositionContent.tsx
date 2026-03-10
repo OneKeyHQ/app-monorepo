@@ -7,8 +7,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -16,6 +16,7 @@ import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressW
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 
 import { AdaManageContent } from './AdaManageContent';
+import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
 
@@ -35,8 +36,6 @@ export interface IManagePositionContentProps {
   // Borrow-specific params
   reserveAddress?: string;
   marketAddress?: string;
-  borrowReserves?: IBorrowReserveItem;
-
   // Optional configurations
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
@@ -100,7 +99,6 @@ export function ManagePositionContent({
   type = EManagePositionType.Staking,
   reserveAddress,
   marketAddress,
-  borrowReserves,
   defaultTab,
   onTabChange,
   showApyDetail = false,
@@ -169,7 +167,7 @@ export function ManagePositionContent({
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
       return backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
-        accountId: accountId?.length > 0 ? accountId : indexedAccountId ?? '',
+        accountId: accountId?.length > 0 ? accountId : (indexedAccountId ?? ''),
         activeNetworkId: networkId,
       });
     },
@@ -403,6 +401,47 @@ export function ManagePositionContent({
     return <SectionSkeleton />;
   }
 
+  // Pendle special rendering: use ManagePageV2 for future shared layouts.
+  if (earnUtils.isPendleProvider({ providerName: provider })) {
+    if (warningElement) {
+      return <YStack px="$5">{warningElement}</YStack>;
+    }
+
+    return (
+      <ManagePageV2Content
+        networkId={networkId}
+        symbol={symbol}
+        provider={provider}
+        vault={vault}
+        type={type}
+        marketAddress={marketAddress}
+        reserveAddress={reserveAddress}
+        tokenInfo={resolvedTokenInfo}
+        fallbackTokenImageUri={resolvedTokenImageUri}
+        protocolInfo={resolvedProtocolInfo}
+        earnAccount={earnAccount ?? undefined}
+        depositDisabled={depositDisabled}
+        withdrawDisabled={withdrawDisabled}
+        stakeBeforeFooter={stakeBeforeFooter}
+        withdrawBeforeFooter={withdrawBeforeFooter}
+        historyAction={historyAction}
+        onHistory={onHistory}
+        indicatorAccountId={earnAccount?.accountId}
+        stakeTag={resolvedProtocolInfo?.stakeTag}
+        onIndicatorRefresh={refreshManageData}
+        onRefreshPendingRef={refreshPendingRef}
+        onSuccess={handleOperationSuccess}
+        defaultTab={defaultTab}
+        onTabChange={onTabChange}
+        isInModalContext={isInModalContext}
+        appNavigation={appNavigation}
+        showApyDetail={showApyDetail}
+        ongoingValidator={ongoingValidator}
+        managePageData={managePageData}
+      />
+    );
+  }
+
   // USDe special rendering
   if (symbol.toLowerCase() === 'usde') {
     // Show warning if needed (no address or BTC-only firmware)
@@ -474,7 +513,6 @@ export function ManagePositionContent({
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={resolvedProtocolInfo}
       earnAccount={earnAccount ?? undefined}
-      borrowReserves={borrowReserves}
       depositDisabled={depositDisabled}
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}

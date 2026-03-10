@@ -1,6 +1,6 @@
 ---
 name: 1k-architecture
-description: OneKey monorepo architecture and code organization. Use when understanding project structure, package relationships, import rules, or component organization. Triggers on architecture, structure, packages, imports, hierarchy, dependencies, monorepo, organization.
+description: OneKey monorepo architecture, project structure, package relationships, and import hierarchy rules.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -55,8 +55,7 @@ allowed-tools: Read, Grep, Glob
 **BEFORE ADDING ANY IMPORT:**
 1. Verify the import respects the hierarchy above
 2. Check if the import creates a circular dependency
-3. Run `yarn tsc:only` to validate no circular dependency introduced
-4. If unsure, find an alternative approach that respects the hierarchy
+3. If unsure, find an alternative approach that respects the hierarchy
 
 **COMMON VIOLATIONS TO AVOID:**
 - ❌ Importing from `@onekeyhq/kit` in `@onekeyhq/components`

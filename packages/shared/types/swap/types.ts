@@ -152,6 +152,17 @@ export interface ISwapTokenBase {
   speedSwapDefaultAmount?: number[];
 }
 
+export interface IFreeFeeTokenItem {
+  networkId: string;
+  contractAddress: string;
+  symbol: string;
+}
+
+export interface IFreeFeeObject {
+  tokenList: IFreeFeeTokenItem[];
+  tag: string;
+}
+
 export interface ISwapToken extends ISwapTokenBase {
   balanceParsed?: string;
   price?: string;
@@ -165,6 +176,8 @@ export interface ISwapToken extends ISwapTokenBase {
 
   isPopular?: boolean;
   isWrapped?: boolean;
+
+  freeFeeObject?: IFreeFeeObject;
 }
 
 export interface ISwapTokenCatch {
@@ -214,6 +227,7 @@ export interface IFetchTokenDetailParams {
   accountNetworkId?: string;
   xpub?: string;
   withCheckInscription?: boolean;
+  currency?: string;
 }
 
 export interface ISwapAutoSlippageSuggestedValue {
@@ -625,6 +639,7 @@ export interface IFetchQuoteFee {
   estimatedFeeFiatValue?: number;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
   isFreeNetworkFee?: boolean;
+  costSavings?: string;
 }
 
 export enum ESwapApproveAllowanceType {
@@ -729,10 +744,18 @@ export interface ISwapQuoteEventInfo {
   eventId: string;
 }
 
+export interface ISwapQuoteEventError {
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  errorMessage?: string;
+  eventId?: string;
+}
+
 export type ISwapQuoteEventData =
   | ISwapQuoteEventAutoSlippage
   | ISwapQuoteEventQuoteResult
-  | ISwapQuoteEventInfo;
+  | ISwapQuoteEventInfo
+  | ISwapQuoteEventError;
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
@@ -1027,6 +1050,19 @@ export interface ISpeedSwapConfig {
   supportSpeedSwap?: boolean;
   onlySupportCrossChain: boolean;
   onlySupportSingleChain: boolean;
+}
+
+export interface IFetchSpeedCheckResult {
+  errorMessage?: string;
+  protocol: string;
+  spenderAddress: string;
+  info: {
+    provider: string;
+    providerName: string;
+    providerLogo?: string;
+  };
+  fromTokenInfo?: ISwapTokenBase;
+  toTokenInfo?: ISwapTokenBase;
 }
 
 export enum ESwapLimitOrderStatus {

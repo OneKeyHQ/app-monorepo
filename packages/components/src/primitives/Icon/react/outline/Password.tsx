@@ -1,19 +1,22 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgPassword = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
       fillRule="evenodd"
-      d="M18 11a3 3 0 0 0-1.25 5.728v3.532a.5.5 0 0 0 .188.39l.75.6a.5.5 0 0 0 .624 0l.75-.6a.5.5 0 0 0 .188-.39v-.833l-.75-.677.75-.75v-1.272A3 3 0 0 0 18 11m-1 3a1 1 0 1 1 2 0 1 1 0 0 1-2 0"
+      d="M18 11a3 3 0 0 1 1.25 5.727V18l-.75.75.75.677V20.5l-1.25 1-1.25-1v-3.773A3 3 0 0 1 18 11m0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2"
       clipRule="evenodd"
     />
+    <Path d="M12 12q.573 0 1.121.067l-.243 1.986A7 7 0 0 0 12 14c-3.23 0-5.611 2.091-6.32 5H15v2H3.401l.103-1.094C3.916 15.521 7.242 12 12 12" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 13c-3.391 0-5.964 2.014-7.017 4.863C4.573 18.968 5.518 20 6.697 20H14m1.5-13.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0"
+      fillRule="evenodd"
+      d="M12 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9m0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5"
+      clipRule="evenodd"
     />
   </Svg>
 );

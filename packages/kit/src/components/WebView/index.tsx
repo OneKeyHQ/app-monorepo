@@ -26,8 +26,7 @@ import type {
 } from 'react-native-webview/lib/WebViewTypes';
 
 export interface IWebViewProps
-  extends IElectronWebViewEvents,
-    Partial<RNWebViewProps> {
+  extends IElectronWebViewEvents, Partial<RNWebViewProps> {
   id?: string;
   src?: string;
   onSrcChange?: (src: string) => void;

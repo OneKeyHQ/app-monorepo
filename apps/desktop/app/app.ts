@@ -1,9 +1,13 @@
 /* eslint-disable dot-notation */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
-import { format as formatUrl } from 'url';
+import { fileURLToPath, format as formatUrl } from 'url';
+import v8 from 'v8';
 
+import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
   BrowserWindow,
@@ -21,6 +25,7 @@ import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
+import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
 import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
@@ -41,8 +46,10 @@ import {
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
+import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+import { getBackgroundColor } from './libs/utils';
 import initProcess from './process';
 import {
   getAppStaticResourcesPath,
@@ -52,12 +59,24 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-import { getBackgroundColor } from './libs/utils';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 initSentry();
+
+const isPerfCiMode = process.env.PERF_CI_MODE === '1';
+const isDevServer = isDev && !isPerfCiMode;
+const isLocalUnpacked = isDev || isPerfCiMode;
+
+if (isPerfCiMode) {
+  // Keep prepared state in a stable location on perf machines.
+  const userDataDir =
+    process.env.PERF_DESKTOP_USER_DATA_DIR ||
+    path.join(os.homedir(), 'perf-profiles', 'desktop');
+  app.setPath('userData', userDataDir);
+  logger.info('[perf-ci] userDataDir:', userDataDir);
+}
 
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
@@ -100,12 +119,13 @@ const resourcesPath = getResourcesPath();
 // const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
-const sdkConnectSrc = isDev
+const sdkConnectSrc = isLocalUnpacked
   ? `file://${path.join(staticPath, 'js-sdk/')}`
   : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+const isLinux = process.platform === 'linux';
 
 let systemIdleInterval: ReturnType<typeof setInterval>;
 
@@ -227,12 +247,12 @@ const initMenu = () => {
     {
       label: i18nText(ElectronTranslations.menu_view),
       submenu: [
-        ...(isDev || store.getDevTools()
+        ...(isDevServer || store.getDevTools()
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
               { role: 'toggleDevTools' },
-              isDev
+              isDevServer
                 ? {
                     role: 'toggleDevTools',
                     label: `Toggle DevTools: ${store.getDevTools().toString()}`,
@@ -362,7 +382,7 @@ function quitOrMinimizeApp() {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (isMac) {
-    // **** renderer app will reload after minimize, and keytar not working.
+    // **** renderer app will reload after minimize.
     const safelyMainWindow = getSafelyMainWindow();
     safelyMainWindow?.hide();
     // ****
@@ -394,14 +414,17 @@ function handleDeepLinkUrl(
 
       // Cold startup: cache the deep link for later processing
       if (!isAppReady) {
-        safelyMainWindow?.webContents.send(
+        safelyMainWindow.webContents.send(
           ipcMessageKeys.OPEN_DEEP_LINK_URL,
           eventData,
         );
       }
 
       // Hot startup: send directly to registered listener
-      mainWindow?.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, eventData);
+      safelyMainWindow.webContents.send(
+        ipcMessageKeys.EVENT_OPEN_URL,
+        eventData,
+      );
     }
 
     isAppReady = true;
@@ -425,6 +448,11 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
     return;
   }
   systemIdleInterval = setInterval(() => {
+    const sender = event.sender;
+    if (!sender || sender.isDestroyed()) {
+      clearInterval(systemIdleInterval);
+      return;
+    }
     const idleTime = powerMonitor.getSystemIdleTime();
     const systemState = powerMonitor.getSystemIdleState(setIdleTime);
     if (idleTime > setIdleTime || systemState === 'locked') {
@@ -435,6 +463,8 @@ function systemIdleHandler(setIdleTime: number, event: Electron.IpcMainEvent) {
 }
 
 const theme = store.getTheme();
+const isDarkTheme =
+  theme === 'dark' || (theme === 'system' && nativeTheme.shouldUseDarkColors);
 
 logger.info('theme >>>> ', theme, nativeTheme.shouldUseDarkColors);
 
@@ -448,7 +478,6 @@ async function createMainWindow() {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
-  // eslint-disable-next-line @typescript-eslint/ban-types
   let savedWinBounds: {
     x?: number;
     y?: number;
@@ -467,22 +496,29 @@ async function createMainWindow() {
     show: false,
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
-    // titleBarOverlay: !isMac,
+    titleBarOverlay:
+      isWin || isLinux
+        ? {
+            height: 52,
+            color: '#00000000',
+            symbolColor: isDarkTheme ? '#ffffff' : '#000000',
+          }
+        : false,
     trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
-    x: isDev ? 0 : undefined,
-    y: isDev ? 0 : undefined,
+    x: isDevServer ? 0 : undefined,
+    y: isDevServer ? 0 : undefined,
     width: Math.min(defaultSize, dimensions.width),
     height: Math.min(defaultSize / ratio, dimensions.height),
-    minWidth: isDev ? undefined : minWidth, // OK-8215
-    minHeight: isDev ? undefined : minHeight / ratio,
+    minWidth: isDevServer ? undefined : minWidth, // OK-8215
+    minHeight: isDevServer ? undefined : minHeight / ratio,
     backgroundColor: getBackgroundColor(theme),
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: !isDev,
+      webSecurity: isPerfCiMode ? true : !isDev,
       // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
@@ -529,17 +565,73 @@ async function createMainWindow() {
     });
   }
 
-  if (isDev) {
-    browserWindow.webContents.openDevTools();
+  const PROTOCOL = 'file';
+  const perfIndexHtmlPath =
+    process.env.PERF_DESKTOP_INDEX_HTML ||
+    path.join(__dirname, '..', 'build', 'index.html');
+
+  if (isLocalUnpacked) {
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        const jsSdkPattern = '/static/js-sdk/';
+        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+
+        // resolve js-sdk files path in local unpacked mode
+        if (jsSdkIndex > -1) {
+          const fileName = request.url.substring(
+            jsSdkIndex + jsSdkPattern.length,
+          );
+          callback(path.join(staticPath, 'js-sdk', fileName));
+          return;
+        }
+
+        // In perf-ci mode we load renderer via file://. Some builds use absolute
+        // asset paths like "/main.xxx.js" which become "file:///main.xxx.js".
+        // Map those to the local build directory as a fallback.
+        try {
+          const requestedPath = fileURLToPath(request.url);
+          if (fs.existsSync(requestedPath)) {
+            callback(requestedPath);
+            return;
+          }
+          const buildDir = path.join(__dirname, '..', 'build');
+          const fallbackPath = path.join(
+            buildDir,
+            requestedPath.replace(/^\/+/, ''),
+          );
+          if (fs.existsSync(fallbackPath)) {
+            callback(fallbackPath);
+            return;
+          }
+          callback(requestedPath);
+        } catch (_e) {
+          // Best-effort: let Electron handle it.
+          callback(request.url);
+        }
+      },
+    );
   }
 
-  const src = isDev
-    ? 'http://localhost:3001/'
-    : formatUrl({
-        pathname: bundleIndexHtmlPath || 'index.html',
-        protocol: 'file',
+  /* eslint-disable no-nested-ternary */
+  const src = isPerfCiMode
+    ? formatUrl({
+        pathname: perfIndexHtmlPath,
+        protocol: PROTOCOL,
         slashes: true,
-      });
+      })
+    : isDev
+      ? 'http://localhost:3001/'
+      : formatUrl({
+          pathname: bundleIndexHtmlPath || 'index.html',
+          protocol: PROTOCOL,
+          slashes: true,
+        });
+  /* eslint-enable no-nested-ternary */
+
+  if (isDevServer) {
+    browserWindow.webContents.openDevTools();
+  }
 
   void browserWindow.loadURL(src);
 
@@ -572,7 +664,10 @@ async function createMainWindow() {
   });
 
   browserWindow.on('resize', () => {
-    store.setWinBounds(browserWindow.getBounds());
+    const safelyWindow = getSafelyBrowserWindow();
+    if (safelyWindow) {
+      store.setWinBounds(safelyWindow.getBounds());
+    }
   });
   browserWindow.on('closed', () => {
     mainWindow = null;
@@ -581,9 +676,11 @@ async function createMainWindow() {
   });
 
   browserWindow.webContents.on('devtools-opened', () => {
-    browserWindow.focus();
+    const safelyWindow = getSafelyBrowserWindow();
+    safelyWindow?.focus();
     setImmediate(() => {
-      browserWindow.focus();
+      const w = getSafelyBrowserWindow();
+      w?.focus();
     });
   });
 
@@ -601,6 +698,7 @@ async function createMainWindow() {
     return { action: 'deny' };
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_READY);
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
@@ -614,24 +712,30 @@ async function createMainWindow() {
     disposeContextMenu?.();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
-    event.returnValue = isDev;
+    event.returnValue = isDevServer;
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     event.returnValue = safelyBrowserWindow?.isFocused();
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_TEST_CRASH);
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
     throw new OneKeyLocalError('Test Electron Native crash 996');
   });
 
   // System Resources
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
+  ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
   ipcMain.handle(ipcMessageKeys.SYSTEM_GET_CPU_USAGE, async () => {
     try {
       const cpuUsage = process.getCPUUsage();
@@ -683,6 +787,7 @@ async function createMainWindow() {
     }
   });
 
+  ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
 
   // reset appState to undefined  to avoid screen lock.
@@ -724,12 +829,14 @@ async function createMainWindow() {
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
   });
 
+  app.removeAllListeners('login');
   app.on('login', (event, webContents, request, authInfo, callback) => {
     event.preventDefault();
     callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows
+  app.removeAllListeners('web-contents-created');
   app.on('web-contents-created', (event, contents) => {
     if (contents.getType() === 'webview') {
       contents.setWindowOpenHandler((handleDetails) => {
@@ -801,28 +908,7 @@ async function createMainWindow() {
     },
   );
 
-  const PROTOCOL = 'file';
-  if (isDev) {
-    session.defaultSession.protocol.interceptFileProtocol(
-      PROTOCOL,
-      (request, callback) => {
-        const jsSdkPattern = '/static/js-sdk/';
-        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
-
-        // resolve js-sdk files path in dev mode
-        if (jsSdkIndex > -1) {
-          const fileName = request.url.substring(
-            jsSdkIndex + jsSdkPattern.length,
-          );
-          callback({
-            path: path.join(staticPath, 'js-sdk', fileName),
-          });
-          return;
-        }
-        callback(request.url);
-      },
-    );
-  } else {
+  if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
     const driveLetter = getDriveLetter();
     logger.info('driveLetter >>>> ', driveLetter);
@@ -923,13 +1009,36 @@ async function createMainWindow() {
       event.preventDefault();
       const safelyBrowserWindow = getSafelyBrowserWindow();
       if (safelyBrowserWindow) {
-        safelyBrowserWindow.blur();
-        safelyBrowserWindow.hide(); // hide window only
-        // browserWindow.minimize(); // hide window and minimize to Docker
+        if (safelyBrowserWindow.isFullScreen()) {
+          // Exit fullscreen first, then hide after the animation completes
+          safelyBrowserWindow.once('leave-full-screen', () => {
+            safelyBrowserWindow.blur();
+            safelyBrowserWindow.hide();
+          });
+          safelyBrowserWindow.setFullScreen(false);
+        } else {
+          safelyBrowserWindow.blur();
+          safelyBrowserWindow.hide();
+        }
       }
     }
   });
 
+  // Use enum from @onekeyfe/hd-shared to stay in sync with the channels
+  // registered by initNobleBleSupport() from @onekeyfe/hd-transport-electron
+  const nobleBleChannels = [
+    EOneKeyBleMessageKeys.NOBLE_BLE_ENUMERATE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_STOP_SCAN,
+    EOneKeyBleMessageKeys.NOBLE_BLE_GET_DEVICE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_DISCONNECT,
+    EOneKeyBleMessageKeys.NOBLE_BLE_WRITE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_SUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_UNSUBSCRIBE,
+    EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING,
+    EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK,
+  ];
+  nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
 
   return browserWindow;
@@ -942,22 +1051,32 @@ function initChildProcess() {
 const singleInstance = app.requestSingleInstanceLock();
 
 if (!singleInstance && !process.mas) {
-  quitOrMinimizeApp();
+  // Second instance detected - quit immediately to prevent any initialization
+  logger.info('Second instance detected, quitting immediately');
+  app.quit();
 } else {
   app.on('second-instance', (e, argv) => {
+    logger.info('Second instance launched, focusing existing window', {
+      argv,
+      platform: process.platform,
+    });
+
     const safelyMainWindow = getSafelyMainWindow();
     if (safelyMainWindow) {
+      // Restore window if minimized
       if (safelyMainWindow.isMinimized()) {
         safelyMainWindow.restore();
       }
-      showMainWindow();
 
-      // Protocol handler for win32
-      // argv: An array of the second instance’s (command line / deep linked) arguments
-      if (isWin || isMac) {
-        // Keep only command line / deep linked arguments
-        const deeplinkingUrl = argv[1];
-        handleDeepLinkUrl(null, deeplinkingUrl, argv, true);
+      // Handle deep link arguments for all platforms
+      // argv: An array of the second instance's (command line / deep linked) arguments
+      const deeplinkingUrl = argv[1];
+      if (deeplinkingUrl) {
+        // handleDeepLinkUrl internally calls showMainWindow(), so we don't need to call it separately
+        handleDeepLinkUrl(null, deeplinkingUrl, argv, false); // isColdStartup=false for second instance
+      } else {
+        // No deep link, just show and focus the window
+        showMainWindow();
       }
     }
   });
@@ -988,6 +1107,9 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  if (systemIdleInterval) {
+    clearInterval(systemIdleInterval);
+  }
   const safelyMainWindow = getSafelyMainWindow();
   if (safelyMainWindow) {
     safelyMainWindow.removeAllListeners();
@@ -1002,10 +1124,374 @@ app.on('window-all-closed', () => {
   quitOrMinimizeApp();
 });
 
+// ==================== GPU Process Protection System ====================
+// Comprehensive GPU crash prevention and recovery
+// Related: Sentry issue - GPU process crashes on Windows AMD + heavy DApp usage
+
+// 1. GPU Crash Detection and Recovery Handler
+app.on('child-process-gone', async (event, details) => {
+  logger.error('Child process gone:', {
+    type: details.type,
+    reason: details.reason,
+    exitCode: details.exitCode,
+    name: details.name,
+  });
+
+  if (details.type === 'GPU') {
+    logger.error('🔴 GPU process crashed - initiating recovery');
+
+    // Record crash statistics
+    store.recordGPUCrash();
+    const stats = store.getGPUCrashStats();
+
+    // Track GPU crash in Sentry for monitoring
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const { captureException } = require('@sentry/electron/main');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      captureException(new Error('GPU Process Crashed'), {
+        level: 'fatal',
+        tags: {
+          gpu_reason: details.reason,
+          gpu_exit_code: details.exitCode,
+          platform: process.platform,
+          cpu_model: os.cpus()[0]?.model || 'unknown',
+          crash_count: stats.count,
+        },
+        extra: {
+          last_crash_time: stats.lastCrashTime,
+          time_since_start:
+            Date.now() - (app.getAppMetrics()[0]?.creationTime || 0),
+        },
+      });
+    } catch (e) {
+      logger.error('Failed to report GPU crash to Sentry:', e);
+    }
+
+    // Notify renderer process about the crash
+    const safelyMainWindow = getSafelyMainWindow();
+    if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+      safelyMainWindow.webContents.send('gpu-process-crashed', {
+        reason: details.reason,
+        exitCode: details.exitCode,
+        timestamp: Date.now(),
+        crashCount: stats.count,
+      });
+    }
+
+    // Log critical crashes for monitoring
+    if (details.reason === 'crashed' || details.reason === 'oom') {
+      logger.error('Critical GPU crash detected');
+      logger.error('Crash details:', {
+        reason: details.reason,
+        totalCrashes: stats.count,
+        suggestion: 'Consider closing some browser tabs to reduce GPU load',
+      });
+    }
+
+    // Collect GPU hardware info after crash for diagnostics (fire-and-forget,
+    // getGPUInfo may hang when GPU process is dead so we don't await it)
+    app
+      .getGPUInfo('basic')
+      .then((gpuInfo) => {
+        logger.error('[GPU Crash] GPU Hardware Info:', JSON.stringify(gpuInfo));
+      })
+      .catch(() => {
+        logger.error('[GPU Crash] Cannot retrieve GPU info after crash');
+      });
+  }
+});
+
+// 2. Monitor render process crashes (may be GPU-related)
+app.on('render-process-gone', (event, webContents, details) => {
+  logger.error('Render process gone:', {
+    reason: details.reason,
+    exitCode: details.exitCode,
+  });
+
+  if (details.reason === 'crashed' || details.reason === 'oom') {
+    logger.warn('⚠️ Renderer crashed - may indicate GPU issues');
+  }
+});
+
+// 3. GPU Info Update Monitoring
+app.on('gpu-info-update', () => {
+  logger.info('GPU info updated');
+});
+
+// 4. Log GPU protection status
+const gpuStats = store.getGPUCrashStats();
+logger.info('GPU Protection System initialized', {
+  platform: process.platform,
+  cpuModel: os.cpus()[0]?.model || 'unknown',
+  totalGPUCrashes: gpuStats.count,
+  lastCrashTime: gpuStats.lastCrashTime
+    ? new Date(gpuStats.lastCrashTime).toISOString()
+    : 'never',
+});
+
+// ==================== End GPU Protection ====================
+
+// ==================== Memory Protection System ====================
+// Prevent OOM crashes by monitoring and limiting renderer process memory
+// Related: Sentry issue - OOM crash after 3 hours with DApp browser open
+
+const MEMORY_LIMIT_WARNING_MB = 1024; // 1GB warning threshold
+const MEMORY_LIMIT_CRITICAL_MB = 2048; // 2GB critical threshold
+const MEMORY_CHECK_INTERVAL_MS = 60_000; // Check every 60 seconds
+const METRICS_SAMPLE_INTERVAL_MS = 30_000;
+
+let memoryMonitorInterval: ReturnType<typeof setInterval> | null = null;
+
+// Track previous memory state to only fire on threshold transitions
+let wasAboveWarning = false;
+let wasAboveCritical = false;
+
+function startMemoryMonitoring() {
+  if (memoryMonitorInterval) {
+    clearInterval(memoryMonitorInterval);
+  }
+
+  memoryMonitorInterval = setInterval(async () => {
+    try {
+      const memoryInfo = await process.getProcessMemoryInfo();
+      const memoryUsageMB = Math.round(memoryInfo.private / 1024); // Convert KB to MB
+
+      // Log memory usage periodically for monitoring
+      if (memoryUsageMB > 512) {
+        // Only log if > 512MB
+        logger.info(
+          `[Memory Monitor] Current memory usage: ${memoryUsageMB}MB`,
+        );
+      }
+
+      const isAboveWarning = memoryUsageMB > MEMORY_LIMIT_WARNING_MB;
+      const isAboveCritical = memoryUsageMB > MEMORY_LIMIT_CRITICAL_MB;
+
+      // Warning threshold: 1GB — only fire on transition (below → above)
+      if (isAboveWarning && !wasAboveWarning) {
+        logger.warn(
+          `⚠️ [Memory Monitor] Memory usage high: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_WARNING_MB}MB)`,
+        );
+
+        const safelyMainWindow = getSafelyMainWindow();
+        if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+          safelyMainWindow.webContents.send('memory-pressure-warning', {
+            currentMemoryMB: memoryUsageMB,
+            thresholdMB: MEMORY_LIMIT_WARNING_MB,
+            level: 'warning',
+          });
+        }
+      }
+
+      // Critical threshold: 2GB — only fire on transition (below → above)
+      if (isAboveCritical && !wasAboveCritical) {
+        logger.error(
+          `🔴 [Memory Monitor] CRITICAL memory usage: ${memoryUsageMB}MB (threshold: ${MEMORY_LIMIT_CRITICAL_MB}MB)`,
+        );
+
+        const safelyMainWindow = getSafelyMainWindow();
+        if (safelyMainWindow && !safelyMainWindow.isDestroyed()) {
+          // Notify renderer to reload inactive tabs
+          // Note: Do NOT clear the shared session cache here — it would
+          // destroy cache for ALL webviews (including the active tab) and
+          // cause reloaded tabs to re-fetch everything without cache.
+          safelyMainWindow.webContents.send('memory-pressure-critical', {
+            currentMemoryMB: memoryUsageMB,
+            thresholdMB: MEMORY_LIMIT_CRITICAL_MB,
+            level: 'critical',
+            action: 'reload-inactive-tabs',
+          });
+        }
+
+        // Track critical memory events in Sentry
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const { captureException } = require('@sentry/electron/main');
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          captureException(new Error('Critical Memory Usage Detected'), {
+            level: 'warning',
+            tags: {
+              memory_usage_mb: memoryUsageMB,
+              threshold_mb: MEMORY_LIMIT_CRITICAL_MB,
+            },
+            extra: {
+              memory_info: memoryInfo,
+            },
+          });
+        } catch (e) {
+          logger.error('[Memory Monitor] Failed to report to Sentry:', e);
+        }
+      }
+
+      // Update state for next check
+      wasAboveWarning = isAboveWarning;
+      wasAboveCritical = isAboveCritical;
+    } catch (error) {
+      logger.error('[Memory Monitor] Failed to check memory:', error);
+    }
+  }, MEMORY_CHECK_INTERVAL_MS);
+
+  logger.info('[Memory Monitor] Started monitoring', {
+    warningThresholdMB: MEMORY_LIMIT_WARNING_MB,
+    criticalThresholdMB: MEMORY_LIMIT_CRITICAL_MB,
+    checkIntervalMs: MEMORY_CHECK_INTERVAL_MS,
+  });
+}
+
+function startProcessMetricsMonitoring() {
+  setInterval(() => {
+    const metrics = app.getAppMetrics();
+    const highMemoryProcesses = metrics.filter(
+      (m) => (m.memory?.workingSetSize ?? 0) > 200 * 1024,
+    );
+
+    if (highMemoryProcesses.length > 0) {
+      logger.warn(
+        '[Process Metrics] High memory processes:',
+        highMemoryProcesses.map((m) => ({
+          pid: m.pid,
+          type: m.type,
+          name: m.name,
+          memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+          cpu: m.cpu.percentCPUUsage.toFixed(1),
+        })),
+      );
+    }
+
+    const totalMemoryMB = metrics.reduce(
+      (sum, m) => sum + (m.memory?.workingSetSize ?? 0) / 1024,
+      0,
+    );
+    if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const { addBreadcrumb } = require('@sentry/electron/main');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        addBreadcrumb({
+          category: 'memory',
+          message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
+          level: 'warning',
+          data: {
+            processes: metrics.map((m) => ({
+              type: m.type,
+              name: m.name,
+              memoryMB: Math.round((m.memory?.workingSetSize ?? 0) / 1024),
+              cpu: m.cpu.percentCPUUsage,
+            })),
+          },
+        });
+      } catch (_e) {
+        // ignore
+      }
+    }
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+
+async function collectGPUInfo() {
+  try {
+    const gpuInfo = await app.getGPUInfo('complete');
+    logger.info('[GPU Info] Complete GPU information collected');
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const { setContext } = require('@sentry/electron/main');
+      const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      setContext('gpu', {
+        vendorId: gpuDevice?.vendorId,
+        deviceId: gpuDevice?.deviceId,
+        driverVersion: gpuDevice?.driverVersion,
+        driverVendor: gpuDevice?.driverVendor,
+        auxAttributes: (gpuInfo as any)?.auxAttributes,
+      });
+    } catch (_e) {
+      // ignore
+    }
+  } catch (error) {
+    logger.error('[GPU Info] Failed to collect:', error);
+  }
+}
+
+function startV8HeapMonitoring() {
+  setInterval(() => {
+    const heapStats = v8.getHeapStatistics();
+    const usedMB = Math.round(heapStats.used_heap_size / 1024 / 1024);
+    const limitMB = Math.round(heapStats.heap_size_limit / 1024 / 1024);
+    const usagePercent = (
+      (heapStats.used_heap_size / heapStats.heap_size_limit) *
+      100
+    ).toFixed(1);
+
+    if (Number(usagePercent) > 70) {
+      logger.warn(`[V8 Heap] ${usedMB}MB / ${limitMB}MB (${usagePercent}%)`, {
+        totalHeapSize: heapStats.total_heap_size,
+        totalPhysicalSize: heapStats.total_physical_size,
+        allocatedMemory: heapStats.malloced_memory,
+        externalMemory: heapStats.external_memory,
+      });
+    }
+  }, MEMORY_CHECK_INTERVAL_MS);
+}
+
+/* oxlint-disable typescript/no-unsafe-call -- dynamic require('electron') returns untyped */
+function startWebviewMemoryMonitoring() {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const { webContents } = require('electron');
+  setInterval(() => {
+    const safelyMainWindow = getSafelyMainWindow();
+    if (!safelyMainWindow || safelyMainWindow.isDestroyed()) return;
+
+    const metrics = app.getAppMetrics();
+    const metricsByPid = new Map(metrics.map((m) => [m.pid, m]));
+    const allContents = webContents.getAllWebContents();
+    for (const wc of allContents) {
+      // eslint-disable-next-line no-continue
+      if (wc.isDestroyed()) continue;
+      try {
+        const pid = wc.getOSProcessId();
+        const metric = metricsByPid.get(pid);
+        // eslint-disable-next-line no-continue
+        if (!metric) continue;
+        const memMB = Math.round((metric.memory?.workingSetSize ?? 0) / 1024);
+        if (memMB > 300) {
+          logger.warn(
+            `[WebView Memory] pid=${pid} type=${wc.getType()} url=${wc.getURL().substring(0, 100)} memory=${memMB}MB`,
+          );
+        }
+      } catch (_e) {
+        // webContents may have been destroyed
+      }
+    }
+  }, METRICS_SAMPLE_INTERVAL_MS);
+}
+/* oxlint-enable typescript/no-unsafe-call */
+
+// Start monitoring when app is ready
+app.on('ready', async () => {
+  startMemoryMonitoring();
+  startProcessMetricsMonitoring();
+  startV8HeapMonitoring();
+  startWebviewMemoryMonitoring();
+  scheduleCrashDumpCleanup();
+  await collectGPUInfo();
+});
+
+// Stop monitoring when app quits
+app.on('before-quit', () => {
+  if (memoryMonitorInterval) {
+    clearInterval(memoryMonitorInterval);
+    memoryMonitorInterval = null;
+    logger.info('[Memory Monitor] Stopped monitoring');
+  }
+});
+
+// ==================== End Memory Protection ====================
+
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
 
-if (isDev) {
+if (isDevServer) {
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');

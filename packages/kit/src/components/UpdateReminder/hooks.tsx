@@ -23,9 +23,11 @@ import {
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { ISoftwareUpdateParams } from '@onekeyhq/shared/src/logger/scopes/app/scenes/appUpdate';
 import type { IDownloadPackageParams } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
@@ -34,6 +36,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -44,6 +47,45 @@ import { runAfterTokensDone } from '../../hooks/useRunAfterTokensDone';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import type { IntlShape } from 'react-intl';
+
+function getUpdatePlatform() {
+  if (platformEnv.isNativeIOS) return 'ios';
+  if (platformEnv.isNativeAndroid) return 'android';
+  if (platformEnv.isDesktop) return 'desktop';
+  if (platformEnv.isExtension) return 'extension';
+  return 'web';
+}
+
+const updateStrategyMap: Record<EUpdateStrategy, string> = {
+  [EUpdateStrategy.silent]: 'silent',
+  [EUpdateStrategy.force]: 'force',
+  [EUpdateStrategy.manual]: 'manual',
+  [EUpdateStrategy.seamless]: 'seamless',
+};
+
+function buildSoftwareUpdateParams(
+  fileType: EUpdateFileType,
+  appUpdateInfo: IAppUpdateInfo,
+  attemptId?: string,
+): ISoftwareUpdateParams {
+  const isBundle = fileType === EUpdateFileType.jsBundle;
+  return {
+    attemptId: attemptId ?? generateUUID(),
+    updateType: isBundle ? 'bundle' : 'app',
+    fromVersion: isBundle
+      ? (platformEnv.bundleVersion ?? '')
+      : (platformEnv.version ?? ''),
+    toVersion: isBundle
+      ? (appUpdateInfo.jsBundleVersion ?? '')
+      : (appUpdateInfo.latestVersion ?? ''),
+    updateStrategy:
+      updateStrategyMap[appUpdateInfo.updateStrategy] ?? 'unknown',
+    platform: getUpdatePlatform(),
+  };
+}
+
+// shared across the entire update flow so all step events carry the same attemptId
+let currentUpdateAttemptId: string | undefined;
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 const isShowToastError = (updateStrategy: EUpdateStrategy) => {
@@ -237,6 +279,21 @@ export const useDownloadPackage = () => {
     return getUpdateFileType(appUpdateInfo);
   }, []);
 
+  const getSkipGPGVerification = useCallback(
+    async (isJsBundle: boolean): Promise<boolean> => {
+      if (!isJsBundle) {
+        return false;
+      }
+      const isSkipGpgVerificationAllowed =
+        await BundleUpdate.isSkipGpgVerificationAllowed().catch(() => false);
+      if (!isSkipGpgVerificationAllowed) {
+        return false;
+      }
+      return backgroundApiProxy.serviceDevSetting.getSkipBundleGPGVerification();
+    },
+    [],
+  );
+
   const installPackage = useCallback(
     async (onSuccess: () => void, onFail: () => void) => {
       const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -249,7 +306,11 @@ export const useDownloadPackage = () => {
             onFail();
             return;
           }
-          await BundleUpdate.installBundle(data.downloadedEvent);
+          const skipGPGVerification = await getSkipGPGVerification(true);
+          await BundleUpdate.installBundle({
+            ...data.downloadedEvent,
+            skipGPGVerification,
+          });
         } else {
           await AppUpdate.installPackage(data);
         }
@@ -257,6 +318,12 @@ export const useDownloadPackage = () => {
         onSuccess();
       } catch (e: unknown) {
         defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
+        defaultLogger.app.appUpdate.softwareUpdateResult({
+          ...buildSoftwareUpdateParams(fileType, data, currentUpdateAttemptId),
+          status: 'failed',
+          failedStep: 'install',
+          errorMessage: (e as Error)?.message,
+        });
         if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
           onFail();
         } else if (showToastError) {
@@ -264,7 +331,7 @@ export const useDownloadPackage = () => {
         }
       }
     },
-    [getFileTypeFromUpdateInfo],
+    [getFileTypeFromUpdateInfo, getSkipGPGVerification],
   );
 
   const showSilentUpdateDialog = useCallback(() => {
@@ -297,11 +364,17 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
         return;
       }
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startVerifyPackage(params);
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
-          ? BundleUpdate.verifyBundle(params)
+          ? BundleUpdate.verifyBundle({
+              ...params,
+              skipGPGVerification,
+            })
           : AppUpdate.verifyPackage(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
@@ -309,9 +382,19 @@ export const useDownloadPackage = () => {
       defaultLogger.app.appUpdate.endVerifyPackage(true);
     } catch (e) {
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
+      defaultLogger.app.appUpdate.softwareUpdateResult({
+        ...buildSoftwareUpdateParams(
+          fileType,
+          appUpdateInfo,
+          currentUpdateAttemptId,
+        ),
+        status: 'failed',
+        failedStep: 'verifyPackage',
+        errorMessage: (e as Error)?.message,
+      });
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, []);
+  }, [getSkipGPGVerification]);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -322,21 +405,39 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
         return;
       }
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startVerifyASC(params);
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
-          ? BundleUpdate.verifyBundleASC(params)
+          ? BundleUpdate.verifyBundleASC({
+              ...params,
+              skipGPGVerification,
+            })
           : AppUpdate.verifyASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       defaultLogger.app.appUpdate.endVerifyASC(true);
       await verifyPackage();
     } catch (e) {
+      const appUpdateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       defaultLogger.app.appUpdate.endVerifyASC(false, e as Error);
+      defaultLogger.app.appUpdate.softwareUpdateResult({
+        ...buildSoftwareUpdateParams(
+          fileType,
+          appUpdateInfo,
+          currentUpdateAttemptId,
+        ),
+        status: 'failed',
+        failedStep: 'verifyASC',
+        errorMessage: (e as Error)?.message,
+      });
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, verifyPackage]);
+  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyPackage]);
 
   const downloadASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -347,25 +448,50 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
         return;
       }
+      const skipGPGVerification = await getSkipGPGVerification(
+        fileType === EUpdateFileType.jsBundle,
+      );
       defaultLogger.app.appUpdate.startDownloadASC(params);
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
-          ? BundleUpdate.downloadBundleASC(params)
+          ? BundleUpdate.downloadBundleASC({
+              ...params,
+              skipGPGVerification,
+            })
           : AppUpdate.downloadASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       defaultLogger.app.appUpdate.endDownloadASC(true);
       await verifyASC();
     } catch (e) {
+      const appUpdateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       defaultLogger.app.appUpdate.endDownloadASC(false, e as Error);
+      defaultLogger.app.appUpdate.softwareUpdateResult({
+        ...buildSoftwareUpdateParams(
+          fileType,
+          appUpdateInfo,
+          currentUpdateAttemptId,
+        ),
+        status: 'failed',
+        failedStep: 'downloadASC',
+        errorMessage: (e as Error)?.message,
+      });
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo, verifyASC]);
+  }, [getFileTypeFromUpdateInfo, getSkipGPGVerification, verifyASC]);
 
   const downloadPackage = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
     const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    currentUpdateAttemptId = generateUUID();
+    const softwareUpdateParams = buildSoftwareUpdateParams(
+      fileType,
+      params,
+      currentUpdateAttemptId,
+    );
+    defaultLogger.app.appUpdate.softwareUpdateStarted(softwareUpdateParams);
     defaultLogger.app.appUpdate.startCheckForUpdates(
       fileType,
       params.updateStrategy,
@@ -375,6 +501,7 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } = params;
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
+      const skipGPGVerification = await getSkipGPGVerification(isJsBundle);
       const updateEvent =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       const headers = await getRequestHeaders();
@@ -384,8 +511,9 @@ export const useDownloadPackage = () => {
         latestVersion,
         bundleVersion: jsBundleVersion,
         downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
-        fileSize: isJsBundle ? jsBundle?.fileSize : params.fileSize ?? 0,
+        fileSize: isJsBundle ? jsBundle?.fileSize : (params.fileSize ?? 0),
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
+        skipGPGVerification: isJsBundle ? skipGPGVerification : undefined,
         headers,
       };
       defaultLogger.app.appUpdate.startDownload(downloadParams);
@@ -403,6 +531,12 @@ export const useDownloadPackage = () => {
       });
       await downloadASC();
     } catch (e) {
+      defaultLogger.app.appUpdate.softwareUpdateResult({
+        ...softwareUpdateParams,
+        status: 'failed',
+        failedStep: 'download',
+        errorMessage: (e as Error)?.message,
+      });
       await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(
         e as Error,
       );
@@ -414,7 +548,7 @@ export const useDownloadPackage = () => {
         });
       }
     }
-  }, [downloadASC, getFileTypeFromUpdateInfo, intl]);
+  }, [downloadASC, getFileTypeFromUpdateInfo, getSkipGPGVerification, intl]);
 
   const resetToInComplete = useCallback(async () => {
     await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
@@ -612,6 +746,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       isFull = false,
       params?: {
         latestVersion?: string;
+        jsBundleVersion?: string;
         isForceUpdate?: boolean;
         summary?: string;
         storeUrl?: string;
@@ -628,7 +763,17 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           summary: params?.summary || '',
           lastUpdateDialogShownAt: currentUpdateInfo.lastUpdateDialogShownAt,
           onConfirm: () => {
-            if (!platformEnv.isExtension && params?.storeUrl) {
+            const fileType = getUpdateFileType({
+              latestVersion:
+                params?.latestVersion ?? currentUpdateInfo.latestVersion,
+              jsBundleVersion:
+                params?.jsBundleVersion ?? currentUpdateInfo.jsBundleVersion,
+            });
+            if (
+              !platformEnv.isExtension &&
+              params?.storeUrl &&
+              fileType === EUpdateFileType.appShell
+            ) {
               openUrlExternal(params.storeUrl);
             } else {
               setTimeout(async () => {
@@ -702,6 +847,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     };
 
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
+      const fileType = getUpdateFileType(appUpdateInfo);
+      defaultLogger.app.appUpdate.softwareUpdateResult({
+        ...buildSoftwareUpdateParams(fileType, appUpdateInfo),
+        status: 'success',
+      });
       if (appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless) {
         onViewReleaseInfo();
       }
@@ -741,7 +891,19 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         fileType === EUpdateFileType.jsBundle &&
         appUpdateInfo.updateStrategy === EUpdateStrategy.seamless
       ) {
-        void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+        // Only install if signature verification data is present
+        if (
+          appUpdateInfo.downloadedEvent?.signature &&
+          appUpdateInfo.downloadedEvent?.sha256
+        ) {
+          void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+        } else {
+          defaultLogger.app.appUpdate.endInstallPackage(
+            false,
+            new Error('Missing signature or sha256 for seamless install'),
+          );
+          void backgroundApiProxy.serviceAppUpdate.reset();
+        }
       } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         showSilentUpdateDialog();
       } else {

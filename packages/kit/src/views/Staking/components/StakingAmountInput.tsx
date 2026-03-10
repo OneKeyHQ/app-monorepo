@@ -19,7 +19,7 @@ import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
 
-export const StakingPercentageInputStage = [25, 50, 100];
+export const StakingPercentageInputStage = [25, 50, 75, 100];
 
 export const useOnBlurAmountValue = (
   amountValue: string,
@@ -43,12 +43,14 @@ export function StakingAmountInput({
   title,
   inputProps,
   disabled,
+  forceSubduedBackground,
   onSelectPercentageStage,
   value,
   onBlur,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
+  forceSubduedBackground?: boolean;
   onSelectPercentageStage: (percent: number) => void;
 }) {
   const [percentageInputStageShow, setPercentageInputStageShow] =
@@ -70,7 +72,9 @@ export function StakingAmountInput({
   return (
     <YStack
       borderRadius="$3"
-      backgroundColor={disabled ? '$bgDisabled' : '$bgSubdued'}
+      backgroundColor={
+        disabled && !forceSubduedBackground ? '$bgDisabled' : '$bgSubdued'
+      }
       borderWidth="$0"
     >
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">

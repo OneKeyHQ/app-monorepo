@@ -16,6 +16,7 @@ import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
   downloadUrl?: string;
+  skipGPGVerification?: boolean;
 }
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
@@ -135,6 +136,9 @@ const validChannels = new Set([
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
+  'memory-pressure-warning',
+  'memory-pressure-critical',
+  'gpu-process-crashed',
 ]);
 
 const getChannel = () => {

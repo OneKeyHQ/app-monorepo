@@ -11,6 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -52,6 +53,7 @@ const SwapMarketHistoryList = ({
   isPushModal,
 }: ISwapMarketHistoryListProps) => {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const navigation =
@@ -224,12 +226,13 @@ const SwapMarketHistoryList = ({
       }
       ListEmptyComponent={
         <Empty
-          icon="InboxOutline"
+          illustration="Orders"
           title={intl.formatMessage({
             id: ETranslations.global_no_results,
           })}
         />
       }
+      ListFooterComponent={<Stack h={bottom || '$2'} />}
     />
   );
 };

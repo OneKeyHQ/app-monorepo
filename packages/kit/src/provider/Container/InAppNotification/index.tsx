@@ -20,11 +20,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
   EModalSwapRoutes,
-  ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationPushTopicTypes,
@@ -102,7 +102,7 @@ const InAppNotification = () => {
       void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
         activeAccount?.indexedAccount?.id,
         !activeAccount?.indexedAccount?.id
-          ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+          ? (activeAccount?.account?.id ?? activeAccount?.dbAccount?.id)
           : undefined,
       );
     },
@@ -467,10 +467,11 @@ const InAppNotification = () => {
               <Button
                 variant="primary"
                 size="small"
-                onPress={() => {
-                  navigation.switchTab(ETabRoutes.Earn, {
-                    screen: ETabEarnRoutes.EarnHome,
-                    params: { mode: isBorrowTransaction ? 'borrow' : 'earn' },
+                onPress={async () => {
+                  navigation.switchTab(ETabRoutes.Earn);
+                  await timerUtils.wait(50);
+                  appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
+                    mode: isBorrowTransaction ? 'borrow' : 'earn',
                   });
                 }}
               >
@@ -516,7 +517,7 @@ const InAppNotification = () => {
               isRead: false,
             });
           }, 80);
-          toast.close();
+          toast?.close();
         },
       });
     };

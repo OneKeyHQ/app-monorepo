@@ -1,4 +1,5 @@
 // oxlint-disable unicorn/prefer-global-this
+/* eslint-disable unicorn/prefer-global-this */
 
 /*
 - packages/shared/src/web/index.html.ejs
@@ -6,6 +7,11 @@
 - apps/ext/src/assets/preload-html-head.js
  */
 (function () {
+  // Keep startup time stamp for ext without relying on inline scripts (blocked by CSP).
+  if (typeof window.$$onekeyStartupTimeAt === 'undefined') {
+    window.$$onekeyStartupTimeAt = Date.now();
+  }
+
   // $$onekeyPerfTrace start ----------------------------------------------
   window.$$onekeyPerfTrace = {
     timeline: [],
@@ -33,6 +39,26 @@
   });
   // $$onekeyPerfTrace end ----------------------------------------------
 
+  // Record html render time for ext without inline scripts.
+  // (The element exists by DOMContentLoaded at the latest.)
+  try {
+    document.addEventListener(
+      'DOMContentLoaded',
+      () => {
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.setAttribute(
+            'data-html-render-time',
+            Date.now().toString(),
+          );
+        }
+      },
+      { once: true },
+    );
+  } catch (_error) {
+    // noop
+  }
+
   // themePreload start ----------------------------------------------
   const theme = localStorage.getItem('ONEKEY_THEME_PRELOAD');
   // packages/components/tamagui.config.ts
@@ -41,17 +67,24 @@
   // packages/components/tamagui.config.ts
   // darkColors.bgApp
   const darkColor = '#0f0f0f';
+  function applyThemeColor(color) {
+    document.documentElement.style.backgroundColor = color;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute('content', color);
+    }
+  }
   if (theme === 'dark') {
-    document.documentElement.style.backgroundColor = darkColor;
+    applyThemeColor(darkColor);
   } else if (theme === 'light') {
-    document.documentElement.style.backgroundColor = lightColor;
+    applyThemeColor(lightColor);
   } else if (window.matchMedia) {
     const color = window.matchMedia('(prefers-color-scheme: dark)').matches
       ? darkColor
       : lightColor;
-    document.documentElement.style.backgroundColor = color;
+    applyThemeColor(color);
   } else {
-    document.documentElement.style.backgroundColor = lightColor;
+    applyThemeColor(lightColor);
   }
   // themePreload end ----------------------------------------------
 

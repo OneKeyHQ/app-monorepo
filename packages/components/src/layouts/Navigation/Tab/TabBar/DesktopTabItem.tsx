@@ -32,6 +32,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { useBrowserSubmenu } from './BrowserSubmenuColumn/BrowserSubmenuContext';
+
 import type {
   Animated,
   GestureResponderEvent,
@@ -119,6 +121,7 @@ export function DesktopTabItem(
   } = props;
 
   const intl = useIntl();
+  const { reportPopoverOpen } = useBrowserSubmenu();
   const stackRef = useRef<TamaguiElement>(null);
   const openActionList = useRef<() => void | undefined>(undefined);
   const [isHovered, setIsHovered] = useState(false);
@@ -145,6 +148,7 @@ export function DesktopTabItem(
   }, []);
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
+      setIsHovered(false);
       if (selected) {
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
@@ -194,12 +198,12 @@ export function DesktopTabItem(
         }
       >
         {icon ? (
-          <XStack flexShrink={0}>
+          <XStack className="sidebar-tab-item-icon" flexShrink={0}>
             <Icon
               flexShrink={0}
               name={icon}
               color={selected ? '$iconActive' : '$iconSubdued'}
-              size="$5"
+              size={size === 'small' ? '$5' : '$6'}
               {...tabBarIconStyle}
             />
             {showDot ? (
@@ -264,6 +268,7 @@ export function DesktopTabItem(
               return undefined;
             }}
             onOpenChange={(isOpened) => {
+              reportPopoverOpen(isOpened);
               setIsContextMenuOpened(isOpened);
               setIsHovered(isOpened);
             }}
@@ -283,6 +288,7 @@ export function DesktopTabItem(
       reloadOnPress,
       rest,
       icon,
+      size,
       tabBarIconStyle,
       showDot,
       showAvatar,
@@ -291,6 +297,7 @@ export function DesktopTabItem(
       tabBarLabelStyle,
       hideCloseButton,
       actionList,
+      reportPopoverOpen,
       intl,
       onClose,
       children,

@@ -1,8 +1,10 @@
 import {
+  Badge,
   NumberSizeableText,
   PulseContainer,
   SizableText,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IStackProps } from '@onekeyhq/components';
@@ -26,6 +28,8 @@ export type ITokenListItemProps = {
   disabled?: boolean;
   titleMatchStr?: IFuseResultMatch;
   moreComponent?: React.ReactNode;
+  badgeText?: string;
+  tokenSize?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 } & IListItemProps &
   IStackProps;
 
@@ -42,6 +46,8 @@ export function TokenListItem({
   disabled,
   titleMatchStr,
   moreComponent,
+  badgeText,
+  tokenSize,
   ...rest
 }: ITokenListItemProps) {
   return (
@@ -60,6 +66,7 @@ export function TokenListItem({
         })}
       >
         <Token
+          size={tokenSize}
           tokenImageUri={tokenImageSrc}
           networkImageUri={networkImageSrc}
         />
@@ -69,7 +76,18 @@ export function TokenListItem({
           opacity: 0.5,
         })}
         flex={1}
-        primary={tokenSymbol}
+        primary={
+          badgeText ? (
+            <XStack alignItems="center" gap="$2">
+              <SizableText size="$bodyLgMedium">{tokenSymbol}</SizableText>
+              <Badge badgeType="success" badgeSize="sm">
+                {badgeText}
+              </Badge>
+            </XStack>
+          ) : (
+            tokenSymbol
+          )
+        }
         primaryMatch={titleMatchStr}
         primaryTextProps={{
           numberOfLines: 1,
@@ -93,7 +111,7 @@ export function TokenListItem({
               </SizableText>
             </Stack>
           ) : (
-            tokenName ?? ''
+            (tokenName ?? '')
           )
         }
       />

@@ -10,13 +10,14 @@ import {
 } from 'react';
 
 import { isNil } from 'lodash';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Toast, ToastViewport } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSafeAreaInsets } from '../../hooks/useLayout';
+import { usePageWidth } from '../../hooks/usePage';
 import { useOverlayZIndex } from '../../hooks/useStyle';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
@@ -128,7 +129,7 @@ function BasicShowToaster({
     event.preventDefault();
   }, []);
 
-  const screenWidth = useWindowDimensions().width;
+  const pageWidth = usePageWidth();
 
   const zIndex = useOverlayZIndex(isOpen, containerName);
   const isShowToast = useHackIsShowToast(isOpen);
@@ -169,7 +170,7 @@ function BasicShowToaster({
             enterStyle={{ opacity: 0, scale: 0.8, y: -20 }}
             exitStyle={{ opacity: 0, scale: 0.8, y: -20 }}
             duration={duration}
-            w={platformEnv.isNative ? screenWidth : undefined}
+            w={platformEnv.isNative ? pageWidth : undefined}
             maxWidth={platformEnv.isNative ? '$96' : undefined}
             px={platformEnv.isNative ? '$5' : undefined}
             animation="quick"

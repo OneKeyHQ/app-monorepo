@@ -32,9 +32,7 @@ const EmailOTPDialog = LazyLoadPage(
 
 const PrimeLoginEmailDialogV2 = LazyLoadPage(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'
-    ),
+    import('@onekeyhq/kit/src/views/Prime/components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'),
   0,
   true,
   <Stack>
@@ -170,12 +168,6 @@ export function useOneKeyAuth() {
             onClose: onCancelFirstStepFn,
             renderContent: (
               <PrimeLoginEmailDialogV2
-                title={intl.formatMessage({
-                  id: ETranslations.prime_signup_login,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.prime_onekeyid_continue_description,
-                })}
                 onComplete={() => {
                   isClosedByNextStep = true;
                   void loginDialog.close();
@@ -188,7 +180,7 @@ export function useOneKeyAuth() {
         }
       });
     },
-    [intl, logout, toOneKeyIdPage],
+    [logout, toOneKeyIdPage],
   );
 
   const sendEmailOTP = useCallback(

@@ -1,13 +1,17 @@
 import Svg, { Path } from 'react-native-svg';
 import type { SvgProps } from 'react-native-svg';
 const SvgChartDashbord2 = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
+    <Path d="M9 14H7v-3h2zm4 0h-2V7h2zm4 0h-2V9h2z" />
     <Path
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M4 4h16M4 4v11a2 2 0 0 0 2 2h6M4 4h18-2M4 4H2m18 0v11a2 2 0 0 1-2 2h-6m0 0 2 3m-2-3-2 3m2-12v5m-4-1v1m8-3v3"
+      fillRule="evenodd"
+      d="M23 5h-2v13h-7.133l1.519 2.277-1.664 1.11-1.723-2.584-1.722 2.584-1.664-1.11L10.132 18H3V5H1V3h22zM5 16h14V5H5z"
+      clipRule="evenodd"
     />
   </Svg>
 );

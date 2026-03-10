@@ -61,12 +61,25 @@ export const ProviderSwitch = ({
           />
         )}
         <XStack alignItems="center" gap="$2">
-          <Image
-            source={{ uri: providerInfo.logo }}
-            borderRadius="$1"
-            w="$5"
-            h="$5"
-          />
+          <Stack position="relative" w="$5" h="$5">
+            <Image
+              source={{ uri: providerInfo.logo }}
+              borderRadius="$1"
+              w="$5"
+              h="$5"
+            />
+            <Stack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              borderRadius="$1"
+              borderWidth="$px"
+              borderColor="$borderSubdued"
+              pointerEvents="none"
+            />
+          </Stack>
           <SizableText size="$bodyLgMedium">
             {providerInfo.providerName}
           </SizableText>

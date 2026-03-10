@@ -9,7 +9,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -23,8 +22,6 @@ const FALLBACK_VALUE = '--';
 type ISupplyValue = string | number | null | undefined;
 
 const toSupplyInput = (value: unknown): ISupplyValue => {
-  console.log('value', value);
-
   if (value === null || value === undefined) {
     return undefined;
   }
@@ -56,9 +53,7 @@ const formatCurrencyValue = (value: ISupplyValue, currencySymbol: string) => {
 
 export function TokenSupplementaryInfo() {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
   const { tokenDetail } = useTokenDetail();
-  const currencySymbol = settings?.currencyInfo?.symbol ?? '$';
 
   const rows = useMemo(() => {
     if (!tokenDetail) {
@@ -85,7 +80,7 @@ export function TokenSupplementaryInfo() {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_market_cap,
         }),
-        value: formatCurrencyValue(marketCap, currencySymbol),
+        value: formatCurrencyValue(marketCap, '$'),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_mc_tips,
         }),
@@ -93,27 +88,27 @@ export function TokenSupplementaryInfo() {
       {
         key: 'fdv',
         label: intl.formatMessage({ id: ETranslations.global_fdv }),
-        value: formatCurrencyValue(fdv, currencySymbol),
+        value: formatCurrencyValue(fdv, '$'),
         tooltip: intl.formatMessage({
           id: ETranslations.dexmarket_fdv_desc,
         }),
       },
     ];
-  }, [currencySymbol, intl, tokenDetail]);
+  }, [intl, tokenDetail]);
 
   if (!tokenDetail) {
     return null;
   }
 
   return (
-    <YStack p="$5">
+    <YStack pl="$3" pr="$5" pt="$3" gap="$2.5">
       {rows.map((item) => (
-        <XStack key={item.key} py="$2" gap="$2" jc="space-between" ai="center">
+        <XStack key={item.key} gap="$2" jc="space-between" ai="center">
           <Tooltip
             placement="top"
             renderTrigger={
               <DashText
-                size="$bodyMd"
+                size="$bodySm"
                 color="$textSubdued"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
@@ -126,7 +121,7 @@ export function TokenSupplementaryInfo() {
               <SizableText size="$bodySm">{item.tooltip}</SizableText>
             }
           />
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText size="$bodySmMedium" color="$text">
             {item.value}
           </SizableText>
         </XStack>
