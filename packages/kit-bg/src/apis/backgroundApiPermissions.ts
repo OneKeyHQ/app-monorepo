@@ -66,6 +66,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_analytics_line',
   'tradingview_analytics_studyCreated',
   'tradingview_analytics_studyRemoved',
+  'tradingview_touchScroll',
   // Perps chart lines methods
   'tradingview_perpsReady',
   'tradingview_perpsOrderCancel',
