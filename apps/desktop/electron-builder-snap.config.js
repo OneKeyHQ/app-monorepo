@@ -1,6 +1,9 @@
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const { getDesktopBuildVariant } = require('./scripts/build-variant');
+
+const { artifactPrefix, iconPngPath } = getDesktopBuildVariant();
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -11,8 +14,8 @@ module.exports = {
         'to': 'bin/bridge',
       },
     ],
-    'icon': 'app/build/static/images/icons/512x512.png',
-    'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
+    'icon': iconPngPath,
+    'artifactName': `${artifactPrefix}-\${version}-linux-\${arch}.\${ext}`,
     'executableName': 'onekey-wallet',
     'category': 'Utility',
     'target': ['snap'],

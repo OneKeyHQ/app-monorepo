@@ -36,7 +36,10 @@ import type {
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
-import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import {
+  devSettingsPersistAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
@@ -73,15 +76,21 @@ class ServiceMarketV2 extends ServiceBase {
     tokenAddress: string,
     networkId: string,
   ) {
+    const settings = await settingsPersistAtom.get();
+    const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const params: Record<string, string> = {
+      tokenAddress,
+      networkId,
+      currency: 'usd',
+    };
+    // When the user has selected a non-USD currency, request a converted price
+    if (selectedCurrencyId !== 'usd') {
+      params.convertCurrency = selectedCurrencyId;
+    }
     const response = await client.get<IMarketTokenDetailResponse>(
       '/utility/v2/market/token/detail',
-      {
-        params: {
-          tokenAddress,
-          networkId,
-        },
-      },
+      { params },
     );
     return response.data;
   }
@@ -162,6 +171,7 @@ class ServiceMarketV2 extends ServiceBase {
         limit,
         minLiquidity,
         maxLiquidity,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -200,6 +210,7 @@ class ServiceMarketV2 extends ServiceBase {
         interval: innerInterval,
         timeFrom,
         timeTo,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -227,6 +238,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
         ...(cursor !== undefined && { cursor }),
         ...(limit !== undefined && { limit }),
       },
@@ -262,6 +274,7 @@ class ServiceMarketV2 extends ServiceBase {
           accountAddress,
           tokenAddress,
           networkId,
+          currency: 'usd',
           ...(cursor !== undefined && { cursor }),
           ...(timeFrom !== undefined && { timeFrom }),
           ...(timeTo !== undefined && { timeTo }),
@@ -295,6 +308,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -347,6 +361,7 @@ class ServiceMarketV2 extends ServiceBase {
       data: IMarketTokenBatchListResponse;
     }>('/utility/v2/market/token/list/batch', {
       tokenAddressList: missingTokens,
+      currency: 'usd',
     });
 
     const { data } = response.data;
@@ -672,6 +687,7 @@ class ServiceMarketV2 extends ServiceBase {
           accountAddress,
           tokenAddress,
           xpub,
+          currency: 'usd',
         },
       });
 
@@ -728,6 +744,7 @@ class ServiceMarketV2 extends ServiceBase {
       data: IMarketBannerTokenListResponse;
     }>(
       `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+      { params: { currency: 'usd' } },
     );
     const { data } = response.data;
     return data.list;
