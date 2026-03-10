@@ -641,6 +641,19 @@ index d52f532..dbe6893 100644
 +    NSInteger pageCount = _nativeChildrenViewControllers.count;
 +
 +    if (pageCount == 0) return NO;
++    if (_currentIndex < 0 || _currentIndex >= pageCount) return NO;
++
++    // Nested coordination is designed for horizontal inner/outer pagers only.
++    // For vertical pagers, do not block so inner scrolling keeps working.
++    BOOL isHorizontal = [self isHorizontal];
++    if (!isHorizontal) return NO;
++
++    // Only edge-block for gestures that are primarily horizontal.
++    // This avoids accidental outer-tab switches on vertical/diagonal content scrolls.
++    CGFloat absVelocityX = fabs(velocity.x);
++    CGFloat absVelocityY = fabs(velocity.y);
++    if (absVelocityX <= absVelocityY) return NO;
++    if (absVelocityX < 1.0f) return NO;
 +
 +    BOOL isLtr = [self isLtrLayout];
 +    NSInteger firstPageIndex = isLtr ? 0 : pageCount - 1;
