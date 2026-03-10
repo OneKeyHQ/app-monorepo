@@ -358,7 +358,7 @@ class ServiceAccount extends ServiceBase {
   async getKeylessWallet(): Promise<IDBWallet | undefined> {
     // TODO remove
     // await timerUtils.wait(1500, { devOnly: true });
-    const { wallets } = await localDb.getAllWallets();
+    const { wallets } = await this.getAllWallets();
     const wallet = wallets.find((w) => w.isKeyless);
     if (wallet) {
       await localDb.refillWalletInfo({
@@ -389,6 +389,9 @@ class ServiceAccount extends ServiceBase {
         ),
       );
     }
+    await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentKeylessWalletIdWithWallets(
+      wallets,
+    );
     // Filter out keyless wallets if excludeKeylessWallet is true
     if (excludeKeylessWallet) {
       // do nothing
