@@ -74,7 +74,7 @@ interface ITokenIdentityItemProps {
    */
   communityRecognized?: boolean;
   /**
-   * Stock info for tokenized real-world assets (e.g. Ondo tokenized stocks).
+   * Stock info for tokenized real-world assets.
    */
   stock?: IMarketStockInfo;
 }
