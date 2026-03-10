@@ -12,6 +12,7 @@ import {
   popScanModalPages,
   resetAboveMainRoute,
   useClipboard,
+  waitForScanModalClosed,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
