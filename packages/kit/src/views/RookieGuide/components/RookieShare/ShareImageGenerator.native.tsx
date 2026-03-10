@@ -37,7 +37,7 @@ export const ShareImageGenerator = forwardRef<
     try {
       const fileUri = await viewShot.capture?.();
       if (!fileUri) return '';
-      return fileUriToBase64(fileUri);
+      return await fileUriToBase64(fileUri);
     } catch (error) {
       if (platformEnv.isDev) {
         console.error('Failed to generate image:', error);
