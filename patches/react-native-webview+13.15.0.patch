@@ -100,14 +100,14 @@ index 1f6bbfd..de275e6 100644
  - (void)injectJavaScript:(NSString *_Nullable)script;
  - (void)goForward;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..cd652a8 100644
+index 7f5c24d..0e5f807 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 @@ -22,6 +22,7 @@
  static NSString *const MessageHandlerName = @"ReactNativeWebView";
  static NSURLCredential* clientAuthenticationCredential;
  static NSDictionary* customCertificatesForHost;
-+static NSSet<NSString *> *sMediaPermissionWhitelist = nil;
++static NSSet<NSString *> *sMediaPermissionWhitelist = [NSSet set];
  
  NSString *const CUSTOM_SELECTOR = @"_CUSTOM_SELECTOR_";
  
