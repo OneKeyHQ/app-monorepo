@@ -24,34 +24,37 @@ export function getTemplatePhishingUrls(): string[] {
 let fiatPaySiteWhitelistOrigins: Set<string> = new Set();
 let fiatPaySiteWhitelistDomainKeys: Set<string> = new Set();
 
-const normalizeHostname = (hostname: string) =>
-  hostname.trim().toLowerCase().replace(/\.+$/u, '');
+function normalizeHostname(hostname: string): string {
+  return hostname.trim().toLowerCase().replace(/\.+$/u, '');
+}
 
-const isIpHostname = (hostname: string) =>
-  /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) || hostname.includes(':');
+function isIpHostname(hostname: string): boolean {
+  return /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) || hostname.includes(':');
+}
 
-const getHostnameDomainKey = (hostname: string) => {
-  const normalizedHostname = normalizeHostname(hostname);
-  if (!normalizedHostname) {
+function getHostnameDomainKey(hostname: string): string {
+  const normalized = normalizeHostname(hostname);
+  if (!normalized) {
     return '';
   }
-  if (isIpHostname(normalizedHostname)) {
-    return normalizedHostname;
+  if (isIpHostname(normalized)) {
+    return normalized;
   }
 
-  const labels = normalizedHostname.split('.').filter(Boolean);
+  const labels = normalized.split('.').filter(Boolean);
   if (labels.length <= 2) {
-    return normalizedHostname;
+    return normalized;
   }
 
-  const topLevelLabel = labels[labels.length - 1];
-  const secondLevelLabel = labels[labels.length - 2];
-  if (topLevelLabel.length === 2 && secondLevelLabel.length <= 3) {
+  const tld = labels[labels.length - 1];
+  const sld = labels[labels.length - 2];
+  // Country-code TLD with short second-level (e.g., "co.uk", "com.au")
+  if (tld.length === 2 && sld.length <= 3) {
     return labels.slice(-3).join('.');
   }
 
   return labels.slice(-2).join('.');
-};
+}
 
 export function getOriginDomainKey(origin: string): string {
   try {
@@ -98,9 +101,7 @@ class DesktopApiNetwork {
       Array.isArray(origins) ? origins : [],
     );
     fiatPaySiteWhitelistDomainKeys = new Set(
-      Array.from(fiatPaySiteWhitelistOrigins)
-        .map((origin) => getOriginDomainKey(origin))
-        .filter(Boolean),
+      [...fiatPaySiteWhitelistOrigins].map(getOriginDomainKey).filter(Boolean),
     );
   }
 

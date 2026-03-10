@@ -24,7 +24,7 @@
     <true/>
     <key>com.apple.security.device.bluetooth</key>
     <true/>
-    
+
     <key>com.apple.developer.icloud-services</key>
     <array>
       <string>CloudKit</string>
@@ -42,6 +42,6 @@
     <array>
       <string>iCloud.so.onekey.wallet</string>
     </array>
-    
+
   </dict>
 </plist>

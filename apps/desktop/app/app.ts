@@ -74,25 +74,20 @@ const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
 
-const isWhitelistedMediaOrigin = ({
-  origin,
-  whitelistOrigins,
-  whitelistDomainKeys,
-}: {
-  origin: string;
-  whitelistOrigins: Set<string>;
-  whitelistDomainKeys: Set<string>;
-}) => {
+function isWhitelistedMediaOrigin(
+  origin: string,
+  whitelistOrigins: Set<string>,
+  whitelistDomainKeys: Set<string>,
+): boolean {
   if (!origin) {
     return false;
   }
   if (whitelistOrigins.has(origin)) {
     return true;
   }
-
-  const originDomainKey = getOriginDomainKey(origin);
-  return !!originDomainKey && whitelistDomainKeys.has(originDomainKey);
-};
+  const domainKey = getOriginDomainKey(origin);
+  return !!domainKey && whitelistDomainKeys.has(domainKey);
+}
 
 if (isPerfCiMode) {
   // Keep prepared state in a stable location on perf machines.
@@ -927,19 +922,11 @@ async function createMainWindow() {
             ? new URL(requestingUrl).origin
             : '';
           const topLevelOrigin = topLevelUrl ? new URL(topLevelUrl).origin : '';
-          const whitelistOrigins = getFiatPaySiteWhitelistOrigins();
-          const whitelistDomainKeys = getFiatPaySiteWhitelistDomainKeys();
+          const origins = getFiatPaySiteWhitelistOrigins();
+          const domainKeys = getFiatPaySiteWhitelistDomainKeys();
           const isWhitelisted =
-            isWhitelistedMediaOrigin({
-              origin: requestingOrigin,
-              whitelistOrigins,
-              whitelistDomainKeys,
-            }) ||
-            isWhitelistedMediaOrigin({
-              origin: topLevelOrigin,
-              whitelistOrigins,
-              whitelistDomainKeys,
-            });
+            isWhitelistedMediaOrigin(requestingOrigin, origins, domainKeys) ||
+            isWhitelistedMediaOrigin(topLevelOrigin, origins, domainKeys);
           if (isWhitelisted) {
             callback(true);
             return;
