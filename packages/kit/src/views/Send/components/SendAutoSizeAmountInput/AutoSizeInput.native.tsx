@@ -1,4 +1,5 @@
 import { AutoSizeInputView } from '@onekeyfe/react-native-auto-size-input';
+import { useMemo } from 'react';
 import {
   type HybridView,
   callback as nitroCallback,
@@ -80,42 +81,15 @@ export function AutoSizeInput({
   autoSizeTransparentColor,
   onHybridRef,
 }: IAutoSizeInputProps) {
-  const inlineMeasureText = displayValue || inputPlaceholder || '0';
-  const inlineAmountTextWidthPx = Math.ceil(
-    estimateInlineTextWidthPx(inlineMeasureText, simpleFontSize) +
-      Math.max(18, Math.round(simpleFontSize * 0.5)),
-  );
-  const inlinePrefixTextWidthPx = currencyLabel
-    ? Math.ceil(estimateInlineTextWidthPx(currencyLabel, simpleFontSize))
-    : 0;
-  const inlineSuffixTextWidthPx = inlineTokenSymbol
-    ? Math.ceil(estimateInlineTextWidthPx(inlineTokenSymbol, simpleFontSize))
-    : 0;
-  const autoSizePreferredWidth = Math.ceil(
-    inlineAmountTextWidthPx +
-      inlinePrefixTextWidthPx +
-      inlineSuffixTextWidthPx +
-      (currencyLabel ? inlinePrefixGapPx : 0) +
-      (inlineTokenSymbol ? inlineSuffixGapPx : 0) +
-      simpleFontSize * 0.18,
-  );
-  const autoSizeContainerMinWidth = Math.ceil(simpleMaxFontSize * 1.2);
-  const defaultAutoSizeContainerMaxWidth = 320;
-  const autoSizeAvailableWidth =
-    availableInlineWidth > 0
-      ? Math.max(availableInlineWidth - 8, 0)
-      : defaultAutoSizeContainerMaxWidth;
-  const autoSizeContainerWidth = Math.min(
-    Math.max(autoSizePreferredWidth, autoSizeContainerMinWidth),
-    autoSizeAvailableWidth,
-    defaultAutoSizeContainerMaxWidth,
-  );
-  let autoSizeTextAlign: 'center' | 'left' | 'right' = 'center';
-  if (currencyLabel) {
-    autoSizeTextAlign = 'left';
-  } else if (inlineTokenSymbol) {
-    autoSizeTextAlign = 'right';
-  }
+  const autoSizeTextAlign = useMemo<'center' | 'left' | 'right'>(() => {
+    if (currencyLabel) {
+      return 'left';
+    }
+    if (inlineTokenSymbol) {
+      return 'right';
+    }
+    return 'center';
+  }, [currencyLabel, inlineTokenSymbol]);
 
   return (
     <Stack width="100%" alignItems="center" py="$1">
