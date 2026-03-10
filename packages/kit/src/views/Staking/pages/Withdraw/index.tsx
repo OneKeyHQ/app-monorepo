@@ -61,7 +61,9 @@ const WithdrawPage = () => {
       signature,
       message,
       useEthenaCooldown,
+      resumeEthenaCooldownUnstake,
       onStepChange,
+      onEthenaCooldownUnstakeReady,
     }: {
       amount: string;
       withdrawAll: boolean;
@@ -69,7 +71,9 @@ const WithdrawPage = () => {
       signature?: string;
       message?: string;
       useEthenaCooldown?: boolean;
+      resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
+      onEthenaCooldownUnstakeReady?: () => void;
     }) => {
       withdrawAbortRef.current?.abort();
       const abortController = new AbortController();
@@ -98,7 +102,9 @@ const WithdrawPage = () => {
         withdrawSignature: signature,
         withdrawMessage: message,
         useEthenaCooldown,
+        resumeEthenaCooldownUnstake,
         onStepChange,
+        onEthenaCooldownUnstakeReady,
         signal: abortController.signal,
         onSuccess: () => {
           appNavigation.pop();
