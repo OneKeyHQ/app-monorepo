@@ -1,5 +1,9 @@
 // oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const { getDesktopBuildVariant } = require('./scripts/build-variant');
+
+const { artifactPrefix, iconIcnsPath, liquidIconName } =
+  getDesktopBuildVariant();
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -10,8 +14,8 @@ module.exports = {
   },
   'mac': {
     'identity': null,
-    'icon': 'app/build/static/images/icons/icon.icns',
-    'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
+    'icon': iconIcnsPath,
+    'artifactName': `${artifactPrefix}-\${version}-mac-\${arch}.\${ext}`,
     'hardenedRuntime': true,
     'darkModeSupport': false,
     'category': 'public.app-category.finance',
@@ -25,7 +29,7 @@ module.exports = {
       },
     ],
     'extendInfo': {
-      'CFBundleIconName': 'OneKeyLogo',
+      'CFBundleIconName': liquidIconName,
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
@@ -43,7 +47,7 @@ module.exports = {
     'provisioningProfile': 'OneKey_Mac_App.provisionprofile',
     'x64ArchFiles': '*',
     'extendInfo': {
-      'CFBundleIconName': 'OneKeyLogo',
+      'CFBundleIconName': liquidIconName,
       'ElectronTeamID': 'BVJ3FU5H2K',
       'ITSAppUsesNonExemptEncryption': false,
       'NSBluetoothAlwaysUsageDescription':
