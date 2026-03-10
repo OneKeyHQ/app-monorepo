@@ -10,7 +10,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
-import type { PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
+import type {
+  PageScrollStateChangedNativeEvent,
+  PagerViewOnPageSelectedEvent,
+} from 'react-native-pager-view';
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
@@ -65,6 +68,7 @@ function OuterTabPagerViewComponent({
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
   const outerPagerRef = useRef<PagerView>(null);
   const currentOuterIndexRef = useRef(initialPage);
+  const wasUserDragRef = useRef(false);
 
   // Track which pages have been visited for lazy mounting.
   // Initial page is marked as visited immediately.
@@ -88,6 +92,18 @@ function OuterTabPagerViewComponent({
     }
   }, [selectedHeaderTab]);
 
+  const handleOuterPageScrollStateChanged = useCallback(
+    (e: PageScrollStateChangedNativeEvent) => {
+      const state = e.nativeEvent.pageScrollState;
+      if (state === 'dragging') {
+        wasUserDragRef.current = true;
+      } else if (state === 'idle') {
+        wasUserDragRef.current = false;
+      }
+    },
+    [],
+  );
+
   // --- PagerView -> Atom sync (gesture swiping) ---
   const handleOuterPageSelected = useCallback(
     (e: PagerViewOnPageSelectedEvent) => {
@@ -102,6 +118,12 @@ function OuterTabPagerViewComponent({
         if (prev[position]) return prev;
         return { ...prev, [position]: true };
       });
+
+      // Persist tab only for user-gesture swipes.
+      // iOS may emit synthetic onPageSelected during freeze/unfreeze.
+      if (!wasUserDragRef.current) {
+        return;
+      }
 
       // Update atom only if tab actually changed
       if (tab && tab !== selectedHeaderTabRef.current) {
@@ -198,6 +220,7 @@ function OuterTabPagerViewComponent({
       overdrag={false}
       overScrollMode="never"
       offscreenPageLimit={1}
+      onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}
     >
       {marketPage}
