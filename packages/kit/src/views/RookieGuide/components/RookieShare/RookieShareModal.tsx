@@ -13,12 +13,12 @@ import type {
   IRookieShareImageGeneratorRef,
 } from '@onekeyhq/shared/types/rookieGuide';
 
-// Track if a dialog is currently showing to prevent duplicate dialogs
-let isDialogShowing = false;
-
 import { ControlPanel } from './ControlPanel';
 import { ShareView } from './ShareView';
 import { useShareActions } from './useShareActions';
+
+// Track if a dialog is currently showing to prevent duplicate dialogs
+let isDialogShowing = false;
 
 interface IShareContentProps {
   data: IRookieShareData;
