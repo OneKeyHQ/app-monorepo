@@ -366,14 +366,22 @@ class ServiceKeylessCloudSync extends ServiceBase {
     ttlAutopurge: true,
   });
 
+  currentKeylessWalletIdCache: string | null | undefined;
+
   async getCurrentKeylessWalletId(): Promise<string | null> {
+    if (this.currentKeylessWalletIdCache !== undefined) {
+      return this.currentKeylessWalletIdCache;
+    }
     const keylessWallet = await this.getKeylessWallet();
-    return keylessWallet?.id ?? null;
+    this.currentKeylessWalletIdCache = keylessWallet?.id ?? null;
+    return this.currentKeylessWalletIdCache;
   }
 
   setKeylessCloudSyncCredentialCache(
     keylessCloudSyncCredential: IKeylessCloudSyncCredential,
   ) {
+    this.currentKeylessWalletIdCache =
+      keylessCloudSyncCredential.keylessWalletId;
     this.keylessCloudSyncCredentialCache.set(
       keylessCloudSyncCredential.keylessWalletId,
       keylessCloudSyncCredential,
@@ -400,9 +408,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
   } = {}) {
     if (keylessWalletId) {
       this.keylessCloudSyncCredentialCache.delete(keylessWalletId);
+      if (this.currentKeylessWalletIdCache === keylessWalletId) {
+        this.currentKeylessWalletIdCache = undefined;
+      }
       return;
     }
     this.keylessCloudSyncCredentialCache.clear();
+    this.currentKeylessWalletIdCache = undefined;
   }
 
   buildSyncCredentialWithKeylessCredential(

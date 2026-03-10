@@ -2215,10 +2215,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async decryptAllLocalSyncItems() {
-    await this.getSyncCredentialSafe();
+    const syncCredential = await this.getSyncCredentialSafe();
     const { items } = await this.getAllLocalSyncItems();
     console.log('getAllLocalSyncItems: ', { localItems: items });
-    const syncCredential = await this.getSyncCredentialSafe();
     const result: IDBCloudSyncItem[] = [];
     for (const item of items) {
       try {
@@ -2348,12 +2347,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   }: {
     includeDeleted?: boolean;
   } = {}) {
-    await this.getSyncCredentialSafe();
+    const syncCredential = await this.getSyncCredentialSafe();
     const { serverData: items, pwdHash } = await this.apiDownloadItems({
       includeDeleted,
     });
     const localItems: IDBCloudSyncItem[] = [];
-    const syncCredential = await this.getSyncCredentialSafe();
     for (const item of items) {
       const localItem = await this.convertServerItemToLocalItem({
         serverItem: item,
