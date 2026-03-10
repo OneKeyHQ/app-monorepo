@@ -21,9 +21,11 @@ export function useHolderItemData({ item, index }: IUseHolderItemDataProps) {
     return '-';
   }, [item.percentage]);
 
+  const fiatValue = item.fiatValue;
+
   const hasValidData = useMemo(() => {
-    return Boolean(item.amount && item.fiatValue);
-  }, [item.amount, item.fiatValue]);
+    return Boolean(item.amount && fiatValue);
+  }, [item.amount, fiatValue]);
 
   return {
     rank,
@@ -31,6 +33,6 @@ export function useHolderItemData({ item, index }: IUseHolderItemDataProps) {
     hasValidData,
     accountAddress: item.accountAddress,
     amount: item.amount,
-    fiatValue: item.fiatValue,
+    fiatValue,
   };
 }

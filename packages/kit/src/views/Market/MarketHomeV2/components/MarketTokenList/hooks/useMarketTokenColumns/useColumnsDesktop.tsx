@@ -20,7 +20,6 @@ import {
   LeverageBadge,
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ECopyFrom,
@@ -48,8 +47,6 @@ export const useColumnsDesktop = (
   copyFrom?: ECopyFrom,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
   const intl = useIntl();
 
   return [
@@ -122,6 +119,7 @@ export const useColumnsDesktop = (
             showCopyButton
             copyFrom={copyFrom || ECopyFrom.Homepage}
             communityRecognized={record.communityRecognized}
+            stock={record.stock}
           />
         ),
       renderSkeleton: () => (
@@ -140,13 +138,12 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.global_price }),
       dataIndex: 'price',
       columnProps: { flex: 1 },
-      render: (text: string, record: IMarketToken) => {
-        const currencySymbol = record.perpsCoin ? '$' : currency;
+      render: (text: string) => {
         return (
           <NumberSizeableText
             size="$bodyMd"
             formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
-            formatterOptions={{ currency: currencySymbol, capAtMaxT: true }}
+            formatterOptions={{ currency: '$', capAtMaxT: true }}
           >
             {text}
           </NumberSizeableText>
@@ -186,7 +183,7 @@ export const useColumnsDesktop = (
             <NumberSizeableText
               size="$bodyMd"
               formatter="marketCap"
-              formatterOptions={{ currency, capAtMaxT: true }}
+              formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
               {text === 0 ? '--' : text}
             </NumberSizeableText>
@@ -203,7 +200,7 @@ export const useColumnsDesktop = (
             <NumberSizeableText
               size="$bodyMd"
               formatter="marketCap"
-              formatterOptions={{ currency }}
+              formatterOptions={{ currency: '$' }}
             >
               {text === 0 ? '--' : text}
             </NumberSizeableText>
@@ -214,11 +211,11 @@ export const useColumnsDesktop = (
       title: intl.formatMessage({ id: ETranslations.dexmarket_turnover }),
       dataIndex: 'turnover',
       columnProps: { flex: 1.1 },
-      render: (text: number, record: IMarketToken) => (
+      render: (text: number) => (
         <NumberSizeableText
           size="$bodyMd"
           formatter="marketCap"
-          formatterOptions={{ currency: record.perpsCoin ? '$' : currency }}
+          formatterOptions={{ currency: '$' }}
         >
           {text === 0 ? '--' : text}
         </NumberSizeableText>

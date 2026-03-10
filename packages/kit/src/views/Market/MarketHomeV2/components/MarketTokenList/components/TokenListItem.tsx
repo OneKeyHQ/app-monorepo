@@ -2,7 +2,6 @@ import type { FC } from 'react';
 import { memo } from 'react';
 
 import { NumberSizeableText, XStack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { PriceChangeBadge } from '../../PriceChangeBadge';
 
@@ -21,9 +20,6 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   onPress,
   onLongPress,
 }) => {
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
-
   return (
     <XStack
       pressStyle={{ opacity: 0.8 }}
@@ -43,6 +39,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           showVolume
           volume={item.turnover}
           communityRecognized={item.communityRecognized}
+          stock={item.stock}
         />
       </XStack>
 
@@ -53,7 +50,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           numberOfLines={1}
           size="$bodyLgMedium"
           formatter="price"
-          formatterOptions={{ currency }}
+          formatterOptions={{ currency: '$' }}
         >
           {item.price}
         </NumberSizeableText>

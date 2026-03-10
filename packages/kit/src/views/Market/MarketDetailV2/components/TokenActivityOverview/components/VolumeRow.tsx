@@ -1,7 +1,6 @@
 import { useIntl } from 'react-intl';
 
 import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BuySellRatioBar } from './BuySellRatioBar';
@@ -20,7 +19,6 @@ export function VolumeRow({
     totalVolume !== undefined && totalVolume > 0 && buyVolume !== undefined
       ? (buyVolume / totalVolume) * 100
       : 0;
-  const [settingsPersistAtom] = useSettingsPersistAtom();
 
   // Show "--" when loading OR when data is undefined (field doesn't exist)
   const showTotalPlaceholder = isLoading || totalVolume === undefined;
@@ -40,7 +38,7 @@ export function VolumeRow({
               formatter="marketCap"
               size="$bodyMdMedium"
               formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
+                currency: '$',
               }}
             >
               {totalVolume}
@@ -64,7 +62,7 @@ export function VolumeRow({
               size="$bodyMd"
               color="$textSubdued"
               formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
+                currency: '$',
               }}
             >
               {buyVolume}
@@ -82,7 +80,7 @@ export function VolumeRow({
               size="$bodyMd"
               color="$textSubdued"
               formatterOptions={{
-                currency: settingsPersistAtom.currencyInfo.symbol,
+                currency: '$',
               }}
             >
               {sellVolume}

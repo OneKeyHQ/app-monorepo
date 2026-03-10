@@ -76,6 +76,10 @@ jobs:
         run: |
           yarn install --immutable
 
+      - name: Apply iOS build variant
+        run: |
+          node apps/mobile/scripts/apply-build-variant-ios.js
+
       - name: Configure Git to use HTTPS instead of SSH
         run: |
           git config --global url."https://github.com/".insteadOf git@github.com:
@@ -106,7 +110,7 @@ jobs:
       - name: Upload App File
         uses: actions/upload-artifact@v4
         with:
-          name: release-ios-debug-${{ github.sha }}
+          name: release-ios-debug${{ env.ONEKEY_BUILD_VARIANT_SUFFIX }}-${{ github.sha }}
           path: |
             ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip
           if-no-files-found: error
