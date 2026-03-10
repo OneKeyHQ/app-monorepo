@@ -214,7 +214,11 @@ function PerpOrderTypeInteractionDemo() {
           <SizableText size="$bodySm" fontWeight="500">
             Trigger Price (USD)
           </SizableText>
-          <Input value={triggerPrice} onChangeText={setTriggerPrice} allowClear />
+          <Input
+            value={triggerPrice}
+            onChangeText={setTriggerPrice}
+            allowClear
+          />
         </YStack>
       ) : null}
 
