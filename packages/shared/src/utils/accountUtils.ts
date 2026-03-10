@@ -720,6 +720,18 @@ function isOthersWallet({ walletId }: { walletId: string }): boolean {
   );
 }
 
+function hasNoUsableWallet({
+  wallet,
+  account,
+}: {
+  wallet: IDBWallet | undefined;
+  account: { id: string } | undefined;
+}): boolean {
+  return (
+    !wallet || (isOthersWallet({ walletId: wallet?.id ?? '' }) && !account)
+  );
+}
+
 function isOthersAccount({
   accountId,
 }: {
@@ -1210,6 +1222,7 @@ export default {
   isAllNetworkMockAddress,
   isAccountCompatibleWithNetwork,
   isOthersWallet,
+  hasNoUsableWallet,
   isOthersAccount,
   isUrlAccountFn,
   isTonMnemonicCredentialId,

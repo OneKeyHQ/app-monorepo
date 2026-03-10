@@ -94,9 +94,7 @@ export function WalletConnectionGroup({
   const [isFocus, setIsFocus] = useState(false);
 
   const hasNoUsableWallet = useMemo(
-    () =>
-      !wallet ||
-      (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) && !account),
+    () => accountUtils.hasNoUsableWallet({ wallet, account }),
     [wallet, account],
   );
 
@@ -158,7 +156,11 @@ export function WalletConnectionGroup({
   const [syncLoading] = useAccountSelectorSyncLoadingAtom();
   const isSyncLoading = syncLoading?.[0]?.isLoading;
 
-  if (hasNoUsableWallet && tabRoute === ETabRoutes.Home) {
+  if (
+    !platformEnv.isWebDappMode &&
+    hasNoUsableWallet &&
+    tabRoute === ETabRoutes.Home
+  ) {
     if (isSyncLoading) {
       return <Spinner size="small" />;
     }

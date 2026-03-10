@@ -37,9 +37,7 @@ export function SelectorTrigger() {
   const [syncLoading] = useAccountSelectorSyncLoadingAtom();
   const isSyncLoading = syncLoading?.[0]?.isLoading;
 
-  const hasNoUsableWallet =
-    !wallet ||
-    (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) && !account);
+  const hasNoUsableWallet = accountUtils.hasNoUsableWallet({ wallet, account });
 
   if (hasNoUsableWallet) {
     if (isSyncLoading) {

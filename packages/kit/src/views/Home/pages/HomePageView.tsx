@@ -11,6 +11,7 @@ import {
   Keyboard,
   Page,
   ScrollView,
+  Spinner,
   Stack,
   Tabs,
   YStack,
@@ -598,9 +599,7 @@ export function HomePageView({
   const isSyncLoading = syncLoading?.[0]?.isLoading;
 
   const hasNoUsableWallet = useMemo(
-    () =>
-      !wallet ||
-      (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) && !account),
+    () => accountUtils.hasNoUsableWallet({ wallet, account }),
     [wallet, account],
   );
 
@@ -616,7 +615,9 @@ export function HomePageView({
     }
 
     let content = isSyncLoading ? (
-      <Stack flex={1} justifyContent="center" alignItems="center" />
+      <Stack flex={1} justifyContent="center" alignItems="center">
+        <Spinner size="large" />
+      </Stack>
     ) : (
       <ScrollView
         h="100%"

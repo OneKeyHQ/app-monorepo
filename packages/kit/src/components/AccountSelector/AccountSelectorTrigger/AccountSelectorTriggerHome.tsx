@@ -1,4 +1,5 @@
 import { Spinner } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
@@ -32,8 +33,8 @@ export function AccountSelectorTriggerHome({
   const isSyncLoading = syncLoading?.[num]?.isLoading;
 
   if (
-    !wallet ||
-    (accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) && !account)
+    !platformEnv.isWebDappMode &&
+    accountUtils.hasNoUsableWallet({ wallet, account })
   ) {
     if (isSyncLoading) {
       return <Spinner size="small" />;
