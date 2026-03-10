@@ -1897,6 +1897,9 @@ class ServiceKeylessWallet extends ServiceBase {
     keylessDetailsInfo: IKeylessWalletDetailsInfo;
   }> {
     const { token, refreshToken, pin, customMnemonic } = params;
+    if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
+      throw new OneKeyLocalError('Keyless wallet already exists');
+    }
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }
