@@ -388,16 +388,6 @@ function PerpTradingForm({
         label: intl.formatMessage({ id: ETranslations.perp_order_tp_limit }),
         value: ETriggerOrderType.TAKE_LIMIT as ITriggerDropdownValue,
       },
-      {
-        label: 'Scale',
-        value: 'scale' as ITriggerDropdownValue,
-        disabled: true,
-      },
-      {
-        label: 'TWAP',
-        value: 'twap' as ITriggerDropdownValue,
-        disabled: true,
-      },
     ],
     [intl],
   );
@@ -660,7 +650,7 @@ function PerpTradingForm({
               size={isMobile ? '$bodyMd' : '$bodyMdMedium'}
               color="$text"
             >
-              Reduce Only
+              {intl.formatMessage({ id: ETranslations.perps_reduce_only })}
             </SizableText>
           </XStack>
         </YStack>

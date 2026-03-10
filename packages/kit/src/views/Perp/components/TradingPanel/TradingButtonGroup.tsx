@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  getTriggerDirectionRule,
   parseDexCoin,
   validateStandaloneTriggerPrice,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -251,7 +252,11 @@ function SideButtonInternal({
       if (isTriggerMode && formData.triggerOrderType) {
         const tp = formData.triggerPrice?.trim();
         if (!tp || new BigNumber(tp).lte(0)) {
-          Toast.message({ title: 'Trigger price is required' });
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.perps_input_trigger_price,
+            }),
+          });
           return;
         }
         const isLimitTrigger =
@@ -260,7 +265,11 @@ function SideButtonInternal({
         if (isLimitTrigger) {
           const ep = formData.executionPrice?.trim();
           if (!ep || new BigNumber(ep).lte(0)) {
-            Toast.message({ title: 'Execution price is required' });
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.perps_pro_execution_price,
+              }),
+            });
             return;
           }
         }
@@ -277,8 +286,32 @@ function SideButtonInternal({
             side,
           )
         ) {
+          const isStop =
+            formData.triggerOrderType === ETriggerOrderType.STOP_MARKET ||
+            formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT;
+          const dirRule = getTriggerDirectionRule(
+            formData.triggerOrderType,
+            side,
+          );
+          const typeKey = isStop
+            ? side === 'long'
+              ? ETranslations.perps_stop_loss_buy
+              : ETranslations.perps_stop_loss_sell
+            : side === 'long'
+              ? ETranslations.perps_take_profit_sell
+              : ETranslations.perps_take_profit_buy;
+          const dirKey =
+            dirRule === 'above'
+              ? ETranslations.perps_above
+              : ETranslations.perps_below;
           Toast.error({
-            title: 'Invalid trigger price for the selected direction',
+            title: intl.formatMessage(
+              { id: ETranslations.perps_pro_order_trigger_price },
+              {
+                type: intl.formatMessage({ id: typeKey }),
+                dir: intl.formatMessage({ id: dirKey }),
+              },
+            ),
           });
           return;
         }
