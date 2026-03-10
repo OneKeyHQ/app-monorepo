@@ -42,7 +42,6 @@ public class MainApplication extends Application implements ReactApplication {
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
         // All native modules are now Nitro modules (auto-linked)
-        packages.add(new MediaPermissionPackage());
         return packages;
       }
 

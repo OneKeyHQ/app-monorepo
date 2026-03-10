@@ -460,15 +460,6 @@ class ServiceSetting extends ServiceBase {
     if (platformEnv.isDesktop) {
       void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
     }
-    if (platformEnv.isNative) {
-      try {
-        const { default: MediaPermissionModule } =
-          await import('@onekeyhq/shared/src/modules/MediaPermissionModule');
-        MediaPermissionModule?.setMediaPermissionWhitelist(origins);
-      } catch {
-        // ignore if module not available
-      }
-    }
   }
 
   private async applyFiatPaySiteWhitelist(origins: string[]) {
