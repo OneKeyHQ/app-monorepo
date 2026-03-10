@@ -104,6 +104,9 @@ export const ONEKEY_LOGO_URL =
 
 // Background image URL - should be exported from Figma
 // For now, we'll use a gradient fallback
+// Pre-computed config at base size for native ShareContentRenderer
+export const CANVAS_CONFIG = getCanvasConfig(BASE_SIZE);
+
 export const BACKGROUND_GRADIENT_COLORS = [
   '#4bf55c', // Primary green
   '#77ff90', // Light green
