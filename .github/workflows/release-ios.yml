@@ -120,10 +120,6 @@ jobs:
         run: |
           yarn install --immutable
 
-      - name: Apply iOS build variant
-        run: |
-          node apps/mobile/scripts/apply-build-variant-ios.js
-
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
         run: |
