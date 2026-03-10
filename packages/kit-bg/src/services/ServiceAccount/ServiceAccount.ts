@@ -361,15 +361,7 @@ class ServiceAccount extends ServiceBase {
     const { wallets } = await this.getAllWallets();
     const wallet = wallets
       .filter((w) => w.isKeyless)
-      .toSorted((a, b) => {
-        const orderDiff =
-          (a.walletOrder ?? a.walletNo ?? 0) -
-          (b.walletOrder ?? b.walletNo ?? 0);
-        if (orderDiff !== 0) {
-          return orderDiff;
-        }
-        return a.id.localeCompare(b.id);
-      })[0];
+      .toSorted((a, b) => a.id.localeCompare(b.id))[0];
     if (wallet) {
       await localDb.refillWalletInfo({
         wallet,
