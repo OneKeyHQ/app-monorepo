@@ -19,7 +19,7 @@ export const END_X = 488;
 export const MID_X = (NOW_X + END_X) / 2;
 
 export const TARGET_Y = 28;
-const CURRENT_REFERENCE_Y = 158;
+export const CURRENT_REFERENCE_Y = 158;
 export const BOTTOM_Y = 190;
 export const LABEL_Y = 222;
 
@@ -44,57 +44,18 @@ export const COLORS = {
   badge: '#4D525D',
 } as const;
 
-export const LEFT_LINE_PATH =
-  'M125 19.5003C102.191 19.5003 80.3811 15.8293 57.5716 12.0309C38.7145 8.89059 19.8574 7.02666 1.00027 1.00027';
-export const CURVE_PATH =
-  'M1 1C23.8095 1 46.619 15.9143 69.4285 20.5376C92.238 25.1609 115.048 23.2716 137.857 28.7397C160.667 34.2077 183.476 69.2683 206.286 73.4492C229.095 77.63 251.904 75.5396 274.714 79.7205C297.523 83.9013 320.333 115.954 343.143 126.029C347.095 127.774 351.048 129.254 355 130.527';
-export const FILL_PATH =
-  'M68.2857 19.5376C45.5238 14.9143 22.7619 0 0 0V162H478V148C455.238 148 432.476 143.97 409.714 140.141C386.952 136.313 364.19 135.104 341.428 125.029C318.666 114.954 295.904 82.9013 273.142 78.7205C250.381 74.5396 227.619 76.63 204.857 72.4492C182.095 68.2683 159.333 33.2077 136.571 27.7397C113.81 22.2716 91.0475 24.1609 68.2857 19.5376Z';
+// Full-width wavy curve path in absolute SVG coordinates (valid at reference curveScale=1).
+// The curve oscillates like a real market chart and converges to TARGET_Y at END_X.
+// Key anchor: at NOW_X (133) the curve sits at CURRENT_REFERENCE_Y (158).
+export const FULL_CURVE_PATH =
+  'M 10 162 C 30 163 58 132 78 136 C 98 140 116 154 133 158 C 148 162 158 184 176 184 C 196 184 218 108 244 108 C 265 108 275 126 296 114 C 320 98 342 83 362 74 C 384 66 415 44 435 41 C 455 36 473 29 488 28';
 
-export type IPathLayout = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  viewBoxWidth: number;
-  viewBoxHeight: number;
-};
-
-export const FILL_LAYOUT: IPathLayout = {
-  x: 10,
-  y: 28,
-  width: 478,
-  height: 162,
-  viewBoxWidth: 478,
-  viewBoxHeight: 162,
-};
-
-export const LEFT_LAYOUT: IPathLayout = {
-  x: 10,
-  y: 157.5,
-  width: 124,
-  height: 18.5,
-  viewBoxWidth: 126,
-  viewBoxHeight: 20.5003,
-};
-
-export const CURVE_LAYOUT: IPathLayout = {
-  x: 134,
-  y: 28,
-  width: 354,
-  height: 129.527,
-  viewBoxWidth: 356,
-  viewBoxHeight: 131.527,
-};
+// Same curve closed to the bottom for the gradient fill area.
+export const FULL_FILL_PATH =
+  'M 10 162 C 30 163 58 132 78 136 C 98 140 116 154 133 158 C 148 162 158 184 176 184 C 196 184 218 108 244 108 C 265 108 275 126 296 114 C 320 98 342 83 362 74 C 384 66 415 44 435 41 C 455 36 473 29 488 28 L 488 190 L 10 190 Z';
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
-}
-
-export function buildPathTransform(layout: IPathLayout) {
-  const scaleX = layout.width / layout.viewBoxWidth;
-  const scaleY = layout.height / layout.viewBoxHeight;
-  return `translate(${layout.x + layout.width} ${layout.y}) scale(${-scaleX} ${scaleY})`;
 }
 
 export function getCurveScale({
