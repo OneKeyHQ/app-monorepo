@@ -66,6 +66,7 @@ import {
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
   PendleAccordionTriggerContent,
@@ -227,9 +228,9 @@ function WithdrawPathPopoverContent({
               ) : null}
             </YStack>
             <YStack flex={1} gap="$1" ai="flex-end">
-              <SizableText size="$headingMd" color="$text">
+              <EarnAmountText size="$headingMd" color="$text">
                 {box.description.text}
-              </SizableText>
+              </EarnAmountText>
               {box.subtitleDescription?.text ? (
                 <SizableText
                   size="$bodyMd"
@@ -1182,9 +1183,9 @@ export function UniversalWithdraw({
                 ) : null}
               </YStack>
               <YStack gap="$1" ai="flex-end">
-                <SizableText size="$bodyMdMedium" color="$text">
+                <EarnAmountText size="$bodyMdMedium" color="$text">
                   {selectedWithdrawPath.description.text}
-                </SizableText>
+                </EarnAmountText>
                 {selectedWithdrawPath.subtitleDescription?.text ? (
                   <XStack ai="center">
                     <SizableText
