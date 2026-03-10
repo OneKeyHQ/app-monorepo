@@ -34,6 +34,22 @@ let downloadTimeoutId: ReturnType<typeof setTimeout>;
 let failedRecoveryTimerId: ReturnType<typeof setTimeout>;
 let firstLaunch = true;
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  return String(value);
+}
+
+function normalizeOptionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -78,15 +94,33 @@ class ServiceAppUpdate extends ServiceBase {
     }>('/utility/v1/app-update');
     const { code, data } = response.data;
     if (code === 0 && data) {
+      const normalizedUpdateStrategy =
+        data.updateStrategy === undefined
+          ? undefined
+          : Number(data.updateStrategy);
+      const normalizedData: IResponseAppUpdateInfo = {
+        ...data,
+        updateStrategy: (normalizedUpdateStrategy ??
+          data.updateStrategy) as EUpdateStrategy,
+        version: normalizeOptionalString(data.version),
+        downloadUrl: normalizeOptionalString(data.downloadUrl),
+        changeLog: normalizeOptionalString(data.changeLog),
+        summary: normalizeOptionalString(data.summary),
+        jsBundleVersion: normalizeOptionalString(data.jsBundleVersion),
+        fileSize: normalizeOptionalNumber(data.fileSize),
+        jsBundle: data.jsBundle
+          ? {
+              downloadUrl: normalizeOptionalString(data.jsBundle.downloadUrl),
+              fileSize: normalizeOptionalNumber(data.jsBundle.fileSize),
+              sha256: normalizeOptionalString(data.jsBundle.sha256),
+              signature: normalizeOptionalString(data.jsBundle.signature),
+            }
+          : undefined,
+      };
       // Security: Validate updateStrategy is a known enum value
       if (
-        data.updateStrategy !== undefined &&
-        ![
-          EUpdateStrategy.silent,
-          EUpdateStrategy.force,
-          EUpdateStrategy.manual,
-          EUpdateStrategy.seamless,
-        ].includes(data.updateStrategy)
+        normalizedUpdateStrategy !== undefined &&
+        !Number.isFinite(normalizedUpdateStrategy)
       ) {
         defaultLogger.app.appUpdate.endInstallPackage(
           false,
@@ -96,11 +130,30 @@ class ServiceAppUpdate extends ServiceBase {
         );
         return this.cachedUpdateInfo;
       }
+      if (
+        normalizedData.updateStrategy !== undefined &&
+        ![
+          EUpdateStrategy.silent,
+          EUpdateStrategy.force,
+          EUpdateStrategy.manual,
+          EUpdateStrategy.seamless,
+        ].includes(normalizedData.updateStrategy)
+      ) {
+        defaultLogger.app.appUpdate.endInstallPackage(
+          false,
+          new Error(
+            `Invalid updateStrategy value: ${String(
+              normalizedData.updateStrategy,
+            )}`,
+          ),
+        );
+        return this.cachedUpdateInfo;
+      }
       // Security: Validate jsBundle fields if present
-      if (data.jsBundle) {
+      if (normalizedData.jsBundle) {
         if (
-          data.jsBundle.downloadUrl &&
-          !data.jsBundle.downloadUrl.startsWith('https://')
+          normalizedData.jsBundle.downloadUrl &&
+          !normalizedData.jsBundle.downloadUrl.startsWith('https://')
         ) {
           defaultLogger.app.appUpdate.endInstallPackage(
             false,
@@ -110,7 +163,7 @@ class ServiceAppUpdate extends ServiceBase {
         }
       }
       this.updateAt = Date.now();
-      this.cachedUpdateInfo = data;
+      this.cachedUpdateInfo = normalizedData;
     }
     return this.cachedUpdateInfo;
   }
