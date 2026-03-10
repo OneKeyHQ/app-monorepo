@@ -100,7 +100,7 @@ index 1f6bbfd..de275e6 100644
  - (void)injectJavaScript:(NSString *_Nullable)script;
  - (void)goForward;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..4891e7f 100644
+index 7f5c24d..cd652a8 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 @@ -22,6 +22,7 @@
@@ -125,23 +125,25 @@ index 7f5c24d..4891e7f 100644
  }
  
 ++ (void)setMediaPermissionWhitelist:(NSArray<NSString *> *)origins {
-+  sMediaPermissionWhitelist = origins ? [NSSet setWithArray:origins] : nil;
++  sMediaPermissionWhitelist = origins ? [NSSet setWithArray:origins] : [NSSet set];
 +}
 +
  - (void)                    webView:(WKWebView *)webView
    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
                    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
-@@ -1294,6 +1299,14 @@ - (void)                         webView:(WKWebView *)webView
+@@ -1294,6 +1299,16 @@ - (void)                         webView:(WKWebView *)webView
                          initiatedByFrame:(WKFrameInfo *)frame
                                      type:(WKMediaCaptureType)type
                           decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
-+  // Check whitelist first
++  // Check whitelist: grant if whitelisted, deny otherwise
 +  if (sMediaPermissionWhitelist) {
 +    NSString *originStr = [NSString stringWithFormat:@"%@://%@", origin.protocol, origin.host];
 +    if ([sMediaPermissionWhitelist containsObject:originStr]) {
 +      decisionHandler(WKPermissionDecisionGrant);
-+      return;
++    } else {
++      decisionHandler(WKPermissionDecisionDeny);
 +    }
++    return;
 +  }
    if (_mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElsePrompt || _mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElseDeny) {
      if ([origin.host isEqualToString:webView.URL.host]) {
