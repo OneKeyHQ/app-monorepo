@@ -1,7 +1,9 @@
 const { getPath } = require('./scripts/utils');
+const { getDesktopBuildVariant } = require('./scripts/build-variant');
 
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
+const { productName, iconPngPath, iconIcnsPath } = getDesktopBuildVariant();
 
 const baseElectronBuilderConfig = {
   'extraMetadata': {
@@ -9,7 +11,7 @@ const baseElectronBuilderConfig = {
     'version': process.env.VERSION,
   },
   'appId': 'so.onekey.wallet.desktop',
-  'productName': 'OneKey',
+  'productName': productName,
   'copyright': 'Copyright © ${author}',
   'asar': true,
   'buildVersion': process.env.BUILD_NUMBER,
@@ -30,11 +32,11 @@ const baseElectronBuilderConfig = {
   },
   'extraResources': [
     {
-      'from': 'app/build/static/images/icons/512x512.png',
+      'from': iconPngPath,
       'to': 'static/images/icons/512x512.png',
     },
     {
-      'from': 'app/build/static/images/icons/icon.icns',
+      'from': iconIcnsPath,
       'to': 'static/images/icons/icon.icns',
     },
     {
