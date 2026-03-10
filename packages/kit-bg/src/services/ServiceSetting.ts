@@ -65,6 +65,7 @@ import {
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
 import {
+  settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms/settings';
@@ -452,6 +453,52 @@ class ServiceSetting extends ServiceBase {
         ...prev,
         reviewControl: show,
       }));
+    }
+  }
+
+  @backgroundMethod()
+  public async fetchFiatPaySiteWhitelist() {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const key = 'FiatPay_site_white_list';
+    const response = await client.get<{
+      data: { value: string; key: string }[];
+    }>('/utility/v1/setting', {
+      params: {
+        key,
+      },
+    });
+    const data = response.data.data;
+    const matched = data.find((item) => item.key === key);
+    if (!matched) {
+      return;
+    }
+    const sites: { name: string; url: string }[] = JSON.parse(matched.value);
+    const origins = sites
+      .map((site) => {
+        try {
+          return new URL(site.url).origin;
+        } catch {
+          return '';
+        }
+      })
+      .filter(Boolean);
+    await settingsFiatPaySiteWhitelistPersistAtom.set((prev) => ({
+      ...prev,
+      fiatPaySiteWhitelist: origins,
+    }));
+    // Sync whitelist to Electron main process for webview media permission checks
+    if (platformEnv.isDesktop) {
+      void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
+    }
+    // Sync whitelist to native modules for mobile webview media permission checks
+    if (platformEnv.isNative) {
+      try {
+        const { default: MediaPermissionModule } =
+          await import('@onekeyhq/shared/src/modules/MediaPermissionModule');
+        MediaPermissionModule?.setMediaPermissionWhitelist(origins);
+      } catch {
+        // ignore if module not available
+      }
     }
   }
 

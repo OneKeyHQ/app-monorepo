@@ -26,7 +26,10 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
-import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+import {
+  getFiatPaySiteWhitelistOrigins,
+  getTemplatePhishingUrls,
+} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -887,6 +890,28 @@ async function createMainWindow() {
     }
     return false;
   });
+
+  // Media permission handler for webview (partition: persist:onekey)
+  // Allow camera/microphone for whitelisted fiat pay sites
+  const webviewSession = session.fromPartition('persist:onekey');
+  webviewSession.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      if (permission === 'media') {
+        const requestingUrl = details.requestingUrl || webContents.getURL();
+        try {
+          const { origin } = new URL(requestingUrl);
+          const whitelist = getFiatPaySiteWhitelistOrigins();
+          if (whitelist.has(origin)) {
+            callback(true);
+            return;
+          }
+        } catch {
+          // invalid URL, deny
+        }
+      }
+      callback(false);
+    },
+  );
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,

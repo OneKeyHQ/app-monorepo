@@ -21,6 +21,12 @@ export function getTemplatePhishingUrls(): string[] {
   return templatePhishingUrls;
 }
 
+let fiatPaySiteWhitelistOrigins: Set<string> = new Set();
+
+export function getFiatPaySiteWhitelistOrigins(): Set<string> {
+  return fiatPaySiteWhitelistOrigins;
+}
+
 class DesktopApiNetwork {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
@@ -37,6 +43,12 @@ class DesktopApiNetwork {
       templatePhishingUrls = urls;
     }
     return templatePhishingUrls;
+  }
+
+  async setFiatPaySiteWhitelist(origins: string[]): Promise<void> {
+    fiatPaySiteWhitelistOrigins = new Set(
+      Array.isArray(origins) ? origins : [],
+    );
   }
 
   async clearWebViewCache(): Promise<void> {

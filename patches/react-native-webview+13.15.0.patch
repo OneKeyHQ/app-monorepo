@@ -1,18 +1,49 @@
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
-index 07f73fd..5a18160 100644
+index 07f73fd..a5def40 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
-@@ -152,9 +152,11 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+@@ -19,6 +19,9 @@ import android.webkit.WebView;
+ import android.webkit.WebViewClient;
+ import android.widget.FrameLayout;
+ 
++import java.util.HashSet;
++import java.util.Set;
++
+ import androidx.annotation.RequiresApi;
+ import androidx.core.content.ContextCompat;
+ 
+@@ -50,6 +53,12 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+ 
+     protected static final int COMMON_PERMISSION_REQUEST = 3;
+ 
++    private static Set<String> sMediaPermissionWhitelist = new HashSet<>();
++
++    public static void setMediaPermissionWhitelist(Set<String> origins) {
++        sMediaPermissionWhitelist = origins != null ? origins : new HashSet<>();
++    }
++
+     protected RNCWebView mWebView;
+ 
+     protected View mVideoView;
+@@ -152,9 +161,19 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
              String androidPermission = null;
  
              if (requestedResource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
 -                androidPermission = Manifest.permission.RECORD_AUDIO;
-+                // androidPermission = Manifest.permission.RECORD_AUDIO;
-+                continue;
++                String origin = request.getOrigin().toString();
++                if (sMediaPermissionWhitelist.contains(origin)) {
++                    androidPermission = Manifest.permission.RECORD_AUDIO;
++                } else {
++                    continue;
++                }
              } else if (requestedResource.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
 -                androidPermission = Manifest.permission.CAMERA;
-+                // androidPermission = Manifest.permission.CAMERA;
-+                continue;
++                String origin = request.getOrigin().toString();
++                if (sMediaPermissionWhitelist.contains(origin)) {
++                    androidPermission = Manifest.permission.CAMERA;
++                } else {
++                    continue;
++                }
              } else if(requestedResource.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
@@ -56,11 +87,31 @@ index 438ab6a..853bcc5 100644
                  }
              }
              webChromeClient.setAllowsProtectedMedia(mAllowsProtectedMedia);
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.h b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
+index 1f6bbfd..de275e6 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewImpl.h
++++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
+@@ -141,6 +141,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
+ 
+ + (void)setClientAuthenticationCredential:(nullable NSURLCredential*)credential;
+ + (void)setCustomCertificatesForHost:(nullable NSDictionary *)certificates;
+++ (void)setMediaPermissionWhitelist:(NSArray<NSString *> *)origins;
+ - (void)postMessage:(NSString *_Nullable)message;
+ - (void)injectJavaScript:(NSString *_Nullable)script;
+ - (void)goForward;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..5623f4a 100644
+index 7f5c24d..4891e7f 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-@@ -874,7 +874,7 @@ - (void)visitSource
+@@ -22,6 +22,7 @@
+ static NSString *const MessageHandlerName = @"ReactNativeWebView";
+ static NSURLCredential* clientAuthenticationCredential;
+ static NSDictionary* customCertificatesForHost;
++static NSSet<NSString *> *sMediaPermissionWhitelist = nil;
+ 
+ NSString *const CUSTOM_SELECTOR = @"_CUSTOM_SELECTOR_";
+ 
+@@ -874,7 +875,7 @@ - (void)visitSource
        [webView loadHTMLString:@"" baseURL:nil];
        return;
      }
@@ -69,6 +120,32 @@ index 7f5c24d..5623f4a 100644
        [webView loadRequest:request];
      }
      else {
+@@ -1149,6 +1150,10 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
+   customCertificatesForHost = certificates;
+ }
+ 
+++ (void)setMediaPermissionWhitelist:(NSArray<NSString *> *)origins {
++  sMediaPermissionWhitelist = origins ? [NSSet setWithArray:origins] : nil;
++}
++
+ - (void)                    webView:(WKWebView *)webView
+   didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+                   completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
+@@ -1294,6 +1299,14 @@ - (void)                         webView:(WKWebView *)webView
+                         initiatedByFrame:(WKFrameInfo *)frame
+                                     type:(WKMediaCaptureType)type
+                          decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
++  // Check whitelist first
++  if (sMediaPermissionWhitelist) {
++    NSString *originStr = [NSString stringWithFormat:@"%@://%@", origin.protocol, origin.host];
++    if ([sMediaPermissionWhitelist containsObject:originStr]) {
++      decisionHandler(WKPermissionDecisionGrant);
++      return;
++    }
++  }
+   if (_mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElsePrompt || _mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElseDeny) {
+     if ([origin.host isEqualToString:webView.URL.host]) {
+       decisionHandler(WKPermissionDecisionGrant);
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewManager.mm b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
 index f8f375f..e7ec106 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewManager.mm
