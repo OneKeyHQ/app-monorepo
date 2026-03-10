@@ -1036,9 +1036,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             // Trigger orders don't lock margin, slider max = balance × leverage / price
             const leverageValue = activeAssetDataValue?.leverage?.value;
             const fallbackLeverage = activeAssetValue?.universe?.maxLeverage;
-            const effPriceBN = effectivePrice.isFinite() && effectivePrice.gt(0)
-              ? effectivePrice
-              : new BigNumber(activeAssetCtxValue?.ctx?.markPrice ?? 0);
+            const effPriceBN =
+              effectivePrice.isFinite() && effectivePrice.gt(0)
+                ? effectivePrice
+                : new BigNumber(activeAssetCtxValue?.ctx?.markPrice ?? 0);
             let triggerMaxTradeSzs = activeAssetDataValue?.maxTradeSzs;
             if (effPriceBN.gt(0)) {
               const effLeverage = new BigNumber(
