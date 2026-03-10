@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -33,6 +34,14 @@ const WRAPPED_SYMBOL_MIN_FONT_SIZE = 14;
 const WRAPPED_SYMBOL_MAX_FONT_SIZE = 24;
 const WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX = 16;
 const WRAPPED_SYMBOL_BREAK_CHARS = new Set([' ', '-', '_', '/', '.']);
+// iOS-only hidden marker used to force a native prop delta without visible UI change.
+const IOS_FORCE_WRITEBACK_MARKER = '\u200B';
+
+const stripIOSForceWritebackMarker = (text: string) =>
+  text.replace(/\u200B/g, '');
+
+const makeIOSForceWritebackPulseText = (text: string) =>
+  `${text}${IOS_FORCE_WRITEBACK_MARKER}`;
 
 const getAmountFontSize = (length: number, scale = 1): number => {
   let size: number;
@@ -131,9 +140,28 @@ const formatWrappedTokenSymbol = ({
 };
 
 const sanitizeAmountInputText = (text: string): string => {
-  let sanitizedText = text.replace(/[。,，,]/g, '.');
-  const firstDecimalIndex = sanitizedText.indexOf('.');
+  let sanitizedText = text.replace(/\s/g, '').replace(/[。,，,]/g, '.');
 
+  // Auto-prepend "0" for ".5" style input.
+  if (sanitizedText.startsWith('.')) {
+    sanitizedText = `0${sanitizedText}`;
+  }
+
+  // Keep "0" / "0.xxx", trim redundant leading zeros like "0012" -> "12".
+  if (sanitizedText.length > 1 && sanitizedText.startsWith('0')) {
+    if (!sanitizedText.startsWith('0.')) {
+      sanitizedText = sanitizedText.replace(/^0+/, '') || '0';
+      if (sanitizedText.startsWith('.')) {
+        sanitizedText = `0${sanitizedText}`;
+      }
+    }
+  }
+
+  // Keep only digits and decimal separator.
+  sanitizedText = sanitizedText.replace(/[^\d.]/g, '');
+
+  // Keep only the first decimal separator.
+  const firstDecimalIndex = sanitizedText.indexOf('.');
   if (firstDecimalIndex !== -1) {
     const integerPart = sanitizedText.slice(0, firstDecimalIndex + 1);
     const decimalPart = sanitizedText
@@ -220,6 +248,10 @@ function SendAutoSizeAmountInputComponent(
   const [layoutWidth, setLayoutWidth] = useState(0);
   const inputRef = useRef<TextInput>(null);
   const autoSizeInputRef = useRef<{ focus?: () => void } | null>(null);
+  const [forcedNativeText, setForcedNativeText] = useState<string | null>(null);
+  const forceWritebackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const { width: windowWidth } = useWindowDimensions();
   const rootOnLayout = onLayout as
     | ((event: LayoutChangeEvent) => void)
@@ -236,11 +268,52 @@ function SendAutoSizeAmountInputComponent(
     focusPercentageButton: () => {},
   }));
 
+  const displayValue = value ?? '';
+
+  const clearForceWritebackTimer = useCallback(() => {
+    if (forceWritebackTimerRef.current) {
+      clearTimeout(forceWritebackTimerRef.current);
+      forceWritebackTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => clearForceWritebackTimer(), [clearForceWritebackTimer]);
+
+  useEffect(() => {
+    if (!platformEnv.isNativeIOS) {
+      return;
+    }
+    // Parent controlled value updated, drop local one-shot override.
+    setForcedNativeText((prev) => {
+      if (prev === null) {
+        return prev;
+      }
+      const normalizedPrev = stripIOSForceWritebackMarker(prev);
+      return normalizedPrev === displayValue ? null : prev;
+    });
+  }, [displayValue]);
+
   const handleSimpleChangeText = useCallback(
     (text: string) => {
-      onChange?.(sanitizeAmountInputText(text));
+      const sanitizedText = sanitizeAmountInputText(text);
+      onChange?.(sanitizedText);
+
+      // iOS native input can keep stale text when parent value does not change.
+      // Force a pulse write-back so native receives a prop change every time.
+      if (platformEnv.isNativeIOS && sanitizedText !== text) {
+        clearForceWritebackTimer();
+        const pulseText = makeIOSForceWritebackPulseText(sanitizedText);
+        setForcedNativeText(pulseText);
+        forceWritebackTimerRef.current = setTimeout(() => {
+          setForcedNativeText(sanitizedText);
+          forceWritebackTimerRef.current = null;
+        }, 0);
+      } else {
+        clearForceWritebackTimer();
+        setForcedNativeText((prev) => (prev === null ? prev : null));
+      }
     },
-    [onChange],
+    [clearForceWritebackTimer, onChange],
   );
 
   const handleInputLayout = useCallback(
@@ -254,7 +327,13 @@ function SendAutoSizeAmountInputComponent(
     [rootOnLayout],
   );
 
-  const displayValue = value ?? '';
+  // Android keeps using the controlled value directly; pulse write-back is iOS-only.
+  const effectiveDisplayValueRaw = platformEnv.isNativeIOS
+    ? (forcedNativeText ?? displayValue)
+    : displayValue;
+  const effectiveDisplayValue = platformEnv.isNativeIOS
+    ? stripIOSForceWritebackMarker(effectiveDisplayValueRaw)
+    : effectiveDisplayValueRaw;
   const normalizedTokenSymbol = useMemo(
     () => normalizeTokenSymbol(tokenSymbol),
     [tokenSymbol],
@@ -274,7 +353,7 @@ function SendAutoSizeAmountInputComponent(
   const onInputFocus = inputProps?.onFocus;
   const onInputBlur = inputProps?.onBlur;
   const simpleFontSize = getAmountFontSize(
-    displayValue?.length || 0,
+    effectiveDisplayValue?.length || 0,
     fontSizeScale,
   );
   const availableInlineWidth = Math.max(
@@ -318,8 +397,8 @@ function SendAutoSizeAmountInputComponent(
     4,
     Math.ceil(estimateTextWidthPx(' ', simpleFontSize)),
   );
-  let autoSizeTextValue = displayValue;
-  if (displayValue === '') {
+  let autoSizeTextValue = effectiveDisplayValueRaw;
+  if (effectiveDisplayValue === '') {
     autoSizeTextValue = platformEnv.isNativeIOS ? '0' : '';
   }
 
