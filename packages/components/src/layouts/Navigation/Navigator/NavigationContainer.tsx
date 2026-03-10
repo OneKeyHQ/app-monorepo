@@ -26,10 +26,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabRoutes,
-  ITabStackParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -135,36 +132,63 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   );
 }
 
-export const switchTab = <T extends ETabRoutes>(
-  route: T,
-  params?: {
-    params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
-  },
-) => {
+const getActiveTabFromRef = (
+  ref: typeof rootNavigationRef,
+): string | undefined => {
+  const s = ref.current?.getRootState();
+  if (!s) return undefined;
+  const main = s.routes?.find((r) => r.name === ERootRoutes.Main);
+  const idx = main?.state?.index ?? 0;
+  return main?.state?.routes?.[idx]?.name;
+};
+
+const hasOverlayAboveMain = (ref: typeof rootNavigationRef): boolean => {
+  const s = ref.current?.getRootState();
+  if (!s) return false;
+  const topRoute = s.routes?.[s.index ?? 0];
+  return topRoute?.name !== ERootRoutes.Main;
+};
+
+export const switchTab = (route: ETabRoutes) => {
+  // Skip per-ref navigate if already on the target tab to avoid unnecessary
+  // navigate(pop:true) which triggers RNSScreenStack retry storms on iOS
+  // when the tab's inner stack has pages that get popped and orphaned.
+  // But if any overlay route is currently above Main, we still need one
+  // navigate(pop:true) to refocus Main and avoid leaving overlay on top.
+  const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
+  const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
+
   defaultLogger.app.router.switchTab(route);
 
   setTimeout(() => {
-    tabletMainViewNavigationRef.current?.navigate(
+    const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
+    const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
+    if (
+      tabletActiveTab !== undefined &&
+      (tabletHasOverlay || tabletActiveTab !== route)
+    ) {
+      tabletMainViewNavigationRef.current?.navigate(
+        ERootRoutes.Main,
+        {
+          screen: route,
+        },
+        {
+          pop: true,
+        },
+      );
+    }
+  });
+  if (rootHasOverlay || rootActiveTab !== route) {
+    rootNavigationRef.current?.navigate(
       ERootRoutes.Main,
       {
         screen: route,
-        params,
       },
       {
         pop: true,
       },
     );
-  });
-  rootNavigationRef.current?.navigate(
-    ERootRoutes.Main,
-    {
-      screen: route,
-      params,
-    },
-    {
-      pop: true,
-    },
-  );
+  }
 
   defaultLogger.app.router.switchTabDone(route);
 };

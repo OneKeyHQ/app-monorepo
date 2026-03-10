@@ -40,6 +40,7 @@ interface IMobileLayoutProps {
   selectedNetworkId: string;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
   tabsRef?: RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }
 
 // Context for dynamic tab bar values so renderTabBar stays stable.
@@ -101,6 +102,7 @@ function MobileLayoutComponent({
   selectedNetworkId,
   onTabChange,
   tabsRef,
+  nestedPager = false,
 }: IMobileLayoutProps) {
   const {
     watchlistTabName,
@@ -206,6 +208,10 @@ function MobileLayoutComponent({
         renderTabBar={renderTabBar}
         initialTabName={initialTabName}
         onTabChange={onTabChangeHandler}
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        pagerProps={
+          nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
+        }
         {...containerProps}
       >
         <Tabs.Tab name={watchlistTabName}>

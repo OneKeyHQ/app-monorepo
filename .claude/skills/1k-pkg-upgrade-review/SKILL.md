@@ -73,5 +73,4 @@ npm view PKG@NEW_VER dist.integrity
 
 ## Related Skills
 
-- `/pr-review` - Security-focused PR review (supply-chain risk)
-- `/1k-code-review-pr` - Build reliability and runtime quality review
+- `/1k-code-review-pr` - Comprehensive PR code review (security, code quality, platform patterns)
