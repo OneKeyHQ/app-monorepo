@@ -746,6 +746,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       isFull = false,
       params?: {
         latestVersion?: string;
+        jsBundleVersion?: string;
         isForceUpdate?: boolean;
         summary?: string;
         storeUrl?: string;
@@ -762,7 +763,17 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           summary: params?.summary || '',
           lastUpdateDialogShownAt: currentUpdateInfo.lastUpdateDialogShownAt,
           onConfirm: () => {
-            if (!platformEnv.isExtension && params?.storeUrl) {
+            const fileType = getUpdateFileType({
+              latestVersion:
+                params?.latestVersion ?? currentUpdateInfo.latestVersion,
+              jsBundleVersion:
+                params?.jsBundleVersion ?? currentUpdateInfo.jsBundleVersion,
+            });
+            if (
+              !platformEnv.isExtension &&
+              params?.storeUrl &&
+              fileType === EUpdateFileType.appShell
+            ) {
               openUrlExternal(params.storeUrl);
             } else {
               setTimeout(async () => {
