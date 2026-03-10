@@ -28,9 +28,7 @@ function EarnBorrowPagerViewComponent(
   );
 
   return (
-    <YStack flex={1}>
-      {mode === 'borrow' ? borrowContent : earnContent}
-    </YStack>
+    <YStack flex={1}>{mode === 'borrow' ? borrowContent : earnContent}</YStack>
   );
 }
 
