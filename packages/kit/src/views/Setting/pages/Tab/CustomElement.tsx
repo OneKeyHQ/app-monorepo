@@ -689,7 +689,7 @@ export function SocialButtonGroup() {
               TEST
             </Badge>
             <Badge badgeType="critical" badgeSize="lg">
-              SKIPGPG
+              SKIP GPG
             </Badge>
           </XStack>
         ) : null}
