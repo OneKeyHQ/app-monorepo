@@ -1,6 +1,7 @@
 import { useCallback, useContext } from 'react';
 
 import {
+  runOnUI,
   scrollTo,
   useAnimatedReaction,
   useSharedValue,
@@ -44,7 +45,11 @@ export function useMobileTabTouchScrollBridge() {
       if (deltaY === 0) {
         return;
       }
-      scrollDelta.value += deltaY;
+      runOnUI((delta: number) => {
+        'worklet';
+
+        scrollDelta.value += delta;
+      })(deltaY);
     },
     [scrollDelta],
   );
