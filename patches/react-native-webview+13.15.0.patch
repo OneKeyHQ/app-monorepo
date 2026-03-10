@@ -2,36 +2,141 @@ diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactna
 index 07f73fd..a5def40 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
-@@ -19,6 +19,9 @@ import android.webkit.WebView;
+@@ -19,6 +19,11 @@ import android.webkit.WebView;
  import android.webkit.WebViewClient;
  import android.widget.FrameLayout;
  
++import android.net.Uri;
 +import java.util.HashSet;
++import java.util.Locale;
 +import java.util.Set;
 +
  import androidx.annotation.RequiresApi;
  import androidx.core.content.ContextCompat;
  
-@@ -50,6 +53,12 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
- 
-     protected static final int COMMON_PERMISSION_REQUEST = 3;
- 
+@@ -50,6 +54,96 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+  
+      protected static final int COMMON_PERMISSION_REQUEST = 3;
+  
 +    private static Set<String> sMediaPermissionWhitelist = new HashSet<>();
++    private static Set<String> sMediaPermissionWhitelistDomainKeys = new HashSet<>();
 +
 +    public static void setMediaPermissionWhitelist(Set<String> origins) {
-+        sMediaPermissionWhitelist = origins != null ? origins : new HashSet<>();
++        sMediaPermissionWhitelist = origins != null ? new HashSet<>(origins) : new HashSet<>();
++        sMediaPermissionWhitelistDomainKeys = buildMediaPermissionWhitelistDomainKeys(sMediaPermissionWhitelist);
++    }
++
++    private static String normalizeHostname(String hostname) {
++        if (hostname == null) {
++            return "";
++        }
++        hostname = hostname.trim().toLowerCase(Locale.ROOT);
++        while (hostname.endsWith(".")) {
++            hostname = hostname.substring(0, hostname.length() - 1);
++        }
++        return hostname;
++    }
++
++    private static boolean isIpHostname(String hostname) {
++        return hostname.matches("^\\d{1,3}(?:\\.\\d{1,3}){3}$") || hostname.contains(":");
++    }
++
++    private static String getHostnameDomainKey(String hostname) {
++        String normalizedHostname = normalizeHostname(hostname);
++        if (normalizedHostname.isEmpty()) {
++            return "";
++        }
++        if (isIpHostname(normalizedHostname)) {
++            return normalizedHostname;
++        }
++
++        String[] labels = normalizedHostname.split("\\.");
++        if (labels.length <= 2) {
++            return normalizedHostname;
++        }
++
++        String topLevelLabel = labels[labels.length - 1];
++        String secondLevelLabel = labels[labels.length - 2];
++        if (topLevelLabel.length() == 2 && secondLevelLabel.length() <= 3 && labels.length >= 3) {
++            return labels[labels.length - 3] + "." + secondLevelLabel + "." + topLevelLabel;
++        }
++
++        return secondLevelLabel + "." + topLevelLabel;
++    }
++
++    private static String getOriginDomainKey(String origin) {
++        try {
++            Uri uri = Uri.parse(origin);
++            String scheme = uri.getScheme();
++            String host = uri.getHost();
++            if (scheme == null || host == null) {
++                return null;
++            }
++            String normalizedScheme = scheme.toLowerCase(Locale.ROOT);
++            if (!"https".equals(normalizedScheme) && !"http".equals(normalizedScheme)) {
++                return null;
++            }
++
++            String domainKey = getHostnameDomainKey(host);
++            if (domainKey.isEmpty()) {
++                return null;
++            }
++            return normalizedScheme + "://" + domainKey;
++        } catch (Exception ignored) {
++            return null;
++        }
++    }
++
++    private static Set<String> buildMediaPermissionWhitelistDomainKeys(Set<String> origins) {
++        Set<String> domainKeys = new HashSet<>();
++        for (String origin : origins) {
++            String domainKey = getOriginDomainKey(origin);
++            if (domainKey != null) {
++                domainKeys.add(domainKey);
++            }
++        }
++        return domainKeys;
++    }
++
++    private boolean hasMatchingWhitelistedDomain(String origin) {
++        String originDomainKey = getOriginDomainKey(origin);
++        return originDomainKey != null && sMediaPermissionWhitelistDomainKeys.contains(originDomainKey);
++    }
++
++    private boolean isWhitelistedMediaOrigin(String requestingOrigin) {
++        if (sMediaPermissionWhitelist.contains(requestingOrigin)) {
++            return true;
++        }
++        try {
++            String currentUrl = mWebView != null ? mWebView.getUrl() : null;
++            if (currentUrl == null) {
++                return false;
++            }
++            Uri uri = Uri.parse(currentUrl);
++            String scheme = uri.getScheme();
++            String authority = uri.getAuthority();
++            if (scheme == null || authority == null) {
++                return false;
++            }
++            String topLevelOrigin = scheme + "://" + authority;
++            return sMediaPermissionWhitelist.contains(topLevelOrigin)
++                    || hasMatchingWhitelistedDomain(requestingOrigin)
++                    || hasMatchingWhitelistedDomain(topLevelOrigin);
++        } catch (Exception ignored) {
++            return false;
++        }
 +    }
 +
      protected RNCWebView mWebView;
  
      protected View mVideoView;
-@@ -152,9 +161,19 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+@@ -152,9 +177,19 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
              String androidPermission = null;
  
              if (requestedResource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
 -                androidPermission = Manifest.permission.RECORD_AUDIO;
 +                String origin = request.getOrigin().toString();
-+                if (sMediaPermissionWhitelist.contains(origin)) {
++                if (isWhitelistedMediaOrigin(origin)) {
 +                    androidPermission = Manifest.permission.RECORD_AUDIO;
 +                } else {
 +                    continue;
@@ -39,7 +144,7 @@ index 07f73fd..a5def40 100644
              } else if (requestedResource.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
 -                androidPermission = Manifest.permission.CAMERA;
 +                String origin = request.getOrigin().toString();
-+                if (sMediaPermissionWhitelist.contains(origin)) {
++                if (isWhitelistedMediaOrigin(origin)) {
 +                    androidPermission = Manifest.permission.CAMERA;
 +                } else {
 +                    continue;
@@ -104,10 +209,93 @@ index 7f5c24d..0e5f807 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 @@ -22,6 +22,7 @@
- static NSString *const MessageHandlerName = @"ReactNativeWebView";
- static NSURLCredential* clientAuthenticationCredential;
- static NSDictionary* customCertificatesForHost;
-+static NSSet<NSString *> *sMediaPermissionWhitelist = [NSSet set];
+static NSString *const MessageHandlerName = @"ReactNativeWebView";
+static NSURLCredential* clientAuthenticationCredential;
+static NSDictionary* customCertificatesForHost;
++static NSSet<NSString *> *sMediaPermissionWhitelist;
++static NSSet<NSString *> *sMediaPermissionWhitelistDomainKeys;
++
++static NSString *OKNormalizeHostname(NSString *hostname) {
++  NSString *normalizedHostname = [[hostname ?: @"" stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
++  while ([normalizedHostname hasSuffix:@"."]) {
++    normalizedHostname = [normalizedHostname substringToIndex:normalizedHostname.length - 1];
++  }
++  return normalizedHostname;
++}
++
++static BOOL OKIsIPHostname(NSString *hostname) {
++  if ([hostname containsString:@":"]) {
++    return YES;
++  }
++
++  NSArray<NSString *> *segments = [hostname componentsSeparatedByString:@"."];
++  if (segments.count != 4) {
++    return NO;
++  }
++
++  NSCharacterSet *nonDigits = [[NSCharacterSet decimalDigitCharacterSet] invertedSet];
++  for (NSString *segment in segments) {
++    if (segment.length == 0 || [segment rangeOfCharacterFromSet:nonDigits].location != NSNotFound) {
++      return NO;
++    }
++  }
++
++  return YES;
++}
++
++static NSString *OKHostnameDomainKey(NSString *hostname) {
++  NSString *normalizedHostname = OKNormalizeHostname(hostname);
++  if (normalizedHostname.length == 0) {
++    return nil;
++  }
++  if (OKIsIPHostname(normalizedHostname)) {
++    return normalizedHostname;
++  }
++
++  NSArray<NSString *> *labels = [normalizedHostname componentsSeparatedByString:@"."];
++  if (labels.count <= 2) {
++    return normalizedHostname;
++  }
++
++  NSString *topLevelLabel = labels.lastObject;
++  NSString *secondLevelLabel = labels[labels.count - 2];
++  if (topLevelLabel.length == 2 && secondLevelLabel.length <= 3 && labels.count >= 3) {
++    return [NSString stringWithFormat:@"%@.%@.%@", labels[labels.count - 3], secondLevelLabel, topLevelLabel];
++  }
++
++  return [NSString stringWithFormat:@"%@.%@", secondLevelLabel, topLevelLabel];
++}
++
++static NSString *OKOriginDomainKey(NSString *scheme, NSString *host) {
++  NSString *normalizedScheme = [scheme.lowercaseString copy];
++  if (![normalizedScheme isEqualToString:@"https"] && ![normalizedScheme isEqualToString:@"http"]) {
++    return nil;
++  }
++
++  NSString *domainKey = OKHostnameDomainKey(host);
++  if (domainKey.length == 0) {
++    return nil;
++  }
++
++  return [NSString stringWithFormat:@"%@://%@", normalizedScheme, domainKey];
++}
++
++static NSSet<NSString *> *OKBuildWhitelistDomainKeys(NSSet<NSString *> *whitelist) {
++  if (whitelist.count == 0) {
++    return nil;
++  }
++
++  NSMutableSet<NSString *> *domainKeys = [NSMutableSet set];
++  for (NSString *whitelistedOrigin in whitelist) {
++    NSURLComponents *components = [NSURLComponents componentsWithString:whitelistedOrigin];
++    NSString *whitelistedDomainKey = OKOriginDomainKey(components.scheme, components.host);
++    if (whitelistedDomainKey.length > 0) {
++      [domainKeys addObject:whitelistedDomainKey];
++    }
++  }
++
++  return domainKeys.count > 0 ? [domainKeys copy] : nil;
++}
  
  NSString *const CUSTOM_SELECTOR = @"_CUSTOM_SELECTOR_";
  
@@ -125,20 +313,31 @@ index 7f5c24d..0e5f807 100644
  }
  
 ++ (void)setMediaPermissionWhitelist:(NSArray<NSString *> *)origins {
-+  sMediaPermissionWhitelist = origins ? [NSSet setWithArray:origins] : [NSSet set];
++  sMediaPermissionWhitelist = origins ? [NSSet setWithArray:origins] : nil;
++  sMediaPermissionWhitelistDomainKeys = OKBuildWhitelistDomainKeys(sMediaPermissionWhitelist);
 +}
 +
  - (void)                    webView:(WKWebView *)webView
    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
                    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
-@@ -1294,6 +1299,16 @@ - (void)                         webView:(WKWebView *)webView
+@@ -1294,6 +1299,26 @@ - (void)                         webView:(WKWebView *)webView
                          initiatedByFrame:(WKFrameInfo *)frame
                                      type:(WKMediaCaptureType)type
                           decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
 +  // Check whitelist: grant if whitelisted, deny otherwise
 +  if (sMediaPermissionWhitelist) {
 +    NSString *originStr = [NSString stringWithFormat:@"%@://%@", origin.protocol, origin.host];
-+    if ([sMediaPermissionWhitelist containsObject:originStr]) {
++    NSString *topLevelOriginStr = nil;
++    NSString *originDomainKey = OKOriginDomainKey(origin.protocol, origin.host);
++    NSString *topLevelDomainKey = nil;
++    if (webView.URL.scheme && webView.URL.host) {
++      topLevelOriginStr = [NSString stringWithFormat:@"%@://%@", webView.URL.scheme, webView.URL.host];
++      topLevelDomainKey = OKOriginDomainKey(webView.URL.scheme, webView.URL.host);
++    }
++    if ([sMediaPermissionWhitelist containsObject:originStr] ||
++        (topLevelOriginStr && [sMediaPermissionWhitelist containsObject:topLevelOriginStr]) ||
++        (originDomainKey && [sMediaPermissionWhitelistDomainKeys containsObject:originDomainKey]) ||
++        (topLevelDomainKey && [sMediaPermissionWhitelistDomainKeys containsObject:topLevelDomainKey])) {
 +      decisionHandler(WKPermissionDecisionGrant);
 +    } else {
 +      decisionHandler(WKPermissionDecisionDeny);

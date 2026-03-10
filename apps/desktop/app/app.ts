@@ -27,7 +27,9 @@ import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
 import {
+  getFiatPaySiteWhitelistDomainKeys,
   getFiatPaySiteWhitelistOrigins,
+  getOriginDomainKey,
   getTemplatePhishingUrls,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
@@ -71,6 +73,26 @@ initSentry();
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
+
+const isWhitelistedMediaOrigin = ({
+  origin,
+  whitelistOrigins,
+  whitelistDomainKeys,
+}: {
+  origin: string;
+  whitelistOrigins: Set<string>;
+  whitelistDomainKeys: Set<string>;
+}) => {
+  if (!origin) {
+    return false;
+  }
+  if (whitelistOrigins.has(origin)) {
+    return true;
+  }
+
+  const originDomainKey = getOriginDomainKey(origin);
+  return !!originDomainKey && whitelistDomainKeys.has(originDomainKey);
+};
 
 if (isPerfCiMode) {
   // Keep prepared state in a stable location on perf machines.
@@ -896,17 +918,34 @@ async function createMainWindow() {
   const webviewSession = session.fromPartition('persist:onekey');
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
+      const requestingUrl = details.requestingUrl || '';
+      const topLevelUrl = webContents.getURL();
+
       if (permission === 'media') {
-        const requestingUrl = details.requestingUrl || webContents.getURL();
         try {
-          const { origin } = new URL(requestingUrl);
-          const whitelist = getFiatPaySiteWhitelistOrigins();
-          if (whitelist.has(origin)) {
+          const requestingOrigin = requestingUrl
+            ? new URL(requestingUrl).origin
+            : '';
+          const topLevelOrigin = topLevelUrl ? new URL(topLevelUrl).origin : '';
+          const whitelistOrigins = getFiatPaySiteWhitelistOrigins();
+          const whitelistDomainKeys = getFiatPaySiteWhitelistDomainKeys();
+          const isWhitelisted =
+            isWhitelistedMediaOrigin({
+              origin: requestingOrigin,
+              whitelistOrigins,
+              whitelistDomainKeys,
+            }) ||
+            isWhitelistedMediaOrigin({
+              origin: topLevelOrigin,
+              whitelistOrigins,
+              whitelistDomainKeys,
+            });
+          if (isWhitelisted) {
             callback(true);
             return;
           }
         } catch {
-          // invalid URL, deny
+          // Ignore malformed URLs and fall through to deny by default.
         }
       }
       callback(false);

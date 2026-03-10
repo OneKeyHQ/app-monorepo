@@ -22,9 +22,57 @@ export function getTemplatePhishingUrls(): string[] {
 }
 
 let fiatPaySiteWhitelistOrigins: Set<string> = new Set();
+let fiatPaySiteWhitelistDomainKeys: Set<string> = new Set();
+
+const normalizeHostname = (hostname: string) =>
+  hostname.trim().toLowerCase().replace(/\.+$/u, '');
+
+const isIpHostname = (hostname: string) =>
+  /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) || hostname.includes(':');
+
+const getHostnameDomainKey = (hostname: string) => {
+  const normalizedHostname = normalizeHostname(hostname);
+  if (!normalizedHostname) {
+    return '';
+  }
+  if (isIpHostname(normalizedHostname)) {
+    return normalizedHostname;
+  }
+
+  const labels = normalizedHostname.split('.').filter(Boolean);
+  if (labels.length <= 2) {
+    return normalizedHostname;
+  }
+
+  const topLevelLabel = labels[labels.length - 1];
+  const secondLevelLabel = labels[labels.length - 2];
+  if (topLevelLabel.length === 2 && secondLevelLabel.length <= 3) {
+    return labels.slice(-3).join('.');
+  }
+
+  return labels.slice(-2).join('.');
+};
+
+export function getOriginDomainKey(origin: string): string {
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return '';
+    }
+
+    const domainKey = getHostnameDomainKey(url.hostname);
+    return domainKey ? `${url.protocol}//${domainKey}` : '';
+  } catch {
+    return '';
+  }
+}
 
 export function getFiatPaySiteWhitelistOrigins(): Set<string> {
   return fiatPaySiteWhitelistOrigins;
+}
+
+export function getFiatPaySiteWhitelistDomainKeys(): Set<string> {
+  return fiatPaySiteWhitelistDomainKeys;
 }
 
 class DesktopApiNetwork {
@@ -48,6 +96,11 @@ class DesktopApiNetwork {
   async setFiatPaySiteWhitelist(origins: string[]): Promise<void> {
     fiatPaySiteWhitelistOrigins = new Set(
       Array.isArray(origins) ? origins : [],
+    );
+    fiatPaySiteWhitelistDomainKeys = new Set(
+      Array.from(fiatPaySiteWhitelistOrigins)
+        .map((origin) => getOriginDomainKey(origin))
+        .filter(Boolean),
     );
   }
 
