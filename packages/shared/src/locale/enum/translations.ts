@@ -586,6 +586,7 @@
   defi_to_maturity = 'defi.to_maturity',
   defi_total_size = 'defi.total_size',
   defi_underlying_apy = 'defi.underlying_apy',
+  defi_unrealized_pnl_title = 'defi.unrealized_pnl_title',
   defi_unstake = 'defi.unstake',
   defi_unstaking = 'defi.unstaking',
   defi_unstaking_via_ethena = 'defi.unstaking_via_ethena',

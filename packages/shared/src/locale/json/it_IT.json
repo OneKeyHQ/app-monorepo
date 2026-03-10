@@ -581,6 +581,7 @@
   "defi.to_maturity": "A Scadenza",
   "defi.total_size": "Dimensione Totale",
   "defi.underlying_apy": "APY sottostante",
+  "defi.unrealized_pnl_title": "PnL non realizzato",
   "defi.unstake": "Sblocca",
   "defi.unstaking": "Sblocco",
   "defi.unstaking_via_ethena": "Sblocco tramite Ethena",

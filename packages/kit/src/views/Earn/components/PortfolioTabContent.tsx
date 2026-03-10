@@ -344,6 +344,7 @@ const EarningsField = ({
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
   const netPnl = asset.metadata?.netPnl;
+  const netPnlFiatValue = asset.metadata?.netPnlFiatValue;
   const secondLine = useMemo(() => {
     if (netPnl) {
       return null;
@@ -370,9 +371,10 @@ const EarningsField = ({
   if (netPnl) {
     return (
       <FieldWrapper asset={asset}>
-        <SizableText size="$bodyMdMedium" color="$textSuccess">
-          {netPnl}
-        </SizableText>
+        <YStack jc="center" flex={1} gap="$1">
+          <EarnText size="$bodyMdMedium" text={netPnlFiatValue} />
+          <EarnText size="$bodySm" text={netPnl} />
+        </YStack>
       </FieldWrapper>
     );
   }
@@ -391,11 +393,13 @@ const MobilePnlSection = memo(
   ({ asset }: { asset: IEarnPortfolioInvestment['assets'][number] }) => {
     const intl = useIntl();
     const netPnl = asset.metadata?.netPnl;
+    const netPnlFiatValue = asset.metadata?.netPnlFiatValue;
     if (netPnl) {
       return (
-        <SizableText size="$bodySm" color="$textSuccess">
-          {netPnl}
-        </SizableText>
+        <XStack ai="center" gap="$1">
+          <EarnText size="$bodySm" text={netPnlFiatValue} />
+          <EarnText size="$bodySm" text={netPnl} />
+        </XStack>
       );
     }
     if (asset.totalReward) {
@@ -771,7 +775,7 @@ const PortfolioItemComponent = ({
     () =>
       intl.formatMessage({
         id: isPendle
-          ? ETranslations.defi_net_pnl_title
+          ? ETranslations.defi_unrealized_pnl_title
           : ETranslations.earn_24h_earnings,
       }),
     [intl, isPendle],
@@ -931,15 +935,19 @@ const PortfolioItemComponent = ({
                 ? {
                     renderExpandedContent: (asset) => (
                       <YStack gap="$5">
-                        {/* Earnings / Net P&L */}
+                        {/* Earnings / Unrealized PnL */}
                         <XStack ai="center" gap="$1">
                           {asset.metadata?.netPnl ? (
-                            <SizableText
-                              size="$bodyLgMedium"
-                              color="$textSuccess"
-                            >
-                              {asset.metadata.netPnl}
-                            </SizableText>
+                            <>
+                              <EarnText
+                                size="$bodyLgMedium"
+                                text={asset.metadata.netPnlFiatValue}
+                              />
+                              <EarnText
+                                size="$bodyMd"
+                                text={asset.metadata.netPnl}
+                              />
+                            </>
                           ) : (
                             <EarnText
                               size="$bodyLgMedium"

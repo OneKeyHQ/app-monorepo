@@ -581,6 +581,7 @@
   "defi.to_maturity": "จนครบกำหนด",
   "defi.total_size": "ขนาดรวม",
   "defi.underlying_apy": "APY อ้างอิง",
+  "defi.unrealized_pnl_title": "กำไรขาดทุนที่ยังไม่เกิดขึ้นจริง",
   "defi.unstake": "เลิกสเตค",
   "defi.unstaking": "กำลังเลิกสเตค",
   "defi.unstaking_via_ethena": "การเลิกสเตคผ่าน Ethena",

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -45,19 +45,36 @@ const WithdrawPage = () => {
   const actionTag = protocolInfo?.stakeTag || '';
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
+  const withdrawAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(
+    () => () => {
+      withdrawAbortRef.current?.abort();
+    },
+    [],
+  );
+
   const onConfirm = useCallback(
     async ({
       amount,
       withdrawAll,
       signature,
       message,
+      useEthenaCooldown,
+      onStepChange,
     }: {
       amount: string;
       withdrawAll: boolean;
       // Stakefish: signature and message for withdraw all
       signature?: string;
       message?: string;
+      useEthenaCooldown?: boolean;
+      onStepChange?: (step: number) => void;
     }) => {
+      withdrawAbortRef.current?.abort();
+      const abortController = new AbortController();
+      withdrawAbortRef.current = abortController;
+
       await handleWithdraw({
         amount,
         identity,
@@ -80,6 +97,9 @@ const WithdrawPage = () => {
         // Signature and message for withdraw all
         withdrawSignature: signature,
         withdrawMessage: message,
+        useEthenaCooldown,
+        onStepChange,
+        signal: abortController.signal,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
