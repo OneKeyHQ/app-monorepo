@@ -78,12 +78,14 @@ function PerpOrderTypeInteractionDemo() {
   const [executionPrice, setExecutionPrice] = useState('67580');
   const [reduceOnly, setReduceOnly] = useState(false);
 
-  const isTriggerOrder = orderType.startsWith('stop') || orderType.startsWith('take');
+  const isTriggerOrder =
+    orderType.startsWith('stop') || orderType.startsWith('take');
   const needsLimitPrice = orderType === 'limit';
   const needsExecutionPrice =
     orderType === 'stopLimit' || orderType === 'takeLimit';
   const triggerTpsl = orderType.startsWith('take') ? 'tp' : 'sl';
-  const triggerIsMarket = orderType === 'stopMarket' || orderType === 'takeMarket';
+  const triggerIsMarket =
+    orderType === 'stopMarket' || orderType === 'takeMarket';
 
   const payloadPreview = useMemo(() => {
     const base = {
