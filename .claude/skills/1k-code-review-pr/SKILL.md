@@ -20,10 +20,11 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 3. **Triage** — Determine which review modules apply (see triage table)
 4. **Primary Review** — Read each changed file, apply relevant checks from `references/`
 5. **Codex Cross-Review** — If Codex MCP available, run full parallel review (see below)
-6. **Merge Findings** — Combine primary + Codex findings, deduplicate, annotate confidence
-7. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
-8. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
-9. **GH Comment** — For Blocker issues, offer to post inline PR comments (with confirmation)
+6. **PR Comment Analysis** — Fetch all existing PR comments (bot + human), analyze with local codebase context (see below)
+7. **Merge Findings** — Combine primary + Codex + PR comment findings, deduplicate, annotate confidence
+8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
+9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
+10. **GH Comment** — For Blocker issues, offer to post inline PR comments (with confirmation)
 
 ## Codex MCP Integration
 
@@ -47,6 +48,66 @@ Check if `mcp__codex__codex` is in available tools.
 4. Add a **Codex 交叉验证摘要** table in the report (see report template)
 
 **If unavailable:** Skip silently. Set "Codex 交叉验证: ⏭️ 未启用" in the report header. Do NOT mention Codex anywhere else.
+
+## PR Comment Analysis
+
+Collect ALL existing comments on the PR — bot and human — then analyze each with your local codebase context. You have full source access, type system, and dependency graph; most commenters only saw the diff. Use this asymmetry.
+
+### Fetching All Comments
+
+Use `gh api` to get full user metadata (including `type` field for bot detection):
+
+```bash
+# Top-level PR reviews (review bodies)
+gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
+  --jq '[.[] | select(.body != "") | {author: .user.login, is_bot: (.user.type == "Bot"), body: .body, state: .state, association: .author_association}]'
+
+# Inline review comments (file:line annotations)
+gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
+  --jq '[.[] | {author: .user.login, is_bot: (.user.type == "Bot"), path: .path, line: .line, body: .body, association: .author_association}]'
+
+# General PR comments (issue-level)
+gh api repos/{owner}/{repo}/issues/{pr_number}/comments \
+  --jq '[.[] | {author: .user.login, is_bot: (.user.type == "Bot"), body: .body, association: .author_association}]'
+```
+
+**Bot detection** — use the `user.type == "Bot"` field from GitHub API, not hardcoded username lists. This automatically covers any bot (current and future) without maintenance.
+
+If no comments exist, set "PR 评论分析: ⏭️ 无评论" in the report header and skip this section.
+
+### Analysis Framework
+
+For each substantive comment (skip empty approvals, CI status badges, pure formatting):
+
+| Verdict | Meaning | Action |
+|---------|---------|--------|
+| **✅ Confirmed** | Comment identifies a real issue | Include in findings, tag source `[<author>]` |
+| **🔍 Enriched** | Real issue, but analysis is shallow or fix is wrong | Include with deeper fix guidance from your codebase knowledge |
+| **❌ Noise** | Not an issue given full codebase context | Note in "评论误报分析" with brief explanation of why |
+| **📋 Already Covered** | Your primary review caught it | Cross-validate, boost confidence |
+
+**Your local advantages — use them aggressively:**
+- **Full source** — trace data flow across files, not just the diff
+- **Type system** — run `tsc`, verify types end-to-end
+- **Architecture** — you know OneKey's import hierarchy and platform patterns
+- **Dependencies** — `yarn info`, changelogs, actual vulnerability reachability
+- **Runtime reasoning** — state flows, async lifecycles, race conditions
+
+When someone flags something vague, dig into the source to confirm or refute. When a comment misses context (e.g., a function is safely guarded upstream), explain why. When a comment is right, amplify with richer context.
+
+### Cross-Validation Rules
+
+- Comment + primary review agree → Mark `{Cross-validated ✅}`, promote to 🔵 High
+- Comment-only finding you confirm → Include at appropriate confidence with `[<author>]` tag
+- Comment-only finding you can't confirm or refute → Include as ⚪ Low with note
+- Comment you refute with evidence → Add to "评论误报分析" section
+
+### Security Comment Special Handling
+
+For security-related comments (from bots like Snyk/Dependabot or from human reviewers):
+- **Vulnerability reports** — check if the vulnerable code path is actually reachable in OneKey's usage
+- **License issues** — verify against OneKey's license policy
+- **Dependency alerts** — check if the flagged version is actually used (not just in lockfile)
 
 ## Triage: Which Checks to Run
 
@@ -135,7 +196,7 @@ Rate the PR on 4 dimensions (1-10 each):
 | **🟠 Medium** | Likely issue, needs context | Pattern suggests problem, might be intentional |
 | **⚪ Low** | Possible issue, needs human check | Heuristic match, depends on business logic |
 
-Cross-validated findings (primary + Codex agree) → automatically **🔵 High**.
+Cross-validated findings (primary + Codex agree, or primary + PR comment agree) → automatically **🔵 High**.
 
 ## Auto-Fix Patches
 
@@ -165,16 +226,21 @@ Do NOT generate auto-fix for:
 
 ## GH CLI Inline Comments
 
-After generating the report, if there are **🔴 高** findings:
+After generating the report, if there are findings that meet the comment threshold:
 
-1. List the Blocker findings that warrant PR comments
+**Comment threshold**: 🔵 High confidence + 🟡 中 priority or above. This means:
+- All 🔴 高 findings (regardless of confidence)
+- All 🟡 中 findings with 🔵 High confidence (cross-validated or confirmed from code)
+- Excludes: 🟢 低 findings, and 🟡 中 with 🟠 Medium or ⚪ Low confidence
+
+1. List the qualifying findings that warrant PR comments
 2. **Ask the reviewer**: "以下问题建议直接评论到 PR 上，是否确认？"
 3. **Only after explicit yes**, post via:
 
 ```bash
 # Inline comment on specific file:line
 gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
-  --field body="🔴 **问题标题**: 描述...
+  --field body="🟡 **问题标题**: 描述...
 
 **建议修复:**
 \`\`\`suggestion
@@ -190,7 +256,7 @@ _— Auto-review by Claude_" \
 
 **Rules:**
 - Never post without explicit reviewer confirmation
-- Only post 🔴 高 findings
+- Only post findings meeting the comment threshold (see above)
 - Include auto-fix in `suggestion` block when available
 - Maximum 5 inline comments per PR
 
@@ -206,6 +272,7 @@ _— Auto-review by Claude_" \
 - **风险等级**: Critical / High / Medium / Low
 - **涉及平台**: Extension / Mobile / Desktop / Web
 - **Codex 交叉验证**: ✅ 已启用 / ⏭️ 未启用
+- **PR 评论分析**: ✅ 已分析 (N 条评论, 其中 M 条来自 Bot) / ⏭️ 无评论
 
 ## 评分 [REQUIRED — NEVER SKIP THIS SECTION]
 
@@ -222,6 +289,17 @@ _— Auto-review by Claude_" \
 | 发现 | Primary | Codex | 状态 |
 |------|---------|-------|------|
 | 问题描述 | Yes/No | Yes/No | 交叉验证 / 仅 Primary / 仅 Codex |
+
+## PR 评论分析 [REQUIRED if comments exist, OMIT if none]
+
+| 来源 | 类型 | 发现 | 判定 | 说明 |
+|------|------|------|------|------|
+| Snyk | 🤖 Bot | 依赖漏洞 CVE-XXXX | ✅ Confirmed | 漏洞路径在 OneKey 中可达 |
+| @reviewer | 👤 Human | 缺少 null check | 🔍 Enriched | 实际需要在上游 hook 中处理 |
+| Devin | 🤖 Bot | 变量命名建议 | ❌ Noise | 命名符合项目规范 |
+
+### 评论误报分析 [OMIT if no noise findings]
+- **[来源] 误报**: 具体说明为什么这不是问题（引用源码上下文）
 
 ## 发现的问题 [REQUIRED]
 
@@ -256,8 +334,8 @@ _— Auto-review by Claude_" \
 1. 测试场景
 2. 测试场景
 
-## GH 评论操作 [REQUIRED if 🔴 高 findings exist, OMIT if none]
-以下 🔴 高 级别问题建议直接评论到 PR：
+## GH 评论操作 [REQUIRED if qualifying findings exist, OMIT if none]
+以下问题（🔵 High 置信度 + 🟡 中及以上）建议直接评论到 PR：
 - [ ] 问题1 — `file.tsx:42`
 - [ ] 问题2 — `file.tsx:88`
 
