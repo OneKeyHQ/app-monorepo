@@ -103,6 +103,7 @@ class ServiceAppUpdate extends ServiceBase {
         updateStrategy: (normalizedUpdateStrategy ??
           data.updateStrategy) as EUpdateStrategy,
         version: normalizeOptionalString(data.version),
+        storeUrl: normalizeOptionalString(data.storeUrl),
         downloadUrl: normalizeOptionalString(data.downloadUrl),
         changeLog: normalizeOptionalString(data.changeLog),
         summary: normalizeOptionalString(data.summary),
@@ -656,15 +657,30 @@ class ServiceAppUpdate extends ServiceBase {
     const isNeedSync = await this.isNeedSyncAppUpdateInfo(forceUpdate);
     defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
     if (!isNeedSync) {
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: skip sync, forceUpdate=${String(forceUpdate)}`,
+      );
       return appUpdatePersistAtom.get();
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: releaseInfo matched, version=${
+          releaseInfo.version ?? 'nil'
+        }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, hasStoreUrl=${
+          !!releaseInfo.storeUrl
+        }, hasDownloadUrl=${!!releaseInfo.downloadUrl}, hasJsBundleDownloadUrl=${
+          !!releaseInfo.jsBundle?.downloadUrl
+        }`,
+      );
       const shouldUpdate = gtVersion(
         releaseInfo.version,
         releaseInfo.jsBundleVersion,
+      );
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: shouldUpdate=${String(shouldUpdate)}`,
       );
       await appUpdatePersistAtom.set((prev) => {
         const isUpdating = prev.status !== EAppUpdateStatus.done;
@@ -687,8 +703,14 @@ class ServiceAppUpdate extends ServiceBase {
               releaseInfo.version,
               prev.latestVersion,
             );
-          } catch {
-            // invalid semver — fall through
+          } catch (error) {
+            defaultLogger.app.appUpdate.log(
+              `fetchAppUpdateInfo: semver compare failed, releaseVersion=${
+                releaseInfo.version ?? 'nil'
+              }, prevVersion=${prev.latestVersion ?? 'nil'}, error=${
+                (error as Error)?.message ?? 'unknown'
+              }`,
+            );
           }
         }
         if (
@@ -708,10 +730,41 @@ class ServiceAppUpdate extends ServiceBase {
 
         const shouldTransitionToNotify =
           shouldUpdate && (!isUpdating || shouldResetFailed);
+        const nextStatus = shouldTransitionToNotify
+          ? EAppUpdateStatus.notify
+          : prev.status;
+
+        defaultLogger.app.appUpdate.log(
+          `fetchAppUpdateInfo: transition decision, prevStatus=${
+            prev.status
+          }, nextStatus=${nextStatus}, isUpdating=${String(
+            isUpdating,
+          )}, isFailed=${String(isFailed)}, isNewerThanAttempted=${String(
+            isNewerThanAttempted,
+          )}, shouldResetFailed=${String(
+            shouldResetFailed,
+          )}, isVerifyFailure=${String(
+            isVerifyFailure,
+          )}, shouldTransitionToNotify=${String(
+            shouldTransitionToNotify,
+          )}, prevLatestVersion=${prev.latestVersion ?? 'nil'}, nextVersion=${
+            releaseInfo.version || prev.latestVersion || 'nil'
+          }, prevBundleVersion=${
+            prev.jsBundleVersion ?? 'nil'
+          }, nextBundleVersion=${
+            releaseInfo.jsBundleVersion || prev.jsBundleVersion || 'nil'
+          }`,
+        );
 
         return {
           ...prev,
           ...releaseInfo,
+          // Explicitly clear stale URLs when server no longer returns them
+          // (e.g. switch from App Store update to jsBundle update).
+          storeUrl: releaseInfo.storeUrl || undefined,
+          downloadUrl: releaseInfo.downloadUrl || undefined,
+          changeLog: releaseInfo.changeLog || undefined,
+          fileSize: releaseInfo.fileSize,
           jsBundleVersion: releaseInfo.jsBundleVersion || undefined,
           jsBundle: releaseInfo.jsBundle || undefined,
           summary: releaseInfo?.summary || '',
@@ -719,18 +772,29 @@ class ServiceAppUpdate extends ServiceBase {
           updateAt: Date.now(),
           errorText: shouldResetFailed ? undefined : prev.errorText,
           downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
-          status: shouldTransitionToNotify
-            ? EAppUpdateStatus.notify
-            : prev.status,
+          status: nextStatus,
           previousAppVersion: shouldTransitionToNotify
             ? platformEnv.version
             : prev.previousAppVersion,
         };
       });
     } else {
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: releaseInfo missing version and jsBundleVersion, reset()`,
+      );
       await this.reset();
     }
-    return appUpdatePersistAtom.get();
+    const latest = await appUpdatePersistAtom.get();
+    defaultLogger.app.appUpdate.log(
+      `fetchAppUpdateInfo: completed, status=${
+        latest.status
+      }, latestVersion=${latest.latestVersion ?? 'nil'}, jsBundleVersion=${
+        latest.jsBundleVersion ?? 'nil'
+      }, hasStoreUrl=${!!latest.storeUrl}, hasDownloadUrl=${
+        !!latest.downloadUrl
+      }, hasJsBundleDownloadUrl=${!!latest.jsBundle?.downloadUrl}`,
+    );
+    return latest;
   }
 
   // ---- Dev Bundle Switcher ----
