@@ -87,6 +87,7 @@ export function TokenList({
               contractAddress: token.contractAddress,
               accountId: networkAccount.result?.id,
               accountAddress: networkAccount.result?.address,
+              currency: 'usd',
             });
 
           const swapTokenDetail = details?.[0];
