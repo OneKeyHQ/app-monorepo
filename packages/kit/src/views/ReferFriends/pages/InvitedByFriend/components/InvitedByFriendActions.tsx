@@ -221,7 +221,7 @@ function InvitedByFriendActions({
       const err = error as { code?: number };
       if (err?.code !== 4001) {
         Toast.error({
-          title: intl.formatMessage({ id: ETranslations.global_error }),
+          title: intl.formatMessage({ id: ETranslations.global_an_error_occurred }),
         });
       }
     } finally {
