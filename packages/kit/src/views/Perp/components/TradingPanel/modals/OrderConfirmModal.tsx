@@ -205,16 +205,21 @@ function OrderConfirmContent({
               id: ETranslations.perp_trade_order_type,
             })}
           </SizableText>
-          <XStack gap="$1.5" alignItems="center">
-            {triggerTypeLabel ? (
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
-                {triggerTypeLabel} /
-              </SizableText>
-            ) : null}
+          {triggerTypeLabel ? (
+            <SizableText size="$bodyMdMedium" color={actionColor}>
+              {triggerTypeLabel} /{' '}
+              {intl.formatMessage({
+                id:
+                  effectiveSide === 'long'
+                    ? ETranslations.dexmarket_details_transactions_buy
+                    : ETranslations.dexmarket_details_transactions_sell,
+              })}
+            </SizableText>
+          ) : (
             <SizableText size="$bodyMdMedium" color={actionColor}>
               {actionText}
             </SizableText>
-          </XStack>
+          )}
         </XStack>
 
         {/* Trigger Price (trigger orders only) */}
