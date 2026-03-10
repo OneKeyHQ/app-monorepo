@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { createStore } from 'mipd';
 
 import {
   Button,
@@ -28,23 +27,11 @@ type IEthereumProvider = {
 };
 
 function getOneKeyExtensionProvider(): IEthereumProvider | null {
-  try {
-    const store = createStore();
-    const providers = store.getProviders();
-    store.destroy();
-    const oneKeyProvider = providers.find((p) => {
-      if (!p?.info) return false;
-      const rdns = p.info.rdns?.toLowerCase() ?? '';
-      const name = p.info.name?.toLowerCase() ?? '';
-      return rdns.includes('so.onekey.app.wallet') || name.includes('onekey');
-    });
-    if (oneKeyProvider?.provider) {
-      return oneKeyProvider.provider as IEthereumProvider;
-    }
-  } catch {
-    // Extension not available
-  }
-  return null;
+  // OneKey extension injects $onekey.ethereum as its dedicated provider
+  const provider = (globalThis as Record<string, unknown>).$onekey as
+    | { ethereum?: IEthereumProvider }
+    | undefined;
+  return provider?.ethereum ?? null;
 }
 
 interface IInvitedByFriendActionsProps {
