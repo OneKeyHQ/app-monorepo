@@ -1141,7 +1141,11 @@ function DepositWithdrawContent({
 
   const depositTokenSelectComponent = useMemo(() => {
     if (balanceLoading && checkAccountSupport)
-      return <Skeleton w={40} h={14} radius="round" />;
+      return (
+        <XStack w={40} h={14}>
+          <Skeleton w="100%" h="100%" radius="round" />
+        </XStack>
+      );
     if (depositTokensWithPrice.length === 0)
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -1406,7 +1410,9 @@ function DepositWithdrawContent({
           </SizableText>
           <XStack alignItems="center" gap="$2">
             {balanceLoading && checkAccountSupport ? (
-              <Skeleton w={80} h={14} />
+              <XStack w={80} h={14}>
+                <Skeleton w="100%" h="100%" />
+              </XStack>
             ) : (
               <>
                 <SizableText size="$bodyMd" color="$text">
@@ -1524,7 +1530,9 @@ function DepositWithdrawContent({
           ) : (
             <XStack gap="$1" alignItems="center" justifyContent="center">
               {perpDepositQuoteLoading ? (
-                <Skeleton w={60} h={14} />
+                <XStack w={60} h={14}>
+                  <Skeleton w="100%" h="100%" />
+                </XStack>
               ) : (
                 <XStack gap="$1">
                   <SizableText color="$text" size="$bodyMd">
