@@ -127,6 +127,7 @@
     "@onekeyfe/hd-transport-electron": "1.1.24",
     "@onekeyfe/hd-web-sdk": "1.1.24",
     "@onekeyfe/onekey-cross-webview": "2.2.63",
+    "@onekeyfe/react-native-auto-size-input": "1.1.36",
     "@polkadot/extension-inject": "0.54.1",
     "@polkadot/types": "14.3.1",
     "@polkadot/util-crypto": "13.2.3",
@@ -192,7 +193,7 @@
     "react-native": "0.81.5",
     "react-native-confirmation-code-field": "^7.4.0",
     "react-native-draggable-flatlist": "4.0.3",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.35",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.36",
     "react-native-reanimated": "4.2.1",
     "react-native-screens": "4.23.0",
     "react-native-web": "0.21.2",
@@ -419,7 +420,7 @@
     "react-native-reanimated": "4.2.1",
     "react-native-worklets": "0.7.1",
     "react-native-screens": "4.23.0",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.35",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@1.1.36",
     "@isaacs/brace-expansion": "5.0.1",
     "fast-xml-parser": "4.5.4"
   }
