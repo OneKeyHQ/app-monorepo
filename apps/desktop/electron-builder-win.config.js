@@ -1,9 +1,6 @@
 // oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const DLLs = require('./electron-dll.config');
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
-const { getDesktopBuildVariant } = require('./scripts/build-variant');
-
-const { artifactPrefix, iconPngPath } = getDesktopBuildVariant();
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -25,8 +22,8 @@ module.exports = {
       },
     ],
     extraFiles: DLLs,
-    icon: iconPngPath,
-    artifactName: `${artifactPrefix}-\${version}-win-\${arch}.\${ext}`,
+    icon: 'app/build/static/images/icons/512x512.png',
+    artifactName: 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     verifyUpdateCodeSignature: false,
     target: [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
