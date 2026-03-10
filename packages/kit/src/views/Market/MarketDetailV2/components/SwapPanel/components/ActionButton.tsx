@@ -70,7 +70,6 @@ export function ActionButton({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
-  const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
@@ -152,10 +151,10 @@ export function ActionButton({
     return {
       formatter: 'value',
       formatterOptions: {
-        currency: settingsValue.currencyInfo.symbol,
+        currency: '$',
       },
     };
-  }, [settingsValue.currencyInfo.symbol]);
+  }, []);
 
   const shouldCreateAddress = usePromiseResult(async () => {
     let result = false;
