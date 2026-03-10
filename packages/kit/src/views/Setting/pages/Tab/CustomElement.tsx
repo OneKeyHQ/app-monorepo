@@ -683,6 +683,16 @@ export function SocialButtonGroup() {
         >
           {upperFirst(versionString)}
         </SizableText>
+        {isSkipGpgVerificationAllowed ? (
+          <XStack mt="$2" gap="$2" ai="center">
+            <Badge badgeType="warning" badgeSize="lg">
+              TEST
+            </Badge>
+            <Badge badgeType="critical" badgeSize="lg">
+              SKIP GPG
+            </Badge>
+          </XStack>
+        ) : null}
         {!isTabNavigator && isUpToDate ? (
           <SizableText
             color="$textDisabled"
