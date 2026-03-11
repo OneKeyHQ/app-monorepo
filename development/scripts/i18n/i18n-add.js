@@ -213,9 +213,7 @@ function addToLokalise(key, enValue, zhValue) {
             resolve(JSON.parse(body));
           } else {
             reject(
-              new Error(
-                `Lokalise API error: ${res.statusCode} - ${body}`,
-              ),
+              new Error(`Lokalise API error: ${res.statusCode} - ${body}`),
             );
           }
         } catch (e) {
