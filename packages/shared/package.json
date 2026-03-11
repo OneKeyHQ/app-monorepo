@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "_folderslint": "yarn folderslint",
-    "fetch:locale": "npx lokalise-client fetch && node ./scripts/build-locale-json-map.js",
+    "i18n:pull": "npx lokalise-client fetch && node ../../development/scripts/i18n/build-locale-json-map.js",
+    "i18n:search": "node ../../development/scripts/i18n/i18n-search.js",
+    "i18n:add": "node ../../development/scripts/i18n/i18n-add.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
