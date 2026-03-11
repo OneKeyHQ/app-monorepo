@@ -365,6 +365,7 @@ function BaseInput(
           onSecureTextEntryChange?.(!secureEntryState);
           setSecureEntryState(!secureEntryState);
         },
+        tabIndex: -1,
       });
     }
     return allAddOns;

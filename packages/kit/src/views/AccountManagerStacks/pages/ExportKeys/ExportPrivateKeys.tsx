@@ -246,6 +246,7 @@ function ExportPrivateKeysPage({
       {
         testID: 'account-key-show-btn',
         iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
+        tabIndex: -1,
         onPress: async () => {
           const rawKeyValue = form.getValues('rawKeyContent') || '';
           if (!rawKeyValue || rawKeyValue === SECURE_ENTRY_PLACEHOLDER) {

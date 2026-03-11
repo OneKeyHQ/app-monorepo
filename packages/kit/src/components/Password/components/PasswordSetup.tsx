@@ -227,6 +227,7 @@ const PasswordSetup = ({
                       setSecureEntry(!secureEntry);
                     },
                     testID: `password-eye-${secureEntry ? 'off' : 'on'}`,
+                    tabIndex: -1,
                   },
                 ]}
                 testID="password"
@@ -281,6 +282,7 @@ const PasswordSetup = ({
                     testID: `confirm-password-eye-${
                       secureReentry ? 'off' : 'on'
                     }`,
+                    tabIndex: -1,
                   },
                 ]}
                 testID="confirm-password"

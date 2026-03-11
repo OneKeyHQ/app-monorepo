@@ -39,6 +39,7 @@ function RestorePasswordVerify() {
                 setSecureEntry(!secureEntry);
               },
               testID: `password-eye-${secureEntry ? 'off' : 'on'}`,
+              tabIndex: -1,
             },
           ]}
         />

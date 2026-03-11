@@ -976,6 +976,7 @@ export function EnterPhase({
                 onPress: () => {
                   setSecureEntry1(!secureEntry1);
                 },
+                tabIndex: -1,
               },
             ]}
             {...(media.md && {
