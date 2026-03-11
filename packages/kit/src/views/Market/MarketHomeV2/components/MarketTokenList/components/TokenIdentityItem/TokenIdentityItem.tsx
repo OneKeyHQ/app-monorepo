@@ -3,7 +3,6 @@ import { memo, useMemo } from 'react';
 
 import {
   Icon,
-  Image,
   NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
