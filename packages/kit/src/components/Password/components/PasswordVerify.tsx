@@ -138,7 +138,6 @@ function PasswordVerify({
         onPress: () => {
           setSecureEntry(!secureEntry);
         },
-        tabIndex: -1,
       });
       actions.push({
         iconName: 'ArrowRightOutline',
@@ -146,6 +145,7 @@ function PasswordVerify({
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
         disabled: confirmBtnDisabled,
         testID: 'verifying-password',
+        tabIndex: 0,
       });
     }
 
