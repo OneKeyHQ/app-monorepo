@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import { YStack } from '@onekeyhq/components';
+import { SizableText, Toast, YStack } from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   ISwapNativeTokenReserveGas,
   ISwapToken,
@@ -63,6 +65,7 @@ export type ISwapPanelContentProps = {
   currentMarketToken?: ISwapToken;
   enableAddressTypeSelector: boolean;
   activeAccount: IAccountSelectorActiveAccountInfo;
+  speedCheckError?: string;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -87,6 +90,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     isWrapped,
     hasInitialReady,
     currentMarketToken,
+    speedCheckError,
   } = props;
 
   const {
@@ -107,6 +111,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const sellAmountRef = useRef(sellAmount);
   // Initialize analytics hook
   const swapAnalytics = useSwapAnalytics();
+  const intl = useIntl();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
   }
@@ -131,6 +136,26 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         BigNumber.ROUND_DOWN,
       );
 
+      const reserveGasFormatted = numberFormat(reserveGas.toString(), {
+        formatter: 'balance',
+        formatterOptions: {
+          tokenSymbol: balanceToken?.symbol,
+        },
+      });
+      const message = intl.formatMessage(
+        {
+          id: reserveGasFormatted
+            ? ETranslations.swap_native_token_max_tip_already
+            : ETranslations.swap_native_token_max_tip,
+        },
+        {
+          num_token: reserveGasFormatted,
+        },
+      );
+      Toast.message({
+        title: message,
+      });
+
       if (tradeType === ESwapDirection.BUY) {
         setPaymentAmount(maxAmount);
         tokenBuyInputRef.current?.setValue(maxAmount.toFixed());
@@ -150,10 +175,12 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     balanceToken?.isNative,
     balanceToken?.networkId,
     balanceToken?.decimals,
+    balanceToken?.symbol,
     balance,
     setPaymentAmount,
     setSellAmount,
     tradeType,
+    intl,
   ]);
 
   useEffect(() => {
@@ -254,7 +281,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         ) : null}
       </YStack>
 
+      {speedCheckError ? (
+        <SizableText size="$bodyMd" color="$textCritical">
+          {speedCheckError}
+        </SizableText>
+      ) : null}
+
       {!isApproved &&
+      !speedCheckError &&
       currentInputAmount.gt(0) &&
       balance.gte(currentInputAmount) ? (
         <ApproveButton onApprove={onApprove} loading={isLoading} />
@@ -272,6 +306,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           balance={balance}
           isWrapped={isWrapped}
           networkId={networkId}
+          disabled={!!speedCheckError}
           onSwapAction={() =>
             swapAnalytics.logSwapAction({
               tradeType,

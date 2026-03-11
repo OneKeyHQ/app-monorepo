@@ -450,7 +450,7 @@ export function PerpOrderBook({
         entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
     }
     return (
-      <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
+      <YStack flex={1} justifyContent="center" alignItems="center">
         <DefaultLoadingNode
           variant={loadingVariant as IOrderBookVariant}
           symbol={

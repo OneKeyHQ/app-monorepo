@@ -10,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpTokenFavoritesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -72,6 +73,13 @@ export function FavoritesEmptyState({ isMobile }: { isMobile?: boolean }) {
         ...prev,
         favorites: [...prev.favorites, ...tokensToAdd],
       }));
+
+      for (const coin of tokensToAdd) {
+        void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+          coin,
+          action: 'add',
+        });
+      }
 
       // Clear selection after adding to favorites
       setSelectedTokens(new Set());

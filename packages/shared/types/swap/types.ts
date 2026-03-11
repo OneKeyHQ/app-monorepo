@@ -227,6 +227,7 @@ export interface IFetchTokenDetailParams {
   accountNetworkId?: string;
   xpub?: string;
   withCheckInscription?: boolean;
+  currency?: string;
 }
 
 export interface ISwapAutoSlippageSuggestedValue {
@@ -743,10 +744,18 @@ export interface ISwapQuoteEventInfo {
   eventId: string;
 }
 
+export interface ISwapQuoteEventError {
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  errorMessage?: string;
+  eventId?: string;
+}
+
 export type ISwapQuoteEventData =
   | ISwapQuoteEventAutoSlippage
   | ISwapQuoteEventQuoteResult
-  | ISwapQuoteEventInfo;
+  | ISwapQuoteEventInfo
+  | ISwapQuoteEventError;
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
@@ -1041,6 +1050,19 @@ export interface ISpeedSwapConfig {
   supportSpeedSwap?: boolean;
   onlySupportCrossChain: boolean;
   onlySupportSingleChain: boolean;
+}
+
+export interface IFetchSpeedCheckResult {
+  errorMessage?: string;
+  protocol: string;
+  spenderAddress: string;
+  info: {
+    provider: string;
+    providerName: string;
+    providerLogo?: string;
+  };
+  fromTokenInfo?: ISwapTokenBase;
+  toTokenInfo?: ISwapTokenBase;
 }
 
 export enum ESwapLimitOrderStatus {

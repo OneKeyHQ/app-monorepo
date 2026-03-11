@@ -117,7 +117,7 @@ export function useCreateQrWallet() {
       const scanResult = await startScan({
         handlers: [EQRCodeHandlerNames.animation],
         qrWalletScene: true,
-        autoHandleResult: false,
+        autoExecuteParsedAction: false,
       });
       const fullURText = scanResult.raw?.trim();
       console.log('startScan:', fullURText);

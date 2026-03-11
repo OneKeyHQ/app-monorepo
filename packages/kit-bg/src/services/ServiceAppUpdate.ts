@@ -1,3 +1,6 @@
+import semver from 'semver';
+
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type { IResponseAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
@@ -9,6 +12,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -27,16 +31,59 @@ import ServiceBase from './ServiceBase';
 
 let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
+let failedRecoveryTimerId: ReturnType<typeof setTimeout>;
 let firstLaunch = true;
+const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  return String(value);
+}
+
+function normalizeOptionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
+  private isResetting = false;
+
   private updateAt = 0;
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
+
+  private startFailedRecoveryTimer() {
+    clearTimeout(failedRecoveryTimerId);
+    failedRecoveryTimerId = setTimeout(
+      async () => {
+        const appInfo = await appUpdatePersistAtom.get();
+        defaultLogger.app.appUpdate.log(
+          `Failed recovery timer fired, current status: ${appInfo.status}`,
+        );
+        if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
+          const isVerifyFailure =
+            ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status);
+          await appUpdatePersistAtom.set((prev) => ({
+            ...prev,
+            errorText: undefined,
+            status: EAppUpdateStatus.notify,
+            downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
+          }));
+        }
+      },
+      timerUtils.getTimeDurationMs({ hour: 2 }),
+    );
+  }
 
   @backgroundMethod()
   async fetchConfig() {
@@ -46,9 +93,80 @@ class ServiceAppUpdate extends ServiceBase {
       data: IResponseAppUpdateInfo;
     }>('/utility/v1/app-update');
     const { code, data } = response.data;
-    if (code === 0) {
+    if (code === 0 && data) {
+      const normalizedUpdateStrategy =
+        data.updateStrategy === undefined ||
+        data.updateStrategy === null ||
+        (data.updateStrategy as unknown) === ''
+          ? undefined
+          : Number(data.updateStrategy);
+      const normalizedData: IResponseAppUpdateInfo = {
+        ...data,
+        updateStrategy: (normalizedUpdateStrategy ??
+          data.updateStrategy) as EUpdateStrategy,
+        version: normalizeOptionalString(data.version),
+        storeUrl: normalizeOptionalString(data.storeUrl),
+        downloadUrl: normalizeOptionalString(data.downloadUrl),
+        changeLog: normalizeOptionalString(data.changeLog),
+        summary: normalizeOptionalString(data.summary),
+        jsBundleVersion: normalizeOptionalString(data.jsBundleVersion),
+        fileSize: normalizeOptionalNumber(data.fileSize),
+        jsBundle: data.jsBundle
+          ? {
+              downloadUrl: normalizeOptionalString(data.jsBundle.downloadUrl),
+              fileSize: normalizeOptionalNumber(data.jsBundle.fileSize),
+              sha256: normalizeOptionalString(data.jsBundle.sha256),
+              signature: normalizeOptionalString(data.jsBundle.signature),
+            }
+          : undefined,
+      };
+      // Security: Validate updateStrategy is a known enum value
+      if (
+        normalizedUpdateStrategy !== undefined &&
+        !Number.isFinite(normalizedUpdateStrategy)
+      ) {
+        defaultLogger.app.appUpdate.endInstallPackage(
+          false,
+          new Error(
+            `Invalid updateStrategy value: ${String(data.updateStrategy)}`,
+          ),
+        );
+        return this.cachedUpdateInfo;
+      }
+      if (
+        normalizedData.updateStrategy !== undefined &&
+        ![
+          EUpdateStrategy.silent,
+          EUpdateStrategy.force,
+          EUpdateStrategy.manual,
+          EUpdateStrategy.seamless,
+        ].includes(normalizedData.updateStrategy)
+      ) {
+        defaultLogger.app.appUpdate.endInstallPackage(
+          false,
+          new Error(
+            `Invalid updateStrategy value: ${String(
+              normalizedData.updateStrategy,
+            )}`,
+          ),
+        );
+        return this.cachedUpdateInfo;
+      }
+      // Security: Validate jsBundle fields if present
+      if (normalizedData.jsBundle) {
+        if (
+          normalizedData.jsBundle.downloadUrl &&
+          !normalizedData.jsBundle.downloadUrl.startsWith('https://')
+        ) {
+          defaultLogger.app.appUpdate.endInstallPackage(
+            false,
+            new Error('jsBundle downloadUrl must use HTTPS'),
+          );
+          return this.cachedUpdateInfo;
+        }
+      }
       this.updateAt = Date.now();
-      this.cachedUpdateInfo = data;
+      this.cachedUpdateInfo = normalizedData;
     }
     return this.cachedUpdateInfo;
   }
@@ -74,10 +192,25 @@ class ServiceAppUpdate extends ServiceBase {
     return appInfo.status;
   }
 
+  static FAILED_STATUSES: EAppUpdateStatus[] = [
+    EAppUpdateStatus.downloadPackageFailed,
+    EAppUpdateStatus.downloadASCFailed,
+    EAppUpdateStatus.verifyASCFailed,
+    EAppUpdateStatus.verifyPackageFailed,
+  ];
+
+  static VERIFY_FAILED_STATUSES: EAppUpdateStatus[] = [
+    EAppUpdateStatus.verifyASCFailed,
+    EAppUpdateStatus.verifyPackageFailed,
+  ];
+
   @backgroundMethod()
   async refreshUpdateStatus() {
     const appInfo = await appUpdatePersistAtom.get();
     if (isFirstLaunchAfterUpdated(appInfo)) {
+      defaultLogger.app.appUpdate.log(
+        'refreshUpdateStatus: first launch after updated, resetting to done',
+      );
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         updateAt: 0,
@@ -88,19 +221,29 @@ class ServiceAppUpdate extends ServiceBase {
         jsBundle: undefined,
         downloadedEvent: undefined,
       }));
+    } else if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
+      // On app launch / foreground, reset failed states back to notify
+      // so the user gets a fresh update prompt instead of a stale error.
+      defaultLogger.app.appUpdate.log(
+        `refreshUpdateStatus: resetting failed status ${appInfo.status} to notify`,
+      );
+      const isVerifyFailure = ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(
+        appInfo.status,
+      );
+      await appUpdatePersistAtom.set((prev) => ({
+        ...prev,
+        errorText: undefined,
+        status: EAppUpdateStatus.notify,
+        // Corrupted/tampered packages must be re-downloaded
+        downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
+      }));
     }
   }
 
   @backgroundMethod()
   async isNeedSyncAppUpdateInfo(forceUpdate = false) {
-    const { status, updateAt } = await appUpdatePersistAtom.get();
+    const { updateAt } = await appUpdatePersistAtom.get();
     clearTimeout(syncTimerId);
-    if (
-      status === EAppUpdateStatus.downloadPackage ||
-      status === EAppUpdateStatus.ready
-    ) {
-      return false;
-    }
 
     if (firstLaunch) {
       firstLaunch = false;
@@ -139,9 +282,25 @@ class ServiceAppUpdate extends ServiceBase {
     );
   }
 
+  // States from which downloadPackage is allowed to be called
+  static DOWNLOAD_ENTRY_STATUSES: EAppUpdateStatus[] = [
+    EAppUpdateStatus.notify,
+    EAppUpdateStatus.done,
+    EAppUpdateStatus.downloadPackage, // retry during download
+    ...ServiceAppUpdate.FAILED_STATUSES,
+  ];
+
   @backgroundMethod()
   public async downloadPackage() {
+    const { status } = await appUpdatePersistAtom.get();
+    if (!ServiceAppUpdate.DOWNLOAD_ENTRY_STATUSES.includes(status)) {
+      defaultLogger.app.appUpdate.log(
+        `downloadPackage: rejected, current status=${status}`,
+      );
+      return;
+    }
     clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     downloadTimeoutId = setTimeout(
       async () => {
         await this.downloadPackageFailed({
@@ -168,6 +327,13 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async downloadPackageFailed(e?: { message: string }) {
+    const { status } = await appUpdatePersistAtom.get();
+    if (status !== EAppUpdateStatus.downloadPackage) {
+      defaultLogger.app.appUpdate.log(
+        `downloadPackageFailed: rejected, current status=${status}`,
+      );
+      return;
+    }
     clearTimeout(downloadTimeoutId);
     // TODO: need replace by error code.
     let errorText: ETranslations | string =
@@ -187,6 +353,7 @@ class ServiceAppUpdate extends ServiceBase {
     }
     defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
+    this.startFailedRecoveryTimer();
   }
 
   @backgroundMethod()
@@ -199,6 +366,17 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async updateDownloadUrl(downloadUrl: string) {
+    // Security: Reject empty or non-HTTPS download URLs
+    if (!downloadUrl || !downloadUrl.startsWith('https://')) {
+      defaultLogger.app.appUpdate.log(
+        `updateDownloadUrl: invalid URL rejected: ${downloadUrl}`,
+      );
+      defaultLogger.app.appUpdate.endInstallPackage(
+        false,
+        new Error('Download URL must be a non-empty HTTPS URL'),
+      );
+      return;
+    }
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       downloadedEvent: {
@@ -222,6 +400,17 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async verifyPackage() {
+    const { status } = await appUpdatePersistAtom.get();
+    if (
+      status !== EAppUpdateStatus.verifyASC &&
+      status !== EAppUpdateStatus.verifyPackage &&
+      status !== EAppUpdateStatus.verifyPackageFailed
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `verifyPackage: rejected, current status=${status}`,
+      );
+      return;
+    }
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
@@ -231,6 +420,18 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async verifyASC() {
+    const { status } = await appUpdatePersistAtom.get();
+    if (
+      status !== EAppUpdateStatus.downloadASC &&
+      status !== EAppUpdateStatus.verifyASC &&
+      status !== EAppUpdateStatus.verifyASCFailed
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `verifyASC: rejected, current status=${status}`,
+      );
+      return;
+    }
+    clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.verifyASC,
@@ -239,6 +440,17 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async downloadASC() {
+    const { status } = await appUpdatePersistAtom.get();
+    if (
+      status !== EAppUpdateStatus.downloadPackage &&
+      status !== EAppUpdateStatus.downloadASC
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `downloadASC: rejected, current status=${status}`,
+      );
+      return;
+    }
+    clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloadASC,
@@ -247,6 +459,13 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async verifyASCFailed(e?: { message: string }) {
+    const { status } = await appUpdatePersistAtom.get();
+    if (status !== EAppUpdateStatus.verifyASC) {
+      defaultLogger.app.appUpdate.log(
+        `verifyASCFailed: rejected, current status=${status}`,
+      );
+      return;
+    }
     let errorText =
       e?.message ||
       ETranslations.update_signature_verification_failed_alert_text;
@@ -261,10 +480,18 @@ class ServiceAppUpdate extends ServiceBase {
       errorText: errorText as ETranslations,
       status: EAppUpdateStatus.verifyASCFailed,
     }));
+    this.startFailedRecoveryTimer();
   }
 
   @backgroundMethod()
   public async verifyPackageFailed(e?: { message: string }) {
+    const { status } = await appUpdatePersistAtom.get();
+    if (status !== EAppUpdateStatus.verifyPackage) {
+      defaultLogger.app.appUpdate.log(
+        `verifyPackageFailed: rejected, current status=${status}`,
+      );
+      return;
+    }
     let errorText =
       e?.message || ETranslations.update_installation_not_safe_alert_text;
     if (platformEnv.isNativeAndroid) {
@@ -280,10 +507,18 @@ class ServiceAppUpdate extends ServiceBase {
       errorText: errorText as ETranslations,
       status: EAppUpdateStatus.verifyPackageFailed,
     }));
+    this.startFailedRecoveryTimer();
   }
 
   @backgroundMethod()
   public async downloadASCFailed(e?: { message: string }) {
+    const { status } = await appUpdatePersistAtom.get();
+    if (status !== EAppUpdateStatus.downloadASC) {
+      defaultLogger.app.appUpdate.log(
+        `downloadASCFailed: rejected, current status=${status}`,
+      );
+      return;
+    }
     const statusNumber = e?.message ? Number(e.message) : undefined;
     let errorText = '';
     if (statusNumber === 500) {
@@ -295,11 +530,23 @@ class ServiceAppUpdate extends ServiceBase {
     }
     defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadASCFailed, errorText);
+    this.startFailedRecoveryTimer();
   }
 
   @backgroundMethod()
   public async readyToInstall() {
+    const { status } = await appUpdatePersistAtom.get();
+    if (
+      status !== EAppUpdateStatus.verifyPackage &&
+      status !== EAppUpdateStatus.ready
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `readyToInstall: rejected, current status=${status}`,
+      );
+      return;
+    }
     clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.ready,
@@ -310,6 +557,7 @@ class ServiceAppUpdate extends ServiceBase {
   public async reset() {
     clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     await appUpdatePersistAtom.set({
       latestVersion: platformEnv.version,
       jsBundleVersion: platformEnv.bundleVersion,
@@ -322,6 +570,20 @@ class ServiceAppUpdate extends ServiceBase {
       downloadedEvent: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
+    // Schedule an immediate check so that if a newer version was released
+    // while the user was installing the current one, it's discovered right away
+    // instead of waiting for the next 1–1.5 hour sync cycle.
+    // Guard against re-entrancy: if fetchAppUpdateInfo gets empty data from the
+    // server it calls reset() again, which would schedule another fetch, creating
+    // an infinite loop.  The isResetting flag breaks the cycle.
+    if (!this.isResetting) {
+      this.isResetting = true;
+      setTimeout(() => {
+        void this.fetchAppUpdateInfo().finally(() => {
+          this.isResetting = false;
+        });
+      }, 0);
+    }
   }
 
   @backgroundMethod()
@@ -397,38 +659,249 @@ class ServiceAppUpdate extends ServiceBase {
     const isNeedSync = await this.isNeedSyncAppUpdateInfo(forceUpdate);
     defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
     if (!isNeedSync) {
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: skip sync, forceUpdate=${String(forceUpdate)}`,
+      );
       return appUpdatePersistAtom.get();
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: releaseInfo matched, version=${
+          releaseInfo.version ?? 'nil'
+        }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, hasStoreUrl=${!!releaseInfo.storeUrl}, hasDownloadUrl=${!!releaseInfo.downloadUrl}, hasJsBundleDownloadUrl=${!!releaseInfo
+          .jsBundle?.downloadUrl}`,
+      );
       const shouldUpdate = gtVersion(
         releaseInfo.version,
         releaseInfo.jsBundleVersion,
       );
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: shouldUpdate=${String(shouldUpdate)}`,
+      );
       await appUpdatePersistAtom.set((prev) => {
         const isUpdating = prev.status !== EAppUpdateStatus.done;
+
+        // Check if the current state is a failed state and the server has
+        // a newer version than the one we were trying to update to.
+        // In that case, reset to notify so the user gets the new version
+        // instead of retrying a stale download.
+        const failedStatuses: EAppUpdateStatus[] = [
+          EAppUpdateStatus.downloadPackageFailed,
+          EAppUpdateStatus.downloadASCFailed,
+          EAppUpdateStatus.verifyASCFailed,
+          EAppUpdateStatus.verifyPackageFailed,
+        ];
+        const isFailed = failedStatuses.includes(prev.status);
+        let isNewerThanAttempted = false;
+        if (isFailed && releaseInfo.version && prev.latestVersion) {
+          try {
+            isNewerThanAttempted = semver.gt(
+              releaseInfo.version,
+              prev.latestVersion,
+            );
+          } catch (error) {
+            defaultLogger.app.appUpdate.log(
+              `fetchAppUpdateInfo: semver compare failed, releaseVersion=${
+                releaseInfo.version ?? 'nil'
+              }, prevVersion=${prev.latestVersion ?? 'nil'}, error=${
+                (error as Error)?.message ?? 'unknown'
+              }`,
+            );
+          }
+        }
+        if (
+          isFailed &&
+          !isNewerThanAttempted &&
+          releaseInfo.jsBundleVersion &&
+          prev.jsBundleVersion
+        ) {
+          isNewerThanAttempted =
+            Number(releaseInfo.jsBundleVersion) > Number(prev.jsBundleVersion);
+        }
+        const shouldResetFailed = isFailed && isNewerThanAttempted;
+        // Corrupted/tampered packages must be re-downloaded
+        const isVerifyFailure =
+          shouldResetFailed &&
+          ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(prev.status);
+
+        const shouldTransitionToNotify =
+          shouldUpdate && (!isUpdating || shouldResetFailed);
+        const nextStatus = shouldTransitionToNotify
+          ? EAppUpdateStatus.notify
+          : prev.status;
+
+        defaultLogger.app.appUpdate.log(
+          `fetchAppUpdateInfo: transition decision, prevStatus=${
+            prev.status
+          }, nextStatus=${nextStatus}, isUpdating=${String(
+            isUpdating,
+          )}, isFailed=${String(isFailed)}, isNewerThanAttempted=${String(
+            isNewerThanAttempted,
+          )}, shouldResetFailed=${String(
+            shouldResetFailed,
+          )}, isVerifyFailure=${String(
+            isVerifyFailure,
+          )}, shouldTransitionToNotify=${String(
+            shouldTransitionToNotify,
+          )}, prevLatestVersion=${prev.latestVersion ?? 'nil'}, nextVersion=${
+            releaseInfo.version || prev.latestVersion || 'nil'
+          }, prevBundleVersion=${
+            prev.jsBundleVersion ?? 'nil'
+          }, nextBundleVersion=${
+            releaseInfo.jsBundleVersion || prev.jsBundleVersion || 'nil'
+          }`,
+        );
+
         return {
           ...prev,
           ...releaseInfo,
+          // Explicitly clear stale URLs when server no longer returns them
+          // (e.g. switch from App Store update to jsBundle update).
+          storeUrl: releaseInfo.storeUrl || undefined,
+          downloadUrl: releaseInfo.downloadUrl || undefined,
+          changeLog: releaseInfo.changeLog || undefined,
+          fileSize: releaseInfo.fileSize,
           jsBundleVersion: releaseInfo.jsBundleVersion || undefined,
           jsBundle: releaseInfo.jsBundle || undefined,
           summary: releaseInfo?.summary || '',
           latestVersion: releaseInfo.version || prev.latestVersion,
           updateAt: Date.now(),
-          status:
-            shouldUpdate && !isUpdating ? EAppUpdateStatus.notify : prev.status,
-          previousAppVersion:
-            shouldUpdate && !isUpdating
-              ? platformEnv.version
-              : prev.previousAppVersion,
+          errorText: shouldResetFailed ? undefined : prev.errorText,
+          downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
+          status: nextStatus,
+          previousAppVersion: shouldTransitionToNotify
+            ? platformEnv.version
+            : prev.previousAppVersion,
         };
       });
     } else {
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: releaseInfo missing version and jsBundleVersion, reset()`,
+      );
       await this.reset();
     }
-    return appUpdatePersistAtom.get();
+    const latest = await appUpdatePersistAtom.get();
+    defaultLogger.app.appUpdate.log(
+      `fetchAppUpdateInfo: completed, status=${
+        latest.status
+      }, latestVersion=${latest.latestVersion ?? 'nil'}, jsBundleVersion=${
+        latest.jsBundleVersion ?? 'nil'
+      }, hasStoreUrl=${!!latest.storeUrl}, hasDownloadUrl=${!!latest.downloadUrl}, hasJsBundleDownloadUrl=${!!latest.jsBundle?.downloadUrl}`,
+    );
+    return latest;
+  }
+
+  // ---- Dev Bundle Switcher ----
+
+  private getDevBundleSwitcherClient = memoizee(
+    async () =>
+      appApiClient.getBasicClient({
+        name: EServiceEndpointEnum.Utility,
+        endpoint: buildServiceEndpoint({
+          serviceName: EServiceEndpointEnum.Utility,
+          env: 'test',
+        }),
+      }),
+    { promise: true },
+  );
+
+  @backgroundMethod()
+  async devFetchBundleVersions(): Promise<
+    { version: string; bundleCount: number }[]
+  > {
+    try {
+      const client = await this.getDevBundleSwitcherClient();
+      const response = await client.get<{
+        code: number;
+        data: { version: string; bundleCount: number }[];
+      }>('/utility/v1/app-update/bundle-versions');
+      const { code, data } = response.data;
+      if (code === 0 && data) {
+        defaultLogger.app.jsBundleDev.fetchBundleVersions({
+          resultCount: data.length,
+          versions: data,
+        });
+        return data;
+      }
+      defaultLogger.app.jsBundleDev.fetchBundleVersionsError(
+        `Unexpected response code: ${code}`,
+      );
+      return [];
+    } catch (e) {
+      defaultLogger.app.jsBundleDev.fetchBundleVersionsError(
+        (e as Error)?.message || 'Unknown error',
+      );
+      return [];
+    }
+  }
+
+  @backgroundMethod()
+  async devFetchBundlesForVersion(version: string): Promise<
+    {
+      bundleVersion: string;
+      downloadUrl: string;
+      sha256: string;
+      signature?: string;
+      fileSize: number;
+      commitHash?: string;
+      changeLog?: string;
+    }[]
+  > {
+    try {
+      const client = await this.getDevBundleSwitcherClient();
+      const response = await client.get<{
+        code: number;
+        data: {
+          bundleVersion: string;
+          downloadUrl: string;
+          sha256: string;
+          signature?: string;
+          fileSize: number;
+          commitHash?: string;
+          branch?: string;
+        }[];
+      }>('/utility/v1/app-update/bundles', {
+        params: { version },
+      });
+      const { code, data } = response.data;
+      if (code === 0 && data) {
+        defaultLogger.app.jsBundleDev.fetchBundles({
+          version,
+          resultCount: data.length,
+          bundles: data.map((item) => ({
+            bundleVersion: item.bundleVersion,
+            downloadUrl: item.downloadUrl,
+            sha256: item.sha256,
+            fileSize: item.fileSize,
+          })),
+        });
+        return data.map((item) => ({
+          bundleVersion: item.bundleVersion,
+          downloadUrl: item.downloadUrl,
+          sha256: item.sha256,
+          signature: item.signature || PLACEHOLDER_SIGNATURE,
+          fileSize: item.fileSize,
+          commitHash: item.commitHash,
+          changeLog: item.commitHash
+            ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
+            : undefined,
+        }));
+      }
+      defaultLogger.app.jsBundleDev.fetchBundlesError({
+        version,
+        error: `Unexpected response code: ${code}`,
+      });
+      return [];
+    } catch (e) {
+      defaultLogger.app.jsBundleDev.fetchBundlesError({
+        version,
+        error: (e as Error)?.message || 'Unknown error',
+      });
+      return [];
+    }
   }
 }
 

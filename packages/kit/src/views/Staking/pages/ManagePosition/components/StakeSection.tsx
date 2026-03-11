@@ -25,7 +25,6 @@ import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
-  IBorrowReserveItem,
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -85,7 +84,6 @@ export const StakeSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
-  borrowReserves?: IBorrowReserveItem;
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   pendleSlippage?: number;
@@ -154,49 +152,9 @@ export const StakeSection = ({
     },
   );
 
-  const { result: nativeTokenDetail } = usePromiseResult(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !isPendleProvider ||
-        useBorrowApi ||
-        !accountId ||
-        !networkId
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceToken.getNativeToken({
-        accountId,
-        networkId,
-      });
-    },
-    [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const nativeFallbackStakeAsset = useMemo<IEarnTokenItem | undefined>(() => {
-    if (!nativeTokenDetail) {
-      return undefined;
-    }
-    return {
-      balance: '0',
-      balanceParsed: '0',
-      fiatValue: '0',
-      price: '0',
-      price24h: '0',
-      info: nativeTokenDetail,
-    };
-  }, [nativeTokenDetail]);
-
   const selectableStakeAssets = useMemo(() => {
-    const assets = stakeAssetsList?.assets ?? [];
-    if (assets.length > 0) {
-      return assets;
-    }
-    return nativeFallbackStakeAsset ? [nativeFallbackStakeAsset] : [];
-  }, [stakeAssetsList?.assets, nativeFallbackStakeAsset]);
+    return stakeAssetsList?.assets ?? [];
+  }, [stakeAssetsList?.assets]);
 
   useEffect(() => {
     if (!selectableStakeAssets.length) {
@@ -283,6 +241,7 @@ export const StakeSection = ({
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
+      networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
       backendApproveType: protocolInfo?.approve?.approveType,
@@ -292,6 +251,7 @@ export const StakeSection = ({
     protocolInfo?.approve?.approveType,
     effectiveStakeTokenInfo?.token?.isNative,
     approveSpenderAddress,
+    networkId,
   ]);
 
   const selectedStakeTokenUniqueKey = useMemo(() => {
@@ -407,6 +367,7 @@ export const StakeSection = ({
     async () => {
       if (
         !hasRequiredData ||
+        !effectiveApproveType ||
         !approveSpenderAddress ||
         effectiveStakeTokenInfo?.token?.isNative
       ) {

@@ -2,7 +2,6 @@ import type { FC } from 'react';
 import { memo } from 'react';
 
 import { NumberSizeableText, XStack } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { PriceChangeBadge } from '../../PriceChangeBadge';
 
@@ -13,16 +12,19 @@ import type { IMarketToken } from '../MarketTokenData';
 interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
-const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
-  const [settings] = useSettingsPersistAtom();
-  const currency = settings.currencyInfo.symbol;
-
+const BasicTokenListItem: FC<ITokenListItemProps> = ({
+  item,
+  onPress,
+  onLongPress,
+}) => {
   return (
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
+      onLongPress={onLongPress}
       px="$5"
       py="$3"
       alignItems="center"
@@ -30,6 +32,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
       <XStack flex={1} alignItems="center" minWidth={0}>
         <TokenIdentityItem
           tokenLogoURI={item.tokenImageUri}
+          tokenLogoURIs={item.tokenImageUris}
           networkLogoURI={item.networkLogoUri}
           networkId={item.networkId}
           symbol={item.symbol}
@@ -37,6 +40,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
           showVolume
           volume={item.turnover}
           communityRecognized={item.communityRecognized}
+          stock={item.stock}
         />
       </XStack>
 
@@ -47,7 +51,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({ item, onPress }) => {
           numberOfLines={1}
           size="$bodyLgMedium"
           formatter="price"
-          formatterOptions={{ currency }}
+          formatterOptions={{ currency: '$' }}
         >
           {item.price}
         </NumberSizeableText>

@@ -4,8 +4,15 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePasswordModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
+import {
+  usePasswordModeAtom,
+  usePasswordPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordMode } from '@onekeyhq/shared/types/password';
 
 import PasswordSetup from '../components/PasswordSetup';
@@ -23,6 +30,9 @@ const PasswordUpdateContainer = ({
   const [loading, setLoading] = useState(false);
   const intl = useIntl();
   const [passwordMode] = usePasswordModeAtom();
+  const [{ webAuthCredentialId }, setPasswordPersist] =
+    usePasswordPersistAtom();
+  const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const onUpdatePassword = useCallback(
     async (data: IPasswordSetupForm) => {
       const { confirmPassword, confirmPassCode, passwordMode: mode } = data;
@@ -41,6 +51,26 @@ const PasswordUpdateContainer = ({
             mode,
           );
         onUpdateRes(updatedPassword);
+        // Save new password to secure storage for biometric unlock on extension.
+        // Clear skipPrfCache to avoid an unexpected WebAuthn prompt if this
+        // dialog was opened within a promptPasswordVerify flow.
+        if (platformEnv.isExtension && isBiologyAuthSwitchOn) {
+          try {
+            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
+            const prfCredentialId =
+              await biologyAuthUtils.savePasswordForPasskey(updatedPassword, {
+                repairBrokenState: true,
+              });
+            if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
+              setPasswordPersist((v) => ({
+                ...v,
+                webAuthCredentialId: prfCredentialId,
+              }));
+            }
+          } catch (e) {
+            console.error('Failed to save new password to secure storage:', e);
+          }
+        }
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
@@ -54,7 +84,14 @@ const PasswordUpdateContainer = ({
       }
       setLoading(false);
     },
-    [oldEncodedPassword, onUpdateRes, intl],
+    [
+      oldEncodedPassword,
+      onUpdateRes,
+      intl,
+      isBiologyAuthSwitchOn,
+      setPasswordPersist,
+      webAuthCredentialId,
+    ],
   );
   return (
     <PasswordSetup

@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { getHomeTabStackLength } from '../../views/Home/pages/urlAccount/urlAccountUtils';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import { WalletConnectionGroup } from './components';
@@ -125,6 +126,11 @@ export function HeaderLeft({
                     pop: true,
                   },
                 );
+              } else if (
+                getHomeTabStackLength() > 1 &&
+                rootNavigationRef.current?.canGoBack()
+              ) {
+                rootNavigationRef.current?.goBack();
               } else {
                 rootNavigationRef.current?.navigate(
                   ETabRoutes.Home,

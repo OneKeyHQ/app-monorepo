@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Tabs, YStack } from '@onekeyhq/components';
+import { HeaderScrollGestureWrapper, Tabs, YStack } from '@onekeyhq/components';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -27,15 +27,33 @@ import type {
 } from 'react-native-collapsible-tab-view';
 
 function MobileInformationTabsHeader(props: TabBarProps<string>) {
-  const { tabNames } = props;
+  const { tabNames, focusedTab, onTabPress } = props;
   const firstTabName = useMemo(() => {
     return tabNames[0];
   }, [tabNames]);
+
+  const handleTabPress = useCallback(
+    (tabName: string) => {
+      // Prevent default "press active tab to collapse header" behavior.
+      if (tabName === focusedTab.value) {
+        return;
+      }
+      onTabPress?.(tabName);
+    },
+    [focusedTab, onTabPress],
+  );
+
   return (
-    <YStack bg="$bgApp" pointerEvents="box-none">
-      <Tabs.TabBar {...props} textSize="$bodyMdMedium" />
-      <StickyHeader firstTabName={firstTabName} />
-    </YStack>
+    <HeaderScrollGestureWrapper panActiveOffsetY={[-4, 4]} scrollScale={1}>
+      <YStack bg="$bgApp" pointerEvents="box-none">
+        <Tabs.TabBar
+          {...props}
+          textSize="$bodyMdMedium"
+          onTabPress={handleTabPress}
+        />
+        <StickyHeader firstTabName={firstTabName} />
+      </YStack>
+    </HeaderScrollGestureWrapper>
   );
 }
 

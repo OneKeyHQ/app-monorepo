@@ -96,6 +96,7 @@ export function transformApiItemToToken(
     holders: item.holders || 0,
     turnover: safeNumber(item.volume24h),
     tokenImageUri: item.logoUrl || '',
+    tokenImageUris: item.logoUrls,
     decimals: item.decimals,
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
@@ -106,6 +107,7 @@ export function transformApiItemToToken(
     sortIndex,
     isNative: item.isNative,
     communityRecognized: item.communityRecognized,
+    stock: item.stock,
     walletInfo: {
       buy: safeNumber(item.buy24hCount),
       sell: safeNumber(item.sell24hCount),

@@ -32,6 +32,11 @@ export function useMarketDetailBackNavigation() {
       return;
     }
 
+    if (params?.from === EEnterWay.SwapPro) {
+      navigation.pop();
+      return;
+    }
+
     // Check if the previous route is Market home
     const state = reactNavigation.getState();
 

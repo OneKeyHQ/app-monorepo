@@ -11,5 +11,7 @@ export type IModalWebViewParamList = {
     isWebEmbed?: boolean;
     hashRoutePath?: EWebEmbedRoutePath;
     hashRouteQueryParams?: Record<string, string>;
+    redirectExternalNavigation?: boolean;
+    hideHeaderRight?: boolean;
   };
 };

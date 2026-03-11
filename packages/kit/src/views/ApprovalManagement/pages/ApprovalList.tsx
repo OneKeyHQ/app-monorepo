@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { CanceledError } from 'axios';
-import { isEmpty, isNil, pickBy } from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -15,7 +15,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -198,13 +197,11 @@ function ApprovalList() {
 
   useEffect(() => {
     if (!isNil(approvalsProp)) {
-      if (!isEmpty(approvalsProp)) {
-        approvalListInitRef.current = true;
-        updateApprovalListState({
-          isRefreshing: false,
-          initialized: true,
-        });
-      }
+      approvalListInitRef.current = true;
+      updateApprovalListState({
+        isRefreshing: false,
+        initialized: true,
+      });
       updateApprovalList({ data: approvalsProp });
     }
     if (!isNil(tokenMapProp)) {

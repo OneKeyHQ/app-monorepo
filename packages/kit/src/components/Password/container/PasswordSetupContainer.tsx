@@ -8,7 +8,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordModeAtom,
-  // usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -76,7 +75,6 @@ const PasswordSetupContainer = ({
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
-  // const [, setPasswordPersist] = usePasswordPersistAtom();
   const [passwordMode] = usePasswordModeAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const onSetupPassword = useCallback(
@@ -87,9 +85,11 @@ const PasswordSetupContainer = ({
       setLoading(true);
       let isPasswordSetSuccess = false;
       try {
-        if (isBiologyAuthSwitchOn && isSupport) {
-          const res = await setWebAuthEnable(true);
-          if (!res) return;
+        const shouldEnableWebAuth = isBiologyAuthSwitchOn && isSupport;
+        let webAuthRes: string | undefined;
+        if (shouldEnableWebAuth && !platformEnv.isExtension) {
+          webAuthRes = await setWebAuthEnable(true);
+          if (!webAuthRes) return;
         }
         const encodePassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
@@ -101,6 +101,25 @@ const PasswordSetupContainer = ({
             mode,
           );
         isPasswordSetSuccess = true;
+
+        // In extension, defer PassKey enrollment until after password setup so
+        // the just-cached password can be reused for a single PRF prompt.
+        if (platformEnv.isExtension && shouldEnableWebAuth) {
+          try {
+            webAuthRes = await setWebAuthEnable(true);
+          } catch (e) {
+            console.error('Failed to enable WebAuth after password setup:', e);
+          }
+
+          if (!webAuthRes) {
+            await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
+              false,
+            );
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.toast_web_auth }),
+            });
+          }
+        }
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
