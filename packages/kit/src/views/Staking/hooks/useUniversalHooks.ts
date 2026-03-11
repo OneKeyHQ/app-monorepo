@@ -314,7 +314,9 @@ export function useUniversalWithdraw({
       withdrawSignature,
       withdrawMessage,
       useEthenaCooldown,
+      resumeEthenaCooldownUnstake,
       onStepChange,
+      onEthenaCooldownUnstakeReady,
       signal,
     }: {
       amount: string;
@@ -333,7 +335,9 @@ export function useUniversalWithdraw({
       withdrawSignature?: string;
       withdrawMessage?: string;
       useEthenaCooldown?: boolean;
+      resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
+      onEthenaCooldownUnstakeReady?: () => void;
       signal?: AbortSignal;
     }) => {
       let stakeTx: IStakeTxResponse | undefined;
@@ -387,6 +391,64 @@ export function useUniversalWithdraw({
             deadline,
           });
       } else if (useEthenaCooldown) {
+        const openEthenaCooldownUnstakeConfirm = async () => {
+          const unstakeTx =
+            await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
+              amount,
+              identity,
+              networkId,
+              accountId,
+              symbol,
+              provider,
+              inputTokenAddress,
+              outputTokenAddress,
+              protocolVault,
+              withdrawAll,
+              useEthenaCooldown: true,
+              slippage,
+            });
+          const unstakeEncodedTx =
+            await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+              networkId,
+              accountId,
+              tx: unstakeTx.tx,
+              internalDappType: EInternalDappEnum.Staking,
+              stakingAction: EInternalStakingAction.Withdraw,
+            });
+          const unstakeStakeInfo = createStakeInfoWithOrderId({
+            stakingInfo,
+            orderId: unstakeTx.orderId,
+          });
+
+          let unstakeConfirmResult;
+          try {
+            unstakeConfirmResult = await waitForTxConfirmResult({
+              encodedTx: unstakeEncodedTx,
+              stakingInfo: unstakeStakeInfo,
+            });
+          } catch (error) {
+            onFail?.(error as Error);
+            return;
+          }
+
+          if (unstakeConfirmResult.status !== 'success') {
+            return;
+          }
+
+          onStepChange?.(3);
+          await handleStakeSuccess({
+            data: unstakeConfirmResult.data,
+            stakeInfo: unstakeStakeInfo,
+            networkId,
+            onSuccess,
+          });
+        };
+
+        if (resumeEthenaCooldownUnstake) {
+          await openEthenaCooldownUnstakeConfirm();
+          return;
+        }
+
         // Ethena two-step: 1) swap PT-sUSDe → sUSDe, 2) unstake sUSDe → USDe
         const swapTx =
           await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
@@ -468,6 +530,8 @@ export function useUniversalWithdraw({
           return;
         }
 
+        onEthenaCooldownUnstakeReady?.();
+
         // Let the previous confirm modal finish closing before opening
         // the next step so each tx confirm owns the stack serially.
         await timerUtils.wait(150);
@@ -476,56 +540,7 @@ export function useUniversalWithdraw({
           return;
         }
 
-        const unstakeTx =
-          await backgroundApiProxy.serviceStaking.buildUnstakeTransaction({
-            amount,
-            identity,
-            networkId,
-            accountId,
-            symbol,
-            provider,
-            inputTokenAddress,
-            outputTokenAddress,
-            protocolVault,
-            withdrawAll,
-            useEthenaCooldown: true,
-            slippage,
-          });
-        const unstakeEncodedTx =
-          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
-            networkId,
-            accountId,
-            tx: unstakeTx.tx,
-            internalDappType: EInternalDappEnum.Staking,
-            stakingAction: EInternalStakingAction.Withdraw,
-          });
-        const unstakeStakeInfo = createStakeInfoWithOrderId({
-          stakingInfo,
-          orderId: unstakeTx.orderId,
-        });
-
-        let unstakeConfirmResult;
-        try {
-          unstakeConfirmResult = await waitForTxConfirmResult({
-            encodedTx: unstakeEncodedTx,
-            stakingInfo: unstakeStakeInfo,
-          });
-        } catch (error) {
-          onFail?.(error as Error);
-          return;
-        }
-
-        if (unstakeConfirmResult.status !== 'success') {
-          return;
-        }
-
-        onStepChange?.(3);
-        await handleStakeSuccess({
-          data: unstakeConfirmResult.data,
-          stakeInfo: unstakeStakeInfo,
-          networkId,
-          onSuccess,
-        });
+        await openEthenaCooldownUnstakeConfirm();
         return;
       } else {
         stakeTx =

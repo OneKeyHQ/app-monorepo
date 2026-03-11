@@ -60,9 +60,11 @@ export function usePrimePurchaseCallback({
   const purchase = useCallback(
     async ({
       selectedSubscriptionPeriod,
+      currency,
       featureName,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod;
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
       try {
@@ -102,6 +104,7 @@ export function usePrimePurchaseCallback({
                       onPress: () => {
                         void purchaseByWebview({
                           selectedSubscriptionPeriod,
+                          currency,
                           featureName,
                         });
                       },
@@ -113,6 +116,7 @@ export function usePrimePurchaseCallback({
           } else {
             void purchaseByWebview({
               selectedSubscriptionPeriod,
+              currency,
               featureName,
             });
           }
@@ -124,6 +128,7 @@ export function usePrimePurchaseCallback({
             subscriptionPeriod: selectedSubscriptionPeriod,
             email: supabaseUser?.email || '',
             locale: intl.locale,
+            currency,
             featureName,
           });
           // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
@@ -199,8 +204,12 @@ export const PrimePurchaseDialog = (props: {
           disabled: !packages,
         }}
         onConfirm={() => {
+          const currency = packages?.find(
+            (p) => p.subscriptionPeriod === selectedSubscriptionPeriod,
+          )?.currencyCode;
           return purchase({
             selectedSubscriptionPeriod,
+            currency,
             featureName,
           });
         }}

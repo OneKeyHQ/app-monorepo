@@ -119,11 +119,11 @@ function EarnAssetSearchDialogContent({
   const [selectedCategory, setSelectedCategory] = useState<ICategoryKey>(
     EAvailableAssetsTypeEnum.SimpleEarn,
   );
+
   const dialogContentHeight = useMemo(() => {
     if (!windowHeight) {
       return 360;
     }
-
     return Math.min(Math.max(windowHeight - 280, 320), 520);
   }, [windowHeight]);
 

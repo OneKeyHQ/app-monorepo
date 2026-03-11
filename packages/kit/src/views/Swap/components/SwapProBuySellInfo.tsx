@@ -12,8 +12,6 @@ import {
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import type { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import { useCurrency } from '../../../components/Currency';
-
 interface ISwapProBuySellInfoProps {
   tokenDetailInfo?: IMarketTokenDetail;
   timeRange: ESwapProTimeRange;
@@ -35,7 +33,6 @@ const SwapProBuySellInfo = ({
   tokenDetailInfo,
   timeRange,
 }: ISwapProBuySellInfoProps) => {
-  const currencyInfo = useCurrency();
   const buyVolume = useMemo(() => {
     const buyVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
@@ -50,7 +47,7 @@ const SwapProBuySellInfo = ({
         color="$textSuccess"
         fontFamily="$monoRegular"
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
-        formatterOptions={{ currency: currencyInfo.symbol }}
+        formatterOptions={{ currency: '$' }}
       >
         {!supportSpeedSwap ? '--' : buyVolumeValue}
       </NumberSizeableText>
@@ -59,7 +56,7 @@ const SwapProBuySellInfo = ({
       value: buyVolumeValue,
       formattedValue: formattedBuyVolume,
     };
-  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, supportSpeedSwap]);
+  }, [tokenDetailInfo, timeRange, supportSpeedSwap]);
   const sellVolume = useMemo(() => {
     const sellVolumeValue = getCountByTimeRange(
       tokenDetailInfo,
@@ -74,7 +71,7 @@ const SwapProBuySellInfo = ({
         color="$textCritical"
         fontFamily="$monoRegular"
         formatter={isAboveThreshold ? 'marketCap' : 'value'}
-        formatterOptions={{ currency: currencyInfo.symbol }}
+        formatterOptions={{ currency: '$' }}
       >
         {!supportSpeedSwap ? '--' : sellVolumeValue}
       </NumberSizeableText>
@@ -83,7 +80,7 @@ const SwapProBuySellInfo = ({
       value: sellVolumeValue,
       formattedValue: formattedSellVolume,
     };
-  }, [tokenDetailInfo, timeRange, currencyInfo.symbol, supportSpeedSwap]);
+  }, [tokenDetailInfo, timeRange, supportSpeedSwap]);
   const totalVolume = useMemo(() => {
     const buyVBN = new BigNumber(buyVolume.value);
     const sellVBN = new BigNumber(sellVolume.value);
