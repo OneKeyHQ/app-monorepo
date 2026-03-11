@@ -474,12 +474,14 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     contractAddress,
     direction,
+    currency,
   }: {
     networkId: string;
     accountAddress?: string;
     accountId?: string;
     contractAddress: string;
     direction?: ESwapDirectionType;
+    currency?: string;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
@@ -488,6 +490,7 @@ export default class ServiceSwap extends ServiceBase {
         networkId,
         accountAddress,
         contractAddress,
+        currency,
       };
       if (direction) {
         if (direction === ESwapDirectionType.FROM) {

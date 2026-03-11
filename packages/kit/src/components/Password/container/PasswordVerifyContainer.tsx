@@ -258,7 +258,10 @@ const PasswordVerifyContainer = ({
               setVerifiedStatus();
               return;
             }
-          } catch {
+          } catch (e) {
+            if ((e as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+              throw e;
+            }
             // No secure password stored — fall through to credential-only
           }
           // Fallback: old behavior (credential-only verification).
@@ -402,14 +405,19 @@ const PasswordVerifyContainer = ({
         // Clear skipPrfCache first — the flag is set during promptPasswordVerify
         // to force real WebAuthn for the biometric button, but password
         // verification has already succeeded here so it's safe to use cache.
-        if (
-          platformEnv.isExtension &&
-          isBiologyAuthSwitchOn &&
-          webAuthCredentialId
-        ) {
+        if (platformEnv.isExtension && isBiologyAuthSwitchOn) {
           try {
             await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
-            await biologyAuthUtils.savePassword(verifiedPassword);
+            const prfCredentialId =
+              await biologyAuthUtils.savePasswordForPasskey(verifiedPassword, {
+                repairBrokenState: true,
+              });
+            if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
+              setPasswordPersist((v) => ({
+                ...v,
+                webAuthCredentialId: prfCredentialId,
+              }));
+            }
           } catch (e) {
             console.error('Failed to save password to secure storage:', e);
           }

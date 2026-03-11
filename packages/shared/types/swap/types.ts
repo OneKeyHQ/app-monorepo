@@ -227,6 +227,7 @@ export interface IFetchTokenDetailParams {
   accountNetworkId?: string;
   xpub?: string;
   withCheckInscription?: boolean;
+  currency?: string;
 }
 
 export interface ISwapAutoSlippageSuggestedValue {

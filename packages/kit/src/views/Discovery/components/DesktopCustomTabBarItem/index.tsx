@@ -209,7 +209,7 @@ function DesktopCustomTabBarItem({
         hideCloseButton={isCollapse}
         size="small"
         showAvatar={!isHomeTab}
-        icon={isHomeTab ? 'Ai3StarOutline' : undefined}
+        icon={isHomeTab ? 'EarthOutline' : undefined}
         shortcutKey={shortcutKey}
         key={id}
         selected={isActive}

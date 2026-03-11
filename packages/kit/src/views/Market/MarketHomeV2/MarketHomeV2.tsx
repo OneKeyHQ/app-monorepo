@@ -182,13 +182,19 @@ function BaseMarketHomeWithProvider({
   nestedPager?: boolean;
 }) {
   const { mobileProps } = useMarketHomeLayoutProps();
-  return isFocused ? (
+  // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
+  // and let Freeze control inactive-page performance. Unmounting here causes
+  // visible flashes when the outer pager finishes settling.
+  if (!isFocused && !nestedPager) {
+    return null;
+  }
+  return (
     <MobileLayout
       {...mobileProps}
       tabsRef={tabsRef}
       nestedPager={nestedPager}
     />
-  ) : null;
+  );
 }
 
 export function MarketHomeWithProvider({
