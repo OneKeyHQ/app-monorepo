@@ -272,7 +272,12 @@ export function UniversalSearchV2MarketTokenItem({
           ) : null}
         </XStack>
         <XStack ai="center" gap="$2" flex={1} minWidth={0}>
-          <MarketTokenIcon uri={logoUrl} uris={logoUrls} size="sm" networkId={network} />
+          <MarketTokenIcon
+            uri={logoUrl}
+            uris={logoUrls}
+            size="sm"
+            networkId={network}
+          />
           <YStack flex={1} minWidth={0}>
             <XStack ai="center" gap="$1" minWidth={0}>
               <SizableText

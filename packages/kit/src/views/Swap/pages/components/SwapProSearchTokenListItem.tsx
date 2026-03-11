@@ -43,7 +43,12 @@ const SwapProSearchTokenListItem = ({
         onPress(item);
       }}
       renderAvatar={
-        <MarketTokenIcon uri={logoUrl} uris={logoUrls} size="lg" networkId={network} />
+        <MarketTokenIcon
+          uri={logoUrl}
+          uris={logoUrls}
+          size="lg"
+          networkId={network}
+        />
       }
     >
       <ListItem.Text
