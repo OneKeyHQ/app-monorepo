@@ -12,6 +12,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnBorrowPagerViewRef } from '../../Earn/components/EarnBorrowPagerView';
 import type {
   PageScrollStateChangedNativeEvent,
+  PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view';
 
@@ -68,7 +69,15 @@ function OuterTabPagerViewComponent({
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
   const outerPagerRef = useRef<PagerView>(null);
   const currentOuterIndexRef = useRef(initialPage);
+  const [activePageIndex, setActivePageIndex] = useState(initialPage);
   const wasUserDragRef = useRef(false);
+  const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
+    useState(false);
+  const isOuterPageTransitioningRef = useRef(false);
+  const [visiblePagePair, setVisiblePagePair] = useState<
+    [number, number] | null
+  >(null);
+  const visiblePagePairRef = useRef<[number, number] | null>(null);
 
   // Track which pages have been visited for lazy mounting.
   // Initial page is marked as visited immediately.
@@ -77,31 +86,107 @@ function OuterTabPagerViewComponent({
       [initialPage]: true,
     }),
   );
+  const visitedPagesRef = useRef<Record<number, boolean>>({
+    [initialPage]: true,
+  });
 
   // Ref to avoid stale closure in onPageSelected
   const selectedHeaderTabRef = useRef(selectedHeaderTab);
   selectedHeaderTabRef.current = selectedHeaderTab;
 
+  const setTransitioning = useCallback((value: boolean) => {
+    if (isOuterPageTransitioningRef.current === value) {
+      return;
+    }
+    isOuterPageTransitioningRef.current = value;
+    setIsOuterPageTransitioning(value);
+  }, []);
+
+  const setVisiblePair = useCallback((pair: [number, number] | null) => {
+    const prev = visiblePagePairRef.current;
+    if (
+      prev === pair ||
+      (prev && pair && prev[0] === pair[0] && prev[1] === pair[1])
+    ) {
+      return;
+    }
+    visiblePagePairRef.current = pair;
+    setVisiblePagePair(pair);
+  }, []);
+
+  const markPagesVisited = useCallback((indexes: number[]) => {
+    const deduped = Array.from(new Set(indexes));
+    const nextVisited = { ...visitedPagesRef.current };
+    let changed = false;
+    deduped.forEach((index) => {
+      if (!nextVisited[index]) {
+        nextVisited[index] = true;
+        changed = true;
+      }
+    });
+    if (!changed) {
+      return;
+    }
+    visitedPagesRef.current = nextVisited;
+    setVisitedPages(nextVisited);
+  }, []);
+
   // --- Atom -> PagerView sync (programmatic switching) ---
   useEffect(() => {
     const index = TAB_TO_INDEX[selectedHeaderTab];
+    if (index !== undefined) {
+      // Ensure target page is mounted before transition to avoid blank content.
+      markPagesVisited([index]);
+    }
     if (index !== undefined && index !== currentOuterIndexRef.current) {
+      const previousIndex = currentOuterIndexRef.current;
+      setTransitioning(true);
+      setVisiblePair([previousIndex, index]);
       outerPagerRef.current?.setPage(index);
       // Update current index immediately to prevent redundant setPage calls
       currentOuterIndexRef.current = index;
+      setActivePageIndex(index);
     }
-  }, [selectedHeaderTab]);
+  }, [markPagesVisited, selectedHeaderTab, setTransitioning, setVisiblePair]);
 
   const handleOuterPageScrollStateChanged = useCallback(
     (e: PageScrollStateChangedNativeEvent) => {
       const state = e.nativeEvent.pageScrollState;
       if (state === 'dragging') {
         wasUserDragRef.current = true;
+        setTransitioning(true);
+      } else if (state === 'settling') {
+        setTransitioning(true);
       } else if (state === 'idle') {
         wasUserDragRef.current = false;
+        setTransitioning(false);
+        setVisiblePair(null);
       }
     },
-    [],
+    [setTransitioning, setVisiblePair],
+  );
+
+  // During horizontal swipe, pre-mount the neighbor page and keep only
+  // the current + target pages unfrozen to avoid black frames.
+  const handleOuterPageScroll = useCallback(
+    (e: PagerViewOnPageScrollEvent) => {
+      const { position, offset } = e.nativeEvent;
+      if (offset <= 0) {
+        return;
+      }
+      const nextPosition = Math.min(position + 1, INDEX_TO_TAB.length - 1);
+      const prevPair = visiblePagePairRef.current;
+      if (
+        prevPair &&
+        prevPair[0] === position &&
+        prevPair[1] === nextPosition
+      ) {
+        return;
+      }
+      setVisiblePair([position, nextPosition]);
+      markPagesVisited([position, nextPosition]);
+    },
+    [markPagesVisited, setVisiblePair],
   );
 
   // --- PagerView -> Atom sync (gesture swiping) ---
@@ -110,14 +195,12 @@ function OuterTabPagerViewComponent({
       const position = e.nativeEvent.position;
       const tab = INDEX_TO_TAB[position];
       currentOuterIndexRef.current = position;
+      setActivePageIndex(position);
 
       // Mark page as visited (lazy mount) — only in onPageSelected,
       // not during render, to prevent offscreenPageLimit pre-renders
       // from defeating lazy loading.
-      setVisitedPages((prev) => {
-        if (prev[position]) return prev;
-        return { ...prev, [position]: true };
-      });
+      markPagesVisited([position]);
 
       // Persist tab only for user-gesture swipes.
       // iOS may emit synthetic onPageSelected during freeze/unfreeze.
@@ -130,20 +213,33 @@ function OuterTabPagerViewComponent({
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }
     },
-    [],
+    [markPagesVisited],
   );
 
   // Determine which pages should be rendered
-  const activeIndex = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
+  const shouldFreezePage = useCallback(
+    (pageIndex: number) => {
+      if (isOuterPageTransitioning) {
+        if (visiblePagePair) {
+          return (
+            visiblePagePair[0] !== pageIndex && visiblePagePair[1] !== pageIndex
+          );
+        }
+        return activePageIndex !== pageIndex;
+      }
+      return activePageIndex !== pageIndex;
+    },
+    [activePageIndex, isOuterPageTransitioning, visiblePagePair],
+  );
 
   // --- Freeze/unfreeze resync ---
   //
   // Why useEffect on activeIndex instead of requestAnimationFrame in onPageSelected:
   //
-  // The Freeze/unfreeze is driven by `activeIndex`, which is derived from
-  // `selectedHeaderTab` (a Jotai atom updated asynchronously via setSelectedBrowserTab).
+  // The freeze/unfreeze sync is driven by `activePageIndex`, which updates
+  // immediately from PagerView selection events (or programmatic tab changes).
   // If we schedule sync in onPageSelected via requestAnimationFrame, the rAF may fire
-  // BEFORE the async atom update triggers the React re-render that unfreezes the page.
+  // before the render commit that applies the new freeze state.
   //
   // - iOS: UIScrollView ignores setContentOffset while the view is suspended by
   //   react-freeze (Suspense), so the sync is a no-op and the PagerView resets to page 0.
@@ -151,64 +247,64 @@ function OuterTabPagerViewComponent({
   //   setCurrentItem call and applies it even during layout transitions, so the issue
   //   does not manifest.
   //
-  // By using useEffect on activeIndex, we guarantee the sync runs AFTER the render
+  // By using useEffect on activePageIndex, we guarantee the sync runs AFTER the render
   // commit that unfreezes the page, so the native PagerView is active and responsive.
-  const prevActiveIndexRef = useRef(activeIndex);
+  const prevActiveIndexRef = useRef(activePageIndex);
   useEffect(() => {
     const prev = prevActiveIndexRef.current;
-    prevActiveIndexRef.current = activeIndex;
-    if (prev === activeIndex) return;
+    prevActiveIndexRef.current = activePageIndex;
+    if (prev === activePageIndex) return;
 
     requestAnimationFrame(() => {
-      if (activeIndex === 0) {
+      if (activePageIndex === 0) {
         marketTabsRef?.current?.syncCurrentPage();
-      } else if (activeIndex === 1) {
+      } else if (activePageIndex === 1) {
         earnBorrowPagerRef?.current?.syncCurrentPage();
         earnTabsRef?.current?.syncCurrentPage();
       }
     });
-  }, [activeIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
+  }, [activePageIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
 
   const marketPage = useMemo(
     () =>
       visitedPages[0] ? (
         <View key="market" style={styles.page}>
-          <Freeze freeze={activeIndex !== 0}>{marketContent}</Freeze>
+          <Freeze freeze={shouldFreezePage(0)}>{marketContent}</Freeze>
         </View>
       ) : (
         <View key="market" style={styles.page}>
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, activeIndex, marketContent],
+    [visitedPages, shouldFreezePage, marketContent],
   );
 
   const earnPage = useMemo(
     () =>
       visitedPages[1] ? (
         <View key="earn" style={styles.page}>
-          <Freeze freeze={activeIndex !== 1}>{earnContent}</Freeze>
+          <Freeze freeze={shouldFreezePage(1)}>{earnContent}</Freeze>
         </View>
       ) : (
         <View key="earn" style={styles.page}>
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, activeIndex, earnContent],
+    [visitedPages, shouldFreezePage, earnContent],
   );
 
   const browserPage = useMemo(
     () =>
       visitedPages[2] ? (
         <View key="browser" style={styles.page}>
-          <Freeze freeze={activeIndex !== 2}>{browserContent}</Freeze>
+          <Freeze freeze={shouldFreezePage(2)}>{browserContent}</Freeze>
         </View>
       ) : (
         <View key="browser" style={styles.page}>
           <Stack flex={1} />
         </View>
       ),
-    [visitedPages, activeIndex, browserContent],
+    [visitedPages, shouldFreezePage, browserContent],
   );
 
   return (
@@ -220,6 +316,7 @@ function OuterTabPagerViewComponent({
       overdrag={false}
       overScrollMode="never"
       offscreenPageLimit={1}
+      onPageScroll={handleOuterPageScroll}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}
     >
