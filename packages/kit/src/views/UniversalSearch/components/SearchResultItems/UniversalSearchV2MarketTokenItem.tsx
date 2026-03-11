@@ -33,7 +33,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 
@@ -42,27 +41,38 @@ import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
-export function ContractAddress({ address }: { address: string }) {
+import {
+  formatContractAddress,
+  shouldRenderContractAddress,
+} from './utils/contractAddress';
+
+export function ContractAddress({
+  address,
+  compact,
+}: {
+  address: string;
+  compact?: boolean;
+}) {
   const { copyText } = useClipboard();
-  const contractAddress = accountUtils.shortenAddress({
-    address,
-    leadingLength: 6,
-    trailingLength: 4,
-  });
+  const contractAddress = formatContractAddress(address);
 
   if (!address) {
     return null;
   }
 
+  const textSize = compact ? '$bodyXs' : '$bodyMd';
+  const iconSize = compact ? '$3' : '$4';
+  const gap = compact ? '$0.5' : '$1';
+
   return (
-    <XStack ai="center" gap="$1">
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <XStack ai="center" gap={gap}>
+      <SizableText size={textSize} color="$textSubdued">
         {contractAddress}
       </SizableText>
       <IconButton
         variant="tertiary"
         size="small"
-        iconSize="$4"
+        iconSize={iconSize}
         icon="Copy3Outline"
         onPress={() => {
           defaultLogger.dex.actions.dexCopyCA({
@@ -179,6 +189,10 @@ export function UniversalSearchV2MarketTokenItem({
   const volume24h = volume24hCamel || volume_24h;
 
   const isLegacyNavigation = !network;
+  const isContractAddressVisible = shouldRenderContractAddress({
+    address,
+    isLegacyNavigation,
+  });
 
   // Hide favorite button in extension popup and side panel
   const shouldShowFavoriteButton = useMemo(
@@ -295,9 +309,26 @@ export function UniversalSearchV2MarketTokenItem({
                 <SubtitleBadge subtitle={stock.subtitle} />
               ) : null}
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {name}
-            </SizableText>
+            <XStack ai="center" gap="$0.5" minWidth={0}>
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+                minWidth={0}
+                flexShrink={1}
+                maxWidth={isContractAddressVisible ? '52%' : '100%'}
+              >
+                {name}
+              </SizableText>
+              {isContractAddressVisible ? (
+                <>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    |
+                  </SizableText>
+                  <ContractAddress address={address} compact />
+                </>
+              ) : null}
+            </XStack>
           </YStack>
         </XStack>
       </XStack>
