@@ -38,7 +38,8 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
   });
 
   const shouldOpenStore =
-    updateFileType === EUpdateFileType.appShell && !!appUpdateInfo.data?.storeUrl;
+    updateFileType === EUpdateFileType.appShell &&
+    !!appUpdateInfo.data?.storeUrl;
 
   const handleToUpdate: IPageFooterProps['onConfirm'] = useCallback(() => {
     if (appUpdateInfo.data) {

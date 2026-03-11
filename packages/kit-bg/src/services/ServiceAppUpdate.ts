@@ -669,11 +669,8 @@ class ServiceAppUpdate extends ServiceBase {
       defaultLogger.app.appUpdate.log(
         `fetchAppUpdateInfo: releaseInfo matched, version=${
           releaseInfo.version ?? 'nil'
-        }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, hasStoreUrl=${
-          !!releaseInfo.storeUrl
-        }, hasDownloadUrl=${!!releaseInfo.downloadUrl}, hasJsBundleDownloadUrl=${
-          !!releaseInfo.jsBundle?.downloadUrl
-        }`,
+        }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, hasStoreUrl=${!!releaseInfo.storeUrl}, hasDownloadUrl=${!!releaseInfo.downloadUrl}, hasJsBundleDownloadUrl=${!!releaseInfo
+          .jsBundle?.downloadUrl}`,
       );
       const shouldUpdate = gtVersion(
         releaseInfo.version,
@@ -790,9 +787,7 @@ class ServiceAppUpdate extends ServiceBase {
         latest.status
       }, latestVersion=${latest.latestVersion ?? 'nil'}, jsBundleVersion=${
         latest.jsBundleVersion ?? 'nil'
-      }, hasStoreUrl=${!!latest.storeUrl}, hasDownloadUrl=${
-        !!latest.downloadUrl
-      }, hasJsBundleDownloadUrl=${!!latest.jsBundle?.downloadUrl}`,
+      }, hasStoreUrl=${!!latest.storeUrl}, hasDownloadUrl=${!!latest.downloadUrl}, hasJsBundleDownloadUrl=${!!latest.jsBundle?.downloadUrl}`,
     );
     return latest;
   }
