@@ -74,13 +74,6 @@ jobs:
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v2
 
-      - name: Configure Snapcraft provider for arm64
-        if: ${{ matrix.arch == 'arm64' }}
-        run: |
-          sudo snap set snapcraft provider=lxd
-          snap get snapcraft provider
-          sg lxd -c 'snapcraft --version'
-
       - name: 'Setup ENV'
         run: |
           eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
