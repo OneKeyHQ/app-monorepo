@@ -261,6 +261,7 @@ export interface IMarketSearchV2Token {
   address: string;
   network: string;
   logoUrl: string;
+  logoUrls?: string[];
   isNative: boolean;
   decimals: number;
   liquidity: string;
