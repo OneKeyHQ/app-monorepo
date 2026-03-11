@@ -5,8 +5,6 @@ import BigNumber from 'bignumber.js';
 import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
-import { useCurrency } from '../../../components/Currency';
-
 interface ISwapProTokenTransactionItemProps {
   item: IMarketTokenTransaction;
 }
@@ -24,7 +22,6 @@ const isValidNumericValue = (value: unknown): boolean => {
 const SwapProTokenTransactionItem = ({
   item,
 }: ISwapProTokenTransactionItemProps) => {
-  const currencyInfo = useCurrency();
   const { formatPrice, formatTokenValue } = useMemo(() => {
     const rawTokenPrice = item.type === 'buy' ? item.to.price : item.from.price;
     const rawTokenAmount =
@@ -52,7 +49,7 @@ const SwapProTokenTransactionItem = ({
           fontFamily="$monoRegular"
           formatter={isAboveThreshold ? 'marketCap' : 'price'}
           formatterOptions={{
-            currency: currencyInfo.symbol,
+            currency: '$',
           }}
         >
           {rawTokenPrice}
@@ -81,7 +78,7 @@ const SwapProTokenTransactionItem = ({
           fontFamily="$monoRegular"
           formatter={isAboveThreshold ? 'marketCap' : 'value'}
           formatterOptions={{
-            currency: currencyInfo.symbol,
+            currency: '$',
           }}
         >
           {tokenValue}
@@ -93,7 +90,6 @@ const SwapProTokenTransactionItem = ({
       formatTokenValue: formatTokenValueValue,
     };
   }, [
-    currencyInfo.symbol,
     item.from.amount,
     item.from.price,
     item.to.amount,

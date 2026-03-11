@@ -21,9 +21,11 @@ export function usePurchasePackageWebview() {
   const purchasePackageWebview = useCallback(
     async ({
       selectedSubscriptionPeriod,
+      currency,
       featureName,
     }: {
       selectedSubscriptionPeriod: ISubscriptionPeriod | undefined;
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
       if (!selectedSubscriptionPeriod) {
@@ -46,6 +48,7 @@ export function usePurchasePackageWebview() {
           locale: intl.locale,
           mode: platformEnv.isDev ? 'dev' : 'prod',
           apiKey: apiKey || '',
+          ...(currency ? { currency } : {}),
           ...(featureName ? { featureName } : {}),
         },
       });
