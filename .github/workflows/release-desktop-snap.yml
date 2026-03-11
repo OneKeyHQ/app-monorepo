@@ -73,6 +73,11 @@ jobs:
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v2
 
+      - name: Configure Snapcraft to use LXD on arm64
+        if: ${{ matrix.arch == 'arm64' }}
+        run: |
+          echo "SNAPCRAFT_BUILD_ENVIRONMENT=lxd" >> $GITHUB_ENV
+
       - name: 'Setup ENV'
         run: |
           eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
