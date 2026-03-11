@@ -46,7 +46,13 @@ import {
   shouldRenderContractAddress,
 } from './utils/contractAddress';
 
-export function ContractAddress({ address }: { address: string }) {
+export function ContractAddress({
+  address,
+  compact,
+}: {
+  address: string;
+  compact?: boolean;
+}) {
   const { copyText } = useClipboard();
   const contractAddress = formatContractAddress(address);
 
@@ -54,16 +60,19 @@ export function ContractAddress({ address }: { address: string }) {
     return null;
   }
 
+  const textSize = compact ? '$bodyXs' : '$bodyMd';
+  const iconSize = compact ? '$3' : '$4';
+  const gap = compact ? '$0.5' : '$1';
+
   return (
-    <XStack ai="center" gap="$0.5">
-      <SizableText size="$bodyXs" color="$textSubdued">
+    <XStack ai="center" gap={gap}>
+      <SizableText size={textSize} color="$textSubdued">
         {contractAddress}
       </SizableText>
       <IconButton
         variant="tertiary"
         size="small"
-        p="$0.5"
-        iconSize="$3"
+        iconSize={iconSize}
         icon="Copy3Outline"
         onPress={() => {
           defaultLogger.dex.actions.dexCopyCA({
@@ -316,7 +325,7 @@ export function UniversalSearchV2MarketTokenItem({
                   <SizableText size="$bodySm" color="$textSubdued">
                     |
                   </SizableText>
-                  <ContractAddress address={address} />
+                  <ContractAddress address={address} compact />
                 </>
               ) : null}
             </XStack>
