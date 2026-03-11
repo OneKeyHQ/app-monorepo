@@ -15,7 +15,11 @@ import {
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { ONEKEY_SIFU_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  ONEKEY_SIFU_URL,
+  ONEKEY_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,6 +27,7 @@ import {
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { appendUtmSourceToUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { RichBlock } from '../RichBlock';
 
@@ -109,17 +114,26 @@ function SupportHubBannerItem({
         }
       }}
     >
-      <Image
+      <Stack
         position="absolute"
         top="0"
         left="0"
         bottom="0"
         right="0"
-        source={item.image}
-        resizeMode="cover"
-        zIndex={0}
-        opacity={themeVariant === 'dark' ? 0.9 : 1}
-      />
+        pointerEvents="none"
+      >
+        <Image
+          position="absolute"
+          top="0"
+          left="0"
+          bottom="0"
+          right="0"
+          source={item.image}
+          resizeMode="cover"
+          zIndex={0}
+          opacity={themeVariant === 'dark' ? 0.9 : 1}
+        />
+      </Stack>
       <Theme name="light">
         <YStack width="60%" zIndex={99} position="absolute" left="$4">
           <SizableText size="$headingLg" flex={1}>
@@ -137,10 +151,36 @@ function SupportHubBannerItem({
 function SupportHub() {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const helpCenterCommonFaqLink = useHelpLink({
     path: '',
   });
+
+  const supportHubUtmSource = 'app_support_hub';
+
+  const quizChallengeUrl = useMemo(() => {
+    const isTestEnv =
+      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
+    const baseUrl = isTestEnv ? 'https://onekeytest.com' : ONEKEY_URL;
+    return appendUtmSourceToUrl({
+      url: `${baseUrl}/quiz-challenge`,
+      utmSource: supportHubUtmSource,
+    });
+  }, [
+    devSettings.enabled,
+    devSettings.settings?.enableTestEndpoint,
+    supportHubUtmSource,
+  ]);
+
+  const sifuUrl = useMemo(
+    () =>
+      appendUtmSourceToUrl({
+        url: ONEKEY_SIFU_URL,
+        utmSource: supportHubUtmSource,
+      }),
+    [supportHubUtmSource],
+  );
 
   const bannerData = useMemo<ISupportHubBanner[]>(
     () => [
@@ -148,17 +188,17 @@ function SupportHub() {
         image: require('@onekeyhq/kit/assets/web3_quiz_challange_bg.jpg'),
         title: ETranslations.quiz_time__title,
         description: ETranslations.quiz_time__desc,
-        url: `${ONEKEY_SIFU_URL}/?utm_source=app_support_hub`,
+        url: quizChallengeUrl,
       },
       {
         image: require('@onekeyhq/kit/assets/sifu_bg.jpg'),
         title: ETranslations.wallet_onekey_sifu,
         description:
           ETranslations.wallet_get_one_on_one_hardware_wallet_setup_help,
-        url: `${ONEKEY_SIFU_URL}/?utm_source=app_support_hub`,
+        url: sifuUrl,
       },
     ],
-    [],
+    [quizChallengeUrl, sifuUrl],
   );
 
   const [bannerWidth, setBannerWidth] = useState(0);
@@ -203,23 +243,6 @@ function SupportHub() {
                     right: 0,
                     gap: 0,
                   }}
-                  renderPaginationItem={({ dotStyle, activeDotStyle, onPress }, index) => (
-                    <Stack
-                      key={index}
-                      onPress={onPress}
-                      p="$1"
-                      borderRadius="$full"
-                    >
-                      <Stack
-                        w="$1.5"
-                        h="$1.5"
-                        borderRadius="$full"
-                        bg="$neutral5"
-                        {...dotStyle}
-                        {...activeDotStyle}
-                      />
-                    </Stack>
-                  )}
                 />
               ) : (
                 <Stack height={151} />
@@ -284,7 +307,13 @@ function SupportHub() {
         </Stack>
       </Stack>
     );
-  }, [intl, helpCenterCommonFaqLink, bannerData, renderBannerItem, bannerWidth]);
+  }, [
+    intl,
+    helpCenterCommonFaqLink,
+    bannerData,
+    renderBannerItem,
+    bannerWidth,
+  ]);
 
   return (
     <RichBlock
