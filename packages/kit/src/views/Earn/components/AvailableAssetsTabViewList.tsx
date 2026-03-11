@@ -38,6 +38,7 @@ import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
 import { showEarnAssetSearchDialog } from './EarnAssetSearchPopover';
+import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
 export function AvailableAssetsTabViewList() {
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
@@ -54,22 +55,7 @@ export function AvailableAssetsTabViewList() {
   const activeNetworkId = activeAccount.network?.id;
 
   const tabData = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({ id: ETranslations.defi_simple_earn }),
-        type: EAvailableAssetsTypeEnum.SimpleEarn,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.earn_fixed_income }),
-        type: EAvailableAssetsTypeEnum.FixedRate,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.wallet_defi_position_module_staked,
-        }),
-        type: EAvailableAssetsTypeEnum.Staking,
-      },
-    ],
+    () => buildEarnAvailableAssetCategoryTabs(intl),
     [intl],
   );
 
@@ -456,6 +442,9 @@ export function AvailableAssetsTabViewList() {
 
         showEarnAssetSearchDialog({
           availableAssetsByType: completeData,
+          initialCategoryType:
+            tabData[selectedTabIndex]?.type ??
+            EAvailableAssetsTypeEnum.SimpleEarn,
           onAssetSelect: (asset, categoryType) => {
             void navigateToAsset(asset, categoryType);
           },
@@ -464,7 +453,13 @@ export function AvailableAssetsTabViewList() {
         setSearchLoading(false);
       }
     })();
-  }, [availableAssetsByType, actions, navigateToAsset]);
+  }, [
+    availableAssetsByType,
+    actions,
+    navigateToAsset,
+    selectedTabIndex,
+    tabData,
+  ]);
 
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {

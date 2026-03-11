@@ -119,10 +119,11 @@ function ReferralLandingPage() {
   const [appIsLocked] = useAppIsLockedAtom();
 
   const routeParams = route.params as
-    | { code: string; page?: string }
+    | { code: string; page?: string; fromDeepLink?: boolean }
     | undefined;
   const routeCode = routeParams?.code;
   const page = routeParams?.page;
+  const fromDeepLink = routeParams?.fromDeepLink;
 
   // Handle /r/invite?code=XXX case - extract code from URL query params
   let code = routeCode;
@@ -159,6 +160,11 @@ function ReferralLandingPage() {
       : '';
 
     defaultLogger.referral.page.enterReferralGuide(code, 'web_mobile_redirect');
+    defaultLogger.referral.page.enterFromReferralLink({
+      referralCode: code ?? '',
+      landingPage: page ? `/app/${page}` : '/app',
+      utmSource: 'web_mobile_redirect',
+    });
 
     const redirectToStore = () => {
       if (platformEnv.isWebMobileIOS) {
@@ -265,7 +271,13 @@ function ReferralLandingPage() {
         return;
       }
 
-      defaultLogger.referral.page.enterReferralGuide(code, 'app_landing');
+      const utmSource = fromDeepLink ? 'deep_link' : 'app_landing';
+      defaultLogger.referral.page.enterReferralGuide(code, utmSource);
+      defaultLogger.referral.page.enterFromReferralLink({
+        referralCode: code ?? '',
+        landingPage: page ? `/app/${page}` : '/app',
+        utmSource,
+      });
 
       if (code && (page === 'perp' || page === 'perps')) {
         try {
@@ -305,7 +317,7 @@ function ReferralLandingPage() {
         clearTimeout(modalTimerId);
       }
     };
-  }, [appIsLocked, code, page, navigation, isMobileWeb]);
+  }, [appIsLocked, code, page, navigation, isMobileWeb, fromDeepLink]);
 
   if (isMobileWeb) {
     return (

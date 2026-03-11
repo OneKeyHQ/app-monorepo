@@ -32,6 +32,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       <XStack flex={1} alignItems="center" minWidth={0}>
         <TokenIdentityItem
           tokenLogoURI={item.tokenImageUri}
+          tokenLogoURIs={item.tokenImageUris}
           networkLogoURI={item.networkLogoUri}
           networkId={item.networkId}
           symbol={item.symbol}

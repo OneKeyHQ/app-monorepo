@@ -126,6 +126,7 @@ async function processDeepLinkUrlAccount(
               navigation.push(ETabHomeRoutes.TabHomeReferralLanding, {
                 code,
                 page: page ?? '',
+                fromDeepLink: true,
               });
             }
           }
