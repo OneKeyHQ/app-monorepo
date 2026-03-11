@@ -1062,8 +1062,9 @@ class DesktopApiAppBundleUpdate {
     return app.getVersion();
   }
 
-  async getNativeBuildNumber() {
-    return process.env.BUILD_NUMBER || '';
+  async getNativeBuildNumber(): Promise<string> {
+    const buildNumber = process.env.BUILD_NUMBER;
+    return typeof buildNumber === 'string' ? buildNumber : '';
   }
 
   async getJsBundlePath() {

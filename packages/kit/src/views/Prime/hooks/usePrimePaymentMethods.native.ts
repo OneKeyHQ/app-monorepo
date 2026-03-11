@@ -188,6 +188,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
+        currencyCode,
         pricePerYear: pricePerYear || 0,
         pricePerYearString: `${new BigNumber(pricePerYear || 0).toFixed(
           2,

@@ -237,6 +237,7 @@ export function useSwapTokenPairBalanceSyncForPosition() {
             contractAddress: token.contractAddress,
             accountAddress: res.addressDetail.address,
             accountId: res.id ?? '',
+            currency: 'usd',
           });
         return balanceTokenInfo?.[0];
       });
@@ -319,6 +320,7 @@ export function useSwapProTokenInfoSync() {
           contractAddress: inputToken?.contractAddress ?? '',
           accountAddress: netAccountRes.result?.addressDetail.address ?? '',
           accountId: netAccountRes.result?.id ?? '',
+          currency: 'usd',
         });
       if (balanceTokenInfo?.length) {
         if (swapProDirection === ESwapDirection.BUY) {
@@ -390,12 +392,14 @@ export function useSwapProTokenInfoSync() {
             contractAddress: swapProSelectToken?.contractAddress ?? '',
             accountAddress: netAccountRes.result?.addressDetail.address ?? '',
             accountId: netAccountRes.result?.id ?? '',
+            currency: 'usd',
           }),
           backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: swapProUseSelectBuyToken?.networkId ?? '',
             contractAddress: swapProUseSelectBuyToken?.contractAddress ?? '',
             accountAddress: netAccountRes.result?.addressDetail.address ?? '',
             accountId: netAccountRes.result?.id ?? '',
+            currency: 'usd',
           }),
         ]);
       if (swapProSelectTokenDetail?.length) {
@@ -455,6 +459,7 @@ export function useSwapProTokenInfoSync() {
       await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
         networkId: swapProSellToToken?.networkId ?? '',
         contractAddress: swapProSellToToken?.contractAddress ?? '',
+        currency: 'usd',
       });
     if (balanceTokenInfo?.length) {
       setSwapProSellToToken((prev) =>
@@ -479,6 +484,7 @@ export function useSwapProTokenInfoSync() {
       await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
         networkId: swapProSelectToken?.networkId ?? '',
         contractAddress: swapProSelectToken?.contractAddress ?? '',
+        currency: 'usd',
       });
     if (balanceTokenInfo?.length) {
       setSwapProSelectToken((prev) =>

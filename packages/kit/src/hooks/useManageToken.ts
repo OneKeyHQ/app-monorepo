@@ -1,16 +1,19 @@
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveTypes,
+  IVaultSettings,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-// import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-// import { usePromiseResult } from './usePromiseResult';
+import { usePromiseResult } from './usePromiseResult';
 
 function useManageToken({
   accountId,
@@ -29,13 +32,24 @@ function useManageToken({
 }) {
   const navigation = useAppNavigation();
 
-  // const { result: vaultSettings } = usePromiseResult(
-  //   () =>
-  //     backgroundApiProxy.serviceNetwork.getVaultSettings({
-  //       networkId,
-  //     }),
-  //   [networkId],
-  // );
+  const { result: vaultSettings } = usePromiseResult<
+    IVaultSettings | undefined
+  >(
+    async () => {
+      if (!networkId) {
+        return undefined;
+      }
+
+      return backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId,
+      });
+    },
+    [networkId],
+    {
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
 
   const handleOnManageToken = useCallback(() => {
     if (!deriveType) {
@@ -63,7 +77,8 @@ function useManageToken({
   ]);
 
   return {
-    manageTokenEnabled: true,
+    manageTokenEnabled:
+      !!networkId && !!vaultSettings && !vaultSettings.isSingleToken,
     handleOnManageToken,
   };
 }

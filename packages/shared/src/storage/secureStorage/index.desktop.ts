@@ -1,9 +1,13 @@
 import { OneKeyLocalError } from '../../errors';
 import platformEnv from '../../platformEnv';
 
-import type { ISecureStorage } from './types';
+import type { ISecureStorage, ISecureStorageSetOptions } from './types';
 
-const setSecureItem = async (key: string, data: string) => {
+const setSecureItem = async (
+  key: string,
+  data: string,
+  _options?: ISecureStorageSetOptions,
+) => {
   const r = await globalThis?.desktopApiProxy?.storage?.secureSetItemAsync(
     key,
     data,
@@ -36,6 +40,12 @@ const storage: ISecureStorage = {
   async hasSecureItem(key: string): Promise<boolean> {
     const value = await getSecureItem(key);
     return !!value;
+  },
+  async getCredentialId(): Promise<string | null> {
+    return null;
+  },
+  async resetForPasskeyReEnroll(): Promise<void> {
+    return undefined;
   },
   async supportSecureStorageWithoutInteraction(): Promise<boolean> {
     return supportSecureStorage();

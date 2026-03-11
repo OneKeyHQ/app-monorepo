@@ -175,20 +175,36 @@ export function MarketHomeV2() {
 function BaseMarketHomeWithProvider({
   isFocused = true,
   tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
   const { mobileProps } = useMarketHomeLayoutProps();
-  return isFocused ? <MobileLayout {...mobileProps} tabsRef={tabsRef} /> : null;
+  // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
+  // and let Freeze control inactive-page performance. Unmounting here causes
+  // visible flashes when the outer pager finishes settling.
+  if (!isFocused && !nestedPager) {
+    return null;
+  }
+  return (
+    <MobileLayout
+      {...mobileProps}
+      tabsRef={tabsRef}
+      nestedPager={nestedPager}
+    />
+  );
 }
 
 export function MarketHomeWithProvider({
   isFocused = true,
   tabsRef,
+  nestedPager = false,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -201,7 +217,11 @@ export function MarketHomeWithProvider({
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
-        <BaseMarketHomeWithProvider isFocused={isFocused} tabsRef={tabsRef} />
+        <BaseMarketHomeWithProvider
+          isFocused={isFocused}
+          tabsRef={tabsRef}
+          nestedPager={nestedPager}
+        />
       </MarketWatchListProviderMirrorV2>
     </AccountSelectorProviderMirror>
   );
