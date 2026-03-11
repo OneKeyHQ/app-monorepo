@@ -73,10 +73,10 @@ jobs:
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v2
 
-      - name: Configure Snapcraft to use LXD on arm64
+      - name: Configure Snapcraft destructive mode for arm64
         if: ${{ matrix.arch == 'arm64' }}
         run: |
-          echo "SNAPCRAFT_BUILD_ENVIRONMENT=lxd" >> $GITHUB_ENV
+          echo "SNAP_DESTRUCTIVE_MODE=true" >> $GITHUB_ENV
 
       - name: 'Setup ENV'
         run: |
