@@ -19,12 +19,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import { MarketStarV2 } from '../../../components/MarketStarV2';
 import {
   StockIsOpenBadge,
   StockSourceLogo,
   SubtitleBadge,
 } from '../../../components/PerpsBadges';
-import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
