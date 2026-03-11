@@ -748,8 +748,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       tx,
       name: ELocalDBStoreNames.Wallet,
     });
-    const walletPair = recordPairs.find((pair) => pair?.[0]?.isKeyless);
-    const wallet = walletPair?.[0];
+    const wallet =
+      recordPairs
+        .map((pair) => pair?.[0])
+        .filter((item): item is IDBWallet => !!item?.isKeyless)
+        .toSorted((a, b) => a.id.localeCompare(b.id))[0] ?? null;
     if (wallet) {
       await this.refillWalletInfo({
         wallet,

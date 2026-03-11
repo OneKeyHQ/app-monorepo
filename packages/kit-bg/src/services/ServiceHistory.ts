@@ -693,6 +693,26 @@ class ServiceHistory extends ServiceBase {
         finalPendingTxs = pendingTxs;
       }
 
+      // For fast-confirming chains (e.g. Solana), fetchHistoryTxDetails may be
+      // slower than fetchAccountOnChainHistory. When on-chain history already
+      // contains a confirmed tx that matches a local pending tx by ID, we must
+      // filter it out of finalPendingTxs so that accountsWithChangedPendingTxs
+      // detection fires and the pending record is cleaned from simpleDb.
+      const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
+      finalPendingTxs = finalPendingTxs.filter((tx) => {
+        const matched = onChainHistoryTxs.find(
+          (onChainTx) =>
+            onChainTx.id === tx.id ||
+            (onChainTx.decodedTx.originalTxId &&
+              onChainTx.decodedTx.originalTxId === tx.decodedTx.txid),
+        );
+        if (matched) {
+          onChainMatchedPendingTxs.push(tx);
+          return false;
+        }
+        return true;
+      });
+
       allNonceHasBeenUsedTxs.push(...nonceHasBeenUsedTxs);
       allFinalPendingTxs.push(...finalPendingTxs);
       allConfirmedTxsToSave.push(...confirmedTxsToSave);
@@ -701,7 +721,11 @@ class ServiceHistory extends ServiceBase {
         networkId,
         accountAddress,
         xpub,
-        confirmedTxs: [...confirmedTxs, ...nonceHasBeenUsedTxs],
+        confirmedTxs: [
+          ...confirmedTxs,
+          ...nonceHasBeenUsedTxs,
+          ...onChainMatchedPendingTxs,
+        ],
         confirmedTxsToSave: finalConfirmedTxs,
         confirmedTxsToRemove,
         pendingTxsToModify,

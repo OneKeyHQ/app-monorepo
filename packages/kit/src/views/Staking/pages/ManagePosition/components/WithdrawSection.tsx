@@ -478,12 +478,16 @@ export const WithdrawSection = ({
       amount,
       withdrawAll,
       useEthenaCooldown,
+      resumeEthenaCooldownUnstake,
       onStepChange,
+      onEthenaCooldownUnstakeReady,
     }: {
       amount: string;
       withdrawAll: boolean;
       useEthenaCooldown?: boolean;
+      resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
+      onEthenaCooldownUnstakeReady?: () => void;
     }) => {
       if (!hasRequiredData) return;
 
@@ -509,7 +513,9 @@ export const WithdrawSection = ({
         outputTokenAddress: selectedReceiveTokenAddress,
         slippage: pendleSlippage,
         useEthenaCooldown,
+        resumeEthenaCooldownUnstake,
         onStepChange,
+        onEthenaCooldownUnstakeReady,
         signal: abortController.signal,
         stakingInfo: {
           label: isPendleProvider ? EEarnLabels.Sell : EEarnLabels.Withdraw,

@@ -13,6 +13,7 @@ export interface IMarketToken {
   holders: number;
   turnover: number;
   tokenImageUri: string;
+  tokenImageUris?: string[];
   networkLogoUri: string;
   networkId: string;
   firstTradeTime?: number;
