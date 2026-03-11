@@ -96,6 +96,10 @@ function WebWalletOptions({
   const intl = useIntl();
 
   const handleOpenDesktop = useCallback(() => {
+    defaultLogger.referral.page.acceptReferralInvitation({
+      referralCode,
+      acceptMethod: 'web_no_extension',
+    });
     const deepLinkUrl = uriUtils.buildDeepLinkUrl({
       path: EOneKeyDeepLinkPath.invited_by_friend,
       query: { code: referralCode, page },
@@ -104,8 +108,12 @@ function WebWalletOptions({
   }, [referralCode, page]);
 
   const handleGetExtension = useCallback(() => {
+    defaultLogger.referral.page.acceptReferralInvitation({
+      referralCode,
+      acceptMethod: 'web_no_extension',
+    });
     globalThis.open(EXT_RATE_URL.chrome, '_blank');
-  }, []);
+  }, [referralCode]);
 
   return (
     <YStack bg="$bgApp">
@@ -261,10 +269,6 @@ function InvitedByFriendActions({
         return;
       }
       // No extension → show options (desktop app / install extension)
-      defaultLogger.referral.page.acceptReferralInvitation({
-        referralCode,
-        acceptMethod: 'web_no_extension',
-      });
       setShowWebOptions(true);
       return;
     }
