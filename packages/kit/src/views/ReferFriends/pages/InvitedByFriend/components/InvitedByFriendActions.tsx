@@ -236,10 +236,10 @@ function InvitedByFriendActions({
 
   const handleJoin = useCallback(() => {
     if (activeAccount?.wallet) {
-      defaultLogger.referral.page.acceptReferralInvitation(
+      defaultLogger.referral.page.acceptReferralInvitation({
         referralCode,
-        'local_app',
-      );
+        acceptMethod: 'local_app',
+      });
       bindWalletInviteCode({
         wallet: activeAccount.wallet,
         defaultReferralCode: referralCode,
@@ -253,26 +253,26 @@ function InvitedByFriendActions({
     if (platformEnv.isWeb) {
       // Extension installed → bind directly
       if (getOneKeyExtensionProvider()) {
-        defaultLogger.referral.page.acceptReferralInvitation(
+        defaultLogger.referral.page.acceptReferralInvitation({
           referralCode,
-          'web_extension',
-        );
+          acceptMethod: 'web_extension',
+        });
         void bindViaExtension();
         return;
       }
       // No extension → show options (desktop app / install extension)
-      defaultLogger.referral.page.acceptReferralInvitation(
+      defaultLogger.referral.page.acceptReferralInvitation({
         referralCode,
-        'web_no_extension',
-      );
+        acceptMethod: 'web_no_extension',
+      });
       setShowWebOptions(true);
       return;
     }
 
-    defaultLogger.referral.page.acceptReferralInvitation(
+    defaultLogger.referral.page.acceptReferralInvitation({
       referralCode,
-      'local_app',
-    );
+      acceptMethod: 'local_app',
+    });
     bindWalletInviteCode({
       defaultReferralCode: referralCode,
       onSuccess: () => {

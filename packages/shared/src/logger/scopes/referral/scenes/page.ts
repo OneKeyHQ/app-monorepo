@@ -85,20 +85,20 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public enterFromReferralLink(
-    referralCode: string,
-    landingPage: string,
-    utmSource: string,
-  ) {
-    return { referralCode, landingPage, utmSource };
+  public enterFromReferralLink(params: {
+    referralCode: string;
+    landingPage: string;
+    utmSource: string;
+  }) {
+    return params;
   }
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public acceptReferralInvitation(
-    referralCode: string,
-    acceptMethod: 'local_app' | 'web_extension' | 'web_no_extension',
-  ) {
-    return { referralCode, acceptMethod };
+  public acceptReferralInvitation(params: {
+    referralCode: string;
+    acceptMethod: 'local_app' | 'web_extension' | 'web_no_extension';
+  }) {
+    return params;
   }
 }

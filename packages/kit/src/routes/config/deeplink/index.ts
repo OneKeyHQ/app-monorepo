@@ -128,11 +128,11 @@ async function processDeepLinkUrlAccount(
                 page: page ?? '',
               });
             }
-            defaultLogger.referral.page.enterFromReferralLink(
-              code ?? '',
-              page ? `/app/${page}` : '/app',
-              'deep_link',
-            );
+            defaultLogger.referral.page.enterFromReferralLink({
+              referralCode: code ?? '',
+              landingPage: page ? `/app/${page}` : '/app',
+              utmSource: 'deep_link',
+            });
           }
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
