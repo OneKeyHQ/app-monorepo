@@ -208,10 +208,14 @@ function addToLokalise(key, enValue, zhValue) {
       let body = '';
       res.on('data', (chunk) => (body += chunk));
       res.on('end', () => {
-        if (res.statusCode === 200 || res.statusCode === 201) {
-          resolve(JSON.parse(body));
-        } else {
-          reject(new Error(`Lokalise API error: ${res.statusCode} - ${body}`));
+        try {
+          if (res.statusCode === 200 || res.statusCode === 201) {
+            resolve(JSON.parse(body));
+          } else {
+            reject(new Error(`Lokalise API error: ${res.statusCode} - ${body}`));
+          }
+        } catch (e) {
+          reject(e);
         }
       });
     });
