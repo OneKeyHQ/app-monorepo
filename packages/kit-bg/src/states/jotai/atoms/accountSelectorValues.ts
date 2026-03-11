@@ -24,18 +24,28 @@ export type IAccountSelectorDeFiItem =
 
 // Outer key is selector instance `num`, inner key is accountId.
 // This scoping prevents concurrent selectors from overwriting each other.
+export type IAccountSelectorValueMapAtom = Record<
+  string,
+  Record<string, IAccountSelectorValueItem>
+>;
+
+export type IAccountSelectorDeFiMapAtom = Record<
+  string,
+  Record<string, IAccountSelectorDeFiItem>
+>;
+
 export const {
   target: accountSelectorValuesMapAtom,
   use: useAccountSelectorValuesMapAtom,
-} = globalAtom<Map<number, Map<string, IAccountSelectorValueItem>>>({
+} = globalAtom<IAccountSelectorValueMapAtom>({
   name: EAtomNames.accountSelectorValuesMapAtom,
-  initialValue: new Map(),
+  initialValue: {},
 });
 
 export const {
   target: accountSelectorDeFiMapAtom,
   use: useAccountSelectorDeFiMapAtom,
-} = globalAtom<Map<number, Map<string, IAccountSelectorDeFiItem>>>({
+} = globalAtom<IAccountSelectorDeFiMapAtom>({
   name: EAtomNames.accountSelectorDeFiMapAtom,
-  initialValue: new Map(),
+  initialValue: {},
 });

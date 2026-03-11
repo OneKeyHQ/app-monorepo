@@ -33,16 +33,18 @@ export function useAccountSelectorValuesLoader({
   const loadingIdRef = useRef(0);
 
   useEffect(() => {
+    const selectorKey = String(num);
+
     if (!accountsForValuesQuery || accountsForValuesQuery.length === 0) {
       void (async () => {
         const prev = await accountSelectorValuesMapAtom.get();
-        const next = new Map(prev);
-        next.delete(num);
+        const next = { ...prev };
+        delete next[selectorKey];
         await accountSelectorValuesMapAtom.set(next);
 
         const prevD = await accountSelectorDeFiMapAtom.get();
-        const nextD = new Map(prevD);
-        nextD.delete(num);
+        const nextD = { ...prevD };
+        delete nextD[selectorKey];
         await accountSelectorDeFiMapAtom.set(nextD);
       })();
       return;
@@ -56,15 +58,19 @@ export function useAccountSelectorValuesLoader({
       {
         const prev = await accountSelectorValuesMapAtom.get();
         if (isCancelled(currentLoadId, loadingIdRef)) return;
-        const next = new Map(prev);
-        next.set(num, new Map());
+        const next = {
+          ...prev,
+          [selectorKey]: {},
+        };
         await accountSelectorValuesMapAtom.set(next);
       }
       {
         const prev = await accountSelectorDeFiMapAtom.get();
         if (isCancelled(currentLoadId, loadingIdRef)) return;
-        const next = new Map(prev);
-        next.set(num, new Map());
+        const next = {
+          ...prev,
+          [selectorKey]: {},
+        };
         await accountSelectorDeFiMapAtom.set(next);
       }
 
@@ -88,33 +94,35 @@ export function useAccountSelectorValuesLoader({
           // Merge values into this selector's sub-map
           const prevAll = await accountSelectorValuesMapAtom.get();
           if (isCancelled(currentLoadId, loadingIdRef)) return;
-          const newAll = new Map(prevAll);
-          const subMap = new Map<string, IAccountSelectorValueItem>(
-            prevAll.get(num),
-          );
+          const subMap: Record<string, IAccountSelectorValueItem> = {
+            ...(prevAll[selectorKey] ?? {}),
+          };
           accountsValue?.forEach((v) => {
             if (v) {
-              subMap.set(v.accountId, v);
+              subMap[v.accountId] = v;
             }
           });
-          newAll.set(num, subMap);
-          await accountSelectorValuesMapAtom.set(newAll);
+          await accountSelectorValuesMapAtom.set({
+            ...prevAll,
+            [selectorKey]: subMap,
+          });
 
           if (isCancelled(currentLoadId, loadingIdRef)) return;
 
           // Merge DeFi into this selector's sub-map
           const prevAllD = await accountSelectorDeFiMapAtom.get();
           if (isCancelled(currentLoadId, loadingIdRef)) return;
-          const newAllD = new Map(prevAllD);
-          const subMapD = new Map<string, IAccountSelectorDeFiItem>(
-            prevAllD.get(num),
-          );
+          const subMapD: Record<string, IAccountSelectorDeFiItem> = {
+            ...(prevAllD[selectorKey] ?? {}),
+          };
           batch.forEach((account, batchIdx) => {
             const overview = accountsDeFiOverview?.[batchIdx];
-            subMapD.set(account.accountId, overview);
+            subMapD[account.accountId] = overview;
           });
-          newAllD.set(num, subMapD);
-          await accountSelectorDeFiMapAtom.set(newAllD);
+          await accountSelectorDeFiMapAtom.set({
+            ...prevAllD,
+            [selectorKey]: subMapD,
+          });
         } catch (_error) {
           // Batch failed, continue with next batch
         }

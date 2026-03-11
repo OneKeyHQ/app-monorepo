@@ -26,6 +26,31 @@ import type {
 } from '../types';
 import type { Atom, PrimitiveAtom, WritableAtom } from 'jotai';
 
+// JSON primitive values.
+export type ISerializablePrimitive = string | number | boolean | null;
+
+// Serializable atom values (TypeScript type-check level, not runtime lint).
+// NOTE: `undefined` is intentionally included for transient states.
+export type ISerializableValue =
+  | ISerializablePrimitive
+  | undefined
+  | ISerializableValue[]
+  | {
+      [key: string]: ISerializableValue;
+    };
+
+type INonSerializableValue =
+  | bigint
+  | symbol
+  | ((...args: any[]) => unknown)
+  | Map<unknown, unknown>
+  | Set<unknown>
+  | WeakMap<object, unknown>
+  | WeakSet<object>
+  | Promise<unknown>;
+
+type IAssertSerializable<T> = T extends INonSerializableValue ? never : T;
+
 export function makeCrossAtom<T extends () => any>(name: string, fn: T) {
   const atomBuilder = memoizee(fn, {
     primitive: true,
@@ -188,7 +213,7 @@ export function globalAtom<Value>({
   persist,
 }: {
   name: EAtomNames;
-  initialValue: Value;
+  initialValue: IAssertSerializable<Value>;
   persist?: boolean;
 }) {
   const storageName = persist ? name : undefined;
