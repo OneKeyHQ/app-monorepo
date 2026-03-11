@@ -188,6 +188,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
+        currencyCode,
         pricePerYear: pricePerYear || 0,
         pricePerYearString: `${new BigNumber(pricePerYear || 0).toFixed(
           2,
@@ -251,6 +252,18 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
             ?.isActive
         ) {
+          // Set subscriptionManageUrl immediately from purchase result,
+          // because the server may not yet have it (RevenueCat webhook delay).
+          setPrimePersistAtom(
+            (prev): IPrimeUserInfo =>
+              perfUtils.buildNewValueIfChanged(prev, {
+                ...prev,
+                subscriptionManageUrl:
+                  makePurchaseResult.customerInfo.managementURL ||
+                  prev.subscriptionManageUrl ||
+                  '',
+              }),
+          );
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
 
           // Track successful subscription
@@ -307,7 +320,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady, intl, loginPurchasesSdk],
+    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom],
   );
 
   return {
