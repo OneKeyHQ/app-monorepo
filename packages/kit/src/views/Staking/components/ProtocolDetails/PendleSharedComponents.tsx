@@ -191,7 +191,7 @@ export const PendleAccordionTriggerContent: FC<
     >
       {triggerText}
     </SizableText>
-    <YStack animation="quick" rotate={open && !isDisabled ? '0deg' : '180deg'}>
+    <YStack animation="quick" rotate={open && !isDisabled ? '180deg' : '0deg'}>
       <Icon
         name="ChevronDownSmallSolid"
         color={isDisabled ? '$iconDisabled' : '$iconSubdued'}
