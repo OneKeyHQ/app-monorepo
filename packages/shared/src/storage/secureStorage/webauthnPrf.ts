@@ -3,6 +3,7 @@
 import { Buffer } from 'buffer';
 
 import platformEnv from '../../platformEnv';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '../../../types/password';
 
 // Storage keys
 const PRF_CREDENTIAL_ID_KEY = '$secure_prf_credential_id$';
@@ -32,6 +33,17 @@ function uint8ArrayToBase64(arr: Uint8Array): string {
  */
 function base64ToUint8Array(base64: string): Uint8Array {
   return new Uint8Array(Buffer.from(base64, 'base64'));
+}
+
+function throwIfUserCancelled(error: unknown): void {
+  if (
+    error instanceof DOMException &&
+    (error.name === 'NotAllowedError' || error.name === 'AbortError')
+  ) {
+    const cancelError = new Error('');
+    cancelError.name = BIOLOGY_AUTH_CANCEL_ERROR;
+    throw cancelError;
+  }
 }
 
 // Authenticator transport types for user hints
@@ -267,6 +279,7 @@ export async function registerPrfCredential(): Promise<
       prfKey: new Uint8Array(prfOutput),
     };
   } catch (error) {
+    throwIfUserCancelled(error);
     console.error('Failed to register PRF credential:', error);
     return undefined;
   }
@@ -365,6 +378,7 @@ export async function authenticateWithPrf(options: {
       credentialId: assertion.id,
     };
   } catch (error) {
+    throwIfUserCancelled(error);
     console.error('Failed to authenticate with PRF:', error);
     return undefined;
   }

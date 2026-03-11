@@ -4,8 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordBiologyAuthInfoAtom,
@@ -87,8 +85,9 @@ const PasswordSetupContainer = ({
       setLoading(true);
       let isPasswordSetSuccess = false;
       try {
+        const shouldEnableWebAuth = isBiologyAuthSwitchOn && isSupport;
         let webAuthRes: string | undefined;
-        if (isBiologyAuthSwitchOn && isSupport) {
+        if (shouldEnableWebAuth && !platformEnv.isExtension) {
           webAuthRes = await setWebAuthEnable(true);
           if (!webAuthRes) return;
         }
@@ -102,16 +101,23 @@ const PasswordSetupContainer = ({
             mode,
           );
         isPasswordSetSuccess = true;
-        // Save password to secure storage for biometric unlock on extension.
-        // Clear skipPrfCache first — the flag is set during promptPasswordVerify
-        // to force real WebAuthn for the biometric button, but password setup
-        // has already succeeded here so it's safe to use cache.
-        if (platformEnv.isExtension && isBiologyAuthSwitchOn && webAuthRes) {
+
+        // In extension, defer PassKey enrollment until after password setup so
+        // the just-cached password can be reused for a single PRF prompt.
+        if (platformEnv.isExtension && shouldEnableWebAuth) {
           try {
-            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
-            await biologyAuthUtils.savePassword(setUpPasswordRes);
+            webAuthRes = await setWebAuthEnable(true);
           } catch (e) {
-            console.error('Failed to save password to secure storage:', e);
+            console.error('Failed to enable WebAuth after password setup:', e);
+          }
+
+          if (!webAuthRes) {
+            await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
+              false,
+            );
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.toast_web_auth }),
+            });
           }
         }
         Toast.success({

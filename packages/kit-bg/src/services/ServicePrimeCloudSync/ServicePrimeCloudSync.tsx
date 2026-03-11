@@ -638,7 +638,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow: boolean | undefined;
   }) => {
     const now = await this.timeNow();
-    const syncMode = await this.getActiveSyncMode();
     const localData: ICloudSyncServerItem[] = localItems
       .map((item) => {
         let dataTimestamp = item.dataTime;
@@ -661,10 +660,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     const filteredLocalData = localData.filter((item) => {
       const pwdMatched = item.pwdHash === pwdHash && pwdHash;
-      return (
-        (item.data || item.isDeleted) &&
-        (pwdMatched || syncMode === ECloudSyncMode.Keyless)
-      );
+      return (item.data || item.isDeleted) && !!pwdMatched;
     });
 
     // TODO save localData to DB if setUndefinedTimeToNow available
@@ -1410,7 +1406,21 @@ class ServicePrimeCloudSync extends ServiceBase {
           keylessCloudSyncCredential,
         );
       }
-      const result = await this.getSyncCredentialWithCache();
+      const activeMode = await this.getActiveSyncMode();
+      if (activeMode === ECloudSyncMode.Keyless && keylessCloudSyncCredential) {
+        return this.buildSyncCredentialWithKeylessCredential(
+          keylessCloudSyncCredential,
+        );
+      }
+      const keylessWalletId =
+        activeMode === ECloudSyncMode.Keyless
+          ? keylessCloudSyncCredential?.keylessWalletId ||
+            (await this.getCurrentCloudSyncKeylessWalletId())
+          : undefined;
+      const result = await this.getSyncCredentialWithCache({
+        activeMode,
+        keylessWalletId,
+      });
       return result;
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
@@ -1436,6 +1446,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   async getKeylessCloudSyncCredentialCache() {
     return this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredentialCache();
+  }
+
+  @backgroundMethod()
+  async getCurrentCloudSyncKeylessWalletId() {
+    return this.backgroundApi.serviceKeylessCloudSync.getCurrentCloudSyncKeylessWalletId();
   }
 
   buildSyncCredentialWithKeylessCredential(
@@ -1486,9 +1501,28 @@ class ServicePrimeCloudSync extends ServiceBase {
     };
   }
 
-  // TODO remove cache when logout, lock, change password/passcode, etc.
+  async buildSyncCredentialForKeyless(): Promise<ICloudSyncCredential> {
+    if (!(await this.backgroundApi.servicePassword.getCachedPassword())) {
+      throw new OneKeyError('No password in memory');
+    }
+    const keylessCredential =
+      (await this.getKeylessCloudSyncCredentialCache()) ||
+      (await this.getKeylessCloudSyncCredential());
+    if (!keylessCredential) {
+      throw new OneKeyError('Failed to get keyless credential');
+    }
+    return this.buildSyncCredentialWithKeylessCredential(keylessCredential);
+  }
+
+  // Sync credential cache is long-lived, but keyless cache keys are scoped by wallet id.
   getSyncCredentialWithCache = memoizee(
-    async (): Promise<ICloudSyncCredential> => {
+    async ({
+      activeMode,
+      keylessWalletId,
+    }: {
+      activeMode: ECloudSyncMode;
+      keylessWalletId?: string | null;
+    }): Promise<ICloudSyncCredential> => {
       const password =
         await this.backgroundApi.servicePassword.getCachedPassword();
 
@@ -1496,29 +1530,24 @@ class ServicePrimeCloudSync extends ServiceBase {
         throw new OneKeyError('No password in memory');
       }
 
-      // Check sync mode - if Keyless mode, only need keyless credential
-      const syncMode = await this.getActiveSyncMode();
-      if (syncMode === ECloudSyncMode.Keyless) {
-        const keylessCredential =
-          (await this.getKeylessCloudSyncCredentialCache()) ||
-          (await this.getKeylessCloudSyncCredential());
-        if (!keylessCredential) {
-          throw new OneKeyError('Failed to get keyless credential');
+      if (activeMode === ECloudSyncMode.Keyless) {
+        if (!keylessWalletId) {
+          throw new OneKeyError('Failed to get current keyless wallet id');
         }
-        return this.buildSyncCredentialWithKeylessCredential(keylessCredential);
+        return this.buildSyncCredentialForKeyless();
       }
 
       return this.buildSyncCredentialForOneKeyId({ password });
     },
     {
-      max: 1,
+      max: 10,
       maxAge: timerUtils.getTimeDurationMs({ hour: 8 }),
       promise: true,
     },
   );
 
   async clearCachedSyncCredential() {
-    await this.getSyncCredentialWithCache.clear();
+    this.getSyncCredentialWithCache.clear();
     this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
   }
 
@@ -1988,13 +2017,16 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!syncCredential) {
       return;
     }
+    const currentPwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
     // TODO performance, use cursor to get items
     const { items } = await this.getAllLocalSyncItems();
     const itemsToUpdate: IDBCloudSyncItem[] = [];
     for (const item of items) {
       try {
-        // Check if data field is missing
-        if (!item.data && item.rawData) {
+        const shouldRebuildItem =
+          !!item.rawData &&
+          (!item.data || (!!currentPwdHash && item.pwdHash !== currentPwdHash));
+        if (shouldRebuildItem) {
           const syncManager = this.getSyncManager(item.dataType);
           const rawDataJson = item.rawData
             ? (JSON.parse(item.rawData) as ICloudSyncRawDataJson | undefined)
@@ -2182,10 +2214,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async decryptAllLocalSyncItems() {
-    await this.getSyncCredentialWithCache();
+    const syncCredential = await this.getSyncCredentialSafe();
     const { items } = await this.getAllLocalSyncItems();
     console.log('getAllLocalSyncItems: ', { localItems: items });
-    const syncCredential = await this.getSyncCredentialSafe();
     const result: IDBCloudSyncItem[] = [];
     for (const item of items) {
       try {
@@ -2315,12 +2346,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   }: {
     includeDeleted?: boolean;
   } = {}) {
-    await this.getSyncCredentialWithCache();
+    const syncCredential = await this.getSyncCredentialSafe();
     const { serverData: items, pwdHash } = await this.apiDownloadItems({
       includeDeleted,
     });
     const localItems: IDBCloudSyncItem[] = [];
-    const syncCredential = await this.getSyncCredentialSafe();
     for (const item of items) {
       const localItem = await this.convertServerItemToLocalItem({
         serverItem: item,

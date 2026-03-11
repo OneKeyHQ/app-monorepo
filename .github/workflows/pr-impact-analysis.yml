@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Analyze PR Impact
-        uses: originalix/actions/pr-impact-analysis@fix/pr-analysis-v1
+        uses: onekeyhq/actions/pr-impact-analysis@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           worker-url: ${{ secrets.PR_ANALYSIS_WORKER_URL }}

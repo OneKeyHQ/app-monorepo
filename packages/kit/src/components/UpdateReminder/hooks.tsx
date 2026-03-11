@@ -63,6 +63,17 @@ const updateStrategyMap: Record<EUpdateStrategy, string> = {
   [EUpdateStrategy.seamless]: 'seamless',
 };
 
+function asOptionalString(value: unknown): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  return String(value);
+}
+
+function asString(value: unknown): string {
+  return asOptionalString(value) ?? '';
+}
+
 function buildSoftwareUpdateParams(
   fileType: EUpdateFileType,
   appUpdateInfo: IAppUpdateInfo,
@@ -73,11 +84,11 @@ function buildSoftwareUpdateParams(
     attemptId: attemptId ?? generateUUID(),
     updateType: isBundle ? 'bundle' : 'app',
     fromVersion: isBundle
-      ? (platformEnv.bundleVersion ?? '')
-      : (platformEnv.version ?? ''),
+      ? asString(platformEnv.bundleVersion)
+      : asString(platformEnv.version),
     toVersion: isBundle
-      ? (appUpdateInfo.jsBundleVersion ?? '')
-      : (appUpdateInfo.latestVersion ?? ''),
+      ? asString(appUpdateInfo.jsBundleVersion)
+      : asString(appUpdateInfo.latestVersion),
     updateStrategy:
       updateStrategyMap[appUpdateInfo.updateStrategy] ?? 'unknown',
     platform: getUpdatePlatform(),
@@ -507,12 +518,18 @@ export const useDownloadPackage = () => {
       const headers = await getRequestHeaders();
       const downloadParams: IDownloadPackageParams = {
         ...updateEvent,
-        signature: isJsBundle ? jsBundle?.signature : undefined,
-        latestVersion,
-        bundleVersion: jsBundleVersion,
-        downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
+        signature: isJsBundle
+          ? asOptionalString(jsBundle?.signature)
+          : undefined,
+        latestVersion: asOptionalString(latestVersion),
+        bundleVersion: isJsBundle
+          ? asOptionalString(jsBundleVersion)
+          : undefined,
+        downloadUrl: isJsBundle
+          ? asOptionalString(jsBundle?.downloadUrl)
+          : asOptionalString(downloadUrl),
         fileSize: isJsBundle ? jsBundle?.fileSize : (params.fileSize ?? 0),
-        sha256: isJsBundle ? jsBundle?.sha256 : undefined,
+        sha256: isJsBundle ? asOptionalString(jsBundle?.sha256) : undefined,
         skipGPGVerification: isJsBundle ? skipGPGVerification : undefined,
         headers,
       };
