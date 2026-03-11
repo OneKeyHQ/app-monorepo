@@ -20,6 +20,7 @@ import type {
 import { CalculationListItem } from '../CalculationList';
 
 import { ActionPopupContent } from './EarnActionIcon';
+import { EarnAmountText } from './EarnAmountText';
 import { EarnSwapRoute } from './EarnSwapRoute';
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
@@ -80,13 +81,13 @@ export const PendleRewardRow: FC<IPendleRewardRowProps> = ({
               flexWrap="wrap"
               justifyContent="flex-end"
             >
-              <SizableText
+              <EarnAmountText
                 size={reward.description.size || '$bodyMdMedium'}
                 color={reward.description.color ?? '$text'}
                 textAlign="right"
               >
                 {primaryMainText}
-              </SizableText>
+              </EarnAmountText>
               {primarySuffixText ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {primarySuffixText}

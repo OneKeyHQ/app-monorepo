@@ -1829,7 +1829,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const swapSupportNetworks = get(swapNetworks());
       const currentTypeSupportNetworks =
-        swapTypeSwitchValue === ESwapTabSwitchType.SWAP
+        swapTypeSwitchValue === ESwapTabSwitchType.SWAP ||
+        swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE
           ? swapSupportNetworks
           : swapSupportNetworks.filter((item) => item.supportLimit);
       const { accountIdKey, swapSupportAccounts } =
