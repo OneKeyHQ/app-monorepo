@@ -179,7 +179,7 @@ export function PagerView({
       dragStartScrollXRef.current = scrollNode.scrollLeft || 0;
       event.preventDefault();
     },
-    [getPageWidth, isWeb],
+    [getPageWidth, getScrollableNode, isWeb],
   );
 
   const handleMouseMove = useCallback(
