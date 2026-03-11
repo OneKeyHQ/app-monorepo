@@ -6,7 +6,10 @@ import { useIntl } from 'react-intl';
 import { Dialog, Portal, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import {
+  usePasswordAtom,
+  usePasswordPromptPromiseTriggerAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { PASSWORD_VERIFY_CONTAINER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
@@ -20,6 +23,10 @@ const PasswordVerifyPromptMount = () => {
 
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
+  const [{ unLock }] = usePasswordAtom();
+  // Only enable trapFocus on non-native platforms (desktop/web/extension),
+  // and disable it during lock screen to avoid focus interference
+  const trapFocus = !platformEnv.isNative && unLock;
   const onClose = useCallback((id: number) => {
     void backgroundApiProxy.servicePassword.cancelPasswordPromptDialog(id);
   }, []);
@@ -30,7 +37,7 @@ const PasswordVerifyPromptMount = () => {
     (id: number) => {
       dialogRef.current = Dialog.show({
         title: intl.formatMessage({ id: ETranslations.global_set_passcode }),
-        trapFocus: true,
+        trapFocus,
         onClose() {
           onClose(id);
         },
@@ -51,12 +58,13 @@ const PasswordVerifyPromptMount = () => {
         showFooter: false,
       });
     },
-    [intl, onClose],
+    [intl, onClose, trapFocus],
   );
   const showPasswordVerifyPrompt = useCallback(
     (id: number, dialogProps?: IDialogShowProps) => {
       dialogRef.current = Dialog.show({
         ...dialogProps,
+        trapFocus,
         title: intl.formatMessage({
           id: ETranslations.enter_passcode,
         }),
@@ -88,7 +96,7 @@ const PasswordVerifyPromptMount = () => {
         showFooter: false,
       });
     },
-    [intl, onClose],
+    [intl, onClose, trapFocus],
   );
 
   const showPasswordSetupPromptRef = useRef(showPasswordSetupPrompt);
