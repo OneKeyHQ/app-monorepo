@@ -188,6 +188,26 @@ function resetPendingTask(value: any = undefined) {
   pendingTaskValue = value;
 }
 
+function getUpdateLogEvents() {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    defaultLogger,
+  } = require('@onekeyhq/shared/src/logger/logger') as {
+    defaultLogger: {
+      app: { appUpdate: { log: jest.Mock } };
+    };
+  };
+  return defaultLogger.app.appUpdate.log.mock.calls
+    .map(([message]: [string]) => {
+      try {
+        return JSON.parse(message) as { event?: string; [key: string]: unknown };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean) as { event?: string; [key: string]: unknown }[];
+}
+
 function makeSwitchTask(overrides: Record<string, any> = {}) {
   const now = Date.now();
   return {
@@ -266,6 +286,42 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         signature: 'sig-2',
       },
     });
+  });
+
+  test('writes structured fetch/decision/upsert logs', async () => {
+    mockReleaseInfo({
+      version: '1.0.0',
+      jsBundleVersion: '2',
+      jsBundle: {
+        signature: 'sig-2',
+      },
+    });
+
+    await service.fetchAppUpdateInfo(true);
+
+    const events = getUpdateLogEvents();
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'app_update_fetch_start' &&
+          typeof event.traceId === 'string' &&
+          typeof event.requestSeq === 'number',
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'app_update_decision_resolved' &&
+          event.decision === 'jsBundleUpgrade',
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_task_upsert_decision' &&
+          event.upsertAction === 'create',
+      ),
+    ).toBe(true);
   });
 
   test('creates rollback pending task when remote jsBundleVersion is lower than local', async () => {
@@ -414,6 +470,30 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
     expect(pendingTaskValue.status).toBe('applied_waiting_verify');
   });
 
+  test('writes structured switch logs when executing pending task', async () => {
+    bundleUpdate.isBundleExists.mockResolvedValue(true);
+    resetPendingTask(makeSwitchTask());
+
+    await service.processPendingInstallTask();
+
+    const events = getUpdateLogEvents();
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_switch_start' &&
+          event.taskId === 'jsbundle:1.0.0:2',
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_switch_result' &&
+          event.result === 'success' &&
+          event.taskId === 'jsbundle:1.0.0:2',
+      ),
+    ).toBe(true);
+  });
+
   test('applied_waiting_verify is cleared when target env is aligned', async () => {
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.bundleVersion = '2';
@@ -504,5 +584,31 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
     expect(appUpdateState.ignoredTargets?.['1.0.0:2']?.reason).toBe(
       'FULL_FLOW_RETRY_EXHAUSTED',
     );
+  });
+
+  test('unknown task type is logged and dropped', async () => {
+    resetPendingTask({
+      taskId: 'unknown-task',
+      type: 'unknown-task-type',
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    const events = getUpdateLogEvents();
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_task_unknown_type_dropped' &&
+          event.taskType === 'unknown-task-type',
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_task_cleared' &&
+          event.clearReason === 'invalid_task_payload',
+      ),
+    ).toBe(true);
   });
 });

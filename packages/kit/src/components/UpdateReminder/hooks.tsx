@@ -313,15 +313,7 @@ export const useDownloadPackage = () => {
       try {
         defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
         if (fileType === EUpdateFileType.jsBundle) {
-          if (!data.downloadedEvent) {
-            onFail();
-            return;
-          }
-          const skipGPGVerification = await getSkipGPGVerification(true);
-          await BundleUpdate.installBundle({
-            ...data.downloadedEvent,
-            skipGPGVerification,
-          });
+          await backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
         } else {
           await AppUpdate.installPackage(data);
         }
