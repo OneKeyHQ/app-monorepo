@@ -1029,6 +1029,7 @@ function TokenListBlock({
         tokenListValue: string;
         networkId: string;
         accountId: string;
+        hasCache: boolean;
       }[];
       accountId: string;
       networkId: string;
