@@ -33,14 +33,14 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
         'http://10.44.35.136:3008',
       ]
     : []),
-];
+].filter(Boolean);
 
 export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://1key.so',
   'https://onekey.so',
   'https://onekeytest.com',
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
-];
+].filter(Boolean);
 
 export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_connectToWalletConnect',
