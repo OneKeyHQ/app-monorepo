@@ -116,6 +116,7 @@ export interface IMarketTokenListItemExtraData {
 }
 
 export interface IMarketStockInfo {
+  title?: string;
   subtitle: string;
   sourceLogoUri: string;
   isOpen: boolean;
