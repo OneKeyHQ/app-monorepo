@@ -293,13 +293,18 @@ function SideButtonInternal({
             formData.triggerOrderType,
             side,
           );
-          const typeKey = isStop
-            ? side === 'long'
-              ? ETranslations.perps_stop_loss_buy
-              : ETranslations.perps_stop_loss_sell
-            : side === 'long'
-              ? ETranslations.perps_take_profit_sell
-              : ETranslations.perps_take_profit_buy;
+          let typeKey: ETranslations;
+          if (isStop) {
+            typeKey =
+              side === 'long'
+                ? ETranslations.perps_stop_loss_buy
+                : ETranslations.perps_stop_loss_sell;
+          } else {
+            typeKey =
+              side === 'long'
+                ? ETranslations.perps_take_profit_sell
+                : ETranslations.perps_take_profit_buy;
+          }
           const dirKey =
             dirRule === 'above'
               ? ETranslations.perps_above
