@@ -108,6 +108,7 @@ jobs:
           bundle-dir: ./apps/mobile/out-dir-bundle-zip
           commit-hash: ${{ github.sha }}
           branch: ${{ github.ref_name }}
+          pr-title: ${{ github.event.pull_request.title || github.event.workflow_run.name || '' }}
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

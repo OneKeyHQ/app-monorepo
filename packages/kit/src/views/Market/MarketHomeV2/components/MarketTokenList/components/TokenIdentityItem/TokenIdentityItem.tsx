@@ -3,7 +3,6 @@ import { memo, useMemo } from 'react';
 
 import {
   Icon,
-  Image,
   NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
@@ -15,7 +14,10 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
-import { SubtitleBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  StockSourceLogo,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -38,6 +40,10 @@ interface ITokenIdentityItemProps {
    * Token logo URI.
    */
   tokenLogoURI?: string;
+  /**
+   * Token logo URIs for fallback loading.
+   */
+  tokenLogoURIs?: string[];
   /**
    * Network logo URI – mutually exclusive with `networkId`. If both are
    * provided `networkLogoURI` takes precedence.
@@ -83,6 +89,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   symbol,
   address,
   tokenLogoURI,
+  tokenLogoURIs,
   networkLogoURI,
   networkId,
   onCopied,
@@ -143,6 +150,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
         tokenImageUri={getTokenImageUri()}
+        tokenImageUris={tokenLogoURIs}
         networkImageUri={effectiveNetworkLogoUri}
         fallbackIcon="CryptoCoinOutline"
         size="md"
@@ -159,14 +167,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           >
             {symbol}
           </SizableText>
-          {stock?.sourceLogoUri ? (
-            <Image
-              width={14}
-              height={14}
-              borderRadius="$full"
-              source={{ uri: stock.sourceLogoUri }}
-            />
-          ) : null}
+          <StockSourceLogo stock={stock} />
           {communityRecognized ? <CommunityRecognizedBadge /> : null}
           {stock?.subtitle ? <SubtitleBadge subtitle={stock.subtitle} /> : null}
         </XStack>

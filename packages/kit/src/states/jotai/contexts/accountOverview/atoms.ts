@@ -2,6 +2,16 @@ import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
+export function buildOverviewOwnerKey(
+  accountId: string | undefined,
+  networkId: string | undefined,
+) {
+  if (!accountId || !networkId) {
+    return '';
+  }
+  return `${accountId}__${networkId}`;
+}
+
 const {
   Provider: ProviderJotaiContextAccountOverview,
   withProvider: withAccountOverviewProvider,
@@ -54,6 +64,39 @@ export const {
   initialized: false,
 });
 
+export const {
+  atom: lastConfirmedOverviewBalanceAtom,
+  use: useLastConfirmedOverviewBalanceAtom,
+} = contextAtom<{
+  latest: string;
+  byOwner: Record<string, string>;
+}>({
+  latest: '',
+  byOwner: {},
+});
+
+export const {
+  atom: overviewTokenCacheStateAtom,
+  use: useOverviewTokenCacheStateAtom,
+} = contextAtom<{
+  ownerKey: string;
+  hasCache?: boolean;
+}>({
+  ownerKey: '',
+  hasCache: undefined,
+});
+
+export const {
+  atom: overviewDeFiDataStateAtom,
+  use: useOverviewDeFiDataStateAtom,
+} = contextAtom<{
+  ownerKey: string;
+  isReady?: boolean;
+}>({
+  ownerKey: '',
+  isReady: undefined,
+});
+
 export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
   contextAtom<{
     visibleCount: number;
@@ -86,10 +129,14 @@ export const {
   totalReward: number;
   netWorth: number;
   currency: string;
+  accountId: string;
+  networkId: string;
 }>({
   totalValue: 0,
   totalDebt: 0,
   totalReward: 0,
   netWorth: 0,
   currency: '',
+  accountId: '',
+  networkId: '',
 });
