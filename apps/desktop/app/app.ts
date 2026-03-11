@@ -934,8 +934,11 @@ async function createMainWindow() {
         } catch {
           // Ignore malformed URLs and fall through to deny by default.
         }
+        callback(false);
+        return;
       }
-      callback(false);
+      // Allow all non-media permissions to preserve default Electron behavior
+      callback(true);
     },
   );
 
