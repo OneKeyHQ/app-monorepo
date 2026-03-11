@@ -479,24 +479,6 @@ function PerpTradingForm({
     triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
     triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
 
-  useEffect(() => {
-    if (!isTriggerMode || !isTriggerLimitOrder || !midPrice) {
-      return;
-    }
-    if (formData.executionPrice) {
-      return;
-    }
-    updateForm({
-      executionPrice: formatPriceToSignificantDigits(midPrice),
-    });
-  }, [
-    formData.executionPrice,
-    isTriggerLimitOrder,
-    isTriggerMode,
-    midPrice,
-    updateForm,
-  ]);
-
   const renderPriceInputSection = () => {
     if (isTriggerMode) {
       return (
