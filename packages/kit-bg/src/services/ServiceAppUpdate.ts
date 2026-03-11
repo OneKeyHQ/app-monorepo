@@ -2,8 +2,6 @@ import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
-  IAppUpdateInstallTaskPayload,
-  IJsBundleDownloadSwitchTaskPayload,
   IJsBundleSwitchTaskPayload,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
@@ -11,8 +9,10 @@ import type {
 import {
   EAppUpdateStatus,
   EUpdateStrategy,
-  gtVersion,
+  compareTargetPriority,
+  getTargetVersionKey,
   isFirstLaunchAfterUpdated,
+  resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundClass,
@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -47,10 +48,23 @@ let failedRecoveryTimerId: ReturnType<typeof setTimeout>;
 let firstLaunch = true;
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 const MAX_TASK_RETRY = 3;
+const MAX_FULL_FLOW_RETRY = 2;
 const MAX_RETRY_DELAY_MS = 10 * 60 * 1000;
 const RETRY_BASE_DELAY_MS = 30 * 1000;
 const RETRY_JITTER_MS = 5 * 1000;
 const TASK_FUSE_DURATION_MS = 24 * 60 * 60 * 1000;
+const RUNNING_TASK_STALE_MS = timerUtils.getTimeDurationMs({ minute: 5 });
+const PROCESS_LOCK_TIMEOUT_MS = timerUtils.getTimeDurationMs({ second: 30 });
+const IGNORED_TARGET_TTL_MS = timerUtils.getTimeDurationMs({ day: 30 });
+const FULL_FLOW_RETRY_TTL_MS = timerUtils.getTimeDurationMs({ day: 7 });
+const MAX_IGNORED_TARGETS = 50;
+const MAX_FULL_FLOW_RETRY_TARGETS = 100;
+const RETRY_TRIGGER_BUNDLE_MISSING = 'BUNDLE_MISSING';
+const RETRY_TRIGGER_VERIFY_FAILED = 'VERIFY_EXTRACTED_FAILED';
+const RETRY_TRIGGER_INTERRUPTED = 'INTERRUPTED';
+const TERMINAL_REASON_RETRY_EXHAUSTED = 'RETRY_EXHAUSTED';
+const TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED = 'FULL_FLOW_RETRY_EXHAUSTED';
+const PENDING_ACTION_SWITCH_BUNDLE = 'switch-bundle';
 
 function normalizeOptionalString(value: unknown): string | undefined {
   if (value === null || value === undefined) {
@@ -79,6 +93,206 @@ class ServiceAppUpdate extends ServiceBase {
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
+  private isProcessingPendingTask = false;
+
+  private pendingTaskLockAcquiredAt = 0;
+
+  private fallbackRequestSeqCounter = 0;
+
+  private logUpdateEvent(
+    event: string,
+    payload: Record<string, unknown>,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    const message = JSON.stringify({ event, ...payload });
+    if (level === 'error') {
+      defaultLogger.app.error.log(message);
+      return;
+    }
+    defaultLogger.app.appUpdate.log(message);
+  }
+
+  private buildTaskLogFields(
+    task?: Partial<IPendingInstallTask> | null,
+  ): Record<string, unknown> {
+    return {
+      taskId: task?.taskId ?? null,
+      revision: task?.revision ?? null,
+      action: task?.action ?? null,
+      targetAppVersion: task?.targetAppVersion ?? null,
+      targetBundleVersion: task?.targetBundleVersion ?? null,
+      retryCount: task?.retryCount ?? null,
+      nextRetryAt: task?.nextRetryAt ?? null,
+    };
+  }
+
+  private async clearPendingTaskWithLog({
+    traceId,
+    requestSeq,
+    task,
+    clearReason,
+    level = 'info',
+  }: {
+    traceId: string;
+    requestSeq?: number;
+    task?: IPendingInstallTask | null;
+    clearReason: string;
+    level?: 'info' | 'warn' | 'error';
+  }) {
+    await clearPendingInstallTask();
+    this.logUpdateEvent(
+      'pending_task_cleared',
+      {
+        traceId,
+        requestSeq: requestSeq ?? null,
+        ...this.buildTaskLogFields(task),
+        clearReason,
+      },
+      level,
+    );
+  }
+
+  private getTargetKey(taskOrTarget: {
+    targetAppVersion: string;
+    targetBundleVersion: string;
+  }) {
+    return getTargetVersionKey(
+      taskOrTarget.targetAppVersion,
+      taskOrTarget.targetBundleVersion,
+    );
+  }
+
+  private isTargetAligned(targetAppVersion: string, targetBundleVersion: string) {
+    return (
+      targetAppVersion === (platformEnv.version || '') &&
+      targetBundleVersion === String(platformEnv.bundleVersion || '')
+    );
+  }
+
+  private async nextRequestSeq() {
+    let requestSeq = 0;
+    await appUpdatePersistAtom.set((prev) => {
+      const prevSeq = Number(prev.lastRequestSeq || 0);
+      const nextSeq =
+        Number.isSafeInteger(prevSeq) && prevSeq > 0
+          ? prevSeq + 1
+          : Date.now() * 1000 + ++this.fallbackRequestSeqCounter;
+      requestSeq = nextSeq;
+      return {
+        ...prev,
+        lastRequestSeq: nextSeq,
+      };
+    });
+    return requestSeq || Date.now() * 1000 + ++this.fallbackRequestSeqCounter;
+  }
+
+  private pruneIgnoredTargets(
+    ignoredTargets: Record<
+      string,
+      { reason: string; createdAt: number; expiresAt: number }
+    >,
+    now: number,
+  ) {
+    const entries = Object.entries(ignoredTargets)
+      .filter(([, info]) => info.expiresAt > now)
+      .sort((a, b) => b[1].createdAt - a[1].createdAt)
+      .slice(0, MAX_IGNORED_TARGETS);
+    return Object.fromEntries(entries);
+  }
+
+  private pruneFullFlowRetryByTarget(
+    fullFlowRetryByTarget: Record<string, { count: number; updatedAt: number }>,
+    now: number,
+  ) {
+    const entries = Object.entries(fullFlowRetryByTarget)
+      .filter(([, info]) => now - info.updatedAt <= FULL_FLOW_RETRY_TTL_MS)
+      .sort((a, b) => b[1].updatedAt - a[1].updatedAt)
+      .slice(0, MAX_FULL_FLOW_RETRY_TARGETS);
+    return Object.fromEntries(entries);
+  }
+
+  private async cleanupUpdateControlState() {
+    const now = Date.now();
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      ignoredTargets: this.pruneIgnoredTargets(prev.ignoredTargets || {}, now),
+      fullFlowRetryByTarget: this.pruneFullFlowRetryByTarget(
+        prev.fullFlowRetryByTarget || {},
+        now,
+      ),
+    }));
+  }
+
+  private async resetTargetControlState(targetKey: string) {
+    await appUpdatePersistAtom.set((prev) => {
+      const nextIgnoredTargets = { ...(prev.ignoredTargets || {}) };
+      delete nextIgnoredTargets[targetKey];
+      const nextFullFlowRetryByTarget = { ...(prev.fullFlowRetryByTarget || {}) };
+      delete nextFullFlowRetryByTarget[targetKey];
+      return {
+        ...prev,
+        ignoredTargets: nextIgnoredTargets,
+        fullFlowRetryByTarget: nextFullFlowRetryByTarget,
+      };
+    });
+  }
+
+  private async incrementFullFlowRetry(targetKey: string) {
+    let nextCount = 0;
+    await appUpdatePersistAtom.set((prev) => {
+      const fullFlowRetryByTarget = {
+        ...(prev.fullFlowRetryByTarget || {}),
+      };
+      const current = fullFlowRetryByTarget[targetKey]?.count || 0;
+      nextCount = current + 1;
+      fullFlowRetryByTarget[targetKey] = {
+        count: nextCount,
+        updatedAt: Date.now(),
+      };
+      return {
+        ...prev,
+        fullFlowRetryByTarget,
+      };
+    });
+    return nextCount;
+  }
+
+  private async freezeAndIgnoreTarget(
+    targetKey: string,
+    reason: string,
+    traceId: string,
+  ) {
+    const now = Date.now();
+    await appUpdatePersistAtom.set((prev) => {
+      const ignoredTargets = this.pruneIgnoredTargets(
+        {
+          ...(prev.ignoredTargets || {}),
+          [targetKey]: {
+            reason,
+            createdAt: now,
+            expiresAt: now + IGNORED_TARGET_TTL_MS,
+          },
+        },
+        now,
+      );
+      return {
+        ...prev,
+        freezeUntil: now + TASK_FUSE_DURATION_MS,
+        ignoredTargets,
+      };
+    });
+    this.logUpdateEvent(
+      'update_control_frozen_or_ignored',
+      {
+        traceId,
+        target: targetKey,
+        freezeUntil: now + TASK_FUSE_DURATION_MS,
+        terminalReason: reason,
+      },
+      'error',
+    );
+  }
+
   private isValidTaskBase(task: unknown): task is IPendingInstallTask {
     if (!task || typeof task !== 'object') {
       return false;
@@ -86,15 +300,24 @@ class ServiceAppUpdate extends ServiceBase {
     const t = task as IPendingInstallTask;
     if (
       !t.taskId ||
+      !Number.isFinite(t.revision) ||
+      t.action !== PENDING_ACTION_SWITCH_BUNDLE ||
       !t.type ||
-      !t.requiredAppVersion ||
+      !t.targetAppVersion ||
+      !t.targetBundleVersion ||
+      !t.scheduledEnvAppVersion ||
+      !t.scheduledEnvBundleVersion ||
       !Number.isFinite(t.createdAt) ||
       !Number.isFinite(t.expiresAt) ||
       !Number.isFinite(t.retryCount)
     ) {
       return false;
     }
-    if (!['pending', 'running', 'failed'].includes(t.status)) {
+    if (
+      !['pending', 'running', 'applied_waiting_verify', 'failed'].includes(
+        t.status,
+      )
+    ) {
       return false;
     }
     if (!t.payload || typeof t.payload !== 'object') {
@@ -108,125 +331,62 @@ class ServiceAppUpdate extends ServiceBase {
     return !!(p?.appVersion && p.bundleVersion && p.signature);
   }
 
-  private isValidJsBundleDownloadSwitchPayload(payload: unknown) {
-    const p = payload as IJsBundleDownloadSwitchTaskPayload;
-    return (
-      this.isValidJsBundleSwitchPayload(payload) &&
-      !!p.downloadUrl &&
-      p.downloadUrl.startsWith('https://') &&
-      Number.isFinite(p.fileSize) &&
-      p.fileSize > 0 &&
-      !!p.sha256
-    );
-  }
-
-  private isValidAppUpdateInstallPayload(payload: unknown) {
-    const p = payload as IAppUpdateInstallTaskPayload;
-    if (!p?.latestVersion) {
-      return false;
-    }
-    if (
-      ![
-        EUpdateStrategy.silent,
-        EUpdateStrategy.force,
-        EUpdateStrategy.manual,
-        EUpdateStrategy.seamless,
-      ].includes(p.updateStrategy)
-    ) {
-      return false;
-    }
-    if (p.channel === 'store') {
-      return !!p.storeUrl;
-    }
-    if (p.channel === 'direct') {
-      if (!p.downloadUrl) {
-        return false;
-      }
-      if (p.updateStrategy === EUpdateStrategy.silent) {
-        return !!p.fileSize && !!p.sha256 && !!p.signature;
-      }
-      return true;
-    }
-    return false;
-  }
-
   private isValidPendingInstallTask(
     task: unknown,
   ): task is IPendingInstallTask {
     if (!this.isValidTaskBase(task)) {
       return false;
     }
-    if (task.type === 'jsbundle-switch') {
-      return this.isValidJsBundleSwitchPayload(task.payload);
+    if ((task as IPendingInstallTask).type !== 'jsbundle-switch') {
+      return false;
     }
-    if (task.type === 'jsbundle-download-switch') {
-      return this.isValidJsBundleDownloadSwitchPayload(task.payload);
-    }
-    if (task.type === 'appupdate-install') {
-      return this.isValidAppUpdateInstallPayload(task.payload);
-    }
-    return false;
+    return this.isValidJsBundleSwitchPayload(
+      (task as IPendingInstallTask).payload,
+    );
   }
 
   private getRetryDelayMs(retryCount: number) {
-    const expDelay = RETRY_BASE_DELAY_MS * 2 ** retryCount;
+    const expDelay = RETRY_BASE_DELAY_MS * 2 ** (retryCount - 1);
     const baseDelay = Math.min(MAX_RETRY_DELAY_MS, expDelay);
     const jitter = Math.floor(Math.random() * (RETRY_JITTER_MS + 1));
     return baseDelay + jitter;
   }
 
-  private isCurrentAppVersion(version?: string) {
-    if (
-      !version ||
-      !semver.valid(version) ||
-      !semver.valid(platformEnv.version)
-    ) {
-      return false;
-    }
-    return semver.eq(version, platformEnv.version);
-  }
-
   private shouldUpdateFromReleaseInfo(releaseInfo: IResponseAppUpdateInfo) {
-    if (
-      this.isCurrentAppVersion(releaseInfo.version) &&
-      releaseInfo.jsBundleVersion
-    ) {
-      return (
-        Number(releaseInfo.jsBundleVersion) !==
-        Number(platformEnv.bundleVersion)
-      );
-    }
-    try {
-      return gtVersion(releaseInfo.version, releaseInfo.jsBundleVersion);
-    } catch (error) {
-      defaultLogger.app.appUpdate.log(
-        `shouldUpdateFromReleaseInfo: invalid version payload, version=${
-          releaseInfo.version ?? 'nil'
-        }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, error=${
-          (error as Error)?.message ?? 'unknown'
-        }`,
-      );
-      return false;
-    }
+    const resolved = resolveUpdateDecision({
+      currentAppVersion: platformEnv.version,
+      currentBundleVersion: platformEnv.bundleVersion,
+      remoteAppVersion: releaseInfo.version,
+      remoteBundleVersion: releaseInfo.jsBundleVersion,
+      allowRollback: true,
+    });
+    return (
+      resolved.decision === 'appShellUpdate' ||
+      resolved.decision === 'jsBundleUpgrade' ||
+      resolved.decision === 'jsBundleRollback'
+    );
   }
 
   private buildPendingJsBundleTask(
     releaseInfo: IResponseAppUpdateInfo,
+    revision: number,
   ): IPendingInstallTask | undefined {
     const appVersion = releaseInfo.version;
     const bundleVersion = releaseInfo.jsBundleVersion;
-    const downloadUrl = releaseInfo.jsBundle?.downloadUrl;
-    const fileSize = releaseInfo.jsBundle?.fileSize ?? releaseInfo.fileSize;
-    const sha256 = releaseInfo.jsBundle?.sha256;
-    if (!appVersion || !bundleVersion || !downloadUrl || !sha256) {
+    if (!appVersion || !bundleVersion) {
       return undefined;
     }
 
     const now = Date.now();
     return {
       taskId: `jsbundle:${appVersion}:${bundleVersion}`,
-      type: 'jsbundle-download-switch',
-      requiredAppVersion: appVersion,
+      revision,
+      action: PENDING_ACTION_SWITCH_BUNDLE,
+      type: 'jsbundle-switch',
+      targetAppVersion: appVersion,
+      targetBundleVersion: bundleVersion,
+      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
@@ -234,116 +394,378 @@ class ServiceAppUpdate extends ServiceBase {
       payload: {
         appVersion,
         bundleVersion,
-        downloadUrl,
-        fileSize: Number(fileSize),
-        sha256,
         signature: releaseInfo.jsBundle?.signature ?? PLACEHOLDER_SIGNATURE,
       },
     };
   }
 
-  private async syncPendingInstallTaskWithReleaseInfo(
-    releaseInfo: IResponseAppUpdateInfo | undefined,
+  private async shouldSkipTargetByControl(
+    targetKey: string,
+    traceId: string,
+    requestSeq: number,
+    emitLog = true,
   ) {
-    if (!releaseInfo || !this.isCurrentAppVersion(releaseInfo.version)) {
-      await clearPendingInstallTask();
-      return;
+    const now = Date.now();
+    const appInfo = await appUpdatePersistAtom.get();
+    if ((appInfo.freezeUntil || 0) > now) {
+      if (emitLog) {
+        this.logUpdateEvent('pending_task_upsert_decision', {
+          traceId,
+          requestSeq,
+          upsertAction: 'drop',
+          reason: 'frozen',
+          freezeUntil: appInfo.freezeUntil,
+          target: targetKey,
+        });
+      }
+      return true;
     }
-
-    if (
-      !releaseInfo.jsBundleVersion ||
-      Number(releaseInfo.jsBundleVersion) === Number(platformEnv.bundleVersion)
-    ) {
-      await clearPendingInstallTask();
-      return;
+    const ignored = appInfo.ignoredTargets?.[targetKey];
+    if (ignored && ignored.expiresAt > now) {
+      if (emitLog) {
+        this.logUpdateEvent('pending_task_upsert_decision', {
+          traceId,
+          requestSeq,
+          upsertAction: 'drop',
+          reason: 'ignored_target',
+          target: targetKey,
+        });
+      }
+      return true;
     }
-
-    const task = this.buildPendingJsBundleTask(releaseInfo);
-    if (!task || !this.isValidPendingInstallTask(task)) {
-      defaultLogger.app.appUpdate.log(
-        'syncPendingInstallTaskWithReleaseInfo: invalid task payload ignored',
-      );
-      await clearPendingInstallTask();
-      return;
-    }
-    await setPendingInstallTask(task);
+    return false;
   }
 
-  private async markTaskFailed(task: IPendingInstallTask, message: string) {
-    const nextRetryCount = task.retryCount + 1;
-    const now = Date.now();
-    if (nextRetryCount >= MAX_TASK_RETRY) {
-      await setPendingInstallTask({
-        ...task,
-        retryCount: nextRetryCount,
-        status: 'failed',
-        runningStartedAt: undefined,
-        lastError: message,
-        nextRetryAt: now + TASK_FUSE_DURATION_MS,
+  private async syncPendingInstallTaskWithReleaseInfo(
+    releaseInfo: IResponseAppUpdateInfo | undefined,
+    requestSeq: number,
+    traceId: string,
+  ) {
+    if (!releaseInfo) {
+      return;
+    }
+
+    const decision = resolveUpdateDecision({
+      currentAppVersion: platformEnv.version,
+      currentBundleVersion: platformEnv.bundleVersion,
+      remoteAppVersion: releaseInfo.version,
+      remoteBundleVersion: releaseInfo.jsBundleVersion,
+      allowRollback: true,
+    });
+    this.logUpdateEvent('app_update_decision_resolved', {
+      traceId,
+      requestSeq,
+      decision: decision.decision,
+      reason: decision.reason,
+      allowRollback: true,
+      currentAppVersion: platformEnv.version,
+      currentBundleVersion: String(platformEnv.bundleVersion || ''),
+      targetAppVersion: releaseInfo.version ?? null,
+      targetBundleVersion: releaseInfo.jsBundleVersion ?? null,
+    });
+
+    if (
+      decision.decision !== 'jsBundleUpgrade' &&
+      decision.decision !== 'jsBundleRollback'
+    ) {
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        upsertAction: 'noop',
+        reason: `decision_${decision.decision}`,
       });
       return;
     }
 
+    const task = this.buildPendingJsBundleTask(releaseInfo, requestSeq);
+    if (!task || !this.isValidPendingInstallTask(task)) {
+      this.logUpdateEvent(
+        'pending_task_upsert_decision',
+        {
+          traceId,
+          requestSeq,
+          upsertAction: 'drop',
+          reason: 'invalid_new_task',
+        },
+        'warn',
+      );
+      return;
+    }
+
+    const targetKey = this.getTargetKey(task);
+    if (await this.shouldSkipTargetByControl(targetKey, traceId, requestSeq)) {
+      return;
+    }
+
+    const existingRaw = await getPendingInstallTask();
+    if (!existingRaw) {
+      await setPendingInstallTask(task);
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        taskId: task.taskId,
+        revision: task.revision,
+        action: task.action,
+        upsertAction: 'create',
+        reason: 'no_existing_task',
+      });
+      return;
+    }
+
+    if (!this.isValidPendingInstallTask(existingRaw)) {
+      this.logUpdateEvent(
+        'pending_task_unknown_type_dropped',
+        {
+          traceId,
+          requestSeq,
+          taskType: (existingRaw as { type?: string })?.type || 'unknown',
+        },
+        'warn',
+      );
+      await this.clearPendingTaskWithLog({
+        traceId,
+        requestSeq,
+        task: existingRaw as IPendingInstallTask,
+        clearReason: 'replace_invalid_task',
+        level: 'warn',
+      });
+      await setPendingInstallTask(task);
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        taskId: task.taskId,
+        revision: task.revision,
+        action: task.action,
+        upsertAction: 'create',
+        reason: 'replace_invalid_task',
+      });
+      return;
+    }
+
+    const existing = existingRaw as IPendingInstallTask;
+    if (existing.revision > requestSeq) {
+      this.logUpdateEvent(
+        'pending_task_upsert_decision',
+        {
+          traceId,
+          requestSeq,
+          taskId: existing.taskId,
+          revision: existing.revision,
+          action: existing.action,
+          upsertAction: 'drop',
+          reason: 'stale_request_seq',
+        },
+        'warn',
+      );
+      return;
+    }
+
+    if (
+      existing.revision === requestSeq &&
+      existing.taskId === task.taskId &&
+      existing.action === task.action
+    ) {
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        taskId: task.taskId,
+        revision: task.revision,
+        action: task.action,
+        upsertAction: 'noop',
+        reason: 'same_revision_same_target',
+      });
+      return;
+    }
+
+    if (existing.taskId === task.taskId) {
+      await setPendingInstallTask({
+        ...task,
+        retryCount: existing.retryCount,
+        nextRetryAt: existing.nextRetryAt,
+        status: existing.status,
+        runningStartedAt: existing.runningStartedAt,
+        lastError: existing.lastError,
+      });
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        taskId: task.taskId,
+        revision: task.revision,
+        action: task.action,
+        upsertAction: 'update',
+        reason: 'same_target_keep_retry_state',
+      });
+      return;
+    }
+
+    const priority = compareTargetPriority(
+      {
+        appVersion: task.targetAppVersion,
+        bundleVersion: task.targetBundleVersion,
+        rollbackPolicyPriority: decision.decision === 'jsBundleRollback' ? 0 : 1,
+        actionPriority: decision.decision === 'jsBundleRollback' ? 1 : 2,
+      },
+      {
+        appVersion: existing.targetAppVersion,
+        bundleVersion: existing.targetBundleVersion,
+        rollbackPolicyPriority:
+          Number(existing.targetBundleVersion) <
+          Number(existing.scheduledEnvBundleVersion)
+            ? 0
+            : 1,
+        actionPriority:
+          Number(existing.targetBundleVersion) <
+          Number(existing.scheduledEnvBundleVersion)
+            ? 1
+            : 2,
+      },
+    );
+
+    if (priority <= 0) {
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        taskId: existing.taskId,
+        revision: existing.revision,
+        action: existing.action,
+        upsertAction: 'noop',
+        reason: 'existing_target_priority_higher_or_equal',
+      });
+      return;
+    }
+
+    await setPendingInstallTask(task);
+    this.logUpdateEvent('pending_task_upsert_decision', {
+      traceId,
+      requestSeq,
+      taskId: task.taskId,
+      revision: task.revision,
+      action: task.action,
+      upsertAction: 'update',
+      reason: 'new_target_priority_higher',
+    });
+  }
+
+  private async markTaskFailed(
+    task: IPendingInstallTask,
+    message: string,
+    traceId: string,
+    requestSeq?: number,
+  ) {
+    const targetKey = this.getTargetKey(task);
+    const isFullFlowRetryTrigger =
+      message.includes(RETRY_TRIGGER_BUNDLE_MISSING) ||
+      message.includes(RETRY_TRIGGER_VERIFY_FAILED);
+
+    if (isFullFlowRetryTrigger) {
+      const fullFlowRetryCount = await this.incrementFullFlowRetry(targetKey);
+      this.logUpdateEvent(
+        'full_flow_retry_triggered',
+        {
+          traceId,
+          requestSeq: requestSeq ?? null,
+          taskId: task.taskId,
+          revision: task.revision,
+          action: task.action,
+          trigger: message.includes(RETRY_TRIGGER_BUNDLE_MISSING)
+            ? 'bundle_missing'
+            : 'verify_failed',
+          fullFlowRetryCount,
+          target: targetKey,
+        },
+        'warn',
+      );
+      if (fullFlowRetryCount > MAX_FULL_FLOW_RETRY) {
+        await this.clearPendingTaskWithLog({
+          traceId,
+          requestSeq,
+          task,
+          clearReason: 'full_flow_retry_exhausted',
+          level: 'warn',
+        });
+        await this.freezeAndIgnoreTarget(
+          targetKey,
+          TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED,
+          traceId,
+        );
+        return;
+      }
+      await this.clearPendingTaskWithLog({
+        traceId,
+        requestSeq,
+        task,
+        clearReason: 'full_flow_retry_fallback_to_refetch',
+        level: 'warn',
+      });
+      return;
+    }
+
+    const nextRetryCount = task.retryCount + 1;
+    const now = Date.now();
+    if (nextRetryCount >= MAX_TASK_RETRY) {
+      await this.clearPendingTaskWithLog({
+        traceId,
+        requestSeq,
+        task,
+        clearReason: 'switch_retry_exhausted',
+        level: 'warn',
+      });
+      await this.freezeAndIgnoreTarget(
+        targetKey,
+        TERMINAL_REASON_RETRY_EXHAUSTED,
+        traceId,
+      );
+      return;
+    }
+
     const delayMs = this.getRetryDelayMs(nextRetryCount);
+    const nextRetryAt = now + delayMs;
     await setPendingInstallTask({
       ...task,
       retryCount: nextRetryCount,
       status: 'pending',
       runningStartedAt: undefined,
       lastError: message,
-      nextRetryAt: now + delayMs,
+      nextRetryAt,
     });
+    this.logUpdateEvent(
+      'pending_retry_scheduled',
+      {
+        traceId,
+        requestSeq: requestSeq ?? null,
+        taskId: task.taskId,
+        revision: task.revision,
+        action: task.action,
+        retryCount: nextRetryCount,
+        nextRetryAt,
+        retryType: message === RETRY_TRIGGER_INTERRUPTED ? 'interrupted' : 'switch',
+      },
+      'warn',
+    );
   }
 
-  private async executeBundleSwitchTask(
-    task: IPendingInstallTask,
-    allowDownload: boolean,
-  ) {
-    const payload = task.payload as
-      | IJsBundleSwitchTaskPayload
-      | IJsBundleDownloadSwitchTaskPayload;
+  private async executeBundleSwitchTask(task: IPendingInstallTask) {
+    const payload = task.payload as IJsBundleSwitchTaskPayload;
     const { appVersion, bundleVersion, signature } = payload;
     const bundleExists = await BundleUpdate.isBundleExists(
       appVersion,
       bundleVersion,
     );
-
-    if (bundleExists) {
-      try {
-        await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
-        await BundleUpdate.switchBundle({
-          appVersion,
-          bundleVersion,
-          signature,
-        });
-        return;
-      } catch (error) {
-        await BundleUpdate.clearBundle();
-        if (!allowDownload) {
-          throw error;
-        }
-      }
+    if (!bundleExists) {
+      throw new OneKeyLocalError(RETRY_TRIGGER_BUNDLE_MISSING);
     }
 
-    if (!allowDownload) {
+    try {
+      await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
+    } catch (error) {
+      await BundleUpdate.clearBundle();
       throw new OneKeyLocalError(
-        `Bundle not found for switch task ${appVersion}-${bundleVersion}`,
+        `${RETRY_TRIGGER_VERIFY_FAILED}:${
+          (error as Error)?.message || 'unknown'
+        }`,
       );
     }
 
-    const downloadPayload = payload as IJsBundleDownloadSwitchTaskPayload;
-    const downloadedEvent = await BundleUpdate.downloadBundle({
-      latestVersion: downloadPayload.appVersion,
-      bundleVersion: downloadPayload.bundleVersion,
-      downloadUrl: downloadPayload.downloadUrl,
-      fileSize: downloadPayload.fileSize,
-      sha256: downloadPayload.sha256,
-      signature: downloadPayload.signature,
-    });
-    await BundleUpdate.downloadBundleASC(downloadedEvent);
-    await BundleUpdate.verifyBundleASC(downloadedEvent);
-    await BundleUpdate.verifyBundle(downloadedEvent);
-    await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
     await BundleUpdate.switchBundle({
       appVersion,
       bundleVersion,
@@ -351,42 +773,12 @@ class ServiceAppUpdate extends ServiceBase {
     });
   }
 
-  private async executeAppUpdateInstallTask(task: IPendingInstallTask) {
-    const payload = task.payload as IAppUpdateInstallTaskPayload;
-    if (payload.channel === 'store') {
-      return;
-    }
-    const downloadedEvent = await AppUpdate.downloadPackage({
-      latestVersion: payload.latestVersion,
-      downloadUrl: payload.downloadUrl,
-      fileSize: payload.fileSize,
-      sha256: payload.sha256,
-      signature: payload.signature,
-    });
-    await AppUpdate.downloadASC(downloadedEvent);
-    await AppUpdate.verifyASC(downloadedEvent);
-    await AppUpdate.verifyPackage(downloadedEvent);
-    const appInfo = await appUpdatePersistAtom.get();
-    await AppUpdate.installPackage({
-      ...appInfo,
-      latestVersion: payload.latestVersion,
-      updateStrategy: payload.updateStrategy,
-      downloadUrl: payload.downloadUrl,
-      fileSize: payload.fileSize,
-      status: EAppUpdateStatus.ready,
-    });
-  }
-
   private async executePendingInstallTask(task: IPendingInstallTask) {
     if (task.type === 'jsbundle-switch') {
-      await this.executeBundleSwitchTask(task, false);
+      await this.executeBundleSwitchTask(task);
       return;
     }
-    if (task.type === 'jsbundle-download-switch') {
-      await this.executeBundleSwitchTask(task, true);
-      return;
-    }
-    await this.executeAppUpdateInstallTask(task);
+    throw new OneKeyLocalError(`Unknown pending task type: ${task.type}`);
   }
 
   private startFailedRecoveryTimer() {
@@ -414,67 +806,294 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   async processPendingInstallTask() {
-    let task = await getPendingInstallTask();
-    if (!task) {
-      return;
-    }
-
-    const now = Date.now();
-    if (task.status === 'running') {
-      const recoveredRetry = task.retryCount + 1;
-      if (recoveredRetry >= MAX_TASK_RETRY) {
-        await setPendingInstallTask({
-          ...task,
-          retryCount: recoveredRetry,
-          status: 'failed',
-          runningStartedAt: undefined,
-          lastError: 'interrupted',
-          nextRetryAt: now + TASK_FUSE_DURATION_MS,
+    const traceId = generateUUID();
+    const requestSeq = null;
+    const lockNow = Date.now();
+    if (this.isProcessingPendingTask) {
+      const lockHeldMs = lockNow - this.pendingTaskLockAcquiredAt;
+      if (lockHeldMs > PROCESS_LOCK_TIMEOUT_MS) {
+        this.logUpdateEvent(
+          'pending_task_lock_state',
+          {
+            traceId,
+            requestSeq,
+            lockState: 'timeout',
+            lockHeldMs,
+            lockTimeoutMs: PROCESS_LOCK_TIMEOUT_MS,
+          },
+          'warn',
+        );
+        this.isProcessingPendingTask = false;
+        this.pendingTaskLockAcquiredAt = 0;
+      } else {
+        this.logUpdateEvent('pending_task_lock_state', {
+          traceId,
+          requestSeq,
+          lockState: 'reentrant',
+          lockHeldMs,
+          lockTimeoutMs: PROCESS_LOCK_TIMEOUT_MS,
         });
         return;
       }
-      task = {
-        ...task,
-        status: 'pending',
-        retryCount: recoveredRetry,
-        runningStartedAt: undefined,
-        lastError: 'interrupted',
-      };
-      await setPendingInstallTask(task);
     }
 
-    if (task.status === 'failed') {
-      return;
-    }
-    if (!this.isValidPendingInstallTask(task)) {
-      await clearPendingInstallTask();
-      return;
-    }
-    if (task.requiredAppVersion !== platformEnv.version) {
-      await clearPendingInstallTask();
-      return;
-    }
-    if (task.expiresAt <= now) {
-      await clearPendingInstallTask();
-      return;
-    }
-    if (task.nextRetryAt && task.nextRetryAt > now) {
-      return;
-    }
-
-    const runningTask: IPendingInstallTask = {
-      ...task,
-      status: 'running',
-      runningStartedAt: now,
-    };
-    await setPendingInstallTask(runningTask);
+    this.isProcessingPendingTask = true;
+    this.pendingTaskLockAcquiredAt = Date.now();
+    this.logUpdateEvent('pending_task_lock_state', {
+      traceId,
+      requestSeq,
+      lockState: 'acquired',
+      lockTimeoutMs: PROCESS_LOCK_TIMEOUT_MS,
+    });
 
     try {
-      await this.executePendingInstallTask(runningTask);
-      await clearPendingInstallTask();
-    } catch (error) {
-      const message = (error as Error)?.message ?? 'unknown';
-      await this.markTaskFailed(runningTask, message);
+      await this.cleanupUpdateControlState();
+
+      const rawTask = await getPendingInstallTask();
+      if (!rawTask) {
+        this.logUpdateEvent('pending_task_validation', {
+          traceId,
+          requestSeq,
+          isValid: false,
+          invalidReason: 'no_task',
+          ...this.buildTaskLogFields(null),
+        });
+        return;
+      }
+
+      if (!this.isValidPendingInstallTask(rawTask)) {
+        this.logUpdateEvent(
+          'pending_task_unknown_type_dropped',
+          {
+            traceId,
+            requestSeq,
+            taskType: (rawTask as { type?: string })?.type || 'unknown',
+          },
+          'warn',
+        );
+        this.logUpdateEvent(
+          'pending_task_validation',
+          {
+            traceId,
+            requestSeq,
+            isValid: false,
+            invalidReason: 'invalid_task_payload',
+            ...this.buildTaskLogFields(rawTask as Partial<IPendingInstallTask>),
+          },
+          'warn',
+        );
+        await this.clearPendingTaskWithLog({
+          traceId,
+          task: rawTask as IPendingInstallTask,
+          clearReason: 'invalid_task_payload',
+          level: 'warn',
+        });
+        return;
+      }
+
+      let task = rawTask;
+      const now = Date.now();
+      this.logUpdateEvent('pending_task_validation', {
+        traceId,
+        requestSeq,
+        isValid: true,
+        invalidReason: null,
+        ...this.buildTaskLogFields(task),
+      });
+
+      if (task.expiresAt <= now) {
+        await this.clearPendingTaskWithLog({
+          traceId,
+          task,
+          clearReason: 'task_expired',
+          level: 'warn',
+        });
+        return;
+      }
+
+      const targetKey = this.getTargetKey(task);
+      if (task.status === 'failed') {
+        this.logUpdateEvent('pending_task_validation', {
+          traceId,
+          requestSeq,
+          isValid: true,
+          invalidReason: 'task_already_failed',
+          ...this.buildTaskLogFields(task),
+        });
+        return;
+      }
+
+      if (task.status === 'applied_waiting_verify') {
+        const aligned = this.isTargetAligned(
+          task.targetAppVersion,
+          task.targetBundleVersion,
+        );
+        this.logUpdateEvent(
+          'pending_verify_after_restart',
+          {
+            traceId,
+            requestSeq,
+            aligned,
+            currentAppVersion: platformEnv.version || '',
+            currentBundleVersion: String(platformEnv.bundleVersion || ''),
+            ...this.buildTaskLogFields(task),
+          },
+          aligned ? 'info' : 'error',
+        );
+        if (aligned) {
+          await this.resetTargetControlState(targetKey);
+          await this.clearPendingTaskWithLog({
+            traceId,
+            task,
+            clearReason: 'applied_task_verified_success',
+          });
+          return;
+        }
+        await this.markTaskFailed(
+          task,
+          'VERIFY_AFTER_RESTART_MISMATCH',
+          traceId,
+          undefined,
+        );
+        return;
+      }
+
+      if (task.status === 'running') {
+        const runningStartedAt = task.runningStartedAt || task.createdAt;
+        const runningDuration = now - runningStartedAt;
+        if (runningDuration <= RUNNING_TASK_STALE_MS) {
+          this.logUpdateEvent('pending_task_lock_state', {
+            traceId,
+            requestSeq,
+            lockState: 'reentrant',
+            runningDuration,
+            runningStaleMs: RUNNING_TASK_STALE_MS,
+            ...this.buildTaskLogFields(task),
+          });
+          return;
+        }
+        await this.markTaskFailed(
+          task,
+          RETRY_TRIGGER_INTERRUPTED,
+          traceId,
+          undefined,
+        );
+        const latestTask = await getPendingInstallTask();
+        if (!latestTask || !this.isValidPendingInstallTask(latestTask)) {
+          return;
+        }
+        task = latestTask;
+      }
+
+      const currentAppVersion = platformEnv.version || '';
+      const currentBundleVersion = String(platformEnv.bundleVersion || '');
+      const targetMatch = this.isTargetAligned(
+        task.targetAppVersion,
+        task.targetBundleVersion,
+      );
+      const scheduledMatch =
+        task.scheduledEnvAppVersion === currentAppVersion &&
+        task.scheduledEnvBundleVersion === currentBundleVersion;
+
+      this.logUpdateEvent('pending_task_env_check', {
+        traceId,
+        requestSeq,
+        envMatch: targetMatch ? 'target' : scheduledMatch ? 'scheduled' : 'mismatch',
+        currentAppVersion,
+        currentBundleVersion,
+        scheduledEnvAppVersion: task.scheduledEnvAppVersion,
+        scheduledEnvBundleVersion: task.scheduledEnvBundleVersion,
+        ...this.buildTaskLogFields(task),
+      });
+
+      if (targetMatch) {
+        await this.resetTargetControlState(targetKey);
+        await this.clearPendingTaskWithLog({
+          traceId,
+          task,
+          clearReason: 'target_already_aligned',
+        });
+        return;
+      }
+
+      if (!scheduledMatch) {
+        await this.clearPendingTaskWithLog({
+          traceId,
+          task,
+          clearReason: 'scheduled_env_mismatch',
+          level: 'warn',
+        });
+        return;
+      }
+
+      if (task.nextRetryAt && task.nextRetryAt > now) {
+        this.logUpdateEvent('pending_task_validation', {
+          traceId,
+          requestSeq,
+          isValid: true,
+          invalidReason: 'retry_backoff_not_elapsed',
+          ...this.buildTaskLogFields(task),
+        });
+        return;
+      }
+
+      const runningTask: IPendingInstallTask = {
+        ...task,
+        status: 'running',
+        runningStartedAt: Date.now(),
+      };
+      await setPendingInstallTask(runningTask);
+      const startedAt = Date.now();
+      this.logUpdateEvent('pending_switch_start', {
+        traceId,
+        requestSeq,
+        fromStatus: task.status,
+        ...this.buildTaskLogFields(runningTask),
+      });
+
+      try {
+        await this.executePendingInstallTask(runningTask);
+        const durationMs = Date.now() - startedAt;
+        await setPendingInstallTask({
+          ...runningTask,
+          status: 'applied_waiting_verify',
+          runningStartedAt: undefined,
+          lastError: undefined,
+        });
+        this.logUpdateEvent('pending_switch_result', {
+          traceId,
+          requestSeq,
+          result: 'success',
+          durationMs,
+          ...this.buildTaskLogFields(runningTask),
+        });
+      } catch (error) {
+        const durationMs = Date.now() - startedAt;
+        const message = (error as Error)?.message ?? 'unknown';
+        this.logUpdateEvent(
+          'pending_switch_result',
+          {
+            traceId,
+            requestSeq,
+            result: 'fail',
+            durationMs,
+            errorCode: message,
+            errorMessage: message,
+            ...this.buildTaskLogFields(runningTask),
+          },
+          'error',
+        );
+        await this.markTaskFailed(runningTask, message, traceId, undefined);
+      }
+    } finally {
+      this.isProcessingPendingTask = false;
+      this.pendingTaskLockAcquiredAt = 0;
+      this.logUpdateEvent('pending_task_lock_state', {
+        traceId,
+        requestSeq,
+        lockState: 'released',
+        lockTimeoutMs: PROCESS_LOCK_TIMEOUT_MS,
+      });
     }
   }
 
@@ -1047,32 +1666,107 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAppUpdateInfo(forceUpdate = false) {
+    const traceId = generateUUID();
+    const requestSeq = await this.nextRequestSeq();
+    this.logUpdateEvent('app_update_fetch_start', {
+      traceId,
+      requestSeq,
+      forceUpdate,
+      taskId: null,
+      revision: null,
+      action: null,
+    });
+
+    await this.cleanupUpdateControlState();
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
     const isNeedSync = await this.isNeedSyncAppUpdateInfo(forceUpdate);
     defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
     if (!isNeedSync) {
-      defaultLogger.app.appUpdate.log(
-        `fetchAppUpdateInfo: skip sync, forceUpdate=${String(forceUpdate)}`,
-      );
-      return appUpdatePersistAtom.get();
+      const latest = await appUpdatePersistAtom.get();
+      this.logUpdateEvent('app_update_fetch_result', {
+        traceId,
+        requestSeq,
+        hasReleaseInfo: null,
+        httpStatus: null,
+        reason: 'skip_sync',
+        finalStatus: latest.status,
+      });
+      return latest;
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
-    await this.syncPendingInstallTaskWithReleaseInfo(releaseInfo);
+    this.logUpdateEvent(
+      'app_update_fetch_result',
+      {
+        traceId,
+        requestSeq,
+        hasReleaseInfo: !!releaseInfo,
+        httpStatus: null,
+      },
+      releaseInfo ? 'info' : 'warn',
+    );
+    await this.syncPendingInstallTaskWithReleaseInfo(
+      releaseInfo,
+      requestSeq,
+      traceId,
+    );
 
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
-      defaultLogger.app.appUpdate.log(
-        `fetchAppUpdateInfo: releaseInfo matched, version=${
-          releaseInfo.version ?? 'nil'
-        }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, hasStoreUrl=${!!releaseInfo.storeUrl}, hasDownloadUrl=${!!releaseInfo.downloadUrl}, hasJsBundleDownloadUrl=${!!releaseInfo
-          .jsBundle?.downloadUrl}`,
+      const decision = resolveUpdateDecision({
+        currentAppVersion: platformEnv.version,
+        currentBundleVersion: platformEnv.bundleVersion,
+        remoteAppVersion: releaseInfo.version,
+        remoteBundleVersion: releaseInfo.jsBundleVersion,
+        allowRollback: true,
+      });
+      this.logUpdateEvent(
+        'app_update_decision_resolved',
+        {
+          traceId,
+          requestSeq,
+          decision: decision.decision,
+          reason: decision.reason,
+          allowRollback: true,
+          currentAppVersion: platformEnv.version || '',
+          currentBundleVersion: String(platformEnv.bundleVersion || ''),
+          targetAppVersion: releaseInfo.version ?? null,
+          targetBundleVersion: releaseInfo.jsBundleVersion ?? null,
+          ...this.buildTaskLogFields(null),
+        },
+        decision.isValid ? 'info' : 'warn',
       );
-      const shouldUpdate = this.shouldUpdateFromReleaseInfo(releaseInfo);
-      defaultLogger.app.appUpdate.log(
-        `fetchAppUpdateInfo: shouldUpdate=${String(shouldUpdate)}`,
-      );
+
+      let shouldUpdate = this.shouldUpdateFromReleaseInfo(releaseInfo);
+      if (
+        (decision.decision === 'jsBundleUpgrade' ||
+          decision.decision === 'jsBundleRollback') &&
+        releaseInfo.version &&
+        releaseInfo.jsBundleVersion
+      ) {
+        const targetKey = getTargetVersionKey(
+          releaseInfo.version,
+          releaseInfo.jsBundleVersion,
+        );
+        const blockedByControl = await this.shouldSkipTargetByControl(
+          targetKey,
+          traceId,
+          requestSeq,
+          false,
+        );
+        if (blockedByControl) {
+          shouldUpdate = false;
+          this.logUpdateEvent('pending_task_upsert_decision', {
+            traceId,
+            requestSeq,
+            upsertAction: 'drop',
+            reason: 'frozen_or_ignored_target_for_notify',
+            target: targetKey,
+          });
+        }
+      }
+
       await appUpdatePersistAtom.set((prev) => {
         const isUpdating = prev.status !== EAppUpdateStatus.done;
 
@@ -1126,27 +1820,22 @@ class ServiceAppUpdate extends ServiceBase {
           ? EAppUpdateStatus.notify
           : prev.status;
 
-        defaultLogger.app.appUpdate.log(
-          `fetchAppUpdateInfo: transition decision, prevStatus=${
-            prev.status
-          }, nextStatus=${nextStatus}, isUpdating=${String(
-            isUpdating,
-          )}, isFailed=${String(isFailed)}, isNewerThanAttempted=${String(
-            isNewerThanAttempted,
-          )}, shouldResetFailed=${String(
-            shouldResetFailed,
-          )}, isVerifyFailure=${String(
-            isVerifyFailure,
-          )}, shouldTransitionToNotify=${String(
-            shouldTransitionToNotify,
-          )}, prevLatestVersion=${prev.latestVersion ?? 'nil'}, nextVersion=${
-            releaseInfo.version || prev.latestVersion || 'nil'
-          }, prevBundleVersion=${
-            prev.jsBundleVersion ?? 'nil'
-          }, nextBundleVersion=${
-            releaseInfo.jsBundleVersion || prev.jsBundleVersion || 'nil'
-          }`,
-        );
+        this.logUpdateEvent('pending_task_upsert_decision', {
+          traceId,
+          requestSeq,
+          upsertAction: shouldTransitionToNotify ? 'update' : 'noop',
+          reason: shouldTransitionToNotify
+            ? 'status_transition_to_notify'
+            : 'status_kept',
+          decision: shouldUpdate ? 'should_update' : 'no_update',
+          prevStatus: prev.status,
+          nextStatus,
+          prevLatestVersion: prev.latestVersion ?? null,
+          nextVersion: releaseInfo.version || prev.latestVersion || null,
+          prevBundleVersion: prev.jsBundleVersion ?? null,
+          nextBundleVersion:
+            releaseInfo.jsBundleVersion || prev.jsBundleVersion || null,
+        });
 
         return {
           ...prev,
@@ -1171,19 +1860,33 @@ class ServiceAppUpdate extends ServiceBase {
         };
       });
     } else {
-      defaultLogger.app.appUpdate.log(
-        `fetchAppUpdateInfo: releaseInfo missing version and jsBundleVersion, reset()`,
+      this.logUpdateEvent(
+        'app_update_decision_resolved',
+        {
+          traceId,
+          requestSeq,
+          decision: 'invalidRemote',
+          reason: 'missing_release_versions',
+          allowRollback: true,
+          currentAppVersion: platformEnv.version || '',
+          currentBundleVersion: String(platformEnv.bundleVersion || ''),
+          targetAppVersion: releaseInfo?.version ?? null,
+          targetBundleVersion: releaseInfo?.jsBundleVersion ?? null,
+          ...this.buildTaskLogFields(null),
+        },
+        'warn',
       );
-      await this.reset();
     }
     const latest = await appUpdatePersistAtom.get();
-    defaultLogger.app.appUpdate.log(
-      `fetchAppUpdateInfo: completed, status=${
-        latest.status
-      }, latestVersion=${latest.latestVersion ?? 'nil'}, jsBundleVersion=${
-        latest.jsBundleVersion ?? 'nil'
-      }, hasStoreUrl=${!!latest.storeUrl}, hasDownloadUrl=${!!latest.downloadUrl}, hasJsBundleDownloadUrl=${!!latest.jsBundle?.downloadUrl}`,
-    );
+    this.logUpdateEvent('app_update_fetch_result', {
+      traceId,
+      requestSeq,
+      hasReleaseInfo: !!releaseInfo,
+      httpStatus: null,
+      finalStatus: latest.status,
+      latestVersion: latest.latestVersion ?? null,
+      latestBundleVersion: latest.jsBundleVersion ?? null,
+    });
     return latest;
   }
 

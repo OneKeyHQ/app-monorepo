@@ -188,34 +188,19 @@ function resetPendingTask(value: any = undefined) {
   pendingTaskValue = value;
 }
 
-function makeDownloadTask(overrides: Record<string, any> = {}) {
-  return {
-    taskId: 'task-download-1',
-    type: 'jsbundle-download-switch',
-    requiredAppVersion: '1.0.0',
-    createdAt: Date.now() - 1000,
-    expiresAt: Date.now() + 60_000,
-    retryCount: 0,
-    status: 'pending',
-    payload: {
-      appVersion: '1.0.0',
-      bundleVersion: '2',
-      downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
-      fileSize: 1024,
-      sha256: 'sha256-2',
-      signature: 'sig-2',
-    },
-    ...overrides,
-  };
-}
-
 function makeSwitchTask(overrides: Record<string, any> = {}) {
+  const now = Date.now();
   return {
-    taskId: 'task-switch-1',
+    taskId: 'jsbundle:1.0.0:2',
+    revision: 1,
+    action: 'switch-bundle',
     type: 'jsbundle-switch',
-    requiredAppVersion: '1.0.0',
-    createdAt: Date.now() - 1000,
-    expiresAt: Date.now() + 60_000,
+    targetAppVersion: '1.0.0',
+    targetBundleVersion: '2',
+    scheduledEnvAppVersion: '1.0.0',
+    scheduledEnvBundleVersion: '1',
+    createdAt: now - 1000,
+    expiresAt: now + 60_000,
     retryCount: 0,
     status: 'pending',
     payload: {
@@ -268,15 +253,16 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     await service.fetchAppUpdateInfo(true);
 
     expect(pendingTaskValue).toMatchObject({
-      type: 'jsbundle-download-switch',
-      requiredAppVersion: '1.0.0',
+      type: 'jsbundle-switch',
+      action: 'switch-bundle',
+      targetAppVersion: '1.0.0',
+      targetBundleVersion: '2',
+      scheduledEnvAppVersion: '1.0.0',
+      scheduledEnvBundleVersion: '1',
       status: 'pending',
       payload: {
         appVersion: '1.0.0',
         bundleVersion: '2',
-        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
-        fileSize: 1024,
-        sha256: 'sha256-2',
         signature: 'sig-2',
       },
     });
@@ -299,7 +285,8 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     await service.fetchAppUpdateInfo(true);
 
     expect(pendingTaskValue).toMatchObject({
-      type: 'jsbundle-download-switch',
+      type: 'jsbundle-switch',
+      targetAppVersion: '1.0.0',
       payload: {
         bundleVersion: '2',
       },
@@ -323,8 +310,13 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('clears pending task when release appVersion is different', async () => {
-    resetPendingTask(makeDownloadTask({ taskId: 'task-old' }));
+  test('keeps existing pending task when release appVersion is different', async () => {
+    const existingTask = makeSwitchTask({
+      taskId: 'jsbundle:1.0.0:2',
+      targetAppVersion: '1.0.0',
+      targetBundleVersion: '2',
+    });
+    resetPendingTask(existingTask);
     mockReleaseInfo({
       version: '1.0.1',
       jsBundleVersion: '3',
@@ -338,11 +330,11 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
 
     await service.fetchAppUpdateInfo(true);
 
-    expect(pendingTaskValue).toBeUndefined();
+    expect(pendingTaskValue).toEqual(existingTask);
   });
 
   test('reset does not clear pending task storage', async () => {
-    const task = makeDownloadTask({ taskId: 'task-persist' });
+    const task = makeSwitchTask({ taskId: 'task-persist' });
     resetPendingTask(task);
     jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(appUpdateState);
 
@@ -359,6 +351,9 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-03-12T00:00:00.000Z'));
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.version = '1.0.0';
+    platformEnvMock.bundleVersion = '1';
     resetAppUpdateState();
     resetPendingTask();
     jest.clearAllMocks();
@@ -371,12 +366,11 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
     jest.useRealTimers();
   });
 
-  test('recovers running task to pending when interrupted', async () => {
+  test('recovers stale running task to pending and schedules retry', async () => {
     resetPendingTask(
       makeSwitchTask({
         status: 'running',
-        retryCount: 0,
-        nextRetryAt: Date.now() + 60_000,
+        runningStartedAt: Date.now() - 10 * 60 * 1000,
       }),
     );
 
@@ -384,11 +378,17 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
 
     expect(pendingTaskValue.status).toBe('pending');
     expect(pendingTaskValue.retryCount).toBe(1);
-    expect(pendingTaskValue.lastError).toBe('interrupted');
+    expect(pendingTaskValue.lastError).toBe('INTERRUPTED');
+    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
   });
 
-  test('drops task when requiredAppVersion mismatches', async () => {
-    resetPendingTask(makeSwitchTask({ requiredAppVersion: '2.0.0' }));
+  test('drops task when scheduled env mismatches current env', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        scheduledEnvAppVersion: '2.0.0',
+        scheduledEnvBundleVersion: '99',
+      }),
+    );
 
     await service.processPendingInstallTask();
 
@@ -397,7 +397,7 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
 
   test('uses local bundle path when bundle already exists', async () => {
     bundleUpdate.isBundleExists.mockResolvedValue(true);
-    resetPendingTask(makeDownloadTask());
+    resetPendingTask(makeSwitchTask());
 
     await service.processPendingInstallTask();
 
@@ -411,60 +411,43 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
       bundleVersion: '2',
       signature: 'sig-2',
     });
+    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+  });
+
+  test('applied_waiting_verify is cleared when target env is aligned', async () => {
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.bundleVersion = '2';
+    resetPendingTask(makeSwitchTask({ status: 'applied_waiting_verify' }));
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('bundle missing triggers full-flow retry and clears task', async () => {
+    bundleUpdate.isBundleExists.mockResolvedValue(false);
+    resetPendingTask(makeSwitchTask());
+
+    await service.processPendingInstallTask();
+
     expect(bundleUpdate.downloadBundle).not.toHaveBeenCalled();
     expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:2']?.count).toBe(1);
   });
 
-  test('uses download-verify-switch path when local bundle is missing', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(false);
-    bundleUpdate.downloadBundle.mockResolvedValue({
-      downloadedFile: '/tmp/bundle-v2.zip',
-      latestVersion: '1.0.0',
-      bundleVersion: '2',
-      downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
-      sha256: 'sha256-2',
-      signature: 'sig-2',
-    });
-    resetPendingTask(makeDownloadTask());
-
-    await service.processPendingInstallTask();
-
-    expect(bundleUpdate.downloadBundle).toHaveBeenCalled();
-    expect(bundleUpdate.downloadBundleASC).toHaveBeenCalled();
-    expect(bundleUpdate.verifyBundleASC).toHaveBeenCalled();
-    expect(bundleUpdate.verifyBundle).toHaveBeenCalled();
-    expect(bundleUpdate.verifyExtractedBundle).toHaveBeenCalledWith(
-      '1.0.0',
-      '2',
-    );
-    expect(bundleUpdate.switchBundle).toHaveBeenCalledWith({
-      appVersion: '1.0.0',
-      bundleVersion: '2',
-      signature: 'sig-2',
-    });
-    expect(pendingTaskValue).toBeUndefined();
-  });
-
-  test('verifyExtractedBundle failure triggers redownload path', async () => {
+  test('verifyExtractedBundle failure triggers full-flow retry', async () => {
     bundleUpdate.isBundleExists.mockResolvedValue(true);
-    bundleUpdate.verifyExtractedBundle
-      .mockRejectedValueOnce(new Error('corrupted'))
-      .mockResolvedValueOnce(undefined);
-    bundleUpdate.downloadBundle.mockResolvedValue({
-      downloadedFile: '/tmp/bundle-v2.zip',
-      latestVersion: '1.0.0',
-      bundleVersion: '2',
-      downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
-      sha256: 'sha256-2',
-      signature: 'sig-2',
-    });
-    resetPendingTask(makeDownloadTask());
+    bundleUpdate.verifyExtractedBundle.mockRejectedValueOnce(
+      new Error('corrupted'),
+    );
+    resetPendingTask(makeSwitchTask());
 
     await service.processPendingInstallTask();
 
-    expect(bundleUpdate.downloadBundle).toHaveBeenCalledTimes(1);
-    expect(bundleUpdate.switchBundle).toHaveBeenCalled();
+    expect(bundleUpdate.clearBundle).toHaveBeenCalled();
+    expect(bundleUpdate.switchBundle).not.toHaveBeenCalled();
     expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:2']?.count).toBe(1);
   });
 
   test('failure writes retry backoff metadata', async () => {
@@ -482,11 +465,11 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
       30_000,
     );
     expect(pendingTaskValue.nextRetryAt - Date.now()).toBeLessThanOrEqual(
-      605_000,
+      35_000,
     );
   });
 
-  test('max retry enters failed state with 24h fuse', async () => {
+  test('max retry clears task and freezes/ignores target', async () => {
     bundleUpdate.isBundleExists.mockResolvedValue(true);
     bundleUpdate.switchBundle.mockRejectedValue(new Error('switch failed'));
     resetPendingTask(makeSwitchTask({ retryCount: 2 }));
@@ -494,10 +477,32 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue.status).toBe('failed');
-    expect(pendingTaskValue.retryCount).toBe(3);
-    expect(pendingTaskValue.nextRetryAt).toBeGreaterThanOrEqual(
-      now + 24 * 60 * 60 * 1000,
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(now);
+    expect(appUpdateState.ignoredTargets?.['1.0.0:2']?.reason).toBe(
+      'RETRY_EXHAUSTED',
+    );
+  });
+
+  test('full-flow retry exhaustion freezes and ignores target', async () => {
+    bundleUpdate.isBundleExists.mockResolvedValue(false);
+    resetAppUpdateState({
+      fullFlowRetryByTarget: {
+        '1.0.0:2': {
+          count: 2,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    resetPendingTask(makeSwitchTask());
+    const now = Date.now();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(now);
+    expect(appUpdateState.ignoredTargets?.['1.0.0:2']?.reason).toBe(
+      'FULL_FLOW_RETRY_EXHAUSTED',
     );
   });
 });

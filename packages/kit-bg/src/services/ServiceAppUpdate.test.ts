@@ -1288,7 +1288,7 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.latestVersion).toBe('3.0.0');
     });
 
-    test('calls reset when no version info from server', async () => {
+    test('does not reset when no version info from server', async () => {
       resetAtom({
         status: EAppUpdateStatus.notify,
         latestVersion: '2.0.0',
@@ -1300,10 +1300,12 @@ describe('ServiceAppUpdate state transitions', () => {
       });
       jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
       jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+      const resetSpy = jest.spyOn(service, 'reset');
 
       await service.fetchAppUpdateInfo(true);
 
-      expect(atomValue.status).toBe(EAppUpdateStatus.done);
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(resetSpy).not.toHaveBeenCalled();
     });
 
     test('sets jsBundleVersion when jsBundle update available', async () => {
@@ -2866,17 +2868,14 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // P2: reset → fetchAppUpdateInfo → reset must NOT form an infinite loop
-  // When the server returns no version data, fetchAppUpdateInfo calls reset(),
-  // which previously scheduled another fetchAppUpdateInfo, creating an infinite
-  // cycle.  The isResetting guard breaks the loop.
+  // P2: reset → fetchAppUpdateInfo must NOT form an infinite loop.
+  // fetchAppUpdateInfo no longer calls reset() when server payload is empty.
   // ---------------------------------------------------------------------------
   describe('P2: reset does not loop when server returns empty version', () => {
-    test('reset is called at most twice (manual + one from fetchAppUpdateInfo)', async () => {
+    test('reset is called only once (manual call)', async () => {
       resetAtom({ status: EAppUpdateStatus.ready, latestVersion: '2.0.0' });
 
-      // Server always returns empty version data → fetchAppUpdateInfo will
-      // hit the else branch and call reset() internally.
+      // Server always returns empty version data.
       jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
         updateStrategy: EUpdateStrategy.manual,
         // no version, no jsBundleVersion
@@ -2894,11 +2893,8 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
       // simulated time window.
       await jest.advanceTimersByTimeAsync(5000);
 
-      // With the guard: exactly 2 calls
-      //   #1 — the manual call above
-      //   #2 — fetchAppUpdateInfo got empty data → called reset() once more
-      // Without the guard the count would keep growing.
-      expect(resetSpy.mock.calls.length).toBe(2);
+      // fetchAppUpdateInfo should not call reset() anymore.
+      expect(resetSpy.mock.calls.length).toBe(1);
     });
   });
 });

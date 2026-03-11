@@ -13,23 +13,28 @@ export enum EUpdateFileType {
   jsBundle = 2,
 }
 
-export type IPendingInstallTaskType =
-  | 'jsbundle-switch'
-  | 'jsbundle-download-switch'
-  | 'appupdate-install';
+export type IUpdateDecision =
+  | 'none'
+  | 'appShellUpdate'
+  | 'jsBundleUpgrade'
+  | 'jsBundleRollback'
+  | 'staleRemote'
+  | 'invalidRemote';
 
-export type IPendingInstallTaskStatus = 'pending' | 'running' | 'failed';
+export type IPendingInstallTaskType = 'jsbundle-switch';
+
+export type IPendingInstallTaskAction = 'switch-bundle';
+
+export type IPendingInstallTaskStatus =
+  | 'pending'
+  | 'running'
+  | 'applied_waiting_verify'
+  | 'failed';
 
 export interface IJsBundleSwitchTaskPayload {
   appVersion: string;
   bundleVersion: string;
   signature: string;
-}
-
-export interface IJsBundleDownloadSwitchTaskPayload extends IJsBundleSwitchTaskPayload {
-  downloadUrl: string;
-  fileSize: number;
-  sha256: string;
 }
 
 export interface IAppUpdateInstallTaskPayload {
@@ -45,8 +50,13 @@ export interface IAppUpdateInstallTaskPayload {
 
 export interface IPendingInstallTaskBase {
   taskId: string;
+  revision: number;
+  action: IPendingInstallTaskAction;
   type: IPendingInstallTaskType;
-  requiredAppVersion: string;
+  targetAppVersion: string;
+  targetBundleVersion: string;
+  scheduledEnvAppVersion: string;
+  scheduledEnvBundleVersion: string;
   createdAt: number;
   expiresAt: number;
   retryCount: number;
@@ -60,15 +70,32 @@ export type IPendingInstallTask =
   | (IPendingInstallTaskBase & {
       type: 'jsbundle-switch';
       payload: IJsBundleSwitchTaskPayload;
-    })
-  | (IPendingInstallTaskBase & {
-      type: 'jsbundle-download-switch';
-      payload: IJsBundleDownloadSwitchTaskPayload;
-    })
-  | (IPendingInstallTaskBase & {
-      type: 'appupdate-install';
-      payload: IAppUpdateInstallTaskPayload;
     });
+
+export interface IResolvedUpdateDecision {
+  decision: IUpdateDecision;
+  // true when decision input payload was semantically valid
+  isValid: boolean;
+  reason: string;
+}
+
+export interface IUpdateTargetForPriority {
+  appVersion?: string;
+  bundleVersion?: string;
+  rollbackPolicyPriority?: number;
+  actionPriority?: number;
+}
+
+export interface IIgnoredUpdateTargetInfo {
+  reason: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface IFullFlowRetryInfo {
+  count: number;
+  updatedAt: number;
+}
 
 export interface IBasicAppUpdateInfo {
   /* app store url */
@@ -120,6 +147,10 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   summary?: string;
   // the last time the update dialog was shown (for rate limiting)
   lastUpdateDialogShownAt?: number;
+  freezeUntil?: number;
+  ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
+  fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;
+  lastRequestSeq?: number;
 }
 
 export enum EAppUpdateStatus {

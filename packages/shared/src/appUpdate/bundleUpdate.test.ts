@@ -119,17 +119,18 @@ describe('isNeedUpdate', () => {
       status: EAppUpdateStatus.notify,
     });
     expect(result.shouldUpdate).toBe(false);
-    expect(result.fileType).toBe(EUpdateFileType.jsBundle);
+    expect(result.fileType).toBe(EUpdateFileType.appShell);
   });
 
-  test('no jsBundle update when bundle version is lower', () => {
+  test('needs jsBundle rollback when bundle version is lower', () => {
     const { isNeedUpdate } = loadAppUpdate('1.0.0', '5');
     const result = isNeedUpdate({
       latestVersion: '1.0.0',
       jsBundleVersion: '3',
       status: EAppUpdateStatus.notify,
     });
-    expect(result.shouldUpdate).toBe(false);
+    expect(result.shouldUpdate).toBe(true);
+    expect(result.fileType).toBe(EUpdateFileType.jsBundle);
   });
 
   test('no update when latestVersion is undefined', () => {
