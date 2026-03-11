@@ -25,6 +25,7 @@ const SwapProSearchTokenListItem = ({
 }: ISwapProSearchTokenListItemProps) => {
   const {
     logoUrl,
+    logoUrls,
     network,
     symbol,
     name,
@@ -42,7 +43,12 @@ const SwapProSearchTokenListItem = ({
         onPress(item);
       }}
       renderAvatar={
-        <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
+        <MarketTokenIcon
+          uri={logoUrl}
+          uris={logoUrls}
+          size="lg"
+          networkId={network}
+        />
       }
     >
       <ListItem.Text
