@@ -20,7 +20,11 @@ import type {
   IAccountSelectorAccountsListSectionData,
   IAccountSelectorSelectedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { useIndexedAccountAddressCreationStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAccountSelectorDeFiMapAtom,
+  useAccountSelectorValuesMapAtom,
+  useIndexedAccountAddressCreationStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -55,7 +59,6 @@ export function AccountSelectorAccountListItem({
   index,
   isOthersUniversal,
   selectedAccount,
-  accountsValue,
   linkNetwork,
   allowSelectEmptyAccount,
   editable,
@@ -65,7 +68,6 @@ export function AccountSelectorAccountListItem({
   hideAddress,
   enabledNetworksCompatibleWithWalletId,
   networkInfoMap,
-  accountsDeFiOverview,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -74,26 +76,6 @@ export function AccountSelectorAccountListItem({
   index: number;
   isOthersUniversal: boolean;
   selectedAccount: IAccountSelectorSelectedAccount;
-  accountsValue: {
-    accountId: string;
-    value: Record<string, string> | string | undefined;
-    currency: string | undefined;
-  }[];
-  accountsDeFiOverview: (
-    | {
-        overview: Record<
-          string,
-          {
-            totalValue: number;
-            totalDebt: number;
-            totalReward: number;
-            netWorth: number;
-            currency: string;
-          }
-        >;
-      }
-    | undefined
-  )[];
   linkNetwork: boolean | undefined;
   allowSelectEmptyAccount: boolean | undefined;
   editable: boolean;
@@ -124,6 +106,10 @@ export function AccountSelectorAccountListItem({
   });
 
   const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
+  const [valuesMapAll] = useAccountSelectorValuesMapAtom();
+  const [deFiMapAll] = useAccountSelectorDeFiMapAtom();
+  const valuesMap = useMemo(() => valuesMapAll.get(num), [valuesMapAll, num]);
+  const deFiMap = useMemo(() => deFiMapAll.get(num), [deFiMapAll, num]);
 
   const account = useMemo(
     () => (isOthersUniversal ? (item as IDBAccount) : undefined),
@@ -204,15 +190,14 @@ export function AccountSelectorAccountListItem({
 
   const subTitleInfo = useMemo(() => buildSubTitleInfo(), [buildSubTitleInfo]);
 
-  // TODO performance
   const accountValue = useMemo(
-    () => accountsValue?.find((i) => i.accountId === item.id),
-    [accountsValue, item.id],
+    () => valuesMap?.get(item.id),
+    [valuesMap, item.id],
   );
 
   const accountDeFiOverview = useMemo(
-    () => accountsDeFiOverview?.[index],
-    [accountsDeFiOverview, index],
+    () => deFiMap?.get(item.id),
+    [deFiMap, item.id],
   );
 
   const shouldShowCreateAddressButton = useMemo(

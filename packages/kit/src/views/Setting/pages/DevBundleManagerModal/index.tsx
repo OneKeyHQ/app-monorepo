@@ -390,7 +390,11 @@ export default function DevBundleManagerModal() {
                           isCurrent
                             ? undefined
                             : () => {
-                                void BundleUpdate.switchBundle(bundle);
+                                void BundleUpdate.switchBundle(bundle).catch(
+                                  (e) => {
+                                    showTestError(e);
+                                  },
+                                );
                               }
                         }
                       >
@@ -509,6 +513,7 @@ export default function DevBundleManagerModal() {
                       try {
                         const result =
                           await BundleUpdate.clearAllJSBundleData();
+                        setFallbackBundles([]);
                         Dialog.show({
                           title: 'Cleared',
                           renderContent: (
