@@ -3,6 +3,7 @@ export interface IMarketTokenDetail {
   isNative?: boolean;
   address: string;
   logoUrl: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
@@ -125,6 +126,7 @@ export interface IMarketStockInfo {
 export interface IMarketTokenListItem {
   address: string;
   logoUrl?: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
