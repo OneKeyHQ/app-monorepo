@@ -33,7 +33,7 @@ const state = {
 
 function getInitialSessionIdFromQuery() {
   try {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(globalThis.location.search);
     const sessionId = params.get('sessionId');
     return sessionId ? sessionId.trim() : null;
   } catch {
@@ -44,9 +44,9 @@ function getInitialSessionIdFromQuery() {
 function syncSessionIdToQuery(sessionId) {
   if (!sessionId) return;
   try {
-    const url = new URL(window.location.href);
+    const url = new URL(globalThis.location.href);
     url.searchParams.set('sessionId', sessionId);
-    window.history.replaceState({}, '', url.toString());
+    globalThis.history.replaceState({}, '', url.toString());
   } catch {
     // ignore
   }

@@ -205,14 +205,126 @@ SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..." \
 yarn perf:ios:release
 ```
 
-Notification structure:
+### Notification state machine
 
-- Header: severity + target (`[P1] Perf Regression | Ext Release`)
-- Summary: one-sentence conclusion with metric/threshold/delta
-- Metrics: current vs threshold + delta + exceed count
-- Stability: the 3 individual runs
-- Diagnosis: representative session hotspots / key marks
-- Links: dashboard deep link (`?sessionId=...`) and `report.json` if configured
+```
+  Job finishes
+       │
+       ├── throws ──────────────────────────────────────────────────────────┐
+       │                                                                    ▼
+       │                                                       notifyPerfFailure()
+       │                                                          kind = 'failed'
+       │                                                       ─────────────────────
+       │                                                       always sends + saves
+       │
+       └── success ─────────────────────────────────────────────────────────┐
+                                                                            ▼
+                                                             notifyPerfResult()
+                                                       read alertState/{targetKey}.json
+                                                                            │
+                          ┌─────────────────────────────────────────────────┤
+                          │                                                 │
+               regression.triggered = true             regression.triggered = false
+                          │                                                 │
+                          ▼                            ┌───────────────────┴─────────────────┐
+                 kind = 'regression'     previousState in {regression|failed}?     no / ok / recovered
+                  ─────────────────                    │                                      │
+                  sends + saves                        ▼                                      ▼
+                                              kind = 'recovered'                     write ok state only
+                                               ─────────────────                  (no Slack notification)
+                                               sends + saves
+```
+
+### Regression check rules
+
+Three metrics are evaluated per run:
+
+| Metric             | What it measures                                              |
+|--------------------|---------------------------------------------------------------|
+| `tokensStartMs`    | Session start → `Home:refresh:start:tokens` (ms)             |
+| `tokensSpanMs`     | `Home:refresh:start:tokens` → `Home:refresh:done:tokens` (ms)|
+| `functionCallCount`| Number of function calls during home refresh                 |
+
+Threshold strategies (`thresholds.strategy`):
+
+| Strategy       | Trigger condition                            |
+|----------------|----------------------------------------------|
+| `median`       | median of 3 runs > threshold *(default)*     |
+| `two_of_three` | ≥ 2 of 3 runs individually exceed threshold |
+
+Severity levels:
+
+| Condition                                                       | Severity |
+|-----------------------------------------------------------------|----------|
+| time regression ≥ 20 % (start or span)                         | P1       |
+| all runs exceeded for any metric (e.g. 3/3)                     | P1       |
+| ≥ 2 metrics triggered simultaneously                            | P1       |
+| single metric, < 20 % regression, not all runs exceeded         | P2       |
+| job process threw an exception                                  | P1       |
+| previous alert cleared, current run is healthy                  | INFO     |
+
+### Slack Block Kit message layout
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ HEADER  (always present)                                                │
+│   🔴 [P1] Perf 性能回归 | Desktop Release                               │
+│   🟡 [P2] Perf 性能回归 | iOS Release                                   │
+│   ❌ [P1] Perf 任务失败 | Web Release                                   │
+│   ✅ [INFO] Perf 已恢复 | Desktop Release                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│ SECTION  摘要  (always present)                                         │
+│   regression : "启动延迟 (tokensStartMs) 中位数 1234ms，超过阈值         │
+│                1000ms，+23.4%（3/3 次超阈）。"                           │
+│   failed     : "任务执行失败，Error: timeout waiting for mark..."         │
+│   recovered  : "本次结果已恢复正常，上次告警状态为「性能回归」，           │
+│                 当前 3 个核心指标均未超阈。"                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│ SECTION  指标监控  (only if metric data exists)                          │
+│   🔴 *启动延迟 (tokensStartMs)*　1234ms / 1000ms　+23.4%　3/3 次超阈    │
+│   🟡 *Refresh 耗时 (tokensSpanMs)*　2345ms / 2000ms　+17.2%　2/3 次超阈 │
+│   ✅ *函数调用次数 (functionCallCount)*　450 / 500　-10.0%　0/3 次超阈   │
+│   ➖ *函数调用次数 (functionCallCount)*　450 / n/a　n/a　未启用           │
+│   (icons: 🔴=超阈  ✅=正常  ➖=未启用)                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ SECTION  N 次运行对比  (only if runs exist)                              │
+│   ```                                                                   │
+│   #1 sess-abc  start=1234ms  span=2345ms  fc=567                        │
+│   #2 sess-def  start=1210ms  span=2300ms  fc=550                        │
+│   #3 sess-ghi  start=1250ms  span=2400ms  fc=580                        │
+│   ```                                                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ SECTION  定位摘要  (regression / recovered only; up to 4 lines)          │
+│   连续第 N 次出现相同告警签名。          ← if consecutiveCount > 1       │
+│   推断: 回归更像发生在启动/初始化阶段。                                   │
+│   关键里程碑: app:start=320ms | AllNet:requests:done=890ms              │
+│   热点函数: funcA 180ms/12 calls | funcB 90ms/5 calls                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ SECTION  失败原因  (failed only)                                         │
+│   `Error: timeout waiting for mark after 120000ms`                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│ SECTION  Context Fields  (always present; 3–4 fields, 2 per row)        │
+│   *提交*         *时间*                   *任务*                         │
+│   a1b2c3d        2026-03-11 10:00 UTC+8   desktop-xxx                   │
+│   *分支*                  ← if git branch available (replaces session)   │
+│   feat/perf-slack-xxx                                                   │
+│   *会话 (sessionId)*      ← only if no branch AND no dashboardUrl        │
+│   sess-abc123                                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│ SECTION  相关链接  (only if any URL is configured)                       │
+│   <打开 Dashboard> | <打开产物目录> | <查看 report.json> |               │
+│   <查看 home-refresh API>                                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│ CONTEXT  (small text; always present)                                   │
+│   output: /path/to/perf-ci/output/desktop-release-20260311              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Links are built from env / localConfig:
+  outputUrl       ← PERF_REPORT_BASE_URL is set
+  reportUrl       ← same (outputUrl + /report.json)
+  dashboardUrl    ← dashboardBaseUrl is non-local AND representativeSessionId exists
+  homeRefreshUrl  ← same conditions as dashboardUrl
+```
 
 Recommended extra config for readable links:
 

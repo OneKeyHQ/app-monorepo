@@ -3,37 +3,36 @@ const path = require('path');
 const METRIC_CONFIG = [
   {
     key: 'tokensStartMs',
-    label: 'tokensStartMs',
+    label: '启动延迟 (tokensStartMs)',
     shortLabel: 'start',
     unit: 'ms',
     isCount: false,
   },
   {
     key: 'tokensSpanMs',
-    label: 'tokensSpanMs',
+    label: 'Refresh 耗时 (tokensSpanMs)',
     shortLabel: 'span',
     unit: 'ms',
     isCount: false,
   },
   {
     key: 'functionCallCount',
-    label: 'functionCallCount',
-    shortLabel: 'functionCalls',
+    label: '函数调用次数 (functionCallCount)',
+    shortLabel: 'calls',
     unit: '',
     isCount: true,
   },
 ];
 
-function roundMetricValue(value, { isCount = false } = {}) {
+function roundMetricValue(value) {
   if (!Number.isFinite(value)) return null;
-  if (isCount) return Math.round(value);
   return Math.round(value);
 }
 
 function formatMetricValue(key, value) {
   const config = METRIC_CONFIG.find((item) => item.key === key);
   if (!config) return Number.isFinite(value) ? String(value) : 'n/a';
-  const rounded = roundMetricValue(value, { isCount: config.isCount });
+  const rounded = roundMetricValue(value);
   if (!Number.isFinite(rounded)) return 'n/a';
   return config.unit ? `${rounded}${config.unit}` : String(rounded);
 }
@@ -42,11 +41,6 @@ function formatDeltaPct(value) {
   if (!Number.isFinite(value)) return 'n/a';
   const sign = value > 0 ? '+' : '';
   return `${sign}${value.toFixed(1)}%`;
-}
-
-function formatNumber(value) {
-  if (!Number.isFinite(value)) return 'n/a';
-  return Number(value).toLocaleString('en-US');
 }
 
 function formatStartedAt(value) {
@@ -61,7 +55,10 @@ function formatStartedAt(value) {
   const ss = String(date.getSeconds()).padStart(2, '0');
   const tzOffsetMin = -date.getTimezoneOffset();
   const sign = tzOffsetMin >= 0 ? '+' : '-';
-  const tzHour = String(Math.floor(Math.abs(tzOffsetMin) / 60)).padStart(2, '0');
+  const tzHour = String(Math.floor(Math.abs(tzOffsetMin) / 60)).padStart(
+    2,
+    '0',
+  );
   const tzMin = String(Math.abs(tzOffsetMin) % 60).padStart(2, '0');
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss} UTC${sign}${tzHour}:${tzMin}`;
 }
@@ -92,7 +89,9 @@ function getMetricDetails(report) {
       enabled: detail.enabled !== false,
       triggered: Boolean(detail.triggered),
       current:
-        detail.current ?? report?.agg?.[config.key] ?? report?.values?.[config.key],
+        detail.current ??
+        report?.agg?.[config.key] ??
+        report?.values?.[config.key],
       threshold: detail.threshold ?? report?.thresholds?.[config.key] ?? null,
       delta: detail.delta ?? null,
       deltaPct: detail.deltaPct ?? null,
@@ -104,22 +103,25 @@ function getMetricDetails(report) {
   });
 }
 
-function buildMetricField(detail) {
-  const ratio =
-    detail.enabled && detail.totalRuns
-      ? `${detail.exceededRuns}/${detail.totalRuns} exceed`
-      : 'not used';
+function buildMetricLine(detail) {
+  let icon;
+  if (!detail.enabled) {
+    icon = '➖';
+  } else if (detail.triggered) {
+    icon = '🔴';
+  } else {
+    icon = '✅';
+  }
+  const currentText = formatMetricValue(detail.key, detail.current);
   const thresholdText = detail.enabled
     ? formatMetricValue(detail.key, detail.threshold)
     : 'n/a';
-  return {
-    type: 'mrkdwn',
-    text: [
-      `*${detail.label}*`,
-      `${formatMetricValue(detail.key, detail.current)} / ${thresholdText}`,
-      `${formatDeltaPct(detail.deltaPct)} | ${ratio}`,
-    ].join('\n'),
-  };
+  const ratioText =
+    detail.enabled && detail.totalRuns
+      ? `${detail.exceededRuns}/${detail.totalRuns} 次超阈`
+      : '未启用';
+  const deltaText = formatDeltaPct(detail.deltaPct);
+  return `${icon} *${detail.label}*　${currentText} / ${thresholdText}　${deltaText}　${ratioText}`;
 }
 
 function pickRepresentativeRun(report, metricDetails) {
@@ -130,12 +132,13 @@ function pickRepresentativeRun(report, metricDetails) {
     for (const detail of metricDetails) {
       const current = Number(detail.current);
       const value = Number(run?.metrics?.[detail.key]);
-      if (!Number.isFinite(current) || !Number.isFinite(value)) continue;
-      const scale =
-        Number.isFinite(detail.threshold) && detail.threshold > 0
-          ? detail.threshold
-          : Math.max(Math.abs(current), 1);
-      score += Math.abs(value - current) / scale;
+      if (Number.isFinite(current) && Number.isFinite(value)) {
+        const scale =
+          Number.isFinite(detail.threshold) && detail.threshold > 0
+            ? detail.threshold
+            : Math.max(Math.abs(current), 1);
+        score += Math.abs(value - current) / scale;
+      }
     }
     return { run, score };
   });
@@ -238,12 +241,13 @@ function buildDiagnosisLines(report, representativeRun, metricDetails) {
   )
     ? representativeRun.metrics.homeRefreshTopFunctions
     : [];
-  const slowFunctions = Array.isArray(representativeRun?.metrics?.topSlowFunctions)
+  const slowFunctions = Array.isArray(
+    representativeRun?.metrics?.topSlowFunctions,
+  )
     ? representativeRun.metrics.topSlowFunctions
     : [];
-  const topFunctions = (refreshTopFunctions.length
-    ? refreshTopFunctions
-    : slowFunctions
+  const topFunctions = (
+    refreshTopFunctions.length ? refreshTopFunctions : slowFunctions
   )
     .map(summarizeFunction)
     .filter(Boolean)
@@ -255,7 +259,11 @@ function buildDiagnosisLines(report, representativeRun, metricDetails) {
   const jsblock = representativeRun?.metrics?.homeRefreshJsblockMarks?.[0];
   const storage = representativeRun?.metrics?.homeRefreshStorageMarks?.[0];
   const simpledb = representativeRun?.metrics?.homeRefreshSimpledbMarks?.[0];
-  const marks = [summarizeMark(jsblock), summarizeMark(storage), summarizeMark(simpledb)]
+  const marks = [
+    summarizeMark(jsblock),
+    summarizeMark(storage),
+    summarizeMark(simpledb),
+  ]
     .filter(Boolean)
     .slice(0, 2);
   if (marks.length) {
@@ -293,7 +301,7 @@ function buildRegressionSummary(metricDetails) {
     )}`,
   ];
   if (first.totalRuns) {
-    summary.push(`（${first.exceededRuns}/${first.totalRuns} runs 超阈）`);
+    summary.push(`（${first.exceededRuns}/${first.totalRuns} 次超阈）`);
   }
   const rest = triggered.slice(1).map((item) => item.label);
   if (rest.length) {
@@ -309,10 +317,15 @@ function buildRegressionSummary(metricDetails) {
 function buildRecoverySummary(metricDetails, previousState) {
   const currentOk = metricDetails.every((item) => !item.triggered);
   if (!currentOk) return '当前结果仍未恢复正常。';
+  const statusZhMap = {
+    regression: '性能回归',
+    failed: '任务失败',
+    recovered: '已恢复',
+  };
   const previous = previousState?.status
-    ? `上一条状态为 ${String(previousState.status).toUpperCase()}`
-    : '上一条存在异常告警';
-  return `本次结果恢复正常，${previous}，当前 3 个核心指标均未超阈。`;
+    ? `上次告警状态为「${statusZhMap[previousState.status] || previousState.status}」`
+    : '上次存在异常告警';
+  return `本次结果已恢复正常，${previous}，当前 3 个核心指标均未超阈。`;
 }
 
 function getSeverity(kind, metricDetails) {
@@ -341,29 +354,38 @@ function buildSignature(kind, metricDetails) {
   const triggered = metricDetails
     .filter((item) => item.triggered)
     .map((item) => item.key)
-    .sort();
+    .toSorted();
   return `${kind}:${triggered.join(',') || 'none'}`;
 }
 
 function buildContextFields(model) {
-  return [
+  const fields = [
     {
       type: 'mrkdwn',
-      text: `*commit*\n${escapeMrkdwn(shortSha(model.commitSha))}`,
+      text: `*提交*\n${escapeMrkdwn(shortSha(model.commitSha))}`,
     },
     {
       type: 'mrkdwn',
-      text: `*time*\n${escapeMrkdwn(formatStartedAt(model.startedAt))}`,
+      text: `*时间*\n${escapeMrkdwn(formatStartedAt(model.startedAt))}`,
     },
     {
       type: 'mrkdwn',
-      text: `*job*\n${escapeMrkdwn(model.jobId)}`,
-    },
-    {
-      type: 'mrkdwn',
-      text: `*session*\n${escapeMrkdwn(model.representativeSessionId || 'n/a')}`,
+      text: `*任务*\n${escapeMrkdwn(model.jobId)}`,
     },
   ];
+  if (model.branch) {
+    fields.push({
+      type: 'mrkdwn',
+      text: `*分支*\n${escapeMrkdwn(model.branch)}`,
+    });
+  } else if (!model.links?.dashboardUrl) {
+    // Only show session ID when there's no dashboard link to click
+    fields.push({
+      type: 'mrkdwn',
+      text: `*会话 (sessionId)*\n${escapeMrkdwn(model.representativeSessionId || 'n/a')}`,
+    });
+  }
+  return fields;
 }
 
 function buildActionText(model) {
@@ -387,7 +409,8 @@ function buildActionText(model) {
 function buildFallbackText(model) {
   const hasMetricData = model.metricDetails.some(
     (item) =>
-      Number.isFinite(item.current) || (item.enabled && Number.isFinite(item.threshold)),
+      Number.isFinite(item.current) ||
+      (item.enabled && Number.isFinite(item.threshold)),
   );
   const lines = [];
   lines.push(model.title);
@@ -398,8 +421,8 @@ function buildFallbackText(model) {
         ? formatMetricValue(detail.key, detail.threshold)
         : 'n/a';
       const exceedText = detail.enabled
-        ? `${detail.exceededRuns}/${detail.totalRuns} exceed`
-        : 'not used';
+        ? `${detail.exceededRuns}/${detail.totalRuns} 次超阈`
+        : '未启用';
       lines.push(
         `${detail.shortLabel}: ${formatMetricValue(
           detail.key,
@@ -409,13 +432,14 @@ function buildFallbackText(model) {
     }
   }
   if (model.representativeRun) {
-    lines.push(`代表 run: ${formatRunLine(model.representativeRun)}`);
+    lines.push(`代表运行: ${formatRunLine(model.representativeRun)}`);
   }
   if (model.diagnosisLines.length) {
     lines.push(...model.diagnosisLines);
   }
   if (model.links.reportUrl) lines.push(`report: ${model.links.reportUrl}`);
-  if (model.links.dashboardUrl) lines.push(`dashboard: ${model.links.dashboardUrl}`);
+  if (model.links.dashboardUrl)
+    lines.push(`dashboard: ${model.links.dashboardUrl}`);
   lines.push(`output: ${model.outputDir}`);
   return lines.join('\n');
 }
@@ -423,7 +447,8 @@ function buildFallbackText(model) {
 function buildSlackPayload(model) {
   const hasMetricData = model.metricDetails.some(
     (item) =>
-      Number.isFinite(item.current) || (item.enabled && Number.isFinite(item.threshold)),
+      Number.isFinite(item.current) ||
+      (item.enabled && Number.isFinite(item.threshold)),
   );
   const blocks = [
     {
@@ -445,7 +470,10 @@ function buildSlackPayload(model) {
   if (hasMetricData) {
     blocks.push({
       type: 'section',
-      fields: model.metricDetails.map(buildMetricField),
+      text: {
+        type: 'mrkdwn',
+        text: `*指标监控*\n${model.metricDetails.map(buildMetricLine).join('\n')}`,
+      },
     });
   }
 
@@ -454,7 +482,7 @@ function buildSlackPayload(model) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*3-run 稳定性*\n\`\`\`${model.runLines.join('\n')}\`\`\``,
+        text: `*${model.runLines.length} 次运行对比*\n\`\`\`${model.runLines.join('\n')}\`\`\``,
       },
     });
   }
@@ -474,7 +502,7 @@ function buildSlackPayload(model) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*失败摘要*\n\`${escapeMrkdwn(model.errorSummary)}\``,
+        text: `*失败原因*\n\`${escapeMrkdwn(model.errorSummary)}\``,
       },
     });
   }
@@ -490,7 +518,7 @@ function buildSlackPayload(model) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Links*\n${actionText}`,
+        text: `*相关链接*\n${actionText}`,
       },
     });
   }
@@ -519,7 +547,8 @@ function buildPerfAlertModel({
   errorMessage = null,
 }) {
   const targetLabel = report?.meta?.targetLabel || 'Perf Guard';
-  const jobId = report?.meta?.jobId || path.basename(report?.outputDir || 'job');
+  const jobId =
+    report?.meta?.jobId || path.basename(report?.outputDir || 'job');
   const metricDetails = getMetricDetails(report);
   const representativeRun = pickRepresentativeRun(report, metricDetails);
   const severity = getSeverity(kind, metricDetails);
@@ -531,10 +560,12 @@ function buildPerfAlertModel({
       ? Number(previousState.consecutiveCount || 0) + 1
       : 1;
 
+  const severityIcon = { P1: '🔴', P2: '🟡', INFO: '🟢' };
+  const icon = severityIcon[severity] || '';
   const titleMap = {
-    regression: `[${severity}] Perf Regression | ${targetLabel}`,
-    failed: `[${severity}] Perf Job Failed | ${targetLabel}`,
-    recovered: `[INFO] Perf Recovered | ${targetLabel}`,
+    regression: `${icon} [${severity}] Perf 性能回归 | ${targetLabel}`,
+    failed: `❌ [P1] Perf 任务失败 | ${targetLabel}`,
+    recovered: `✅ [INFO] Perf 已恢复 | ${targetLabel}`,
   };
   const summaryMap = {
     regression: buildRegressionSummary(metricDetails),
@@ -561,7 +592,7 @@ function buildPerfAlertModel({
     severity,
     signature,
     consecutiveCount,
-    title: titleMap[kind] || `[INFO] Perf Alert | ${targetLabel}`,
+    title: titleMap[kind] || `[INFO] Perf 告警 | ${targetLabel}`,
     summary: summaryMap[kind] || 'Perf 状态已更新。',
     metricDetails,
     diagnosisLines,
@@ -570,6 +601,7 @@ function buildPerfAlertModel({
     targetLabel,
     startedAt: report?.meta?.startedAt || null,
     commitSha: report?.meta?.git?.sha || null,
+    branch: report?.meta?.git?.branch || null,
     jobId,
     outputDir: report?.outputDir || 'n/a',
     representativeRun,

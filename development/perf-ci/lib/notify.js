@@ -62,7 +62,9 @@ function getAlertStatePath({ outputRoot, localConfig, targetKey }) {
 
 function getDashboardBaseUrl({ localConfig, serverUrl }) {
   const explicit =
-    process.env.PERF_DASHBOARD_BASE_URL || localConfig?.dashboardBaseUrl || null;
+    process.env.PERF_DASHBOARD_BASE_URL ||
+    localConfig?.dashboardBaseUrl ||
+    null;
   if (explicit) return trimTrailingSlash(explicit);
   if (serverUrl && !isLocalOnlyUrl(serverUrl)) {
     return trimTrailingSlash(serverUrl);
@@ -84,7 +86,8 @@ function buildLinks({
   const links = {};
   const reportBaseUrl = getReportBaseUrl(localConfig);
   if (reportBaseUrl) {
-    let relativeDir = report?.meta?.jobId || path.basename(report?.outputDir || '');
+    let relativeDir =
+      report?.meta?.jobId || path.basename(report?.outputDir || '');
     if (report?.outputDir && outputRoot) {
       const relativeCandidate = path.relative(outputRoot, report.outputDir);
       if (
@@ -149,7 +152,11 @@ async function notifyPerfResult({
   localConfig,
 }) {
   const targetKey = report?.meta?.targetKey || 'perf';
-  const alertStatePath = getAlertStatePath({ outputRoot, localConfig, targetKey });
+  const alertStatePath = getAlertStatePath({
+    outputRoot,
+    localConfig,
+    targetKey,
+  });
   const previousState = readAlertState(alertStatePath);
 
   if (report?.regression?.triggered) {
@@ -230,7 +237,11 @@ async function notifyPerfFailure({
     regression: { triggered: false, reasons: [] },
   };
   const targetKey = report?.meta?.targetKey || 'perf';
-  const alertStatePath = getAlertStatePath({ outputRoot, localConfig, targetKey });
+  const alertStatePath = getAlertStatePath({
+    outputRoot,
+    localConfig,
+    targetKey,
+  });
   const previousState = readAlertState(alertStatePath);
   const draftModel = buildPerfAlertModel({
     kind: 'failed',

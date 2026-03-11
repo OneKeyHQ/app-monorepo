@@ -292,6 +292,16 @@ async function main() {
     });
     if (r.code === 0) meta.git.sha = String(r.stdout).trim();
   }
+  {
+    const rb = await execCmd(
+      'bash',
+      ['-lc', 'git rev-parse --abbrev-ref HEAD'],
+      {
+        cwd: repoRoot,
+      },
+    );
+    if (rb.code === 0) meta.git.branch = String(rb.stdout).trim();
+  }
 
   const jobState = { meta, status: 'running' };
   writeJson(path.join(outputDir, 'job-meta.json'), jobState);
