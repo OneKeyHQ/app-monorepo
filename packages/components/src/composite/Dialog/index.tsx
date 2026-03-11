@@ -17,6 +17,7 @@ import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { useIsLockScreen } from '@onekeyhq/components/src/hooks/useIsLockScreen';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
@@ -24,10 +25,6 @@ import {
   TMDialog,
 } from '@onekeyhq/components/src/shared/tamagui';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -140,17 +137,7 @@ function DialogFrame({
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const [isLockScreen, setIsLockScreen] = useState(false);
-  useEffect(() => {
-    const onLock = () => setIsLockScreen(true);
-    const onUnlock = () => setIsLockScreen(false);
-    appEventBus.on(EAppEventBusNames.LockApp, onLock);
-    appEventBus.on(EAppEventBusNames.UnlockApp, onUnlock);
-    return () => {
-      appEventBus.off(EAppEventBusNames.LockApp, onLock);
-      appEventBus.off(EAppEventBusNames.UnlockApp, onUnlock);
-    };
-  }, []);
+  const isLockScreen = useIsLockScreen();
   const effectiveTrapFocus = isLockScreen
     ? false
     : (trapFocus ?? !platformEnv.isNative);
