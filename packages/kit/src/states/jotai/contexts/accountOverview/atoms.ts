@@ -91,10 +91,10 @@ export const {
   use: useOverviewDeFiDataStateAtom,
 } = contextAtom<{
   ownerKey: string;
-  hasData?: boolean;
+  isReady?: boolean;
 }>({
   ownerKey: '',
-  hasData: undefined,
+  isReady: undefined,
 });
 
 export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =

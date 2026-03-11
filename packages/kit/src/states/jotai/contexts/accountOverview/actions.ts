@@ -133,7 +133,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         currency?: string;
         accountId?: string;
         networkId?: string;
-        hasData?: boolean;
+        isReady?: boolean;
       },
     ) => {
       const overview = get(accountDeFiOverviewAtom());
@@ -166,14 +166,14 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         });
       }
 
-      // Auto-set DeFi data state when hasData is explicitly provided
-      if ('hasData' in value) {
+      // Auto-set DeFi state when readiness is explicitly provided
+      if ('isReady' in value) {
         set(overviewDeFiDataStateAtom(), {
           ownerKey: buildOverviewOwnerKey(
             value.accountId ?? overview.accountId,
             value.networkId ?? overview.networkId,
           ),
-          hasData: value.hasData,
+          isReady: value.isReady,
         });
       }
     },
@@ -186,12 +186,12 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       value: {
         accountId?: string;
         networkId?: string;
-        hasData?: boolean;
+        isReady?: boolean;
       },
     ) => {
       set(overviewDeFiDataStateAtom(), {
         ownerKey: buildOverviewOwnerKey(value.accountId, value.networkId),
-        hasData: value.hasData,
+        isReady: value.isReady,
       });
     },
   );
@@ -212,8 +212,7 @@ export function useAccountOverviewActions() {
   const updateWalletStatus = actions.updateWalletStatus.use();
   const updateWalletTopBanners = actions.updateWalletTopBanners.use();
   const updateAccountDeFiOverview = actions.updateAccountDeFiOverview.use();
-  const updateOverviewDeFiDataState =
-    actions.updateOverviewDeFiDataState.use();
+  const updateOverviewDeFiDataState = actions.updateOverviewDeFiDataState.use();
 
   return useRef({
     updateAllNetworksState,
