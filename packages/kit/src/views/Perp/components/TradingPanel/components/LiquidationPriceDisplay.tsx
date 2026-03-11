@@ -1,7 +1,6 @@
 import { memo } from 'react';
 
 import { NumberSizeableText, SizableText } from '@onekeyhq/components';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
 import { useLiquidationPrice } from '../../../hooks/useLiquidationPrice';
 
@@ -17,14 +16,7 @@ const LiquidationPriceDisplay = memo(
     textSize?: FontSizeTokens;
     side?: 'long' | 'short';
   }) => {
-    const [formData] = useTradingFormAtom();
     const liquidationPrice = useLiquidationPrice(side);
-
-    // Trigger orders don't lock margin at placement; position state may change
-    // before the trigger fires, so liquidation price is not meaningful.
-    if (formData.orderMode === 'trigger') {
-      return <SizableText size={textSize ?? '$bodySmMedium'}>--</SizableText>;
-    }
 
     if (!liquidationPrice) {
       return <SizableText size={textSize ?? '$bodySmMedium'}>--</SizableText>;

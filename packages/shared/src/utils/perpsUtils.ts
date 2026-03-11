@@ -5,6 +5,7 @@
 
 import BigNumber from 'bignumber.js';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   EPerpsSizeInputMode,
   IPerpsFormattedAssetCtx,
@@ -35,6 +36,7 @@ interface ILiquidationPriceParams {
   totalValue: BigNumber;
   referencePrice: BigNumber;
   markPrice?: BigNumber;
+  clampToCurrentMark?: boolean;
   positionSize: BigNumber;
   side: 'long' | 'short';
   leverage: number;
@@ -773,6 +775,7 @@ function calculateLiquidationPrice(
     totalValue,
     referencePrice,
     markPrice,
+    clampToCurrentMark = true,
     positionSize,
     side,
     leverage,
@@ -789,7 +792,7 @@ function calculateLiquidationPrice(
   if (positionSize.isZero()) return null;
 
   let effectivePrice = referencePrice;
-  if (markPrice) {
+  if (markPrice && clampToCurrentMark) {
     const _side = newOrderSide || side;
     if (_side === 'long') {
       // Long: if limit price > mark price, will execute at market price
@@ -1231,7 +1234,9 @@ function mapTriggerOrderType(triggerOrderType: ETriggerOrderType): {
       return { isMarket: false, tpsl: 'tp' };
     default: {
       const _exhaustive: never = triggerOrderType;
-      throw new Error(`Unknown trigger order type: ${String(_exhaustive)}`);
+      throw new OneKeyLocalError(
+        `Unknown trigger order type: ${String(_exhaustive)}`,
+      );
     }
   }
 }

@@ -188,15 +188,6 @@ function SideButtonInternal({
   const isTriggerMode = formData.orderMode === 'trigger';
 
   const renderLiquidationPrice = () => {
-    // Trigger orders don't lock margin at placement; position state may change
-    // before the trigger fires, so liquidation price is not meaningful.
-    if (isTriggerMode) {
-      return (
-        <SizableText size="$bodySm" color="$text">
-          --
-        </SizableText>
-      );
-    }
     if (liquidationPrice) {
       return (
         <NumberSizeableText
