@@ -31,7 +31,7 @@ BUILD_NUMBER=$((${DATE}3100 + 30))
 
 **Format**: 10 digits = `YYYYMM3130`
 
-Example: If today is `20260130`, build number is `2026013130`. If today is `20260311`, build number is `2026031170`
+Example: If today is `20260130`, build number is `2026013130`. If today is `20260311`, build number is `2026031174 `
 
 ## Workflow
 
