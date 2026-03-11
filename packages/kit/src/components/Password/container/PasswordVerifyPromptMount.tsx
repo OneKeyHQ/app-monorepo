@@ -6,10 +6,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, Portal, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  usePasswordAtom,
-  usePasswordPromptPromiseTriggerAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { PASSWORD_VERIFY_CONTAINER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
@@ -23,7 +20,6 @@ const PasswordVerifyPromptMount = () => {
 
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
-  const [{ unLock }] = usePasswordAtom();
   const onClose = useCallback((id: number) => {
     void backgroundApiProxy.servicePassword.cancelPasswordPromptDialog(id);
   }, []);
@@ -60,8 +56,6 @@ const PasswordVerifyPromptMount = () => {
     (id: number, dialogProps?: IDialogShowProps) => {
       dialogRef.current = Dialog.show({
         ...dialogProps,
-        // Disable trapFocus during lock screen to avoid focus interference
-        ...(!unLock ? { trapFocus: false } : undefined),
         title: intl.formatMessage({
           id: ETranslations.enter_passcode,
         }),
@@ -93,7 +87,7 @@ const PasswordVerifyPromptMount = () => {
         showFooter: false,
       });
     },
-    [intl, onClose, unLock],
+    [intl, onClose],
   );
 
   const showPasswordSetupPromptRef = useRef(showPasswordSetupPrompt);
