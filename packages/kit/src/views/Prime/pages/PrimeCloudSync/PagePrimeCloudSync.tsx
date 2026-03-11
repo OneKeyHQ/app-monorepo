@@ -417,12 +417,9 @@ function AppDataSection() {
           id: ETranslations.global_syncing,
         }),
       });
-      await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+      await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
         callerName: 'Manual Cloud Sync Keyless',
         noDebounceUpload: true,
-      });
-      await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.Keyless,
       });
     } finally {
       manualSyncingRef.current = false;

@@ -33,6 +33,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IAuthKeyPack,
   ICloudKeyPack,
@@ -312,6 +313,14 @@ class ServiceKeylessWallet extends ServiceBase {
     await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
       result.wallet.id,
     );
+    void this.backgroundApi.servicePrimeCloudSync
+      .syncNowKeyless({
+        callerName: 'Create Keyless Wallet',
+        noDebounceUpload: true,
+      })
+      .catch((error) => {
+        errorUtils.autoPrintErrorIgnore(error);
+      });
     return result;
   }
 
