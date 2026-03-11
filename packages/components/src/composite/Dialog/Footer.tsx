@@ -135,10 +135,20 @@ const useSafeKeyboardAnimationStyle = () => {
   return platformEnv.isNative ? animatedStyles : undefined;
 };
 
-const DialogFooterContainer = ({ children }: PropsWithChildren) => {
+const DialogFooterContainer = ({
+  children,
+  showFooter,
+}: PropsWithChildren<{ showFooter?: boolean }>) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  // Only apply keyboard avoidance padding when footer buttons are visible.
+  // When showFooter is false there are no buttons to push above the keyboard,
+  // so the extra paddingBottom would just inflate the dialog off-screen.
   return (
-    <Animated.View style={safeKeyboardAnimationStyle}>{children}</Animated.View>
+    <Animated.View
+      style={showFooter !== false ? safeKeyboardAnimationStyle : undefined}
+    >
+      {children}
+    </Animated.View>
   );
 };
 
@@ -174,7 +184,7 @@ export function Footer(props: IDialogFooterProps) {
     disabledOn,
   });
   return (
-    <DialogFooterContainer>
+    <DialogFooterContainer showFooter={showFooter}>
       {showFooter ? (
         <XStack p="$5" pt="$0" gap="$2.5" {...footerProps}>
           {showCancelButton ? (
