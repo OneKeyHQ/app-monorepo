@@ -95,7 +95,7 @@ class ServiceAppUpdate extends ServiceBase {
     const { code, data } = response.data;
     if (code === 0 && data) {
       const normalizedUpdateStrategy =
-        data.updateStrategy === undefined
+        data.updateStrategy === undefined || data.updateStrategy === null
           ? undefined
           : Number(data.updateStrategy);
       const normalizedData: IResponseAppUpdateInfo = {
