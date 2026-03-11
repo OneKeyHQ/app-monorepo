@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { CanceledError } from 'axios';
-import { isEmpty, isNil, pickBy } from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -197,13 +197,11 @@ function ApprovalList() {
 
   useEffect(() => {
     if (!isNil(approvalsProp)) {
-      if (!isEmpty(approvalsProp)) {
-        approvalListInitRef.current = true;
-        updateApprovalListState({
-          isRefreshing: false,
-          initialized: true,
-        });
-      }
+      approvalListInitRef.current = true;
+      updateApprovalListState({
+        isRefreshing: false,
+        initialized: true,
+      });
       updateApprovalList({ data: approvalsProp });
     }
     if (!isNil(tokenMapProp)) {

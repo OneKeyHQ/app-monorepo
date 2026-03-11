@@ -105,6 +105,10 @@ export enum EAtomNames {
   // market
   marketSelectedTabAtom = 'marketSelectedTabAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
+
+  // account selector values (async loaded)
+  accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
+  accountSelectorDeFiMapAtom = 'accountSelectorDeFiMapAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

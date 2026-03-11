@@ -30,7 +30,8 @@ const PasswordUpdateContainer = ({
   const [loading, setLoading] = useState(false);
   const intl = useIntl();
   const [passwordMode] = usePasswordModeAtom();
-  const [{ webAuthCredentialId }] = usePasswordPersistAtom();
+  const [{ webAuthCredentialId }, setPasswordPersist] =
+    usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const onUpdatePassword = useCallback(
     async (data: IPasswordSetupForm) => {
@@ -53,14 +54,19 @@ const PasswordUpdateContainer = ({
         // Save new password to secure storage for biometric unlock on extension.
         // Clear skipPrfCache to avoid an unexpected WebAuthn prompt if this
         // dialog was opened within a promptPasswordVerify flow.
-        if (
-          platformEnv.isExtension &&
-          isBiologyAuthSwitchOn &&
-          webAuthCredentialId
-        ) {
+        if (platformEnv.isExtension && isBiologyAuthSwitchOn) {
           try {
             await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
-            await biologyAuthUtils.savePassword(updatedPassword);
+            const prfCredentialId =
+              await biologyAuthUtils.savePasswordForPasskey(updatedPassword, {
+                repairBrokenState: true,
+              });
+            if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
+              setPasswordPersist((v) => ({
+                ...v,
+                webAuthCredentialId: prfCredentialId,
+              }));
+            }
           } catch (e) {
             console.error('Failed to save new password to secure storage:', e);
           }
@@ -83,6 +89,7 @@ const PasswordUpdateContainer = ({
       onUpdateRes,
       intl,
       isBiologyAuthSwitchOn,
+      setPasswordPersist,
       webAuthCredentialId,
     ],
   );

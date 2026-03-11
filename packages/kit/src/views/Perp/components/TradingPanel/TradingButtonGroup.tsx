@@ -671,14 +671,14 @@ function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
     </YStack>
   ) : (
     <XStack gap="$2.5" mt="$4">
-      <XStack flexBasis="50%" flexShrink={1}>
+      <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
         <SideButton
           side="long"
           isMobile={isMobile}
           justifyContent="flex-start"
         />
       </XStack>
-      <XStack flexBasis="50%" flexShrink={1}>
+      <XStack flexBasis="50%" flexShrink={1} overflow="hidden">
         <SideButton
           side="short"
           isMobile={isMobile}

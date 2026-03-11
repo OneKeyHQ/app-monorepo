@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { NumberSizeableText, YStack } from '@onekeyhq/components';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   useSwapProSelectTokenAtom,
   useSwapProTokenMarketDetailInfoAtom,
@@ -21,7 +20,6 @@ const SwapProTokenDetailGroup = () => {
   const [tokenMarketDetailInfo] = useSwapProTokenMarketDetailInfoAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const intl = useIntl();
-  const currencyInfo = useCurrency();
   const { marketCap, volume24h, liquidity, holders } = useMemo(() => {
     const isMarketCapAboveThreshold = new BigNumber(
       tokenMarketDetailInfo?.marketCap || '0',
@@ -30,7 +28,7 @@ const SwapProTokenDetailGroup = () => {
       <NumberSizeableText
         size={ITEM_VALUE_PROPS.size}
         formatter={isMarketCapAboveThreshold ? 'marketCap' : 'value'}
-        formatterOptions={{ currency: currencyInfo.symbol }}
+        formatterOptions={{ currency: '$' }}
       >
         {tokenMarketDetailInfo?.marketCap || '0'}
       </NumberSizeableText>
@@ -43,7 +41,7 @@ const SwapProTokenDetailGroup = () => {
       <NumberSizeableText
         size={ITEM_VALUE_PROPS.size}
         formatter={isVolume24hAboveThreshold ? 'marketCap' : 'value'}
-        formatterOptions={{ currency: currencyInfo.symbol }}
+        formatterOptions={{ currency: '$' }}
       >
         {tokenMarketDetailInfo?.volume24h || '0'}
       </NumberSizeableText>
@@ -55,7 +53,7 @@ const SwapProTokenDetailGroup = () => {
       <NumberSizeableText
         size={ITEM_VALUE_PROPS.size}
         formatter={isLiquidityAboveThreshold ? 'marketCap' : 'value'}
-        formatterOptions={{ currency: currencyInfo.symbol }}
+        formatterOptions={{ currency: '$' }}
       >
         {tokenMarketDetailInfo?.liquidity || '0'}
       </NumberSizeableText>
@@ -84,7 +82,6 @@ const SwapProTokenDetailGroup = () => {
     tokenMarketDetailInfo?.volume24h,
     tokenMarketDetailInfo?.liquidity,
     tokenMarketDetailInfo?.holders,
-    currencyInfo.symbol,
     swapProSelectToken?.isNative,
   ]);
   return (
