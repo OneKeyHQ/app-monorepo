@@ -625,7 +625,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { data: IRookieShareData },
   ): Promise<{ success: boolean }> {
-    const { data } = params;
+    const data = params?.data;
     if (!data?.imageUrl || !data?.title) {
       throw new OneKeyLocalError(
         'Invalid share data: imageUrl and title are required',
