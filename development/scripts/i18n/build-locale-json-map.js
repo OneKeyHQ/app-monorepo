@@ -1,7 +1,10 @@
 const fs = require('fs-extra');
 const path = require('path');
 
-const localeJsonPath = path.join(__dirname, '../src/locale/json');
+const localeJsonPath = path.join(
+  __dirname,
+  '../../../packages/shared/src/locale/json',
+);
 
 // build localeJsonMap.ts
 const jsonFiles = fs
@@ -13,8 +16,8 @@ const defaultLocaleJsonFile = jsonFiles.find((i) => i === 'en_US.json');
 const enJsonPath = path.join(localeJsonPath, enJSONFile);
 
 fs.writeFileSync(
-  path.join(__dirname, '../src/locale/localeJsonMap.ts'),
-  `// This file is automatically created by \`yarn fetch:locale\`.
+  path.join(__dirname, '../../../packages/shared/src/locale/localeJsonMap.ts'),
+  `// This file is automatically created by \`yarn i18n:pull\`.
 // @ts-ignore
 /* eslint-disable  */
 
@@ -37,12 +40,15 @@ export { enUS };
 `,
 );
 
-const typeFile = path.join(__dirname, '../src/locale/enum/translations.ts');
+const typeFile = path.join(
+  __dirname,
+  '../../../packages/shared/src/locale/enum/translations.ts',
+);
 
 const text = fs.readFileSync(typeFile, 'utf8');
 fs.writeFileSync(
   typeFile,
-  `// This file is automatically created by \`yarn fetch:locale\`.\n
+  `// This file is automatically created by \`yarn i18n:pull\`.\n
 // @ts-ignore
 /* eslint-disable  */
   
