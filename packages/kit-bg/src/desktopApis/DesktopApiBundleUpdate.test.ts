@@ -1105,7 +1105,8 @@ describe('DesktopApiBundleUpdate 206 Content-Range parsing', () => {
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate writeStream flags', () => {
   test('downloadedBytes > 0 → append mode', () => {
-    const flags = 100 > 0 ? 'a' : 'w';
+    const downloadedBytes = 100;
+    const flags = downloadedBytes > 0 ? 'a' : 'w';
     expect(flags).toBe('a');
   });
 

@@ -61,6 +61,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => {
     verifyBundle: jest.fn(),
     installBundle: jest.fn(),
     clearBundle: jest.fn(),
+    isSkipGpgVerificationAllowed: jest.fn().mockResolvedValue(false),
   };
   (globalThis as any).__mockAppUpd = au;
   (globalThis as any).__mockBundleUpd = bu;
@@ -233,8 +234,9 @@ jest.mock('react-native', () => ({
 // Import module under test AFTER all mocks
 // ---------------------------------------------------------------------------
 
-import React from 'react';
-import { renderHook, act } from '@testing-library/react';
+import * as React from 'react';
+
+import { act, renderHook } from '@testing-library/react';
 
 import {
   EAppUpdateStatus,
@@ -243,8 +245,8 @@ import {
 
 import {
   isAutoUpdateStrategy,
-  isShowAppUpdateUIWhenUpdating,
   isForceUpdateStrategy,
+  isShowAppUpdateUIWhenUpdating,
   useDownloadPackage,
 } from './hooks';
 

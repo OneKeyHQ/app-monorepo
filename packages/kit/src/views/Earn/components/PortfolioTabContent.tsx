@@ -343,26 +343,96 @@ const EarningsField = ({
 }: {
   asset: IEarnPortfolioInvestment['assets'][number];
 }) => {
-  return (
-    <FieldWrapper asset={asset}>
-      <YStack jc="center" flex={1} gap="$1">
-        <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
+  const netPnl = asset.metadata?.netPnl;
+  const secondLine = useMemo(() => {
+    if (netPnl && Number(netPnl) !== 0) {
+      return (
+        <NumberSizeableText
+          formatter="balance"
+          size="$bodySm"
+          color="$textSubdued"
+          formatterOptions={{
+            tokenSymbol: asset.token.info.symbol,
+            showPlusMinusSigns: true,
+          }}
+        >
+          {netPnl}
+        </NumberSizeableText>
+      );
+    }
+    if (asset?.totalReward) {
+      return (
         <XStack gap="$1">
           <EarnText
             size="$bodySm"
             color="$textSubdued"
-            text={asset?.totalReward?.title}
+            text={asset.totalReward.title}
           />
           <EarnText
             size="$bodySm"
             color="$textSubdued"
-            text={asset?.totalReward?.description}
+            text={asset.totalReward.description}
           />
         </XStack>
+      );
+    }
+    return null;
+  }, [netPnl, asset?.totalReward, asset.token.info.symbol]);
+  return (
+    <FieldWrapper asset={asset}>
+      <YStack jc="center" flex={1} gap="$1">
+        <EarnText size="$bodyMdMedium" text={asset.earnings24h?.title} />
+        {secondLine}
       </YStack>
     </FieldWrapper>
   );
 };
+
+const MobilePnlSection = memo(
+  ({ asset }: { asset: IEarnPortfolioInvestment['assets'][number] }) => {
+    const intl = useIntl();
+    const netPnl = asset.metadata?.netPnl;
+    if (netPnl && Number(netPnl) !== 0) {
+      return (
+        <XStack ai="center" gap="$1">
+          <NumberSizeableText
+            formatter="balance"
+            size="$bodySm"
+            color="$textSubdued"
+            formatterOptions={{
+              tokenSymbol: asset.token.info.symbol,
+              showPlusMinusSigns: true,
+            }}
+          >
+            {netPnl}
+          </NumberSizeableText>
+        </XStack>
+      );
+    }
+    if (asset.totalReward) {
+      return (
+        <XStack ai="center" gap="$1">
+          <EarnText
+            size="$bodySm"
+            color="$textSubdued"
+            text={asset.totalReward.description}
+          />
+          <EarnText
+            size="$bodySm"
+            color="$textSubdued"
+            text={{
+              text: intl.formatMessage({
+                id: ETranslations.earn_referral_total_earned,
+              }),
+            }}
+          />
+        </XStack>
+      );
+    }
+    return null;
+  },
+);
+MobilePnlSection.displayName = 'MobilePnlSection';
 
 const AssetStatusField = ({
   asset,
@@ -937,24 +1007,7 @@ const PortfolioItemComponent = ({
                           </XStack>
                         ))}
 
-                        {asset.totalReward ? (
-                          <XStack ai="center" gap="$1">
-                            <EarnText
-                              size="$bodySm"
-                              color="$textSubdued"
-                              text={asset.totalReward.description}
-                            />
-                            <EarnText
-                              size="$bodySm"
-                              color="$textSubdued"
-                              text={{
-                                text: intl.formatMessage({
-                                  id: ETranslations.earn_referral_total_earned,
-                                }),
-                              }}
-                            />
-                          </XStack>
-                        ) : null}
+                        <MobilePnlSection asset={asset} />
 
                         {/* Buttons */}
                         <XStack gap="$3">

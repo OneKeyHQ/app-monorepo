@@ -10,6 +10,7 @@ import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 
+import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
@@ -77,21 +78,41 @@ export function DesktopLayout({
     [],
   );
 
-  const renderTabBar = useCallback((tabBarProps: TabBarProps<string>) => {
-    const handleTabPress = (name: string) => {
-      tabBarProps.onTabPress?.(name);
-    };
-    return (
-      <Tabs.TabBar
-        {...tabBarProps}
-        onTabPress={handleTabPress}
-        divider={false}
-      />
-    );
+  // Portal target for sticky column headers.
+  // List components use createPortal to render their headers into this element.
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
+    setPortalTarget(el);
   }, []);
+
+  const renderTabBar = useCallback(
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        tabBarProps.onTabPress?.(name);
+      };
+      // Wrap TabBar + portal target in a single sticky container.
+      // Override TabBar's own sticky with position: relative so
+      // the outer wrapper controls stickiness for both.
+      return (
+        <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
+          <Tabs.TabBar
+            {...tabBarProps}
+            onTabPress={handleTabPress}
+            divider={false}
+            containerStyle={{ position: 'relative' as any }}
+          />
+          <div ref={portalRefCallback} />
+        </YStack>
+      );
+    },
+    [portalRefCallback],
+  );
+
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      setActiveTabName(tabName);
       handleTabChange(tabName);
     },
     [handleTabChange],
@@ -107,47 +128,57 @@ export function DesktopLayout({
     return { paddingBottom: 0 };
   }, []);
 
+  const stickyHeaderCtx = useMemo(
+    () => ({ portalTarget, activeTabName }),
+    [portalTarget, activeTabName],
+  );
+
   if (!isFocused) {
     return null;
   }
 
   return (
-    <YStack flex={1}>
-      <Tabs.Container
-        renderTabBar={renderTabBar}
-        initialTabName={initialTabName}
-        onTabChange={onTabChangeHandler}
-        {...containerProps}
-      >
-        <Tabs.Tab name={watchlistTabName}>
-          <YStack px="$4" flex={1}>
-            <MarketWatchlistTokenList
-              tabIntegrated
-              listContainerProps={listContainerProps}
-            />
-          </YStack>
-        </Tabs.Tab>
-        <Tabs.Tab name={spotTabName}>
-          <YStack px="$4" flex={1}>
-            <MarketFilterBar {...filterBarProps} />
-            <MarketNormalTokenList
-              networkId={selectedNetworkId}
-              tabIntegrated
-              listContainerProps={listContainerProps}
-            />
-          </YStack>
-        </Tabs.Tab>
-        {showPerpsTab ? (
-          <Tabs.Tab name={perpsTabName}>
+    <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
+      <YStack flex={1}>
+        <Tabs.Container
+          renderTabBar={renderTabBar}
+          initialTabName={initialTabName}
+          onTabChange={onTabChangeHandler}
+          {...containerProps}
+        >
+          <Tabs.Tab name={watchlistTabName}>
             <YStack px="$4" flex={1}>
-              <MarketPerpsTokenList
+              <MarketWatchlistTokenList
                 tabIntegrated
+                tabName={watchlistTabName}
                 listContainerProps={listContainerProps}
               />
             </YStack>
           </Tabs.Tab>
-        ) : null}
-      </Tabs.Container>
-    </YStack>
+          <Tabs.Tab name={spotTabName}>
+            <YStack px="$4" flex={1}>
+              <MarketNormalTokenList
+                networkId={selectedNetworkId}
+                tabIntegrated
+                tabName={spotTabName}
+                listContainerProps={listContainerProps}
+                toolbar={<MarketFilterBar {...filterBarProps} />}
+              />
+            </YStack>
+          </Tabs.Tab>
+          {showPerpsTab ? (
+            <Tabs.Tab name={perpsTabName}>
+              <YStack px="$4" flex={1}>
+                <MarketPerpsTokenList
+                  tabIntegrated
+                  tabName={perpsTabName}
+                  listContainerProps={listContainerProps}
+                />
+              </YStack>
+            </Tabs.Tab>
+          ) : null}
+        </Tabs.Container>
+      </YStack>
+    </DesktopStickyHeaderContext.Provider>
   );
 }

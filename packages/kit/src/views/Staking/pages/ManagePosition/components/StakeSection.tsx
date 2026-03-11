@@ -25,7 +25,6 @@ import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
-  IBorrowReserveItem,
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -85,7 +84,6 @@ export const StakeSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
-  borrowReserves?: IBorrowReserveItem;
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   pendleSlippage?: number;
@@ -243,6 +241,7 @@ export const StakeSection = ({
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
+      networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
       backendApproveType: protocolInfo?.approve?.approveType,
@@ -252,6 +251,7 @@ export const StakeSection = ({
     protocolInfo?.approve?.approveType,
     effectiveStakeTokenInfo?.token?.isNative,
     approveSpenderAddress,
+    networkId,
   ]);
 
   const selectedStakeTokenUniqueKey = useMemo(() => {
@@ -367,6 +367,7 @@ export const StakeSection = ({
     async () => {
       if (
         !hasRequiredData ||
+        !effectiveApproveType ||
         !approveSpenderAddress ||
         effectiveStakeTokenInfo?.token?.isNative
       ) {

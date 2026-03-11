@@ -92,7 +92,7 @@ const SecureQRToastGallery = () => {
                   onConfirm: async () => {
                     await toast.close();
                     await scanQrCode.start({
-                      autoHandleResult: true,
+                      autoExecuteParsedAction: true,
                       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
                     });
                   },

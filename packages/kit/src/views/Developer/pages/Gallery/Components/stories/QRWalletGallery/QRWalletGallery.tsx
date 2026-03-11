@@ -105,7 +105,7 @@ function CustomAppRequestDeviceQR() {
           const scanResult = await startScan({
             handlers: [EQRCodeHandlerNames.animation],
             qrWalletScene: true,
-            autoHandleResult: false,
+            autoExecuteParsedAction: false,
           });
           const animatedData = scanResult.data as IAnimationValue;
           const qrcode = animatedData.fullData || scanResult.raw || '';

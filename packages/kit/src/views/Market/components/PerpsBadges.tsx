@@ -1,6 +1,9 @@
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SizableText, Stack, Tooltip, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
@@ -69,4 +72,30 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
 });
 SubtitleBadge.displayName = 'SubtitleBadge';
 
-export { LeverageBadge, SubtitleBadge };
+const StockIsOpenBadge = memo(({ isOpen }: { isOpen: boolean }) => {
+  const intl = useIntl();
+  return (
+    <XStack
+      borderRadius="$1"
+      bg={isOpen ? '$bgSuccess' : '$bgStrong'}
+      justifyContent="center"
+      alignItems="center"
+      px="$1.5"
+    >
+      <SizableText
+        fontSize={10}
+        color={isOpen ? '$textSuccess' : '$textSubdued'}
+        lineHeight={16}
+      >
+        {intl.formatMessage({
+          id: isOpen
+            ? ETranslations.dexmarket_stock_status_open
+            : ETranslations.dexmarket_stock_status_closed,
+        })}
+      </SizableText>
+    </XStack>
+  );
+});
+StockIsOpenBadge.displayName = 'StockIsOpenBadge';
+
+export { LeverageBadge, StockIsOpenBadge, SubtitleBadge };

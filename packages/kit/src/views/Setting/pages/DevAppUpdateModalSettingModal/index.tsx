@@ -7,6 +7,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { AppUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 
@@ -30,11 +31,14 @@ export default function DevAppUpdateTestModal() {
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       const params = updateInfo.downloadedEvent;
       if (!params?.downloadUrl) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'No downloaded app package found. Please download app update package first.',
         );
       }
-      await AppUpdate.verifyASC(params);
+      await AppUpdate.verifyASC({
+        ...params,
+        skipGPGVerification,
+      });
       await AppUpdate.verifyPackage({
         ...params,
         skipGPGVerification,

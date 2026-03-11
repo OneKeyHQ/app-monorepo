@@ -36,6 +36,7 @@ import type {
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
+  ISwapQuoteEventError,
   ISwapQuoteEventInfo,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
@@ -85,6 +86,7 @@ import {
   swapProUseSelectBuyTokenAtom,
   swapQuoteActionLockAtom,
   swapQuoteCurrentSelectAtom,
+  swapQuoteEventErrorAtom,
   swapQuoteEventTotalCountAtom,
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
@@ -475,6 +477,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       await backgroundApiProxy.serviceSwap.closeApproving();
+      set(swapQuoteEventErrorAtom(), '');
       try {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), true);
@@ -552,6 +555,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           const { data } = event.event as IEventSourceMessageEvent;
           if (data) {
             const dataJson = JSON.parse(data) as ISwapQuoteEventData;
+            const errorData = dataJson as ISwapQuoteEventError;
+            if (errorData?.errorMessage) {
+              set(swapQuoteListAtom(), []);
+              set(swapQuoteEventTotalCountAtom(), { count: 0 });
+              set(swapQuoteFetchingAtom(), false);
+              set(swapQuoteEventErrorAtom(), errorData.errorMessage);
+              break;
+            }
             const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
             if (autoSlippageData?.autoSuggestedSlippage) {
               const {
@@ -753,6 +764,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       await backgroundApiProxy.serviceSwap.closeApproving();
+      set(swapQuoteEventErrorAtom(), '');
       set(swapQuoteFetchingAtom(), true);
       const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
       await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
@@ -1140,6 +1152,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       let alertsRes: ISwapAlertState[] = [];
+      const quoteEventError = get(swapQuoteEventErrorAtom());
+      if (quoteEventError) {
+        alertsRes = [
+          {
+            message: quoteEventError,
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
         | undefined;
@@ -1155,6 +1176,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           quoteResult?.toTokenInfo?.contractAddress !==
             toToken?.contractAddress)
       ) {
+        if (quoteEventError) {
+          set(swapAlertsAtom(), {
+            states: alertsRes,
+            quoteId: quoteResult?.quoteId ?? '',
+          });
+        }
         set(rateDifferenceAtom(), rateDifferenceRes);
         return;
       }
@@ -1165,13 +1192,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         (quoteEventTotalCount.count > 0 &&
           quoteResultList.length < quoteEventTotalCount.count)
       ) {
+        if (quoteEventError) {
+          set(swapAlertsAtom(), {
+            states: alertsRes,
+            quoteId: '',
+          });
+        }
         return;
       }
       // check account
       if (!swapFromAddressInfo.accountInfo?.wallet) {
         // Set noConnectWallet flag without showing alert message
         set(swapAlertsAtom(), {
-          states: [{ noConnectWallet: true }],
+          states: [...alertsRes, { noConnectWallet: true }],
           quoteId: quoteResult?.quoteId ?? '',
         });
         return;

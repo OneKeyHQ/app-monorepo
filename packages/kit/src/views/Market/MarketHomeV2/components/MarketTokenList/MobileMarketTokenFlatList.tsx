@@ -13,25 +13,16 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MarketFilterBarSmall } from '../MarketFilterBarSmall';
-
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 
 import type { IMarketToken } from './MarketTokenData';
-import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
 import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketTokenFlatListProps {
   networkId: string;
-  filterBarProps: {
-    selectedNetworkId: string;
-    timeRange: ITimeRangeSelectorValue;
-    onNetworkIdChange: (networkId: string) => void;
-    onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-  };
   listContainerProps: {
     paddingBottom: number;
   };
@@ -41,7 +32,6 @@ const EMPTY_DATA: IMarketToken[] = [];
 
 function MobileMarketTokenFlatListBase({
   networkId,
-  filterBarProps,
   listContainerProps,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
@@ -92,12 +82,6 @@ function MobileMarketTokenFlatListBase({
       void loadMore();
     }
   }, [canLoadMore, isLoadingMore, loadMore]);
-
-  // List header - filter bar
-  const ListHeaderComponent = useMemo(
-    () => <MarketFilterBarSmall {...filterBarProps} />,
-    [filterBarProps],
-  );
 
   // List footer - loading spinner or end indicator
   const ListFooterComponent = useMemo(() => {
@@ -162,11 +146,10 @@ function MobileMarketTokenFlatListBase({
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
       updateCellsBatchingPeriod={platformEnv.isNativeAndroid ? 50 : 100}
-      ListHeaderComponent={ListHeaderComponent}
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
+        paddingTop: 8 + (platformEnv.isNative ? 248 : 0),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,
