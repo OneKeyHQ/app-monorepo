@@ -54,7 +54,7 @@ const RETRY_BASE_DELAY_MS = 30 * 1000;
 const RETRY_JITTER_MS = 5 * 1000;
 const TASK_FUSE_DURATION_MS = 24 * 60 * 60 * 1000;
 const RUNNING_TASK_STALE_MS = timerUtils.getTimeDurationMs({ minute: 5 });
-const PROCESS_LOCK_TIMEOUT_MS = timerUtils.getTimeDurationMs({ second: 30 });
+const PROCESS_LOCK_TIMEOUT_MS = timerUtils.getTimeDurationMs({ seconds: 30 });
 const IGNORED_TARGET_TTL_MS = timerUtils.getTimeDurationMs({ day: 30 });
 const FULL_FLOW_RETRY_TTL_MS = timerUtils.getTimeDurationMs({ day: 7 });
 const MAX_IGNORED_TARGETS = 50;
@@ -162,7 +162,10 @@ class ServiceAppUpdate extends ServiceBase {
     );
   }
 
-  private isTargetAligned(targetAppVersion: string, targetBundleVersion: string) {
+  private isTargetAligned(
+    targetAppVersion: string,
+    targetBundleVersion: string,
+  ) {
     return (
       targetAppVersion === (platformEnv.version || '') &&
       targetBundleVersion === String(platformEnv.bundleVersion || '')
@@ -173,17 +176,19 @@ class ServiceAppUpdate extends ServiceBase {
     let requestSeq = 0;
     await appUpdatePersistAtom.set((prev) => {
       const prevSeq = Number(prev.lastRequestSeq || 0);
+      this.fallbackRequestSeqCounter += 1;
       const nextSeq =
         Number.isSafeInteger(prevSeq) && prevSeq > 0
           ? prevSeq + 1
-          : Date.now() * 1000 + ++this.fallbackRequestSeqCounter;
+          : Date.now() * 1000 + this.fallbackRequestSeqCounter;
       requestSeq = nextSeq;
       return {
         ...prev,
         lastRequestSeq: nextSeq,
       };
     });
-    return requestSeq || Date.now() * 1000 + ++this.fallbackRequestSeqCounter;
+    this.fallbackRequestSeqCounter += 1;
+    return requestSeq || Date.now() * 1000 + this.fallbackRequestSeqCounter;
   }
 
   private pruneIgnoredTargets(
@@ -195,7 +200,7 @@ class ServiceAppUpdate extends ServiceBase {
   ) {
     const entries = Object.entries(ignoredTargets)
       .filter(([, info]) => info.expiresAt > now)
-      .sort((a, b) => b[1].createdAt - a[1].createdAt)
+      .toSorted((a, b) => b[1].createdAt - a[1].createdAt)
       .slice(0, MAX_IGNORED_TARGETS);
     return Object.fromEntries(entries);
   }
@@ -206,7 +211,7 @@ class ServiceAppUpdate extends ServiceBase {
   ) {
     const entries = Object.entries(fullFlowRetryByTarget)
       .filter(([, info]) => now - info.updatedAt <= FULL_FLOW_RETRY_TTL_MS)
-      .sort((a, b) => b[1].updatedAt - a[1].updatedAt)
+      .toSorted((a, b) => b[1].updatedAt - a[1].updatedAt)
       .slice(0, MAX_FULL_FLOW_RETRY_TARGETS);
     return Object.fromEntries(entries);
   }
@@ -225,9 +230,9 @@ class ServiceAppUpdate extends ServiceBase {
 
   private async resetTargetControlState(targetKey: string) {
     await appUpdatePersistAtom.set((prev) => {
-      const nextIgnoredTargets = { ...(prev.ignoredTargets || {}) };
+      const nextIgnoredTargets = { ...prev.ignoredTargets };
       delete nextIgnoredTargets[targetKey];
-      const nextFullFlowRetryByTarget = { ...(prev.fullFlowRetryByTarget || {}) };
+      const nextFullFlowRetryByTarget = { ...prev.fullFlowRetryByTarget };
       delete nextFullFlowRetryByTarget[targetKey];
       return {
         ...prev,
@@ -241,7 +246,7 @@ class ServiceAppUpdate extends ServiceBase {
     let nextCount = 0;
     await appUpdatePersistAtom.set((prev) => {
       const fullFlowRetryByTarget = {
-        ...(prev.fullFlowRetryByTarget || {}),
+        ...prev.fullFlowRetryByTarget,
       };
       const current = fullFlowRetryByTarget[targetKey]?.count || 0;
       nextCount = current + 1;
@@ -266,7 +271,7 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => {
       const ignoredTargets = this.pruneIgnoredTargets(
         {
-          ...(prev.ignoredTargets || {}),
+          ...prev.ignoredTargets,
           [targetKey]: {
             reason,
             createdAt: now,
@@ -337,12 +342,10 @@ class ServiceAppUpdate extends ServiceBase {
     if (!this.isValidTaskBase(task)) {
       return false;
     }
-    if ((task as IPendingInstallTask).type !== 'jsbundle-switch') {
+    if (task.type !== 'jsbundle-switch') {
       return false;
     }
-    return this.isValidJsBundleSwitchPayload(
-      (task as IPendingInstallTask).payload,
-    );
+    return this.isValidJsBundleSwitchPayload(task.payload);
   }
 
   private getRetryDelayMs(retryCount: number) {
@@ -542,7 +545,7 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
-    const existing = existingRaw as IPendingInstallTask;
+    const existing = existingRaw;
     if (existing.revision > requestSeq) {
       this.logUpdateEvent(
         'pending_task_upsert_decision',
@@ -602,7 +605,8 @@ class ServiceAppUpdate extends ServiceBase {
       {
         appVersion: task.targetAppVersion,
         bundleVersion: task.targetBundleVersion,
-        rollbackPolicyPriority: decision.decision === 'jsBundleRollback' ? 0 : 1,
+        rollbackPolicyPriority:
+          decision.decision === 'jsBundleRollback' ? 0 : 1,
         actionPriority: decision.decision === 'jsBundleRollback' ? 1 : 2,
       },
       {
@@ -738,14 +742,15 @@ class ServiceAppUpdate extends ServiceBase {
         action: task.action,
         retryCount: nextRetryCount,
         nextRetryAt,
-        retryType: message === RETRY_TRIGGER_INTERRUPTED ? 'interrupted' : 'switch',
+        retryType:
+          message === RETRY_TRIGGER_INTERRUPTED ? 'interrupted' : 'switch',
       },
       'warn',
     );
   }
 
   private async executeBundleSwitchTask(task: IPendingInstallTask) {
-    const payload = task.payload as IJsBundleSwitchTaskPayload;
+    const payload = task.payload;
     const { appVersion, bundleVersion, signature } = payload;
     const bundleExists = await BundleUpdate.isBundleExists(
       appVersion,
@@ -778,7 +783,9 @@ class ServiceAppUpdate extends ServiceBase {
       await this.executeBundleSwitchTask(task);
       return;
     }
-    throw new OneKeyLocalError(`Unknown pending task type: ${task.type}`);
+    const unknownType =
+      (task as unknown as { type?: string })?.type || 'unknown';
+    throw new OneKeyLocalError(`Unknown pending task type: ${unknownType}`);
   }
 
   private startFailedRecoveryTimer() {
@@ -994,11 +1001,17 @@ class ServiceAppUpdate extends ServiceBase {
       const scheduledMatch =
         task.scheduledEnvAppVersion === currentAppVersion &&
         task.scheduledEnvBundleVersion === currentBundleVersion;
+      let envMatch: 'target' | 'scheduled' | 'mismatch' = 'mismatch';
+      if (targetMatch) {
+        envMatch = 'target';
+      } else if (scheduledMatch) {
+        envMatch = 'scheduled';
+      }
 
       this.logUpdateEvent('pending_task_env_check', {
         traceId,
         requestSeq,
-        envMatch: targetMatch ? 'target' : scheduledMatch ? 'scheduled' : 'mismatch',
+        envMatch,
         currentAppVersion,
         currentBundleVersion,
         scheduledEnvAppVersion: task.scheduledEnvAppVersion,

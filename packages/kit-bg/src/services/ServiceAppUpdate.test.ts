@@ -63,12 +63,10 @@ const pendingInstallTaskStorageMock = {
 };
 
 jest.mock('./pendingInstallTaskStorage', () => ({
-  getPendingInstallTask: (...args: any[]) =>
-    pendingInstallTaskStorageMock.getPendingInstallTask(...args),
-  setPendingInstallTask: (...args: any[]) =>
-    pendingInstallTaskStorageMock.setPendingInstallTask(...args),
-  clearPendingInstallTask: (...args: any[]) =>
-    pendingInstallTaskStorageMock.clearPendingInstallTask(...args),
+  getPendingInstallTask: pendingInstallTaskStorageMock.getPendingInstallTask,
+  setPendingInstallTask: pendingInstallTaskStorageMock.setPendingInstallTask,
+  clearPendingInstallTask:
+    pendingInstallTaskStorageMock.clearPendingInstallTask,
 }));
 
 // ---------------------------------------------------------------------------

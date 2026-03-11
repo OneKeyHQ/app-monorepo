@@ -334,7 +334,7 @@ export const useDownloadPackage = () => {
         }
       }
     },
-    [getFileTypeFromUpdateInfo, getSkipGPGVerification],
+    [getFileTypeFromUpdateInfo],
   );
 
   const showSilentUpdateDialog = useCallback(() => {

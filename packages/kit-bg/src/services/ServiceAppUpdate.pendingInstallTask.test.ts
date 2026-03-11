@@ -48,12 +48,9 @@ const pendingInstallTaskStorage = {
 };
 
 jest.mock('./pendingInstallTaskStorage', () => ({
-  getPendingInstallTask: (...args: any[]) =>
-    pendingInstallTaskStorage.getPendingInstallTask(...args),
-  setPendingInstallTask: (...args: any[]) =>
-    pendingInstallTaskStorage.setPendingInstallTask(...args),
-  clearPendingInstallTask: (...args: any[]) =>
-    pendingInstallTaskStorage.clearPendingInstallTask(...args),
+  getPendingInstallTask: pendingInstallTaskStorage.getPendingInstallTask,
+  setPendingInstallTask: pendingInstallTaskStorage.setPendingInstallTask,
+  clearPendingInstallTask: pendingInstallTaskStorage.clearPendingInstallTask,
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -190,9 +187,7 @@ function resetPendingTask(value: any = undefined) {
 
 function getUpdateLogEvents() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const {
-    defaultLogger,
-  } = require('@onekeyhq/shared/src/logger/logger') as {
+  const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger') as {
     defaultLogger: {
       app: { appUpdate: { log: jest.Mock } };
     };
@@ -200,12 +195,15 @@ function getUpdateLogEvents() {
   return defaultLogger.app.appUpdate.log.mock.calls
     .map(([message]: [string]) => {
       try {
-        return JSON.parse(message) as { event?: string; [key: string]: unknown };
+        return JSON.parse(message) as {
+          event?: string;
+          [key: string]: unknown;
+        };
       } catch {
         return null;
       }
     })
-    .filter(Boolean) as { event?: string; [key: string]: unknown }[];
+    .filter(Boolean);
 }
 
 function makeSwitchTask(overrides: Record<string, any> = {}) {

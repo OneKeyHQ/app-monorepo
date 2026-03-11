@@ -66,11 +66,10 @@ export interface IPendingInstallTaskBase {
   lastError?: string;
 }
 
-export type IPendingInstallTask =
-  | (IPendingInstallTaskBase & {
-      type: 'jsbundle-switch';
-      payload: IJsBundleSwitchTaskPayload;
-    });
+export type IPendingInstallTask = IPendingInstallTaskBase & {
+  type: 'jsbundle-switch';
+  payload: IJsBundleSwitchTaskPayload;
+};
 
 export interface IResolvedUpdateDecision {
   decision: IUpdateDecision;

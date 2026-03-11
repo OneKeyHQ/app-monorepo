@@ -66,17 +66,13 @@ export function compareTargetPriority(
 
   const aBundle = parseBundleVersion(a.bundleVersion);
   const bBundle = parseBundleVersion(b.bundleVersion);
-  if (
-    Number.isFinite(aBundle) &&
-    Number.isFinite(bBundle) &&
-    aBundle !== bBundle
-  ) {
+  if (aBundle !== undefined && bBundle !== undefined && aBundle !== bBundle) {
     return aBundle > bBundle ? 1 : -1;
   }
-  if (Number.isFinite(aBundle) && !Number.isFinite(bBundle)) {
+  if (aBundle !== undefined && bBundle === undefined) {
     return 1;
   }
-  if (!Number.isFinite(aBundle) && Number.isFinite(bBundle)) {
+  if (aBundle === undefined && bBundle !== undefined) {
     return -1;
   }
 
@@ -121,10 +117,7 @@ export function resolveUpdateDecision({
 
   const currentBundle = parseBundleVersion(currentBundleVersion || '0');
   const remoteBundle = parseBundleVersion(remoteBundleVersion || '0');
-  if (
-    currentBundle === undefined ||
-    remoteBundle === undefined
-  ) {
+  if (currentBundle === undefined || remoteBundle === undefined) {
     return {
       decision: 'invalidRemote',
       isValid: false,

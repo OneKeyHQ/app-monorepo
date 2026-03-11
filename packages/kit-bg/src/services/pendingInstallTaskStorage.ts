@@ -9,14 +9,18 @@ export async function getPendingInstallTask() {
 }
 
 export async function setPendingInstallTask(task: IPendingInstallTask) {
-  await appStorage.syncStorage.setObject(
-    EAppSyncStorageKeys.onekey_pending_install_task,
-    task as Record<string, any>,
+  await Promise.resolve(
+    appStorage.syncStorage.setObject(
+      EAppSyncStorageKeys.onekey_pending_install_task,
+      task as Record<string, any>,
+    ),
   );
 }
 
 export async function clearPendingInstallTask() {
-  await appStorage.syncStorage.delete(
-    EAppSyncStorageKeys.onekey_pending_install_task,
+  await Promise.resolve(
+    appStorage.syncStorage.delete(
+      EAppSyncStorageKeys.onekey_pending_install_task,
+    ),
   );
 }
