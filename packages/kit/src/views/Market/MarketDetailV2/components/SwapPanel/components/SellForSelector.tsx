@@ -36,7 +36,7 @@ const SellForSelector = ({
         userSelect="none"
         cursor="default"
       >
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.promode_limit_sell_for,
           })}
@@ -54,7 +54,7 @@ const SellForSelector = ({
             pressStyle: { bg: '$bgActive' },
           })}
         >
-          <SizableText size="$bodyMdMedium">{symbol ?? '-'}</SizableText>
+          <SizableText size="$bodySmMedium">{symbol ?? '-'}</SizableText>
           {hasMultipleTokens ? (
             <Icon
               name="ChevronDownSmallOutline"

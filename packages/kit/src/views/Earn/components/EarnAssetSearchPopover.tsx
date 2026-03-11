@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { Dimensions, useWindowDimensions } from 'react-native';
 
 import {
   Badge,
@@ -12,6 +12,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -21,12 +22,15 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { AprText } from './AprText';
+import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
 type ICategoryKey = EAvailableAssetsTypeEnum;
 
 type IAvailableAssetsByType = Partial<
   Record<EAvailableAssetsTypeEnum, IEarnAvailableAsset[]>
 >;
+
+const DEFAULT_CATEGORY_TYPE = EAvailableAssetsTypeEnum.SimpleEarn;
 
 function CategoryTabs({
   selected,
@@ -105,9 +109,11 @@ function SearchResultItem({
 
 function EarnAssetSearchDialogContent({
   availableAssetsByType,
+  initialCategoryType = DEFAULT_CATEGORY_TYPE,
   onAssetSelect,
 }: {
   availableAssetsByType: IAvailableAssetsByType;
+  initialCategoryType?: EAvailableAssetsTypeEnum;
   onAssetSelect: (
     asset: IEarnAvailableAsset,
     categoryType: EAvailableAssetsTypeEnum,
@@ -115,35 +121,33 @@ function EarnAssetSearchDialogContent({
 }) {
   const intl = useIntl();
   const { height: windowHeight } = useWindowDimensions();
+  const { top, bottom } = useSafeAreaInsets();
   const [searchText, setSearchText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<ICategoryKey>(
-    EAvailableAssetsTypeEnum.SimpleEarn,
-  );
+  const [selectedCategory, setSelectedCategory] =
+    useState<ICategoryKey>(initialCategoryType);
 
   const dialogContentHeight = useMemo(() => {
-    if (!windowHeight) {
-      return 360;
+    const screenHeight = Dimensions.get('screen').height;
+    const stableWindowHeight = Math.max(windowHeight || 0, screenHeight || 0);
+
+    if (!stableWindowHeight) {
+      return 520;
     }
-    return Math.min(Math.max(windowHeight - 280, 320), 520);
-  }, [windowHeight]);
+
+    // Keep the sheet height stable when the keyboard shrinks windowHeight.
+    const availableHeight = Math.max(stableWindowHeight - top - bottom, 360);
+    const preferredHeight = Math.round(availableHeight * 0.78);
+    const maxDialogHeight = Math.max(availableHeight - 32, 280);
+
+    return Math.min(Math.max(preferredHeight, 480), maxDialogHeight, 680);
+  }, [bottom, top, windowHeight]);
 
   const categoryTabs = useMemo(
-    () => [
-      {
-        key: EAvailableAssetsTypeEnum.SimpleEarn as ICategoryKey,
-        label: intl.formatMessage({ id: ETranslations.global_earn }),
-      },
-      {
-        key: EAvailableAssetsTypeEnum.FixedRate as ICategoryKey,
-        label: intl.formatMessage({ id: ETranslations.earn_fixed_income }),
-      },
-      {
-        key: EAvailableAssetsTypeEnum.Staking as ICategoryKey,
-        label: intl.formatMessage({
-          id: ETranslations.wallet_defi_position_module_staked,
-        }),
-      },
-    ],
+    () =>
+      buildEarnAvailableAssetCategoryTabs(intl).map((tab) => ({
+        key: tab.type,
+        label: tab.title,
+      })),
     [intl],
   );
 
@@ -227,16 +231,20 @@ function EarnAssetSearchDialogContent({
 
 export function showEarnAssetSearchDialog({
   availableAssetsByType,
+  initialCategoryType = DEFAULT_CATEGORY_TYPE,
   onAssetSelect,
 }: {
   availableAssetsByType: IAvailableAssetsByType;
+  initialCategoryType?: EAvailableAssetsTypeEnum;
   onAssetSelect: (
     asset: IEarnAvailableAsset,
     categoryType: EAvailableAssetsTypeEnum,
   ) => void;
 }) {
   const dialog = Dialog.show({
-    title: appLocale.intl.formatMessage({ id: ETranslations.global_earn }),
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.earn_available_assets,
+    }),
     showFooter: false,
     contentContainerProps: {
       px: '$0',
@@ -245,6 +253,7 @@ export function showEarnAssetSearchDialog({
     renderContent: (
       <EarnAssetSearchDialogContent
         availableAssetsByType={availableAssetsByType}
+        initialCategoryType={initialCategoryType}
         onAssetSelect={(asset, categoryType) => {
           void dialog.close();
           onAssetSelect(asset, categoryType);
