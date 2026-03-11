@@ -141,19 +141,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         tokenSellInputRef.current?.setValue(maxAmount.toFixed());
       }
     } else if (tradeType === ESwapDirection.BUY) {
-      const truncatedBalance = balance.decimalPlaces(
-        Number(balanceToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
-      setPaymentAmount(truncatedBalance);
-      tokenBuyInputRef.current?.setValue(truncatedBalance.toFixed());
+      setPaymentAmount(balance);
+      tokenBuyInputRef.current?.setValue(balance.toFixed());
     } else {
-      const truncatedBalance = balance.decimalPlaces(
-        Number(balanceToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
-      setSellAmount(truncatedBalance);
-      tokenSellInputRef.current?.setValue(truncatedBalance.toFixed());
+      setSellAmount(balance);
+      tokenSellInputRef.current?.setValue(balance.toFixed());
     }
   }, [
     swapNativeTokenReserveGas,
