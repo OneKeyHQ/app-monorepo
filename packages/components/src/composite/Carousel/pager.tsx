@@ -202,7 +202,7 @@ export function PagerView({
       setScrollLeft(targetScrollLeft);
       event.preventDefault();
     },
-    [scrollToX],
+    [setScrollLeft],
   );
 
   const handleMouseUp = useCallback(
