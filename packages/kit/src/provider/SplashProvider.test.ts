@@ -18,6 +18,7 @@ jest.mock('../background/instance/backgroundApiProxy', () => {
     getUpdateInfo: jest.fn(),
     refreshUpdateStatus: jest.fn(),
     reset: jest.fn(),
+    processPendingInstallTask: jest.fn(),
   };
   (globalThis as any).__mockSvc = svc;
   return { __esModule: true, default: { serviceAppUpdate: svc } };
@@ -120,6 +121,7 @@ function freshSplash() {
   svc.getUpdateInfo.mockResolvedValue(makeAppInfo());
   svc.refreshUpdateStatus.mockResolvedValue(undefined);
   svc.reset.mockResolvedValue(undefined);
+  svc.processPendingInstallTask.mockResolvedValue(undefined);
   appUpd.installPackage.mockResolvedValue(undefined);
   bundleUpd.installBundle.mockResolvedValue(undefined);
   return mod;
@@ -157,6 +159,7 @@ describe('useDisplaySplash', () => {
         await Promise.resolve();
       });
 
+      expect(svc.processPendingInstallTask).toHaveBeenCalled();
       expect(result.current).toBe(true);
     });
 

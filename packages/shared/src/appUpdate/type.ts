@@ -13,6 +13,63 @@ export enum EUpdateFileType {
   jsBundle = 2,
 }
 
+export type IPendingInstallTaskType =
+  | 'jsbundle-switch'
+  | 'jsbundle-download-switch'
+  | 'appupdate-install';
+
+export type IPendingInstallTaskStatus = 'pending' | 'running' | 'failed';
+
+export interface IJsBundleSwitchTaskPayload {
+  appVersion: string;
+  bundleVersion: string;
+  signature: string;
+}
+
+export interface IJsBundleDownloadSwitchTaskPayload extends IJsBundleSwitchTaskPayload {
+  downloadUrl: string;
+  fileSize: number;
+  sha256: string;
+}
+
+export interface IAppUpdateInstallTaskPayload {
+  latestVersion: string;
+  updateStrategy: EUpdateStrategy;
+  channel: 'store' | 'direct';
+  storeUrl?: string;
+  downloadUrl?: string;
+  fileSize?: number;
+  sha256?: string;
+  signature?: string;
+}
+
+export interface IPendingInstallTaskBase {
+  taskId: string;
+  type: IPendingInstallTaskType;
+  requiredAppVersion: string;
+  createdAt: number;
+  expiresAt: number;
+  retryCount: number;
+  status: IPendingInstallTaskStatus;
+  runningStartedAt?: number;
+  nextRetryAt?: number;
+  lastError?: string;
+}
+
+export type IPendingInstallTask =
+  | (IPendingInstallTaskBase & {
+      type: 'jsbundle-switch';
+      payload: IJsBundleSwitchTaskPayload;
+    })
+  | (IPendingInstallTaskBase & {
+      type: 'jsbundle-download-switch';
+      payload: IJsBundleDownloadSwitchTaskPayload;
+    })
+  | (IPendingInstallTaskBase & {
+      type: 'appupdate-install';
+      payload: IAppUpdateInstallTaskPayload;
+    });
+
 export interface IBasicAppUpdateInfo {
   /* app store url */
   storeUrl?: string;

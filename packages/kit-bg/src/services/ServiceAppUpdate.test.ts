@@ -20,7 +20,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 // so we can test ServiceAppUpdate without Jotai infrastructure.
 // ---------------------------------------------------------------------------
 
-const INITIAL_ATOM_VALUE: IAppUpdateInfo = {
+const INITIAL_APP_UPDATE_VALUE: IAppUpdateInfo = {
   latestVersion: '0.0.0',
   updateAt: 0,
   status: EAppUpdateStatus.done,
@@ -28,7 +28,8 @@ const INITIAL_ATOM_VALUE: IAppUpdateInfo = {
   lastUpdateDialogShownAt: undefined,
 };
 
-let atomValue: IAppUpdateInfo = { ...INITIAL_ATOM_VALUE };
+let atomValue: IAppUpdateInfo = { ...INITIAL_APP_UPDATE_VALUE };
+let pendingInstallTaskValue: any;
 
 const mockAtom = {
   get: jest.fn(async () => atomValue),
@@ -48,6 +49,26 @@ const mockAtom = {
 
 jest.mock('../states/jotai/atoms', () => ({
   appUpdatePersistAtom: mockAtom,
+}));
+
+const pendingInstallTaskStorageMock = {
+  getPendingInstallTask: jest.fn(async () => pendingInstallTaskValue),
+  setPendingInstallTask: jest.fn(async (task: any) => {
+    pendingInstallTaskValue = task;
+    return pendingInstallTaskValue;
+  }),
+  clearPendingInstallTask: jest.fn(async () => {
+    pendingInstallTaskValue = undefined;
+  }),
+};
+
+jest.mock('./pendingInstallTaskStorage', () => ({
+  getPendingInstallTask: (...args: any[]) =>
+    pendingInstallTaskStorageMock.getPendingInstallTask(...args),
+  setPendingInstallTask: (...args: any[]) =>
+    pendingInstallTaskStorageMock.setPendingInstallTask(...args),
+  clearPendingInstallTask: (...args: any[]) =>
+    pendingInstallTaskStorageMock.clearPendingInstallTask(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -198,7 +219,11 @@ function createService() {
 }
 
 function resetAtom(overrides?: Partial<IAppUpdateInfo>) {
-  atomValue = { ...INITIAL_ATOM_VALUE, ...overrides };
+  atomValue = { ...INITIAL_APP_UPDATE_VALUE, ...overrides };
+}
+
+function resetPendingTask(value: any = undefined) {
+  pendingInstallTaskValue = value;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +236,7 @@ describe('ServiceAppUpdate state transitions', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     resetAtom();
+    resetPendingTask();
     jest.clearAllMocks();
     service = createService();
   });
@@ -526,6 +552,7 @@ describe('ServiceAppUpdate state transitions', () => {
     let platformEnvMock: any;
 
     beforeEach(() => {
+      resetPendingTask();
       platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
       platformEnvMock.isNativeAndroid = true;
     });
@@ -2534,6 +2561,7 @@ describe('ServiceAppUpdate state guard rejection', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     resetAtom();
+    resetPendingTask();
     jest.clearAllMocks();
     service = createService();
   });
@@ -2675,6 +2703,7 @@ describe('ServiceAppUpdate failedRecoveryTimer', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     resetAtom();
+    resetPendingTask();
     jest.clearAllMocks();
     service = createService();
   });
@@ -2761,6 +2790,7 @@ describe('ServiceAppUpdate refreshUpdateStatus failed branches', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     resetAtom();
+    resetPendingTask();
     jest.clearAllMocks();
     service = createService();
   });

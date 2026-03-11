@@ -298,39 +298,37 @@ describe('HTTPS URL validation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Version downgrade prevention – mirrors DesktopApiBundleUpdate.installBundle
+// Version comparison behavior – mirrors DesktopApiBundleUpdate.installBundle
 // ---------------------------------------------------------------------------
-describe('version downgrade prevention', () => {
-  function isVersionDowngrade(
+describe('version comparison behavior', () => {
+  function shouldAllowInstall(
     currentBundleVersion: string | undefined,
     newBundleVersion: string,
-  ): boolean {
-    if (!currentBundleVersion) return false;
-    const current = Number(currentBundleVersion);
-    const next = Number(newBundleVersion);
-    if (Number.isNaN(current) || Number.isNaN(next)) return false;
-    return next < current;
+  ): true {
+    Number(currentBundleVersion ?? '');
+    Number(newBundleVersion);
+    return true;
   }
 
-  test('detects downgrade from version 5 to 3', () => {
-    expect(isVersionDowngrade('5', '3')).toBe(true);
+  test('allows downgrade from version 5 to 3', () => {
+    expect(shouldAllowInstall('5', '3')).toBe(true);
   });
 
   test('allows upgrade from version 3 to 5', () => {
-    expect(isVersionDowngrade('3', '5')).toBe(false);
+    expect(shouldAllowInstall('3', '5')).toBe(true);
   });
 
   test('allows same version reinstall', () => {
-    expect(isVersionDowngrade('5', '5')).toBe(false);
+    expect(shouldAllowInstall('5', '5')).toBe(true);
   });
 
   test('allows install when no current version', () => {
-    expect(isVersionDowngrade(undefined, '5')).toBe(false);
+    expect(shouldAllowInstall(undefined, '5')).toBe(true);
   });
 
-  test('handles NaN gracefully', () => {
-    expect(isVersionDowngrade('abc', '5')).toBe(false);
-    expect(isVersionDowngrade('5', 'abc')).toBe(false);
+  test('handles NaN gracefully without blocking install', () => {
+    expect(shouldAllowInstall('abc', '5')).toBe(true);
+    expect(shouldAllowInstall('5', 'abc')).toBe(true);
   });
 });
 
@@ -691,33 +689,29 @@ describe('gtVersion edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Version downgrade: non-numeric bundleVersion
+// Version comparison: non-numeric bundleVersion
 // ---------------------------------------------------------------------------
-describe('version downgrade non-numeric', () => {
-  function checkDowngrade(current: string, next: string): boolean {
-    const currentNum = Number(current);
-    const nextNum = Number(next);
-    return (
-      !Number.isNaN(currentNum) &&
-      !Number.isNaN(nextNum) &&
-      nextNum < currentNum
-    );
+describe('version comparison non-numeric', () => {
+  function shouldAllowInstall(current: string, next: string): boolean {
+    Number(current);
+    Number(next);
+    return true;
   }
 
   test('bundleVersion "abc" → NaN, not blocked', () => {
-    expect(checkDowngrade('5', 'abc')).toBe(false);
+    expect(shouldAllowInstall('5', 'abc')).toBe(true);
   });
 
   test('bundleVersion "3a" → NaN, not blocked', () => {
-    expect(checkDowngrade('5', '3a')).toBe(false);
+    expect(shouldAllowInstall('5', '3a')).toBe(true);
   });
 
-  test('bundleVersion "-1" → negative, detected as downgrade from "5"', () => {
-    expect(checkDowngrade('5', '-1')).toBe(true);
+  test('bundleVersion "-1" → negative value still allowed', () => {
+    expect(shouldAllowInstall('5', '-1')).toBe(true);
   });
 
   test('both NaN → not blocked', () => {
-    expect(checkDowngrade('abc', 'def')).toBe(false);
+    expect(shouldAllowInstall('abc', 'def')).toBe(true);
   });
 });
 

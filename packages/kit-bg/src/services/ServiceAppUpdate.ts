@@ -1,7 +1,13 @@
 import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
-import type { IResponseAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import type {
+  IAppUpdateInstallTaskPayload,
+  IJsBundleDownloadSwitchTaskPayload,
+  IJsBundleSwitchTaskPayload,
+  IPendingInstallTask,
+  IResponseAppUpdateInfo,
+} from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
   EUpdateStrategy,
@@ -13,6 +19,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -27,6 +34,11 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
+import {
+  clearPendingInstallTask,
+  getPendingInstallTask,
+  setPendingInstallTask,
+} from './pendingInstallTaskStorage';
 import ServiceBase from './ServiceBase';
 
 let syncTimerId: ReturnType<typeof setTimeout>;
@@ -34,6 +46,11 @@ let downloadTimeoutId: ReturnType<typeof setTimeout>;
 let failedRecoveryTimerId: ReturnType<typeof setTimeout>;
 let firstLaunch = true;
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
+const MAX_TASK_RETRY = 3;
+const MAX_RETRY_DELAY_MS = 10 * 60 * 1000;
+const RETRY_BASE_DELAY_MS = 30 * 1000;
+const RETRY_JITTER_MS = 5 * 1000;
+const TASK_FUSE_DURATION_MS = 24 * 60 * 60 * 1000;
 
 function normalizeOptionalString(value: unknown): string | undefined {
   if (value === null || value === undefined) {
@@ -62,6 +79,316 @@ class ServiceAppUpdate extends ServiceBase {
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
+  private isValidTaskBase(task: unknown): task is IPendingInstallTask {
+    if (!task || typeof task !== 'object') {
+      return false;
+    }
+    const t = task as IPendingInstallTask;
+    if (
+      !t.taskId ||
+      !t.type ||
+      !t.requiredAppVersion ||
+      !Number.isFinite(t.createdAt) ||
+      !Number.isFinite(t.expiresAt) ||
+      !Number.isFinite(t.retryCount)
+    ) {
+      return false;
+    }
+    if (!['pending', 'running', 'failed'].includes(t.status)) {
+      return false;
+    }
+    if (!t.payload || typeof t.payload !== 'object') {
+      return false;
+    }
+    return true;
+  }
+
+  private isValidJsBundleSwitchPayload(payload: unknown) {
+    const p = payload as IJsBundleSwitchTaskPayload;
+    return !!(p?.appVersion && p.bundleVersion && p.signature);
+  }
+
+  private isValidJsBundleDownloadSwitchPayload(payload: unknown) {
+    const p = payload as IJsBundleDownloadSwitchTaskPayload;
+    return (
+      this.isValidJsBundleSwitchPayload(payload) &&
+      !!p.downloadUrl &&
+      p.downloadUrl.startsWith('https://') &&
+      Number.isFinite(p.fileSize) &&
+      p.fileSize > 0 &&
+      !!p.sha256
+    );
+  }
+
+  private isValidAppUpdateInstallPayload(payload: unknown) {
+    const p = payload as IAppUpdateInstallTaskPayload;
+    if (!p?.latestVersion) {
+      return false;
+    }
+    if (
+      ![
+        EUpdateStrategy.silent,
+        EUpdateStrategy.force,
+        EUpdateStrategy.manual,
+        EUpdateStrategy.seamless,
+      ].includes(p.updateStrategy)
+    ) {
+      return false;
+    }
+    if (p.channel === 'store') {
+      return !!p.storeUrl;
+    }
+    if (p.channel === 'direct') {
+      if (!p.downloadUrl) {
+        return false;
+      }
+      if (p.updateStrategy === EUpdateStrategy.silent) {
+        return !!p.fileSize && !!p.sha256 && !!p.signature;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  private isValidPendingInstallTask(
+    task: unknown,
+  ): task is IPendingInstallTask {
+    if (!this.isValidTaskBase(task)) {
+      return false;
+    }
+    if (task.type === 'jsbundle-switch') {
+      return this.isValidJsBundleSwitchPayload(task.payload);
+    }
+    if (task.type === 'jsbundle-download-switch') {
+      return this.isValidJsBundleDownloadSwitchPayload(task.payload);
+    }
+    if (task.type === 'appupdate-install') {
+      return this.isValidAppUpdateInstallPayload(task.payload);
+    }
+    return false;
+  }
+
+  private getRetryDelayMs(retryCount: number) {
+    const expDelay = RETRY_BASE_DELAY_MS * 2 ** retryCount;
+    const baseDelay = Math.min(MAX_RETRY_DELAY_MS, expDelay);
+    const jitter = Math.floor(Math.random() * (RETRY_JITTER_MS + 1));
+    return baseDelay + jitter;
+  }
+
+  private isCurrentAppVersion(version?: string) {
+    if (
+      !version ||
+      !semver.valid(version) ||
+      !semver.valid(platformEnv.version)
+    ) {
+      return false;
+    }
+    return semver.eq(version, platformEnv.version);
+  }
+
+  private shouldUpdateFromReleaseInfo(releaseInfo: IResponseAppUpdateInfo) {
+    if (
+      this.isCurrentAppVersion(releaseInfo.version) &&
+      releaseInfo.jsBundleVersion
+    ) {
+      return (
+        Number(releaseInfo.jsBundleVersion) !==
+        Number(platformEnv.bundleVersion)
+      );
+    }
+    try {
+      return gtVersion(releaseInfo.version, releaseInfo.jsBundleVersion);
+    } catch (error) {
+      defaultLogger.app.appUpdate.log(
+        `shouldUpdateFromReleaseInfo: invalid version payload, version=${
+          releaseInfo.version ?? 'nil'
+        }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, error=${
+          (error as Error)?.message ?? 'unknown'
+        }`,
+      );
+      return false;
+    }
+  }
+
+  private buildPendingJsBundleTask(
+    releaseInfo: IResponseAppUpdateInfo,
+  ): IPendingInstallTask | undefined {
+    const appVersion = releaseInfo.version;
+    const bundleVersion = releaseInfo.jsBundleVersion;
+    const downloadUrl = releaseInfo.jsBundle?.downloadUrl;
+    const fileSize = releaseInfo.jsBundle?.fileSize ?? releaseInfo.fileSize;
+    const sha256 = releaseInfo.jsBundle?.sha256;
+    if (!appVersion || !bundleVersion || !downloadUrl || !sha256) {
+      return undefined;
+    }
+
+    const now = Date.now();
+    return {
+      taskId: `jsbundle:${appVersion}:${bundleVersion}`,
+      type: 'jsbundle-download-switch',
+      requiredAppVersion: appVersion,
+      createdAt: now,
+      expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
+      retryCount: 0,
+      status: 'pending',
+      payload: {
+        appVersion,
+        bundleVersion,
+        downloadUrl,
+        fileSize: Number(fileSize),
+        sha256,
+        signature: releaseInfo.jsBundle?.signature ?? PLACEHOLDER_SIGNATURE,
+      },
+    };
+  }
+
+  private async syncPendingInstallTaskWithReleaseInfo(
+    releaseInfo: IResponseAppUpdateInfo | undefined,
+  ) {
+    if (!releaseInfo || !this.isCurrentAppVersion(releaseInfo.version)) {
+      await clearPendingInstallTask();
+      return;
+    }
+
+    if (
+      !releaseInfo.jsBundleVersion ||
+      Number(releaseInfo.jsBundleVersion) === Number(platformEnv.bundleVersion)
+    ) {
+      await clearPendingInstallTask();
+      return;
+    }
+
+    const task = this.buildPendingJsBundleTask(releaseInfo);
+    if (!task || !this.isValidPendingInstallTask(task)) {
+      defaultLogger.app.appUpdate.log(
+        'syncPendingInstallTaskWithReleaseInfo: invalid task payload ignored',
+      );
+      await clearPendingInstallTask();
+      return;
+    }
+    await setPendingInstallTask(task);
+  }
+
+  private async markTaskFailed(task: IPendingInstallTask, message: string) {
+    const nextRetryCount = task.retryCount + 1;
+    const now = Date.now();
+    if (nextRetryCount >= MAX_TASK_RETRY) {
+      await setPendingInstallTask({
+        ...task,
+        retryCount: nextRetryCount,
+        status: 'failed',
+        runningStartedAt: undefined,
+        lastError: message,
+        nextRetryAt: now + TASK_FUSE_DURATION_MS,
+      });
+      return;
+    }
+
+    const delayMs = this.getRetryDelayMs(nextRetryCount);
+    await setPendingInstallTask({
+      ...task,
+      retryCount: nextRetryCount,
+      status: 'pending',
+      runningStartedAt: undefined,
+      lastError: message,
+      nextRetryAt: now + delayMs,
+    });
+  }
+
+  private async executeBundleSwitchTask(
+    task: IPendingInstallTask,
+    allowDownload: boolean,
+  ) {
+    const payload = task.payload as
+      | IJsBundleSwitchTaskPayload
+      | IJsBundleDownloadSwitchTaskPayload;
+    const { appVersion, bundleVersion, signature } = payload;
+    const bundleExists = await BundleUpdate.isBundleExists(
+      appVersion,
+      bundleVersion,
+    );
+
+    if (bundleExists) {
+      try {
+        await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
+        await BundleUpdate.switchBundle({
+          appVersion,
+          bundleVersion,
+          signature,
+        });
+        return;
+      } catch (error) {
+        await BundleUpdate.clearBundle();
+        if (!allowDownload) {
+          throw error;
+        }
+      }
+    }
+
+    if (!allowDownload) {
+      throw new OneKeyLocalError(
+        `Bundle not found for switch task ${appVersion}-${bundleVersion}`,
+      );
+    }
+
+    const downloadPayload = payload as IJsBundleDownloadSwitchTaskPayload;
+    const downloadedEvent = await BundleUpdate.downloadBundle({
+      latestVersion: downloadPayload.appVersion,
+      bundleVersion: downloadPayload.bundleVersion,
+      downloadUrl: downloadPayload.downloadUrl,
+      fileSize: downloadPayload.fileSize,
+      sha256: downloadPayload.sha256,
+      signature: downloadPayload.signature,
+    });
+    await BundleUpdate.downloadBundleASC(downloadedEvent);
+    await BundleUpdate.verifyBundleASC(downloadedEvent);
+    await BundleUpdate.verifyBundle(downloadedEvent);
+    await BundleUpdate.verifyExtractedBundle(appVersion, bundleVersion);
+    await BundleUpdate.switchBundle({
+      appVersion,
+      bundleVersion,
+      signature,
+    });
+  }
+
+  private async executeAppUpdateInstallTask(task: IPendingInstallTask) {
+    const payload = task.payload as IAppUpdateInstallTaskPayload;
+    if (payload.channel === 'store') {
+      return;
+    }
+    const downloadedEvent = await AppUpdate.downloadPackage({
+      latestVersion: payload.latestVersion,
+      downloadUrl: payload.downloadUrl,
+      fileSize: payload.fileSize,
+      sha256: payload.sha256,
+      signature: payload.signature,
+    });
+    await AppUpdate.downloadASC(downloadedEvent);
+    await AppUpdate.verifyASC(downloadedEvent);
+    await AppUpdate.verifyPackage(downloadedEvent);
+    const appInfo = await appUpdatePersistAtom.get();
+    await AppUpdate.installPackage({
+      ...appInfo,
+      latestVersion: payload.latestVersion,
+      updateStrategy: payload.updateStrategy,
+      downloadUrl: payload.downloadUrl,
+      fileSize: payload.fileSize,
+      status: EAppUpdateStatus.ready,
+    });
+  }
+
+  private async executePendingInstallTask(task: IPendingInstallTask) {
+    if (task.type === 'jsbundle-switch') {
+      await this.executeBundleSwitchTask(task, false);
+      return;
+    }
+    if (task.type === 'jsbundle-download-switch') {
+      await this.executeBundleSwitchTask(task, true);
+      return;
+    }
+    await this.executeAppUpdateInstallTask(task);
+  }
+
   private startFailedRecoveryTimer() {
     clearTimeout(failedRecoveryTimerId);
     failedRecoveryTimerId = setTimeout(
@@ -83,6 +410,72 @@ class ServiceAppUpdate extends ServiceBase {
       },
       timerUtils.getTimeDurationMs({ hour: 2 }),
     );
+  }
+
+  @backgroundMethod()
+  async processPendingInstallTask() {
+    let task = await getPendingInstallTask();
+    if (!task) {
+      return;
+    }
+
+    const now = Date.now();
+    if (task.status === 'running') {
+      const recoveredRetry = task.retryCount + 1;
+      if (recoveredRetry >= MAX_TASK_RETRY) {
+        await setPendingInstallTask({
+          ...task,
+          retryCount: recoveredRetry,
+          status: 'failed',
+          runningStartedAt: undefined,
+          lastError: 'interrupted',
+          nextRetryAt: now + TASK_FUSE_DURATION_MS,
+        });
+        return;
+      }
+      task = {
+        ...task,
+        status: 'pending',
+        retryCount: recoveredRetry,
+        runningStartedAt: undefined,
+        lastError: 'interrupted',
+      };
+      await setPendingInstallTask(task);
+    }
+
+    if (task.status === 'failed') {
+      return;
+    }
+    if (!this.isValidPendingInstallTask(task)) {
+      await clearPendingInstallTask();
+      return;
+    }
+    if (task.requiredAppVersion !== platformEnv.version) {
+      await clearPendingInstallTask();
+      return;
+    }
+    if (task.expiresAt <= now) {
+      await clearPendingInstallTask();
+      return;
+    }
+    if (task.nextRetryAt && task.nextRetryAt > now) {
+      return;
+    }
+
+    const runningTask: IPendingInstallTask = {
+      ...task,
+      status: 'running',
+      runningStartedAt: now,
+    };
+    await setPendingInstallTask(runningTask);
+
+    try {
+      await this.executePendingInstallTask(runningTask);
+      await clearPendingInstallTask();
+    } catch (error) {
+      const message = (error as Error)?.message ?? 'unknown';
+      await this.markTaskFailed(runningTask, message);
+    }
   }
 
   @backgroundMethod()
@@ -667,6 +1060,8 @@ class ServiceAppUpdate extends ServiceBase {
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
+    await this.syncPendingInstallTaskWithReleaseInfo(releaseInfo);
+
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
       defaultLogger.app.appUpdate.log(
         `fetchAppUpdateInfo: releaseInfo matched, version=${
@@ -674,10 +1069,7 @@ class ServiceAppUpdate extends ServiceBase {
         }, jsBundleVersion=${releaseInfo.jsBundleVersion ?? 'nil'}, hasStoreUrl=${!!releaseInfo.storeUrl}, hasDownloadUrl=${!!releaseInfo.downloadUrl}, hasJsBundleDownloadUrl=${!!releaseInfo
           .jsBundle?.downloadUrl}`,
       );
-      const shouldUpdate = gtVersion(
-        releaseInfo.version,
-        releaseInfo.jsBundleVersion,
-      );
+      const shouldUpdate = this.shouldUpdateFromReleaseInfo(releaseInfo);
       defaultLogger.app.appUpdate.log(
         `fetchAppUpdateInfo: shouldUpdate=${String(shouldUpdate)}`,
       );
@@ -719,7 +1111,8 @@ class ServiceAppUpdate extends ServiceBase {
           prev.jsBundleVersion
         ) {
           isNewerThanAttempted =
-            Number(releaseInfo.jsBundleVersion) > Number(prev.jsBundleVersion);
+            Number(releaseInfo.jsBundleVersion) !==
+            Number(prev.jsBundleVersion);
         }
         const shouldResetFailed = isFailed && isNewerThanAttempted;
         // Corrupted/tampered packages must be re-downloaded

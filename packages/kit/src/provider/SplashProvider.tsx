@@ -51,6 +51,7 @@ export const useDisplaySplash =
           const launchCallback = async () => {
             hasLaunchEventsExecutedRef.current = true;
             try {
+              await backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
               const appInfo =
                 await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
 
