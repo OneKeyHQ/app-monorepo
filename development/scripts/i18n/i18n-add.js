@@ -212,7 +212,11 @@ function addToLokalise(key, enValue, zhValue) {
           if (res.statusCode === 200 || res.statusCode === 201) {
             resolve(JSON.parse(body));
           } else {
-            reject(new Error(`Lokalise API error: ${res.statusCode} - ${body}`));
+            reject(
+              new Error(
+                `Lokalise API error: ${res.statusCode} - ${body}`,
+              ),
+            );
           }
         } catch (e) {
           reject(e);
@@ -287,4 +291,7 @@ async function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  console.error('Error:', error.message || error);
+  process.exit(1);
+});
