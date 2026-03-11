@@ -1,7 +1,16 @@
 diff --git a/node_modules/@tamagui/dialog/dist/cjs/Dialog.js b/node_modules/@tamagui/dialog/dist/cjs/Dialog.js
-index a61c3f1..ea5295d 100644
+index a61c3f1..c787b05 100644
 --- a/node_modules/@tamagui/dialog/dist/cjs/Dialog.js
 +++ b/node_modules/@tamagui/dialog/dist/cjs/Dialog.js
+@@ -184,7 +184,7 @@ const DialogPortal = (props) => {
+         ...props,
+         context,
+         ref: composedRefs,
+-        trapFocus: context.open,
++        trapFocus: props.trapFocus ?? context.open,
+         disableOutsidePointerEvents: !0,
+         onCloseAutoFocus: (0, import_helpers.composeEventHandlers)(props.onCloseAutoFocus, (event) => {
+           event.preventDefault(), context.triggerRef.current?.focus();
 @@ -265,7 +265,7 @@ const DialogPortal = (props) => {
            onInteractOutside,
            ref: composedRefs,
@@ -21,9 +30,18 @@ index a61c3f1..ea5295d 100644
        ),
        process.env.NODE_ENV === "development" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
 diff --git a/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js b/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js
-index 197066b..3e9067f 100644
+index 197066b..4fa0d49 100644
 --- a/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js
 +++ b/node_modules/@tamagui/dialog/dist/cjs/Dialog.native.js
+@@ -333,7 +333,7 @@ var DialogPortal = function(props) {
+     ref: composedRefs,
+     // we make sure focus isn't trapped once `DialogContent` has been closed
+     // (closed !== unmounted when animating out)
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: !0,
+     onCloseAutoFocus: (0, import_helpers.composeEventHandlers)(props.onCloseAutoFocus, function(event) {
+       var _context_triggerRef_current;
 @@ -415,7 +415,7 @@ var DialogPortal = function(props) {
          onDismiss: function() {
            return context.onOpenChange(!1);
@@ -43,9 +61,18 @@ index 197066b..3e9067f 100644
        process.env.NODE_ENV === "development" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, {
          children: [
 diff --git a/node_modules/@tamagui/dialog/dist/esm/Dialog.js b/node_modules/@tamagui/dialog/dist/esm/Dialog.js
-index 031975a..ff98936 100644
+index 031975a..3efc19b 100644
 --- a/node_modules/@tamagui/dialog/dist/esm/Dialog.js
 +++ b/node_modules/@tamagui/dialog/dist/esm/Dialog.js
+@@ -170,7 +170,7 @@ const DialogPortal = (props) => {
+         ...props,
+         context,
+         ref: composedRefs,
+-        trapFocus: context.open,
++        trapFocus: props.trapFocus ?? context.open,
+         disableOutsidePointerEvents: !0,
+         onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, (event) => {
+           event.preventDefault(), context.triggerRef.current?.focus();
 @@ -251,7 +251,7 @@ const DialogPortal = (props) => {
            onInteractOutside,
            ref: composedRefs,
@@ -65,9 +92,18 @@ index 031975a..ff98936 100644
        ),
        process.env.NODE_ENV === "development" && /* @__PURE__ */ jsxs(Fragment, { children: [
 diff --git a/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs b/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs
-index 7a950c1..587e4c8 100644
+index 7a950c1..761b6f7 100644
 --- a/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs
 +++ b/node_modules/@tamagui/dialog/dist/esm/Dialog.mjs
+@@ -251,7 +251,7 @@ const DialogPortal = props => {
+       ...props,
+       context,
+       ref: composedRefs,
+-      trapFocus: context.open,
++      trapFocus: props.trapFocus ?? context.open,
+       disableOutsidePointerEvents: !0,
+       onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, event => {
+         event.preventDefault(), context.triggerRef.current?.focus();
 @@ -324,7 +324,7 @@ const DialogPortal = props => {
          onInteractOutside,
          ref: composedRefs,
@@ -87,9 +123,18 @@ index 7a950c1..587e4c8 100644
          children: [/* @__PURE__ */jsx(TitleWarning, {
            titleId: context.titleId
 diff --git a/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js b/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js
-index a61498c..c365da3 100644
+index a61498c..ea46fcc 100644
 --- a/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js
 +++ b/node_modules/@tamagui/dialog/dist/esm/Dialog.native.js
+@@ -310,7 +310,7 @@ var DialogPortal = function(props) {
+     ref: composedRefs,
+     // we make sure focus isn't trapped once `DialogContent` has been closed
+     // (closed !== unmounted when animating out)
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: !0,
+     onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, function(event) {
+       var _context_triggerRef_current;
 @@ -392,7 +392,7 @@ var DialogPortal = function(props) {
          onDismiss: function() {
            return context.onOpenChange(!1);
@@ -109,9 +154,18 @@ index a61498c..c365da3 100644
        process.env.NODE_ENV === "development" && /* @__PURE__ */ _jsxs(_Fragment, {
          children: [
 diff --git a/node_modules/@tamagui/dialog/dist/jsx/Dialog.js b/node_modules/@tamagui/dialog/dist/jsx/Dialog.js
-index 031975a..ff98936 100644
+index 031975a..3efc19b 100644
 --- a/node_modules/@tamagui/dialog/dist/jsx/Dialog.js
 +++ b/node_modules/@tamagui/dialog/dist/jsx/Dialog.js
+@@ -170,7 +170,7 @@ const DialogPortal = (props) => {
+         ...props,
+         context,
+         ref: composedRefs,
+-        trapFocus: context.open,
++        trapFocus: props.trapFocus ?? context.open,
+         disableOutsidePointerEvents: !0,
+         onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, (event) => {
+           event.preventDefault(), context.triggerRef.current?.focus();
 @@ -251,7 +251,7 @@ const DialogPortal = (props) => {
            onInteractOutside,
            ref: composedRefs,
@@ -131,9 +185,18 @@ index 031975a..ff98936 100644
        ),
        process.env.NODE_ENV === "development" && /* @__PURE__ */ jsxs(Fragment, { children: [
 diff --git a/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs b/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs
-index 7a950c1..587e4c8 100644
+index 7a950c1..761b6f7 100644
 --- a/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs
 +++ b/node_modules/@tamagui/dialog/dist/jsx/Dialog.mjs
+@@ -251,7 +251,7 @@ const DialogPortal = props => {
+       ...props,
+       context,
+       ref: composedRefs,
+-      trapFocus: context.open,
++      trapFocus: props.trapFocus ?? context.open,
+       disableOutsidePointerEvents: !0,
+       onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, event => {
+         event.preventDefault(), context.triggerRef.current?.focus();
 @@ -324,7 +324,7 @@ const DialogPortal = props => {
          onInteractOutside,
          ref: composedRefs,
@@ -153,9 +216,18 @@ index 7a950c1..587e4c8 100644
          children: [/* @__PURE__ */jsx(TitleWarning, {
            titleId: context.titleId
 diff --git a/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js b/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js
-index a61498c..c365da3 100644
+index a61498c..ea46fcc 100644
 --- a/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js
 +++ b/node_modules/@tamagui/dialog/dist/jsx/Dialog.native.js
+@@ -310,7 +310,7 @@ var DialogPortal = function(props) {
+     ref: composedRefs,
+     // we make sure focus isn't trapped once `DialogContent` has been closed
+     // (closed !== unmounted when animating out)
+-    trapFocus: context.open,
++    trapFocus: props.trapFocus ?? context.open,
+     disableOutsidePointerEvents: !0,
+     onCloseAutoFocus: composeEventHandlers(props.onCloseAutoFocus, function(event) {
+       var _context_triggerRef_current;
 @@ -392,7 +392,7 @@ var DialogPortal = function(props) {
          onDismiss: function() {
            return context.onOpenChange(!1);
@@ -175,9 +247,18 @@ index a61498c..c365da3 100644
        process.env.NODE_ENV === "development" && /* @__PURE__ */ _jsxs(_Fragment, {
          children: [
 diff --git a/node_modules/@tamagui/dialog/src/Dialog.tsx b/node_modules/@tamagui/dialog/src/Dialog.tsx
-index ddbd2f8..978cced 100644
+index ddbd2f8..bc24370 100644
 --- a/node_modules/@tamagui/dialog/src/Dialog.tsx
 +++ b/node_modules/@tamagui/dialog/src/Dialog.tsx
+@@ -440,7 +440,7 @@ const DialogContentModal = React.forwardRef<TamaguiElement, DialogContentTypePro
+         ref={composedRefs}
+         // we make sure focus isn't trapped once `DialogContent` has been closed
+         // (closed !== unmounted when animating out)
+-        trapFocus={context.open}
++        trapFocus={props.trapFocus ?? context.open}
+         disableOutsidePointerEvents
+         onCloseAutoFocus={composeEventHandlers(props.onCloseAutoFocus, (event) => {
+           event.preventDefault()
 @@ -601,16 +601,20 @@ const DialogContentImpl = React.forwardRef<TamaguiElement, DialogContentImplProp
            ref={composedRefs}
            onDismiss={() => context.onOpenChange(false)}
