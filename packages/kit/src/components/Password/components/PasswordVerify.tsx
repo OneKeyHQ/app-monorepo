@@ -125,6 +125,7 @@ function PasswordVerify({
       onPress?: () => void;
       loading?: boolean;
       disabled?: boolean;
+      tabIndex?: number;
     }>[] = [];
     if (isEnable && !passwordInput) {
       actions.push({
