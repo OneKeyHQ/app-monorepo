@@ -93,7 +93,7 @@ export function useAccountSelectorValuesLoader({
           const prevAll = await accountSelectorValuesMapAtom.get();
           if (isCancelled(currentLoadId, loadingIdRef)) return;
           const subMap: Record<string, IAccountSelectorValueItem> = {
-            ...(prevAll[num] ?? {}),
+            ...prevAll[num],
           };
           accountsValue?.forEach((v) => {
             if (v) {
@@ -112,7 +112,7 @@ export function useAccountSelectorValuesLoader({
           const prevAllD = await accountSelectorDeFiMapAtom.get();
           if (isCancelled(currentLoadId, loadingIdRef)) return;
           const subMapD: Record<string, IAccountSelectorDeFiItem> = {
-            ...(prevAllD[num] ?? {}),
+            ...prevAllD[num],
           };
           batch.forEach((account, batchIdx) => {
             const overview = accountsDeFiOverview?.[batchIdx];
