@@ -24,9 +24,6 @@ const PasswordVerifyPromptMount = () => {
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
   const [{ unLock }] = usePasswordAtom();
-  // Only enable trapFocus on non-native platforms (desktop/web/extension),
-  // and disable it during lock screen to avoid focus interference
-  const trapFocus = !platformEnv.isNative && unLock;
   const onClose = useCallback((id: number) => {
     void backgroundApiProxy.servicePassword.cancelPasswordPromptDialog(id);
   }, []);
@@ -37,7 +34,6 @@ const PasswordVerifyPromptMount = () => {
     (id: number) => {
       dialogRef.current = Dialog.show({
         title: intl.formatMessage({ id: ETranslations.global_set_passcode }),
-        trapFocus,
         onClose() {
           onClose(id);
         },
@@ -58,13 +54,14 @@ const PasswordVerifyPromptMount = () => {
         showFooter: false,
       });
     },
-    [intl, onClose, trapFocus],
+    [intl, onClose],
   );
   const showPasswordVerifyPrompt = useCallback(
     (id: number, dialogProps?: IDialogShowProps) => {
       dialogRef.current = Dialog.show({
         ...dialogProps,
-        trapFocus,
+        // Disable trapFocus during lock screen to avoid focus interference
+        ...(!unLock ? { trapFocus: false } : undefined),
         title: intl.formatMessage({
           id: ETranslations.enter_passcode,
         }),
@@ -96,7 +93,7 @@ const PasswordVerifyPromptMount = () => {
         showFooter: false,
       });
     },
-    [intl, onClose, trapFocus],
+    [intl, onClose, unLock],
   );
 
   const showPasswordSetupPromptRef = useRef(showPasswordSetupPrompt);

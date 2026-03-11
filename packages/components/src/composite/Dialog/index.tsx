@@ -331,7 +331,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
-              trapFocus={trapFocus}
+              trapFocus={trapFocus ?? !platformEnv.isNative}
               onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
