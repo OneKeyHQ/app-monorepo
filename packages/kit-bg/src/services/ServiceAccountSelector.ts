@@ -852,26 +852,6 @@ class ServiceAccountSelector extends ServiceBase {
     }
 
     let accountsCount = 0;
-    let accountsValue: {
-      accountId: string;
-      value: Record<string, string> | string | undefined;
-      currency: string | undefined;
-    }[] = [];
-    let accountsDeFiOverview: Array<
-      | {
-          overview: Record<
-            string,
-            {
-              totalValue: number;
-              totalDebt: number;
-              totalReward: number;
-              netWorth: number;
-              currency: string;
-            }
-          >;
-        }
-      | undefined
-    > = [];
 
     let mergeDeriveAssetsEnabled = false;
     if (selectedNetworkId) {
@@ -883,14 +863,14 @@ class ServiceAccountSelector extends ServiceBase {
         )?.mergeDeriveAssetsEnabled ?? false;
     }
 
-    try {
-      const accountsForValuesQuery: {
-        accountId: string;
-        networkId: string;
-        indexedAccountId?: string;
-        accountAddress?: string;
-      }[] = [];
+    const accountsForValuesQuery: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+    }[] = [];
 
+    try {
       sectionData?.forEach?.((s) => {
         s?.data?.forEach?.((account) => {
           accountsCount += 1;
@@ -911,16 +891,6 @@ class ServiceAccountSelector extends ServiceBase {
           });
         });
       });
-      accountsDeFiOverview =
-        await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
-          accounts: accountsForValuesQuery,
-        });
-      accountsValue =
-        await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
-          {
-            accounts: accountsForValuesQuery,
-          },
-        );
     } catch (error) {
       //
     }
@@ -929,10 +899,33 @@ class ServiceAccountSelector extends ServiceBase {
       sectionData,
       focusedWalletInfo,
       accountsCount,
-      accountsValue,
       mergeDeriveAssetsEnabled,
-      accountsDeFiOverview,
+      accountsForValuesQuery,
     };
+  }
+
+  @backgroundMethod()
+  async buildAccountSelectorAccountsValuesData({
+    accounts,
+  }: {
+    accounts: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      accountAddress?: string;
+    }[];
+  }) {
+    const accountsDeFiOverview =
+      await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
+        accounts,
+      });
+    const accountsValue =
+      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+        {
+          accounts,
+        },
+      );
+    return { accountsValue, accountsDeFiOverview };
   }
 }
 

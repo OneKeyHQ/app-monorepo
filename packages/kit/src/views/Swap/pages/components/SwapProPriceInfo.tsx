@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 
 import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import {
   useSwapProSelectTokenAtom,
   useSwapProTimeRangeAtom,
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenTransactionPriceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapProTimeRange } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
@@ -20,7 +20,7 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [swapProTokenTransactionPrice] = useSwapProTokenTransactionPriceAtom();
   const [swapProTimeRange] = useSwapProTimeRangeAtom();
-  const [settings] = useSettingsPersistAtom();
+  const currencyInfo = useCurrency();
   const priceChange = useMemo(() => {
     switch (swapProTimeRange.value) {
       case ESwapProTimeRange.ONE_HOUR:
@@ -86,11 +86,21 @@ const SwapProPriceInfo = ({ onPricePress }: ISwapProPriceInfoProps) => {
         fontFamily="$monoMedium"
         formatter="price"
         formatterOptions={{
-          currency: settings?.currencyInfo.symbol,
+          currency: '$',
         }}
       >
         {unFormattedPrice}
       </NumberSizeableText>
+      {tokenMarketDetailInfo?.priceConverted ? (
+        <NumberSizeableText
+          size="$bodySm"
+          color="$textSubdued"
+          formatter="price"
+          formatterOptions={{ currency: currencyInfo.symbol }}
+        >
+          {tokenMarketDetailInfo.priceConverted}
+        </NumberSizeableText>
+      ) : null}
       <SizableText
         size="$bodySmMedium"
         color={textColor}
