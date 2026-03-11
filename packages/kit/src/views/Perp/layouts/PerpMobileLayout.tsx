@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { RefreshControl, ScrollView } from 'react-native';
@@ -20,9 +20,15 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import {
+  usePerpsAccountLoadingInfoAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useL2BookAtom,
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
+  usePerpsAllMidsAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { PerpMobileLayoutSkeleton } from './PerpMobileLayoutSkeleton';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { PerpMobileNetworkAlert } from '../components/PerpMobileNetworkAlert';
@@ -118,8 +124,20 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
+  const [allMids] = usePerpsAllMidsAtom();
+  const [l2Book] = useL2BookAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
+
+  const hasInitialLoadRef = useRef(false);
+  const isInitialLoading =
+    allMids === null ||
+    l2Book === null ||
+    perpsAccountLoading.enableTradingLoading;
+  if (!isInitialLoading) {
+    hasInitialLoadRef.current = true;
+  }
 
   const positionsTabCount = useMemo(() => {
     if (positionsLength > 0) {
@@ -134,6 +152,10 @@ export function PerpMobileLayout() {
     }
     return '';
   }, [openOrdersLength]);
+  if (!hasInitialLoadRef.current && isInitialLoading) {
+    return <PerpMobileLayoutSkeleton />;
+  }
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '$bgApp' }}

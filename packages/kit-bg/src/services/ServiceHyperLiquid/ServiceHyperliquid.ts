@@ -957,27 +957,28 @@ export default class ServiceHyperliquid extends ServiceBase {
         }),
       );
 
-      // TODO reset exchange client if account not exists, or address not exists
-      await this.exchangeService.setup({
-        userAddress: accountAddress,
-        userAccountId: selectedAccount.accountId ?? undefined,
-      });
-
       if (!accountAddress) {
         throw new OneKeyLocalError(
           'Check perps account status ERROR: Account address is required',
         );
       }
 
+      // Run exchange setup and activation check in parallel
       let isActivated = false;
       if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
         isActivated = true;
       }
-      if (!isActivated) {
-        const userRole = await infoClient.userRole({
-          user: accountAddress,
-        });
-        isActivated = userRole.role !== 'missing';
+      const [, userRoleResult] = await Promise.all([
+        this.exchangeService.setup({
+          userAddress: accountAddress,
+          userAccountId: selectedAccount.accountId ?? undefined,
+        }),
+        !isActivated
+          ? infoClient.userRole({ user: accountAddress })
+          : Promise.resolve(null),
+      ]);
+      if (!isActivated && userRoleResult) {
+        isActivated = userRoleResult.role !== 'missing';
       }
       if (!isActivated) {
         statusDetails.activatedOk = false;
@@ -997,19 +998,19 @@ export default class ServiceHyperliquid extends ServiceBase {
         hyperLiquidCache.activatedUser[accountAddress] = true;
         statusDetails.activatedOk = true;
 
-        // Builder fee must be approved before agent setup
-        await this.checkBuilderFeeStatus({
-          accountAddress,
-          accountId: selectedAccount.accountId,
-          isEnableTradingTrigger,
-          statusDetails,
-        });
-
-        const isRebateBound =
-          await this.checkInternalRebateBindingStatusWithCache({
+        // Run builderFee check in parallel with rebate check
+        const [, isRebateBound] = await Promise.all([
+          this.checkBuilderFeeStatus({
+            accountAddress,
+            accountId: selectedAccount.accountId,
+            isEnableTradingTrigger,
+            statusDetails,
+          }),
+          this.checkInternalRebateBindingStatusWithCache({
             accountId: selectedAccount.accountId,
             accountAddress,
-          });
+          }),
+        ]);
 
         // Clear local credentials to force new agent creation for rebate binding
         if (!isRebateBound) {

@@ -202,40 +202,46 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     return { requiredSubSpecsMap, params };
   }
 
+  private _hasInitialSubscription = false;
+
+  private async _updateSubscriptionsCore() {
+    const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    if (!requiredSubInfo) {
+      return;
+    }
+
+    this.allSubSpecsMap = {
+      ...this.allSubSpecsMap,
+      ...requiredSubInfo.requiredSubSpecsMap,
+    };
+    if (isEmpty(this.allSubSpecsMap)) {
+      // debugger;
+    }
+    this.pendingSubSpecsMap = {
+      ...requiredSubInfo.requiredSubSpecsMap,
+    };
+
+    const newState: ISubscriptionState = { ...this._currentState };
+
+    this._applyStateUpdates(newState, requiredSubInfo.params);
+
+    console.log('updateSubscriptions____state', {
+      requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
+      requiredParams: requiredSubInfo.params,
+      allSubSpecsMap: this.allSubSpecsMap,
+      pendingSubSpecsMap: this.pendingSubSpecsMap,
+      newState,
+    });
+
+    this._emitConnectionStatus();
+    this._executeSubscriptionChanges();
+
+    this._currentState = newState;
+  }
+
   _updateSubscriptionsDebounced = debounce(
     async () => {
-      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
-      if (!requiredSubInfo) {
-        return;
-      }
-
-      this.allSubSpecsMap = {
-        ...this.allSubSpecsMap,
-        ...requiredSubInfo.requiredSubSpecsMap,
-      };
-      if (isEmpty(this.allSubSpecsMap)) {
-        // debugger;
-      }
-      this.pendingSubSpecsMap = {
-        ...requiredSubInfo.requiredSubSpecsMap,
-      };
-
-      const newState: ISubscriptionState = { ...this._currentState };
-
-      this._applyStateUpdates(newState, requiredSubInfo.params);
-
-      console.log('updateSubscriptions____state', {
-        requiredSubSpecsMap: requiredSubInfo.requiredSubSpecsMap,
-        requiredParams: requiredSubInfo.params,
-        allSubSpecsMap: this.allSubSpecsMap,
-        pendingSubSpecsMap: this.pendingSubSpecsMap,
-        newState,
-      });
-
-      this._emitConnectionStatus();
-      this._executeSubscriptionChanges();
-
-      this._currentState = newState;
+      await this._updateSubscriptionsCore();
     },
     300,
     {
@@ -246,6 +252,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
+    // Skip debounce on first subscription to speed up initial load
+    if (!this._hasInitialSubscription) {
+      this._hasInitialSubscription = true;
+      await this._updateSubscriptionsCore();
+      return;
+    }
     await this._updateSubscriptionsDebounced();
   }
 
@@ -583,6 +595,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       event,
     });
   };
+
+  @backgroundMethod()
+  async preWarmWebSocketConnection(): Promise<void> {
+    await this.getWebSocketClient();
+  }
 
   private async getWebSocketClient(): Promise<IHyperliquidWsClient> {
     if (this._client) {

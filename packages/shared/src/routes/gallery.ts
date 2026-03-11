@@ -74,6 +74,7 @@ export enum EGalleryRoutes {
   ComponentSend = 'component-Send',
   ComponentShortcut = 'component-Shortcut',
   ComponentSkeleton = 'component-Skeleton',
+  ComponentPerpMobileSkeleton = 'component-PerpMobileSkeleton',
   ComponentSlider = 'component-Slider',
   ComponentSegmentSlider = 'component-SegmentSlider',
   ComponentSortableListView = 'component-SortableListView',

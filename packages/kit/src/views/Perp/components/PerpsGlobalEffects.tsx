@@ -4,7 +4,6 @@ import { memo, useCallback, useEffect, useRef } from 'react';
 import { isEqual, noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
-import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
   useAppIsLockedAtom,
@@ -352,6 +351,8 @@ function useHyperliquidAccountSelect() {
       walletId: activeAccount?.wallet?.id || null,
       deriveType: globalDeriveType,
     });
+    // Pre-warm WebSocket connection in parallel with account status check
+    void backgroundApiProxy.serviceHyperliquidSubscription.preWarmWebSocketConnection();
     await checkPerpsAccountStatus();
   }, [
     actions,
@@ -651,9 +652,7 @@ function PerpsGlobalEffectsView() {
 
   return (
     <>
-      <DelayedRender delay={600}>
-        <WebSocketSubscriptionUpdate />
-      </DelayedRender>
+      <WebSocketSubscriptionUpdate />
       <AutoPauseSubscriptions />
     </>
   );

@@ -68,6 +68,11 @@ const PerpGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'),
 );
 
+const PerpSkeletonPreview = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpSkeletonPreview'),
+);
+
 const CryptoGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'),
@@ -224,6 +229,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevPerpGalleryModal,
     component: PerpGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevPerpSkeletonPreview,
+    component: PerpSkeletonPreview,
   },
   {
     name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
