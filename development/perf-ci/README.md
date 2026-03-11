@@ -205,64 +205,6 @@ SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..." \
 yarn perf:ios:release
 ```
 
-### Notification state machine
-
-```
-  Job finishes
-       │
-       ├── throws ──────────────────────────────────────────────────────────┐
-       │                                                                    ▼
-       │                                                       notifyPerfFailure()
-       │                                                          kind = 'failed'
-       │                                                       ─────────────────────
-       │                                                       always sends + saves
-       │
-       └── success ─────────────────────────────────────────────────────────┐
-                                                                            ▼
-                                                             notifyPerfResult()
-                                                       read alertState/{targetKey}.json
-                                                                            │
-                          ┌─────────────────────────────────────────────────┤
-                          │                                                 │
-               regression.triggered = true             regression.triggered = false
-                          │                                                 │
-                          ▼                            ┌───────────────────┴─────────────────┐
-                 kind = 'regression'     previousState in {regression|failed}?     no / ok / recovered
-                  ─────────────────                    │                                      │
-                  sends + saves                        ▼                                      ▼
-                                              kind = 'recovered'                     write ok state only
-                                               ─────────────────                  (no Slack notification)
-                                               sends + saves
-```
-
-### Regression check rules
-
-Three metrics are evaluated per run:
-
-| Metric             | What it measures                                              |
-|--------------------|---------------------------------------------------------------|
-| `tokensStartMs`    | Session start → `Home:refresh:start:tokens` (ms)             |
-| `tokensSpanMs`     | `Home:refresh:start:tokens` → `Home:refresh:done:tokens` (ms)|
-| `functionCallCount`| Number of function calls during home refresh                 |
-
-Threshold strategies (`thresholds.strategy`):
-
-| Strategy       | Trigger condition                            |
-|----------------|----------------------------------------------|
-| `median`       | median of 3 runs > threshold *(default)*     |
-| `two_of_three` | ≥ 2 of 3 runs individually exceed threshold |
-
-Severity levels:
-
-| Condition                                                       | Severity |
-|-----------------------------------------------------------------|----------|
-| time regression ≥ 20 % (start or span)                         | P1       |
-| all runs exceeded for any metric (e.g. 3/3)                     | P1       |
-| ≥ 2 metrics triggered simultaneously                            | P1       |
-| single metric, < 20 % regression, not all runs exceeded         | P2       |
-| job process threw an exception                                  | P1       |
-| previous alert cleared, current run is healthy                  | INFO     |
-
 ### Slack Block Kit message layout
 
 ```
