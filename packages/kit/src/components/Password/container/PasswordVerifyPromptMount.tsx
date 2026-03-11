@@ -30,6 +30,7 @@ const PasswordVerifyPromptMount = () => {
     (id: number) => {
       dialogRef.current = Dialog.show({
         title: intl.formatMessage({ id: ETranslations.global_set_passcode }),
+        trapFocus: true,
         onClose() {
           onClose(id);
         },

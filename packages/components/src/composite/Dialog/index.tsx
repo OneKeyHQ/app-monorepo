@@ -125,6 +125,7 @@ function DialogFrame({
   sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
+  trapFocus,
   showConfirmButton = true,
   showCancelButton = true,
   testID,
@@ -330,6 +331,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
+              trapFocus={trapFocus}
               onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
