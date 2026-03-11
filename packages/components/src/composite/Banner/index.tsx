@@ -1,4 +1,4 @@
-import type { DragEvent, ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
@@ -66,9 +66,6 @@ function BannerItem<T extends IBannerData>({
       flex={1}
       position="relative"
       userSelect="none"
-      onDragStart={(event: DragEvent) => {
-        event.preventDefault();
-      }}
       onPress={onItemPress}
       {...itemContainerStyle}
     >
