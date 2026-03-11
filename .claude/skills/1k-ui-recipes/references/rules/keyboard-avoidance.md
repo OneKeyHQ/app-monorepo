@@ -65,6 +65,53 @@ useKeyboardEventWithoutNavigation({
 });
 ```
 
+### ⚠️ Dialog with `showFooter: false` — Keyboard Avoidance NOT Automatic
+
+When a Dialog is created with `showFooter: false`, the Footer's keyboard avoidance is **skipped** — no `paddingBottom` animation is applied. If the dialog content contains input fields, the keyboard will cover them.
+
+**Fix**: Wrap `renderContent` with a custom keyboard-avoiding `Animated.View`:
+
+```typescript
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { useKeyboardEventWithoutNavigation, useSafeAreaInsets } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+const DEFAULT_KEYBOARD_HEIGHT = 330;
+function DialogKeyboardAvoidingView({ children }: { children: React.ReactNode }) {
+  const { bottom } = useSafeAreaInsets();
+  const keyboardHeightValue = useSharedValue(0);
+  const animatedStyle = useAnimatedStyle(() => ({
+    paddingBottom: keyboardHeightValue.value,
+  }));
+  useKeyboardEventWithoutNavigation({
+    keyboardWillShow: (e) => {
+      const height = e.endCoordinates.height;
+      const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
+      keyboardHeightValue.value = keyboardHeight - bottom;
+    },
+    keyboardWillHide: () => {
+      keyboardHeightValue.value = 0;
+    },
+  });
+  if (!platformEnv.isNative) {
+    return <>{children}</>;
+  }
+  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
+}
+
+// Usage in Dialog.show():
+Dialog.show({
+  showFooter: false,
+  renderContent: (
+    <DialogKeyboardAvoidingView>
+      {/* your input content */}
+    </DialogKeyboardAvoidingView>
+  ),
+});
+```
+
+**Reference**: `packages/kit/src/views/Market/MarketDetailV2/layouts/MobileLayout.tsx` — `DialogKeyboardAvoidingView` component.
+
 ## Strategy 3: Custom Hooks
 
 **File**: `packages/components/src/hooks/useKeyboard.ts`
@@ -92,7 +139,8 @@ await Keyboard.dismissWithDelay();   // close + wait 80ms (useful before navigat
 |----------|----------|-------------|
 | Input in a standard `Page` | Automatic via `PageContainer` | No |
 | Bottom buttons in `Page` | Automatic via `Page.Footer` | No |
-| Input in `Dialog` | Automatic via `Dialog.Footer` | No |
+| Input in `Dialog` (with footer) | Automatic via `Dialog.Footer` | No |
+| Input in `Dialog` (`showFooter: false`) | **Manual** — wrap content with `DialogKeyboardAvoidingView` | Yes |
 | Custom layout (e.g. Onboarding) | `Keyboard.AwareScrollView` + `bottomOffset` | Yes |
 | Layout adjusted by keyboard state | `useKeyboardHeight()` / `useKeyboardEvent()` | Yes |
 | Dismiss keyboard before action | `Keyboard.dismiss()` / `Keyboard.dismissWithDelay()` | Yes |
