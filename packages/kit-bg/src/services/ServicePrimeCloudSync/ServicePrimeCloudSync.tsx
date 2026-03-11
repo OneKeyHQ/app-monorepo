@@ -638,7 +638,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow: boolean | undefined;
   }) => {
     const now = await this.timeNow();
-    const syncMode = await this.getActiveSyncMode();
     const localData: ICloudSyncServerItem[] = localItems
       .map((item) => {
         let dataTimestamp = item.dataTime;
@@ -661,10 +660,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     const filteredLocalData = localData.filter((item) => {
       const pwdMatched = item.pwdHash === pwdHash && pwdHash;
-      return (
-        (item.data || item.isDeleted) &&
-        (pwdMatched || syncMode === ECloudSyncMode.Keyless)
-      );
+      return (item.data || item.isDeleted) && !!pwdMatched;
     });
 
     // TODO save localData to DB if setUndefinedTimeToNow available
@@ -2021,13 +2017,16 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!syncCredential) {
       return;
     }
+    const currentPwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
     // TODO performance, use cursor to get items
     const { items } = await this.getAllLocalSyncItems();
     const itemsToUpdate: IDBCloudSyncItem[] = [];
     for (const item of items) {
       try {
-        // Check if data field is missing
-        if (!item.data && item.rawData) {
+        const shouldRebuildItem =
+          !!item.rawData &&
+          (!item.data || (!!currentPwdHash && item.pwdHash !== currentPwdHash));
+        if (shouldRebuildItem) {
           const syncManager = this.getSyncManager(item.dataType);
           const rawDataJson = item.rawData
             ? (JSON.parse(item.rawData) as ICloudSyncRawDataJson | undefined)
