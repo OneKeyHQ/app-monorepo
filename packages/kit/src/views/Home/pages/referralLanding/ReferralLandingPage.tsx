@@ -159,6 +159,11 @@ function ReferralLandingPage() {
       : '';
 
     defaultLogger.referral.page.enterReferralGuide(code, 'web_mobile_redirect');
+    defaultLogger.referral.page.enterFromReferralLink(
+      code ?? '',
+      page ? `/app/${page}` : '/app',
+      'web_mobile_redirect',
+    );
 
     const redirectToStore = () => {
       if (platformEnv.isWebMobileIOS) {
@@ -266,6 +271,11 @@ function ReferralLandingPage() {
       }
 
       defaultLogger.referral.page.enterReferralGuide(code, 'app_landing');
+      defaultLogger.referral.page.enterFromReferralLink(
+        code ?? '',
+        page ? `/app/${page}` : '/app',
+        'app_landing',
+      );
 
       if (code && (page === 'perp' || page === 'perps')) {
         try {
