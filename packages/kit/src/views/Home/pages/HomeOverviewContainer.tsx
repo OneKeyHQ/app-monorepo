@@ -429,10 +429,8 @@ function HomeOverviewContainer() {
       if (!isCurrentAccountWorthReady && !isCurrentAccountDeFiReady) {
         return undefined;
       }
-    } else {
-      if (!isCurrentAccountWorthReady || !isCurrentAccountDeFiReady) {
-        return undefined;
-      }
+    } else if (!isCurrentAccountWorthReady || !isCurrentAccountDeFiReady) {
+      return undefined;
     }
 
     const tokenWorth =
