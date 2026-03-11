@@ -2,12 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Icon,
-  Popover,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, Popover, SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   type IPerpsFooterTickerMode,
