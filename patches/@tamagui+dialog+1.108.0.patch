@@ -209,3 +209,15 @@ index ddbd2f8..978cced 100644
          </Dismissable>
          {process.env.NODE_ENV === 'development' && (
            <>
+diff --git a/node_modules/@tamagui/dialog/types/Dialog.d.ts b/node_modules/@tamagui/dialog/types/Dialog.d.ts
+index eded988..dbc7723 100644
+--- a/node_modules/@tamagui/dialog/types/Dialog.d.ts
++++ b/node_modules/@tamagui/dialog/types/Dialog.d.ts
+@@ -128,6 +128,7 @@ interface DialogContentProps extends DialogContentFrameProps, Omit<DialogContent
+ declare const DialogContent: React.ForwardRefExoticComponent<DialogContentProps & React.RefAttributes<TamaguiElement>>;
+ interface DialogContentTypeProps extends Omit<DialogContentImplProps, 'trapFocus' | 'disableOutsidePointerEvents'> {
+     context: DialogContextValue;
++    trapFocus?: FocusScopeProps['trapped'];
+ }
+ type DialogContentImplProps = DialogContentFrameProps & Omit<DismissableProps, 'onDismiss'> & {
+     /**
