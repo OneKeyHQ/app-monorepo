@@ -39,9 +39,17 @@ import {
   useAccountOverviewActions,
   useAccountOverviewStateAtom,
   useAccountWorthAtom,
+  useLastConfirmedOverviewBalanceAtom,
+  useOverviewDeFiDataStateAtom,
+  useOverviewTokenCacheStateAtom,
 } from '../../../states/jotai/contexts/accountOverview';
+import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+
+// Grace period (ms) after an account switch during which the previous
+// balance is shown as a placeholder to avoid a skeleton flash.
+const BALANCE_REUSE_GRACE_MS = 180;
 
 function HomeOverviewContainer() {
   const num = 0;
@@ -72,6 +80,10 @@ function HomeOverviewContainer() {
   const [accountWorth] = useAccountWorthAtom();
   const [accountDeFiOverview] = useAccountDeFiOverviewAtom();
   const [overviewState] = useAccountOverviewStateAtom();
+  const [lastConfirmedOverviewBalance, setLastConfirmedOverviewBalance] =
+    useLastConfirmedOverviewBalanceAtom();
+  const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
+  const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
   const {
     updateAccountOverviewState,
     updateAccountWorth,
@@ -113,6 +125,8 @@ function HomeOverviewContainer() {
           initialized: false,
         });
         updateAccountDeFiOverview({
+          accountId: account.id,
+          networkId: network.id,
           overview: {
             totalValue: 0,
             totalDebt: 0,
@@ -328,19 +342,93 @@ function HomeOverviewContainer() {
     });
   }, [account, network, deriveInfoItems]);
 
-  const balanceString = useMemo(() => {
-    // Prevent showing stale balance from previous wallet/account.
-    // useMemo runs synchronously before the reset useEffect, so there's a
-    // render frame where account has switched but accountWorth still holds
-    // old data. Return '0' until the atom catches up.
-    if (
-      accountWorth.accountId &&
-      account?.id &&
-      accountWorth.accountId !== account.id &&
-      accountWorth.accountId !== account.indexedAccountId
-    ) {
-      return '0';
+  const currentWorthOwnerId = useMemo(() => {
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      return account?.indexedAccountId ?? account?.id ?? '';
     }
+    return account?.id ?? '';
+  }, [
+    account?.id,
+    account?.indexedAccountId,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
+
+  const currentWorthKey = useMemo(() => {
+    if (!account?.id || !network?.id || network.isAllNetworks) {
+      return undefined;
+    }
+
+    return accountUtils.buildAccountValueKey({
+      accountId: account.id,
+      networkId: network.id,
+    });
+  }, [account?.id, network?.id, network?.isAllNetworks]);
+
+  const currentOverviewOwnerKey = useMemo(
+    () => buildOverviewOwnerKey(account?.id, network?.id),
+    [account?.id, network?.id],
+  );
+
+  const isCurrentAccountWorthReady = useMemo(() => {
+    if (!account?.id || !network?.id) {
+      return false;
+    }
+
+    if (
+      !accountWorth.accountId ||
+      accountWorth.accountId !== currentWorthOwnerId
+    ) {
+      return false;
+    }
+
+    if (network.isAllNetworks || vaultSettings?.mergeDeriveAssetsEnabled) {
+      return (
+        accountWorth.initialized || Object.keys(accountWorth.worth).length > 0
+      );
+    }
+
+    if (!currentWorthKey) {
+      return false;
+    }
+
+    return Object.prototype.hasOwnProperty.call(
+      accountWorth.worth,
+      currentWorthKey,
+    );
+  }, [
+    account?.id,
+    network?.id,
+    network?.isAllNetworks,
+    accountWorth.accountId,
+    accountWorth.initialized,
+    accountWorth.worth,
+    currentWorthKey,
+    currentWorthOwnerId,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
+
+  const isCurrentAccountDeFiReady = useMemo(() => {
+    if (!account?.id || !network?.id) {
+      return false;
+    }
+
+    return (
+      overviewDeFiDataState.ownerKey === currentOverviewOwnerKey &&
+      overviewDeFiDataState.hasData !== undefined
+    );
+  }, [
+    account?.id,
+    network?.id,
+    currentOverviewOwnerKey,
+    overviewDeFiDataState.hasData,
+    overviewDeFiDataState.ownerKey,
+  ]);
+
+  const resolvedBalanceString = useMemo(() => {
+    if (!isCurrentAccountWorthReady || !isCurrentAccountDeFiReady) {
+      return undefined;
+    }
+
     return new BigNumber(
       calculateAccountTokensValue({
         accountId: account?.id ?? '',
@@ -353,23 +441,110 @@ function HomeOverviewContainer() {
       .toFixed();
   }, [
     account?.id,
-    account?.indexedAccountId,
     network?.id,
     accountWorth,
-    vaultSettings?.mergeDeriveAssetsEnabled,
     accountDeFiOverview.netWorth,
+    isCurrentAccountDeFiReady,
+    isCurrentAccountWorthReady,
+    vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
-  const debouncedBalanceString = useDebounce(balanceString, 100);
+  const [reuseLatestBalanceGraceExpired, setReuseLatestBalanceGraceExpired] =
+    useState(false);
+  useEffect(() => {
+    setReuseLatestBalanceGraceExpired(false);
+    const timer = setTimeout(() => {
+      setReuseLatestBalanceGraceExpired(true);
+    }, BALANCE_REUSE_GRACE_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [currentOverviewOwnerKey]);
+
+  useEffect(() => {
+    if (resolvedBalanceString !== undefined && currentOverviewOwnerKey) {
+      setLastConfirmedOverviewBalance((prev) => ({
+        latest: resolvedBalanceString,
+        byOwner: {
+          ...prev.byOwner,
+          [currentOverviewOwnerKey]: resolvedBalanceString,
+        },
+      }));
+    }
+  }, [
+    currentOverviewOwnerKey,
+    resolvedBalanceString,
+    setLastConfirmedOverviewBalance,
+  ]);
+
+  const currentConfirmedBalance =
+    lastConfirmedOverviewBalance.byOwner[currentOverviewOwnerKey];
+  // Determines whether we can show the most-recently-displayed balance as a
+  // placeholder while the new account's data is still loading.
+  // This avoids a jarring skeleton flash during quick account switches.
+  const canReuseLatestDisplayedBalance = useMemo(() => {
+    // Already have a confirmed balance for this account — no need to reuse.
+    if (currentConfirmedBalance || !lastConfirmedOverviewBalance.latest) {
+      return false;
+    }
+
+    const tokenStateMatched =
+      overviewTokenCacheState.ownerKey === currentOverviewOwnerKey;
+    const deFiStateMatched =
+      overviewDeFiDataState.ownerKey === currentOverviewOwnerKey;
+
+    const hasPositiveCurrentOwnerSignal =
+      (tokenStateMatched && overviewTokenCacheState.hasCache === true) ||
+      (deFiStateMatched && overviewDeFiDataState.hasData === true);
+
+    if (!hasPositiveCurrentOwnerSignal) {
+      return false;
+    }
+
+    return !reuseLatestBalanceGraceExpired && !isWalletNotBackedUp;
+  }, [
+    currentConfirmedBalance,
+    currentOverviewOwnerKey,
+    isWalletNotBackedUp,
+    lastConfirmedOverviewBalance.latest,
+    overviewDeFiDataState.hasData,
+    overviewDeFiDataState.ownerKey,
+    overviewTokenCacheState.hasCache,
+    overviewTokenCacheState.ownerKey,
+    reuseLatestBalanceGraceExpired,
+  ]);
+
+  const displayBalanceString =
+    resolvedBalanceString ??
+    currentConfirmedBalance ??
+    (canReuseLatestDisplayedBalance
+      ? lastConfirmedOverviewBalance.latest
+      : '0');
+
+  const debouncedBalanceString = useDebounce(displayBalanceString, 100);
 
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
     formatterOptions: { currency: settings.currencyInfo.symbol },
   };
 
+  const hasDisplayableOverviewBalance =
+    resolvedBalanceString !== undefined ||
+    !!currentConfirmedBalance ||
+    canReuseLatestDisplayedBalance;
+
   const showSkeleton = useMemo(() => {
-    return overviewState.isRefreshing && !overviewState.initialized;
-  }, [overviewState.isRefreshing, overviewState.initialized]);
+    return (
+      overviewState.isRefreshing &&
+      !overviewState.initialized &&
+      !hasDisplayableOverviewBalance
+    );
+  }, [
+    hasDisplayableOverviewBalance,
+    overviewState.isRefreshing,
+    overviewState.initialized,
+  ]);
 
   return (
     <YStack gap="$2.5" alignItems="flex-start">

@@ -301,6 +301,15 @@ function useAllNetworkRequests<T>(params: {
     accountId?: string;
     networkId?: string;
   }) => Promise<void>;
+  onCacheChecked?: ({
+    accountId,
+    networkId,
+    hasCache,
+  }: {
+    accountId?: string;
+    networkId?: string;
+    hasCache: boolean;
+  }) => Promise<void> | void;
   revalidateOnFocus?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
@@ -325,6 +334,7 @@ function useAllNetworkRequests<T>(params: {
     shouldAlwaysFetch,
     onStarted,
     onFinished,
+    onCacheChecked,
     revalidateOnFocus = false,
   } = params;
   const allNetworkDataInit = useRef(false);
@@ -578,6 +588,11 @@ function useAllNetworkRequests<T>(params: {
                 networkId: currentNetworkId,
               });
             }
+            await onCacheChecked?.({
+              accountId: currentAccountId,
+              networkId: currentNetworkId,
+              hasCache: !!cachedData?.length,
+            });
           } catch (e) {
             console.error(e);
             // pass
@@ -737,6 +752,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkAccountsData,
       onStarted,
       onFinished,
+      onCacheChecked,
       clearAllNetworkData,
       allNetworkCacheRequests,
       allNetworkCacheData,

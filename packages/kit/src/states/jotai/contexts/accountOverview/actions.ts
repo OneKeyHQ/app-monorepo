@@ -13,7 +13,9 @@ import {
   accountWorthAtom,
   allNetworksStateAtom,
   approvalsInfoAtom,
+  buildOverviewOwnerKey,
   contextAtomMethod,
+  overviewDeFiDataStateAtom,
   walletStatusAtom,
   walletTopBannersAtom,
 } from './atoms';
@@ -129,6 +131,9 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         };
         merge?: boolean;
         currency?: string;
+        accountId?: string;
+        networkId?: string;
+        hasData?: boolean;
       },
     ) => {
       const overview = get(accountDeFiOverviewAtom());
@@ -148,14 +153,46 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
             .plus(value.overview.totalReward ?? 0)
             .toNumber(),
           currency: overview.currency,
+          accountId: value.accountId ?? overview.accountId,
+          networkId: value.networkId ?? overview.networkId,
         };
         set(accountDeFiOverviewAtom(), newOverview);
       } else {
         set(accountDeFiOverviewAtom(), {
           ...value.overview,
           currency: value.currency ?? overview.currency,
+          accountId: value.accountId ?? overview.accountId,
+          networkId: value.networkId ?? overview.networkId,
         });
       }
+
+      // Auto-set DeFi data state when hasData is explicitly provided
+      if ('hasData' in value) {
+        set(overviewDeFiDataStateAtom(), {
+          ownerKey: buildOverviewOwnerKey(
+            value.accountId ?? overview.accountId,
+            value.networkId ?? overview.networkId,
+          ),
+          hasData: value.hasData,
+        });
+      }
+    },
+  );
+
+  updateOverviewDeFiDataState = contextAtomMethod(
+    (
+      get,
+      set,
+      value: {
+        accountId?: string;
+        networkId?: string;
+        hasData?: boolean;
+      },
+    ) => {
+      set(overviewDeFiDataStateAtom(), {
+        ownerKey: buildOverviewOwnerKey(value.accountId, value.networkId),
+        hasData: value.hasData,
+      });
     },
   );
 }
@@ -175,6 +212,8 @@ export function useAccountOverviewActions() {
   const updateWalletStatus = actions.updateWalletStatus.use();
   const updateWalletTopBanners = actions.updateWalletTopBanners.use();
   const updateAccountDeFiOverview = actions.updateAccountDeFiOverview.use();
+  const updateOverviewDeFiDataState =
+    actions.updateOverviewDeFiDataState.use();
 
   return useRef({
     updateAllNetworksState,
@@ -184,5 +223,6 @@ export function useAccountOverviewActions() {
     updateWalletStatus,
     updateWalletTopBanners,
     updateAccountDeFiOverview,
+    updateOverviewDeFiDataState,
   });
 }

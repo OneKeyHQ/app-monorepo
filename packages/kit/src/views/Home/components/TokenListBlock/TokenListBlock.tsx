@@ -26,7 +26,9 @@ import {
   useAccountOverviewActions,
   useAccountWorthAtom,
   useAllNetworksStateStateAtom,
+  useOverviewTokenCacheStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
+import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
@@ -130,6 +132,7 @@ function TokenListBlock({
     deriveInfoItems.length > 1;
 
   const [accountTokensWorth] = useAccountWorthAtom();
+  const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
 
   const accountTokensValue = useMemo(() => {
     return calculateAccountTokensValue({
@@ -889,6 +892,24 @@ function TokenListBlock({
     [],
   );
 
+  const handleAllNetworkCacheChecked = useCallback(
+    ({
+      accountId,
+      networkId,
+      hasCache,
+    }: {
+      accountId?: string;
+      networkId?: string;
+      hasCache: boolean;
+    }) => {
+      setOverviewTokenCacheState({
+        ownerKey: buildOverviewOwnerKey(accountId, networkId),
+        hasCache,
+      });
+    },
+    [setOverviewTokenCacheState],
+  );
+
   const handleAllNetworkRequestsStarted = useCallback(
     async ({
       accountId,
@@ -928,8 +949,13 @@ function TokenListBlock({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
       });
+
+      setOverviewTokenCacheState({
+        ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+        hasCache: undefined,
+      });
     },
-    [],
+    [account?.id, network?.id, setOverviewTokenCacheState],
   );
 
   const handleAllNetworkCacheRequests = useCallback(
@@ -969,7 +995,8 @@ function TokenListBlock({
       if (
         isEmpty(tokenList) &&
         isEmpty(riskyTokenList) &&
-        isEmpty(smallBalanceTokenList)
+        isEmpty(smallBalanceTokenList) &&
+        !localTokens.hasCache
       ) {
         return null;
       }
@@ -1044,6 +1071,7 @@ function TokenListBlock({
       let aggregateTokenMap: {
         [key: string]: ITokenFiat;
       } = {};
+      const hasAnyCache = data.some((item) => item.hasCache);
       data.forEach((item) => {
         tokenList.push(...item.tokenList, ...item.smallBalanceTokenList);
         riskyTokenList.push(...item.riskyTokenList);
@@ -1159,7 +1187,12 @@ function TokenListBlock({
         networkId: network?.id,
       });
 
-      if (!isEmpty(tokenList) || !isEmpty(riskyTokenList)) {
+      setOverviewTokenCacheState({
+        ownerKey: buildOverviewOwnerKey(accountId, networkId),
+        hasCache: hasAnyCache,
+      });
+
+      if (hasAnyCache) {
         updateAccountWorth({
           accountId: account?.id ?? '',
           initialized: true,
@@ -1199,6 +1232,7 @@ function TokenListBlock({
       refreshSmallBalanceTokenListMap,
       refreshTokenList,
       refreshTokenListMap,
+      setOverviewTokenCacheState,
       updateAccountOverviewState,
       updateAccountWorth,
       updateTokenListState,
@@ -1237,6 +1271,7 @@ function TokenListBlock({
     clearAllNetworkData: handleClearAllNetworkData,
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
+    onCacheChecked: handleAllNetworkCacheChecked,
     interval: 200,
     shouldAlwaysFetch,
   });
@@ -1549,6 +1584,10 @@ function TokenListBlock({
         networkId,
         accountId,
       });
+      setOverviewTokenCacheState({
+        ownerKey: buildOverviewOwnerKey(account?.id, networkId),
+        hasCache: undefined,
+      });
 
       if (networkId === networkIdsMap.onekeyall) {
         perfTokenListView.markStart('tokenListRefreshing_1');
@@ -1570,6 +1609,7 @@ function TokenListBlock({
       let tokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
+      let hasLocalTokenCache = false;
 
       if (mergeDeriveAddressData) {
         const { networkAccounts } =
@@ -1595,6 +1635,7 @@ function TokenListBlock({
             }),
           ),
         );
+        hasLocalTokenCache = resp.some((item) => item.hasCache);
 
         const params = resp.map((r) => {
           if (r.accountId && r.networkId) {
@@ -1646,6 +1687,7 @@ function TokenListBlock({
             accountAddress,
             xpub,
           });
+        hasLocalTokenCache = localTokens.hasCache;
 
         tokenList = localTokens.tokenList;
         smallBalanceTokenList = localTokens.smallBalanceTokenList;
@@ -1665,6 +1707,37 @@ function TokenListBlock({
         isEmpty(smallBalanceTokenList) &&
         isEmpty(riskyTokenList)
       ) {
+        if (hasLocalTokenCache) {
+          setOverviewTokenCacheState({
+            ownerKey: buildOverviewOwnerKey(account?.id, networkId),
+            hasCache: true,
+          });
+          updateAccountWorth({
+            accountId: mergeDeriveAddressData
+              ? (indexedAccount?.id ?? '')
+              : (account?.id ?? ''),
+            initialized: true,
+            worth: tokenListWorth,
+            createAtNetworkWorth: tokenListValue,
+            merge: false,
+          });
+          handleClearAllNetworkData();
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
+          perfTokenListView.markEnd('tokenListRefreshing_initTokenListData');
+          updateTokenListState({
+            initialized: true,
+            isRefreshing: false,
+          });
+          return;
+        }
+
+        setOverviewTokenCacheState({
+          ownerKey: buildOverviewOwnerKey(account?.id, networkId),
+          hasCache: false,
+        });
         perfTokenListView.markStart('tokenListRefreshing_2');
         updateTokenListState({
           initialized: false,
@@ -1678,6 +1751,10 @@ function TokenListBlock({
           handleClearAllNetworkData();
         }
       } else {
+        setOverviewTokenCacheState({
+          ownerKey: buildOverviewOwnerKey(account?.id, networkId),
+          hasCache: true,
+        });
         updateAccountWorth({
           accountId: mergeDeriveAddressData
             ? (indexedAccount?.id ?? '')
@@ -1769,6 +1846,7 @@ function TokenListBlock({
     refreshSmallBalanceTokenListMap,
     refreshTokenList,
     refreshTokenListMap,
+    setOverviewTokenCacheState,
     updateAccountOverviewState,
     updateAccountWorth,
     updateSearchKey,
