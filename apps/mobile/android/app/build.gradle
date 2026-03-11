@@ -141,8 +141,8 @@ android {
         applicationId 'so.onekey.app.wallet'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2026033130
-        versionName "9006.10.0"
+        versionCode 2026031170
+        versionName "6.1.0"
 
         // Detox uses Espresso and requires AndroidJUnitRunner (or a subclass).
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
