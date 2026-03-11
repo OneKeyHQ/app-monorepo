@@ -17,7 +17,6 @@ import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { useIsLockScreen } from '@onekeyhq/components/src/hooks/useIsLockScreen';
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
@@ -137,10 +136,7 @@ function DialogFrame({
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
-  const isLockScreen = useIsLockScreen();
-  const effectiveTrapFocus = isLockScreen
-    ? false
-    : (trapFocus ?? !platformEnv.isNative);
+  const effectiveTrapFocus = trapFocus ?? !platformEnv.isNative;
   const onBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],

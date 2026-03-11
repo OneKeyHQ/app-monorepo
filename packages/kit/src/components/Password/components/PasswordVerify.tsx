@@ -138,6 +138,7 @@ function PasswordVerify({
         onPress: () => {
           setSecureEntry(!secureEntry);
         },
+        tabIndex: -1,
       });
       actions.push({
         iconName: 'ArrowRightOutline',
