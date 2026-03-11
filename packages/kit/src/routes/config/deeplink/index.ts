@@ -126,13 +126,9 @@ async function processDeepLinkUrlAccount(
               navigation.push(ETabHomeRoutes.TabHomeReferralLanding, {
                 code,
                 page: page ?? '',
+                fromDeepLink: true,
               });
             }
-            defaultLogger.referral.page.enterFromReferralLink({
-              referralCode: code ?? '',
-              landingPage: page ? `/app/${page}` : '/app',
-              utmSource: 'deep_link',
-            });
           }
           break;
         case EOneKeyDeepLinkPath.cross_device_transfer:
