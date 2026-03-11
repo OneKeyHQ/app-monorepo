@@ -317,6 +317,7 @@ class ServiceKeylessWallet extends ServiceBase {
       .syncNowKeyless({
         callerName: 'Create Keyless Wallet',
         noDebounceUpload: true,
+        password,
       })
       .catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
