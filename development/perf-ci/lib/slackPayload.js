@@ -162,7 +162,7 @@ function summarizeFunction(item) {
   const name = item.name || 'anonymous';
   const total = formatMetricValue('tokensSpanMs', item.total);
   const count = Number.isFinite(item.count) ? Math.round(item.count) : null;
-  return count ? `${name} ${total}/${count} calls` : `${name} ${total}`;
+  return count ? `${name} ${total} / ${count} 次` : `${name} ${total}`;
 }
 
 function summarizeMark(item) {
@@ -214,16 +214,16 @@ function buildInference(metricDetails) {
   )?.triggered;
 
   if (startTriggered && !spanTriggered && !fcTriggered) {
-    return '推断: 回归更像发生在 Home:refresh:start:tokens 之前的启动/初始化阶段。';
+    return '初步判断：问题出在启动阶段（Home refresh 开始前）';
   }
   if (!startTriggered && spanTriggered && !fcTriggered) {
-    return '推断: 回归集中在 Home refresh span 内部。';
+    return '初步判断：问题出在 Home refresh 执行阶段';
   }
   if (!startTriggered && !spanTriggered && fcTriggered) {
-    return '推断: 更像是调用次数膨胀或重复渲染，而不是单次耗时拉长。';
+    return '初步判断：函数调用次数增多，非单次执行变慢';
   }
   if (startTriggered && spanTriggered) {
-    return '推断: 启动前准备和 refresh span 内部都出现了明显变慢。';
+    return '初步判断：启动阶段与 Home refresh 执行阶段均出现明显变慢';
   }
   return null;
 }
@@ -234,7 +234,7 @@ function buildDiagnosisLines(report, representativeRun, metricDetails) {
   if (inference) lines.push(inference);
 
   const milestones = buildMilestoneSummary(representativeRun);
-  if (milestones) lines.push(`关键里程碑: ${milestones}`);
+  if (milestones) lines.push(`各阶段耗时：${milestones}`);
 
   const refreshTopFunctions = Array.isArray(
     representativeRun?.metrics?.homeRefreshTopFunctions,
@@ -253,7 +253,7 @@ function buildDiagnosisLines(report, representativeRun, metricDetails) {
     .filter(Boolean)
     .slice(0, 3);
   if (topFunctions.length) {
-    lines.push(`热点函数: ${topFunctions.join(' | ')}`);
+    lines.push(`最慢的调用：${topFunctions.join(' | ')}`);
   }
 
   const jsblock = representativeRun?.metrics?.homeRefreshJsblockMarks?.[0];
@@ -267,11 +267,11 @@ function buildDiagnosisLines(report, representativeRun, metricDetails) {
     .filter(Boolean)
     .slice(0, 2);
   if (marks.length) {
-    lines.push(`附加热点: ${marks.join(' | ')}`);
+    lines.push(`其他耗时：${marks.join(' | ')}`);
   }
 
   if (!lines.length && report?.regression?.reasons?.length) {
-    lines.push(`触发原因: ${report.regression.reasons.join(' ; ')}`);
+    lines.push(`超阈原因：${report.regression.reasons.join(' ; ')}`);
   }
 
   return lines.slice(0, 4);
@@ -291,7 +291,7 @@ function buildHealthyMetricsSummary(metricDetails) {
 function buildRegressionSummary(metricDetails) {
   const triggered = metricDetails.filter((item) => item.triggered);
   const first = triggered[0];
-  if (!first) return '检测到性能回归。';
+  if (!first) return '检测到性能下降。';
   const summary = [
     `${first.label} 中位数 ${formatMetricValue(
       first.key,
@@ -318,7 +318,7 @@ function buildRecoverySummary(metricDetails, previousState) {
   const currentOk = metricDetails.every((item) => !item.triggered);
   if (!currentOk) return '当前结果仍未恢复正常。';
   const statusZhMap = {
-    regression: '性能回归',
+    regression: '性能检测',
     failed: '任务失败',
     recovered: '已恢复',
   };
@@ -492,7 +492,7 @@ function buildSlackPayload(model) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*定位摘要*\n${escapeMrkdwn(model.diagnosisLines.join('\n'))}`,
+        text: `*定位分析*\n${escapeMrkdwn(model.diagnosisLines.join('\n'))}`,
       },
     });
   }
@@ -563,9 +563,9 @@ function buildPerfAlertModel({
   const severityIcon = { P1: '🔴', P2: '🟡', INFO: '🟢' };
   const icon = severityIcon[severity] || '';
   const titleMap = {
-    regression: `${icon} [${severity}] Perf 性能回归 | ${targetLabel}`,
-    failed: `❌ [P1] Perf 任务失败 | ${targetLabel}`,
-    recovered: `✅ [INFO] Perf 已恢复 | ${targetLabel}`,
+    regression: `${icon} [${severity}] 性能检测 | ${targetLabel}`,
+    failed: `❌ [P1] 任务失败 | ${targetLabel}`,
+    recovered: `✅ [INFO] 已恢复 | ${targetLabel}`,
   };
   const summaryMap = {
     regression: buildRegressionSummary(metricDetails),
@@ -578,7 +578,7 @@ function buildPerfAlertModel({
       ? []
       : buildDiagnosisLines(report, representativeRun, metricDetails);
   if (consecutiveCount > 1 && kind !== 'recovered') {
-    diagnosisLines.unshift(`连续第 ${consecutiveCount} 次出现相同告警签名。`);
+    diagnosisLines.unshift(`同一问题已连续触发 ${consecutiveCount} 次。`);
   }
 
   const errorSummary =
@@ -592,7 +592,7 @@ function buildPerfAlertModel({
     severity,
     signature,
     consecutiveCount,
-    title: titleMap[kind] || `[INFO] Perf 告警 | ${targetLabel}`,
+    title: titleMap[kind] || `[INFO] 性能告警 | ${targetLabel}`,
     summary: summaryMap[kind] || 'Perf 状态已更新。',
     metricDetails,
     diagnosisLines,
