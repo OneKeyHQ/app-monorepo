@@ -53,6 +53,7 @@ import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute
 import { AccountSelectorAccountListItem } from './AccountSelectorAccountListItem';
 import { AccountSelectorAddAccountButton } from './AccountSelectorAddAccountButton';
 import { EmptyNoAccountsView, EmptyView } from './EmptyView';
+import { useAccountSelectorValuesLoader } from './useAccountSelectorValuesLoader';
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { AccountSearchBar } from './WalletDetailsHeader/AccountSearchBar';
 
@@ -185,14 +186,13 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   }, [sectionDataOriginal, searchText]);
   const sectionDataRef = useRef(sectionData);
   sectionDataRef.current = sectionData;
-  const accountsValue = useMemo(
-    () => listDataResult?.accountsValue || [],
-    [listDataResult?.accountsValue],
-  );
-  const accountsDeFiOverview = useMemo(
-    () => listDataResult?.accountsDeFiOverview || [],
-    [listDataResult?.accountsDeFiOverview],
-  );
+
+  // Load account values asynchronously in batches via atoms, scoped by selector num
+  useAccountSelectorValuesLoader({
+    num,
+    accountsForValuesQuery: listDataResult?.accountsForValuesQuery,
+  });
+
   const accountsCount = useMemo(
     () => listDataResult?.accountsCount ?? 0,
     [listDataResult?.accountsCount],
@@ -548,8 +548,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               index={index}
               isOthersUniversal={isOthersUniversal}
               selectedAccount={selectedAccount}
-              accountsValue={accountsValue}
-              accountsDeFiOverview={accountsDeFiOverview}
               linkNetwork={linkNetwork}
               editable={editable}
               accountsCount={accountsCount}
@@ -608,8 +606,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     );
   }, [
     accountsCount,
-    accountsDeFiOverview,
-    accountsValue,
     actions,
     allowSelectEmptyAccount,
     createQrWallet,
@@ -644,7 +640,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const sectionListMemoMock = useMemo(() => {
     noop([
       accountsCount,
-      accountsValue,
       actions,
       // editMode, // toggle editMode
       editable,
@@ -676,7 +671,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     return null;
   }, [
     accountsCount,
-    accountsValue,
     actions,
     // editMode,
     editable,

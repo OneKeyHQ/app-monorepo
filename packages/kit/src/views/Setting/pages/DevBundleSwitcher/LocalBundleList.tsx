@@ -182,10 +182,6 @@ export default function SettingDevLocalBundleList() {
           </Stack>
         ) : (
           <YStack px="$5" py="$4" gap="$3">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`${bundles.length} bundle${bundles.length !== 1 ? 's' : ''} on device`}
-            </SizableText>
-
             {error ? (
               <XStack
                 bg="$bgCritical"
@@ -202,44 +198,49 @@ export default function SettingDevLocalBundleList() {
               </XStack>
             ) : null}
 
-            <YStack
-              bg="$bgSubdued"
-              borderRadius="$3"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$neutral3"
-              overflow="hidden"
-            >
-              {bundles.map((bundle, index) => {
-                const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
-                const isCurrent =
-                  bundle.appVersion === currentAppVersion &&
-                  bundle.bundleVersion === currentBundleVersion;
-                return (
-                  <YStack key={key}>
-                    {index > 0 ? (
-                      <XStack mx="$4">
-                        <Divider />
-                      </XStack>
-                    ) : null}
-                    <LocalBundleItem
-                      bundle={bundle}
-                      isCurrent={isCurrent}
-                      onSwitch={handleSwitch}
-                      isSwitching={switchingTo === key}
-                    />
-                  </YStack>
-                );
-              })}
-            </YStack>
-
-            {bundles.length === 0 ? (
+            {bundles.length > 0 ? (
+              <>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {`${bundles.length} bundle${bundles.length !== 1 ? 's' : ''} on device`}
+                </SizableText>
+                <YStack
+                  bg="$bgSubdued"
+                  borderRadius="$3"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="$neutral3"
+                  overflow="hidden"
+                >
+                  {bundles.map((bundle, index) => {
+                    const key = `${bundle.appVersion}-${bundle.bundleVersion}`;
+                    const isCurrent =
+                      bundle.appVersion === currentAppVersion &&
+                      bundle.bundleVersion === currentBundleVersion;
+                    return (
+                      <YStack key={key}>
+                        {index > 0 ? (
+                          <XStack mx="$4">
+                            <Divider />
+                          </XStack>
+                        ) : null}
+                        <LocalBundleItem
+                          bundle={bundle}
+                          isCurrent={isCurrent}
+                          onSwitch={handleSwitch}
+                          isSwitching={switchingTo === key}
+                        />
+                      </YStack>
+                    );
+                  })}
+                </YStack>
+              </>
+            ) : (
               <YStack py="$10" alignItems="center" gap="$2">
                 <Icon name="InboxOutline" size="$10" color="$iconDisabled" />
                 <SizableText color="$textDisabled">
                   No bundles found on device
                 </SizableText>
               </YStack>
-            ) : null}
+            )}
           </YStack>
         )}
       </Page.Body>

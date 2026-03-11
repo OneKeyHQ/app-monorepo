@@ -19,7 +19,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPassKeyWindowType } from '@onekeyhq/shared/src/utils/extUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
-import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
+import {
+  BIOLOGY_AUTH_CANCEL_ERROR,
+  EPasswordVerifyStatus,
+} from '@onekeyhq/shared/types/password';
 
 import { setupExtUIEventOnPassKeyPage } from '../background/extUI';
 import { closeWindow } from '../closePasskeyWIndow';
@@ -72,7 +75,10 @@ const usePassKeyOperations = () => {
         // No cached password — try secure storage (WebAuthn PRF)
         try {
           result = (await biologyAuthUtils.getPassword()) ?? undefined;
-        } catch {
+        } catch (e) {
+          if ((e as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+            throw e;
+          }
           // getPassword failed — fall back to credential-only verification.
           // Call verifiedWebAuth directly instead of checkWebAuth() to avoid
           // a redundant biologyAuthUtils.getPassword() call inside it.
@@ -140,14 +146,27 @@ const usePassKeyOperations = () => {
           },
         }));
       }
-    } catch {
+    } catch (e) {
+      const message =
+        (e as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR
+          ? intl.formatMessage(
+              {
+                id: ETranslations.auth_biometric_cancel,
+              },
+              {
+                biometric: intl.formatMessage({
+                  id: ETranslations.settings_passkey,
+                }),
+              },
+            )
+          : intl.formatMessage({
+              id: ETranslations.auth_error_passcode_incorrect,
+            });
       setPasswordAtom((v) => ({
         ...v,
         passwordVerifyStatus: {
           value: EPasswordVerifyStatus.ERROR,
-          message: intl.formatMessage({
-            id: ETranslations.auth_error_passcode_incorrect,
-          }),
+          message,
         },
       }));
       // Cancel any pending password prompt dialog so caller fails immediately
