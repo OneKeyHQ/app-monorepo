@@ -25,13 +25,13 @@ Example: `9005.20.0` for testing production `5.20.0`
 Build number is calculated as:
 
 ```bash
-DATE=$(date +%Y%m%d)
-BUILD_NUMBER=$((${DATE}00 + 30))
+DATE=$(date +%Y%m)
+BUILD_NUMBER=$((${DATE}3100 + 30))
 ```
 
-**Format**: 10 digits = `YYYYMMDD00 + 30`
+**Format**: 10 digits = `YYYYMM3130`
 
-Example: If today is `20260130`, build number is `2026013030`
+Example: If today is `20260130`, build number is `2026013130`. If today is `20260311`, build number is `2026033130`
 
 ## Workflow
 
@@ -44,8 +44,8 @@ Ask user for test version number:
 ### Step 2: Calculate Build Number
 
 ```bash
-DATE=$(date +%Y%m%d)
-BUILD_NUMBER=$((${DATE}00 + 30))
+DATE=$(date +%Y%m)
+BUILD_NUMBER=$((${DATE}3100 + 30))
 echo "Build number: $BUILD_NUMBER"
 ```
 

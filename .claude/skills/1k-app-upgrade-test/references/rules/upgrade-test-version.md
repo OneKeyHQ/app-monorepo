@@ -21,17 +21,17 @@ The version should follow the pattern `9XXX.YY.Z` where:
 
 ### Step 2: Calculate Build Number
 
-Calculate the build number as: **current date (YYYYMMDD) + "00" suffix + 30**
+Calculate the build number as: **current year+month (YYYYMM) + "3100" suffix + 30**
 
-The build number must be 10 digits in format: `YYYYMMDD00 + 30 = YYYYMMDD30`
+The build number must be 10 digits in format: `YYYYMM3100 + 30 = YYYYMM3130`
 
-Example: If today is `20260113`, the build number is `2026011300 + 30 = 2026011330`
+Example: If today is `20260113`, the build number is `2026013100 + 30 = 2026013130`
 
 ```bash
 # Calculate build number (10 digits)
-DATE=$(date +%Y%m%d)
-BUILD_NUMBER=$((${DATE}00 + 30))
-echo "Build number: $BUILD_NUMBER"  # Output: 2026011330
+DATE=$(date +%Y%m)
+BUILD_NUMBER=$((${DATE}3100 + 30))
+echo "Build number: $BUILD_NUMBER"  # Output: 2026013130
 ```
 
 ### Step 3: Create and Checkout Branch
@@ -98,7 +98,7 @@ versionName "<test_version>"
 
 Example:
 ```gradle
-versionCode 2026011330
+versionCode 2026013130
 versionName "9005.20.0"
 ```
 
