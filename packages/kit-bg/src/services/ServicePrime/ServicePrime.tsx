@@ -230,6 +230,9 @@ class ServicePrime extends ServiceBase {
       primeSubscription = undefined;
     }
 
+    const serverManagementUrl =
+      serverUserInfo.subscriptions?.[0]?.managementUrl;
+
     await primePersistAtom.set((v): IPrimePersistAtomData => {
       const userEmail = serverUserInfo?.emails?.[0] || undefined;
       return {
@@ -246,6 +249,8 @@ class ServicePrime extends ServiceBase {
         isLoggedIn: true,
         isLoggedInOnServer: true,
         primeSubscription,
+        // Fallback: use server managementUrl when local SDK hasn't set it yet
+        subscriptionManageUrl: v.subscriptionManageUrl || serverManagementUrl,
         // salt: serverUserInfo.salt,
         // pwdHash: serverUserInfo.pwdHash,
       };

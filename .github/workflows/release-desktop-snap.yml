@@ -73,6 +73,11 @@ jobs:
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v2
 
+      - name: Configure Snapcraft destructive mode for arm64
+        if: ${{ matrix.arch == 'arm64' }}
+        run: |
+          echo "SNAP_DESTRUCTIVE_MODE=true" >> $GITHUB_ENV
+
       - name: 'Setup ENV'
         run: |
           eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
