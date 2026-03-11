@@ -34,9 +34,9 @@ export function ImageWithFallbackSources({
         if (prev < sourcesLengthRef.current - 1) {
           return prev + 1;
         }
+        onError?.(event);
         return prev;
       });
-      onError?.(event);
     },
     [onError],
   );
@@ -49,12 +49,12 @@ export function ImageWithFallbackSources({
 
   return (
     <ImageV2
+      {...rest}
       key={currentSrc}
       src={currentSrc}
       fallback={fallback}
       onError={handleError}
       canRetry={false}
-      {...rest}
     />
   );
 }
