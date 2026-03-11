@@ -101,6 +101,7 @@ function SendDataInputContainer() {
     useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
+  const isNavigatingRef = useRef(false);
   const route =
     useRoute<RouteProp<ISendInputFlowParamList, ISendDataInputRouteName>>();
   const amountInputRouteName =
@@ -329,12 +330,19 @@ function SendDataInputContainer() {
 
   const handleNavigateToAmountInput = useCallback(async () => {
     try {
+      if (isNavigatingRef.current) return;
       // Use already-watched toResolved instead of re-getting from form
       if (!toResolved) return;
 
       // Validate memo/paymentId/note fields before navigating
       const isValid = await form.trigger();
       if (!isValid) return;
+
+      isNavigatingRef.current = true;
+
+      defaultLogger.transaction.send.addressInput({
+        addressInputMethod: addressInputChangeType.current,
+      });
 
       const nextMemoValue = form.getValues('memo');
       const nextPaymentIdValue = form.getValues('paymentId');
@@ -361,6 +369,8 @@ function SendDataInputContainer() {
       });
     } catch (e) {
       console.error('Navigate to amount input failed:', e);
+    } finally {
+      isNavigatingRef.current = false;
     }
   }, [
     toResolved,
@@ -794,6 +804,8 @@ function SendDataInputContainer() {
                   }
 
                   void (async () => {
+                    if (isNavigatingRef.current) return;
+                    isNavigatingRef.current = true;
                     try {
                       const queryResult =
                         await backgroundApiProxy.serviceAccountProfile.queryAddress(
@@ -814,6 +826,10 @@ function SendDataInputContainer() {
                         queryResult.validAddress ||
                         selectedAddress;
 
+                      defaultLogger.transaction.send.addressInput({
+                        addressInputMethod: addressInputChangeType.current,
+                      });
+
                       pushAmountInput({
                         networkId: currentAccount.networkId,
                         accountId: currentAccount.accountId,
@@ -833,6 +849,8 @@ function SendDataInputContainer() {
                     } catch {
                       // Validation failed — fall back to filling input
                       fillRecipientInput();
+                    } finally {
+                      isNavigatingRef.current = false;
                     }
                   })();
                 } else {
