@@ -296,15 +296,23 @@ class ServiceKeylessWallet extends ServiceBase {
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
   }> {
+    if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
+      throw new OneKeyLocalError('Keyless wallet already exists');
+    }
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify();
 
-    return localDb.createKeylessWallet({
+    const result = await localDb.createKeylessWallet({
       password,
       packSetId,
       name,
       avatar: avatarInfo,
     });
+    await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
+      result.wallet.id,
+    );
+    return result;
   }
 
   @backgroundMethod()
@@ -1889,6 +1897,9 @@ class ServiceKeylessWallet extends ServiceBase {
     keylessDetailsInfo: IKeylessWalletDetailsInfo;
   }> {
     const { token, refreshToken, pin, customMnemonic } = params;
+    if (await this.backgroundApi.serviceAccount.getKeylessWallet()) {
+      throw new OneKeyLocalError('Keyless wallet already exists');
+    }
     if (!token) {
       throw new OneKeyLocalError('social login token is required');
     }

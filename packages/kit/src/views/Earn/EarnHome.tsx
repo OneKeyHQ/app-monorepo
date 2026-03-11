@@ -140,8 +140,16 @@ function BasicEarnHome({
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
 
+  const refreshEarnData = useCallback(async () => {
+    await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+    actions.current.triggerRefresh();
+    await refreshEarnDataRaw();
+  }, [actions, refreshEarnDataRaw]);
+
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
-    return [EEarnLabels.Stake, EEarnLabels.Withdraw].includes(
+    // Pendle redeem/unstake is recorded as Sell, but it should still trigger
+    // the same earn portfolio refresh flow once the pending tx settles.
+    return [EEarnLabels.Stake, EEarnLabels.Withdraw, EEarnLabels.Sell].includes(
       tx.stakingInfo.label,
     );
   }, []);
@@ -155,10 +163,10 @@ function BasicEarnHome({
 
   useEffect(() => {
     if (previousIsPendingRef.current && !isPending) {
-      void refreshEarnDataRaw();
+      void refreshEarnData();
     }
     previousIsPendingRef.current = isPending;
-  }, [isPending, refreshEarnDataRaw]);
+  }, [isPending, refreshEarnData]);
 
   const [borrowNetworkIds, setBorrowNetworkIds] = useState<string[]>([]);
   const borrowRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
@@ -205,12 +213,6 @@ function BasicEarnHome({
       prevBorrowPendingIdsRef.current = nextIds;
     }
   }, [borrowPendingTxs]);
-
-  const refreshEarnData = useCallback(async () => {
-    await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
-    actions.current.triggerRefresh();
-    await refreshEarnDataRaw();
-  }, [actions, refreshEarnDataRaw]);
 
   const navigation = useAppNavigation();
 

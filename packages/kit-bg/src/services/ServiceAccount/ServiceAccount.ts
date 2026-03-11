@@ -358,8 +358,10 @@ class ServiceAccount extends ServiceBase {
   async getKeylessWallet(): Promise<IDBWallet | undefined> {
     // TODO remove
     // await timerUtils.wait(1500, { devOnly: true });
-    const { wallets } = await localDb.getAllWallets();
-    const wallet = wallets.find((w) => w.isKeyless);
+    const { wallets } = await this.getAllWallets();
+    const wallet = wallets
+      .filter((w) => w.isKeyless)
+      .toSorted((a, b) => a.id.localeCompare(b.id))[0];
     if (wallet) {
       await localDb.refillWalletInfo({
         wallet,
@@ -389,6 +391,9 @@ class ServiceAccount extends ServiceBase {
         ),
       );
     }
+    await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
+      wallets,
+    );
     // Filter out keyless wallets if excludeKeylessWallet is true
     if (excludeKeylessWallet) {
       // do nothing
@@ -3197,6 +3202,10 @@ class ServiceAccount extends ServiceBase {
     }
     ensureSensitiveTextEncoded(password);
 
+    if (isKeylessWallet && (await this.getKeylessWallet())) {
+      throw new OneKeyLocalError('Keyless wallet already exists');
+    }
+
     let shouldCheckDuplicate = true;
 
     const devSettings = await devSettingsPersistAtom.get();
@@ -3246,6 +3255,10 @@ class ServiceAccount extends ServiceBase {
     });
 
     if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
+      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+      await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
+        result.wallet.id,
+      );
       void this.backgroundApi.serviceNotification.updateClientBasicAppInfoDebounced();
     }
 
@@ -3409,6 +3422,7 @@ class ServiceAccount extends ServiceBase {
 
     const wallet = await this.getWalletSafe({ walletId });
     const keylessOwnerId = wallet?.keylessDetailsInfo?.keylessOwnerId;
+    const isKeylessWallet = !!wallet?.isKeyless;
 
     await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
       walletId,
@@ -3418,6 +3432,13 @@ class ServiceAccount extends ServiceBase {
       walletId,
       isRemoveToMocked,
     });
+    if (isKeylessWallet) {
+      const { wallets } = await localDb.getAllWallets();
+      await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
+        wallets,
+      );
+      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+    }
 
     // WARNING:
     // Use setTimeout to change React Native's render scheduling to avoid exceptions penetrating the scheduler and causing crashes.

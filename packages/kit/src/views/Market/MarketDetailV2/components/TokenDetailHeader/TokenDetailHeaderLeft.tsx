@@ -5,7 +5,6 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
-  Image,
   InteractiveIcon,
   SizableText,
   XStack,
@@ -20,11 +19,12 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import { MarketStarV2 } from '../../../components/MarketStarV2';
 import {
   StockIsOpenBadge,
+  StockSourceLogo,
   SubtitleBadge,
 } from '../../../components/PerpsBadges';
-import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
@@ -73,6 +73,7 @@ export function TokenDetailHeaderLeft({
     symbol = '',
     address = '',
     logoUrl = '',
+    logoUrls,
     extraData,
     communityRecognized,
     stock,
@@ -115,6 +116,7 @@ export function TokenDetailHeaderLeft({
         <Token
           size="md"
           tokenImageUri={logoUrl}
+          tokenImageUris={logoUrls}
           networkImageUri={effectiveNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
@@ -133,14 +135,7 @@ export function TokenDetailHeaderLeft({
             >
               {symbol}
             </SizableText>
-            {stock?.sourceLogoUri ? (
-              <Image
-                width={14}
-                height={14}
-                borderRadius="$full"
-                source={{ uri: stock.sourceLogoUri }}
-              />
-            ) : null}
+            <StockSourceLogo stock={stock} />
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
             {stock?.subtitle ? (
               <SubtitleBadge subtitle={stock.subtitle} />

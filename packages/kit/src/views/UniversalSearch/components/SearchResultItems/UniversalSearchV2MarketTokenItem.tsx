@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   IconButton,
-  Image,
   NumberSizeableText,
   SizableText,
   Stack,
@@ -19,7 +18,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
-import { SubtitleBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  StockSourceLogo,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -31,7 +33,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 
@@ -40,27 +41,38 @@ import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
 import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 import { MARKET_DATA_COLUMN_WIDTH } from '../MarketTableHeader';
 
-export function ContractAddress({ address }: { address: string }) {
+import {
+  formatContractAddress,
+  shouldRenderContractAddress,
+} from './utils/contractAddress';
+
+export function ContractAddress({
+  address,
+  compact,
+}: {
+  address: string;
+  compact?: boolean;
+}) {
   const { copyText } = useClipboard();
-  const contractAddress = accountUtils.shortenAddress({
-    address,
-    leadingLength: 6,
-    trailingLength: 4,
-  });
+  const contractAddress = formatContractAddress(address);
 
   if (!address) {
     return null;
   }
 
+  const textSize = compact ? '$bodyXs' : '$bodyMd';
+  const iconSize = compact ? '$3' : '$4';
+  const gap = compact ? '$0.5' : '$1';
+
   return (
-    <XStack ai="center" gap="$1">
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <XStack ai="center" gap={gap}>
+      <SizableText size={textSize} color="$textSubdued">
         {contractAddress}
       </SizableText>
       <IconButton
         variant="tertiary"
         size="small"
-        iconSize="$4"
+        iconSize={iconSize}
         icon="Copy3Outline"
         onPress={() => {
           defaultLogger.dex.actions.dexCopyCA({
@@ -155,6 +167,7 @@ export function UniversalSearchV2MarketTokenItem({
 
   const {
     logoUrl,
+    logoUrls,
     price,
     symbol,
     name,
@@ -176,6 +189,10 @@ export function UniversalSearchV2MarketTokenItem({
   const volume24h = volume24hCamel || volume_24h;
 
   const isLegacyNavigation = !network;
+  const isContractAddressVisible = shouldRenderContractAddress({
+    address,
+    isLegacyNavigation,
+  });
 
   // Hide favorite button in extension popup and side panel
   const shouldShowFavoriteButton = useMemo(
@@ -271,7 +288,12 @@ export function UniversalSearchV2MarketTokenItem({
           ) : null}
         </XStack>
         <XStack ai="center" gap="$2" flex={1} minWidth={0}>
-          <MarketTokenIcon uri={logoUrl} size="sm" networkId={network} />
+          <MarketTokenIcon
+            uri={logoUrl}
+            uris={logoUrls}
+            size="sm"
+            networkId={network}
+          />
           <YStack flex={1} minWidth={0}>
             <XStack ai="center" gap="$1" minWidth={0}>
               <SizableText
@@ -281,22 +303,32 @@ export function UniversalSearchV2MarketTokenItem({
               >
                 {formatTokenSymbolForDisplay(symbol)}
               </SizableText>
-              {stock?.sourceLogoUri ? (
-                <Image
-                  width={14}
-                  height={14}
-                  borderRadius="$full"
-                  source={{ uri: stock.sourceLogoUri }}
-                />
-              ) : null}
+              <StockSourceLogo stock={stock} />
               {communityRecognized ? <CommunityRecognizedBadge /> : null}
               {stock?.subtitle ? (
                 <SubtitleBadge subtitle={stock.subtitle} />
               ) : null}
             </XStack>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {name}
-            </SizableText>
+            <XStack ai="center" gap="$0.5" minWidth={0}>
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+                minWidth={0}
+                flexShrink={1}
+                maxWidth={isContractAddressVisible ? '52%' : '100%'}
+              >
+                {name}
+              </SizableText>
+              {isContractAddressVisible ? (
+                <>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    |
+                  </SizableText>
+                  <ContractAddress address={address} compact />
+                </>
+              ) : null}
+            </XStack>
           </YStack>
         </XStack>
       </XStack>
