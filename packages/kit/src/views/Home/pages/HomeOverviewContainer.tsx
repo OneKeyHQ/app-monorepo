@@ -344,17 +344,6 @@ function HomeOverviewContainer() {
     });
   }, [account, network, deriveInfoItems]);
 
-  const currentWorthOwnerId = useMemo(() => {
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
-      return account?.indexedAccountId ?? account?.id ?? '';
-    }
-    return account?.id ?? '';
-  }, [
-    account?.id,
-    account?.indexedAccountId,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-  ]);
-
   const currentWorthKey = useMemo(() => {
     if (!account?.id || !network?.id || network.isAllNetworks) {
       return undefined;
@@ -378,7 +367,8 @@ function HomeOverviewContainer() {
 
     if (
       !accountWorth.accountId ||
-      accountWorth.accountId !== currentWorthOwnerId
+      (accountWorth.accountId !== (account?.id ?? '') &&
+        accountWorth.accountId !== (account?.indexedAccountId ?? ''))
     ) {
       return false;
     }
@@ -402,6 +392,7 @@ function HomeOverviewContainer() {
     );
   }, [
     account?.id,
+    account?.indexedAccountId,
     network?.id,
     network?.isAllNetworks,
     accountWorth.accountId,
@@ -409,7 +400,6 @@ function HomeOverviewContainer() {
     accountWorth.updateAll,
     accountWorth.worth,
     currentWorthKey,
-    currentWorthOwnerId,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 

@@ -542,6 +542,7 @@ function useAllNetworkRequests<T>(params: {
         }
 
         if (!allNetworkDataInit.current) {
+          let cacheHasData = false;
           try {
             perf.markStart('allNetworkCacheRequests');
             const cachedData = (
@@ -576,6 +577,7 @@ function useAllNetworkRequests<T>(params: {
             perf.markEnd('allNetworkCacheRequests');
 
             if (cachedData && !isEmpty(cachedData)) {
+              cacheHasData = true;
               allNetworkDataInit.current = true;
               perf.done();
               perfTokenListView.markEnd(
@@ -588,14 +590,18 @@ function useAllNetworkRequests<T>(params: {
                 networkId: currentNetworkId,
               });
             }
-            await onCacheChecked?.({
-              accountId: currentAccountId,
-              networkId: currentNetworkId,
-              hasCache: !!cachedData?.length,
-            });
           } catch (e) {
             console.error(e);
-            // pass
+          } finally {
+            try {
+              await onCacheChecked?.({
+                accountId: currentAccountId,
+                networkId: currentNetworkId,
+                hasCache: cacheHasData,
+              });
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
 

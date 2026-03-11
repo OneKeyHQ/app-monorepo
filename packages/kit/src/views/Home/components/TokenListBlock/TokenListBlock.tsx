@@ -697,7 +697,9 @@ function TokenListBlock({
         }
 
         updateAccountWorth({
-          accountId: account?.id ?? '',
+          accountId: mergeDeriveAddressData
+            ? (indexedAccount?.id ?? '')
+            : (account?.id ?? ''),
           initialized: true,
           worth: {
             [accountUtils.buildAccountValueKey({
@@ -804,6 +806,7 @@ function TokenListBlock({
       account?.createAtNetwork,
       account?.id,
       indexedAccount?.id,
+      mergeDeriveAddressData,
       network?.id,
       refreshAggregateTokensListMap,
       refreshAggregateTokensMap,
@@ -1195,7 +1198,9 @@ function TokenListBlock({
 
       if (hasAnyCache) {
         updateAccountWorth({
-          accountId: account?.id ?? '',
+          accountId: mergeDeriveAddressData
+            ? (indexedAccount?.id ?? '')
+            : (account?.id ?? ''),
           initialized: true,
           worth: tokenListValue,
           createAtNetworkWorth:
@@ -1223,6 +1228,8 @@ function TokenListBlock({
     [
       account?.createAtNetwork,
       account?.id,
+      indexedAccount?.id,
+      mergeDeriveAddressData,
       network?.id,
       refreshAggregateTokensListMap,
       refreshAggregateTokensMap,
@@ -1502,7 +1509,9 @@ function TokenListBlock({
       });
 
       updateAccountWorth({
-        accountId: account?.id ?? '',
+        accountId: mergeDeriveAddressData
+          ? (indexedAccount?.id ?? '')
+          : (account?.id ?? ''),
         initialized: true,
         updateAll: true,
         worth: accountsWorth,
@@ -1552,6 +1561,8 @@ function TokenListBlock({
   }, [
     account?.createAtNetwork,
     account?.id,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
     allNetworksResult,
     network?.id,
     refreshAllTokenList,
