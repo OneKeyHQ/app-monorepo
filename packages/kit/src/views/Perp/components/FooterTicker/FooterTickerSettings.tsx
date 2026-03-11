@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  IconButton,
   Popover,
   SizableText,
   YStack,
@@ -70,11 +69,12 @@ function FooterTickerSettings() {
         width: FOOTER_SETTINGS_POPOVER_WIDTH,
       }}
       renderTrigger={
-        <IconButton
-          icon="SliderVerOutline"
-          size="small"
-          variant="tertiary"
-          iconProps={{ color: '$iconSubdued', size: '$4.5' }}
+        <Icon
+          name="SliderVerOutline"
+          size="$4.5"
+          color="$iconSubdued"
+          cursor="pointer"
+          hoverStyle={{ color: '$icon' }}
         />
       }
     />
