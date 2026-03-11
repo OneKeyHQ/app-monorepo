@@ -89,6 +89,7 @@ export const useColumnsDesktop = (
               size="md"
               borderRadius="$full"
               tokenImageUri={record.tokenImageUri}
+              tokenImageUris={record.tokenImageUris}
               fallbackIcon="CryptoCoinOutline"
             />
             <Stack flex={1} minWidth={0}>
@@ -112,6 +113,7 @@ export const useColumnsDesktop = (
         ) : (
           <TokenIdentityItem
             tokenLogoURI={record.tokenImageUri}
+            tokenLogoURIs={record.tokenImageUris}
             networkLogoURI={record.networkLogoUri}
             networkId={record.networkId}
             symbol={record.symbol}

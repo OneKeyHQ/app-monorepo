@@ -39,6 +39,10 @@ interface ITokenIdentityItemProps {
    */
   tokenLogoURI?: string;
   /**
+   * Token logo URIs for fallback loading.
+   */
+  tokenLogoURIs?: string[];
+  /**
    * Network logo URI – mutually exclusive with `networkId`. If both are
    * provided `networkLogoURI` takes precedence.
    */
@@ -83,6 +87,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   symbol,
   address,
   tokenLogoURI,
+  tokenLogoURIs,
   networkLogoURI,
   networkId,
   onCopied,
@@ -143,6 +148,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
         tokenImageUri={getTokenImageUri()}
+        tokenImageUris={tokenLogoURIs}
         networkImageUri={effectiveNetworkLogoUri}
         fallbackIcon="CryptoCoinOutline"
         size="md"

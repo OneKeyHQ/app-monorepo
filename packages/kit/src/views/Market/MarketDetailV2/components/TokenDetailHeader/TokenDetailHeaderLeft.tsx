@@ -73,6 +73,7 @@ export function TokenDetailHeaderLeft({
     symbol = '',
     address = '',
     logoUrl = '',
+    logoUrls,
     extraData,
     communityRecognized,
     stock,
@@ -115,6 +116,7 @@ export function TokenDetailHeaderLeft({
         <Token
           size="md"
           tokenImageUri={logoUrl}
+          tokenImageUris={logoUrls}
           networkImageUri={effectiveNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
