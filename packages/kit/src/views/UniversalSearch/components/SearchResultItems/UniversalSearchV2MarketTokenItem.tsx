@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   IconButton,
-  Image,
   NumberSizeableText,
   SizableText,
   Stack,
@@ -19,7 +18,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
-import { SubtitleBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  StockSourceLogo,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -281,14 +283,7 @@ export function UniversalSearchV2MarketTokenItem({
               >
                 {formatTokenSymbolForDisplay(symbol)}
               </SizableText>
-              {stock?.sourceLogoUri ? (
-                <Image
-                  width={14}
-                  height={14}
-                  borderRadius="$full"
-                  source={{ uri: stock.sourceLogoUri }}
-                />
-              ) : null}
+              <StockSourceLogo stock={stock} />
               {communityRecognized ? <CommunityRecognizedBadge /> : null}
               {stock?.subtitle ? (
                 <SubtitleBadge subtitle={stock.subtitle} />

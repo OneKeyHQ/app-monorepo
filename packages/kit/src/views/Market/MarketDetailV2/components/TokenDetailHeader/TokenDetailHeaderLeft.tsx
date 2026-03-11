@@ -5,7 +5,6 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   Divider,
-  Image,
   InteractiveIcon,
   SizableText,
   XStack,
@@ -22,6 +21,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import {
   StockIsOpenBadge,
+  StockSourceLogo,
   SubtitleBadge,
 } from '../../../components/PerpsBadges';
 import { MarketStarV2 } from '../../../components/MarketStarV2';
@@ -133,14 +133,7 @@ export function TokenDetailHeaderLeft({
             >
               {symbol}
             </SizableText>
-            {stock?.sourceLogoUri ? (
-              <Image
-                width={14}
-                height={14}
-                borderRadius="$full"
-                source={{ uri: stock.sourceLogoUri }}
-              />
-            ) : null}
+            <StockSourceLogo stock={stock} />
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
             {stock?.subtitle ? (
               <SubtitleBadge subtitle={stock.subtitle} />
