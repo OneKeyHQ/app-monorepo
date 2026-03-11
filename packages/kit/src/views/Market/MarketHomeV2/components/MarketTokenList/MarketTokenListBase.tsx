@@ -1,8 +1,11 @@
 import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ListEndIndicator,
+  SizableText,
   Spinner,
   Stack,
   Table,
@@ -22,6 +25,7 @@ import type {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -131,6 +135,7 @@ function MarketTokenListBase({
   onItemContextMenu,
   onScrollBegin,
 }: IMarketTokenListBaseProps) {
+  const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
@@ -278,11 +283,58 @@ function MarketTokenListBase({
     }
   }, [canLoadMore, loadMore, isLoadingMore]);
 
+  // Stable onRow handler — uses refs to avoid re-creating on every render,
+  // which prevents the Table from seeing a new onRow prop and re-rendering all rows.
+  const onItemPressRef = useRef(onItemPress);
+  onItemPressRef.current = onItemPress;
+  const onItemLongPressRef = useRef(onItemLongPress);
+  onItemLongPressRef.current = onItemLongPress;
+  const onItemContextMenuRef = useRef(onItemContextMenu);
+  onItemContextMenuRef.current = onItemContextMenu;
+
+  const stableOnRow = useCallback(
+    (item: IMarketToken, index: number) => ({
+      onPress: onItemPressRef.current
+        ? () => onItemPressRef.current!(item)
+        : () => {
+            if (item.perpsCoin) {
+              navigateToPerps(item.perpsCoin);
+              return;
+            }
+            void toMarketDetailPage({
+              symbol: item.symbol,
+              tokenAddress: item.address,
+              networkId: item.networkId,
+              isNative: item.isNative,
+            });
+          },
+      onLongPress: onItemLongPressRef.current
+        ? () => onItemLongPressRef.current!(item, index)
+        : undefined,
+      onContextMenu: onItemContextMenuRef.current
+        ? (position?: { x: number; y: number }) =>
+            onItemContextMenuRef.current!(item, index, position)
+        : undefined,
+    }),
+    [navigateToPerps, toMarketDetailPage],
+  );
+
   // Show skeleton on initial load or network switching
   // Initial load: when there's no data yet
   // Network switching: when network is changing (provides better UX feedback)
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
+
+  const TableEmptyComponent = useMemo(() => {
+    if (isLoading) return null;
+    return (
+      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_no_data })}
+        </SizableText>
+      </Stack>
+    );
+  }, [isLoading, intl]);
 
   const TableFooterComponent = useMemo(() => {
     if (isLoadingMore) {
@@ -362,11 +414,7 @@ function MarketTokenListBase({
     <Stack flex={1} width="100%">
       {portalContent}
       {/* render custom toolbar if provided (only when not in desktop portal mode) */}
-      {!useDesktopPortal && toolbar ? (
-        <Stack width="100%" mb="$3">
-          {toolbar}
-        </Stack>
-      ) : null}
+      {!useDesktopPortal ? toolbar : null}
 
       {/* Table container with horizontal scroll support */}
       <Stack
@@ -422,31 +470,10 @@ function MarketTokenListBase({
               keyExtractor={(item) => item.id}
               extraData={networkId}
               onHeaderRow={stableHandleHeaderRow}
+              TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
-              onRow={(item, index) => ({
-                onPress: onItemPress
-                  ? () => onItemPress(item)
-                  : () => {
-                      if (item.perpsCoin) {
-                        navigateToPerps(item.perpsCoin);
-                        return;
-                      }
-                      void toMarketDetailPage({
-                        symbol: item.symbol,
-                        tokenAddress: item.address,
-                        networkId: item.networkId,
-                        isNative: item.isNative,
-                      });
-                    },
-                onLongPress: onItemLongPress
-                  ? () => onItemLongPress(item, index)
-                  : undefined,
-                onContextMenu: onItemContextMenu
-                  ? (position?: { x: number; y: number }) =>
-                      onItemContextMenu(item, index, position)
-                  : undefined,
-              })}
+              onRow={stableOnRow}
             />
           )}
           {webTabIntegrated ? (

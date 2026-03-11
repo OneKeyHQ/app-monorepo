@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -24,6 +25,7 @@ export function UniversalSearchMarketTokenItem({
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
   const appNavigation = useAppNavigation();
+  const [settings] = useSettingsPersistAtom();
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
@@ -83,6 +85,7 @@ export function UniversalSearchMarketTokenItem({
           lastUpdated={lastUpdated}
           tokenName={name}
           tokenSymbol={symbol}
+          currency={settings.currencyInfo.symbol}
         />
       </XStack>
     </ListItem>
