@@ -125,7 +125,10 @@ export const getUpdateFileType: (
     remoteBundleVersion: jsBundleVersion,
     allowRollback: true,
   });
-  if (decision.decision === 'jsBundleUpgrade') {
+  if (
+    decision.decision === 'jsBundleUpgrade' ||
+    decision.decision === 'jsBundleRollback'
+  ) {
     return EUpdateFileType.jsBundle;
   }
   return EUpdateFileType.appShell;
@@ -157,7 +160,8 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
     allowRollback: true,
   });
   const fileType =
-    decision.decision === 'jsBundleUpgrade'
+    decision.decision === 'jsBundleUpgrade' ||
+    decision.decision === 'jsBundleRollback'
       ? EUpdateFileType.jsBundle
       : EUpdateFileType.appShell;
   const shouldUpdate =

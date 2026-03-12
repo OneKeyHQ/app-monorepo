@@ -1096,3 +1096,63 @@ describe('DesktopApiBundleUpdate writeStream flags', () => {
     expect(flags).toBe('w');
   });
 });
+
+// ---------------------------------------------------------------------------
+// switchBundle parameter validation - mirrors switchBundle logic
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate switchBundle parameter validation', () => {
+  interface ISwitchBundleParams {
+    appVersion?: string;
+    bundleVersion?: string;
+    signature?: string;
+  }
+
+  function validateSwitchParams(params: ISwitchBundleParams): string | null {
+    const { appVersion, bundleVersion, signature } = params;
+    if (!appVersion || !bundleVersion || !signature) {
+      return 'Invalid parameters';
+    }
+    return null;
+  }
+
+  test('accepts valid params', () => {
+    expect(
+      validateSwitchParams({
+        appVersion: '1.0.0',
+        bundleVersion: '5',
+        signature: 'sig',
+      }),
+    ).toBeNull();
+  });
+
+  test('rejects missing appVersion', () => {
+    expect(
+      validateSwitchParams({
+        bundleVersion: '5',
+        signature: 'sig',
+      }),
+    ).toBe('Invalid parameters');
+  });
+
+  test('rejects missing bundleVersion', () => {
+    expect(
+      validateSwitchParams({
+        appVersion: '1.0.0',
+        signature: 'sig',
+      }),
+    ).toBe('Invalid parameters');
+  });
+
+  test('rejects missing signature', () => {
+    expect(
+      validateSwitchParams({
+        appVersion: '1.0.0',
+        bundleVersion: '5',
+      }),
+    ).toBe('Invalid parameters');
+  });
+
+  test('rejects all empty', () => {
+    expect(validateSwitchParams({})).toBe('Invalid parameters');
+  });
+});

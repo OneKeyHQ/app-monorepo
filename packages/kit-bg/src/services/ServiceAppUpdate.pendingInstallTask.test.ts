@@ -1085,4 +1085,36 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
 
     expect(pendingTaskValue).toBeUndefined();
   });
+
+  test('newer revision replaces different pending target with update log', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        taskId: 'jsbundle:1.0.0:3',
+        targetBundleVersion: '3',
+        status: 'pending',
+        revision: 1,
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '3',
+          signature: 'sig-3',
+        },
+      }),
+    );
+    setReadyState();
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toMatchObject({
+      taskId: 'jsbundle:1.0.0:2',
+      targetBundleVersion: '2',
+    });
+    const logger =
+      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upsertAction: 'update',
+        reason: 'newer_revision_replace_target',
+      }),
+    );
+  });
 });

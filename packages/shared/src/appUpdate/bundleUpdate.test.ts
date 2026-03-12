@@ -291,7 +291,7 @@ describe('isNeedUpdate', () => {
     expect(result.fileType).toBe(EUpdateFileType.appShell);
   });
 
-  test('rollback returns fileType appShell (not jsBundle)', () => {
+  test('rollback returns fileType jsBundle with shouldUpdate false', () => {
     const { isNeedUpdate } = loadAppUpdate('1.0.0', '5');
     const result = isNeedUpdate({
       latestVersion: '1.0.0',
@@ -299,7 +299,7 @@ describe('isNeedUpdate', () => {
       status: EAppUpdateStatus.notify,
     });
     expect(result.shouldUpdate).toBe(false);
-    expect(result.fileType).toBe(EUpdateFileType.appShell);
+    expect(result.fileType).toBe(EUpdateFileType.jsBundle);
   });
 
   test('does not trigger update when bundle version is lower (rollback path)', () => {
@@ -340,11 +340,11 @@ describe('getUpdateFileType', () => {
     ).toBe(EUpdateFileType.jsBundle);
   });
 
-  test('returns appShell for rollback decision (same app version, lower remote bundle)', () => {
+  test('returns jsBundle for rollback decision (same app version, lower remote bundle)', () => {
     const { getUpdateFileType } = loadAppUpdate('1.0.0', '5');
     expect(
       getUpdateFileType({ latestVersion: '1.0.0', jsBundleVersion: '3' }),
-    ).toBe(EUpdateFileType.appShell);
+    ).toBe(EUpdateFileType.jsBundle);
   });
 
   test('returns appShell when latestVersion is undefined', () => {

@@ -159,4 +159,21 @@ describe('useDisplaySplash', () => {
     expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
     expect(result.current).toBe(true);
   });
+
+  test('isNative: true + error during pending task still shows splash', async () => {
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.isDesktop = false;
+    platformEnvMock.isNative = true;
+    platformEnvMock.isWeb = false;
+
+    const { useDisplaySplash } = freshSplash();
+    svc.processPendingInstallTask.mockRejectedValue(new Error('native bg failed'));
+    const { result } = renderHook(() => useDisplaySplash());
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current).toBe(true);
+  });
 });

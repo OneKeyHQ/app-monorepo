@@ -542,4 +542,116 @@ describe('servicePendingInstallTask', () => {
 
     expect(pendingTaskValue).toBeUndefined();
   });
+
+  test('frozen target blocks appshell-install sync', async () => {
+    const service = createService();
+    setState({
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      freezeUntil: Date.now() + 60_000,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '2.0.0',
+        jsBundleVersion: '1',
+        updateStrategy: EUpdateStrategy.seamless,
+      },
+      requestSeq: 20,
+      traceId: 'trace-frozen-appshell',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toBeUndefined();
+    const logger =
+      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upsertAction: 'drop',
+        reason: 'frozen',
+      }),
+    );
+  });
+
+  test('ignored target blocks appshell-install sync', async () => {
+    const service = createService();
+    setState({
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      ignoredTargets: {
+        '2.0.0:1': {
+          reason: 'RETRY_EXHAUSTED',
+          createdAt: Date.now() - 1000,
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '2.0.0',
+        jsBundleVersion: '1',
+        updateStrategy: EUpdateStrategy.seamless,
+      },
+      requestSeq: 21,
+      traceId: 'trace-ignored-appshell',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('expired appshell-install task is cleared', async () => {
+    const service = createService();
+    pendingTaskValue = makeAppShellInstallTask({
+      expiresAt: Date.now() - 1,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('appshell-install retry exhausted freezes target', async () => {
+    const service = createService();
+    const autoUpdate =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      downloadedEvent: undefined,
+    });
+    pendingTaskValue = makeAppShellInstallTask({ retryCount: 2 });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(Date.now());
+    expect(appUpdateState.ignoredTargets?.['2.0.0:1']).toMatchObject({
+      reason: 'RETRY_EXHAUSTED',
+    });
+  });
+
+  test('jsbundle-switch in applied_waiting_verify within grace period is skipped', async () => {
+    const service = createService();
+    pendingTaskValue = makeSwitchTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now() - 60_000, // 1 minute ago, within 10min grace
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'applied_waiting_verify',
+      type: 'jsbundle-switch',
+    });
+  });
 });

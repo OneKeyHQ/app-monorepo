@@ -1116,14 +1116,14 @@ class ServicePendingInstallTask {
       }
 
       if (task.status === 'applied_waiting_verify') {
-        if (task.type === 'appshell-install' && task.runningStartedAt) {
+        if (task.runningStartedAt) {
           const gracePeriodMs = timerUtils.getTimeDurationMs({ minute: 10 });
           if (now - task.runningStartedAt < gracePeriodMs) {
             defaultLogger.app.appUpdate.pendingTaskValidation({
               traceId,
               requestSeq,
               isValid: true,
-              invalidReason: 'appshell_install_grace_period',
+              invalidReason: 'applied_verify_grace_period',
               ...this.buildTaskLogFields(task),
             });
             return;
