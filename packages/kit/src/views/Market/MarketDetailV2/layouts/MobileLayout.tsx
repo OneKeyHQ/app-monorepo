@@ -75,11 +75,7 @@ function MobileTradingViewTouchBridge({
 }
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
-function DialogKeyboardAvoidingView({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function DialogKeyboardAvoidingView({ children }: { children: ReactNode }) {
   const { bottom } = useSafeAreaInsets();
   const keyboardHeightValue = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
