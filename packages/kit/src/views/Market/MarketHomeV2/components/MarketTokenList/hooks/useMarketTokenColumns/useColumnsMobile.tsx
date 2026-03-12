@@ -43,19 +43,29 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
       render: (_, record: IMarketToken) => {
         if (record.perpsCoin) {
           return (
-            <XStack alignItems="center" gap="$3" ml="$5" userSelect="none">
+            <XStack
+              alignItems="center"
+              gap="$3"
+              ml="$5"
+              userSelect="none"
+              minWidth={0}
+              overflow="hidden"
+            >
               <Token
                 size="md"
                 borderRadius="$full"
                 tokenImageUri={record.tokenImageUri}
+                tokenImageUris={record.tokenImageUris}
                 fallbackIcon="CryptoCoinOutline"
               />
               <Stack flex={1} minWidth={0}>
-                <XStack alignItems="center" gap="$1">
+                <XStack alignItems="center" gap="$1" minWidth={0}>
                   <SizableText
                     size="$bodyLgMedium"
                     numberOfLines={1}
                     maxWidth="$32"
+                    flexShrink={1}
+                    ellipsizeMode="tail"
                   >
                     {record.symbol}
                   </SizableText>
@@ -66,15 +76,17 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
                     <SubtitleBadge subtitle={record.perpsSubtitle} />
                   ) : null}
                 </XStack>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  formatter="marketCap"
-                  formatterOptions={{ currency: '$' }}
-                >
-                  {record.turnover}
-                </NumberSizeableText>
+                {record.turnover ? (
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$' }}
+                  >
+                    {record.turnover}
+                  </NumberSizeableText>
+                ) : null}
               </Stack>
             </XStack>
           );
@@ -83,6 +95,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
           <XStack alignItems="center" ml="$5">
             <TokenIdentityItem
               tokenLogoURI={record.tokenImageUri}
+              tokenLogoURIs={record.tokenImageUris}
               networkLogoURI={record.networkLogoUri}
               networkId={record.networkId}
               symbol={record.symbol}

@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -40,8 +39,7 @@ export function TokenList({
   currentSelectToken,
 }: ITokenListProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [settingsPersistAtom] = useSettingsPersistAtom();
-  const currencySymbol = settingsPersistAtom.currencyInfo.symbol;
+  const currencySymbol = '$';
   const currentNetworkId = tokens[0]?.networkId;
 
   // get network account

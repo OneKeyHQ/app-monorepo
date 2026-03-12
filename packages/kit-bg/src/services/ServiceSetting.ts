@@ -65,6 +65,7 @@ import {
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
 import {
+  settingsFiatPaySiteWhitelistPersistAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms/settings';
@@ -453,6 +454,74 @@ class ServiceSetting extends ServiceBase {
         reviewControl: show,
       }));
     }
+  }
+
+  private async syncFiatPaySiteWhitelistToRuntime(origins: string[]) {
+    if (platformEnv.isDesktop) {
+      void globalThis.desktopApiProxy?.webview.setFiatPaySiteWhitelist(origins);
+    }
+  }
+
+  private async applyFiatPaySiteWhitelist(origins: string[]) {
+    await settingsFiatPaySiteWhitelistPersistAtom.set((prev) => ({
+      ...prev,
+      fiatPaySiteWhitelist: origins,
+    }));
+    await this.syncFiatPaySiteWhitelistToRuntime(origins);
+  }
+
+  @backgroundMethod()
+  public async restoreFiatPaySiteWhitelistFromPersist() {
+    const { fiatPaySiteWhitelist } =
+      await settingsFiatPaySiteWhitelistPersistAtom.get();
+    await this.syncFiatPaySiteWhitelistToRuntime(fiatPaySiteWhitelist);
+  }
+
+  @backgroundMethod()
+  public async fetchFiatPaySiteWhitelist() {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const key = 'FiatPay_site_white_list';
+    let response;
+    try {
+      response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key,
+        },
+      });
+    } catch (e) {
+      // Network error: keep cached whitelist, do not clear
+      console.error('fetchFiatPaySiteWhitelist network error', e);
+      return;
+    }
+    let origins: string[] = [];
+    const data = response.data.data;
+    const matched = data.find((item) => item.key === key);
+    if (matched) {
+      try {
+        const sites: { name: string; url: string }[] = JSON.parse(
+          matched.value,
+        );
+        origins = sites
+          .map((site) => {
+            try {
+              return new URL(site.url).origin;
+            } catch {
+              return '';
+            }
+          })
+          .filter(Boolean);
+      } catch {
+        // JSON parse failed: treat as server revocation, origins stays []
+        console.error(
+          'fetchFiatPaySiteWhitelist JSON parse failed',
+          matched.value,
+        );
+      }
+    }
+    // When key is missing or JSON is invalid, origins is [], clearing the whitelist (server revocation)
+    await this.applyFiatPaySiteWhitelist(origins);
   }
 
   @backgroundMethod()

@@ -9,6 +9,8 @@ import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import type { ISecureStorageSetOptions } from '@onekeyhq/shared/src/storage/secureStorage/types';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
@@ -27,7 +29,10 @@ class BiologyAuthUtils implements IBiologyAuth {
     return biologyAuth.getBiologyAuthType();
   }
 
-  savePassword = async (password: string) => {
+  savePassword = async (
+    password: string,
+    options?: ISecureStorageSetOptions,
+  ) => {
     ensureSensitiveTextEncoded(password);
     if (!(await appStorage.secureStorage.supportSecureStorage())) {
       return;
@@ -43,6 +48,7 @@ class BiologyAuthUtils implements IBiologyAuth {
     await appStorage.secureStorage.setSecureItem(
       SECURE_STORAGE_PASSWORD_KEY,
       text,
+      options,
     );
   };
 
@@ -87,6 +93,45 @@ class BiologyAuthUtils implements IBiologyAuth {
       SECURE_STORAGE_PASSWORD_KEY,
     );
     return !!value;
+  };
+
+  getCredentialId = async (): Promise<string | null> => {
+    if (!(await appStorage.secureStorage.supportSecureStorage())) {
+      return null;
+    }
+    return appStorage.secureStorage.getCredentialId?.() ?? null;
+  };
+
+  savePasswordForPasskey = async (
+    password: string,
+    options?: {
+      repairBrokenState?: boolean;
+    },
+  ): Promise<string | null> => {
+    try {
+      await this.savePassword(password, {
+        allowDiscoverable: false,
+      });
+    } catch (error) {
+      const canResetForPasskeyReEnroll =
+        typeof Reflect.get(
+          appStorage.secureStorage,
+          'resetForPasskeyReEnroll',
+        ) === 'function';
+      if (
+        (error as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR ||
+        !options?.repairBrokenState ||
+        !canResetForPasskeyReEnroll
+      ) {
+        throw error;
+      }
+      await appStorage.secureStorage.resetForPasskeyReEnroll?.();
+      await this.savePassword(password, {
+        allowDiscoverable: false,
+      });
+    }
+
+    return this.getCredentialId();
   };
 }
 export const biologyAuthUtils = new BiologyAuthUtils();

@@ -13,7 +13,11 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { calculateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  calculateLiquidationPrice,
+  computeMaxTradeSize,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
 
@@ -30,7 +34,7 @@ export function useLiquidationPrice(
   const { coin, margin } = activeAsset;
 
   const effectiveSide = overrideSide || formData.side;
-  const { price: referencePrice } = useOrderPrice(effectiveSide);
+  const { price: orderReferencePrice } = useOrderPrice(effectiveSide);
 
   const stableAccountValues = useMemo(
     () => ({
@@ -43,10 +47,6 @@ export function useLiquidationPrice(
       accountSummary?.crossMaintenanceMarginUsed,
     ],
   );
-
-  const totalValue = useMemo(() => {
-    return tradingComputed.computedSizeBN.multipliedBy(referencePrice);
-  }, [tradingComputed.computedSizeBN, referencePrice]);
 
   const leverage = useMemo(() => {
     return (
@@ -62,13 +62,67 @@ export function useLiquidationPrice(
   const liquidationPrice: BigNumber | null = useMemo(() => {
     if (!leverage || !activeAssetData?.leverage.type) return null;
 
-    const positionSize = tradingComputed.computedSizeBN;
-    if (positionSize.isZero()) return null;
+    const isTriggerMode = formData.orderMode === 'trigger';
+    if (isTriggerMode && formData.triggerReduceOnly) {
+      return null;
+    }
+
+    let positionSize = tradingComputed.computedSizeBN;
+    let referencePrice = orderReferencePrice;
+
+    if (isTriggerMode) {
+      const isLimitTrigger =
+        formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
+        formData.triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+      const rawTriggerPrice = isLimitTrigger
+        ? formData.executionPrice?.trim()
+        : formData.triggerPrice?.trim();
+
+      if (!rawTriggerPrice) {
+        return null;
+      }
+
+      const triggerReferencePrice = new BigNumber(rawTriggerPrice);
+      if (!triggerReferencePrice.isFinite() || triggerReferencePrice.lte(0)) {
+        return null;
+      }
+
+      const previewMaxSize = computeMaxTradeSize({
+        side: effectiveSide,
+        price: triggerReferencePrice.toFixed(),
+        markPrice: activeAssetCtx?.ctx?.markPrice,
+        maxTradeSzs: activeAssetData?.maxTradeSzs,
+        leverageValue: activeAssetData?.leverage?.value,
+        fallbackLeverage: activeAsset?.universe?.maxLeverage,
+        szDecimals: activeAsset?.universe?.szDecimals,
+      });
+
+      if (!previewMaxSize.isFinite() || previewMaxSize.lte(0)) {
+        return null;
+      }
+
+      positionSize = positionSize.lte(previewMaxSize)
+        ? positionSize
+        : previewMaxSize;
+      referencePrice = triggerReferencePrice;
+    }
+
+    if (
+      !positionSize.isFinite() ||
+      positionSize.lte(0) ||
+      !referencePrice.isFinite() ||
+      referencePrice.lte(0)
+    ) {
+      return null;
+    }
+
+    const totalValue = positionSize.multipliedBy(referencePrice);
 
     // Use unified function - it will automatically choose the optimal calculation path
     const _liquidationPrice = calculateLiquidationPrice({
       totalValue,
       referencePrice,
+      clampToCurrentMark: !isTriggerMode,
       markPrice: activeAssetCtx?.ctx?.markPrice
         ? new BigNumber(activeAssetCtx.ctx.markPrice)
         : undefined,
@@ -98,13 +152,20 @@ export function useLiquidationPrice(
     activeAssetData?.leverage.type,
     currentCoinPosition,
     effectiveSide,
+    formData.executionPrice,
+    formData.orderMode,
+    formData.triggerOrderType,
+    formData.triggerPrice,
+    formData.triggerReduceOnly,
+    orderReferencePrice,
     tradingComputed.computedSizeBN,
     leverage,
+    activeAsset?.universe?.szDecimals,
+    activeAssetData?.maxTradeSzs,
+    activeAssetData?.leverage?.value,
     margin?.marginTiers,
-    referencePrice,
     stableAccountValues.crossAccountValue,
     stableAccountValues.crossMaintenanceMarginUsed,
-    totalValue,
   ]);
 
   return liquidationPrice;
