@@ -147,7 +147,7 @@ function makeSwitchTask(overrides: Record<string, any> = {}) {
 function makeAppShellInstallTask(overrides: Record<string, any> = {}) {
   const now = Date.now();
   return {
-    taskId: 'appshell:2.0.0:direct',
+    taskId: 'appShell:2.0.0:direct',
     revision: 1,
     action: 'install-app',
     type: 'app-install',

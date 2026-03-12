@@ -1,4 +1,6 @@
-// sync storage does not support extension background, don't use it in production, but only for development
+// sync storage does not support extension background. Most keys are for
+// development, but some (e.g. onekey_pending_install_task) are used in
+// production on mobile/desktop.
 export enum EAppSyncStorageKeys {
   rrt = 'rrt',
   perf_switch = 'perf_switch',

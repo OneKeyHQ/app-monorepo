@@ -164,7 +164,7 @@ class ServiceAppUpdate extends ServiceBase {
       currentAppVersion: platformEnv.version,
       currentBundleVersion: platformEnv.bundleVersion,
       remoteAppVersion: appInfo.latestVersion,
-      remoteBundleVersion: appInfo.jsBundleVersion,
+      remoteBundleVersion: appInfo.jsBundleVersion ?? undefined,
       allowRollback: true,
     });
     if (
@@ -982,7 +982,7 @@ class ServiceAppUpdate extends ServiceBase {
             decision.decision === 'appShellUpdate'
               ? releaseInfo.jsBundleVersion ||
                 String(platformEnv.bundleVersion || '')
-              : releaseInfo.jsBundleVersion || '0',
+              : releaseInfo.jsBundleVersion!,
         });
         const blockedByControl = await this.shouldSkipTargetByControl(
           targetKey,

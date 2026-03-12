@@ -782,7 +782,7 @@ describe('processPendingInstallTask', () => {
 
   test('appshell APP_INSTALL_CHANNEL_UNSUPPORTED for store channel triggers retry', async () => {
     resetPendingTask({
-      taskId: 'appshell:2.0.0:store',
+      taskId: 'appShell:2.0.0:store',
       revision: 1,
       action: 'install-app',
       type: 'app-install',
@@ -816,7 +816,7 @@ describe('processPendingInstallTask', () => {
       downloadedEvent: undefined,
     });
     resetPendingTask({
-      taskId: 'appshell:2.0.0:direct',
+      taskId: 'appShell:2.0.0:direct',
       revision: 1,
       action: 'install-app',
       type: 'app-install',
@@ -846,7 +846,7 @@ describe('processPendingInstallTask', () => {
 
   test('app-install in applied_waiting_verify within grace period is skipped', async () => {
     resetPendingTask({
-      taskId: 'appshell:2.0.0:direct',
+      taskId: 'appShell:2.0.0:direct',
       revision: 1,
       action: 'install-app',
       type: 'app-install',
