@@ -57,6 +57,10 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -287,6 +291,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
+              setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
               navigation.switchTab(ETabRoutes.Perp);
             });
             break;
