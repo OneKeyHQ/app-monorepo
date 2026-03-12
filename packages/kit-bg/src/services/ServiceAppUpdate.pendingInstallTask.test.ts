@@ -329,6 +329,16 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     });
   });
 
+  test('readyToInstall does not create pending task for non-seamless strategy', async () => {
+    setReadyState({
+      updateStrategy: EUpdateStrategy.manual,
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
   test('reset does not clear pending task storage', async () => {
     const task = makeSwitchTask({ taskId: 'task-persist' });
     resetPendingTask(task);

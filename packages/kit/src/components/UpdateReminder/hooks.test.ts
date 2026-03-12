@@ -512,6 +512,23 @@ describe('useDownloadPackage', () => {
 
       expect(mockToastError).not.toHaveBeenCalled();
     });
+
+    test('download fails + seamless strategy → no Toast', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      appUpd.downloadPackage.mockRejectedValue(new Error('fail'));
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.downloadPackage();
+      });
+
+      expect(mockToastError).not.toHaveBeenCalled();
+    });
   });
 
   // ----- B2. downloadASC -----
