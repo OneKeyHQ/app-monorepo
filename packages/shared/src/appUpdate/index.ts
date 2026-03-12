@@ -15,7 +15,7 @@ const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
 export function encodeBundleVersionForDisplay(version: string): string {
   // BUNDLE_VERSION is seconds since 2026-01-01T00:00:00Z epoch, base36 encode for short display
   const num = Number(version);
-  if (/^\d+$/.test(version) && Number.isSafeInteger(num) && num > 99999) {
+  if (/^\d+$/.test(version) && Number.isSafeInteger(num) && num > 99_999) {
     return num.toString(36);
   }
   return version;

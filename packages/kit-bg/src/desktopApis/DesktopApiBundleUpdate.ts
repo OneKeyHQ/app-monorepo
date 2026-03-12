@@ -849,7 +849,6 @@ class DesktopApiAppBundleUpdate {
     });
   }
 
-
   async clearAllJSBundleData() {
     await this.clearDownload();
     await this.clearBundleExtract();
