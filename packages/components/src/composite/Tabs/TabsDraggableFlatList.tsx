@@ -1,16 +1,7 @@
-// eslint-disable-next-line no-restricted-syntax
-import React from 'react';
+import { forwardRef, useEffect, useMemo } from 'react';
+import type { ReactElement, Ref } from 'react';
 
-import DraggableFlatList from 'react-native-draggable-flatlist';
-
-import type { FlatList as RNFlatList } from 'react-native';
-import type * as ICollapsibleTabHooks from 'react-native-collapsible-tab-view/lib/typescript/src/hooks';
-import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
-
-// Keep runtime hooks from the same source tree as Tabs.Container/Tab (react-native field),
-// while using stable type declarations from lib/typescript.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const {
+import {
   useAfterMountEffect,
   useChainCallback,
   useCollapsibleStyle,
@@ -19,8 +10,11 @@ const {
   useTabNameContext,
   useTabsContext,
   useUpdateScrollViewContentSize,
-} =
-  require('react-native-collapsible-tab-view/src/hooks') as typeof ICollapsibleTabHooks;
+} from 'react-native-collapsible-tab-view';
+import DraggableFlatList from 'react-native-draggable-flatlist';
+
+import type { FlatList as RNFlatList } from 'react-native';
+import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
 
 function TabsDraggableFlatListImpl<T>(
   {
@@ -29,8 +23,8 @@ function TabsDraggableFlatListImpl<T>(
     onContentSizeChange,
     ...rest
   }: DraggableFlatListProps<T>,
-  passRef: React.Ref<RNFlatList>,
-): React.ReactElement {
+  passRef: Ref<RNFlatList>,
+): ReactElement {
   const name = useTabNameContext();
   const { setRef, contentInset } = useTabsContext();
   const ref = useSharedAnimatedRef<RNFlatList<unknown>>(passRef);
@@ -48,7 +42,7 @@ function TabsDraggableFlatListImpl<T>(
     progressViewOffset,
   } = useCollapsibleStyle();
 
-  React.useEffect(() => {
+  useEffect(() => {
     setRef(name, ref);
   }, [name, ref, setRef]);
 
@@ -57,29 +51,29 @@ function TabsDraggableFlatListImpl<T>(
   });
 
   const scrollContentSizeChangeHandlers = useChainCallback(
-    React.useMemo(
+    useMemo(
       () => [scrollContentSizeChange, onContentSizeChange],
       [onContentSizeChange, scrollContentSizeChange],
     ),
   );
 
-  const memoContentInset = React.useMemo(
+  const memoContentInset = useMemo(
     () => ({ top: contentInset }),
     [contentInset],
   );
 
-  const memoContentOffset = React.useMemo(
+  const memoContentOffset = useMemo(
     () => ({ x: 0, y: -contentInset }),
     [contentInset],
   );
 
-  const memoContentContainerStyle = React.useMemo(
+  const memoContentContainerStyle = useMemo(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     () => [_contentContainerStyle, contentContainerStyle as any],
     [_contentContainerStyle, contentContainerStyle],
   );
 
-  const memoStyle = React.useMemo(() => [_style, style], [_style, style]);
+  const memoStyle = useMemo(() => [_style, style], [_style, style]);
 
   return (
     <DraggableFlatList<T>
@@ -102,8 +96,8 @@ function TabsDraggableFlatListImpl<T>(
   );
 }
 
-export const TabsDraggableFlatList = React.forwardRef(
-  TabsDraggableFlatListImpl,
-) as <T>(
-  props: DraggableFlatListProps<T> & { ref?: React.Ref<RNFlatList<T>> },
-) => React.ReactElement;
+export const TabsDraggableFlatList = forwardRef(TabsDraggableFlatListImpl) as <
+  T,
+>(
+  props: DraggableFlatListProps<T> & { ref?: Ref<RNFlatList<T>> },
+) => ReactElement;

@@ -1,5 +1,3 @@
-// eslint-disable-next-line no-restricted-syntax
-import React from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
