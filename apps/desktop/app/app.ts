@@ -908,8 +908,14 @@ async function createMainWindow() {
     return false;
   });
 
-  // Media permission handler for webview (partition: persist:onekey)
-  // Allow camera/microphone for whitelisted fiat pay sites
+  // Permission handler for webview (partition: persist:onekey)
+  //
+  // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
+  // - notifications: already disabled at the webview tag level via
+  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
+  //   so the Notification API is completely unavailable and this handler
+  //   will never receive a 'notifications' permission request.
+  // - all other permissions: allowed to preserve default Electron behavior.
   const webviewSession = session.fromPartition('persist:onekey');
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
@@ -937,7 +943,9 @@ async function createMainWindow() {
         callback(false);
         return;
       }
-      // Allow all non-media permissions to preserve default Electron behavior
+      // Allow all non-media permissions to preserve default Electron behavior.
+      // Note: 'notifications' is never requested here because it is disabled
+      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
       callback(true);
     },
   );

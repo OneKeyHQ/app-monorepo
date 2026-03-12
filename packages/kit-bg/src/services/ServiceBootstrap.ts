@@ -54,8 +54,13 @@ class ServiceBootstrap extends ServiceBase {
     void systemTimeUtils.startServerTimeInterval();
     void this.backgroundApi.serviceIpTable.init();
     void this.backgroundApi.serviceCloudBackupV2.init();
-    void this.backgroundApi.serviceSetting.restoreFiatPaySiteWhitelistFromPersist();
-    void this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist();
+    // Restore persisted whitelist first, then fetch fresh data from server.
+    // Sequencing prevents the stale persisted data from overwriting a newer fetch result.
+    void this.backgroundApi.serviceSetting
+      .restoreFiatPaySiteWhitelistFromPersist()
+      .then(() =>
+        this.backgroundApi.serviceSetting.fetchFiatPaySiteWhitelist(),
+      );
   }
 }
 
