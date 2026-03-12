@@ -148,6 +148,21 @@ describe('resolveUpdateDecision', () => {
     });
   });
 
+  test('allowRollback defaults to true — remote bundle < current yields jsBundleRollback', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '5');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '5',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '2',
+      }),
+    ).toMatchObject({
+      decision: 'jsBundleRollback',
+      isValid: true,
+    });
+  });
+
   test('none when app and bundle versions fully match', () => {
     const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '3');
     expect(

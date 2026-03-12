@@ -183,11 +183,13 @@ class ServicePendingInstallTask {
     let requestSeq = 0;
     await appUpdatePersistAtom.set((prev) => {
       const prevSeq = Number(prev.lastRequestSeq || 0);
-      this.fallbackRequestSeqCounter += 1;
       const nextSeq =
         Number.isSafeInteger(prevSeq) && prevSeq > 0
           ? prevSeq + 1
-          : Date.now() * 1000 + this.fallbackRequestSeqCounter;
+          : (() => {
+              this.fallbackRequestSeqCounter += 1;
+              return Date.now() * 1000 + this.fallbackRequestSeqCounter;
+            })();
       requestSeq = nextSeq;
       return {
         ...prev,
@@ -717,6 +719,21 @@ class ServicePendingInstallTask {
     }
 
     if (existing.taskId === task.taskId) {
+      if (
+        existing.status === 'running' ||
+        existing.status === 'applied_waiting_verify'
+      ) {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
+          traceId,
+          requestSeq,
+          upsertAction: 'drop',
+          reason: 'same_target_in_progress',
+          existingStatus: existing.status,
+          ...this.buildTaskLogFields(existing),
+          stage,
+        });
+        return;
+      }
       await setPendingInstallTask({
         ...task,
         retryCount: existing.retryCount,
@@ -1100,6 +1117,19 @@ class ServicePendingInstallTask {
       }
 
       if (task.status === 'applied_waiting_verify') {
+        if (task.type === 'appshell-install' && task.runningStartedAt) {
+          const gracePeriodMs = timerUtils.getTimeDurationMs({ minute: 10 });
+          if (now - task.runningStartedAt < gracePeriodMs) {
+            defaultLogger.app.appUpdate.pendingTaskValidation({
+              traceId,
+              requestSeq,
+              isValid: true,
+              invalidReason: 'appshell_install_grace_period',
+              ...this.buildTaskLogFields(task),
+            });
+            return;
+          }
+        }
         const aligned = this.isTaskTargetAligned(task);
         defaultLogger.app.appUpdate.pendingVerifyAfterRestart(
           {

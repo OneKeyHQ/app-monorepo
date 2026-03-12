@@ -140,8 +140,7 @@ class ServiceAppUpdate extends ServiceBase {
     });
     return (
       resolved.decision === 'appShellUpdate' ||
-      resolved.decision === 'jsBundleUpgrade' ||
-      resolved.decision === 'jsBundleRollback'
+      resolved.decision === 'jsBundleUpgrade'
     );
   }
 
@@ -834,7 +833,8 @@ class ServiceAppUpdate extends ServiceBase {
       let shouldUpdate = this.shouldUpdateFromReleaseInfo(releaseInfo);
       if (
         (decision.decision === 'jsBundleUpgrade' ||
-          decision.decision === 'jsBundleRollback') &&
+          decision.decision === 'jsBundleRollback' ||
+          decision.decision === 'appShellUpdate') &&
         releaseInfo.version &&
         releaseInfo.jsBundleVersion
       ) {
@@ -892,11 +892,17 @@ class ServiceAppUpdate extends ServiceBase {
           }
         }
         if (isFailed && !isNewerThanAttempted) {
-          isNewerThanAttempted =
-            prev.jsBundleVersion != null &&
-            releaseInfo.jsBundleVersion != null &&
-            Number(releaseInfo.jsBundleVersion) !==
-              Number(prev.jsBundleVersion);
+          isNewerThanAttempted = (() => {
+            const prevBundle = Number(prev.jsBundleVersion);
+            const remoteBundle = Number(releaseInfo.jsBundleVersion);
+            return (
+              prev.jsBundleVersion != null &&
+              releaseInfo.jsBundleVersion != null &&
+              Number.isFinite(prevBundle) &&
+              Number.isFinite(remoteBundle) &&
+              remoteBundle > prevBundle
+            );
+          })();
         }
         const shouldResetFailed = isFailed && isNewerThanAttempted;
         // Corrupted/tampered packages must be re-downloaded
