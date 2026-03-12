@@ -174,7 +174,10 @@ function BundleItem({
     });
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
-        await BundleUpdate.verifyExtractedBundle(version, bundle.ciBundleVersion);
+        await BundleUpdate.verifyExtractedBundle(
+          version,
+          bundle.ciBundleVersion,
+        );
         defaultLogger.app.jsBundleDev.installBundleResult({
           version,
           bundleVersion: bundle.ciBundleVersion,
@@ -253,11 +256,7 @@ function BundleItem({
       <XStack alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" gap="$2" flex={1}>
           {isCurrentBundle ? (
-            <Icon
-              name="CheckRadioSolid"
-              size="$4.5"
-              color="$iconSuccess"
-            />
+            <Icon name="CheckRadioSolid" size="$4.5" color="$iconSuccess" />
           ) : null}
           <SizableText size="$bodyMdMedium">
             {commitHashShort || bundle.ciBundleVersion}
@@ -404,7 +403,10 @@ export default function SettingDevBundleList() {
         const existsChecks = await Promise.all(
           data.map(async (b) => ({
             ciBundleVersion: b.ciBundleVersion,
-            exists: await BundleUpdate.isBundleExists(version, b.ciBundleVersion),
+            exists: await BundleUpdate.isBundleExists(
+              version,
+              b.ciBundleVersion,
+            ),
           })),
         );
         for (const check of existsChecks) {
@@ -501,7 +503,9 @@ export default function SettingDevBundleList() {
                       }
                       return bundle.ciBundleVersion === currentBundleVersion;
                     })()}
-                    alreadyDownloaded={downloadedSet.has(bundle.ciBundleVersion)}
+                    alreadyDownloaded={downloadedSet.has(
+                      bundle.ciBundleVersion,
+                    )}
                     isDownloading={isDownloading}
                     onDownloadStart={handleDownloadStart}
                     onDownloadEnd={handleDownloadEnd}

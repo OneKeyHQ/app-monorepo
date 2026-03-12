@@ -104,17 +104,15 @@ const MAX_CONTENT_WIDTH = 400;
 
 const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = () => {
-  const { bottom } = useSafeAreaInsets();
   const keyboardHeightValue = useSharedValue(0);
   const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value + bottom,
+    paddingBottom: keyboardHeightValue.value,
   }));
 
   useKeyboardEventWithoutNavigation({
     keyboardWillShow: (e) => {
       const height = e.endCoordinates.height;
-      const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
-      keyboardHeightValue.value = keyboardHeight - bottom;
+      keyboardHeightValue.value = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
     },
     keyboardWillHide: () => {
       keyboardHeightValue.value = 0;
