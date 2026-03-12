@@ -123,6 +123,136 @@ target 'OneKeyWallet' do
       :mac_catalyst_enabled => false
     )
 
+    # Fix: TOCropViewController rotation causes crop box to progressively shrink (OK-51551)
+    # setAspectRatio:animated: calculates new crop box from current (shrunk) size after rotation.
+    # Fix: use content bounds as starting point to maximize crop area.
+    tocrop_file = File.join(__dir__, 'Pods', 'TOCropViewController',
+      'Objective-C', 'TOCropViewController', 'Views', 'TOCropView.m')
+    if File.exist?(tocrop_file)
+      content = File.read(tocrop_file)
+
+      # Portrait path: replace cropBoxFrame.size.height with boundsHeight
+      old_portrait = <<~'OBJC'
+    if (cropBoxIsPortrait) {
+        CGFloat newWidth = floorf(cropBoxFrame.size.height * (aspectRatio.width/aspectRatio.height));
+        CGFloat delta = cropBoxFrame.size.width - newWidth;
+        cropBoxFrame.size.width = newWidth;
+        offset.x += (delta * 0.5f);
+
+        if (delta < FLT_EPSILON) {
+            cropBoxFrame.origin.x = self.contentBounds.origin.x; //set to 0 to avoid accidental clamping by the crop frame sanitizer
+        }
+
+        // If the aspect ratio causes the new width to extend
+        // beyond the content width, we'll need to zoom the image out
+        CGFloat boundsWidth = CGRectGetWidth(boundsFrame);
+        if (newWidth > boundsWidth) {
+            CGFloat scale = boundsWidth / newWidth;
+
+            // Scale the new height
+            CGFloat newHeight = cropBoxFrame.size.height * scale;
+            delta = cropBoxFrame.size.height - newHeight;
+            cropBoxFrame.size.height = newHeight;
+
+            // Offset the Y position so it stays in the middle
+            offset.y += (delta * 0.5f);
+
+            // Clamp the width to the bounds width
+            cropBoxFrame.size.width = boundsWidth;
+            zoomOut = YES;
+        }
+    }
+    else {
+        CGFloat newHeight = floorf(cropBoxFrame.size.width * (aspectRatio.height/aspectRatio.width));
+        CGFloat delta = cropBoxFrame.size.height - newHeight;
+        cropBoxFrame.size.height = newHeight;
+        offset.y += (delta * 0.5f);
+
+        if (delta < FLT_EPSILON) {
+            cropBoxFrame.origin.y = self.contentBounds.origin.y;
+        }
+
+        // If the aspect ratio causes the new height to extend
+        // beyond the content width, we'll need to zoom the image out
+        CGFloat boundsHeight = CGRectGetHeight(boundsFrame);
+        if (newHeight > boundsHeight) {
+            CGFloat scale = boundsHeight / newHeight;
+
+            // Scale the new width
+            CGFloat newWidth = cropBoxFrame.size.width * scale;
+            delta = cropBoxFrame.size.width - newWidth;
+            cropBoxFrame.size.width = newWidth;
+
+            // Offset the Y position so it stays in the middle
+            offset.x += (delta * 0.5f);
+
+            // Clamp the width to the bounds height
+            cropBoxFrame.size.height = boundsHeight;
+            zoomOut = YES;
+        }
+    }
+      OBJC
+
+      new_code = <<~'OBJC'
+    // Fix OK-51551: Use content bounds to maximize crop area after rotation
+    CGFloat boundsWidth = CGRectGetWidth(boundsFrame);
+    CGFloat boundsHeight = CGRectGetHeight(boundsFrame);
+
+    if (cropBoxIsPortrait) {
+        CGFloat targetHeight = boundsHeight;
+        CGFloat newWidth = floorf(targetHeight * (aspectRatio.width/aspectRatio.height));
+
+        CGFloat deltaH = cropBoxFrame.size.height - targetHeight;
+        cropBoxFrame.size.height = targetHeight;
+        offset.y += (deltaH * 0.5f);
+
+        if (newWidth > boundsWidth) {
+            CGFloat scale = boundsWidth / newWidth;
+            CGFloat scaledHeight = targetHeight * scale;
+            CGFloat deltaH2 = cropBoxFrame.size.height - scaledHeight;
+            cropBoxFrame.size.height = scaledHeight;
+            offset.y += (deltaH2 * 0.5f);
+            newWidth = boundsWidth;
+        }
+
+        CGFloat deltaW = cropBoxFrame.size.width - newWidth;
+        cropBoxFrame.size.width = newWidth;
+        offset.x += (deltaW * 0.5f);
+        zoomOut = YES;
+    }
+    else {
+        CGFloat targetWidth = boundsWidth;
+        CGFloat newHeight = floorf(targetWidth * (aspectRatio.height/aspectRatio.width));
+
+        CGFloat deltaW = cropBoxFrame.size.width - targetWidth;
+        cropBoxFrame.size.width = targetWidth;
+        offset.x += (deltaW * 0.5f);
+
+        if (newHeight > boundsHeight) {
+            CGFloat scale = boundsHeight / newHeight;
+            CGFloat scaledWidth = targetWidth * scale;
+            CGFloat deltaW2 = cropBoxFrame.size.width - scaledWidth;
+            cropBoxFrame.size.width = scaledWidth;
+            offset.x += (deltaW2 * 0.5f);
+            newHeight = boundsHeight;
+        }
+
+        CGFloat deltaH = cropBoxFrame.size.height - newHeight;
+        cropBoxFrame.size.height = newHeight;
+        offset.y += (deltaH * 0.5f);
+        zoomOut = YES;
+    }
+      OBJC
+
+      if content.include?('floorf(cropBoxFrame.size.height * (aspectRatio.width/aspectRatio.height))')
+        content = content.sub(old_portrait.strip, new_code.strip)
+        File.write(tocrop_file, content)
+        Pod::UI.puts "Applied TOCropView rotation fix (OK-51551)"
+      else
+        Pod::UI.puts "TOCropView rotation fix already applied or source changed"
+      end
+    end
+
     # This is necessary for Xcode 14, because it signs resource bundles by default
     # when building for devices.
     installer.target_installation_results.pod_target_installation_results
