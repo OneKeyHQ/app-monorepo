@@ -11,6 +11,7 @@ import {
   DashText,
   Divider,
   Icon,
+  Image,
   Input,
   ListView,
   Page,
@@ -1454,6 +1455,7 @@ function DepositWithdrawContent({
         ) : null}
 
         <XStack
+          mt={selectedAction === 'deposit' ? '$1' : undefined}
           borderWidth="$px"
           borderColor={
             errorMessage || isInsufficientBalance ? '$red7' : '$borderSubdued'
@@ -1551,7 +1553,7 @@ function DepositWithdrawContent({
           </XStack>
           {convertedDisplayValue ? (
             <SizableText
-              size="$bodyMd"
+              size="$bodySm"
               color="$textSubdued"
               flexShrink={1}
               numberOfLines={1}
@@ -1606,18 +1608,63 @@ function DepositWithdrawContent({
           </XStack>
         </XStack>
         {selectedAction === 'deposit' ? (
-          <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_deposit_chain,
-              })}
-            </SizableText>
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$bodyMd" color="$text">
-                {currentNetworkInfo?.name}
+          <>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_deposit_chain,
+                })}
               </SizableText>
+              <XStack alignItems="center" gap="$2">
+                <SizableText size="$bodyMd" color="$text">
+                  {currentNetworkInfo?.name}
+                </SizableText>
+              </XStack>
             </XStack>
-          </XStack>
+            {!isArbitrumUsdcToken && perpDepositQuote?.result ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_route,
+                  })}
+                </SizableText>
+                <XStack alignItems="center" gap="$1">
+                  {perpDepositQuote.result.fromTokenInfo?.symbol !==
+                  (perpDepositQuote.result.toTokenInfo?.symbol ?? 'USDC') ? (
+                    <>
+                      <SizableText size="$bodyMd" color="$text">
+                        {perpDepositQuote.result.fromTokenInfo?.symbol ?? ''}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        →
+                      </SizableText>
+                    </>
+                  ) : null}
+                  {perpDepositQuote.result.info?.providerLogo ? (
+                    <Image
+                      src={perpDepositQuote.result.info.providerLogo}
+                      size="$4"
+                      borderRadius="$1"
+                    />
+                  ) : null}
+                  <SizableText size="$bodyMd" color="$text">
+                    {perpDepositQuote.result.info?.providerName ?? ''}
+                  </SizableText>
+                  {perpDepositQuote.result.fromTokenInfo?.symbol !==
+                  (perpDepositQuote.result.toTokenInfo?.symbol ?? 'USDC') ? (
+                    <>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        →
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$text">
+                        {perpDepositQuote.result.toTokenInfo?.symbol ?? 'USDC'}
+                      </SizableText>
+                    </>
+                  ) : null}
+                </XStack>
+              </XStack>
+            ) : null}
+          </>
         ) : null}
         {selectedAction === 'withdraw' ? (
           <XStack justifyContent="space-between" alignItems="center">
@@ -1738,10 +1785,40 @@ function DepositWithdrawContent({
         }
         loading={isSubmitting}
         onPress={handleConfirm}
-        mb={isMobile ? '$4' : undefined}
       >
         {buttonText}
       </Button>
+      {selectedAction === 'deposit' &&
+      !accountTypeInfo.isHwWallet &&
+      !accountTypeInfo.isExternalAccount &&
+      isValidAmount &&
+      !isSubmitting &&
+      !balanceLoading &&
+      !perpDepositQuoteLoading &&
+      depositToAmount.canDeposit ? (
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          mt="$-1"
+          mb={isMobile ? '$4' : undefined}
+        >
+          点击按钮后将一步完成授权和存款，无需二次确认
+        </SizableText>
+      ) : null}
+      {isMobile &&
+      !(
+        selectedAction === 'deposit' &&
+        !accountTypeInfo.isHwWallet &&
+        !accountTypeInfo.isExternalAccount &&
+        isValidAmount &&
+        !isSubmitting &&
+        !balanceLoading &&
+        !perpDepositQuoteLoading &&
+        depositToAmount.canDeposit
+      ) ? (
+        <YStack mb="$4" />
+      ) : null}
     </YStack>
   );
 
