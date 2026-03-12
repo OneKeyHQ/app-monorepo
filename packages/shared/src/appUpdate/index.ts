@@ -157,8 +157,7 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
     allowRollback: true,
   });
   const fileType =
-    decision.decision === 'jsBundleUpgrade' ||
-    decision.decision === 'jsBundleRollback'
+    decision.decision === 'jsBundleUpgrade'
       ? EUpdateFileType.jsBundle
       : EUpdateFileType.appShell;
   const shouldUpdate =

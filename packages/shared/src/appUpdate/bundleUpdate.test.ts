@@ -148,6 +148,22 @@ describe('resolveUpdateDecision', () => {
     });
   });
 
+  test('allowRollback: true + equal versions → none (not misclassified as rollback)', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '5');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '5',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '5',
+        allowRollback: true,
+      }),
+    ).toMatchObject({
+      decision: 'none',
+      isValid: true,
+    });
+  });
+
   test('allowRollback defaults to true — remote bundle < current yields jsBundleRollback', () => {
     const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '5');
     expect(
@@ -269,6 +285,17 @@ describe('isNeedUpdate', () => {
     const result = isNeedUpdate({
       latestVersion: '1.0.0',
       jsBundleVersion: '5',
+      status: EAppUpdateStatus.notify,
+    });
+    expect(result.shouldUpdate).toBe(false);
+    expect(result.fileType).toBe(EUpdateFileType.appShell);
+  });
+
+  test('rollback returns fileType appShell (not jsBundle)', () => {
+    const { isNeedUpdate } = loadAppUpdate('1.0.0', '5');
+    const result = isNeedUpdate({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
       status: EAppUpdateStatus.notify,
     });
     expect(result.shouldUpdate).toBe(false);

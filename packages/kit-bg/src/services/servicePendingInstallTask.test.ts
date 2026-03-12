@@ -453,4 +453,93 @@ describe('servicePendingInstallTask', () => {
 
     expect(pendingTaskValue).toBeUndefined();
   });
+
+  test('ignored target with expired expiresAt allows task creation', async () => {
+    const service = createService();
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+      },
+      ignoredTargets: {
+        '1.0.0:2': {
+          reason: 'RETRY_EXHAUSTED',
+          createdAt: Date.now() - 100_000,
+          expiresAt: Date.now() - 1, // expired
+        },
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: { signature: 'sig-2' },
+      },
+      requestSeq: 10,
+      traceId: 'trace-expired-ignored',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      targetBundleVersion: '2',
+    });
+  });
+
+  test('same revision and same target is noop', async () => {
+    const service = createService();
+    pendingTaskValue = makeSwitchTask({ revision: 10 });
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: { signature: 'sig-2' },
+      },
+      requestSeq: 10,
+      traceId: 'trace-same-rev',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    const logger =
+      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upsertAction: 'noop',
+        reason: 'same_revision_same_target',
+      }),
+    );
+  });
+
+  test('appshell-install target already aligned clears task', async () => {
+    const service = createService();
+    // Target app version matches current env
+    pendingTaskValue = makeAppShellInstallTask({
+      targetAppVersion: '1.0.0',
+      targetBundleVersion: '1',
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
 });

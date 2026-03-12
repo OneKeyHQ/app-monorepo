@@ -604,15 +604,20 @@ export const useDownloadPackage = () => {
 
   const manualInstallPackage = useCallback(async () => {
     const params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       defaultLogger.app.appUpdate.startManualInstallPackage(params);
       if (!params) {
         throw new OneKeyError('No download event found');
       }
-      await AppUpdate.manualInstallPackage({
-        ...params,
-        buildNumber: String(platformEnv.buildNumber || 1),
-      });
+      if (fileType === EUpdateFileType.jsBundle) {
+        await BundleUpdate.installBundle(params);
+      } else {
+        await AppUpdate.manualInstallPackage({
+          ...params,
+          buildNumber: String(platformEnv.buildNumber || 1),
+        });
+      }
       defaultLogger.app.appUpdate.endManualInstallPackage(true);
     } catch (e) {
       defaultLogger.app.appUpdate.endManualInstallPackage(false, e as Error);
@@ -628,7 +633,7 @@ export const useDownloadPackage = () => {
         },
       });
     }
-  }, [intl, navigation, showUpdateInCompleteDialog]);
+  }, [getFileTypeFromUpdateInfo, intl, navigation, showUpdateInCompleteDialog]);
 
   return useMemo(
     () => ({

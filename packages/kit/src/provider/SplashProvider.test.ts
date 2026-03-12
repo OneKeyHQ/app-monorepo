@@ -141,4 +141,22 @@ describe('useDisplaySplash', () => {
     expect(result.current).toBe(true);
     expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
   });
+
+  test('isNative: true, isDesktop: false calls processPendingInstallTask', async () => {
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.isDesktop = false;
+    platformEnvMock.isNative = true;
+    platformEnvMock.isWeb = false;
+
+    const { useDisplaySplash } = freshSplash();
+    const { result } = renderHook(() => useDisplaySplash());
+    expect(result.current).toBe(false);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(svc.processPendingInstallTask).toHaveBeenCalledTimes(1);
+    expect(result.current).toBe(true);
+  });
 });

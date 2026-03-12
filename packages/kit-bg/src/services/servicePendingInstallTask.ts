@@ -180,23 +180,22 @@ class ServicePendingInstallTask {
 
   @backgroundMethod()
   public async nextRequestSeq() {
+    this.fallbackRequestSeqCounter += 1;
+    const fallbackSeq = this.fallbackRequestSeqCounter;
     let requestSeq = 0;
     await appUpdatePersistAtom.set((prev) => {
       const prevSeq = Number(prev.lastRequestSeq || 0);
       const nextSeq =
         Number.isSafeInteger(prevSeq) && prevSeq > 0
           ? prevSeq + 1
-          : (() => {
-              this.fallbackRequestSeqCounter += 1;
-              return Date.now() * 1000 + this.fallbackRequestSeqCounter;
-            })();
+          : Date.now() * 1000 + fallbackSeq;
       requestSeq = nextSeq;
       return {
         ...prev,
         lastRequestSeq: nextSeq,
       };
     });
-    return requestSeq || Date.now() * 1000 + this.fallbackRequestSeqCounter;
+    return requestSeq || Date.now() * 1000 + fallbackSeq;
   }
 
   private pruneIgnoredTargets(
@@ -1262,7 +1261,6 @@ class ServicePendingInstallTask {
         await setPendingInstallTask({
           ...runningTask,
           status: 'applied_waiting_verify',
-          runningStartedAt: undefined,
           lastError: undefined,
         });
         defaultLogger.app.appUpdate.pendingSwitchResult( {

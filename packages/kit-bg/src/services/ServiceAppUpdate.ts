@@ -140,7 +140,8 @@ class ServiceAppUpdate extends ServiceBase {
     });
     return (
       resolved.decision === 'appShellUpdate' ||
-      resolved.decision === 'jsBundleUpgrade'
+      resolved.decision === 'jsBundleUpgrade' ||
+      resolved.decision === 'jsBundleRollback'
     );
   }
 
@@ -836,11 +837,11 @@ class ServiceAppUpdate extends ServiceBase {
           decision.decision === 'jsBundleRollback' ||
           decision.decision === 'appShellUpdate') &&
         releaseInfo.version &&
-        releaseInfo.jsBundleVersion
+        (releaseInfo.jsBundleVersion || decision.decision === 'appShellUpdate')
       ) {
         const targetKey = this.getTargetKey({
           targetAppVersion: releaseInfo.version,
-          targetBundleVersion: releaseInfo.jsBundleVersion,
+          targetBundleVersion: releaseInfo.jsBundleVersion || '0',
         });
         const blockedByControl = await this.shouldSkipTargetByControl(
           targetKey,
@@ -874,13 +875,12 @@ class ServiceAppUpdate extends ServiceBase {
           EAppUpdateStatus.verifyPackageFailed,
         ];
         const isFailed = failedStatuses.includes(prev.status);
-        let isNewerThanAttempted = false;
+        let isDifferentFromAttempted = false;
         if (isFailed && releaseInfo.version && prev.latestVersion) {
           try {
-            isNewerThanAttempted = semver.gt(
-              releaseInfo.version,
-              prev.latestVersion,
-            );
+            isDifferentFromAttempted =
+              semver.gt(releaseInfo.version, prev.latestVersion) ||
+              semver.lt(releaseInfo.version, prev.latestVersion);
           } catch (error) {
             defaultLogger.app.appUpdate.log(
               `fetchAppUpdateInfo: semver compare failed, releaseVersion=${
@@ -891,8 +891,8 @@ class ServiceAppUpdate extends ServiceBase {
             );
           }
         }
-        if (isFailed && !isNewerThanAttempted) {
-          isNewerThanAttempted = (() => {
+        if (isFailed && !isDifferentFromAttempted) {
+          isDifferentFromAttempted = (() => {
             const prevBundle = Number(prev.jsBundleVersion);
             const remoteBundle = Number(releaseInfo.jsBundleVersion);
             return (
@@ -900,11 +900,11 @@ class ServiceAppUpdate extends ServiceBase {
               releaseInfo.jsBundleVersion != null &&
               Number.isFinite(prevBundle) &&
               Number.isFinite(remoteBundle) &&
-              remoteBundle > prevBundle
+              remoteBundle !== prevBundle
             );
           })();
         }
-        const shouldResetFailed = isFailed && isNewerThanAttempted;
+        const shouldResetFailed = isFailed && isDifferentFromAttempted;
         // Corrupted/tampered packages must be re-downloaded
         const isVerifyFailure =
           shouldResetFailed &&

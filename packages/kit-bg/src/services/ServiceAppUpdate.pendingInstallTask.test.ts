@@ -1058,4 +1058,31 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
 
     expect(pendingTaskValue).toBeUndefined();
   });
+
+  test('frozen target blocks appshell-install scheduling', async () => {
+    setReadyState({
+      latestVersion: '2.0.0',
+      jsBundleVersion: '1',
+      freezeUntil: Date.now() + 60_000,
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('non-seamless + jsbundle-switch does not create pending task', async () => {
+    setReadyState({
+      updateStrategy: EUpdateStrategy.manual,
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
 });
