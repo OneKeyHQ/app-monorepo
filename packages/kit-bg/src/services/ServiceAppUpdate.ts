@@ -39,6 +39,29 @@ let downloadTimeoutId: ReturnType<typeof setTimeout>;
 let failedRecoveryTimerId: ReturnType<typeof setTimeout>;
 let firstLaunch = true;
 
+// ---------------------------------------------------------------------------
+// Failed-recovery retry tracking
+// ---------------------------------------------------------------------------
+// When a download/verify fails, startFailedRecoveryTimer resets
+// failed → notify after 2 hours so the user (or rollback auto-download)
+// gets another attempt.  To prevent infinite retries we count per-target
+// resets.  After MAX_FAILED_RECOVERY_RETRY the target is frozen & ignored.
+//
+// The counter is volatile (resets on app restart) — that is intentional:
+// a restart is a fresh environment where the failure may no longer reproduce.
+// The freeze/ignoredTargets written to the atom DO survive restarts so a
+// target that was already given up on stays ignored.
+// ---------------------------------------------------------------------------
+const failedRecoveryRetryCount = new Map<string, number>();
+const MAX_FAILED_RECOVERY_RETRY = 3;
+const FAILED_RECOVERY_FREEZE_MS = 24 * 60 * 60 * 1000; // 24 h
+const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
+
+// Exposed for tests only — clears volatile retry counters.
+export function resetFailedRecoveryRetryCount() {
+  failedRecoveryRetryCount.clear();
+}
+
 function normalizeOptionalString(value: unknown): string | undefined {
   if (value === null || value === undefined) {
     return undefined;
@@ -129,6 +152,38 @@ class ServiceAppUpdate extends ServiceBase {
     );
   }
 
+  // Compute the target key from atom state.  Must produce the same key that
+  // buildPendingAppShellTask / buildPendingJsBundleTask would produce so that
+  // freeze/ignore checks are consistent across the download gate (here) and
+  // the pending-task engine.
+  private computeUpdateTargetKey(
+    appInfo: { latestVersion?: string; jsBundleVersion?: string | null },
+  ): string | null {
+    if (!appInfo.latestVersion) return null;
+    const decision = resolveUpdateDecision({
+      currentAppVersion: platformEnv.version,
+      currentBundleVersion: platformEnv.bundleVersion,
+      remoteAppVersion: appInfo.latestVersion,
+      remoteBundleVersion: appInfo.jsBundleVersion,
+      allowRollback: true,
+    });
+    if (
+      decision.decision === 'appShellUpdate' ||
+      decision.decision === 'jsBundleUpgrade' ||
+      decision.decision === 'jsBundleRollback'
+    ) {
+      return this.getTargetKey({
+        targetAppVersion: appInfo.latestVersion,
+        targetBundleVersion:
+          decision.decision === 'appShellUpdate'
+            ? appInfo.jsBundleVersion ||
+              String(platformEnv.bundleVersion || '')
+            : appInfo.jsBundleVersion || '0',
+      });
+    }
+    return null;
+  }
+
   private shouldUpdateFromReleaseInfo(releaseInfo: IResponseAppUpdateInfo) {
     const resolved = resolveUpdateDecision({
       currentAppVersion: platformEnv.version,
@@ -144,6 +199,10 @@ class ServiceAppUpdate extends ServiceBase {
     );
   }
 
+  // After a download/verify failure the timer resets failed → notify so the
+  // user (or rollback auto-download) gets another chance.  A per-target retry
+  // counter prevents infinite loops: after MAX_FAILED_RECOVERY_RETRY resets
+  // the target is frozen and added to ignoredTargets.
   private startFailedRecoveryTimer() {
     clearTimeout(failedRecoveryTimerId);
     failedRecoveryTimerId = setTimeout(
@@ -152,20 +211,55 @@ class ServiceAppUpdate extends ServiceBase {
         defaultLogger.app.appUpdate.log(
           `Failed recovery timer fired, current status: ${appInfo.status}`,
         );
-        if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
-          const shouldClearDownload =
-            ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status) ||
-            appInfo.status === EAppUpdateStatus.failed ||
-            appInfo.status === EAppUpdateStatus.updateIncomplete;
-          await appUpdatePersistAtom.set((prev) => ({
-            ...prev,
-            errorText: undefined,
-            status: EAppUpdateStatus.notify,
-            downloadedEvent: shouldClearDownload
-              ? undefined
-              : prev.downloadedEvent,
-          }));
+        if (!ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
+          return;
         }
+
+        // --- retry-limit gate ---
+        const targetKey = this.computeUpdateTargetKey(appInfo);
+        if (targetKey) {
+          const prev = failedRecoveryRetryCount.get(targetKey) || 0;
+          const next = prev + 1;
+          failedRecoveryRetryCount.set(targetKey, next);
+
+          if (next > MAX_FAILED_RECOVERY_RETRY) {
+            // Exhausted — freeze and ignore this target.
+            const now = Date.now();
+            defaultLogger.app.appUpdate.log(
+              `Failed recovery: retry exhausted for ${targetKey} (count=${next}), freezing`,
+            );
+            await appUpdatePersistAtom.set((p) => ({
+              ...p,
+              freezeUntil: now + FAILED_RECOVERY_FREEZE_MS,
+              ignoredTargets: {
+                ...p.ignoredTargets,
+                [targetKey]: {
+                  reason: 'DOWNLOAD_RETRY_EXHAUSTED',
+                  createdAt: now,
+                  expiresAt: now + FAILED_RECOVERY_IGNORE_TTL_MS,
+                },
+              },
+            }));
+            return;
+          }
+          defaultLogger.app.appUpdate.log(
+            `Failed recovery: resetting for ${targetKey} (retry ${next}/${MAX_FAILED_RECOVERY_RETRY})`,
+          );
+        }
+
+        // --- reset failed → notify for another attempt ---
+        const shouldClearDownload =
+          ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status) ||
+          appInfo.status === EAppUpdateStatus.failed ||
+          appInfo.status === EAppUpdateStatus.updateIncomplete;
+        await appUpdatePersistAtom.set((p) => ({
+          ...p,
+          errorText: undefined,
+          status: EAppUpdateStatus.notify,
+          downloadedEvent: shouldClearDownload
+            ? undefined
+            : p.downloadedEvent,
+        }));
       },
       timerUtils.getTimeDurationMs({ hour: 2 }),
     );
@@ -297,6 +391,15 @@ class ServiceAppUpdate extends ServiceBase {
     EAppUpdateStatus.verifyPackageFailed,
   ];
 
+  // Called by:
+  //   - hooks.tsx isFirstLaunchAfterUpdated branch (once per app lifecycle)
+  //   - servicePendingInstallTask post-process refresh
+  //
+  // NOT called by fetchAppUpdateInfo (removed to prevent infinite retry
+  // loops — see comment in fetchAppUpdateInfo).
+  //
+  // The failed → notify branch below is a safety net.  The primary
+  // failed → notify path is startFailedRecoveryTimer (with retry limit).
   @backgroundMethod()
   async refreshUpdateStatus() {
     const appInfo = await appUpdatePersistAtom.get();
@@ -315,8 +418,6 @@ class ServiceAppUpdate extends ServiceBase {
         downloadedEvent: undefined,
       }));
     } else if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
-      // On app launch / foreground, reset failed states back to notify
-      // so the user gets a fresh update prompt instead of a stale error.
       defaultLogger.app.appUpdate.log(
         `refreshUpdateStatus: resetting failed status ${appInfo.status} to notify`,
       );
@@ -328,7 +429,6 @@ class ServiceAppUpdate extends ServiceBase {
         ...prev,
         errorText: undefined,
         status: EAppUpdateStatus.notify,
-        // Corrupted/tampered or incompletely installed packages must be re-downloaded
         downloadedEvent: shouldClearDownload ? undefined : prev.downloadedEvent,
       }));
     }
@@ -785,7 +885,17 @@ class ServiceAppUpdate extends ServiceBase {
     });
 
     await this.cleanupUpdateControlState();
-    await this.refreshUpdateStatus();
+    // NOTE: refreshUpdateStatus() was previously called here, but it resets
+    // ANY failed status to notify unconditionally — including same-version
+    // failures.  For rollback targets (which auto-download on notify) this
+    // created an infinite download → fail → reset → download loop.
+    //
+    // The failed → notify transition is now handled by:
+    //   1. startFailedRecoveryTimer  — 2 h fallback with per-target retry
+    //      limit; freezes the target after MAX_FAILED_RECOVERY_RETRY.
+    //   2. The atom-set logic below  — resets only when the server pushes a
+    //      *different* version (isDifferentFromAttempted).
+    //
     // downloading app or ready to update via local package
     const isNeedSync = await this.isNeedSyncAppUpdateInfo(forceUpdate);
     defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
@@ -845,9 +955,16 @@ class ServiceAppUpdate extends ServiceBase {
         releaseInfo.version &&
         (releaseInfo.jsBundleVersion || decision.decision === 'appShellUpdate')
       ) {
+        // Must use the same bundleVersion fallback as
+        // buildPendingAppShellTask (which uses platformEnv.bundleVersion)
+        // so the target key matches for freeze/ignore checks.
         const targetKey = this.getTargetKey({
           targetAppVersion: releaseInfo.version,
-          targetBundleVersion: releaseInfo.jsBundleVersion || '0',
+          targetBundleVersion:
+            decision.decision === 'appShellUpdate'
+              ? releaseInfo.jsBundleVersion ||
+                String(platformEnv.bundleVersion || '')
+              : releaseInfo.jsBundleVersion || '0',
         });
         const blockedByControl = await this.shouldSkipTargetByControl(
           targetKey,

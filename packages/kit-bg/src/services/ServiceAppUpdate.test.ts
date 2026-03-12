@@ -210,7 +210,9 @@ jest.mock('../endpoints', () => ({
 
 function createService() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const ServiceAppUpdate = require('./ServiceAppUpdate').default;
+  const mod = require('./ServiceAppUpdate');
+  mod.resetFailedRecoveryRetryCount();
+  const ServiceAppUpdate = mod.default;
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ServicePendingInstallTask } = require('./servicePendingInstallTask');
   const backgroundApi = {
@@ -2906,6 +2908,107 @@ describe('ServiceAppUpdate failedRecoveryTimer', () => {
     // Advance past 2h — should NOT reset to notify because recovery timer was cleared
     await jest.advanceTimersByTimeAsync(7_200_000);
     expect(atomValue.status).toBe(EAppUpdateStatus.ready);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Failed recovery retry limit
+// ---------------------------------------------------------------------------
+describe('ServiceAppUpdate failedRecoveryTimer retry limit', () => {
+  let service: ReturnType<typeof createService>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    resetAtom();
+    resetPendingTask();
+    jest.clearAllMocks();
+    service = createService();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('retries within limit reset to notify', async () => {
+    // 1st failure + 2h → reset to notify (retry 1/3)
+    resetAtom({ status: EAppUpdateStatus.downloadPackage, latestVersion: '2.0.0' });
+    await service.downloadPackageFailed({ message: 'err' });
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+
+    await jest.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+    expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  test('exceeding retry limit freezes and ignores target', async () => {
+    // Simulate 4 consecutive failures + 2h resets (MAX = 3)
+    for (let i = 0; i < 4; i += 1) {
+      resetAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+        // Preserve any freezeUntil / ignoredTargets from prior iterations
+        freezeUntil: atomValue.freezeUntil,
+        ignoredTargets: atomValue.ignoredTargets,
+      });
+      await service.downloadPackageFailed({ message: `err-${i}` });
+      await jest.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+    }
+
+    // After 4th timer fire (retry count 4 > MAX 3) → should be frozen
+    expect(atomValue.freezeUntil).toBeGreaterThan(Date.now());
+    // appShellUpdate: key is '2.0.0:1' (bundleVersion fallback)
+    expect(atomValue.ignoredTargets?.['2.0.0:1']).toMatchObject({
+      reason: 'DOWNLOAD_RETRY_EXHAUSTED',
+    });
+    // Status should NOT have been reset to notify on the 4th attempt
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+  });
+
+  test('fetchAppUpdateInfo does not call refreshUpdateStatus', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.downloadPackageFailed,
+      latestVersion: '2.0.0',
+      updateAt: 0,
+    });
+    jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+      version: '2.0.0',
+      updateStrategy: EUpdateStrategy.manual,
+    });
+    jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+    const refreshSpy = jest.spyOn(service, 'refreshUpdateStatus');
+
+    await service.fetchAppUpdateInfo(true);
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    // Status should stay failed (same version, no reset)
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+  });
+
+  test('appShellUpdate target key matches between gate and task builder', async () => {
+    // platformEnv.bundleVersion = '1'
+    // For appShellUpdate with jsBundleVersion=null, gate should use '2.0.0:1'
+    // (matching buildPendingAppShellTask), not '2.0.0:0'
+    resetAtom({
+      status: EAppUpdateStatus.done,
+      updateAt: 0,
+      ignoredTargets: {
+        '2.0.0:1': {
+          reason: 'RETRY_EXHAUSTED',
+          createdAt: Date.now() - 1000,
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+    });
+    jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+      version: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+    });
+    jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+    jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+    await service.fetchAppUpdateInfo(true);
+
+    // Should be blocked by ignore check (key '2.0.0:1' matches)
+    expect(atomValue.status).toBe(EAppUpdateStatus.done);
   });
 });
 

@@ -853,10 +853,10 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           ) {
             // Rollback always auto-downloads regardless of server strategy —
             // it is a corrective action, not a user-facing update.
-            // Guard on status===notify to prevent retry loops: if a previous
-            // download/verify failed, status stays failed (not reset to notify
-            // for the same target), so re-download won't be triggered until
-            // the server pushes a different version.
+            // Guard on status===notify to prevent retry loops:
+            // startFailedRecoveryTimer resets failed → notify with a
+            // per-target retry limit; after MAX_FAILED_RECOVERY_RETRY the
+            // target is frozen/ignored so status never reaches notify again.
             void downloadPackage();
           }
         },
