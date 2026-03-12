@@ -43,35 +43,6 @@ import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
 
-// TODO: Remove after preview — 2 fake cards for visual testing
-const DEV_PREVIEW_TOKENS: IRecommendAsset[] = [
-  {
-    name: 'Ethereum',
-    symbol: 'ETH',
-    logoURI: 'https://uni.onekey-asset.com/static/chain/eth.png',
-    protocols: [
-      { networkId: 'evm--1', provider: 'lido', vault: '' },
-    ],
-    aprWithoutFee: '6.00',
-    aprInfo: { normal: { text: '6.00% APY' } },
-    bgColor: '$bgSubdued',
-    available: { text: '0.1 ETH', color: '$textSubdued' },
-    badge: { text: 'New' },
-  },
-  {
-    name: 'Solana',
-    symbol: 'SOL',
-    logoURI: 'https://uni.onekey-asset.com/static/chain/sol.png',
-    protocols: [
-      { networkId: 'solana--101', provider: 'marinade', vault: '' },
-    ],
-    aprWithoutFee: '8.25',
-    aprInfo: { normal: { text: '8.25% APY' } },
-    bgColor: '$bgSubdued',
-    available: { text: '0.01 SOL', color: '$textSubdued' },
-  },
-];
-
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
 const CARD_PADDING_H = 20;
@@ -559,14 +530,8 @@ export function Recommended(
     },
   );
 
-  // TODO: Remove after preview — prepend fake cards for visual testing
-  const displayTokens = useMemo(
-    () => [...DEV_PREVIEW_TOKENS, ...recommendedTokens],
-    [recommendedTokens],
-  );
-
   // Render skeleton when loading and no data
-  const shouldShowSkeleton = displayTokens.length === 0;
+  const shouldShowSkeleton = recommendedTokens.length === 0;
   if (shouldShowSkeleton) {
     return (
       <RecommendedContainer withHeader={withHeader}>
@@ -600,9 +565,9 @@ export function Recommended(
   }
 
   // Render actual tokens
-  if (displayTokens.length) {
+  if (recommendedTokens.length) {
     if (platformEnv.isNative) {
-      const cardItems = displayTokens.map((token) => (
+      const cardItems = recommendedTokens.map((token) => (
         <YStack key={token.symbol} minWidth={CARD_WIDTH} flexShrink={0}>
           <RecommendedItem
             token={token}
@@ -613,7 +578,7 @@ export function Recommended(
       ));
       return (
         <RecommendedContainer withHeader={withHeader}>
-          <NativeRecommendedScroller itemCount={displayTokens.length}>
+          <NativeRecommendedScroller itemCount={recommendedTokens.length}>
             {cardItems}
           </NativeRecommendedScroller>
         </RecommendedContainer>
@@ -622,7 +587,7 @@ export function Recommended(
 
     // Web: responsive flex layout — cards fill parent evenly, min-width 240px,
     // horizontal scroll only when parent can't fit all cards at min-width.
-    const cardItems = displayTokens.map((token) => (
+    const cardItems = recommendedTokens.map((token) => (
       <YStack
         key={token.symbol}
         minWidth={CARD_WIDTH}
@@ -638,7 +603,7 @@ export function Recommended(
 
     return (
       <RecommendedContainer withHeader={withHeader}>
-        <WebRecommendedScroller itemCount={displayTokens.length}>
+        <WebRecommendedScroller itemCount={recommendedTokens.length}>
           {cardItems}
         </WebRecommendedScroller>
       </RecommendedContainer>
