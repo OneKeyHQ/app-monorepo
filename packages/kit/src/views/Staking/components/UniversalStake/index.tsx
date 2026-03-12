@@ -16,7 +16,6 @@ import {
   IconButton,
   Image,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
@@ -1389,29 +1388,9 @@ export function UniversalStake({
             }}
           />
           {transactionConfirmation?.tooltip ? (
-            <Popover
-              placement="top"
-              title={transactionConfirmation?.title?.text ?? ''}
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <Stack p="$5">
-                  <EarnText
-                    text={
-                      transactionConfirmation?.tooltip?.type === 'text'
-                        ? transactionConfirmation?.tooltip?.data?.description
-                        : undefined
-                    }
-                    size="$bodyMd"
-                  />
-                </Stack>
-              }
+            <EarnTooltip
+              title={transactionConfirmation?.title?.text}
+              tooltip={transactionConfirmation?.tooltip}
             />
           ) : null}
         </XStack>
