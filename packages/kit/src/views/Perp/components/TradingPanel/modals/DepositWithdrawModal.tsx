@@ -1160,6 +1160,28 @@ function DepositWithdrawContent({
     };
   }, [selectedAccount.accountId]);
 
+  const showDepositNoConfirmHint = useMemo(
+    () =>
+      selectedAction === 'deposit' &&
+      !accountTypeInfo.isHwWallet &&
+      !accountTypeInfo.isExternalAccount &&
+      isValidAmount &&
+      !isSubmitting &&
+      !balanceLoading &&
+      !perpDepositQuoteLoading &&
+      depositToAmount.canDeposit,
+    [
+      selectedAction,
+      accountTypeInfo.isHwWallet,
+      accountTypeInfo.isExternalAccount,
+      isValidAmount,
+      isSubmitting,
+      balanceLoading,
+      perpDepositQuoteLoading,
+      depositToAmount.canDeposit,
+    ],
+  );
+
   const buttonText = useMemo(() => {
     if (isInsufficientBalance)
       return intl.formatMessage({
@@ -1794,14 +1816,7 @@ function DepositWithdrawContent({
       >
         {buttonText}
       </Button>
-      {selectedAction === 'deposit' &&
-      !accountTypeInfo.isHwWallet &&
-      !accountTypeInfo.isExternalAccount &&
-      isValidAmount &&
-      !isSubmitting &&
-      !balanceLoading &&
-      !perpDepositQuoteLoading &&
-      depositToAmount.canDeposit ? (
+      {showDepositNoConfirmHint ? (
         <SizableText
           size="$bodySm"
           color="$textSubdued"
@@ -1814,17 +1829,7 @@ function DepositWithdrawContent({
           })}
         </SizableText>
       ) : null}
-      {isMobile &&
-      !(
-        selectedAction === 'deposit' &&
-        !accountTypeInfo.isHwWallet &&
-        !accountTypeInfo.isExternalAccount &&
-        isValidAmount &&
-        !isSubmitting &&
-        !balanceLoading &&
-        !perpDepositQuoteLoading &&
-        depositToAmount.canDeposit
-      ) ? (
+      {isMobile && !showDepositNoConfirmHint ? (
         <YStack mb="$4" />
       ) : null}
     </YStack>
