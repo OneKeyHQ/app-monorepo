@@ -3,6 +3,7 @@ import { memo, useContext, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ListEndIndicator,
   SizableText,
   Stack,
   Table,
@@ -105,6 +106,13 @@ function MarketPerpsTokenListImpl({
     );
   }, [isLoading, intl]);
 
+  const TableFooterComponent = useMemo(() => {
+    if (!isLoading && tokens.length > 0) {
+      return <ListEndIndicator />;
+    }
+    return null;
+  }, [isLoading, tokens.length]);
+
   const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
 
   // Desktop sticky header: portal the category selector + column header
@@ -119,7 +127,9 @@ function MarketPerpsTokenListImpl({
     return (
       <StickyHeaderPortal target={stickyPortalTarget}>
         <YStack bg="$bgApp" px="$4">
-          {CategorySelector}
+          <Stack width="100%" mb="$3">
+            {CategorySelector}
+          </Stack>
           <Table.HeaderRow columns={perpsColumns} />
         </YStack>
       </StickyHeaderPortal>
@@ -178,6 +188,7 @@ function MarketPerpsTokenListImpl({
               estimatedItemSize="$14"
               extraData={hasRealTimeData}
               TableEmptyComponent={TableEmptyComponent}
+              TableFooterComponent={TableFooterComponent}
               onRow={(item) => ({
                 onPress: () => handleTokenPress(item.name),
               })}

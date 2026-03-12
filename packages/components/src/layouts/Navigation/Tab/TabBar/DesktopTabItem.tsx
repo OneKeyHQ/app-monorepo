@@ -29,6 +29,10 @@ import type {
 } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
@@ -157,6 +161,9 @@ export function DesktopTabItem(
         // Removed: openActionList?.current?.() to avoid conflict with hover popover
       } else {
         onPress?.(e);
+      }
+      if (trackId === 'global-perp' && !selected) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
       if (trackId) {
         defaultLogger.app.page.tabBarClick(trackId);
