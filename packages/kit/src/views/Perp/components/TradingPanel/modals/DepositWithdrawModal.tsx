@@ -191,6 +191,7 @@ function SelectTokenPopoverContent({
     amount: string;
     symbol: string;
     decimals: number;
+    price?: string;
   }) => void;
 }) {
   const intl = useIntl();
@@ -222,6 +223,7 @@ function SelectTokenPopoverContent({
               amount: item.balanceParsed || '0',
               symbol: item.symbol ?? '',
               decimals: item.decimals,
+              price: item.price,
             });
             void closePopover?.();
           }}
@@ -927,6 +929,7 @@ function DepositWithdrawContent({
       amount: string;
       symbol: string;
       decimals: number;
+      price?: string;
     }) => {
       if (tokenParams && selectedAction === 'deposit') {
         const maxAmount = checkNativeTokenGasToast(
@@ -936,9 +939,12 @@ function DepositWithdrawContent({
           tokenParams.symbol,
           tokenParams.decimals,
         );
-        if (depositInputUnit === 'usd' && tokenPriceBN.gt(0)) {
+        const priceBN = tokenParams.price
+          ? new BigNumber(tokenParams.price)
+          : tokenPriceBN;
+        if (depositInputUnit === 'usd' && priceBN.gt(0)) {
           const usdVal = maxAmount
-            .multipliedBy(tokenPriceBN)
+            .multipliedBy(priceBN)
             .decimalPlaces(2, BigNumber.ROUND_DOWN);
           setAmount(usdVal.toFixed());
         } else {
