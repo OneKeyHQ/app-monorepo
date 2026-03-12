@@ -6,6 +6,7 @@ import {
   Badge,
   Dialog,
   ESwitchSize,
+  HeaderIconButton,
   Page,
   ScrollView,
   SizableText,
@@ -319,27 +320,6 @@ function EnableOneKeyCloudSwitchListItem({
   );
 }
 
-function WhatDataIncludedListItem() {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-
-  return (
-    <ListItem
-      title={intl.formatMessage({
-        id: ETranslations.prime_about_cloud_sync,
-      })}
-      icon="QuestionmarkOutline"
-      subtitle={intl.formatMessage({
-        id: ETranslations.prime_about_cloud_sync_description,
-      })}
-      drillIn
-      onPress={() => {
-        navigation.navigate(EPrimePages.PrimeCloudSyncInfo);
-      }}
-    />
-  );
-}
-
 function AppDataSection() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
@@ -462,7 +442,6 @@ function AppDataSection() {
         />
       ) : null}
 
-      <WhatDataIncludedListItem />
     </>
   );
 }
@@ -520,12 +499,25 @@ export default function PagePrimeCloudSync() {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
   }, []);
 
+  const headerRight = useCallback(
+    () => (
+      <HeaderIconButton
+        icon="QuestionmarkOutline"
+        onPress={() => {
+          navigation.navigate(EPrimePages.PrimeCloudSyncInfo);
+        }}
+      />
+    ),
+    [navigation],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
         })}
+        headerRight={headerRight}
       />
       <Page.Body>
         <AppDataSection />
