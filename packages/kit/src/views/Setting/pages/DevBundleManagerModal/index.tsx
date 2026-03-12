@@ -20,6 +20,7 @@ import SkipGPGVerificationToggle from '@onekeyhq/kit/src/views/Setting/pages/Dev
 import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
+import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -301,6 +302,10 @@ export default function DevBundleManagerModal() {
                 <InfoRow label="Build Number" value={currentBuildNumber} />
                 <InfoRow label="Commit Hash" value={currentCommitHash} />
                 <InfoRow label="Bundle Version" value={currentBundleVersion} />
+                <InfoRow
+                  label="Bundle Hash"
+                  value={encodeBundleVersionForDisplay(currentBundleVersion)}
+                />
                 {nativeAppVersion ? (
                   <InfoRow
                     label="Native Version"
