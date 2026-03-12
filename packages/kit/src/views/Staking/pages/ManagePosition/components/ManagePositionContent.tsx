@@ -43,6 +43,9 @@ export interface IManagePositionContentProps {
   fallbackTokenImageUri?: string;
   providerLogoUri?: string;
 
+  // Custom protocol info card (replaces default APY header + accordion)
+  renderProtocolInfo?: () => React.ReactElement | null;
+
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
@@ -104,6 +107,7 @@ export function ManagePositionContent({
   showApyDetail = false,
   fallbackTokenImageUri,
   providerLogoUri,
+  renderProtocolInfo,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -530,6 +534,7 @@ export function ManagePositionContent({
       isInModalContext={isInModalContext}
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
+      renderProtocolInfo={renderProtocolInfo}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
     />

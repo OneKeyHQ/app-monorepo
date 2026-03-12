@@ -29,6 +29,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { Token } from '../../../components/Token';
@@ -39,7 +40,6 @@ import {
   useEarnActions,
   useEarnAtom,
 } from '../../../states/jotai/contexts/earn';
-import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
 
@@ -85,27 +85,37 @@ const RecommendedItem = memo(
   } & IYStackProps) => {
     const navigation = useAppNavigation();
 
-    const onPress = useCallback(async () => {
+    const onPress = useCallback(() => {
       if (token) {
         defaultLogger.staking.page.selectAsset({ tokenSymbol: token.symbol });
 
-        if (token.protocols.length === 1) {
-          const protocol = token.protocols[0];
-          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-            networkId: protocol.networkId,
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.QuickDeposit,
+          params: {
+            networkId: token.protocols[0].networkId,
             symbol: token.symbol,
-            provider: protocol.provider,
-            vault: protocol.vault,
-          });
-        } else {
-          EarnNavigation.pushToEarnProtocols(navigation, {
-            symbol: token.symbol,
-            filterNetworkId: undefined,
-            logoURI: token.logoURI
-              ? encodeURIComponent(token.logoURI)
-              : undefined,
-          });
-        }
+            provider: token.protocols[0].provider,
+            vault: token.protocols[0].vault,
+            tokenImageUri: token.logoURI,
+            // TODO: remove mock - simulate multiple protocols for dropdown testing
+            protocols:
+              token.protocols.length === 1
+                ? [
+                    ...token.protocols,
+                    {
+                      ...token.protocols[0],
+                      provider: 'aave',
+                      vault: 'aave-v3-usdc',
+                    },
+                    {
+                      ...token.protocols[0],
+                      provider: 'compound',
+                      vault: 'compound-v3-usdc',
+                    },
+                  ]
+                : token.protocols,
+          },
+        });
       }
     }, [navigation, token]);
 
@@ -164,11 +174,7 @@ const RecommendedItem = memo(
           </SizableText>
           {!noWalletConnected ? (
             <XStack gap="$1" ai="center" pt="$3">
-              <Icon
-                name="WalletOutline"
-                size="$3.5"
-                color="$iconSubdued"
-              />
+              <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
               <SizableText
                 size="$bodySmMedium"
                 color="$textSubdued"
@@ -236,7 +242,7 @@ function WebRecommendedScroller({
       el.removeEventListener('scroll', onScroll);
       observer.disconnect();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getScrollElement, updateArrows, itemCount]);
 
   const handleScrollLeft = useCallback(() => {
@@ -428,11 +434,7 @@ function RecommendedContainer({
   if (!withHeader) {
     // When used without header (e.g. Home page), offset parent padding
     // so the scroller can handle its own edge-to-edge padding.
-    return (
-      <YStack mx="$-pagePadding">
-        {children}
-      </YStack>
-    );
+    return <YStack mx="$-pagePadding">{children}</YStack>;
   }
   return (
     <YStack
@@ -588,11 +590,7 @@ export function Recommended(
     // Web: responsive flex layout — cards fill parent evenly, min-width 240px,
     // horizontal scroll only when parent can't fit all cards at min-width.
     const cardItems = recommendedTokens.map((token) => (
-      <YStack
-        key={token.symbol}
-        minWidth={CARD_WIDTH}
-        flex={1}
-      >
+      <YStack key={token.symbol} minWidth={CARD_WIDTH} flex={1}>
         <RecommendedItem
           token={token}
           noWalletConnected={noWalletConnected}

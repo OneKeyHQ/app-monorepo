@@ -140,6 +140,7 @@ type IUniversalStakeProps = {
   };
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  renderProtocolInfo?: () => React.ReactElement | null;
   isInModalContext?: boolean;
   ongoingValidator?: IEarnSelectField;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
@@ -178,6 +179,7 @@ export function UniversalStake({
   currentAllowance,
   beforeFooter,
   showApyDetail = false,
+  renderProtocolInfo,
   isInModalContext = false,
   ongoingValidator,
   receiveInputConfig,
@@ -1629,7 +1631,29 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {shouldShowSummaryCard ? (
+      {renderProtocolInfo ? (
+        <YStack
+          p="$3.5"
+          borderRadius="$3"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+        >
+          <YStack gap="$5">
+            {renderProtocolInfo()}
+            {isPendleProvider ? null : (
+              <TradeOrBuy
+                token={tokenInfo?.token as IToken}
+                accountId={accountId}
+                networkId={networkId}
+                containerStyle={{
+                  pt: '$0',
+                }}
+              />
+            )}
+          </YStack>
+        </YStack>
+      ) : null}
+      {!renderProtocolInfo && shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}
