@@ -104,7 +104,7 @@ describe('resolveUpdateDecision', () => {
     });
   });
 
-  test('invalidRemote when currentAppVersion or remoteAppVersion is invalid semver', () => {
+  test('invalidLocal when currentAppVersion is invalid semver', () => {
     const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
     expect(
       resolveUpdateDecision({
@@ -114,10 +114,14 @@ describe('resolveUpdateDecision', () => {
         remoteBundleVersion: '1',
       }),
     ).toMatchObject({
-      decision: 'invalidRemote',
+      decision: 'invalidLocal',
       isValid: false,
       reason: 'invalid_current_app_version',
     });
+  });
+
+  test('invalidRemote when remoteAppVersion is invalid semver', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
     expect(
       resolveUpdateDecision({
         currentAppVersion: '1.0.0',
@@ -132,7 +136,7 @@ describe('resolveUpdateDecision', () => {
     });
   });
 
-  test('invalidRemote when bundleVersion is non-numeric', () => {
+  test('none when remoteBundleVersion is non-numeric (treated as not available)', () => {
     const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
     expect(
       resolveUpdateDecision({
@@ -142,9 +146,25 @@ describe('resolveUpdateDecision', () => {
         remoteBundleVersion: 'abc',
       }),
     ).toMatchObject({
-      decision: 'invalidRemote',
-      isValid: false,
-      reason: 'invalid_bundle_version',
+      decision: 'none',
+      isValid: true,
+      reason: 'remote_bundle_version_not_available',
+    });
+  });
+
+  test('none when remoteBundleVersion is undefined (no false rollback)', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '5');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '5',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: undefined,
+      }),
+    ).toMatchObject({
+      decision: 'none',
+      isValid: true,
+      reason: 'remote_bundle_version_not_available',
     });
   });
 
@@ -229,9 +249,9 @@ describe('gtVersion', () => {
     expect(gtVersion('1.0.0', '1')).toBe(false);
   });
 
-  test('returns false when same app version but lower bundle version', () => {
+  test('returns true when same app version but lower bundle version (rollback)', () => {
     const { gtVersion } = loadAppUpdate('1.0.0', '5');
-    expect(gtVersion('1.0.0', '3')).toBe(false);
+    expect(gtVersion('1.0.0', '3')).toBe(true);
   });
 
   test('returns true when higher app version with higher bundle version', () => {
@@ -881,11 +901,11 @@ describe('fallback bundle management', () => {
 // gtVersion: bundleVersion "0" edge case
 // ---------------------------------------------------------------------------
 describe('gtVersion edge cases', () => {
-  test('bundleVersion "0" with same app version → false', () => {
-    // gtVersion compares remote vs local. "0" is not > local bundleVersion
+  test('bundleVersion "0" with same app version → true (rollback)', () => {
+    // gtVersion now includes rollback: remote bundle 0 < local bundle 1 → rollback
     const { gtVersion } = loadAppUpdate('1.0.0', '1');
     const result = gtVersion('1.0.0', '0');
-    expect(result).toBe(false);
+    expect(result).toBe(true);
   });
 
   test('both appVersion and bundleVersion undefined → false', () => {

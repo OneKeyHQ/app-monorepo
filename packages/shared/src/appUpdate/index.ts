@@ -50,7 +50,7 @@ export function resolveUpdateDecision({
   const currentValid = semver.valid(currentAppVersion || '');
   if (!currentValid) {
     return {
-      decision: 'invalidRemote',
+      decision: 'invalidLocal',
       isValid: false,
       reason: 'invalid_current_app_version',
     };
@@ -64,16 +64,8 @@ export function resolveUpdateDecision({
     };
   }
 
-  const currentBundle = parseBundleVersion(currentBundleVersion || '0');
-  const remoteBundle = parseBundleVersion(remoteBundleVersion || '0');
-  if (currentBundle === undefined || remoteBundle === undefined) {
-    return {
-      decision: 'invalidRemote',
-      isValid: false,
-      reason: 'invalid_bundle_version',
-    };
-  }
-
+  // App version comparisons first — bundle versions only matter when app
+  // versions are equal.
   if (semver.gt(remoteValid, currentValid)) {
     return {
       decision: 'appShellUpdate',
@@ -86,6 +78,29 @@ export function resolveUpdateDecision({
       decision: 'staleRemote',
       isValid: true,
       reason: 'remote_app_version_older',
+    };
+  }
+
+  // App versions are equal — compare bundle versions.
+  const currentBundle = parseBundleVersion(currentBundleVersion || '0');
+  // Do NOT default remoteBundleVersion to '0' — undefined means the server
+  // did not provide a bundle version.  Defaulting to '0' would falsely
+  // trigger jsBundleRollback when the current bundle is >= 1.
+  const remoteBundle = remoteBundleVersion
+    ? parseBundleVersion(remoteBundleVersion)
+    : undefined;
+  if (currentBundle === undefined) {
+    return {
+      decision: 'invalidLocal',
+      isValid: false,
+      reason: 'invalid_current_bundle_version',
+    };
+  }
+  if (remoteBundle === undefined) {
+    return {
+      decision: 'none',
+      isValid: true,
+      reason: 'remote_bundle_version_not_available',
     };
   }
   if (remoteBundle > currentBundle) {
@@ -144,7 +159,8 @@ export const gtVersion = (appVersion?: string, bundleVersion?: string) => {
   });
   return (
     decision.decision === 'appShellUpdate' ||
-    decision.decision === 'jsBundleUpgrade'
+    decision.decision === 'jsBundleUpgrade' ||
+    decision.decision === 'jsBundleRollback'
   );
 };
 

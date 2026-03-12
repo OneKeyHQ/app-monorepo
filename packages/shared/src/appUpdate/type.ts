@@ -23,6 +23,7 @@ export type IUpdateDecision =
   | 'jsBundleUpgrade'
   | 'jsBundleRollback'
   | 'staleRemote'
+  | 'invalidLocal'
   | 'invalidRemote';
 
 export enum EPendingInstallTaskType {
