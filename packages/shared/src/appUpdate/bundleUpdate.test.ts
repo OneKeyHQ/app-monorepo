@@ -291,7 +291,7 @@ describe('isNeedUpdate', () => {
     expect(result.fileType).toBe(EUpdateFileType.appShell);
   });
 
-  test('rollback returns fileType jsBundle with shouldUpdate false', () => {
+  test('rollback returns fileType jsBundle with shouldUpdate false and isRollback true', () => {
     const { isNeedUpdate } = loadAppUpdate('1.0.0', '5');
     const result = isNeedUpdate({
       latestVersion: '1.0.0',
@@ -300,6 +300,7 @@ describe('isNeedUpdate', () => {
     });
     expect(result.shouldUpdate).toBe(false);
     expect(result.fileType).toBe(EUpdateFileType.jsBundle);
+    expect(result.isRollback).toBe(true);
   });
 
   test('does not trigger update when bundle version is lower (rollback path)', () => {
@@ -310,6 +311,29 @@ describe('isNeedUpdate', () => {
       status: EAppUpdateStatus.notify,
     });
     expect(result.shouldUpdate).toBe(false);
+    expect(result.isRollback).toBe(true);
+  });
+
+  test('upgrade returns isRollback false', () => {
+    const { isNeedUpdate } = loadAppUpdate('1.0.0', '1');
+    const result = isNeedUpdate({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+      status: EAppUpdateStatus.notify,
+    });
+    expect(result.shouldUpdate).toBe(true);
+    expect(result.isRollback).toBe(false);
+  });
+
+  test('appShellUpdate returns isRollback false', () => {
+    const { isNeedUpdate } = loadAppUpdate('1.0.0', '1');
+    const result = isNeedUpdate({
+      latestVersion: '2.0.0',
+      jsBundleVersion: '1',
+      status: EAppUpdateStatus.notify,
+    });
+    expect(result.shouldUpdate).toBe(true);
+    expect(result.isRollback).toBe(false);
   });
 
   test('no update when latestVersion is undefined', () => {

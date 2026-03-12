@@ -738,7 +738,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     defaultLogger.app.appUpdate.startCheckForUpdatesOnly();
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
-    const { shouldUpdate, fileType } = isNeedUpdate({
+    const { shouldUpdate, fileType, isRollback } = isNeedUpdate({
       latestVersion: response?.latestVersion,
       jsBundleVersion: response?.jsBundleVersion,
       status: response?.status,
@@ -747,6 +747,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     const result = {
       isForceUpdate: isForceUpdateStrategy(updateStrategy),
       isNeedUpdate: shouldUpdate,
+      isRollback,
       updateFileType: fileType,
       response,
     };
@@ -825,7 +826,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
     const fetchUpdateInfo = (_trigger: string) => {
       void checkForUpdates().then(
-        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({
+          isNeedUpdate: needUpdate,
+          isForceUpdate,
+          isRollback,
+          response,
+        }) => {
           if (isShowForceUpdatePreviewPage) {
             return;
           }
@@ -841,6 +847,19 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
                 showUpdateDialog(false, response);
               }, 200);
             }
+          } else if (
+            isRollback &&
+            isAutoUpdateStrategy(updateStrategy) &&
+            response?.status === EAppUpdateStatus.notify
+          ) {
+            // Rollback is excluded from shouldUpdate (no UI prompt) but
+            // must still be downloaded automatically under seamless/silent
+            // strategies so the pending-task engine can apply it.
+            // Guard on status===notify to prevent retry loops: if a previous
+            // download/verify failed, status stays failed (not reset to notify
+            // for the same target), so re-download won't be triggered until
+            // the server pushes a different version.
+            void downloadPackage();
           }
         },
       );

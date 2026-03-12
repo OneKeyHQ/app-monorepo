@@ -151,6 +151,7 @@ export const gtVersion = (appVersion?: string, bundleVersion?: string) => {
 export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   shouldUpdate: boolean;
   fileType: EUpdateFileType;
+  isRollback: boolean;
 } = ({ latestVersion, jsBundleVersion, status }: IIsNeedUpdateParams) => {
   const decision = resolveUpdateDecision({
     currentAppVersion: APP_VERSION,
@@ -168,9 +169,11 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
     status !== EAppUpdateStatus.done &&
     (decision.decision === 'appShellUpdate' ||
       decision.decision === 'jsBundleUpgrade');
+  const isRollback = decision.decision === 'jsBundleRollback';
   return {
     shouldUpdate,
     fileType,
+    isRollback,
   };
 };
 
