@@ -921,6 +921,11 @@ class ServicePendingInstallTask {
       );
     }
 
+    // NOTE: switchBundle no longer has its own version-downgrade guard.
+    // Version-downgrade (rollback) is intentionally allowed ONLY through
+    // this pending-task engine path.  UI-driven paths (installPackage /
+    // manualInstallPackage) cannot trigger rollback because
+    // isNeedUpdate.shouldUpdate excludes jsBundleRollback.
     await BundleUpdate.switchBundle({
       appVersion,
       bundleVersion,

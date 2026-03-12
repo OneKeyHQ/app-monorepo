@@ -172,13 +172,17 @@ class ServiceAppUpdate extends ServiceBase {
       decision.decision === 'jsBundleUpgrade' ||
       decision.decision === 'jsBundleRollback'
     ) {
+      const targetBundleVersion =
+        decision.decision === 'appShellUpdate'
+          ? appInfo.jsBundleVersion || String(platformEnv.bundleVersion || '')
+          : appInfo.jsBundleVersion;
+      // For jsBundleUpgrade/jsBundleRollback, jsBundleVersion must be present
+      // (resolveUpdateDecision requires remoteBundleVersion). Return null if
+      // unexpectedly empty rather than using a mismatched fallback.
+      if (!targetBundleVersion) return null;
       return this.getTargetKey({
         targetAppVersion: appInfo.latestVersion,
-        targetBundleVersion:
-          decision.decision === 'appShellUpdate'
-            ? appInfo.jsBundleVersion ||
-              String(platformEnv.bundleVersion || '')
-            : appInfo.jsBundleVersion || '0',
+        targetBundleVersion,
       });
     }
     return null;
@@ -418,6 +422,20 @@ class ServiceAppUpdate extends ServiceBase {
         downloadedEvent: undefined,
       }));
     } else if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
+      // Safety net: also subject to the same retry limit as
+      // startFailedRecoveryTimer to prevent infinite resets.
+      const targetKey = this.computeUpdateTargetKey(appInfo);
+      if (targetKey) {
+        const prev = failedRecoveryRetryCount.get(targetKey) || 0;
+        if (prev >= MAX_FAILED_RECOVERY_RETRY) {
+          defaultLogger.app.appUpdate.log(
+            `refreshUpdateStatus: retry exhausted for ${targetKey} (count=${prev}), skipping reset`,
+          );
+          return;
+        }
+        failedRecoveryRetryCount.set(targetKey, prev + 1);
+      }
+
       defaultLogger.app.appUpdate.log(
         `refreshUpdateStatus: resetting failed status ${appInfo.status} to notify`,
       );
