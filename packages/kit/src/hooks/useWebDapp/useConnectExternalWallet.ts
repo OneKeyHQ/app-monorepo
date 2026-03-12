@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Toast } from '@onekeyhq/components';
+import { Toast, resetAboveMainRoute } from '@onekeyhq/components';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -19,7 +19,6 @@ import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { resetAboveMainRoute } from '@onekeyhq/components';
 
 import useAppNavigation from '../useAppNavigation';
 

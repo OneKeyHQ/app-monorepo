@@ -49,7 +49,6 @@ import {
   useKeyboardEventWithoutNavigation,
   useModalNavigatorContextPortalId,
   useOverlayZIndex,
-  useSafeAreaInsets,
 } from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';

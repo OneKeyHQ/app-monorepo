@@ -1,7 +1,4 @@
-import {
-  resetAboveMainRoute,
-  rootNavigationRef,
-} from '@onekeyhq/components';
+import { resetAboveMainRoute, rootNavigationRef } from '@onekeyhq/components';
 import {
   EOnboardingPagesV2,
   EOnboardingV2Routes,
