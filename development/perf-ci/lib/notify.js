@@ -3,6 +3,7 @@ const path = require('path');
 const { fileExists, readJson, writeJson } = require('./fs');
 const { postSlackWebhook } = require('./slack');
 const { buildPerfAlertModel, buildSlackPayload } = require('./slackPayload');
+const { postJobAnalytics } = require('./analytics');
 
 function trimTrailingSlash(value) {
   return String(value || '').replace(/\/+$/, '');
@@ -151,6 +152,9 @@ async function notifyPerfResult({
   slackWebhookUrl,
   localConfig,
 }) {
+  const analyticsUrl = process.env.PERF_ANALYTICS_URL || null;
+  const analyticsSecret = process.env.PERF_ANALYTICS_SECRET || null;
+
   const targetKey = report?.meta?.targetKey || 'perf';
   const alertStatePath = getAlertStatePath({
     outputRoot,
@@ -176,6 +180,7 @@ async function notifyPerfResult({
     };
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
+    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
     return model;
   }
 
@@ -199,6 +204,7 @@ async function notifyPerfResult({
     };
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
+    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
     return model;
   }
 
@@ -217,6 +223,8 @@ async function notifyPerfResult({
     summary: '当前结果正常。',
     updatedAt: new Date().toISOString(),
   });
+  // Always post to analytics, even on healthy runs
+  await postJobAnalytics({ report, notifyModel: null, analyticsUrl, analyticsSecret }).catch(() => {});
   return null;
 }
 
@@ -260,6 +268,9 @@ async function notifyPerfFailure({
   };
   await postModelToSlack({ slackWebhookUrl, model }).catch(() => {});
   writeAlertState(alertStatePath, buildStateSnapshot(model));
+  const analyticsUrl = process.env.PERF_ANALYTICS_URL || null;
+  const analyticsSecret = process.env.PERF_ANALYTICS_SECRET || null;
+  await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
   return model;
 }
 

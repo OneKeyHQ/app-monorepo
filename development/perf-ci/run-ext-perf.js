@@ -43,6 +43,7 @@ const {
   checkRegression,
   extractDerivedDebugMetrics,
 } = require('./lib/regression');
+const { postSessionAnalytics } = require('./lib/analytics');
 
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
@@ -389,6 +390,16 @@ async function main() {
         outPath,
       });
       derived.push({ sessionId, derivedPath: outPath, derived: dj });
+      // eslint-disable-next-line no-await-in-loop
+      await postSessionAnalytics({
+        sessionId,
+        derived: dj,
+        jobId,
+        sessionsDir,
+        platform: meta.targetKey,
+        analyticsUrl: process.env.PERF_ANALYTICS_URL,
+        analyticsSecret: process.env.PERF_ANALYTICS_SECRET,
+      }).catch(() => {});
     }
 
     const runResults = runs.map((r) => {
