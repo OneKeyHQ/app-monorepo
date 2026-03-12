@@ -4,11 +4,7 @@ import platformEnv from '../platformEnv';
 
 import { EAppUpdateStatus, EUpdateFileType } from './type';
 
-import type {
-  IAppUpdateInfo,
-  IResolvedUpdateDecision,
-  IUpdateTargetForPriority,
-} from './type';
+import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
 
 export * from './utils';
 export * from './type';
@@ -42,53 +38,6 @@ function parseBundleVersion(version?: string): number | undefined {
     return undefined;
   }
   return parsed;
-}
-
-export function getTargetVersionKey(appVersion: string, bundleVersion: string) {
-  return `${appVersion}:${bundleVersion}`;
-}
-
-export function compareTargetPriority(
-  a: IUpdateTargetForPriority,
-  b: IUpdateTargetForPriority,
-) {
-  const aAppValid = semver.valid(a.appVersion);
-  const bAppValid = semver.valid(b.appVersion);
-  if (aAppValid && bAppValid && !semver.eq(aAppValid, bAppValid)) {
-    return semver.gt(aAppValid, bAppValid) ? 1 : -1;
-  }
-  if (aAppValid && !bAppValid) {
-    return 1;
-  }
-  if (!aAppValid && bAppValid) {
-    return -1;
-  }
-
-  const aBundle = parseBundleVersion(a.bundleVersion);
-  const bBundle = parseBundleVersion(b.bundleVersion);
-  if (aBundle !== undefined && bBundle !== undefined && aBundle !== bBundle) {
-    return aBundle > bBundle ? 1 : -1;
-  }
-  if (aBundle !== undefined && bBundle === undefined) {
-    return 1;
-  }
-  if (aBundle === undefined && bBundle !== undefined) {
-    return -1;
-  }
-
-  const aRollbackPriority = Number(a.rollbackPolicyPriority ?? 0);
-  const bRollbackPriority = Number(b.rollbackPolicyPriority ?? 0);
-  if (aRollbackPriority !== bRollbackPriority) {
-    return aRollbackPriority > bRollbackPriority ? 1 : -1;
-  }
-
-  const aActionPriority = Number(a.actionPriority ?? 0);
-  const bActionPriority = Number(b.actionPriority ?? 0);
-  if (aActionPriority !== bActionPriority) {
-    return aActionPriority > bActionPriority ? 1 : -1;
-  }
-
-  return 0;
 }
 
 export function resolveUpdateDecision({

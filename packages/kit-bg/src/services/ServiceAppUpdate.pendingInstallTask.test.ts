@@ -364,6 +364,49 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
+  test('newer requestSeq replaces existing pending target even when bundleVersion is lower', async () => {
+    const existingTask = makeSwitchTask({
+      taskId: 'jsbundle:1.0.0:2',
+      targetBundleVersion: '2',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '2',
+        signature: 'sig-2',
+      },
+    });
+    resetPendingTask(existingTask);
+    mockReleaseInfo({
+      version: '1.0.0',
+      jsBundleVersion: '0',
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
+        fileSize: 1024,
+        sha256: 'sha256-0',
+        signature: 'sig-0',
+      },
+    });
+
+    await service.fetchAppUpdateInfo(true);
+
+    expect(pendingTaskValue).toMatchObject({
+      taskId: 'jsbundle:1.0.0:0',
+      targetBundleVersion: '0',
+      payload: {
+        bundleVersion: '0',
+        signature: 'sig-0',
+      },
+    });
+    const events = getUpdateLogEvents();
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_task_upsert_decision' &&
+          event.upsertAction === 'update' &&
+          event.reason === 'newer_revision_replace_target',
+      ),
+    ).toBe(true);
+  });
+
   test('keeps existing pending task when release appVersion is different', async () => {
     const existingTask = makeSwitchTask({
       taskId: 'jsbundle:1.0.0:2',

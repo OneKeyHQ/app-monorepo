@@ -78,13 +78,6 @@ export interface IResolvedUpdateDecision {
   reason: string;
 }
 
-export interface IUpdateTargetForPriority {
-  appVersion?: string;
-  bundleVersion?: string;
-  rollbackPolicyPriority?: number;
-  actionPriority?: number;
-}
-
 export interface IIgnoredUpdateTargetInfo {
   reason: string;
   createdAt: number;

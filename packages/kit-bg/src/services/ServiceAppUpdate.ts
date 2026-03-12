@@ -9,8 +9,6 @@ import type {
 import {
   EAppUpdateStatus,
   EUpdateStrategy,
-  compareTargetPriority,
-  getTargetVersionKey,
   isFirstLaunchAfterUpdated,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -156,10 +154,7 @@ class ServiceAppUpdate extends ServiceBase {
     targetAppVersion: string;
     targetBundleVersion: string;
   }) {
-    return getTargetVersionKey(
-      taskOrTarget.targetAppVersion,
-      taskOrTarget.targetBundleVersion,
-    );
+    return `${taskOrTarget.targetAppVersion}:${taskOrTarget.targetBundleVersion}`;
   }
 
   private isTargetAligned(
@@ -601,43 +596,6 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
-    const priority = compareTargetPriority(
-      {
-        appVersion: task.targetAppVersion,
-        bundleVersion: task.targetBundleVersion,
-        rollbackPolicyPriority:
-          decision.decision === 'jsBundleRollback' ? 0 : 1,
-        actionPriority: decision.decision === 'jsBundleRollback' ? 1 : 2,
-      },
-      {
-        appVersion: existing.targetAppVersion,
-        bundleVersion: existing.targetBundleVersion,
-        rollbackPolicyPriority:
-          Number(existing.targetBundleVersion) <
-          Number(existing.scheduledEnvBundleVersion)
-            ? 0
-            : 1,
-        actionPriority:
-          Number(existing.targetBundleVersion) <
-          Number(existing.scheduledEnvBundleVersion)
-            ? 1
-            : 2,
-      },
-    );
-
-    if (priority <= 0) {
-      this.logUpdateEvent('pending_task_upsert_decision', {
-        traceId,
-        requestSeq,
-        taskId: existing.taskId,
-        revision: existing.revision,
-        action: existing.action,
-        upsertAction: 'noop',
-        reason: 'existing_target_priority_higher_or_equal',
-      });
-      return;
-    }
-
     await setPendingInstallTask(task);
     this.logUpdateEvent('pending_task_upsert_decision', {
       traceId,
@@ -646,7 +604,7 @@ class ServiceAppUpdate extends ServiceBase {
       revision: task.revision,
       action: task.action,
       upsertAction: 'update',
-      reason: 'new_target_priority_higher',
+      reason: 'newer_revision_replace_target',
     });
   }
 
@@ -1811,10 +1769,10 @@ class ServiceAppUpdate extends ServiceBase {
         releaseInfo.version &&
         releaseInfo.jsBundleVersion
       ) {
-        const targetKey = getTargetVersionKey(
-          releaseInfo.version,
-          releaseInfo.jsBundleVersion,
-        );
+        const targetKey = this.getTargetKey({
+          targetAppVersion: releaseInfo.version,
+          targetBundleVersion: releaseInfo.jsBundleVersion,
+        });
         const blockedByControl = await this.shouldSkipTargetByControl(
           targetKey,
           traceId,
