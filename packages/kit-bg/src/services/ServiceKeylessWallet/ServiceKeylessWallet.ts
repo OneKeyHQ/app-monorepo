@@ -1560,17 +1560,37 @@ class ServiceKeylessWallet extends ServiceBase {
       token,
     });
     defaultLogger.wallet.keyless.verifyKeylessBackendShareRetrieved();
-    const socialProvider: EOAuthSocialLoginProvider =
+    let socialProvider: EOAuthSocialLoginProvider =
       this.buildKeylessProviderFromSocialToken({
         token,
       });
-    const socialUserId: string = this.buildKeylessSocialUserIdFromToken({
-      token,
-    });
-    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+    let ownerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
     });
+    const socialUserId: string = this.buildKeylessSocialUserIdFromToken({
+      token,
+    });
+    if (
+      dangerousRetryByFixedProvider &&
+      !this.fixedKeylessProviderMap[socialUserId]
+    ) {
+      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+      const providerOnCreate = decodedToken?.app_metadata
+        ?.provider as EOAuthSocialLoginProvider;
+      if (providerOnCreate) {
+        const alternativeProvider =
+          this.getAlternativeKeylessProvider(providerOnCreate);
+        if (alternativeProvider !== socialProvider) {
+          socialProvider = alternativeProvider;
+          ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+            token,
+            hashId,
+            providerOverride: socialProvider,
+          });
+        }
+      }
+    }
     defaultLogger.wallet.keyless.verifyKeylessOwnerIdGenerated();
 
     if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
