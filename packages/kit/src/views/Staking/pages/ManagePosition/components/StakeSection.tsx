@@ -54,6 +54,7 @@ export const StakeSection = ({
   onSuccess,
   beforeFooter,
   showApyDetail,
+  renderProtocolInfo,
   isInModalContext,
   fallbackTokenImageUri,
   ongoingValidator,
@@ -77,6 +78,7 @@ export const StakeSection = ({
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
+  renderProtocolInfo?: () => React.ReactElement | null;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
   ongoingValidator?: IEarnSelectField;
@@ -679,6 +681,7 @@ export const StakeSection = ({
           }}
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
+          renderProtocolInfo={renderProtocolInfo}
           isInModalContext={isInModalContext}
           ongoingValidator={ongoingValidator}
           receiveInputConfig={receiveInputConfig}

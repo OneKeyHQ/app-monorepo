@@ -82,6 +82,10 @@ const EarnAssetSearchModal = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Earn/pages/EarnAssetSearch'),
 );
 
+const QuickDeposit = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/QuickDeposit'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes | EModalAssetDetailRoutes,
   IModalStakingParamList & IModalAssetDetailsParamList
@@ -169,6 +173,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.EarnAssetSearch,
     component: EarnAssetSearchModal,
+  },
+  {
+    name: EModalStakingRoutes.QuickDeposit,
+    component: QuickDeposit,
   },
   ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
     EModalStakingRoutes | EModalAssetDetailRoutes,
