@@ -2,9 +2,13 @@ import type { ETranslations } from '../locale';
 import type { IUpdateDownloadedEvent } from '../modules3rdParty/auto-update';
 
 export enum EUpdateStrategy {
+  // Download and install silently in the background; only show UI when ready to install.
   silent = 0,
+  // Block the user until update is applied. Shows a full-screen modal that cannot be dismissed.
   force = 1,
+  // Show update notification to the user; download and install only after user confirms.
   manual = 2,
+  // Fully transparent to the user — download, verify, and install without any UI.
   seamless = 3,
 }
 
