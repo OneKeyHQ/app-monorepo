@@ -234,6 +234,16 @@ function makeSwitchTask(overrides: Record<string, any> = {}) {
   };
 }
 
+function createDeferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
   let service: ReturnType<typeof createService>;
 
@@ -356,6 +366,45 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
+  test('readyToInstall does not replace an in-progress running task with newer target', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        taskId: 'jsbundle:1.0.0:2',
+        targetBundleVersion: '2',
+        status: 'running',
+        runningStartedAt: Date.now(),
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '2',
+          signature: 'sig-2',
+        },
+      }),
+    );
+    setReadyState({
+      jsBundleVersion: '3',
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-v3.zip',
+        fileSize: 1024,
+        sha256: 'sha256-3',
+        signature: 'sig-3',
+      },
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v3.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v3.zip',
+        signature: 'sig-3',
+        sha256: 'sha256-3',
+      },
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toMatchObject({
+      taskId: 'jsbundle:1.0.0:2',
+      targetBundleVersion: '2',
+      status: 'running',
+    });
+  });
+
   test('reset does not clear pending task storage', async () => {
     const task = makeSwitchTask({ taskId: 'task-persist' });
     resetPendingTask(task);
@@ -364,5 +413,291 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     await service.reset();
 
     expect(pendingTaskValue).toEqual(task);
+  });
+});
+
+describe('processPendingInstallTask', () => {
+  let service: ReturnType<typeof createService>;
+  let pendingTaskService: any;
+  let autoUpdate: any;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-03-12T00:00:00.000Z'));
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.version = '1.0.0';
+    platformEnvMock.bundleVersion = '1';
+    resetAppUpdateState();
+    resetPendingTask();
+    jest.clearAllMocks();
+    service = createService();
+    pendingTaskService = (service as any).backgroundApi.servicePendingInstallTask;
+    autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
+    autoUpdate.BundleUpdate.verifyExtractedBundle.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('pending -> running -> applied_waiting_verify success path', async () => {
+    resetPendingTask(makeSwitchTask());
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'applied_waiting_verify',
+      retryCount: 0,
+    });
+    expect(autoUpdate.BundleUpdate.switchBundle).toHaveBeenCalledTimes(1);
+  });
+
+  test('pending -> running -> fail -> retry when retryCount < MAX_TASK_RETRY', async () => {
+    autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
+      new Error('switch_failed'),
+    );
+    resetPendingTask(makeSwitchTask({ retryCount: 0 }));
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: 'switch_failed',
+    });
+    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
+  });
+
+  test('retry exhausted -> freezeAndIgnoreTarget', async () => {
+    autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
+      new Error('switch_failed'),
+    );
+    resetPendingTask(makeSwitchTask({ retryCount: 2 }));
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(Date.now());
+    expect(appUpdateState.ignoredTargets?.['1.0.0:2']).toMatchObject({
+      reason: 'RETRY_EXHAUSTED',
+    });
+  });
+
+  test('expired task is cleared', async () => {
+    resetPendingTask(makeSwitchTask({ expiresAt: Date.now() - 1 }));
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('invalid task payload is cleared', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '2',
+        },
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('applied_waiting_verify + target aligned -> clear success', async () => {
+    resetAppUpdateState({
+      ignoredTargets: {
+        '1.0.0:1': {
+          reason: 'RETRY_EXHAUSTED',
+          createdAt: Date.now() - 1000,
+          expiresAt: Date.now() + 60_000,
+        },
+      },
+      fullFlowRetryByTarget: {
+        '1.0.0:1': {
+          count: 1,
+          updatedAt: Date.now() - 1000,
+        },
+      },
+    });
+    resetPendingTask(
+      makeSwitchTask({
+        taskId: 'jsbundle:1.0.0:1',
+        targetBundleVersion: '1',
+        status: 'applied_waiting_verify',
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '1',
+          signature: 'sig-1',
+        },
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.ignoredTargets?.['1.0.0:1']).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:1']).toBeUndefined();
+  });
+
+  test('applied_waiting_verify + target not aligned -> markTaskFailed', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        status: 'applied_waiting_verify',
+        targetBundleVersion: '2',
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '2',
+          signature: 'sig-2',
+        },
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: 'VERIFY_AFTER_RESTART_MISMATCH',
+    });
+    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
+  });
+
+  test('stale running task (>5m) marks interrupted and retries', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        status: 'running',
+        runningStartedAt: Date.now() - 6 * 60 * 1000,
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: 'INTERRUPTED',
+    });
+    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
+  });
+
+  test('concurrent/reentrant invocation is rejected by lock', async () => {
+    const deferred = createDeferred<void>();
+    autoUpdate.BundleUpdate.switchBundle.mockImplementationOnce(
+      () => deferred.promise,
+    );
+    resetPendingTask(makeSwitchTask());
+
+    const firstCall = service.processPendingInstallTask();
+    const secondCall = service.processPendingInstallTask();
+
+    await secondCall;
+    expect(
+      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate
+        .pendingTaskLockState,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lockState: 'reentrant',
+        lockHeldMs: expect.any(Number),
+      }),
+    );
+
+    deferred.resolve();
+    await firstCall;
+    expect(autoUpdate.BundleUpdate.switchBundle).toHaveBeenCalledTimes(1);
+  });
+
+  test('lock timeout recovers and continues processing', async () => {
+    resetPendingTask(makeSwitchTask());
+    pendingTaskService.isProcessingPendingTask = true;
+    pendingTaskService.pendingTaskLockAcquiredAt = Date.now() - 31_000;
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'applied_waiting_verify',
+    });
+    expect(
+      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate
+        .pendingTaskLockState,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lockState: 'timeout',
+      }),
+      'warn',
+    );
+  });
+
+  test('env mismatch (neither target nor scheduled) drops task', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        taskId: 'jsbundle:9.9.9:9',
+        targetAppVersion: '9.9.9',
+        targetBundleVersion: '9',
+        scheduledEnvAppVersion: '8.8.8',
+        scheduledEnvBundleVersion: '8',
+        payload: {
+          appVersion: '9.9.9',
+          bundleVersion: '9',
+          signature: 'sig-9',
+        },
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.switchBundle).not.toHaveBeenCalled();
+  });
+
+  test('skip execution when nextRetryAt is not reached', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        nextRetryAt: Date.now() + 60_000,
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 0,
+    });
+    expect(autoUpdate.BundleUpdate.switchBundle).not.toHaveBeenCalled();
+  });
+
+  test('target already aligned -> clear without execution', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        taskId: 'jsbundle:1.0.0:1',
+        targetBundleVersion: '1',
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '1',
+          signature: 'sig-1',
+        },
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.switchBundle).not.toHaveBeenCalled();
+  });
+
+  test('failed task is self-healed by clearing', async () => {
+    resetPendingTask(
+      makeSwitchTask({
+        status: 'failed',
+        lastError: 'switch_failed',
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
   });
 });

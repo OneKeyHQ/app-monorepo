@@ -194,7 +194,6 @@ class ServicePendingInstallTask {
         lastRequestSeq: nextSeq,
       };
     });
-    this.fallbackRequestSeqCounter += 1;
     return requestSeq || Date.now() * 1000 + this.fallbackRequestSeqCounter;
   }
 
@@ -739,6 +738,22 @@ class ServicePendingInstallTask {
       return;
     }
 
+    if (
+      existing.status === 'running' ||
+      existing.status === 'applied_waiting_verify'
+    ) {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+        traceId,
+        requestSeq,
+        upsertAction: 'drop',
+        reason: 'existing_task_in_progress',
+        existingStatus: existing.status,
+        ...this.buildTaskLogFields(existing),
+        stage,
+      });
+      return;
+    }
+
     await setPendingInstallTask(task);
     defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
       traceId,
@@ -1075,12 +1090,11 @@ class ServicePendingInstallTask {
 
       const targetKey = this.getTargetKey(task);
       if (task.status === 'failed') {
-        defaultLogger.app.appUpdate.pendingTaskValidation( {
+        await this.clearPendingTaskWithLog({
           traceId,
-          requestSeq,
-          isValid: true,
-          invalidReason: 'task_already_failed',
-          ...this.buildTaskLogFields(task),
+          task,
+          clearReason: 'task_already_failed_self_heal',
+          level: 'warn',
         });
         return;
       }

@@ -891,15 +891,12 @@ class ServiceAppUpdate extends ServiceBase {
             );
           }
         }
-        if (
-          isFailed &&
-          !isNewerThanAttempted &&
-          releaseInfo.jsBundleVersion &&
-          prev.jsBundleVersion
-        ) {
+        if (isFailed && !isNewerThanAttempted) {
           isNewerThanAttempted =
+            prev.jsBundleVersion != null &&
+            releaseInfo.jsBundleVersion != null &&
             Number(releaseInfo.jsBundleVersion) !==
-            Number(prev.jsBundleVersion);
+              Number(prev.jsBundleVersion);
         }
         const shouldResetFailed = isFailed && isNewerThanAttempted;
         // Corrupted/tampered packages must be re-downloaded
