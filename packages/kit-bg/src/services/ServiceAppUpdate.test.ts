@@ -51,22 +51,22 @@ jest.mock('../states/jotai/atoms', () => ({
   appUpdatePersistAtom: mockAtom,
 }));
 
-const pendingInstallTaskStorageMock = {
-  getPendingInstallTask: jest.fn(async () => pendingInstallTaskValue),
-  setPendingInstallTask: jest.fn(async (task: any) => {
-    pendingInstallTaskValue = task;
-    return pendingInstallTaskValue;
-  }),
-  clearPendingInstallTask: jest.fn(async () => {
-    pendingInstallTaskValue = undefined;
-  }),
+const appStorageMock = {
+  syncStorage: {
+    getObject: jest.fn(async () => pendingInstallTaskValue),
+    setObject: jest.fn(async (_key: string, task: any) => {
+      pendingInstallTaskValue = task;
+      return pendingInstallTaskValue;
+    }),
+    delete: jest.fn(async () => {
+      pendingInstallTaskValue = undefined;
+    }),
+  },
 };
 
-jest.mock('./pendingInstallTaskStorage', () => ({
-  getPendingInstallTask: pendingInstallTaskStorageMock.getPendingInstallTask,
-  setPendingInstallTask: pendingInstallTaskStorageMock.setPendingInstallTask,
-  clearPendingInstallTask:
-    pendingInstallTaskStorageMock.clearPendingInstallTask,
+jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
+  __esModule: true,
+  default: appStorageMock,
 }));
 
 // ---------------------------------------------------------------------------

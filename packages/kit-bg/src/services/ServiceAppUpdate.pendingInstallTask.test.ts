@@ -36,21 +36,22 @@ jest.mock('../states/jotai/atoms', () => ({
   appUpdatePersistAtom,
 }));
 
-const pendingInstallTaskStorage = {
-  getPendingInstallTask: jest.fn(async () => pendingTaskValue),
-  setPendingInstallTask: jest.fn(async (task: any) => {
-    pendingTaskValue = task;
-    return pendingTaskValue;
-  }),
-  clearPendingInstallTask: jest.fn(async () => {
-    pendingTaskValue = undefined;
-  }),
+const appStorageMock = {
+  syncStorage: {
+    getObject: jest.fn(async () => pendingTaskValue),
+    setObject: jest.fn(async (_key: string, task: any) => {
+      pendingTaskValue = task;
+      return pendingTaskValue;
+    }),
+    delete: jest.fn(async () => {
+      pendingTaskValue = undefined;
+    }),
+  },
 };
 
-jest.mock('./pendingInstallTaskStorage', () => ({
-  getPendingInstallTask: pendingInstallTaskStorage.getPendingInstallTask,
-  setPendingInstallTask: pendingInstallTaskStorage.setPendingInstallTask,
-  clearPendingInstallTask: pendingInstallTaskStorage.clearPendingInstallTask,
+jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
+  __esModule: true,
+  default: appStorageMock,
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -185,27 +186,6 @@ function resetPendingTask(value: any = undefined) {
   pendingTaskValue = value;
 }
 
-function getUpdateLogEvents() {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger') as {
-    defaultLogger: {
-      app: { appUpdate: { log: jest.Mock } };
-    };
-  };
-  return defaultLogger.app.appUpdate.log.mock.calls
-    .map(([message]: [string]) => {
-      try {
-        return JSON.parse(message) as {
-          event?: string;
-          [key: string]: unknown;
-        };
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-}
-
 function makeSwitchTask(overrides: Record<string, any> = {}) {
   const now = Date.now();
   return {
@@ -225,31 +205,6 @@ function makeSwitchTask(overrides: Record<string, any> = {}) {
       appVersion: '1.0.0',
       bundleVersion: '2',
       signature: 'sig-2',
-    },
-    ...overrides,
-  };
-}
-
-function makeAppShellInstallTask(overrides: Record<string, any> = {}) {
-  const now = Date.now();
-  return {
-    taskId: 'appshell:2.0.0:direct',
-    revision: 1,
-    action: 'install-app',
-    type: 'appshell-install',
-    targetAppVersion: '2.0.0',
-    targetBundleVersion: '1',
-    scheduledEnvAppVersion: '1.0.0',
-    scheduledEnvBundleVersion: '1',
-    createdAt: now - 1000,
-    expiresAt: now + 60_000,
-    retryCount: 0,
-    status: 'pending',
-    payload: {
-      latestVersion: '2.0.0',
-      updateStrategy: EUpdateStrategy.seamless,
-      channel: 'direct',
-      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
     },
     ...overrides,
   };
@@ -319,16 +274,6 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     await service.fetchAppUpdateInfo(true);
 
     expect(pendingTaskValue).toBeUndefined();
-    const events = getUpdateLogEvents();
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_task_upsert_decision' &&
-          event.upsertAction === 'drop' &&
-          event.reason === 'resources_not_ready' &&
-          event.stage === 'fetch',
-      ),
-    ).toBe(true);
   });
 
   test('readyToInstall creates pending jsbundle task after download/verify completes', async () => {
@@ -348,24 +293,6 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         appVersion: '1.0.0',
         bundleVersion: '2',
         signature: 'sig-2',
-      },
-    });
-  });
-
-  test('readyToInstall creates rollback pending task when remote jsBundleVersion is lower than local', async () => {
-    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
-    platformEnvMock.bundleVersion = '3';
-    setReadyState({
-      jsBundleVersion: '2',
-    });
-
-    await service.readyToInstall();
-
-    expect(pendingTaskValue).toMatchObject({
-      type: 'jsbundle-switch',
-      targetAppVersion: '1.0.0',
-      payload: {
-        bundleVersion: '2',
       },
     });
   });
@@ -395,84 +322,6 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     });
   });
 
-  test('same appVersion + same bundleVersion does not create pending task', async () => {
-    setReadyState({
-      jsBundleVersion: '1',
-    });
-
-    await service.readyToInstall();
-
-    expect(pendingTaskValue).toBeUndefined();
-  });
-
-  test('non-seamless strategy does not create pending task', async () => {
-    setReadyState({
-      updateStrategy: EUpdateStrategy.manual,
-    });
-
-    await service.readyToInstall();
-
-    expect(pendingTaskValue).toBeUndefined();
-    const events = getUpdateLogEvents();
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_task_upsert_decision' &&
-          event.upsertAction === 'drop' &&
-          event.reason === 'strategy_not_restart_install' &&
-          event.stage === 'ready_to_install',
-      ),
-    ).toBe(true);
-  });
-
-  test('newer requestSeq replaces existing pending target even when bundleVersion is lower', async () => {
-    const existingTask = makeSwitchTask({
-      taskId: 'jsbundle:1.0.0:2',
-      targetBundleVersion: '2',
-      payload: {
-        appVersion: '1.0.0',
-        bundleVersion: '2',
-        signature: 'sig-2',
-      },
-    });
-    resetPendingTask(existingTask);
-    setReadyState({
-      jsBundleVersion: '0',
-      jsBundle: {
-        downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
-        fileSize: 1024,
-        sha256: 'sha256-0',
-        signature: 'sig-0',
-      },
-      downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v0.zip',
-        downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
-        signature: 'sig-0',
-        sha256: 'sha256-0',
-      },
-    });
-
-    await service.readyToInstall();
-
-    expect(pendingTaskValue).toMatchObject({
-      taskId: 'jsbundle:1.0.0:0',
-      targetBundleVersion: '0',
-      payload: {
-        bundleVersion: '0',
-        signature: 'sig-0',
-      },
-    });
-    const events = getUpdateLogEvents();
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_task_upsert_decision' &&
-          event.upsertAction === 'update' &&
-          event.reason === 'newer_revision_replace_target',
-      ),
-    ).toBe(true);
-  });
-
   test('reset does not clear pending task storage', async () => {
     const task = makeSwitchTask({ taskId: 'task-persist' });
     resetPendingTask(task);
@@ -481,277 +330,5 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     await service.reset();
 
     expect(pendingTaskValue).toEqual(task);
-  });
-});
-
-describe('ServiceAppUpdate processPendingInstallTask', () => {
-  let service: ReturnType<typeof createService>;
-  let bundleUpdate: any;
-  let appUpdate: any;
-
-  beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-03-12T00:00:00.000Z'));
-    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
-    platformEnvMock.version = '1.0.0';
-    platformEnvMock.bundleVersion = '1';
-    resetAppUpdateState();
-    resetPendingTask();
-    jest.clearAllMocks();
-    service = createService();
-    const autoUpdate =
-      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
-    bundleUpdate = autoUpdate.BundleUpdate;
-    appUpdate = autoUpdate.AppUpdate;
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  test('does not call refreshUpdateStatus when no pending task', async () => {
-    const refreshSpy = jest
-      .spyOn(service, 'refreshUpdateStatus')
-      .mockResolvedValue(undefined);
-
-    await service.processPendingInstallTask();
-
-    expect(refreshSpy).not.toHaveBeenCalled();
-  });
-
-  test('calls refreshUpdateStatus after pending task processing', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(true);
-    const refreshSpy = jest
-      .spyOn(service, 'refreshUpdateStatus')
-      .mockResolvedValue(undefined);
-    resetPendingTask(makeSwitchTask());
-
-    await service.processPendingInstallTask();
-
-    expect(refreshSpy).toHaveBeenCalledTimes(1);
-  });
-
-  test('recovers stale running task to pending and schedules retry', async () => {
-    resetPendingTask(
-      makeSwitchTask({
-        status: 'running',
-        runningStartedAt: Date.now() - 10 * 60 * 1000,
-      }),
-    );
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue.status).toBe('pending');
-    expect(pendingTaskValue.retryCount).toBe(1);
-    expect(pendingTaskValue.lastError).toBe('INTERRUPTED');
-    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
-  });
-
-  test('drops task when scheduled env mismatches current env', async () => {
-    resetPendingTask(
-      makeSwitchTask({
-        scheduledEnvAppVersion: '2.0.0',
-        scheduledEnvBundleVersion: '99',
-      }),
-    );
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue).toBeUndefined();
-  });
-
-  test('uses local bundle path when bundle already exists', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(true);
-    resetPendingTask(makeSwitchTask());
-
-    await service.processPendingInstallTask();
-
-    expect(bundleUpdate.isBundleExists).toHaveBeenCalledWith('1.0.0', '2');
-    expect(bundleUpdate.verifyExtractedBundle).toHaveBeenCalledWith(
-      '1.0.0',
-      '2',
-    );
-    expect(bundleUpdate.switchBundle).toHaveBeenCalledWith({
-      appVersion: '1.0.0',
-      bundleVersion: '2',
-      signature: 'sig-2',
-    });
-    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
-  });
-
-  test('executes app shell install task when package is ready', async () => {
-    resetAppUpdateState({
-      latestVersion: '2.0.0',
-      updateStrategy: EUpdateStrategy.seamless,
-      downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
-        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
-      },
-    });
-    resetPendingTask(makeAppShellInstallTask());
-
-    await service.processPendingInstallTask();
-
-    expect(appUpdate.installPackage).toHaveBeenCalled();
-    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
-  });
-
-  test('writes structured switch logs when executing pending task', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(true);
-    resetPendingTask(makeSwitchTask());
-
-    await service.processPendingInstallTask();
-
-    const events = getUpdateLogEvents();
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_switch_start' &&
-          event.taskId === 'jsbundle:1.0.0:2',
-      ),
-    ).toBe(true);
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_switch_result' &&
-          event.result === 'success' &&
-          event.taskId === 'jsbundle:1.0.0:2',
-      ),
-    ).toBe(true);
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_post_process_refresh_result' &&
-          event.result === 'success',
-      ),
-    ).toBe(true);
-  });
-
-  test('applied_waiting_verify is cleared when target env is aligned', async () => {
-    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
-    platformEnvMock.bundleVersion = '2';
-    resetPendingTask(makeSwitchTask({ status: 'applied_waiting_verify' }));
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue).toBeUndefined();
-  });
-
-  test('appshell applied_waiting_verify is cleared when app version is aligned', async () => {
-    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
-    platformEnvMock.version = '2.0.0';
-    resetPendingTask(makeAppShellInstallTask({ status: 'applied_waiting_verify' }));
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue).toBeUndefined();
-  });
-
-  test('bundle missing triggers full-flow retry and clears task', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(false);
-    resetPendingTask(makeSwitchTask());
-
-    await service.processPendingInstallTask();
-
-    expect(bundleUpdate.downloadBundle).not.toHaveBeenCalled();
-    expect(pendingTaskValue).toBeUndefined();
-    expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:2']?.count).toBe(1);
-  });
-
-  test('verifyExtractedBundle failure triggers full-flow retry', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(true);
-    bundleUpdate.verifyExtractedBundle.mockRejectedValueOnce(
-      new Error('corrupted'),
-    );
-    resetPendingTask(makeSwitchTask());
-
-    await service.processPendingInstallTask();
-
-    expect(bundleUpdate.clearBundle).toHaveBeenCalled();
-    expect(bundleUpdate.switchBundle).not.toHaveBeenCalled();
-    expect(pendingTaskValue).toBeUndefined();
-    expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:2']?.count).toBe(1);
-  });
-
-  test('failure writes retry backoff metadata', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(true);
-    bundleUpdate.switchBundle.mockRejectedValue(new Error('switch failed'));
-    resetPendingTask(makeSwitchTask({ retryCount: 0 }));
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue.status).toBe('pending');
-    expect(pendingTaskValue.retryCount).toBe(1);
-    expect(pendingTaskValue.lastError).toContain('switch failed');
-    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
-    expect(pendingTaskValue.nextRetryAt - Date.now()).toBeGreaterThanOrEqual(
-      30_000,
-    );
-    expect(pendingTaskValue.nextRetryAt - Date.now()).toBeLessThanOrEqual(
-      35_000,
-    );
-  });
-
-  test('max retry clears task and freezes/ignores target', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(true);
-    bundleUpdate.switchBundle.mockRejectedValue(new Error('switch failed'));
-    resetPendingTask(makeSwitchTask({ retryCount: 2 }));
-    const now = Date.now();
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue).toBeUndefined();
-    expect(appUpdateState.freezeUntil).toBeGreaterThan(now);
-    expect(appUpdateState.ignoredTargets?.['1.0.0:2']?.reason).toBe(
-      'RETRY_EXHAUSTED',
-    );
-  });
-
-  test('full-flow retry exhaustion freezes and ignores target', async () => {
-    bundleUpdate.isBundleExists.mockResolvedValue(false);
-    resetAppUpdateState({
-      fullFlowRetryByTarget: {
-        '1.0.0:2': {
-          count: 2,
-          updatedAt: Date.now(),
-        },
-      },
-    });
-    resetPendingTask(makeSwitchTask());
-    const now = Date.now();
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue).toBeUndefined();
-    expect(appUpdateState.freezeUntil).toBeGreaterThan(now);
-    expect(appUpdateState.ignoredTargets?.['1.0.0:2']?.reason).toBe(
-      'FULL_FLOW_RETRY_EXHAUSTED',
-    );
-  });
-
-  test('unknown task type is logged and dropped', async () => {
-    resetPendingTask({
-      taskId: 'unknown-task',
-      type: 'unknown-task-type',
-    });
-
-    await service.processPendingInstallTask();
-
-    expect(pendingTaskValue).toBeUndefined();
-    const events = getUpdateLogEvents();
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_task_unknown_type_dropped' &&
-          event.taskType === 'unknown-task-type',
-      ),
-    ).toBe(true);
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_task_cleared' &&
-          event.clearReason === 'invalid_task_payload',
-      ),
-    ).toBe(true);
   });
 });

@@ -1,0 +1,441 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+import { EUpdateStrategy } from '@onekeyhq/shared/src/appUpdate';
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+
+let appUpdateState: IAppUpdateInfo = {
+  latestVersion: '0.0.0',
+  updateAt: 0,
+  status: 'done' as any,
+  updateStrategy: EUpdateStrategy.manual,
+};
+let pendingTaskValue: any;
+
+const appUpdatePersistAtom = {
+  get: jest.fn(async () => appUpdateState),
+  set: jest.fn(
+    async (
+      valOrUpdater: IAppUpdateInfo | ((prev: IAppUpdateInfo) => IAppUpdateInfo),
+    ) => {
+      if (typeof valOrUpdater === 'function') {
+        appUpdateState = valOrUpdater(appUpdateState);
+      } else {
+        appUpdateState = valOrUpdater;
+      }
+      return appUpdateState;
+    },
+  ),
+};
+
+jest.mock('../states/jotai/atoms', () => ({
+  appUpdatePersistAtom,
+}));
+
+const appStorageMock = {
+  syncStorage: {
+    getObject: jest.fn(async () => pendingTaskValue),
+    setObject: jest.fn(async (_key: string, task: any) => {
+      pendingTaskValue = task;
+      return pendingTaskValue;
+    }),
+    delete: jest.fn(async () => {
+      pendingTaskValue = undefined;
+    }),
+  },
+};
+
+jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
+  __esModule: true,
+  default: appStorageMock,
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    version: '1.0.0',
+    bundleVersion: '1',
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
+  AppUpdate: {
+    installPackage: jest.fn(async () => undefined),
+  },
+  BundleUpdate: {
+    switchBundle: jest.fn(async () => undefined),
+    isBundleExists: jest.fn(async () => true),
+    verifyExtractedBundle: jest.fn(async () => undefined),
+    clearBundle: jest.fn(async () => undefined),
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      appUpdate: {
+        log: jest.fn(),
+      },
+      error: { log: jest.fn() },
+    },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
+  backgroundClass: () => (target: any) => target,
+  backgroundMethod: () => (_t: any, _k: string, desc: any) => desc,
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
+  memoizee: (fn: any) => fn,
+  memoFn: (fn: any) => fn,
+}));
+
+function createService(refreshUpdateStatus = jest.fn(async () => undefined)) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { ServicePendingInstallTask } = require('./servicePendingInstallTask');
+  return new ServicePendingInstallTask({ refreshUpdateStatus });
+}
+
+function setState(overrides: Partial<IAppUpdateInfo>) {
+  appUpdateState = {
+    latestVersion: '0.0.0',
+    updateAt: 0,
+    status: 'done' as any,
+    updateStrategy: EUpdateStrategy.manual,
+    ...overrides,
+  };
+}
+
+function makeSwitchTask(overrides: Record<string, any> = {}) {
+  const now = Date.now();
+  return {
+    taskId: 'jsbundle:1.0.0:2',
+    revision: 1,
+    action: 'switch-bundle',
+    type: 'jsbundle-switch',
+    targetAppVersion: '1.0.0',
+    targetBundleVersion: '2',
+    scheduledEnvAppVersion: '1.0.0',
+    scheduledEnvBundleVersion: '1',
+    createdAt: now - 1000,
+    expiresAt: now + 60_000,
+    retryCount: 0,
+    status: 'pending',
+    payload: {
+      appVersion: '1.0.0',
+      bundleVersion: '2',
+      signature: 'sig-2',
+    },
+    ...overrides,
+  };
+}
+
+function makeAppShellInstallTask(overrides: Record<string, any> = {}) {
+  const now = Date.now();
+  return {
+    taskId: 'appshell:2.0.0:direct',
+    revision: 1,
+    action: 'install-app',
+    type: 'appshell-install',
+    targetAppVersion: '2.0.0',
+    targetBundleVersion: '1',
+    scheduledEnvAppVersion: '1.0.0',
+    scheduledEnvBundleVersion: '1',
+    createdAt: now - 1000,
+    expiresAt: now + 60_000,
+    retryCount: 0,
+    status: 'pending',
+    payload: {
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      channel: 'direct',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+    },
+    ...overrides,
+  };
+}
+
+describe('servicePendingInstallTask', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.version = '1.0.0';
+    platformEnvMock.bundleVersion = '1';
+    pendingTaskValue = undefined;
+    setState({});
+  });
+
+  test('fetch stage does not create pending task before resources are ready', async () => {
+    const service = createService();
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: { signature: 'sig-2' },
+      },
+      requestSeq: 1,
+      traceId: 'trace-fetch',
+      stage: 'fetch',
+    });
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('ready_to_install stage creates pending jsbundle task', async () => {
+    const service = createService();
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      updateStrategy: EUpdateStrategy.seamless,
+      jsBundle: { signature: 'sig-2' },
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+        sha256: 'sha256-2',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: { signature: 'sig-2' },
+      },
+      requestSeq: 2,
+      traceId: 'trace-ready',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      action: 'switch-bundle',
+      targetAppVersion: '1.0.0',
+      targetBundleVersion: '2',
+    });
+  });
+
+  test('ready_to_install stage creates rollback jsbundle task when remote bundle is lower than local', async () => {
+    const service = createService();
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.bundleVersion = '3';
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: { signature: 'sig-2' },
+      },
+      requestSeq: 3,
+      traceId: 'trace-rollback',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      targetAppVersion: '1.0.0',
+      targetBundleVersion: '2',
+      payload: {
+        bundleVersion: '2',
+      },
+    });
+  });
+
+  test('ready_to_install stage does not create pending task when app and bundle are already aligned', async () => {
+    const service = createService();
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '1',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v1.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v1.zip',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '1',
+        updateStrategy: EUpdateStrategy.seamless,
+      },
+      requestSeq: 4,
+      traceId: 'trace-aligned',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('ready_to_install stage does not create pending task for non-seamless strategy', async () => {
+    const service = createService();
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      updateStrategy: EUpdateStrategy.manual,
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.manual,
+        jsBundle: { signature: 'sig-2' },
+      },
+      requestSeq: 5,
+      traceId: 'trace-manual',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('newer requestSeq replaces existing pending target even when new bundle version is lower', async () => {
+    const service = createService();
+    pendingTaskValue = makeSwitchTask({
+      taskId: 'jsbundle:1.0.0:2',
+      revision: 1,
+      targetBundleVersion: '2',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '2',
+        signature: 'sig-2',
+      },
+    });
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '0',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v0.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
+        signature: 'sig-0',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '0',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: { signature: 'sig-0' },
+      },
+      requestSeq: 6,
+      traceId: 'trace-replace-lower',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    expect(pendingTaskValue).toMatchObject({
+      taskId: 'jsbundle:1.0.0:0',
+      revision: 6,
+      targetBundleVersion: '0',
+      payload: {
+        bundleVersion: '0',
+        signature: 'sig-0',
+      },
+    });
+  });
+
+  test('processPendingInstallTask runs task and refreshes status', async () => {
+    const refresh = jest.fn(async () => undefined);
+    const service = createService(refresh);
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+  });
+
+  test('drops task when scheduled env mismatches current env', async () => {
+    const service = createService();
+    pendingTaskValue = makeSwitchTask({
+      scheduledEnvAppVersion: '2.0.0',
+      scheduledEnvBundleVersion: '99',
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('stale running task is recovered to pending with retry', async () => {
+    const service = createService();
+    pendingTaskValue = makeSwitchTask({
+      status: 'running',
+      runningStartedAt: Date.now() - 10 * 60 * 1000,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue.status).toBe('pending');
+    expect(pendingTaskValue.retryCount).toBe(1);
+    expect(pendingTaskValue.lastError).toBe('INTERRUPTED');
+  });
+
+  test('executes app shell install task when package is ready', async () => {
+    const service = createService();
+    const autoUpdate =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask();
+
+    await service.processPendingInstallTask();
+
+    expect(autoUpdate.AppUpdate.installPackage).toHaveBeenCalled();
+    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+  });
+
+  test('bundle missing triggers full-flow retry and clears task', async () => {
+    const service = createService();
+    const autoUpdate =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(false);
+    pendingTaskValue = makeSwitchTask();
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:2']?.count).toBe(1);
+  });
+
+  test('unknown task type is dropped', async () => {
+    const service = createService();
+    pendingTaskValue = {
+      taskId: 'unknown-task',
+      type: 'unknown-task-type',
+    };
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+});

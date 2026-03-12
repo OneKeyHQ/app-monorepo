@@ -8,7 +8,7 @@ jest.mock('../background/instance/backgroundApiProxy', () => {
     processPendingInstallTask: jest.fn(),
   };
   (globalThis as any).__mockSvc = svc;
-  return { __esModule: true, default: { serviceAppUpdate: svc } };
+  return { __esModule: true, default: { servicePendingInstallTask: svc } };
 });
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
