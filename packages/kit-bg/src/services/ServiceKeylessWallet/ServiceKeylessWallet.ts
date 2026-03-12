@@ -1592,7 +1592,7 @@ class ServiceKeylessWallet extends ServiceBase {
         className: EOneKeyErrorClassNames.IncorrectPinError,
       });
       const isPinError = isPinErrorByInstance || isPinErrorByClassName;
-      if (isPinError && dangerousRetryByFixedProvider) {
+      if (isPinError && dangerousRetryByFixedProvider && !this.fixedKeylessProviderMap[socialUserId]) {
         this.fixedKeylessProviderMap[socialUserId] =
           socialProvider === EOAuthSocialLoginProvider.Google
             ? EOAuthSocialLoginProvider.Apple
