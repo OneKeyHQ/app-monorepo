@@ -849,12 +849,10 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             }
           } else if (
             isRollback &&
-            isAutoUpdateStrategy(updateStrategy) &&
             response?.status === EAppUpdateStatus.notify
           ) {
-            // Rollback is excluded from shouldUpdate (no UI prompt) but
-            // must still be downloaded automatically under seamless/silent
-            // strategies so the pending-task engine can apply it.
+            // Rollback always auto-downloads regardless of server strategy —
+            // it is a corrective action, not a user-facing update.
             // Guard on status===notify to prevent retry loops: if a previous
             // download/verify failed, status stays failed (not reset to notify
             // for the same target), so re-download won't be triggered until

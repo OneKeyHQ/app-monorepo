@@ -1283,7 +1283,9 @@ describe('useAppUpdateInfo useEffect', () => {
       mockPlatformEnv.bundleVersion = '1';
     });
 
-    test('status=done + jsBundleRollback + manual → does NOT auto download', async () => {
+    test('jsBundleRollback + manual strategy → still auto downloads (ignores strategy)', async () => {
+      // Rollback is a corrective action — always auto-downloads
+      // regardless of server-returned strategy.
       mockPlatformEnv.bundleVersion = '5';
       setAtom({
         status: EAppUpdateStatus.done,
@@ -1310,7 +1312,38 @@ describe('useAppUpdateInfo useEffect', () => {
       });
 
       expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
-      expect(svc.downloadPackage).not.toHaveBeenCalled();
+      expect(svc.downloadPackage).toHaveBeenCalled();
+      mockPlatformEnv.bundleVersion = '1';
+    });
+
+    test('jsBundleRollback + force strategy → still auto downloads (ignores strategy)', async () => {
+      mockPlatformEnv.bundleVersion = '5';
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '3',
+        updateStrategy: EUpdateStrategy.force,
+        status: EAppUpdateStatus.notify,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+      expect(svc.downloadPackage).toHaveBeenCalled();
       mockPlatformEnv.bundleVersion = '1';
     });
 
