@@ -25,7 +25,7 @@ function MarketTokenListNetworkSelectorMobileImpl({
   currentSelectNetwork,
   onSelectCurrentNetwork,
   handleMoreNetworkSelect,
-  isLoading,
+  isLoading: _isLoading,
   placement,
   containerStyle,
   onStartListSelect,
@@ -33,7 +33,7 @@ function MarketTokenListNetworkSelectorMobileImpl({
 }: IMarketTokenListNetworkSelectorMobileProps) {
   return (
     <Stack>
-      {isLoading || marketNetworks.length === 0 ? (
+      {marketNetworks.length === 0 ? (
         <MarketTokenListNetworkSelectorNormalSkeleton />
       ) : (
         <MarketNetworkFilterMobile

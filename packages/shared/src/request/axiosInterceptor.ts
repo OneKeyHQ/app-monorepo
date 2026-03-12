@@ -53,6 +53,14 @@ axios.interceptors.request.use(async (config) => {
 
   const headers = await getRequestHeaders();
   forEach(headers, (val, key) => {
+    // Preserve per-request currency header override (e.g. force 'usd' for search)
+    if (
+      key === 'x-onekey-request-currency' &&
+      config.headers[key] !== null &&
+      config.headers[key] !== undefined
+    ) {
+      return;
+    }
     config.headers[key] = val;
   });
 

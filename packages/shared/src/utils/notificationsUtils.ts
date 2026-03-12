@@ -13,7 +13,13 @@ import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import { EModalAssetDetailRoutes, EModalRoutes, ETabRoutes } from '../routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
@@ -161,6 +167,23 @@ export async function navigateToNotificationDetailByLocalParams({
   };
 
   if (screen === ERootRoutes.Main) {
+    // On native, ReferFriends is a modal, not a tab
+    if (
+      platformEnv.isNative &&
+      navigationParams?.screen === ETabRoutes.ReferFriends
+    ) {
+      const subScreen = navigationParams?.params?.screen;
+      const modalScreen =
+        subScreen === ETabReferFriendsRoutes.TabInviteReward
+          ? EModalReferFriendsRoutes.InviteReward
+          : EModalReferFriendsRoutes.ReferAFriend;
+      appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+        screen: EModalRoutes.ReferFriendsModal,
+        params: { screen: modalScreen },
+      });
+      return;
+    }
+
     if (
       appGlobals.$tabletMainViewNavigationRef?.current &&
       navigationParams?.screen &&

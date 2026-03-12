@@ -9,7 +9,11 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  validateStandaloneTriggerPrice,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
 import { useTradingPrice } from './useTradingPrice';
@@ -51,6 +55,67 @@ export function useOrderConfirm(
         : { ...formData };
 
       const side = formDataSnapshot.side;
+
+      // Trigger mode: validate, snapshot, and submit (no TP/SL, no standard price validation)
+      if (formDataSnapshot.orderMode === 'trigger') {
+        const triggerOrderType =
+          formDataSnapshot.triggerOrderType ?? ETriggerOrderType.STOP_MARKET;
+        const tp = formDataSnapshot.triggerPrice?.trim();
+        if (!tp || new BigNumber(tp).lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Trigger price is required',
+          });
+          return;
+        }
+        const isLimitTrigger =
+          triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
+          triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+        if (isLimitTrigger) {
+          const ep = formDataSnapshot.executionPrice?.trim();
+          if (!ep || new BigNumber(ep).lte(0)) {
+            Toast.error({
+              title: 'Order Failed',
+              message: 'Execution price is required',
+            });
+            return;
+          }
+        }
+        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Market price unavailable, please try again',
+          });
+          return;
+        }
+        if (
+          !validateStandaloneTriggerPrice(
+            tp,
+            midPriceBN,
+            triggerOrderType,
+            side,
+          )
+        ) {
+          Toast.error({
+            title: 'Order Failed',
+            message: 'Invalid trigger price direction',
+          });
+          return;
+        }
+        hyperliquidActions.current.resetTradingForm();
+        try {
+          await hyperliquidActions.current.submitOrder({
+            assetId: activeAsset.assetId,
+            formData: formDataSnapshot,
+            price: '0', // not used for trigger orders
+          });
+          options?.onSuccess?.();
+        } catch (error) {
+          options?.onError?.(error);
+        }
+        return;
+      }
+
       const orderPrice = side === 'long' ? longOrderPrice : shortOrderPrice;
 
       if (orderPrice.error) {
@@ -148,19 +213,14 @@ export function useOrderConfirm(
       }
 
       try {
-        if (effectiveFormData.type === 'market') {
-          await hyperliquidActions.current.orderOpen({
-            assetId: activeAsset.assetId,
-            formData: effectiveFormData,
-            price: midPrice || '0',
-          });
-        } else {
-          await hyperliquidActions.current.orderOpen({
-            assetId: activeAsset.assetId,
-            formData: effectiveFormData,
-            price: effectivePrice || '0',
-          });
-        }
+        await hyperliquidActions.current.submitOrder({
+          assetId: activeAsset.assetId,
+          formData: effectiveFormData,
+          price:
+            effectiveFormData.type === 'market'
+              ? midPrice || '0'
+              : effectivePrice || '0',
+        });
 
         options?.onSuccess?.();
       } catch (error) {

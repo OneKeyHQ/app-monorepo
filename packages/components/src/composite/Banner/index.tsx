@@ -146,6 +146,7 @@ export function Banner<T extends IBannerData>({
       currentIndex,
       goToNextIndex,
       gotToPrevIndex,
+      goToIndex,
     }: IRenderPaginationParams) => (
       <>
         {data.length > 1 ? (
@@ -161,19 +162,28 @@ export function Banner<T extends IBannerData>({
           >
             {data.map((_, index) => (
               <Stack
-                shadowColor="$blackA1"
-                shadowOpacity={0.1}
-                shadowRadius={3}
                 key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
+                p="$1"
                 borderRadius="$full"
-                bg="$whiteA12"
-                opacity={currentIndex === index ? 1 : 0.5}
-              />
+                onPress={(event) => {
+                  event?.stopPropagation?.();
+                  goToIndex(index);
+                }}
+              >
+                <Stack
+                  shadowColor="$blackA1"
+                  shadowOpacity={0.1}
+                  shadowRadius={3}
+                  w="$3"
+                  $gtMd={{
+                    w: '$4',
+                  }}
+                  h="$1"
+                  borderRadius="$full"
+                  bg="$whiteA12"
+                  opacity={currentIndex === index ? 1 : 0.5}
+                />
+              </Stack>
             ))}
           </XStack>
         ) : null}

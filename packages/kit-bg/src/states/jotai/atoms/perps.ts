@@ -14,7 +14,10 @@ import type {
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import {
+  EPerpUserType,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
@@ -422,6 +425,7 @@ export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
+  lastTriggerOrderType: ETriggerOrderType;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -433,6 +437,7 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
+    lastTriggerOrderType: ETriggerOrderType.STOP_MARKET,
   },
 });
 

@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "Distribusi berikutnya",
   "referral.next_distribution_day": "Sampai {Month} 10",
   "referral.no_reward": "Belum ada hadiah",
+  "referral.not_applicable": "Tidak berlaku",
+  "referral.not_applicable_desc": "Dompet ini dibuat lebih dari 14 hari yang lalu dan tidak dapat mengikat kode referensi",
   "referral.onboard_bind_code": "Ikat kode referensi",
   "referral.onboard_bind_code_finish": "Selesai",
   "referral.onchain_desc": "Dari dompet yang ditautkan ke kode Anda",

@@ -20,7 +20,6 @@ import {
   usePerpsActiveAccountRefreshHookAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
-  usePerpsUserConfigPersistAtom,
   usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
@@ -48,10 +47,7 @@ import type {
   EPerpsSubscriptionCategory,
   IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
-import {
-  EPerpUserType,
-  ESubscriptionType,
-} from '@onekeyhq/shared/types/hyperliquid/types';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
@@ -555,8 +551,6 @@ function AutoPauseSubscriptions() {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
 
-  const [perpsConfig] = usePerpsUserConfigPersistAtom();
-
   // const isFocusedRoute = useRouteIsFocused();
   // useEffect(() => {
   //   //
@@ -620,14 +614,10 @@ function AutoPauseSubscriptions() {
   useEffect(() => {
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
-    } else if (
-      perpsConfig?.perpUserConfig?.currentUserType === EPerpUserType.PERP_NATIVE
-    ) {
-      void onFocusHandler({ isFocus: isFocusedRef.current });
     } else {
-      void onFocusHandler({ isFocus: false, pauseDelay: 300 });
+      void onFocusHandler({ isFocus: isFocusedRef.current });
     }
-  }, [isLocked, onFocusHandler, perpsConfig?.perpUserConfig?.currentUserType]);
+  }, [isLocked, onFocusHandler]);
 
   useEffect(() => {
     return () => {
