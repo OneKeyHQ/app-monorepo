@@ -1,23 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions, useWindowDimensions } from 'react-native';
 
 import {
   Badge,
-  Dialog,
   Empty,
   ListView,
   SearchBar,
   SizableText,
   XStack,
   YStack,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -26,11 +22,11 @@ import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
 type ICategoryKey = EAvailableAssetsTypeEnum;
 
-type IAvailableAssetsByType = Partial<
+export type IAvailableAssetsByType = Partial<
   Record<EAvailableAssetsTypeEnum, IEarnAvailableAsset[]>
 >;
 
-const DEFAULT_CATEGORY_TYPE = EAvailableAssetsTypeEnum.SimpleEarn;
+export const DEFAULT_CATEGORY_TYPE = EAvailableAssetsTypeEnum.SimpleEarn;
 
 function CategoryTabs({
   selected,
@@ -107,7 +103,7 @@ function SearchResultItem({
   );
 }
 
-function EarnAssetSearchDialogContent({
+export function EarnAssetSearchContent({
   availableAssetsByType,
   initialCategoryType = DEFAULT_CATEGORY_TYPE,
   onAssetSelect,
@@ -120,27 +116,9 @@ function EarnAssetSearchDialogContent({
   ) => void;
 }) {
   const intl = useIntl();
-  const { height: windowHeight } = useWindowDimensions();
-  const { top, bottom } = useSafeAreaInsets();
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] =
     useState<ICategoryKey>(initialCategoryType);
-
-  const dialogContentHeight = useMemo(() => {
-    const screenHeight = Dimensions.get('screen').height;
-    const stableWindowHeight = Math.max(windowHeight || 0, screenHeight || 0);
-
-    if (!stableWindowHeight) {
-      return 520;
-    }
-
-    // Keep the sheet height stable when the keyboard shrinks windowHeight.
-    const availableHeight = Math.max(stableWindowHeight - top - bottom, 360);
-    const preferredHeight = Math.round(availableHeight * 0.78);
-    const maxDialogHeight = Math.max(availableHeight - 32, 280);
-
-    return Math.min(Math.max(preferredHeight, 480), maxDialogHeight, 680);
-  }, [bottom, top, windowHeight]);
 
   const categoryTabs = useMemo(
     () =>
@@ -201,7 +179,7 @@ function EarnAssetSearchDialogContent({
   );
 
   return (
-    <YStack gap="$2" py="$2" height={dialogContentHeight}>
+    <YStack flex={1} gap="$2" py="$2">
       <YStack px="$2">
         <SearchBar
           autoFocus
@@ -227,39 +205,4 @@ function EarnAssetSearchDialogContent({
       />
     </YStack>
   );
-}
-
-export function showEarnAssetSearchDialog({
-  availableAssetsByType,
-  initialCategoryType = DEFAULT_CATEGORY_TYPE,
-  onAssetSelect,
-}: {
-  availableAssetsByType: IAvailableAssetsByType;
-  initialCategoryType?: EAvailableAssetsTypeEnum;
-  onAssetSelect: (
-    asset: IEarnAvailableAsset,
-    categoryType: EAvailableAssetsTypeEnum,
-  ) => void;
-}) {
-  const dialog = Dialog.show({
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.earn_available_assets,
-    }),
-    showFooter: false,
-    contentContainerProps: {
-      px: '$0',
-      pb: '$0',
-    },
-    renderContent: (
-      <EarnAssetSearchDialogContent
-        availableAssetsByType={availableAssetsByType}
-        initialCategoryType={initialCategoryType}
-        onAssetSelect={(asset, categoryType) => {
-          void dialog.close();
-          onAssetSelect(asset, categoryType);
-        }}
-      />
-    ),
-  });
-  return dialog;
 }

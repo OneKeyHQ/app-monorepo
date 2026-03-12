@@ -21,6 +21,8 @@ export interface ISoftwareUpdateParams {
   platform: string;
 }
 
+export type IAppUpdateAuditPayload = Record<string, unknown>;
+
 /**
  * Software update tracking for Mixpanel analytics.
  *
@@ -215,6 +217,142 @@ export class AppUpdateScene extends BaseScene {
     currentBuildNumber: string,
   ) {
     return { previousBuildNumber, currentBuildNumber };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public appUpdateFetchStart(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public appUpdateFetchResult(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public appUpdateDecisionResolved(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingTaskUpsertDecision(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingTaskCleared(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public updateControlFrozenOrIgnored(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingTaskUnknownTypeDropped(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public fullFlowRetryTriggered(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingRetryScheduled(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingPostProcessRefreshStart(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingPostProcessRefreshResult(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingTaskLockState(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingTaskValidation(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingVerifyAfterRestart(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingTaskEnvCheck(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingSwitchStart(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public pendingSwitchResult(
+    payload: IAppUpdateAuditPayload,
+    level: 'info' | 'warn' | 'error' = 'info',
+  ) {
+    return { ...payload, level };
   }
 
   @LogToLocal({ level: 'info' })
