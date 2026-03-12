@@ -33,7 +33,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       currentSelectNetwork,
       onSelectCurrentNetwork,
       handleMoreNetworkSelect,
-      isLoading,
+      isLoading: _isLoading,
       placement,
       onStartListSelect,
       startListSelect,
@@ -54,7 +54,9 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
       [],
     );
 
-    if (isLoading || marketNetworks.length === 0) {
+    // Only show skeleton on initial load (no cached data yet).
+    // Skip skeleton during SWR revalidation to prevent layout flash.
+    if (marketNetworks.length === 0) {
       return <MarketTokenListNetworkSelectorNormalSkeleton />;
     }
 

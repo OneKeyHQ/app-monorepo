@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "Próxima distribuição",
   "referral.next_distribution_day": "Até {Month} 10",
   "referral.no_reward": "Ainda sem recompensa",
+  "referral.not_applicable": "Não aplicável",
+  "referral.not_applicable_desc": "Esta carteira foi criada há mais de 14 dias e não pode vincular um código de indicação",
   "referral.onboard_bind_code": "Vincular código de indicação",
   "referral.onboard_bind_code_finish": "Terminar",
   "referral.onchain_desc": "De carteiras vinculadas ao seu código",
