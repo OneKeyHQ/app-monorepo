@@ -87,44 +87,27 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
       : (maximumAmount ?? 0);
   }, [lnUnit, maximumAmount]);
 
-  const minAmount = new BigNumber(linkedMinAmount).toNumber();
-  const maxAmount = new BigNumber(linkedMaxAmount).toNumber();
+  const minAmount = useMemo(
+    () => new BigNumber(linkedMinAmount ?? 0),
+    [linkedMinAmount],
+  );
+  const maxAmount = useMemo(
+    () => new BigNumber(linkedMaxAmount ?? 0),
+    [linkedMaxAmount],
+  );
+  const maxReceiveAmount = useMemo(
+    () => new BigNumber(linkedInvoiceConfig?.maxReceiveAmount ?? 0),
+    [linkedInvoiceConfig?.maxReceiveAmount],
+  );
+  const minAmountDisplay = useMemo(() => minAmount.toFixed(), [minAmount]);
+  const maxAmountDisplay = useMemo(() => maxAmount.toFixed(), [maxAmount]);
+  const maxReceiveAmountDisplay = useMemo(
+    () => maxReceiveAmount.toFixed(),
+    [maxReceiveAmount],
+  );
 
   const amountRules = useMemo(() => {
-    let max;
-    if (
-      maxAmount &&
-      maxAmount > 0 &&
-      maxAmount > minAmount &&
-      maxAmount < Number(linkedInvoiceConfig?.maxReceiveAmount)
-    ) {
-      max = maxAmount;
-    }
     return {
-      min: {
-        value: minAmount,
-        message: intl.formatMessage(
-          {
-            id: ETranslations.dapp_connect_amount_should_be_at_least,
-          },
-          {
-            0: minAmount,
-          },
-        ),
-      },
-      max: max
-        ? {
-            value: max,
-            message: intl.formatMessage(
-              {
-                id: ETranslations.dapp_connect_amount_should_not_exceed,
-              },
-              {
-                0: max,
-              },
-            ),
-          }
-        : undefined,
       pattern:
         lnUnit === ELightningUnit.BTC
           ? {
@@ -137,54 +120,98 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
                 id: ETranslations.send_field_only_integer,
               }),
             },
-      validate: (value: number) => {
+      validate: (value: string) => {
         // allow unspecified amount
-        if (minAmount <= 0 && !value) return;
+        if (minAmount.lte(0) && !value) return;
         const valueBN = new BigNumber(value);
+        if (!value || valueBN.isNaN()) {
+          return;
+        }
         if (lnUnit === ELightningUnit.SATS && !valueBN.isInteger()) {
           return intl.formatMessage({
             id: ETranslations.send_field_only_integer,
           });
         }
 
+        if (minAmount.gt(0) && valueBN.lt(minAmount)) {
+          return intl.formatMessage(
+            {
+              id: ETranslations.dapp_connect_amount_should_be_at_least,
+            },
+            {
+              0: minAmountDisplay,
+            },
+          );
+        }
+
+        // When maxAmount <= minAmount (abnormal range from server), skip this
+        // check and fall through to the maxReceiveAmount guard below.
         if (
-          linkedInvoiceConfig?.maxReceiveAmount &&
-          valueBN.isGreaterThan(linkedInvoiceConfig?.maxReceiveAmount)
+          maxAmount.gt(0) &&
+          maxAmount.gt(minAmount) &&
+          valueBN.gt(maxAmount)
         ) {
           return intl.formatMessage(
             {
               id: ETranslations.dapp_connect_amount_should_not_exceed,
             },
             {
-              0: linkedInvoiceConfig?.maxReceiveAmount,
+              0: maxAmountDisplay,
+            },
+          );
+        }
+
+        if (maxReceiveAmount.gt(0) && valueBN.gt(maxReceiveAmount)) {
+          return intl.formatMessage(
+            {
+              id: ETranslations.dapp_connect_amount_should_not_exceed,
+            },
+            {
+              0: maxReceiveAmountDisplay,
             },
           );
         }
       },
     };
-  }, [minAmount, maxAmount, linkedInvoiceConfig, intl, lnUnit]);
+  }, [
+    intl,
+    lnUnit,
+    maxAmount,
+    maxAmountDisplay,
+    maxReceiveAmount,
+    maxReceiveAmountDisplay,
+    minAmount,
+    minAmountDisplay,
+  ]);
 
   const amountDescription = useMemo(() => {
-    if (Number(amount) > 0 || (minAmount > 0 && minAmount === maxAmount)) {
+    const fixedAmount = new BigNumber(amount ?? 0);
+    if (fixedAmount.gt(0) || (minAmount.gt(0) && minAmount.eq(maxAmount))) {
       return;
     }
-    if (minAmount > 0 && maxAmount > 0) {
+    if (minAmount.gt(0) && maxAmount.gt(0)) {
+      const descriptionMax = maxAmount.lt(minAmount)
+        ? maxReceiveAmountDisplay
+        : BigNumber.minimum(maxAmount, maxReceiveAmount).toFixed();
       return intl.formatMessage(
         { id: ETranslations.dapp_connect_sats_between },
         {
-          min: minAmount,
-          max:
-            maxAmount < minAmount
-              ? linkedInvoiceConfig?.maxReceiveAmount
-              : Math.min(
-                  maxAmount,
-                  Number(linkedInvoiceConfig?.maxReceiveAmount),
-                ),
+          min: minAmountDisplay,
+          max: descriptionMax,
           unit: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
         },
       );
     }
-  }, [amount, minAmount, maxAmount, linkedInvoiceConfig, intl, lnUnit]);
+  }, [
+    amount,
+    minAmount,
+    maxAmount,
+    maxReceiveAmount,
+    maxReceiveAmountDisplay,
+    intl,
+    lnUnit,
+    minAmountDisplay,
+  ]);
 
   return (
     <Form form={useFormReturn}>
