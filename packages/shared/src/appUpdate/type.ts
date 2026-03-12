@@ -25,15 +25,22 @@ export type IUpdateDecision =
   | 'staleRemote'
   | 'invalidRemote';
 
-export type IPendingInstallTaskType = 'jsbundle-switch' | 'appshell-install';
+export enum EPendingInstallTaskType {
+  jsBundleSwitch = 'jsbundle-switch',
+  appInstall = 'app-install',
+}
 
-export type IPendingInstallTaskAction = 'switch-bundle' | 'install-app';
+export enum EPendingInstallTaskAction {
+  switchBundle = 'switch-bundle',
+  installApp = 'install-app',
+}
 
-export type IPendingInstallTaskStatus =
-  | 'pending'
-  | 'running'
-  | 'applied_waiting_verify'
-  | 'failed';
+export enum EPendingInstallTaskStatus {
+  pending = 'pending',
+  running = 'running',
+  appliedWaitingVerify = 'applied_waiting_verify',
+  failed = 'failed',
+}
 
 export interface IJsBundleSwitchTaskPayload {
   appVersion: string;
@@ -55,8 +62,8 @@ export interface IAppUpdateInstallTaskPayload {
 export interface IPendingInstallTaskBase {
   taskId: string;
   revision: number;
-  action: IPendingInstallTaskAction;
-  type: IPendingInstallTaskType;
+  action: EPendingInstallTaskAction;
+  type: EPendingInstallTaskType;
   targetAppVersion: string;
   targetBundleVersion: string;
   scheduledEnvAppVersion: string;
@@ -64,7 +71,7 @@ export interface IPendingInstallTaskBase {
   createdAt: number;
   expiresAt: number;
   retryCount: number;
-  status: IPendingInstallTaskStatus;
+  status: EPendingInstallTaskStatus;
   runningStartedAt?: number;
   nextRetryAt?: number;
   lastError?: string;
@@ -72,13 +79,13 @@ export interface IPendingInstallTaskBase {
 
 export type IPendingInstallTask =
   | (IPendingInstallTaskBase & {
-      action: 'switch-bundle';
-      type: 'jsbundle-switch';
+      action: EPendingInstallTaskAction.switchBundle;
+      type: EPendingInstallTaskType.jsBundleSwitch;
       payload: IJsBundleSwitchTaskPayload;
     })
   | (IPendingInstallTaskBase & {
-      action: 'install-app';
-      type: 'appshell-install';
+      action: EPendingInstallTaskAction.installApp;
+      type: EPendingInstallTaskType.appInstall;
       payload: IAppUpdateInstallTaskPayload;
     });
 

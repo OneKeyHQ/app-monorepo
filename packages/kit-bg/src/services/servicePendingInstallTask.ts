@@ -5,6 +5,9 @@ import type {
   IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
+  EPendingInstallTaskAction,
+  EPendingInstallTaskStatus,
+  EPendingInstallTaskType,
   EUpdateStrategy,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -44,8 +47,8 @@ const RETRY_TRIGGER_VERIFY_FAILED = 'VERIFY_EXTRACTED_FAILED';
 const RETRY_TRIGGER_INTERRUPTED = 'INTERRUPTED';
 const TERMINAL_REASON_RETRY_EXHAUSTED = 'RETRY_EXHAUSTED';
 const TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED = 'FULL_FLOW_RETRY_EXHAUSTED';
-const PENDING_ACTION_SWITCH_BUNDLE = 'switch-bundle';
-const PENDING_ACTION_INSTALL_APP = 'install-app';
+const PENDING_ACTION_SWITCH_BUNDLE = EPendingInstallTaskAction.switchBundle;
+const PENDING_ACTION_INSTALL_APP = EPendingInstallTaskAction.installApp;
 
 export async function getPendingInstallTask() {
   return appStorage.syncStorage.getObject<IPendingInstallTask>(
@@ -82,8 +85,12 @@ class ServicePendingInstallTask {
     this.backgroundApi = backgroundApi;
     this.refreshUpdateStatus =
       refreshUpdateStatus ??
-      (async () =>
-        this.backgroundApi?.serviceAppUpdate?.refreshUpdateStatus?.());
+      (async () => {
+        const svc = this.backgroundApi?.serviceAppUpdate as
+          | { refreshUpdateStatus?: () => Promise<void> }
+          | undefined;
+        await svc?.refreshUpdateStatus?.();
+      });
   }
 
   private backgroundApi?: any;
@@ -172,7 +179,7 @@ class ServicePendingInstallTask {
   }
 
   private isTaskTargetAligned(task: IPendingInstallTask) {
-    if (task.type === 'appshell-install') {
+    if (task.type === EPendingInstallTaskType.appInstall) {
       return task.targetAppVersion === (platformEnv.version || '');
     }
     return this.isTargetAligned(
@@ -331,8 +338,8 @@ class ServicePendingInstallTask {
       return false;
     }
     if (
-      !['pending', 'running', 'applied_waiting_verify', 'failed'].includes(
-        t.status,
+      !Object.values(EPendingInstallTaskStatus).includes(
+        t.status as EPendingInstallTaskStatus,
       )
     ) {
       return false;
@@ -368,13 +375,13 @@ class ServicePendingInstallTask {
     if (!this.isValidTaskBase(task)) {
       return false;
     }
-    if (task.type === 'jsbundle-switch') {
+    if (task.type === EPendingInstallTaskType.jsBundleSwitch) {
       return (
         task.action === PENDING_ACTION_SWITCH_BUNDLE &&
         this.isValidJsBundleSwitchPayload(task.payload)
       );
     }
-    if (task.type === 'appshell-install') {
+    if (task.type === EPendingInstallTaskType.appInstall) {
       return (
         task.action === PENDING_ACTION_INSTALL_APP &&
         this.isValidAppShellInstallPayload(task.payload)
@@ -420,7 +427,7 @@ class ServicePendingInstallTask {
       taskId: `jsbundle:${appVersion}:${bundleVersion}`,
       revision,
       action: PENDING_ACTION_SWITCH_BUNDLE,
-      type: 'jsbundle-switch',
+      type: EPendingInstallTaskType.jsBundleSwitch,
       targetAppVersion: appVersion,
       targetBundleVersion: bundleVersion,
       scheduledEnvAppVersion: platformEnv.version || '',
@@ -428,7 +435,7 @@ class ServicePendingInstallTask {
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
-      status: 'pending',
+      status: EPendingInstallTaskStatus.pending,
       payload: {
         appVersion,
         bundleVersion,
@@ -452,10 +459,10 @@ class ServicePendingInstallTask {
     }
     const now = Date.now();
     return {
-      taskId: `appshell:${appInfo.latestVersion}:direct`,
+      taskId: `appShell:${appInfo.latestVersion}:direct`,
       revision,
       action: PENDING_ACTION_INSTALL_APP,
-      type: 'appshell-install',
+      type: EPendingInstallTaskType.appInstall,
       targetAppVersion: appInfo.latestVersion,
       targetBundleVersion:
         appInfo.jsBundleVersion || String(platformEnv.bundleVersion || ''),
@@ -464,7 +471,7 @@ class ServicePendingInstallTask {
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
-      status: 'pending',
+      status: EPendingInstallTaskStatus.pending,
       payload: {
         latestVersion: appInfo.latestVersion,
         updateStrategy: appInfo.updateStrategy,
@@ -722,8 +729,8 @@ class ServicePendingInstallTask {
 
     if (existing.taskId === task.taskId) {
       if (
-        existing.status === 'running' ||
-        existing.status === 'applied_waiting_verify'
+        existing.status === EPendingInstallTaskStatus.running ||
+        existing.status === EPendingInstallTaskStatus.appliedWaitingVerify
       ) {
         defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
           traceId,
@@ -758,8 +765,8 @@ class ServicePendingInstallTask {
     }
 
     if (
-      existing.status === 'running' ||
-      existing.status === 'applied_waiting_verify'
+      existing.status === EPendingInstallTaskStatus.running ||
+      existing.status === EPendingInstallTaskStatus.appliedWaitingVerify
     ) {
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
@@ -862,7 +869,7 @@ class ServicePendingInstallTask {
     await setPendingInstallTask({
       ...task,
       retryCount: nextRetryCount,
-      status: 'pending',
+      status: EPendingInstallTaskStatus.pending,
       runningStartedAt: undefined,
       lastError: message,
       nextRetryAt,
@@ -876,19 +883,21 @@ class ServicePendingInstallTask {
         action: task.action,
         retryCount: nextRetryCount,
         nextRetryAt,
-        retryType:
-          message === RETRY_TRIGGER_INTERRUPTED
-            ? 'interrupted'
-            : task.action === PENDING_ACTION_INSTALL_APP
-              ? 'install'
-              : 'switch',
+        retryType: (() => {
+          if (message === RETRY_TRIGGER_INTERRUPTED) return 'interrupted';
+          if (task.action === PENDING_ACTION_INSTALL_APP) return 'install';
+          return 'switch';
+        })(),
       },
       'warn',
     );
   }
 
   private async executeBundleSwitchTask(
-    task: Extract<IPendingInstallTask, { type: 'jsbundle-switch' }>,
+    task: Extract<
+      IPendingInstallTask,
+      { type: EPendingInstallTaskType.jsBundleSwitch }
+    >,
   ) {
     const payload = task.payload;
     const { appVersion, bundleVersion, signature } = payload;
@@ -919,7 +928,10 @@ class ServicePendingInstallTask {
   }
 
   private async executeAppShellInstallTask(
-    task: Extract<IPendingInstallTask, { type: 'appshell-install' }>,
+    task: Extract<
+      IPendingInstallTask,
+      { type: EPendingInstallTaskType.appInstall }
+    >,
   ) {
     const payload = task.payload;
     if (payload.channel !== 'direct') {
@@ -946,11 +958,11 @@ class ServicePendingInstallTask {
   }
 
   private async executePendingInstallTask(task: IPendingInstallTask) {
-    if (task.type === 'jsbundle-switch') {
+    if (task.type === EPendingInstallTaskType.jsBundleSwitch) {
       await this.executeBundleSwitchTask(task);
       return;
     }
-    if (task.type === 'appshell-install') {
+    if (task.type === EPendingInstallTaskType.appInstall) {
       await this.executeAppShellInstallTask(task);
       return;
     }
@@ -1109,7 +1121,7 @@ class ServicePendingInstallTask {
       }
 
       const targetKey = this.getTargetKey(task);
-      if (task.status === 'failed') {
+      if (task.status === EPendingInstallTaskStatus.failed) {
         await this.clearPendingTaskWithLog({
           traceId,
           task,
@@ -1119,7 +1131,7 @@ class ServicePendingInstallTask {
         return;
       }
 
-      if (task.status === 'applied_waiting_verify') {
+      if (task.status === EPendingInstallTaskStatus.appliedWaitingVerify) {
         if (task.runningStartedAt) {
           const gracePeriodMs = timerUtils.getTimeDurationMs({ minute: 10 });
           if (now - task.runningStartedAt < gracePeriodMs) {
@@ -1163,7 +1175,7 @@ class ServicePendingInstallTask {
         return;
       }
 
-      if (task.status === 'running') {
+      if (task.status === EPendingInstallTaskStatus.running) {
         const runningStartedAt = task.runningStartedAt || task.createdAt;
         const runningDuration = now - runningStartedAt;
         if (runningDuration <= RUNNING_TASK_STALE_MS) {
@@ -1247,7 +1259,7 @@ class ServicePendingInstallTask {
 
       const runningTask: IPendingInstallTask = {
         ...task,
-        status: 'running',
+        status: EPendingInstallTaskStatus.running,
         runningStartedAt: Date.now(),
       };
       await setPendingInstallTask(runningTask);
@@ -1264,7 +1276,7 @@ class ServicePendingInstallTask {
         const durationMs = Date.now() - startedAt;
         await setPendingInstallTask({
           ...runningTask,
-          status: 'applied_waiting_verify',
+          status: EPendingInstallTaskStatus.appliedWaitingVerify,
           lastError: undefined,
         });
         defaultLogger.app.appUpdate.pendingSwitchResult({
