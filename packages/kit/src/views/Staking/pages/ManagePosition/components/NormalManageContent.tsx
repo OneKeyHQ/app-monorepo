@@ -64,6 +64,7 @@ interface INormalManageContentProps {
   isInModalContext: boolean;
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
+  renderProtocolInfo?: () => React.ReactElement | null;
   fallbackTokenImageUri?: string;
   ongoingValidator?: IEarnSelectField;
   managePageData?: IEarnManagePageResponse;
@@ -97,6 +98,7 @@ export function NormalManageContent({
   isInModalContext,
   appNavigation,
   showApyDetail,
+  renderProtocolInfo,
   fallbackTokenImageUri,
   ongoingValidator,
   managePageData,
@@ -711,6 +713,7 @@ export function NormalManageContent({
           onSuccess={onSuccess}
           beforeFooter={stakeBeforeFooter}
           showApyDetail={showApyDetail}
+          renderProtocolInfo={renderProtocolInfo}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
           ongoingValidator={ongoingValidator}
@@ -737,6 +740,7 @@ export function NormalManageContent({
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
           showApyDetail={showApyDetail}
+          renderProtocolInfo={renderProtocolInfo}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
           useBorrowApi={useBorrowApi}
