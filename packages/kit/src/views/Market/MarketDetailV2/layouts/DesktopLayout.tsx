@@ -153,7 +153,7 @@ export function DesktopLayout() {
 
             <Divider my="$1" />
 
-            <TokenActivityOverview />
+            <TokenActivityOverview pl="$3" pr="$5" />
 
             <Divider />
 
