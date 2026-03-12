@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
@@ -104,6 +104,9 @@ export function DesktopLayout() {
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useIframeWheelPassthrough(scrollContainerRef);
+  const handleTradingViewTouchScroll = useCallback((deltaY: number) => {
+    scrollContainerRef.current?.scrollBy({ top: deltaY });
+  }, []);
 
   return (
     <Stack
@@ -128,6 +131,7 @@ export function DesktopLayout() {
                 tokenSymbol={tokenDetail?.symbol}
                 isNative={isNative}
                 dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+                onTouchScroll={handleTradingViewTouchScroll}
               />
             ) : null}
           </Stack>
