@@ -17,6 +17,8 @@ import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { FocusScope } from '@tamagui/focus-scope';
+
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   AnimatePresence,
@@ -279,8 +281,12 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          {!disableDrag ? <SheetGrabber /> : null}
-          {renderDialogContent}
+          <FocusScope trapped={effectiveTrapFocus} loop>
+            <Stack>
+              {!disableDrag ? <SheetGrabber /> : null}
+              {renderDialogContent}
+            </Stack>
+          </FocusScope>
         </Sheet.Frame>
       </Sheet>
     );
