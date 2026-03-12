@@ -1160,28 +1160,6 @@ function DepositWithdrawContent({
     };
   }, [selectedAccount.accountId]);
 
-  const showDepositNoConfirmHint = useMemo(
-    () =>
-      selectedAction === 'deposit' &&
-      !accountTypeInfo.isHwWallet &&
-      !accountTypeInfo.isExternalAccount &&
-      isValidAmount &&
-      !isSubmitting &&
-      !balanceLoading &&
-      !perpDepositQuoteLoading &&
-      depositToAmount.canDeposit,
-    [
-      selectedAction,
-      accountTypeInfo.isHwWallet,
-      accountTypeInfo.isExternalAccount,
-      isValidAmount,
-      isSubmitting,
-      balanceLoading,
-      perpDepositQuoteLoading,
-      depositToAmount.canDeposit,
-    ],
-  );
-
   const buttonText = useMemo(() => {
     if (isInsufficientBalance)
       return intl.formatMessage({
@@ -1364,6 +1342,28 @@ function DepositWithdrawContent({
       canDeposit: depositToAmountBN.gt(0) && !depositToAmountBN.isNaN(),
     };
   }, [isArbitrumUsdcToken, amountBN, perpDepositQuote?.result?.toAmount]);
+
+  const showDepositNoConfirmHint = useMemo(
+    () =>
+      selectedAction === 'deposit' &&
+      !accountTypeInfo.isHwWallet &&
+      !accountTypeInfo.isExternalAccount &&
+      isValidAmount &&
+      !isSubmitting &&
+      !balanceLoading &&
+      !perpDepositQuoteLoading &&
+      depositToAmount.canDeposit,
+    [
+      selectedAction,
+      accountTypeInfo.isHwWallet,
+      accountTypeInfo.isExternalAccount,
+      isValidAmount,
+      isSubmitting,
+      balanceLoading,
+      perpDepositQuoteLoading,
+      depositToAmount.canDeposit,
+    ],
+  );
 
   const currentNetworkInfo = useMemo(() => {
     if (!currentPerpsDepositSelectedToken?.networkId) return null;
@@ -1829,9 +1829,7 @@ function DepositWithdrawContent({
           })}
         </SizableText>
       ) : null}
-      {isMobile && !showDepositNoConfirmHint ? (
-        <YStack mb="$4" />
-      ) : null}
+      {isMobile && !showDepositNoConfirmHint ? <YStack mb="$4" /> : null}
     </YStack>
   );
 
