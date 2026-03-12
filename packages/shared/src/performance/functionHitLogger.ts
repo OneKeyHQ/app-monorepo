@@ -55,7 +55,7 @@ const perfWarnMs = Number.parseInt(
   10,
 );
 
-let globalTraceId =
+let globalTraceId: string =
   (typeof process !== 'undefined' && process.env?.RN_PROFILER_TRACE_ID) ||
   `trace-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
