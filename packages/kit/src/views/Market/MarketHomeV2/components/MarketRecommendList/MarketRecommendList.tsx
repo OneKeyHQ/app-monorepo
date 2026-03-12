@@ -162,7 +162,6 @@ export function MarketRecommendList({
       <YStack
         pt={actualShowTitle ? '$8' : '$0'}
         gap="$2.5"
-        flexWrap="wrap"
         width="100%"
         $gtMd={{ maxWidth: 480 }}
         $sm={{

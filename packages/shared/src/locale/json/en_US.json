@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "Next distribution",
   "referral.next_distribution_day": "By {Month} 10",
   "referral.no_reward": "No reward yet",
+  "referral.not_applicable": "Not applicable",
+  "referral.not_applicable_desc": "This wallet was created more than 14 days ago and cannot bind a referral code",
   "referral.onboard_bind_code": "Bind referral code",
   "referral.onboard_bind_code_finish": "Finish",
   "referral.onchain_desc": "From wallets linked to your code",

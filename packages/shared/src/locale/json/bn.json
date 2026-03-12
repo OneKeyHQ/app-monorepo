@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "পরবর্তী বিতরণ",
   "referral.next_distribution_day": "{Month} ১০ তারিখের মধ্যে",
   "referral.no_reward": "এখনও কোন পুরস্কার নেই",
+  "referral.not_applicable": "প্রযোজ্য নয়",
+  "referral.not_applicable_desc": "এই ওয়ালেটটি ১৪ দিনেরও বেশি আগে তৈরি করা হয়েছে এবং একটি রেফারেল কোড যুক্ত করা যাবে না",
   "referral.onboard_bind_code": "রেফারেল কোড সংযুক্ত করুন",
   "referral.onboard_bind_code_finish": "শেষ",
   "referral.onchain_desc": "আপনার কোডের সাথে সংযুক্ত ওয়ালেটগুলো থেকে",

@@ -76,15 +76,17 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
                     <SubtitleBadge subtitle={record.perpsSubtitle} />
                   ) : null}
                 </XStack>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  formatter="marketCap"
-                  formatterOptions={{ currency: '$' }}
-                >
-                  {record.turnover}
-                </NumberSizeableText>
+                {record.turnover ? (
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    formatter="marketCap"
+                    formatterOptions={{ currency: '$' }}
+                  >
+                    {record.turnover}
+                  </NumberSizeableText>
+                ) : null}
               </Stack>
             </XStack>
           );

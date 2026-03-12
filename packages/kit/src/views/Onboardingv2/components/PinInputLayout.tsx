@@ -52,6 +52,7 @@ interface IPinInputLayoutProps {
   onClose?: () => Promise<void>;
   onUnmounted?: () => void;
   onEnableInput?: () => void;
+  onTitleMultipleClick?: () => void;
   isVerifyPinPage?: boolean;
   onAutoInputPin?: () => void;
   showInputSkeleton?: boolean;
@@ -81,6 +82,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       onClose,
       onUnmounted,
       onEnableInput,
+      onTitleMultipleClick,
       isVerifyPinPage,
       onAutoInputPin,
       showInputSkeleton = false,
@@ -161,7 +163,9 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
           <OnboardingLayout.Body constrained={false} scrollable={false}>
             <OnboardingLayout.ConstrainedContent gap="$10">
               <YStack gap="$2">
-                <SizableText size="$heading2xl">{title}</SizableText>
+                <MultipleClickStack onPress={onTitleMultipleClick}>
+                  <SizableText size="$heading2xl">{title}</SizableText>
+                </MultipleClickStack>
                 <MultipleClickStack onPress={onEnableInput}>
                   <SizableText size="$bodyLg" color={descriptionColor}>
                     {description}
