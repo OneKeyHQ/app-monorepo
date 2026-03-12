@@ -1,6 +1,11 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
-import { InvalidMnemonic, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  InvalidMnemonic,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -61,6 +66,7 @@ const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string
 const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // legacy encrypted
 const EncryptPrefixHyperLiquidAgentCredentialPlain = '|HLP|'; // plaintext (new)
+const VerifyStringAad = 'verify-string-v2';
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
@@ -180,8 +186,13 @@ async function decryptVerifyString({
       verifyString.replace(EncryptPrefixVerifyString, ''),
       'hex',
     ),
+    aad: VerifyStringAad,
   });
-  return decrypted.toString();
+  const decryptedText = decrypted.toString();
+  if (decryptedText !== DEFAULT_VERIFY_STRING) {
+    throw new IncorrectPassword();
+  }
+  return decryptedText;
 }
 
 async function encryptVerifyString({
@@ -197,6 +208,8 @@ async function encryptVerifyString({
     password,
     data: Buffer.from(DEFAULT_VERIFY_STRING),
     allowRawPassword,
+    mode: EAppCryptoAesEncryptionMode.gcm,
+    aad: VerifyStringAad,
   });
   return (
     (addPrefixString ? EncryptPrefixVerifyString : '') +
