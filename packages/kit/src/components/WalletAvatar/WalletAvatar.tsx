@@ -12,6 +12,8 @@ import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 import { NetworkAvatar } from '../NetworkAvatar';
 
+import { getWalletAvatarProvider } from './getWalletAvatarProvider';
+
 import type { IWalletProps } from '../../views/AccountManagerStacks/type';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
@@ -71,7 +73,7 @@ export function WalletAvatar({
   wallet,
   firmwareTypeProps,
 }: IWalletAvatarProps) {
-  const socialLoginProvider = wallet?.keylessDetailsInfo?.keylessProvider;
+  const socialLoginProvider = getWalletAvatarProvider(wallet);
   const { badgeSize, ...restFirmwareTypeProps } = firmwareTypeProps ?? {};
 
   return (
