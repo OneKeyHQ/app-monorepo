@@ -1,7 +1,14 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import type { EPerpPageEnterSource } from '../type';
 
 export class CommonScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public pageView({ source }: { source: EPerpPageEnterSource }) {
+    return { source };
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public placeOrder({
