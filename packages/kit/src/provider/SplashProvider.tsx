@@ -8,10 +8,6 @@ import {
 } from 'react';
 
 import { Splash } from '@onekeyhq/components';
-import {
-  EUpdateStrategy,
-  isFirstLaunchAfterUpdated,
-} from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -45,16 +41,6 @@ export const useDisplaySplash =
             hasLaunchEventsExecutedRef.current = true;
             try {
               await backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
-              const appInfo =
-                await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-
-              if (appInfo.updateStrategy === EUpdateStrategy.seamless) {
-                if (isFirstLaunchAfterUpdated(appInfo)) {
-                  setDisplaySplash(true);
-                  await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
-                  return;
-                }
-              }
               setDisplaySplash(true);
             } catch (error) {
               defaultLogger.app.appUpdate.log(

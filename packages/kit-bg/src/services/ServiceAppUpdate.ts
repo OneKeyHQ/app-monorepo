@@ -788,6 +788,48 @@ class ServiceAppUpdate extends ServiceBase {
     throw new OneKeyLocalError(`Unknown pending task type: ${unknownType}`);
   }
 
+  private async runPostPendingRefresh({
+    traceId,
+    requestSeq,
+    task,
+  }: {
+    traceId: string;
+    requestSeq: number | null;
+    task?: Partial<IPendingInstallTask> | null;
+  }) {
+    const startedAt = Date.now();
+    this.logUpdateEvent('pending_post_process_refresh_start', {
+      traceId,
+      requestSeq,
+      ...this.buildTaskLogFields(task),
+    });
+    try {
+      await this.refreshUpdateStatus();
+      this.logUpdateEvent('pending_post_process_refresh_result', {
+        traceId,
+        requestSeq,
+        result: 'success',
+        durationMs: Date.now() - startedAt,
+        ...this.buildTaskLogFields(task),
+      });
+    } catch (error) {
+      const message = (error as Error)?.message ?? 'unknown';
+      this.logUpdateEvent(
+        'pending_post_process_refresh_result',
+        {
+          traceId,
+          requestSeq,
+          result: 'fail',
+          durationMs: Date.now() - startedAt,
+          errorCode: message,
+          errorMessage: message,
+          ...this.buildTaskLogFields(task),
+        },
+        'warn',
+      );
+    }
+  }
+
   private startFailedRecoveryTimer() {
     clearTimeout(failedRecoveryTimerId);
     failedRecoveryTimerId = setTimeout(
@@ -815,6 +857,8 @@ class ServiceAppUpdate extends ServiceBase {
   async processPendingInstallTask() {
     const traceId = generateUUID();
     const requestSeq = null;
+    let shouldRunPostRefresh = false;
+    let processedTaskSnapshot: Partial<IPendingInstallTask> | null = null;
     const lockNow = Date.now();
     if (this.isProcessingPendingTask) {
       const lockHeldMs = lockNow - this.pendingTaskLockAcquiredAt;
@@ -867,6 +911,8 @@ class ServiceAppUpdate extends ServiceBase {
         });
         return;
       }
+      shouldRunPostRefresh = true;
+      processedTaskSnapshot = rawTask as Partial<IPendingInstallTask>;
 
       if (!this.isValidPendingInstallTask(rawTask)) {
         this.logUpdateEvent(
@@ -1099,6 +1145,13 @@ class ServiceAppUpdate extends ServiceBase {
         await this.markTaskFailed(runningTask, message, traceId, undefined);
       }
     } finally {
+      if (shouldRunPostRefresh) {
+        await this.runPostPendingRefresh({
+          traceId,
+          requestSeq,
+          task: processedTaskSnapshot,
+        });
+      }
       this.isProcessingPendingTask = false;
       this.pendingTaskLockAcquiredAt = 0;
       this.logUpdateEvent('pending_task_lock_state', {

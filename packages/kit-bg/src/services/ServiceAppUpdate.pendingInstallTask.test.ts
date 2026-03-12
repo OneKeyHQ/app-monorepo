@@ -420,6 +420,28 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
     jest.useRealTimers();
   });
 
+  test('does not call refreshUpdateStatus when no pending task', async () => {
+    const refreshSpy = jest
+      .spyOn(service, 'refreshUpdateStatus')
+      .mockResolvedValue(undefined);
+
+    await service.processPendingInstallTask();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  test('calls refreshUpdateStatus after pending task processing', async () => {
+    bundleUpdate.isBundleExists.mockResolvedValue(true);
+    const refreshSpy = jest
+      .spyOn(service, 'refreshUpdateStatus')
+      .mockResolvedValue(undefined);
+    resetPendingTask(makeSwitchTask());
+
+    await service.processPendingInstallTask();
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
+  });
+
   test('recovers stale running task to pending and schedules retry', async () => {
     resetPendingTask(
       makeSwitchTask({
@@ -488,6 +510,13 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
           event.event === 'pending_switch_result' &&
           event.result === 'success' &&
           event.taskId === 'jsbundle:1.0.0:2',
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_post_process_refresh_result' &&
+          event.result === 'success',
       ),
     ).toBe(true);
   });
