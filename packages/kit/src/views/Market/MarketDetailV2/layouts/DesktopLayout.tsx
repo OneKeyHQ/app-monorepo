@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
 
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
 import {
+  TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -38,6 +39,7 @@ interface IIframeWheelEventMessage {
 const ALLOWED_TRADING_VIEW_ORIGINS = new Set([
   new URL(TRADING_VIEW_URL).origin,
   new URL(TRADING_VIEW_URL_TEST).origin,
+  ...(platformEnv.isDev ? [TRADING_VIEW_LOCALHOST_ORIGIN] : []),
 ]);
 
 // Listen for wheel events forwarded from TradingView iframe via postMessage.
@@ -102,6 +104,9 @@ export function DesktopLayout() {
 
   const scrollContainerRef = useRef<HTMLElement>(null);
   useIframeWheelPassthrough(scrollContainerRef);
+  const handleTradingViewTouchScroll = useCallback((deltaY: number) => {
+    scrollContainerRef.current?.scrollBy({ top: deltaY });
+  }, []);
 
   return (
     <Stack
@@ -126,6 +131,7 @@ export function DesktopLayout() {
                 tokenSymbol={tokenDetail?.symbol}
                 isNative={isNative}
                 dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+                onTouchScroll={handleTradingViewTouchScroll}
               />
             ) : null}
           </Stack>
