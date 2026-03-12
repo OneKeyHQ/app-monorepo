@@ -11,12 +11,12 @@ import {
   Toast,
   XStack,
   YStack,
+  resetAboveMainRoute,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -30,6 +30,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EModalRoutes,
   EOnboardingPages,
@@ -83,7 +84,8 @@ export function PerpTradingButton({
         screen: EOnboardingPages.ConnectWalletOptions,
       });
     } else {
-      await closeModalPages();
+      resetAboveMainRoute();
+      await timerUtils.wait(100);
       rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
         params: {

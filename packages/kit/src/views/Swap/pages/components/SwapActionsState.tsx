@@ -12,12 +12,12 @@ import {
   SizableText,
   Stack,
   XStack,
+  resetAboveMainRoute,
   rootNavigationRef,
   useIsOverlayPage,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -32,6 +32,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EModalRoutes,
   EOnboardingPages,
@@ -131,7 +132,8 @@ const SwapActionsState = ({
           screen: EOnboardingPages.ConnectWalletOptions,
         });
       } else {
-        await closeModalPages();
+        resetAboveMainRoute();
+        await timerUtils.wait(100);
         rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {

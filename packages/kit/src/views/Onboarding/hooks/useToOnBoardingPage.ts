@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { popModalPagesOnNative, rootNavigationRef } from '@onekeyhq/components';
+import { resetAboveMainRoute, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,8 +13,6 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import { closeModalPages } from '../../../hooks/usePageNavigation';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
@@ -70,20 +68,8 @@ export const useToOnBoardingPage = () => {
             window.close();
           }
         } else {
-          // On native platforms with native bottom tabs, close modal and navigate
-          // directly without deferring to a delayed task. The await timerUtils.wait()
-          // + dispatch pattern causes navigation to be detached from the touch event
-          // context, and iOS production won't flush the bridge call until the next
-          // user interaction.
-          if (platformEnv.isNative) {
-            // Synchronously close all modal pages before navigating to onboarding.
-            // Modal and Onboarding are sibling root routes, so we need to close
-            // modal first before navigating.
-            popModalPagesOnNative();
-          } else {
-            await closeModalPages();
-            await timerUtils.wait(150);
-          }
+          resetAboveMainRoute();
+          await timerUtils.wait(100);
           if (isOnboardingDone) {
             rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
@@ -129,8 +115,8 @@ export const useNavigateToPickYourDevicePage = () => {
           window.close();
         }
       } else {
-        await closeModalPages();
-        await timerUtils.wait(150);
+        resetAboveMainRoute();
+        await timerUtils.wait(100);
         rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
