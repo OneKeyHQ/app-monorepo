@@ -21,6 +21,63 @@ export function getTemplatePhishingUrls(): string[] {
   return templatePhishingUrls;
 }
 
+let fiatPaySiteWhitelistOrigins: Set<string> = new Set();
+let fiatPaySiteWhitelistDomainKeys: Set<string> = new Set();
+
+function normalizeHostname(hostname: string): string {
+  return hostname.trim().toLowerCase().replace(/\.+$/u, '');
+}
+
+function isIpHostname(hostname: string): boolean {
+  return /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) || hostname.includes(':');
+}
+
+function getHostnameDomainKey(hostname: string): string {
+  const normalized = normalizeHostname(hostname);
+  if (!normalized) {
+    return '';
+  }
+  if (isIpHostname(normalized)) {
+    return normalized;
+  }
+
+  const labels = normalized.split('.').filter(Boolean);
+  if (labels.length <= 2) {
+    return normalized;
+  }
+
+  const tld = labels[labels.length - 1];
+  const sld = labels[labels.length - 2];
+  // Country-code TLD with short second-level (e.g., "co.uk", "com.au")
+  if (tld.length === 2 && sld.length <= 3) {
+    return labels.slice(-3).join('.');
+  }
+
+  return labels.slice(-2).join('.');
+}
+
+export function getOriginDomainKey(origin: string): string {
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return '';
+    }
+
+    const domainKey = getHostnameDomainKey(url.hostname);
+    return domainKey ? `${url.protocol}//${domainKey}` : '';
+  } catch {
+    return '';
+  }
+}
+
+export function getFiatPaySiteWhitelistOrigins(): Set<string> {
+  return fiatPaySiteWhitelistOrigins;
+}
+
+export function getFiatPaySiteWhitelistDomainKeys(): Set<string> {
+  return fiatPaySiteWhitelistDomainKeys;
+}
+
 class DesktopApiNetwork {
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
@@ -37,6 +94,15 @@ class DesktopApiNetwork {
       templatePhishingUrls = urls;
     }
     return templatePhishingUrls;
+  }
+
+  async setFiatPaySiteWhitelist(origins: string[]): Promise<void> {
+    fiatPaySiteWhitelistOrigins = new Set(
+      Array.isArray(origins) ? origins : [],
+    );
+    fiatPaySiteWhitelistDomainKeys = new Set(
+      [...fiatPaySiteWhitelistOrigins].map(getOriginDomainKey).filter(Boolean),
+    );
   }
 
   async clearWebViewCache(): Promise<void> {
