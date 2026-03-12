@@ -83,6 +83,7 @@ export function UniversalSearchMarketTokenItem({
           lastUpdated={lastUpdated}
           tokenName={name}
           tokenSymbol={symbol}
+          currency="$"
         />
       </XStack>
     </ListItem>

@@ -32,12 +32,15 @@ import { InlineActionBar } from './components/InlineActionBar';
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
+import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 
+import type { IWatchlistFilterType } from './MarketWatchlistCategorySelector';
 import type { IMarketToken } from './MarketTokenData';
 import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketWatchlistFlatListProps {
+  selectedFilter?: IWatchlistFilterType;
   listContainerProps: {
     paddingBottom: number;
   };
@@ -46,6 +49,7 @@ interface IMobileMarketWatchlistFlatListProps {
 const EMPTY_DATA: IMarketToken[] = [];
 
 function MobileMarketWatchlistFlatListImpl({
+  selectedFilter = 'all',
   listContainerProps,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
@@ -82,6 +86,10 @@ function MobileMarketWatchlistFlatListImpl({
     watchlist,
     pageSize: 999,
   });
+
+  const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data);
+
+  const filteredData = filteredGroups[selectedFilter];
 
   const portalRef = useRef<IPortalManager | null>(null);
 
@@ -205,7 +213,7 @@ function MobileMarketWatchlistFlatListImpl({
       return <TokenListSkeleton count={10} />;
     }
     return (
-      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+      <Stack alignItems="center" justifyContent="center" p="$8" mt="$10">
         <SizableText size="$bodyLg" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.global_no_data })}
         </SizableText>
@@ -232,7 +240,7 @@ function MobileMarketWatchlistFlatListImpl({
   return (
     <Tabs.FlatList<IMarketToken>
       showsVerticalScrollIndicator={false}
-      data={showSkeleton ? EMPTY_DATA : data}
+      data={showSkeleton ? EMPTY_DATA : filteredData}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       getItemLayout={getItemLayout}
@@ -242,7 +250,7 @@ function MobileMarketWatchlistFlatListImpl({
       removeClippedSubviews={platformEnv.isNativeIOS}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        paddingTop: 8 + (platformEnv.isNative ? 200 : 0),
+        paddingTop: 8 + (platformEnv.isNative ? 248 : 0),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

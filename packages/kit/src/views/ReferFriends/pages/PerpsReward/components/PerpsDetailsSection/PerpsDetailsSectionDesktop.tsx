@@ -1,19 +1,14 @@
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  SizableText,
-  Spinner,
-  Switch,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Switch, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PerpsEmptyData } from '../PerpsEmptyData';
 import { PerpsRecordTable } from '../PerpsRecordTable';
 
 import { TabButton } from './TabButton';
+import { TabLoadingOverlay } from './TabLoadingOverlay';
 
 import type { IPerpsDetailsSectionProps } from '.';
 
@@ -99,13 +94,13 @@ export function PerpsDetailsSectionDesktop({
         </XStack>
 
         {/* Table Content */}
-        <YStack bg="$bgApp">
-          {/* eslint-disable-next-line no-nested-ternary */}
-          {isTabLoading ? (
-            <YStack ai="center" py="$8">
-              <Spinner size="small" />
+        <YStack bg="$bgApp" position="relative" minHeight={200}>
+          <TabLoadingOverlay visible={!!isTabLoading} />
+          {!isTabLoading && !hasData ? (
+            <YStack py="$8">
+              <PerpsEmptyData />
             </YStack>
-          ) : hasData ? (
+          ) : (
             <PerpsRecordTable
               records={records}
               sortBy={sortBy}
@@ -114,10 +109,6 @@ export function PerpsDetailsSectionDesktop({
               isLoadingMore={isLoadingMore}
               hasUserSorted={hasUserSorted}
             />
-          ) : (
-            <YStack py="$8">
-              <PerpsEmptyData />
-            </YStack>
           )}
         </YStack>
       </YStack>

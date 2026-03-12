@@ -19,7 +19,7 @@ export function PaginationItem({
   return (
     <YStack
       onPress={onPress}
-      p="$2"
+      p="$1"
       borderRadius="$full"
       hoverStyle={{
         bg: '$bgHover',

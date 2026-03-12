@@ -78,15 +78,18 @@ export type ITokenSelectorListItem = {
   assetId?: number;
 };
 
-function TabItem({
+const TabItem = memo(function TabItem({
+  id,
   name,
   isFocused,
   onPress,
 }: {
+  id: string;
   name: string;
   isFocused: boolean;
-  onPress: (name: string) => void;
+  onPress: (id: string) => void;
 }) {
+  const handlePress = useCallback(() => onPress(id), [id, onPress]);
   return (
     <XStack
       py="$3"
@@ -94,7 +97,7 @@ function TabItem({
       mr="$2"
       borderBottomWidth={isFocused ? '$0.5' : '$0'}
       borderBottomColor="$borderActive"
-      onPress={() => onPress(name)}
+      onPress={handlePress}
       cursor="default"
     >
       <SizableText
@@ -105,7 +108,7 @@ function TabItem({
       </SizableText>
     </XStack>
   );
-}
+});
 
 function TokenListHeader() {
   const intl = useIntl();
@@ -437,7 +440,7 @@ function BasePerpTokenSelectorContent({
     ({ item: mockedToken }: { item: ITokenSelectorListItem }) => (
       <PerpTokenSelectorRow
         mockedToken={mockedToken}
-        onPress={(name) => handleSelectToken(name)}
+        onPress={handleSelectToken}
         skipMarkRequired
       />
     ),
@@ -493,21 +496,24 @@ function BasePerpTokenSelectorContent({
           px="$0"
         >
           <TabItem
+            id="favorites"
             name={tabNames.favorites}
             isFocused={activeTab === 'favorites'}
-            onPress={() => setActiveTab('favorites')}
+            onPress={setActiveTab}
           />
           <TabItem
+            id="all"
             name={tabNames.all}
             isFocused={activeTab === 'all'}
-            onPress={() => setActiveTab('all')}
+            onPress={setActiveTab}
           />
           {visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
             <TabItem
               key={tab.tabId}
+              id={tab.tabId}
               name={tab.name}
               isFocused={activeTab === tab.tabId}
-              onPress={() => setActiveTab(tab.tabId)}
+              onPress={setActiveTab}
             />
           ))}
         </XStack>
@@ -522,6 +528,7 @@ function BasePerpTokenSelectorContent({
                 ref={listRef}
                 keyExtractor={keyExtractor}
                 estimatedItemSize={40}
+                windowSize={3}
                 initialNumToRender={10}
                 data={activeTabData}
                 renderItem={renderItem}

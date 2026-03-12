@@ -120,6 +120,15 @@ function PerpOpenOrdersList({
         align: 'left',
       },
       {
+        key: 'reduceOnly',
+        title: intl.formatMessage({
+          id: ETranslations.perps_reduce_only,
+        }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
         key: 'triggerCondition',
         title: intl.formatMessage({
           id: ETranslations.perp_open_orders_trigger_condition,
