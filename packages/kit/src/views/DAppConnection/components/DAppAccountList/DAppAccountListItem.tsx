@@ -29,16 +29,29 @@ import {
   useAccountSelectorActions,
   useAccountSelectorSyncLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
 
 import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
+
+type IReadonlyDAppAccountData = {
+  account: INetworkAccount | undefined;
+  network: IServerNetwork | undefined;
+  wallet: IDBWallet | undefined;
+  indexedAccount: IDBIndexedAccount | undefined;
+};
 
 function DAppAccountListInitFromHome({
   num,
@@ -328,7 +341,7 @@ function DAppAccountListStandAloneItemReadonly({
   const { serviceAccount, serviceNetwork } = backgroundApiProxy;
   const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
 
-  const { result, isLoading } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult<IReadonlyDAppAccountData>(
     async () => {
       const [account, network, wallet] = await Promise.all([
         serviceAccount.getAccount({
