@@ -293,8 +293,8 @@ function SideButtonInternal({
           } else {
             typeKey =
               side === 'long'
-                ? ETranslations.perps_take_profit_sell
-                : ETranslations.perps_take_profit_buy;
+                ? ETranslations.perps_take_profit_buy
+                : ETranslations.perps_take_profit_sell;
           }
           const dirKey =
             dirRule === 'above'
@@ -385,7 +385,7 @@ function SideButtonInternal({
       const hasTpValue = Boolean(tpValue);
       const hasSlValue = Boolean(slValue);
 
-      if (formData.hasTpsl && (hasTpValue || hasSlValue)) {
+      if (!isTriggerMode && formData.hasTpsl && (hasTpValue || hasSlValue)) {
         // Calculate trigger prices based on type
         let tpTriggerPrice: BigNumber | null = null;
         let slTriggerPrice: BigNumber | null = null;

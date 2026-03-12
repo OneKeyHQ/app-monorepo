@@ -68,6 +68,18 @@ interface IPerpTradingFormProps {
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 
+const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
+  hasTpsl: false,
+  tpTriggerPx: '',
+  tpGainPercent: '',
+  slTriggerPx: '',
+  slLossPercent: '',
+  tpType: 'price',
+  tpValue: '',
+  slType: 'price',
+  slValue: '',
+};
+
 function MobileDepositButton() {
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   return (
@@ -432,6 +444,7 @@ function PerpTradingForm({
           persistedType === ETriggerOrderType.STOP_LIMIT ||
           persistedType === ETriggerOrderType.TAKE_LIMIT;
         updateForm({
+          ...TRIGGER_MODE_TPSL_RESET,
           orderMode: 'trigger',
           triggerOrderType: persistedType,
           type: isLimitTrigger ? 'limit' : 'market',
@@ -460,6 +473,7 @@ function PerpTradingForm({
         nextType === ETriggerOrderType.STOP_LIMIT ||
         nextType === ETriggerOrderType.TAKE_LIMIT;
       updateForm({
+        ...TRIGGER_MODE_TPSL_RESET,
         orderMode: 'trigger',
         triggerOrderType: nextType,
         type: isLimitTrigger ? 'limit' : 'market',
@@ -605,6 +619,14 @@ function PerpTradingForm({
     return null;
   };
 
+  const checkboxSizeVal = isMobile ? '$3.5' : '$4';
+  const tpLabelKey = isMobile
+    ? ETranslations.perp_tp
+    : ETranslations.perp_trade_tp_price;
+  const slLabelKey = isMobile
+    ? ETranslations.perp_sl
+    : ETranslations.perp_trade_sl_price;
+
   const renderBottomSection = () => {
     if (shouldShowEnableTradingButton && isMobile) {
       return null;
@@ -738,13 +760,6 @@ function PerpTradingForm({
     );
   };
 
-  const checkboxSizeVal = isMobile ? '$3.5' : '$4';
-  const tpLabelKey = isMobile
-    ? ETranslations.perp_tp
-    : ETranslations.perp_trade_tp_price;
-  const slLabelKey = isMobile
-    ? ETranslations.perp_sl
-    : ETranslations.perp_trade_sl_price;
   // Always show the last selected (or current) trigger type name on the tab
   const triggerTabLabel =
     triggerTypeOptions.find((item) => item.value === triggerOrderType)?.label ||

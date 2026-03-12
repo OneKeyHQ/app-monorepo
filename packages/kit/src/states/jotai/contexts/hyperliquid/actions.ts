@@ -647,18 +647,24 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin,
       });
 
+      const nextFormUpdates: Partial<ITradingFormData> = {
+        triggerPrice: '',
+        executionPrice: '',
+        triggerReduceOnly: true,
+      };
+
       // update limit price once using current atom snapshot.
       if (shouldUpdateLimitPrice) {
         const allMids = get(perpsAllMidsAtom());
         const mid = allMids?.mids?.[coin];
         const midValue = new BigNumber(mid || '');
-        this.updateTradingForm.call(set, {
-          price:
-            mid && midValue.isFinite() && midValue.gt(0)
-              ? formatPriceToSignificantDigits(mid)
-              : '',
-        });
+        nextFormUpdates.price =
+          mid && midValue.isFinite() && midValue.gt(0)
+            ? formatPriceToSignificantDigits(mid)
+            : '';
       }
+
+      this.updateTradingForm.call(set, nextFormUpdates);
     },
   );
 
