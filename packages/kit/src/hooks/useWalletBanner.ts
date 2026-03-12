@@ -83,7 +83,9 @@ function useWalletBanner({
             ) {
               setPerpPageEnterSource(EPerpPageEnterSource.WalletBanner);
             }
-          } catch {}
+          } catch {
+            // ignore malformed payload
+          }
         }
         return;
       }
