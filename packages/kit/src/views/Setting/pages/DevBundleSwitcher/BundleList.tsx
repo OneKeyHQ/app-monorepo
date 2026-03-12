@@ -345,11 +345,7 @@ function BundleItem({
             <Badge.Text>{bundle.branch || '-'}</Badge.Text>
           </Badge>
         </XStack>
-        <SizableText
-          size="$bodyXs"
-          color="$textSubdued"
-          numberOfLines={2}
-        >
+        <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={2}>
           {bundle.prTitle || '-'}
         </SizableText>
       </YStack>
