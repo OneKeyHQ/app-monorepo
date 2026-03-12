@@ -242,7 +242,7 @@ function MobileMarketWatchlistFlatListImpl({
       removeClippedSubviews={platformEnv.isNativeIOS}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        paddingTop: 8 + (platformEnv.isNative ? 200 : 0),
+        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,
