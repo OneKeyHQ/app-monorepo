@@ -83,8 +83,7 @@ Standard `Page` and `Dialog` components handle keyboard avoidance automatically.
 
 - **Page inputs**: Automatic — `PageContainer` wraps with `KeyboardAwareScrollView` (90px `bottomOffset`)
 - **Page Footer**: Automatic — animates `paddingBottom` via `useReanimatedKeyboardAnimation`
-- **Dialog Footer**: Automatic — listens via `useKeyboardEventWithoutNavigation`
-- **Dialog with `showFooter: false`**: ⚠️ **NOT automatic** — Footer keyboard avoidance is skipped. Wrap `renderContent` with a custom `Animated.View` that listens to keyboard events (see `DialogKeyboardAvoidingView` pattern in keyboard-avoidance.md)
+- **Dialog**: Automatic — keyboard avoidance is handled at the Dialog level for all dialogs (including `showFooter: false`)
 - **Custom layout**: Use `Keyboard.AwareScrollView` with custom `bottomOffset`
 
 ```typescript

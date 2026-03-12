@@ -16,6 +16,10 @@ import {
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import { FocusScope } from '@tamagui/focus-scope';
 
@@ -42,8 +46,10 @@ import {
 } from '../../hocs';
 import {
   useBackHandler,
+  useKeyboardEventWithoutNavigation,
   useModalNavigatorContextPortalId,
   useOverlayZIndex,
+  useSafeAreaInsets,
 } from '../../hooks';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
@@ -95,6 +101,27 @@ export const FIX_SHEET_PROPS: IYStackProps = {
 };
 
 const MAX_CONTENT_WIDTH = 400;
+
+const DEFAULT_KEYBOARD_HEIGHT = 330;
+const useSafeKeyboardAnimationStyle = () => {
+  const { bottom } = useSafeAreaInsets();
+  const keyboardHeightValue = useSharedValue(0);
+  const animatedStyles = useAnimatedStyle(() => ({
+    paddingBottom: keyboardHeightValue.value + bottom,
+  }));
+
+  useKeyboardEventWithoutNavigation({
+    keyboardWillShow: (e) => {
+      const height = e.endCoordinates.height;
+      const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
+      keyboardHeightValue.value = keyboardHeight - bottom;
+    },
+    keyboardWillHide: () => {
+      keyboardHeightValue.value = 0;
+    },
+  });
+  return platformEnv.isNative ? animatedStyles : undefined;
+};
 
 /**
  * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
@@ -199,8 +226,9 @@ function DialogFrame({
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open, title);
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   const renderDialogContent = (
-    <Stack>
+    <Animated.View style={safeKeyboardAnimationStyle}>
       <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
       {/* extra children */}
       <Content
@@ -235,7 +263,7 @@ function DialogFrame({
           })
         }
       />
-    </Stack>
+    </Animated.View>
   );
 
   if (media.md) {
