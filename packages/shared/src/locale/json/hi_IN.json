@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "अगला वितरण",
   "referral.next_distribution_day": "{Month} 10 तक",
   "referral.no_reward": "अभी तक कोई इनाम नहीं",
+  "referral.not_applicable": "लागू नहीं",
+  "referral.not_applicable_desc": "यह वॉलेट 14 दिन से अधिक समय पहले बनाया गया था और इसे रेफरल कोड से नहीं जोड़ा जा सकता",
   "referral.onboard_bind_code": "रेफरल कोड जोड़ें",
   "referral.onboard_bind_code_finish": "समाप्त करें",
   "referral.onchain_desc": "आपके कोड से जुड़े वॉलेट्स से",

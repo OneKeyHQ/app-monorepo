@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "Prossima distribuzione",
   "referral.next_distribution_day": "Entro il {Month} 10",
   "referral.no_reward": "Nessuna ricompensa ancora",
+  "referral.not_applicable": "Non applicabile",
+  "referral.not_applicable_desc": "Questo portafoglio è stato creato più di 14 giorni fa e non può associare un codice di riferimento",
   "referral.onboard_bind_code": "Associa codice di riferimento",
   "referral.onboard_bind_code_finish": "Fine",
   "referral.onchain_desc": "Dai wallet collegati al tuo codice",
