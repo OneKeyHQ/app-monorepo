@@ -35,6 +35,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     updateDownloadedEvent: jest.fn(),
     fetchAppUpdateInfo: jest.fn(),
     refreshUpdateStatus: jest.fn(),
+    processPendingInstallTask: jest.fn(),
     fetchChangeLog: jest.fn(),
     reset: jest.fn(),
     resetToInComplete: jest.fn(),
@@ -511,6 +512,23 @@ describe('useDownloadPackage', () => {
 
       expect(mockToastError).not.toHaveBeenCalled();
     });
+
+    test('download fails + seamless strategy → no Toast', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      appUpd.downloadPackage.mockRejectedValue(new Error('fail'));
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.downloadPackage();
+      });
+
+      expect(mockToastError).not.toHaveBeenCalled();
+    });
   });
 
   // ----- B2. downloadASC -----
@@ -761,6 +779,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(bundleUpd.installBundle).toHaveBeenCalled();
+      expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalled();
     });
 
@@ -846,7 +865,10 @@ describe('useDownloadPackage', () => {
 
   // ----- B6. manualInstallPackage -----
   describe('manualInstallPackage', () => {
-    test('success → calls AppUpdate.manualInstallPackage', async () => {
+    test('appShell: success → calls AppUpdate.manualInstallPackage', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+      });
       svc.getDownloadEvent.mockResolvedValue({
         downloadedFile: '/tmp/app.apk',
       });
@@ -858,6 +880,25 @@ describe('useDownloadPackage', () => {
       });
 
       expect(appUpd.manualInstallPackage).toHaveBeenCalled();
+    });
+
+    test('jsBundle: success → calls BundleUpdate.installBundle', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+      });
+      svc.getDownloadEvent.mockResolvedValue({
+        downloadedFile: '/tmp/bundle.zip',
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.manualInstallPackage();
+      });
+
+      expect(bundleUpd.installBundle).toHaveBeenCalled();
+      expect(appUpd.manualInstallPackage).not.toHaveBeenCalled();
     });
 
     test('no downloadEvent → Toast + resetToInComplete', async () => {
@@ -874,6 +915,9 @@ describe('useDownloadPackage', () => {
     });
 
     test('install throws → Toast + resetToInComplete + shows dialog', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+      });
       svc.getDownloadEvent.mockResolvedValue({
         downloadedFile: '/tmp/app.apk',
       });
@@ -1064,6 +1108,31 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.reset).toHaveBeenCalled();
     });
 
+    test('ready + appShell + seamless → auto-installs app package', async () => {
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.pkg',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      appUpd.installPackage.mockResolvedValue(undefined);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
+      expect(appUpd.installPackage).toHaveBeenCalled();
+      expect(bundleUpd.installBundle).not.toHaveBeenCalled();
+    });
+
     test('ready + force → shows force update preview, blocks other UI', async () => {
       setAtom({
         status: EAppUpdateStatus.ready,
@@ -1178,6 +1247,169 @@ describe('useAppUpdateInfo useEffect', () => {
 
       // checkForUpdates calls fetchAppUpdateInfo, then auto strategy → downloadPackage
       expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+    });
+
+    test('status=done + jsBundleRollback + seamless → auto downloads', async () => {
+      // platformEnv.version='1.0.0', bundleVersion='1' (from mock defaults)
+      // Remote returns same app version but LOWER bundleVersion → rollback
+      // shouldUpdate=false but isRollback=true → seamless auto-download
+      mockPlatformEnv.bundleVersion = '5';
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '3',
+        updateStrategy: EUpdateStrategy.seamless,
+        status: EAppUpdateStatus.notify,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+      expect(svc.downloadPackage).toHaveBeenCalled();
+      mockPlatformEnv.bundleVersion = '1';
+    });
+
+    test('jsBundleRollback + manual strategy → still auto downloads (ignores strategy)', async () => {
+      // Rollback is a corrective action — always auto-downloads
+      // regardless of server-returned strategy.
+      mockPlatformEnv.bundleVersion = '5';
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '3',
+        updateStrategy: EUpdateStrategy.manual,
+        status: EAppUpdateStatus.notify,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+      expect(svc.downloadPackage).toHaveBeenCalled();
+      mockPlatformEnv.bundleVersion = '1';
+    });
+
+    test('jsBundleRollback + force strategy → still auto downloads (ignores strategy)', async () => {
+      mockPlatformEnv.bundleVersion = '5';
+      setAtom({
+        status: EAppUpdateStatus.done,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '3',
+        updateStrategy: EUpdateStrategy.force,
+        status: EAppUpdateStatus.notify,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+      expect(svc.downloadPackage).toHaveBeenCalled();
+      mockPlatformEnv.bundleVersion = '1';
+    });
+
+    test('jsBundleRollback + seamless + downloadPackageFailed → does NOT re-download', async () => {
+      // Simulates: previous rollback download failed, app restarts.
+      // fetchAppUpdateInfo keeps failed status (same target), so rollback
+      // auto-download must NOT trigger again to avoid retry loops.
+      mockPlatformEnv.bundleVersion = '5';
+      setAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '3',
+        updateStrategy: EUpdateStrategy.seamless,
+        status: EAppUpdateStatus.downloadPackageFailed,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+      mockPlatformEnv.bundleVersion = '1';
+    });
+
+    test('jsBundleRollback + seamless + verifyPackageFailed → does NOT re-download', async () => {
+      mockPlatformEnv.bundleVersion = '5';
+      setAtom({
+        status: EAppUpdateStatus.verifyPackageFailed,
+        latestVersion: '1.0.0',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '3',
+        updateStrategy: EUpdateStrategy.seamless,
+        status: EAppUpdateStatus.verifyPackageFailed,
+      });
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runAllTimers();
+      });
+
+      expect(svc.fetchAppUpdateInfo).toHaveBeenCalled();
+      expect(svc.downloadPackage).not.toHaveBeenCalled();
+      mockPlatformEnv.bundleVersion = '1';
     });
 
     test('status=done + needUpdate + force → toUpdatePreviewPage(full)', async () => {

@@ -44,6 +44,7 @@ function DeFiContainer() {
   return (
     <YStack gap="$6" pb="$5">
       <DeFiListBlock />
+      <Upgrade />
       <SupportHub />
       {addPaddingOnListFooter ? <Stack h="$16" /> : null}
     </YStack>
