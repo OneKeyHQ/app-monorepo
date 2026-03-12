@@ -1656,6 +1656,9 @@ export type IRecommendAsset = {
     text: string;
     color: ColorTokens;
   };
+  badge?: {
+    text: string;
+  };
 };
 
 export interface IEarnAtomData {
