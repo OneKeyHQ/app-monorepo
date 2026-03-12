@@ -7,7 +7,9 @@ import {
   useBboAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { getTriggerEffectivePrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useTradingPrice } from './useTradingPrice';
 
@@ -21,6 +23,7 @@ export interface IUseOrderPriceReturn {
 
 /**
  * Calculate order price for different scenarios:
+ * - Trigger order: uses trigger effective price (triggerPrice for market, executionPrice for limit)
  * - Market order: uses midPrice
  * - Limit with BBO: selects price from BBO based on side and mode (counterparty/queue)
  * - Limit without BBO: uses user input price
@@ -32,7 +35,30 @@ export function calculateOrderPrice(
   bbo: HL.IWsBbo | null,
   midPriceBN: BigNumber,
   side?: 'long' | 'short',
+  orderMode?: 'standard' | 'trigger',
+  triggerOrderType?: ETriggerOrderType,
+  triggerPrice?: string,
+  executionPrice?: string,
 ): IUseOrderPriceReturn {
+  // Trigger mode: use trigger effective price
+  if (orderMode === 'trigger' && triggerOrderType) {
+    const effectivePrice = getTriggerEffectivePrice({
+      triggerOrderType,
+      triggerPrice,
+      executionPrice,
+      midPrice:
+        midPriceBN.isFinite() && midPriceBN.gt(0)
+          ? midPriceBN.toFixed()
+          : undefined,
+    });
+    const isValid = effectivePrice.isFinite() && effectivePrice.gt(0);
+    return {
+      price: effectivePrice,
+      isValid,
+      error: null,
+    };
+  }
+
   // Market order: always use midPrice
   if (formType === 'market') {
     const isValid = midPriceBN.isFinite() && midPriceBN.gt(0);
@@ -118,11 +144,19 @@ export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
         bbo,
         midPriceBN,
         side,
+        formData.orderMode,
+        formData.triggerOrderType,
+        formData.triggerPrice,
+        formData.executionPrice,
       ),
     [
       formData.type,
       formData.price,
       formData.bboPriceMode,
+      formData.orderMode,
+      formData.triggerOrderType,
+      formData.triggerPrice,
+      formData.executionPrice,
       bbo,
       midPriceBN,
       side,
