@@ -81,7 +81,7 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: 200,
+      columnWidth: isWatchlistMode ? (gtLg ? 340 : 260) : 200,
       render: (_: unknown, record: IMarketToken) =>
         record.perpsCoin ? (
           <XStack
