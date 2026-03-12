@@ -11,7 +11,7 @@ import {
   Stack,
   XStack,
   YStack,
-  popModalPagesOnNative,
+  resetAboveMainRoute,
   rootNavigationRef,
   useUpdateEffect,
 } from '@onekeyhq/components';
@@ -45,7 +45,7 @@ function OneKeyIdPage() {
       try {
         if (isPrimeAvailable) {
           if (platformEnv.isNative) {
-            popModalPagesOnNative();
+            resetAboveMainRoute();
           }
           rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
             screen: EModalRoutes.PrimeModal,
@@ -68,7 +68,7 @@ function OneKeyIdPage() {
     }
     if (!isLoggedIn && isFocused) {
       await timerUtils.wait(300);
-      popModalPagesOnNative();
+      resetAboveMainRoute();
       defaultLogger.prime.subscription.onekeyIdLogout({
         reason:
           'OneKeyIdPage: is focused and primePersistAtom is not logged in',
@@ -87,7 +87,7 @@ function OneKeyIdPage() {
 
   const handleLogoutSuccess = useCallback(async () => {
     defaultLogger.referral.page.logoutOneKeyIDResult();
-    popModalPagesOnNative();
+    resetAboveMainRoute();
   }, []);
 
   return (

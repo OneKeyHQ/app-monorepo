@@ -236,19 +236,9 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
   }
 };
 
-export const popToMainRoute = async (maxRetryTimes = 99) => {
-  if (maxRetryTimes <= 0) {
-    return;
-  }
-  const rootState = rootNavigationRef.current?.getRootState();
-  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
-    return;
-  }
-  if (rootNavigationRef.current?.canGoBack()) {
-    rootNavigationRef.current?.goBack?.();
-  }
-  await timerUtils.wait(150);
-  await popToMainRoute(maxRetryTimes - 1);
+export const popToMainRoute = async () => {
+  resetAboveMainRoute();
+  await timerUtils.wait(100);
 };
 
 function isScanModalCurrentRoute(): boolean {
