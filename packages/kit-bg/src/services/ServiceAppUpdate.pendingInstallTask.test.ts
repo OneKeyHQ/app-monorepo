@@ -234,9 +234,10 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
   let service: ReturnType<typeof createService>;
 
   function mockReleaseInfo(releaseInfo: Record<string, any>) {
-    jest
-      .spyOn(service, 'getAppLatestInfo')
-      .mockResolvedValue(releaseInfo as any);
+    jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+      updateStrategy: EUpdateStrategy.seamless,
+      ...releaseInfo,
+    } as any);
     jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
     jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
   }
@@ -362,6 +363,33 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     await service.fetchAppUpdateInfo(true);
 
     expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('non-seamless jsBundle strategy does not create pending task', async () => {
+    mockReleaseInfo({
+      version: '1.0.0',
+      jsBundleVersion: '2',
+      updateStrategy: EUpdateStrategy.manual,
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        fileSize: 1024,
+        sha256: 'sha256-2',
+        signature: 'sig-2',
+      },
+    });
+
+    await service.fetchAppUpdateInfo(true);
+
+    expect(pendingTaskValue).toBeUndefined();
+    const events = getUpdateLogEvents();
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_task_upsert_decision' &&
+          event.upsertAction === 'drop' &&
+          event.reason === 'strategy_not_restart_install',
+      ),
+    ).toBe(true);
   });
 
   test('newer requestSeq replaces existing pending target even when bundleVersion is lower', async () => {

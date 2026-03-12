@@ -313,7 +313,10 @@ export const useDownloadPackage = () => {
       try {
         defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
         if (fileType === EUpdateFileType.jsBundle) {
-          await backgroundApiProxy.serviceAppUpdate.processPendingInstallTask();
+          if (!data.downloadedEvent) {
+            throw new OneKeyError('NOT_FOUND_PACKAGE');
+          }
+          await BundleUpdate.installBundle(data.downloadedEvent);
         } else {
           await AppUpdate.installPackage(data);
         }

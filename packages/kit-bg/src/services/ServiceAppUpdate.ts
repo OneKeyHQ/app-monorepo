@@ -475,6 +475,17 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
+    if (releaseInfo.updateStrategy !== EUpdateStrategy.seamless) {
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        upsertAction: 'drop',
+        reason: 'strategy_not_restart_install',
+        updateStrategy: releaseInfo.updateStrategy ?? null,
+      });
+      return;
+    }
+
     const task = this.buildPendingJsBundleTask(releaseInfo, requestSeq);
     if (!task || !this.isValidPendingInstallTask(task)) {
       this.logUpdateEvent(

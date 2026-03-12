@@ -35,6 +35,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     updateDownloadedEvent: jest.fn(),
     fetchAppUpdateInfo: jest.fn(),
     refreshUpdateStatus: jest.fn(),
+    processPendingInstallTask: jest.fn(),
     fetchChangeLog: jest.fn(),
     reset: jest.fn(),
     resetToInComplete: jest.fn(),
@@ -761,6 +762,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(bundleUpd.installBundle).toHaveBeenCalled();
+      expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalled();
     });
 
