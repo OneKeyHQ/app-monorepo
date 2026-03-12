@@ -244,21 +244,6 @@ function InvitedByFriendActions({
   }, [referralCode, intl, navigation]);
 
   const handleJoin = useCallback(() => {
-    if (activeAccount?.wallet) {
-      defaultLogger.referral.page.acceptReferralInvitation({
-        referralCode,
-        acceptMethod: 'local_app',
-      });
-      bindWalletInviteCode({
-        wallet: activeAccount.wallet,
-        defaultReferralCode: referralCode,
-        onSuccess: () => {
-          navigation.pop();
-        },
-      });
-      return;
-    }
-
     if (platformEnv.isWeb) {
       // Extension installed → bind directly
       if (getOneKeyExtensionProvider()) {
@@ -279,6 +264,7 @@ function InvitedByFriendActions({
       acceptMethod: 'local_app',
     });
     bindWalletInviteCode({
+      wallet: activeAccount?.wallet,
       defaultReferralCode: referralCode,
       onSuccess: () => {
         navigation.pop();
