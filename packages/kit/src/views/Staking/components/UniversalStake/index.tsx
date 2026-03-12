@@ -16,7 +16,6 @@ import {
   IconButton,
   Image,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
@@ -48,7 +47,6 @@ import type {
   IEarnEstimateFeeResp,
   IEarnPermit2ApproveSignData,
   IEarnSelectField,
-  IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTransactionConfirmation,
@@ -82,6 +80,7 @@ import {
 } from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import {
   PendleAccordionTriggerContent,
@@ -1389,29 +1388,9 @@ export function UniversalStake({
             }}
           />
           {transactionConfirmation?.tooltip ? (
-            <Popover
-              placement="top"
-              title={transactionConfirmation?.title?.text ?? ''}
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <Stack p="$5">
-                  <EarnText
-                    text={
-                      transactionConfirmation?.tooltip?.type === 'text'
-                        ? transactionConfirmation?.tooltip?.data?.description
-                        : undefined
-                    }
-                    size="$bodyMd"
-                  />
-                </Stack>
-              }
+            <EarnTooltip
+              title={transactionConfirmation?.title?.text}
+              tooltip={transactionConfirmation?.tooltip}
             />
           ) : null}
         </XStack>
@@ -1445,14 +1424,9 @@ export function UniversalStake({
                     flexShrink={1}
                   />
                   {hasTooltip ? (
-                    <Popover.Tooltip
-                      iconSize="$5"
+                    <EarnTooltip
                       title={reward.title.text}
-                      tooltip={
-                        (reward.tooltip as IEarnTextTooltip)?.data?.description
-                          ?.text
-                      }
-                      placement="top"
+                      tooltip={reward.tooltip}
                     />
                   ) : null}
                 </XStack>
