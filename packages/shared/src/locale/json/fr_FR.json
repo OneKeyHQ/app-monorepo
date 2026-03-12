@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "Prochaine distribution",
   "referral.next_distribution_day": "D'ici le 10 {Month}",
   "referral.no_reward": "Pas encore de récompense",
+  "referral.not_applicable": "Non applicable",
+  "referral.not_applicable_desc": "Ce portefeuille a été créé il y a plus de 14 jours et ne peut pas lier un code de parrainage",
   "referral.onboard_bind_code": "Lier le code de parrainage",
   "referral.onboard_bind_code_finish": "Terminer",
   "referral.onchain_desc": "Depuis les portefeuilles liés à votre code",

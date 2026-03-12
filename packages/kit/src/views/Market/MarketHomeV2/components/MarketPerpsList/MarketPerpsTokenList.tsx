@@ -37,19 +37,25 @@ function MarketPerpsTokenListImpl({
   tabName,
   listContainerProps,
 }: IMarketPerpsTokenListProps) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const { navigateToPerps } = usePerpsNavigation();
   const intl = useIntl();
   const { md } = useMedia();
 
   const { perpsCategories } = useMarketBasicConfig();
 
-  // Auto-select first category when categories load
+  const initialCategoryId = useMemo(
+    () => perpsCategories[0]?.categoryId ?? '',
+    [perpsCategories],
+  );
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useState(initialCategoryId);
+
+  // Sync when categories load asynchronously after initial render
   useEffect(() => {
-    if (!selectedCategoryId && perpsCategories.length > 0) {
-      setSelectedCategoryId(perpsCategories[0].categoryId);
+    if (!selectedCategoryId && initialCategoryId) {
+      setSelectedCategoryId(initialCategoryId);
     }
-  }, [perpsCategories, selectedCategoryId]);
+  }, [initialCategoryId, selectedCategoryId]);
 
   const { tokens, isLoading, hasRealTimeData } = useMarketPerpsTokenList({
     selectedCategoryId,

@@ -56,6 +56,8 @@ export interface IDialogFooterProps extends PropsWithChildren {
   cancelButtonProps?: IDialogButtonProps;
   onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
+  /** Content rendered below the footer buttons */
+  extraContent?: ReactNode;
 }
 
 export type IDialogHeaderProps = PropsWithChildren<{
