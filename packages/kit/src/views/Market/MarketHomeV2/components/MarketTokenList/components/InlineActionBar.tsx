@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 import { Icon, Stack, XStack } from '@onekeyhq/components';
 
@@ -12,13 +12,22 @@ type IInlineActionBarProps = {
   onMoveToTop: () => void;
   onToggleWatchlist: () => void;
   onDismiss: () => void;
+  anchor?: {
+    x: number;
+    y: number;
+  };
 };
+
+const ACTION_BAR_WIDTH = 84;
+const ACTION_BAR_HEIGHT = 42;
+const ACTION_BAR_SAFE_MARGIN = 16;
 
 function InlineActionBar({
   isFirstItem,
   onMoveToTop,
   onToggleWatchlist,
   onDismiss,
+  anchor,
 }: IInlineActionBarProps) {
   // Delay showing the action bar so it doesn't appear while the finger
   // is still on screen after a long-press / drag gesture
@@ -54,6 +63,22 @@ function InlineActionBar({
     onToggleWatchlist();
   }, [onToggleWatchlist]);
 
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const top = Math.max(
+    ACTION_BAR_SAFE_MARGIN,
+    Math.min(
+      (anchor?.y ?? screenHeight * 0.45) - ACTION_BAR_HEIGHT / 2,
+      screenHeight - ACTION_BAR_SAFE_MARGIN - ACTION_BAR_HEIGHT,
+    ),
+  );
+  const left = Math.max(
+    ACTION_BAR_SAFE_MARGIN,
+    Math.min(
+      (anchor?.x ?? screenWidth / 2) - ACTION_BAR_WIDTH / 2,
+      screenWidth - ACTION_BAR_SAFE_MARGIN - ACTION_BAR_WIDTH,
+    ),
+  );
+
   return (
     <Stack
       position="absolute"
@@ -67,10 +92,10 @@ function InlineActionBar({
       {/* Centered action bar */}
       <XStack
         position="absolute"
-        alignSelf="center"
-        top="45%"
-        width={84}
-        height={42}
+        top={top}
+        left={left}
+        width={ACTION_BAR_WIDTH}
+        height={ACTION_BAR_HEIGHT}
         borderRadius="$2"
         alignItems="center"
         justifyContent="center"

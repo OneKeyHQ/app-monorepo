@@ -1,6 +1,8 @@
 import type { FC } from 'react';
 import { memo } from 'react';
 
+import { Platform } from 'react-native';
+
 import { NumberSizeableText, XStack } from '@onekeyhq/components';
 
 import { PriceChangeBadge } from '../../PriceChangeBadge';
@@ -8,26 +10,55 @@ import { PriceChangeBadge } from '../../PriceChangeBadge';
 import { TokenIdentityItem } from './TokenIdentityItem';
 
 import type { IMarketToken } from '../MarketTokenData';
+import type { GestureResponderEvent } from 'react-native';
 
 interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
-  onLongPress?: () => void;
+  onLongPress?: (event: GestureResponderEvent) => void;
+  onPressIn?: (event: GestureResponderEvent) => void;
+  onTouchMove?: (event: GestureResponderEvent) => void;
+  onPressOut?: (event: GestureResponderEvent) => void;
+  isDragging?: boolean;
 }
 
 const BasicTokenListItem: FC<ITokenListItemProps> = ({
   item,
   onPress,
   onLongPress,
+  onPressIn,
+  onTouchMove,
+  onPressOut,
+  isDragging,
 }) => {
   return (
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
       onLongPress={onLongPress}
+      onPressIn={onPressIn}
+      onTouchMove={onTouchMove}
+      onPressOut={onPressOut}
       px="$5"
       py="$3"
       alignItems="center"
+      borderRadius="$3"
+      bg={isDragging ? '$bgActive' : '$bgApp'}
+      style={
+        isDragging
+          ? {
+              ...Platform.select({
+                ios: {
+                  shadowColor: '#000',
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 4 },
+                },
+                android: { elevation: 8 },
+              }),
+            }
+          : undefined
+      }
     >
       <XStack flex={1} alignItems="center" minWidth={0}>
         <TokenIdentityItem
