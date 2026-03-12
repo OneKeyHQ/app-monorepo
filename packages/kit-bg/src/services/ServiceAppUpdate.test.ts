@@ -1462,6 +1462,66 @@ describe('ServiceAppUpdate state transitions', () => {
       );
     });
 
+    test('resets failed (install failure) status to notify when server has newer version', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.failed,
+        latestVersion: '2.0.0',
+        downloadedEvent: { downloadedFile: '/tmp/installed.zip' },
+        updateAt: 0,
+      });
+      mockLatestInfo({
+        version: '3.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.errorText).toBeUndefined();
+      expect(atomValue.downloadedEvent).toBeUndefined();
+    });
+
+    test('resets updateIncomplete status to notify when server has newer version', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.updateIncomplete,
+        latestVersion: '2.0.0',
+        downloadedEvent: { downloadedFile: '/tmp/incomplete.zip' },
+        updateAt: 0,
+      });
+      mockLatestInfo({
+        version: '3.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.errorText).toBeUndefined();
+      expect(atomValue.downloadedEvent).toBeUndefined();
+    });
+
+    test('failed status with same version does NOT reset', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.failed,
+        latestVersion: '2.0.0',
+        updateAt: 0,
+      });
+      mockLatestInfo({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.failed);
+    });
+
     test('stores force updateStrategy from server response', async () => {
       resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
       mockLatestInfo({
@@ -1766,6 +1826,8 @@ describe('ServiceAppUpdate state transitions', () => {
       EAppUpdateStatus.downloadASCFailed,
       EAppUpdateStatus.verifyASCFailed,
       EAppUpdateStatus.verifyPackageFailed,
+      EAppUpdateStatus.failed,
+      EAppUpdateStatus.updateIncomplete,
     ] as const;
 
     test.each(FAILED_STATUSES)(
@@ -1957,6 +2019,8 @@ describe('ServiceAppUpdate state transitions', () => {
       EAppUpdateStatus.downloadASCFailed,
       EAppUpdateStatus.verifyASCFailed,
       EAppUpdateStatus.verifyPackageFailed,
+      EAppUpdateStatus.failed,
+      EAppUpdateStatus.updateIncomplete,
     ] as const;
 
     test.each(FAILED_STATUSES)(
@@ -2000,6 +2064,32 @@ describe('ServiceAppUpdate state transitions', () => {
         status: EAppUpdateStatus.verifyPackageFailed,
         latestVersion: '2.0.0',
         downloadedEvent: { downloadedFile: '/tmp/bad.zip' },
+      });
+
+      await service.refreshUpdateStatus();
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.downloadedEvent).toBeUndefined();
+    });
+
+    test('clears downloadedEvent for failed (install failure)', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.failed,
+        latestVersion: '2.0.0',
+        downloadedEvent: { downloadedFile: '/tmp/failed-install.zip' },
+      });
+
+      await service.refreshUpdateStatus();
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.downloadedEvent).toBeUndefined();
+    });
+
+    test('clears downloadedEvent for updateIncomplete', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.updateIncomplete,
+        latestVersion: '2.0.0',
+        downloadedEvent: { downloadedFile: '/tmp/incomplete.zip' },
       });
 
       await service.refreshUpdateStatus();

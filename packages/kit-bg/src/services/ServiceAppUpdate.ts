@@ -153,13 +153,17 @@ class ServiceAppUpdate extends ServiceBase {
           `Failed recovery timer fired, current status: ${appInfo.status}`,
         );
         if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
-          const isVerifyFailure =
-            ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status);
+          const shouldClearDownload =
+            ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status) ||
+            appInfo.status === EAppUpdateStatus.failed ||
+            appInfo.status === EAppUpdateStatus.updateIncomplete;
           await appUpdatePersistAtom.set((prev) => ({
             ...prev,
             errorText: undefined,
             status: EAppUpdateStatus.notify,
-            downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
+            downloadedEvent: shouldClearDownload
+              ? undefined
+              : prev.downloadedEvent,
           }));
         }
       },
@@ -284,6 +288,8 @@ class ServiceAppUpdate extends ServiceBase {
     EAppUpdateStatus.downloadASCFailed,
     EAppUpdateStatus.verifyASCFailed,
     EAppUpdateStatus.verifyPackageFailed,
+    EAppUpdateStatus.failed,
+    EAppUpdateStatus.updateIncomplete,
   ];
 
   static VERIFY_FAILED_STATUSES: EAppUpdateStatus[] = [
@@ -314,15 +320,16 @@ class ServiceAppUpdate extends ServiceBase {
       defaultLogger.app.appUpdate.log(
         `refreshUpdateStatus: resetting failed status ${appInfo.status} to notify`,
       );
-      const isVerifyFailure = ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(
-        appInfo.status,
-      );
+      const shouldClearDownload =
+        ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status) ||
+        appInfo.status === EAppUpdateStatus.failed ||
+        appInfo.status === EAppUpdateStatus.updateIncomplete;
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         errorText: undefined,
         status: EAppUpdateStatus.notify,
-        // Corrupted/tampered packages must be re-downloaded
-        downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
+        // Corrupted/tampered or incompletely installed packages must be re-downloaded
+        downloadedEvent: shouldClearDownload ? undefined : prev.downloadedEvent,
       }));
     }
   }
@@ -867,13 +874,7 @@ class ServiceAppUpdate extends ServiceBase {
         // a newer version than the one we were trying to update to.
         // In that case, reset to notify so the user gets the new version
         // instead of retrying a stale download.
-        const failedStatuses: EAppUpdateStatus[] = [
-          EAppUpdateStatus.downloadPackageFailed,
-          EAppUpdateStatus.downloadASCFailed,
-          EAppUpdateStatus.verifyASCFailed,
-          EAppUpdateStatus.verifyPackageFailed,
-        ];
-        const isFailed = failedStatuses.includes(prev.status);
+        const isFailed = ServiceAppUpdate.FAILED_STATUSES.includes(prev.status);
         let isDifferentFromAttempted = false;
         if (isFailed && releaseInfo.version && prev.latestVersion) {
           try {
@@ -907,9 +908,11 @@ class ServiceAppUpdate extends ServiceBase {
         }
         const shouldResetFailed = isFailed && isDifferentFromAttempted;
         // Corrupted/tampered packages must be re-downloaded
-        const isVerifyFailure =
+        const shouldClearDownloadedEvent =
           shouldResetFailed &&
-          ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(prev.status);
+          (ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(prev.status) ||
+            prev.status === EAppUpdateStatus.failed ||
+            prev.status === EAppUpdateStatus.updateIncomplete);
 
         const shouldTransitionToNotify =
           shouldUpdate && (!isUpdating || shouldResetFailed);
@@ -949,7 +952,9 @@ class ServiceAppUpdate extends ServiceBase {
           latestVersion: releaseInfo.version || prev.latestVersion,
           updateAt: Date.now(),
           errorText: shouldResetFailed ? undefined : prev.errorText,
-          downloadedEvent: isVerifyFailure ? undefined : prev.downloadedEvent,
+          downloadedEvent: shouldClearDownloadedEvent
+            ? undefined
+            : prev.downloadedEvent,
           status: nextStatus,
           previousAppVersion: shouldTransitionToNotify
             ? platformEnv.version
