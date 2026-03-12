@@ -744,24 +744,6 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const currentUpdateBundleData = store.getUpdateBundleData();
-    // Security: Prevent version downgrade attacks (skip in dev mode)
-    if (!allowSkipGPG && currentUpdateBundleData?.bundleVersion) {
-      const currentVersion = Number(currentUpdateBundleData.bundleVersion);
-      const newVersion = Number(bundleVersion);
-      if (
-        !Number.isNaN(currentVersion) &&
-        !Number.isNaN(newVersion) &&
-        newVersion < currentVersion
-      ) {
-        logger.error(
-          'bundle-install',
-          `Version downgrade rejected: ${bundleVersion} < ${currentUpdateBundleData.bundleVersion}`,
-        );
-        throw new OneKeyLocalError(
-          `Bundle version downgrade rejected: ${bundleVersion} < ${currentUpdateBundleData.bundleVersion}`,
-        );
-      }
-    }
 
     // Security: Verify bundle directory exists before updating store
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
