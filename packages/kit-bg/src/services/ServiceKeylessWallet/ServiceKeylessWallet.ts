@@ -1567,6 +1567,7 @@ class ServiceKeylessWallet extends ServiceBase {
     let ownerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
+      providerOverride: socialProvider,
     });
     const socialUserId: string = this.buildKeylessSocialUserIdFromToken({
       token,
@@ -1615,6 +1616,12 @@ class ServiceKeylessWallet extends ServiceBase {
         token,
         pin,
       });
+      if (
+        dangerousRetryByFixedProvider &&
+        !this.fixedKeylessProviderMap[socialUserId]
+      ) {
+        this.fixedKeylessProviderMap[socialUserId] = socialProvider;
+      }
     } catch (error) {
       const isPinErrorByInstance = error instanceof IncorrectPinError;
       const isPinErrorByClassName = errorUtils.isErrorByClassName({
