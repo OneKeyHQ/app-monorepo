@@ -88,7 +88,6 @@ class ServiceAppUpdate extends ServiceBase {
     };
   }
 
-
   private getTargetKey(taskOrTarget: {
     targetAppVersion: string;
     targetBundleVersion: string;
@@ -769,7 +768,7 @@ class ServiceAppUpdate extends ServiceBase {
   public async fetchAppUpdateInfo(forceUpdate = false) {
     const traceId = generateUUID();
     const requestSeq = await this.nextRequestSeq();
-    defaultLogger.app.appUpdate.appUpdateFetchStart( {
+    defaultLogger.app.appUpdate.appUpdateFetchStart({
       traceId,
       requestSeq,
       forceUpdate,
@@ -785,7 +784,7 @@ class ServiceAppUpdate extends ServiceBase {
     defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
     if (!isNeedSync) {
       const latest = await appUpdatePersistAtom.get();
-      defaultLogger.app.appUpdate.appUpdateFetchResult( {
+      defaultLogger.app.appUpdate.appUpdateFetchResult({
         traceId,
         requestSeq,
         hasReleaseInfo: null,
@@ -851,7 +850,7 @@ class ServiceAppUpdate extends ServiceBase {
         );
         if (blockedByControl) {
           shouldUpdate = false;
-          defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+          defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
             traceId,
             requestSeq,
             upsertAction: 'drop',
@@ -896,8 +895,10 @@ class ServiceAppUpdate extends ServiceBase {
             const prevBundle = Number(prev.jsBundleVersion);
             const remoteBundle = Number(releaseInfo.jsBundleVersion);
             return (
-              prev.jsBundleVersion != null &&
-              releaseInfo.jsBundleVersion != null &&
+              prev.jsBundleVersion !== null &&
+              prev.jsBundleVersion !== undefined &&
+              releaseInfo.jsBundleVersion !== null &&
+              releaseInfo.jsBundleVersion !== undefined &&
               Number.isFinite(prevBundle) &&
               Number.isFinite(remoteBundle) &&
               remoteBundle !== prevBundle
@@ -916,7 +917,7 @@ class ServiceAppUpdate extends ServiceBase {
           ? EAppUpdateStatus.notify
           : prev.status;
 
-        defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
           traceId,
           requestSeq,
           upsertAction: shouldTransitionToNotify ? 'update' : 'noop',
@@ -973,7 +974,7 @@ class ServiceAppUpdate extends ServiceBase {
       );
     }
     const latest = await appUpdatePersistAtom.get();
-    defaultLogger.app.appUpdate.appUpdateFetchResult( {
+    defaultLogger.app.appUpdate.appUpdateFetchResult({
       traceId,
       requestSeq,
       hasReleaseInfo: !!releaseInfo,

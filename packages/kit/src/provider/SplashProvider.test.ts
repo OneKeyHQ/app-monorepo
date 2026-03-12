@@ -167,7 +167,9 @@ describe('useDisplaySplash', () => {
     platformEnvMock.isWeb = false;
 
     const { useDisplaySplash } = freshSplash();
-    svc.processPendingInstallTask.mockRejectedValue(new Error('native bg failed'));
+    svc.processPendingInstallTask.mockRejectedValue(
+      new Error('native bg failed'),
+    );
     const { result } = renderHook(() => useDisplaySplash());
 
     await act(async () => {

@@ -175,7 +175,10 @@ class ServicePendingInstallTask {
     if (task.type === 'appshell-install') {
       return task.targetAppVersion === (platformEnv.version || '');
     }
-    return this.isTargetAligned(task.targetAppVersion, task.targetBundleVersion);
+    return this.isTargetAligned(
+      task.targetAppVersion,
+      task.targetBundleVersion,
+    );
   }
 
   @backgroundMethod()
@@ -486,7 +489,7 @@ class ServicePendingInstallTask {
     const appInfo = await appUpdatePersistAtom.get();
     if ((appInfo.freezeUntil || 0) > now) {
       if (emitLog) {
-        defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
           traceId,
           requestSeq,
           upsertAction: 'drop',
@@ -500,7 +503,7 @@ class ServicePendingInstallTask {
     const ignored = appInfo.ignoredTargets?.[targetKey];
     if (ignored && ignored.expiresAt > now) {
       if (emitLog) {
-        defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
           traceId,
           requestSeq,
           upsertAction: 'drop',
@@ -538,7 +541,7 @@ class ServicePendingInstallTask {
       remoteBundleVersion: releaseInfo.jsBundleVersion,
       allowRollback: true,
     });
-    defaultLogger.app.appUpdate.appUpdateDecisionResolved( {
+    defaultLogger.app.appUpdate.appUpdateDecisionResolved({
       traceId,
       requestSeq,
       decision: decision.decision,
@@ -556,7 +559,7 @@ class ServicePendingInstallTask {
       decision.decision !== 'jsBundleUpgrade' &&
       decision.decision !== 'jsBundleRollback'
     ) {
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         upsertAction: 'noop',
@@ -567,7 +570,7 @@ class ServicePendingInstallTask {
     }
 
     if (releaseInfo.updateStrategy !== EUpdateStrategy.seamless) {
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         upsertAction: 'drop',
@@ -579,7 +582,7 @@ class ServicePendingInstallTask {
     }
 
     if (stage !== 'ready_to_install') {
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         upsertAction: 'drop',
@@ -591,7 +594,7 @@ class ServicePendingInstallTask {
 
     const runtimeAppInfo = appInfo || (await appUpdatePersistAtom.get());
     if (!runtimeAppInfo.downloadedEvent?.downloadedFile) {
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         upsertAction: 'drop',
@@ -638,7 +641,7 @@ class ServicePendingInstallTask {
     const existingRaw = await getPendingInstallTask();
     if (!existingRaw) {
       await setPendingInstallTask(task);
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -668,7 +671,7 @@ class ServicePendingInstallTask {
         level: 'warn',
       });
       await setPendingInstallTask(task);
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -704,7 +707,7 @@ class ServicePendingInstallTask {
       existing.taskId === task.taskId &&
       existing.action === task.action
     ) {
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -741,7 +744,7 @@ class ServicePendingInstallTask {
         runningStartedAt: existing.runningStartedAt,
         lastError: existing.lastError,
       });
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -758,7 +761,7 @@ class ServicePendingInstallTask {
       existing.status === 'running' ||
       existing.status === 'applied_waiting_verify'
     ) {
-      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,
         upsertAction: 'drop',
@@ -771,7 +774,7 @@ class ServicePendingInstallTask {
     }
 
     await setPendingInstallTask(task);
-    defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
+    defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
       traceId,
       requestSeq,
       taskId: task.taskId,
@@ -923,7 +926,8 @@ class ServicePendingInstallTask {
       throw new OneKeyLocalError('APP_INSTALL_CHANNEL_UNSUPPORTED');
     }
     const appInfo = await appUpdatePersistAtom.get();
-    const downloadUrl = appInfo.downloadedEvent?.downloadUrl || payload.downloadUrl;
+    const downloadUrl =
+      appInfo.downloadedEvent?.downloadUrl || payload.downloadUrl;
     if (!appInfo.downloadedEvent?.downloadedFile || !downloadUrl) {
       throw new OneKeyLocalError('APP_PACKAGE_MISSING');
     }
@@ -965,14 +969,14 @@ class ServicePendingInstallTask {
     task?: Partial<IPendingInstallTask> | null;
   }) {
     const startedAt = Date.now();
-    defaultLogger.app.appUpdate.pendingPostProcessRefreshStart( {
+    defaultLogger.app.appUpdate.pendingPostProcessRefreshStart({
       traceId,
       requestSeq,
       ...this.buildTaskLogFields(task),
     });
     try {
       await this.refreshUpdateStatus();
-      defaultLogger.app.appUpdate.pendingPostProcessRefreshResult( {
+      defaultLogger.app.appUpdate.pendingPostProcessRefreshResult({
         traceId,
         requestSeq,
         result: 'success',
@@ -1019,7 +1023,7 @@ class ServicePendingInstallTask {
         this.isProcessingPendingTask = false;
         this.pendingTaskLockAcquiredAt = 0;
       } else {
-        defaultLogger.app.appUpdate.pendingTaskLockState( {
+        defaultLogger.app.appUpdate.pendingTaskLockState({
           traceId,
           requestSeq,
           lockState: 'reentrant',
@@ -1032,7 +1036,7 @@ class ServicePendingInstallTask {
 
     this.isProcessingPendingTask = true;
     this.pendingTaskLockAcquiredAt = Date.now();
-    defaultLogger.app.appUpdate.pendingTaskLockState( {
+    defaultLogger.app.appUpdate.pendingTaskLockState({
       traceId,
       requestSeq,
       lockState: 'acquired',
@@ -1044,7 +1048,7 @@ class ServicePendingInstallTask {
 
       const rawTask = await getPendingInstallTask();
       if (!rawTask) {
-        defaultLogger.app.appUpdate.pendingTaskValidation( {
+        defaultLogger.app.appUpdate.pendingTaskValidation({
           traceId,
           requestSeq,
           isValid: false,
@@ -1086,7 +1090,7 @@ class ServicePendingInstallTask {
 
       let task = rawTask;
       const now = Date.now();
-      defaultLogger.app.appUpdate.pendingTaskValidation( {
+      defaultLogger.app.appUpdate.pendingTaskValidation({
         traceId,
         requestSeq,
         isValid: true,
@@ -1163,7 +1167,7 @@ class ServicePendingInstallTask {
         const runningStartedAt = task.runningStartedAt || task.createdAt;
         const runningDuration = now - runningStartedAt;
         if (runningDuration <= RUNNING_TASK_STALE_MS) {
-          defaultLogger.app.appUpdate.pendingTaskLockState( {
+          defaultLogger.app.appUpdate.pendingTaskLockState({
             traceId,
             requestSeq,
             lockState: 'reentrant',
@@ -1199,7 +1203,7 @@ class ServicePendingInstallTask {
         envMatch = 'scheduled';
       }
 
-      defaultLogger.app.appUpdate.pendingTaskEnvCheck( {
+      defaultLogger.app.appUpdate.pendingTaskEnvCheck({
         traceId,
         requestSeq,
         envMatch,
@@ -1231,7 +1235,7 @@ class ServicePendingInstallTask {
       }
 
       if (task.nextRetryAt && task.nextRetryAt > now) {
-        defaultLogger.app.appUpdate.pendingTaskValidation( {
+        defaultLogger.app.appUpdate.pendingTaskValidation({
           traceId,
           requestSeq,
           isValid: true,
@@ -1248,7 +1252,7 @@ class ServicePendingInstallTask {
       };
       await setPendingInstallTask(runningTask);
       const startedAt = Date.now();
-      defaultLogger.app.appUpdate.pendingSwitchStart( {
+      defaultLogger.app.appUpdate.pendingSwitchStart({
         traceId,
         requestSeq,
         fromStatus: task.status,
@@ -1263,7 +1267,7 @@ class ServicePendingInstallTask {
           status: 'applied_waiting_verify',
           lastError: undefined,
         });
-        defaultLogger.app.appUpdate.pendingSwitchResult( {
+        defaultLogger.app.appUpdate.pendingSwitchResult({
           traceId,
           requestSeq,
           result: 'success',
@@ -1297,7 +1301,7 @@ class ServicePendingInstallTask {
       }
       this.isProcessingPendingTask = false;
       this.pendingTaskLockAcquiredAt = 0;
-      defaultLogger.app.appUpdate.pendingTaskLockState( {
+      defaultLogger.app.appUpdate.pendingTaskLockState({
         traceId,
         requestSeq,
         lockState: 'released',
@@ -1305,7 +1309,6 @@ class ServicePendingInstallTask {
       });
     }
   }
-
 }
 
 export { ServicePendingInstallTask };

@@ -431,7 +431,7 @@ describe('processPendingInstallTask', () => {
     resetPendingTask();
     jest.clearAllMocks();
     service = createService();
-    pendingTaskService = (service as any).backgroundApi.servicePendingInstallTask;
+    pendingTaskService = service.backgroundApi.servicePendingInstallTask;
     autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
     autoUpdate.BundleUpdate.verifyExtractedBundle.mockResolvedValue(undefined);
@@ -712,8 +712,8 @@ describe('processPendingInstallTask', () => {
 
     // Full flow retry clears the task (fallback to refetch) instead of setting retry state
     expect(pendingTaskValue).toBeUndefined();
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.fullFlowRetryTriggered).toHaveBeenCalledWith(
       expect.objectContaining({
         trigger: 'verify_failed',
@@ -840,7 +840,6 @@ describe('processPendingInstallTask', () => {
 
 describe('syncPendingInstallTaskWithReleaseInfo', () => {
   let service: ReturnType<typeof createService>;
-  let pendingTaskService: any;
 
   function setReadyState(overrides: Record<string, any> = {}) {
     resetAppUpdateState({
@@ -874,8 +873,6 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
     resetPendingTask();
     jest.clearAllMocks();
     service = createService();
-    pendingTaskService = (service as any).backgroundApi
-      .servicePendingInstallTask;
   });
 
   afterEach(() => {
@@ -890,8 +887,8 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
     await service.readyToInstall();
 
     expect(pendingTaskValue).toBeUndefined();
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         upsertAction: 'drop',
@@ -914,8 +911,8 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
     await service.readyToInstall();
 
     expect(pendingTaskValue).toBeUndefined();
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         upsertAction: 'drop',
@@ -926,9 +923,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
 
   test('stale_request_seq drops incoming task', async () => {
     // Pre-populate with a task that has a revision higher than any nextRequestSeq can produce
-    resetPendingTask(
-      makeSwitchTask({ revision: Number.MAX_SAFE_INTEGER }),
-    );
+    resetPendingTask(makeSwitchTask({ revision: Number.MAX_SAFE_INTEGER }));
     setReadyState();
 
     await service.readyToInstall();
@@ -1003,8 +998,8 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
       status: 'running',
       taskId: 'jsbundle:1.0.0:2',
     });
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         upsertAction: 'drop',
@@ -1025,8 +1020,8 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
       action: 'switch-bundle',
       targetBundleVersion: '2',
     });
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         reason: 'replace_invalid_task',
@@ -1108,8 +1103,8 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
       taskId: 'jsbundle:1.0.0:2',
       targetBundleVersion: '2',
     });
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         upsertAction: 'update',

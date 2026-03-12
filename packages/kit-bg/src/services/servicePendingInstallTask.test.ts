@@ -411,8 +411,7 @@ describe('servicePendingInstallTask', () => {
 
   test('executes app shell install task when package is ready', async () => {
     const service = createService();
-    const autoUpdate =
-      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     setState({
       latestVersion: '2.0.0',
       updateStrategy: EUpdateStrategy.seamless,
@@ -431,8 +430,7 @@ describe('servicePendingInstallTask', () => {
 
   test('bundle missing triggers full-flow retry and clears task', async () => {
     const service = createService();
-    const autoUpdate =
-      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(false);
     pendingTaskValue = makeSwitchTask();
 
@@ -520,8 +518,8 @@ describe('servicePendingInstallTask', () => {
       appInfo: appUpdateState,
     });
 
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         upsertAction: 'noop',
@@ -568,8 +566,8 @@ describe('servicePendingInstallTask', () => {
     });
 
     expect(pendingTaskValue).toBeUndefined();
-    const logger =
-      require('@onekeyhq/shared/src/logger/logger').defaultLogger.app.appUpdate;
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
     expect(logger.pendingTaskUpsertDecision).toHaveBeenCalledWith(
       expect.objectContaining({
         upsertAction: 'drop',
@@ -624,8 +622,6 @@ describe('servicePendingInstallTask', () => {
 
   test('appshell-install retry exhausted freezes target', async () => {
     const service = createService();
-    const autoUpdate =
-      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
     setState({
       downloadedEvent: undefined,
     });
