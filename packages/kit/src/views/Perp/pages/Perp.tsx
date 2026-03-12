@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
