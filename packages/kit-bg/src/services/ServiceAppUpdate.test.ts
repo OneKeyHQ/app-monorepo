@@ -2931,7 +2931,10 @@ describe('ServiceAppUpdate failedRecoveryTimer retry limit', () => {
 
   test('retries within limit reset to notify', async () => {
     // 1st failure + 2h → reset to notify (retry 1/3)
-    resetAtom({ status: EAppUpdateStatus.downloadPackage, latestVersion: '2.0.0' });
+    resetAtom({
+      status: EAppUpdateStatus.downloadPackage,
+      latestVersion: '2.0.0',
+    });
     await service.downloadPackageFailed({ message: 'err' });
     expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
 
@@ -3154,7 +3157,7 @@ describe('refreshUpdateStatus safety net retry limit', () => {
     });
 
     // First 3 calls should reset to notify
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 3; i += 1) {
       atomValue.status = EAppUpdateStatus.downloadPackageFailed;
       await service.refreshUpdateStatus();
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
