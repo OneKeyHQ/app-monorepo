@@ -912,7 +912,7 @@ async function createMainWindow() {
   //
   // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
   // - notifications: already disabled at the webview tag level via
-  //   disableblinkfeatures="Notifications" in DesktopWebView.tsx,
+  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
   //   so the Notification API is completely unavailable and this handler
   //   will never receive a 'notifications' permission request.
   // - all other permissions: allowed to preserve default Electron behavior.
@@ -945,7 +945,7 @@ async function createMainWindow() {
       }
       // Allow all non-media permissions to preserve default Electron behavior.
       // Note: 'notifications' is never requested here because it is disabled
-      // at the Blink engine level (see disableblinkfeatures in DesktopWebView.tsx).
+      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
       callback(true);
     },
   );
