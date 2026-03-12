@@ -2377,13 +2377,16 @@ class ServiceKeylessWallet extends ServiceBase {
       token: accessToken,
       skipFixedProvider: true,
     });
+    if (!socialProvider) {
+      return;
+    }
 
     const keylessDetailsInfo = wallet?.keylessDetailsInfo;
     if (!keylessDetailsInfo) {
       return;
     }
 
-    if (keylessDetailsInfo.avatarProvider === socialProvider) {
+    if (keylessDetailsInfo?.avatarProvider === socialProvider) {
       return;
     }
 
