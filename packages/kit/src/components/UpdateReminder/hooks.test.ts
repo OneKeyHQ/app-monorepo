@@ -1066,6 +1066,31 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(svc.reset).toHaveBeenCalled();
     });
 
+    test('ready + appShell + seamless → auto-installs app package', async () => {
+      setAtom({
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        latestVersion: '2.0.0',
+        downloadedEvent: {
+          downloadedFile: '/tmp/app.pkg',
+          downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+        },
+      });
+      svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+      appUpd.installPackage.mockResolvedValue(undefined);
+
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        jest.runAllTimers();
+      });
+
+      expect(appUpd.installPackage).toHaveBeenCalled();
+      expect(bundleUpd.installBundle).not.toHaveBeenCalled();
+    });
+
     test('ready + force → shows force update preview, blocks other UI', async () => {
       setAtom({
         status: EAppUpdateStatus.ready,

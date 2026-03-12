@@ -667,6 +667,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     verifyPackage,
     verifyASC,
     downloadASC,
+    installPackage,
     showSilentUpdateDialog,
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
@@ -899,22 +900,28 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         return;
       }
       const fileType = getUpdateFileType(appUpdateInfo);
-      if (
-        fileType === EUpdateFileType.jsBundle &&
-        appUpdateInfo.updateStrategy === EUpdateStrategy.seamless
-      ) {
-        // Only install if signature verification data is present
-        if (
-          appUpdateInfo.downloadedEvent?.signature &&
-          appUpdateInfo.downloadedEvent?.sha256
-        ) {
-          void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+      if (appUpdateInfo.updateStrategy === EUpdateStrategy.seamless) {
+        if (fileType === EUpdateFileType.jsBundle) {
+          // Only install if signature verification data is present
+          if (
+            appUpdateInfo.downloadedEvent?.signature &&
+            appUpdateInfo.downloadedEvent?.sha256
+          ) {
+            void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+          } else {
+            defaultLogger.app.appUpdate.endInstallPackage(
+              false,
+              new Error('Missing signature or sha256 for seamless install'),
+            );
+            void backgroundApiProxy.serviceAppUpdate.reset();
+          }
         } else {
-          defaultLogger.app.appUpdate.endInstallPackage(
-            false,
-            new Error('Missing signature or sha256 for seamless install'),
+          void installPackage(
+            () => undefined,
+            () => {
+              void backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+            },
           );
-          void backgroundApiProxy.serviceAppUpdate.reset();
         }
       } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         showSilentUpdateDialog();
@@ -942,6 +949,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     toUpdatePreviewPage,
     verifyASC,
     verifyPackage,
+    installPackage,
     appUpdateInfo,
   ]);
 

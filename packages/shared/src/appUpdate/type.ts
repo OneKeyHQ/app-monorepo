@@ -21,9 +21,9 @@ export type IUpdateDecision =
   | 'staleRemote'
   | 'invalidRemote';
 
-export type IPendingInstallTaskType = 'jsbundle-switch';
+export type IPendingInstallTaskType = 'jsbundle-switch' | 'appshell-install';
 
-export type IPendingInstallTaskAction = 'switch-bundle';
+export type IPendingInstallTaskAction = 'switch-bundle' | 'install-app';
 
 export type IPendingInstallTaskStatus =
   | 'pending'
@@ -66,10 +66,17 @@ export interface IPendingInstallTaskBase {
   lastError?: string;
 }
 
-export type IPendingInstallTask = IPendingInstallTaskBase & {
-  type: 'jsbundle-switch';
-  payload: IJsBundleSwitchTaskPayload;
-};
+export type IPendingInstallTask =
+  | (IPendingInstallTaskBase & {
+      action: 'switch-bundle';
+      type: 'jsbundle-switch';
+      payload: IJsBundleSwitchTaskPayload;
+    })
+  | (IPendingInstallTaskBase & {
+      action: 'install-app';
+      type: 'appshell-install';
+      payload: IAppUpdateInstallTaskPayload;
+    });
 
 export interface IResolvedUpdateDecision {
   decision: IUpdateDecision;

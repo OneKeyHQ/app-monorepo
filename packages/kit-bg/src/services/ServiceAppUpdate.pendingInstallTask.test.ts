@@ -230,16 +230,63 @@ function makeSwitchTask(overrides: Record<string, any> = {}) {
   };
 }
 
+function makeAppShellInstallTask(overrides: Record<string, any> = {}) {
+  const now = Date.now();
+  return {
+    taskId: 'appshell:2.0.0:direct',
+    revision: 1,
+    action: 'install-app',
+    type: 'appshell-install',
+    targetAppVersion: '2.0.0',
+    targetBundleVersion: '1',
+    scheduledEnvAppVersion: '1.0.0',
+    scheduledEnvBundleVersion: '1',
+    createdAt: now - 1000,
+    expiresAt: now + 60_000,
+    retryCount: 0,
+    status: 'pending',
+    payload: {
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      channel: 'direct',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+    },
+    ...overrides,
+  };
+}
+
 describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
   let service: ReturnType<typeof createService>;
 
-  function mockReleaseInfo(releaseInfo: Record<string, any>) {
+  function mockReleaseInfoForFetch(releaseInfo: Record<string, any>) {
     jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
       updateStrategy: EUpdateStrategy.seamless,
       ...releaseInfo,
     } as any);
     jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
     jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+  }
+
+  function setReadyState(overrides: Record<string, any> = {}) {
+    resetAppUpdateState({
+      status: EAppUpdateStatus.verifyPackage,
+      updateStrategy: EUpdateStrategy.seamless,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        fileSize: 1024,
+        sha256: 'sha256-2',
+        signature: 'sig-2',
+      },
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+        sha256: 'sha256-2',
+      },
+      ...overrides,
+    } as any);
   }
 
   beforeEach(() => {
@@ -257,119 +304,10 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     jest.useRealTimers();
   });
 
-  test('creates pending task when appVersion is same and jsBundleVersion is different', async () => {
-    mockReleaseInfo({
+  test('fetchAppUpdateInfo only syncs metadata and does not create pending task before download is ready', async () => {
+    mockReleaseInfoForFetch({
       version: '1.0.0',
       jsBundleVersion: '2',
-      jsBundle: {
-        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
-        fileSize: 1024,
-        sha256: 'sha256-2',
-        signature: 'sig-2',
-      },
-    });
-
-    await service.fetchAppUpdateInfo(true);
-
-    expect(pendingTaskValue).toMatchObject({
-      type: 'jsbundle-switch',
-      action: 'switch-bundle',
-      targetAppVersion: '1.0.0',
-      targetBundleVersion: '2',
-      scheduledEnvAppVersion: '1.0.0',
-      scheduledEnvBundleVersion: '1',
-      status: 'pending',
-      payload: {
-        appVersion: '1.0.0',
-        bundleVersion: '2',
-        signature: 'sig-2',
-      },
-    });
-  });
-
-  test('writes structured fetch/decision/upsert logs', async () => {
-    mockReleaseInfo({
-      version: '1.0.0',
-      jsBundleVersion: '2',
-      jsBundle: {
-        signature: 'sig-2',
-      },
-    });
-
-    await service.fetchAppUpdateInfo(true);
-
-    const events = getUpdateLogEvents();
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'app_update_fetch_start' &&
-          typeof event.traceId === 'string' &&
-          typeof event.requestSeq === 'number',
-      ),
-    ).toBe(true);
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'app_update_decision_resolved' &&
-          event.decision === 'jsBundleUpgrade',
-      ),
-    ).toBe(true);
-    expect(
-      events.some(
-        (event) =>
-          event.event === 'pending_task_upsert_decision' &&
-          event.upsertAction === 'create',
-      ),
-    ).toBe(true);
-  });
-
-  test('creates rollback pending task when remote jsBundleVersion is lower than local', async () => {
-    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
-    platformEnvMock.bundleVersion = '3';
-    mockReleaseInfo({
-      version: '1.0.0',
-      jsBundleVersion: '2',
-      jsBundle: {
-        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
-        fileSize: 1024,
-        sha256: 'sha256-2',
-        signature: 'sig-2',
-      },
-    });
-
-    await service.fetchAppUpdateInfo(true);
-
-    expect(pendingTaskValue).toMatchObject({
-      type: 'jsbundle-switch',
-      targetAppVersion: '1.0.0',
-      payload: {
-        bundleVersion: '2',
-      },
-    });
-  });
-
-  test('same appVersion + same bundleVersion does not create pending task', async () => {
-    mockReleaseInfo({
-      version: '1.0.0',
-      jsBundleVersion: '1',
-      jsBundle: {
-        downloadUrl: 'https://cdn.onekey.so/bundle-v1.zip',
-        fileSize: 1024,
-        sha256: 'sha256-1',
-        signature: 'sig-1',
-      },
-    });
-
-    await service.fetchAppUpdateInfo(true);
-
-    expect(pendingTaskValue).toBeUndefined();
-  });
-
-  test('non-seamless jsBundle strategy does not create pending task', async () => {
-    mockReleaseInfo({
-      version: '1.0.0',
-      jsBundleVersion: '2',
-      updateStrategy: EUpdateStrategy.manual,
       jsBundle: {
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         fileSize: 1024,
@@ -387,7 +325,102 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         (event) =>
           event.event === 'pending_task_upsert_decision' &&
           event.upsertAction === 'drop' &&
-          event.reason === 'strategy_not_restart_install',
+          event.reason === 'resources_not_ready' &&
+          event.stage === 'fetch',
+      ),
+    ).toBe(true);
+  });
+
+  test('readyToInstall creates pending jsbundle task after download/verify completes', async () => {
+    setReadyState();
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      action: 'switch-bundle',
+      targetAppVersion: '1.0.0',
+      targetBundleVersion: '2',
+      scheduledEnvAppVersion: '1.0.0',
+      scheduledEnvBundleVersion: '1',
+      status: 'pending',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '2',
+        signature: 'sig-2',
+      },
+    });
+  });
+
+  test('readyToInstall creates rollback pending task when remote jsBundleVersion is lower than local', async () => {
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.bundleVersion = '3';
+    setReadyState({
+      jsBundleVersion: '2',
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      targetAppVersion: '1.0.0',
+      payload: {
+        bundleVersion: '2',
+      },
+    });
+  });
+
+  test('readyToInstall creates appshell pending task for seamless app update', async () => {
+    setReadyState({
+      latestVersion: '2.0.0',
+      jsBundleVersion: '1',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toMatchObject({
+      type: 'appshell-install',
+      action: 'install-app',
+      targetAppVersion: '2.0.0',
+      payload: {
+        latestVersion: '2.0.0',
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+  });
+
+  test('same appVersion + same bundleVersion does not create pending task', async () => {
+    setReadyState({
+      jsBundleVersion: '1',
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('non-seamless strategy does not create pending task', async () => {
+    setReadyState({
+      updateStrategy: EUpdateStrategy.manual,
+    });
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toBeUndefined();
+    const events = getUpdateLogEvents();
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'pending_task_upsert_decision' &&
+          event.upsertAction === 'drop' &&
+          event.reason === 'strategy_not_restart_install' &&
+          event.stage === 'ready_to_install',
       ),
     ).toBe(true);
   });
@@ -403,8 +436,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       },
     });
     resetPendingTask(existingTask);
-    mockReleaseInfo({
-      version: '1.0.0',
+    setReadyState({
       jsBundleVersion: '0',
       jsBundle: {
         downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
@@ -412,9 +444,15 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         sha256: 'sha256-0',
         signature: 'sig-0',
       },
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v0.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
+        signature: 'sig-0',
+        sha256: 'sha256-0',
+      },
     });
 
-    await service.fetchAppUpdateInfo(true);
+    await service.readyToInstall();
 
     expect(pendingTaskValue).toMatchObject({
       taskId: 'jsbundle:1.0.0:0',
@@ -435,29 +473,6 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     ).toBe(true);
   });
 
-  test('keeps existing pending task when release appVersion is different', async () => {
-    const existingTask = makeSwitchTask({
-      taskId: 'jsbundle:1.0.0:2',
-      targetAppVersion: '1.0.0',
-      targetBundleVersion: '2',
-    });
-    resetPendingTask(existingTask);
-    mockReleaseInfo({
-      version: '1.0.1',
-      jsBundleVersion: '3',
-      jsBundle: {
-        downloadUrl: 'https://cdn.onekey.so/bundle-v3.zip',
-        fileSize: 1024,
-        sha256: 'sha256-3',
-        signature: 'sig-3',
-      },
-    });
-
-    await service.fetchAppUpdateInfo(true);
-
-    expect(pendingTaskValue).toEqual(existingTask);
-  });
-
   test('reset does not clear pending task storage', async () => {
     const task = makeSwitchTask({ taskId: 'task-persist' });
     resetPendingTask(task);
@@ -472,6 +487,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
 describe('ServiceAppUpdate processPendingInstallTask', () => {
   let service: ReturnType<typeof createService>;
   let bundleUpdate: any;
+  let appUpdate: any;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -483,8 +499,10 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
     resetPendingTask();
     jest.clearAllMocks();
     service = createService();
-    bundleUpdate =
-      require('@onekeyhq/shared/src/modules3rdParty/auto-update').BundleUpdate;
+    const autoUpdate =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    bundleUpdate = autoUpdate.BundleUpdate;
+    appUpdate = autoUpdate.AppUpdate;
   });
 
   afterEach(() => {
@@ -561,6 +579,23 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
     expect(pendingTaskValue.status).toBe('applied_waiting_verify');
   });
 
+  test('executes app shell install task when package is ready', async () => {
+    resetAppUpdateState({
+      latestVersion: '2.0.0',
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: {
+        downloadedFile: '/tmp/app-2.0.0.pkg',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    resetPendingTask(makeAppShellInstallTask());
+
+    await service.processPendingInstallTask();
+
+    expect(appUpdate.installPackage).toHaveBeenCalled();
+    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+  });
+
   test('writes structured switch logs when executing pending task', async () => {
     bundleUpdate.isBundleExists.mockResolvedValue(true);
     resetPendingTask(makeSwitchTask());
@@ -596,6 +631,16 @@ describe('ServiceAppUpdate processPendingInstallTask', () => {
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.bundleVersion = '2';
     resetPendingTask(makeSwitchTask({ status: 'applied_waiting_verify' }));
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('appshell applied_waiting_verify is cleared when app version is aligned', async () => {
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.version = '2.0.0';
+    resetPendingTask(makeAppShellInstallTask({ status: 'applied_waiting_verify' }));
 
     await service.processPendingInstallTask();
 

@@ -2,6 +2,7 @@ import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import type {
+  IAppUpdateInstallTaskPayload,
   IJsBundleSwitchTaskPayload,
   IPendingInstallTask,
   IResponseAppUpdateInfo,
@@ -63,6 +64,7 @@ const RETRY_TRIGGER_INTERRUPTED = 'INTERRUPTED';
 const TERMINAL_REASON_RETRY_EXHAUSTED = 'RETRY_EXHAUSTED';
 const TERMINAL_REASON_FULL_FLOW_RETRY_EXHAUSTED = 'FULL_FLOW_RETRY_EXHAUSTED';
 const PENDING_ACTION_SWITCH_BUNDLE = 'switch-bundle';
+const PENDING_ACTION_INSTALL_APP = 'install-app';
 
 function normalizeOptionalString(value: unknown): string | undefined {
   if (value === null || value === undefined) {
@@ -165,6 +167,13 @@ class ServiceAppUpdate extends ServiceBase {
       targetAppVersion === (platformEnv.version || '') &&
       targetBundleVersion === String(platformEnv.bundleVersion || '')
     );
+  }
+
+  private isTaskTargetAligned(task: IPendingInstallTask) {
+    if (task.type === 'appshell-install') {
+      return task.targetAppVersion === (platformEnv.version || '');
+    }
+    return this.isTargetAligned(task.targetAppVersion, task.targetBundleVersion);
   }
 
   private async nextRequestSeq() {
@@ -301,7 +310,9 @@ class ServiceAppUpdate extends ServiceBase {
     if (
       !t.taskId ||
       !Number.isFinite(t.revision) ||
-      t.action !== PENDING_ACTION_SWITCH_BUNDLE ||
+      ![PENDING_ACTION_SWITCH_BUNDLE, PENDING_ACTION_INSTALL_APP].includes(
+        t.action,
+      ) ||
       !t.type ||
       !t.targetAppVersion ||
       !t.targetBundleVersion ||
@@ -331,16 +342,39 @@ class ServiceAppUpdate extends ServiceBase {
     return !!(p?.appVersion && p.bundleVersion && p.signature);
   }
 
+  private isValidAppShellInstallPayload(payload: unknown) {
+    const p = payload as IAppUpdateInstallTaskPayload;
+    if (!p?.latestVersion) {
+      return false;
+    }
+    if (p.channel !== 'direct' && p.channel !== 'store') {
+      return false;
+    }
+    if (p.channel === 'direct') {
+      return !!p.downloadUrl;
+    }
+    return !!p.storeUrl;
+  }
+
   private isValidPendingInstallTask(
     task: unknown,
   ): task is IPendingInstallTask {
     if (!this.isValidTaskBase(task)) {
       return false;
     }
-    if (task.type !== 'jsbundle-switch') {
-      return false;
+    if (task.type === 'jsbundle-switch') {
+      return (
+        task.action === PENDING_ACTION_SWITCH_BUNDLE &&
+        this.isValidJsBundleSwitchPayload(task.payload)
+      );
     }
-    return this.isValidJsBundleSwitchPayload(task.payload);
+    if (task.type === 'appshell-install') {
+      return (
+        task.action === PENDING_ACTION_INSTALL_APP &&
+        this.isValidAppShellInstallPayload(task.payload)
+      );
+    }
+    return false;
   }
 
   private getRetryDelayMs(retryCount: number) {
@@ -397,6 +431,47 @@ class ServiceAppUpdate extends ServiceBase {
     };
   }
 
+  private buildPendingAppShellTask(
+    appInfo: Awaited<ReturnType<typeof appUpdatePersistAtom.get>>,
+    revision: number,
+  ): IPendingInstallTask | undefined {
+    if (!appInfo.latestVersion) {
+      return undefined;
+    }
+    const downloadUrl =
+      appInfo.downloadedEvent?.downloadUrl || appInfo.downloadUrl;
+    const downloadedFile = appInfo.downloadedEvent?.downloadedFile;
+    if (!downloadUrl || !downloadedFile) {
+      return undefined;
+    }
+    const now = Date.now();
+    return {
+      taskId: `appshell:${appInfo.latestVersion}:direct`,
+      revision,
+      action: PENDING_ACTION_INSTALL_APP,
+      type: 'appshell-install',
+      targetAppVersion: appInfo.latestVersion,
+      targetBundleVersion:
+        appInfo.jsBundleVersion || String(platformEnv.bundleVersion || ''),
+      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
+      createdAt: now,
+      expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
+      retryCount: 0,
+      status: 'pending',
+      payload: {
+        latestVersion: appInfo.latestVersion,
+        updateStrategy: appInfo.updateStrategy,
+        channel: 'direct',
+        storeUrl: appInfo.storeUrl,
+        downloadUrl,
+        fileSize: appInfo.fileSize,
+        sha256: appInfo.downloadedEvent?.sha256,
+        signature: appInfo.downloadedEvent?.signature,
+      },
+    };
+  }
+
   private async shouldSkipTargetByControl(
     targetKey: string,
     traceId: string,
@@ -434,11 +509,19 @@ class ServiceAppUpdate extends ServiceBase {
     return false;
   }
 
-  private async syncPendingInstallTaskWithReleaseInfo(
-    releaseInfo: IResponseAppUpdateInfo | undefined,
-    requestSeq: number,
-    traceId: string,
-  ) {
+  private async syncPendingInstallTaskWithReleaseInfo({
+    releaseInfo,
+    requestSeq,
+    traceId,
+    stage,
+    appInfo,
+  }: {
+    releaseInfo: IResponseAppUpdateInfo | undefined;
+    requestSeq: number;
+    traceId: string;
+    stage: 'fetch' | 'ready_to_install';
+    appInfo?: Awaited<ReturnType<typeof appUpdatePersistAtom.get>>;
+  }) {
     if (!releaseInfo) {
       return;
     }
@@ -460,9 +543,11 @@ class ServiceAppUpdate extends ServiceBase {
       currentBundleVersion: String(platformEnv.bundleVersion || ''),
       targetAppVersion: releaseInfo.version ?? null,
       targetBundleVersion: releaseInfo.jsBundleVersion ?? null,
+      stage,
     });
 
     if (
+      decision.decision !== 'appShellUpdate' &&
       decision.decision !== 'jsBundleUpgrade' &&
       decision.decision !== 'jsBundleRollback'
     ) {
@@ -471,6 +556,7 @@ class ServiceAppUpdate extends ServiceBase {
         requestSeq,
         upsertAction: 'noop',
         reason: `decision_${decision.decision}`,
+        stage,
       });
       return;
     }
@@ -482,11 +568,49 @@ class ServiceAppUpdate extends ServiceBase {
         upsertAction: 'drop',
         reason: 'strategy_not_restart_install',
         updateStrategy: releaseInfo.updateStrategy ?? null,
+        stage,
       });
       return;
     }
 
-    const task = this.buildPendingJsBundleTask(releaseInfo, requestSeq);
+    if (stage !== 'ready_to_install') {
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        upsertAction: 'drop',
+        reason: 'resources_not_ready',
+        stage,
+      });
+      return;
+    }
+
+    const runtimeAppInfo = appInfo || (await appUpdatePersistAtom.get());
+    if (!runtimeAppInfo.downloadedEvent?.downloadedFile) {
+      this.logUpdateEvent('pending_task_upsert_decision', {
+        traceId,
+        requestSeq,
+        upsertAction: 'drop',
+        reason: 'downloaded_event_missing',
+        stage,
+      });
+      return;
+    }
+
+    const task =
+      decision.decision === 'appShellUpdate'
+        ? this.buildPendingAppShellTask(runtimeAppInfo, requestSeq)
+        : this.buildPendingJsBundleTask(
+            {
+              ...releaseInfo,
+              jsBundle: {
+                ...releaseInfo.jsBundle,
+                signature:
+                  runtimeAppInfo.downloadedEvent?.signature ??
+                  releaseInfo.jsBundle?.signature,
+              },
+            },
+            requestSeq,
+          );
     if (!task || !this.isValidPendingInstallTask(task)) {
       this.logUpdateEvent(
         'pending_task_upsert_decision',
@@ -495,6 +619,7 @@ class ServiceAppUpdate extends ServiceBase {
           requestSeq,
           upsertAction: 'drop',
           reason: 'invalid_new_task',
+          stage,
         },
         'warn',
       );
@@ -517,6 +642,7 @@ class ServiceAppUpdate extends ServiceBase {
         action: task.action,
         upsertAction: 'create',
         reason: 'no_existing_task',
+        stage,
       });
       return;
     }
@@ -547,6 +673,7 @@ class ServiceAppUpdate extends ServiceBase {
         action: task.action,
         upsertAction: 'create',
         reason: 'replace_invalid_task',
+        stage,
       });
       return;
     }
@@ -563,6 +690,7 @@ class ServiceAppUpdate extends ServiceBase {
           action: existing.action,
           upsertAction: 'drop',
           reason: 'stale_request_seq',
+          stage,
         },
         'warn',
       );
@@ -582,6 +710,7 @@ class ServiceAppUpdate extends ServiceBase {
         action: task.action,
         upsertAction: 'noop',
         reason: 'same_revision_same_target',
+        stage,
       });
       return;
     }
@@ -603,6 +732,7 @@ class ServiceAppUpdate extends ServiceBase {
         action: task.action,
         upsertAction: 'update',
         reason: 'same_target_keep_retry_state',
+        stage,
       });
       return;
     }
@@ -616,6 +746,7 @@ class ServiceAppUpdate extends ServiceBase {
       action: task.action,
       upsertAction: 'update',
       reason: 'newer_revision_replace_target',
+      stage,
     });
   }
 
@@ -712,13 +843,19 @@ class ServiceAppUpdate extends ServiceBase {
         retryCount: nextRetryCount,
         nextRetryAt,
         retryType:
-          message === RETRY_TRIGGER_INTERRUPTED ? 'interrupted' : 'switch',
+          message === RETRY_TRIGGER_INTERRUPTED
+            ? 'interrupted'
+            : task.action === PENDING_ACTION_INSTALL_APP
+              ? 'install'
+              : 'switch',
       },
       'warn',
     );
   }
 
-  private async executeBundleSwitchTask(task: IPendingInstallTask) {
+  private async executeBundleSwitchTask(
+    task: Extract<IPendingInstallTask, { type: 'jsbundle-switch' }>,
+  ) {
     const payload = task.payload;
     const { appVersion, bundleVersion, signature } = payload;
     const bundleExists = await BundleUpdate.isBundleExists(
@@ -747,9 +884,39 @@ class ServiceAppUpdate extends ServiceBase {
     });
   }
 
+  private async executeAppShellInstallTask(
+    task: Extract<IPendingInstallTask, { type: 'appshell-install' }>,
+  ) {
+    const payload = task.payload;
+    if (payload.channel !== 'direct') {
+      throw new OneKeyLocalError('APP_INSTALL_CHANNEL_UNSUPPORTED');
+    }
+    const appInfo = await appUpdatePersistAtom.get();
+    const downloadUrl = appInfo.downloadedEvent?.downloadUrl || payload.downloadUrl;
+    if (!appInfo.downloadedEvent?.downloadedFile || !downloadUrl) {
+      throw new OneKeyLocalError('APP_PACKAGE_MISSING');
+    }
+    await AppUpdate.installPackage({
+      ...appInfo,
+      latestVersion: payload.latestVersion,
+      updateStrategy: payload.updateStrategy,
+      storeUrl: payload.storeUrl || appInfo.storeUrl,
+      downloadUrl: payload.downloadUrl || appInfo.downloadUrl,
+      fileSize: payload.fileSize ?? appInfo.fileSize,
+      downloadedEvent: {
+        ...appInfo.downloadedEvent,
+        downloadUrl,
+      },
+    });
+  }
+
   private async executePendingInstallTask(task: IPendingInstallTask) {
     if (task.type === 'jsbundle-switch') {
       await this.executeBundleSwitchTask(task);
+      return;
+    }
+    if (task.type === 'appshell-install') {
+      await this.executeAppShellInstallTask(task);
       return;
     }
     const unknownType =
@@ -946,10 +1113,7 @@ class ServiceAppUpdate extends ServiceBase {
       }
 
       if (task.status === 'applied_waiting_verify') {
-        const aligned = this.isTargetAligned(
-          task.targetAppVersion,
-          task.targetBundleVersion,
-        );
+        const aligned = this.isTaskTargetAligned(task);
         this.logUpdateEvent(
           'pending_verify_after_restart',
           {
@@ -1009,10 +1173,7 @@ class ServiceAppUpdate extends ServiceBase {
 
       const currentAppVersion = platformEnv.version || '';
       const currentBundleVersion = String(platformEnv.bundleVersion || '');
-      const targetMatch = this.isTargetAligned(
-        task.targetAppVersion,
-        task.targetBundleVersion,
-      );
+      const targetMatch = this.isTaskTargetAligned(task);
       const scheduledMatch =
         task.scheduledEnvAppVersion === currentAppVersion &&
         task.scheduledEnvBundleVersion === currentBundleVersion;
@@ -1582,7 +1743,8 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async readyToInstall() {
-    const { status } = await appUpdatePersistAtom.get();
+    const appInfo = await appUpdatePersistAtom.get();
+    const { status } = appInfo;
     if (
       status !== EAppUpdateStatus.verifyPackage &&
       status !== EAppUpdateStatus.ready
@@ -1598,6 +1760,30 @@ class ServiceAppUpdate extends ServiceBase {
       ...prev,
       status: EAppUpdateStatus.ready,
     }));
+
+    const latest = await appUpdatePersistAtom.get();
+    if (!latest.latestVersion && !latest.jsBundleVersion) {
+      return;
+    }
+    const traceId = generateUUID();
+    const requestSeq = await this.nextRequestSeq();
+    await this.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: latest.latestVersion,
+        jsBundleVersion: latest.jsBundleVersion,
+        updateStrategy: latest.updateStrategy,
+        jsBundle: latest.jsBundle,
+        downloadUrl: latest.downloadUrl,
+        storeUrl: latest.storeUrl,
+        changeLog: latest.changeLog,
+        fileSize: latest.fileSize,
+        summary: latest.summary,
+      },
+      requestSeq,
+      traceId,
+      stage: 'ready_to_install',
+      appInfo: latest,
+    });
   }
 
   @backgroundMethod()
@@ -1742,11 +1928,12 @@ class ServiceAppUpdate extends ServiceBase {
       },
       releaseInfo ? 'info' : 'warn',
     );
-    await this.syncPendingInstallTaskWithReleaseInfo(
+    await this.syncPendingInstallTaskWithReleaseInfo({
       releaseInfo,
       requestSeq,
       traceId,
-    );
+      stage: 'fetch',
+    });
 
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
       const decision = resolveUpdateDecision({
