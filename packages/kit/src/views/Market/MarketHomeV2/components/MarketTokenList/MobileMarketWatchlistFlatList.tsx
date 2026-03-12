@@ -196,15 +196,6 @@ function MobileMarketWatchlistFlatListImpl({
 
   const keyExtractor = useCallback((item: IMarketToken) => item.id, []);
 
-  const getItemLayout = useCallback(
-    (_: ArrayLike<IMarketToken> | null | undefined, index: number) => ({
-      length: 73,
-      offset: 73 * index,
-      index,
-    }),
-    [],
-  );
-
   const { data, isLoading } = watchlistResult;
   const showSkeleton = Boolean(isLoading) && data.length === 0;
 
@@ -243,7 +234,6 @@ function MobileMarketWatchlistFlatListImpl({
       data={showSkeleton ? EMPTY_DATA : filteredData}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
-      getItemLayout={getItemLayout}
       initialNumToRender={15}
       maxToRenderPerBatch={20}
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}

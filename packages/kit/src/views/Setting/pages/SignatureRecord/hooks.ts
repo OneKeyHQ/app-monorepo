@@ -1,4 +1,11 @@
-import { useCallback, useContext, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -38,6 +45,13 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     limit: 10,
   });
   const { networkId, searchContent: address } = useContext(SignatureContext);
+
+  // Reset accumulated data and pagination when filters change
+  useEffect(() => {
+    ref.current = [];
+    hasLoadedFirstPageRef.current = false;
+    setQuery({ offset: 0, limit: 10 });
+  }, [networkId, address]);
 
   const {
     result: { sections, ending },
