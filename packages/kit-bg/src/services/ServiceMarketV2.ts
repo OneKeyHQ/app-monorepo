@@ -359,10 +359,16 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenBatchListResponse;
-    }>('/utility/v2/market/token/list/batch', {
-      tokenAddressList: missingTokens,
-      currency: 'usd',
-    });
+    }>(
+      '/utility/v2/market/token/list/batch',
+      {
+        tokenAddressList: missingTokens,
+        currency: 'usd',
+      },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+      },
+    );
 
     const { data } = response.data;
 

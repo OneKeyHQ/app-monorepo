@@ -26,7 +26,12 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
-import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+import {
+  getFiatPaySiteWhitelistDomainKeys,
+  getFiatPaySiteWhitelistOrigins,
+  getOriginDomainKey,
+  getTemplatePhishingUrls,
+} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -68,6 +73,21 @@ initSentry();
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
+
+function isWhitelistedMediaOrigin(
+  origin: string,
+  whitelistOrigins: Set<string>,
+  whitelistDomainKeys: Set<string>,
+): boolean {
+  if (!origin) {
+    return false;
+  }
+  if (whitelistOrigins.has(origin)) {
+    return true;
+  }
+  const domainKey = getOriginDomainKey(origin);
+  return !!domainKey && whitelistDomainKeys.has(domainKey);
+}
 
 if (isPerfCiMode) {
   // Keep prepared state in a stable location on perf machines.
@@ -887,6 +907,40 @@ async function createMainWindow() {
     }
     return false;
   });
+
+  // Media permission handler for webview (partition: persist:onekey)
+  // Allow camera/microphone for whitelisted fiat pay sites
+  const webviewSession = session.fromPartition('persist:onekey');
+  webviewSession.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      const requestingUrl = details.requestingUrl || '';
+      const topLevelUrl = webContents.getURL();
+
+      if (permission === 'media') {
+        try {
+          const requestingOrigin = requestingUrl
+            ? new URL(requestingUrl).origin
+            : '';
+          const topLevelOrigin = topLevelUrl ? new URL(topLevelUrl).origin : '';
+          const origins = getFiatPaySiteWhitelistOrigins();
+          const domainKeys = getFiatPaySiteWhitelistDomainKeys();
+          const isWhitelisted =
+            isWhitelistedMediaOrigin(requestingOrigin, origins, domainKeys) ||
+            isWhitelistedMediaOrigin(topLevelOrigin, origins, domainKeys);
+          if (isWhitelisted) {
+            callback(true);
+            return;
+          }
+        } catch {
+          // Ignore malformed URLs and fall through to deny by default.
+        }
+        callback(false);
+        return;
+      }
+      // Allow all non-media permissions to preserve default Electron behavior
+      callback(true);
+    },
+  );
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
