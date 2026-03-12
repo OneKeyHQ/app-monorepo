@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "Наступна дистрибуція",
   "referral.next_distribution_day": "До 10 {Month}",
   "referral.no_reward": "Ще немає винагороди",
+  "referral.not_applicable": "Не застосовується",
+  "referral.not_applicable_desc": "Цей гаманець було створено більше 14 днів тому і не може прив'язати реферальний код",
   "referral.onboard_bind_code": "Прив'язати реферальний код",
   "referral.onboard_bind_code_finish": "Фініш",
   "referral.onchain_desc": "З гаманців, пов'язаних з вашим кодом",

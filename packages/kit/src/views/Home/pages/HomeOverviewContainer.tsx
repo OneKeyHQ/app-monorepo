@@ -549,13 +549,14 @@ function HomeOverviewContainer() {
         ? lastConfirmedOverviewBalance.latest
         : undefined));
 
-  const debouncedBalancePayload = useDebounce(
-    {
+  const balancePayload = useMemo(
+    () => ({
       ownerKey: currentOverviewOwnerKey,
       value: displayBalanceString,
-    },
-    100,
+    }),
+    [currentOverviewOwnerKey, displayBalanceString],
   );
+  const debouncedBalancePayload = useDebounce(balancePayload, 100);
 
   const numberFormatter: INumberFormatProps = {
     formatter: 'value',
