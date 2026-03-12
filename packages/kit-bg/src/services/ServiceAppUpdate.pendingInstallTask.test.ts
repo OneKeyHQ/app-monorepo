@@ -169,12 +169,19 @@ jest.mock('../endpoints', () => ({
 function createService() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ServiceAppUpdate = require('./ServiceAppUpdate').default;
-  return new ServiceAppUpdate({
-    backgroundApi: {
-      serviceApp: {
-        resetLaunchTimesAfterUpdate: jest.fn(async () => undefined),
-      },
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { ServicePendingInstallTask } = require('./servicePendingInstallTask');
+  const backgroundApi = {
+    serviceApp: {
+      resetLaunchTimesAfterUpdate: jest.fn(async () => undefined),
     },
+  } as any;
+  backgroundApi.servicePendingInstallTask = new ServicePendingInstallTask({
+    backgroundApi,
+    refreshUpdateStatus: jest.fn(async () => undefined),
+  });
+  return new ServiceAppUpdate({
+    backgroundApi,
   });
 }
 

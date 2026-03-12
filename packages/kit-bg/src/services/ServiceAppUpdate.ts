@@ -32,7 +32,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
-import ServicePendingInstallTask from './servicePendingInstallTask';
 import { PLACEHOLDER_SIGNATURE } from './servicePendingInstallTask';
 
 let syncTimerId: ReturnType<typeof setTimeout>;
@@ -59,12 +58,6 @@ function normalizeOptionalNumber(value: unknown): number | undefined {
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-    if (!this.backgroundApi.servicePendingInstallTask) {
-      this.pendingInstallTaskServiceFallback = new ServicePendingInstallTask({
-        backgroundApi: this.backgroundApi,
-        refreshUpdateStatus: async () => this.refreshUpdateStatus(),
-      });
-    }
   }
 
   private isResetting = false;
@@ -73,14 +66,8 @@ class ServiceAppUpdate extends ServiceBase {
 
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
-  private pendingInstallTaskServiceFallback:
-    | ServicePendingInstallTask
-    | undefined;
-
   private get pendingInstallTaskService() {
-    const service =
-      this.backgroundApi.servicePendingInstallTask ||
-      this.pendingInstallTaskServiceFallback;
+    const service = this.backgroundApi.servicePendingInstallTask;
     if (!service) {
       throw new Error('servicePendingInstallTask is not available');
     }
