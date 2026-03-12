@@ -1522,6 +1522,37 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.updateStrategy).toBe(EUpdateStrategy.silent);
     });
 
+    test('jsBundle update clears stale storeUrl and downloadUrl from previous config', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.done,
+        updateAt: 0,
+        latestVersion: '9005.19.0',
+        storeUrl: 'https://apps.apple.com/app/id1609559473',
+        downloadUrl: 'https://old.onekey.so/app.ipa',
+      });
+      mockLatestInfo({
+        version: '1.0.0',
+        jsBundleVersion: '5',
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v5.zip',
+          sha256: 'abc',
+          fileSize: 2048,
+        },
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.storeUrl).toBeUndefined();
+      expect(atomValue.downloadUrl).toBeUndefined();
+      expect(atomValue.jsBundle?.downloadUrl).toBe(
+        'https://cdn.onekey.so/bundle-v5.zip',
+      );
+    });
+
     test('simultaneous version + jsBundle update: both fields stored', async () => {
       resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
       mockLatestInfo({

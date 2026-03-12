@@ -2,9 +2,16 @@ import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, Tooltip, XStack } from '@onekeyhq/components';
+import {
+  Image,
+  SizableText,
+  Stack,
+  Tooltip,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
 
@@ -54,7 +61,7 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
     [normalizedSubtitle],
   );
 
-  if (!isTruncated || platformEnv.isNative) {
+  if (platformEnv.isNative || !isTruncated) {
     return badgeElement;
   }
 
@@ -98,4 +105,35 @@ const StockIsOpenBadge = memo(({ isOpen }: { isOpen: boolean }) => {
 });
 StockIsOpenBadge.displayName = 'StockIsOpenBadge';
 
-export { LeverageBadge, StockIsOpenBadge, SubtitleBadge };
+const StockSourceLogo = memo(
+  ({ stock }: { stock: IMarketStockInfo | undefined }) => {
+    if (!stock?.sourceLogoUri) {
+      return null;
+    }
+
+    const image = (
+      <Image
+        width={14}
+        height={14}
+        borderRadius="$full"
+        source={{ uri: stock.sourceLogoUri }}
+      />
+    );
+
+    if (stock.title) {
+      return (
+        <Tooltip
+          hovering
+          placement="top"
+          renderContent={stock.title}
+          renderTrigger={<Stack cursor="pointer">{image}</Stack>}
+        />
+      );
+    }
+
+    return image;
+  },
+);
+StockSourceLogo.displayName = 'StockSourceLogo';
+
+export { LeverageBadge, StockIsOpenBadge, StockSourceLogo, SubtitleBadge };

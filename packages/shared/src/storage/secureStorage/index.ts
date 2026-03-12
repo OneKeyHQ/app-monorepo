@@ -23,7 +23,7 @@ import {
   wrapMasterKey,
 } from './webauthnPrf';
 
-import type { ISecureStorage } from './types';
+import type { ISecureStorage, ISecureStorageSetOptions } from './types';
 import type { IAuthenticatorTransport } from './webauthnPrf';
 
 // Prefix for secure storage keys to distinguish from other storage
@@ -71,6 +71,15 @@ async function getStoredWrappedMasterKey(): Promise<string | null> {
   return webStorage.getItem(WRAPPED_MASTER_KEY_KEY, undefined);
 }
 
+async function getStoredCredentialId(): Promise<string | null> {
+  return webStorage.getItem(PRF_CREDENTIAL_ID_KEY, undefined);
+}
+
+async function getEncryptedSecureKeys(): Promise<string[]> {
+  const allKeys = await webStorage.getAllKeys(undefined);
+  return allKeys.filter((key) => key.startsWith(SECURE_STORAGE_KEY_PREFIX));
+}
+
 // Store wrapped master key
 async function storeWrappedMasterKey(wrappedKey: string): Promise<void> {
   await webStorage.setItem(WRAPPED_MASTER_KEY_KEY, wrappedKey, undefined);
@@ -83,8 +92,29 @@ function getSecureKey(key: string): string {
 
 // Check if there's any encrypted data stored
 async function hasEncryptedData(): Promise<boolean> {
-  const allKeys = await webStorage.getAllKeys(undefined);
-  return allKeys.some((key) => key.startsWith(SECURE_STORAGE_KEY_PREFIX));
+  const encryptedKeys = await getEncryptedSecureKeys();
+  return encryptedKeys.length > 0;
+}
+
+async function resetForPasskeyReEnroll(): Promise<void> {
+  const encryptedKeys = await getEncryptedSecureKeys();
+  const keysToRemove = [
+    ...encryptedKeys,
+    PRF_CREDENTIAL_ID_KEY,
+    PRF_SALT_KEY,
+    WRAPPED_MASTER_KEY_KEY,
+    PRF_CREDENTIAL_TRANSPORTS_KEY,
+  ];
+  await Promise.all(
+    [...new Set(keysToRemove)].map((key) =>
+      webStorage.removeItem(key, undefined),
+    ),
+  );
+  try {
+    await appGlobals.$backgroundApiProxy.servicePassword.clearCachedPrfMasterKey();
+  } catch {
+    // background not ready
+  }
 }
 
 // Authenticate and get PRF key
@@ -173,7 +203,9 @@ async function getPrfKey(options?: {
  * Get the master key (unwrap from storage or create new)
  * Master key is cached in background (ServicePassword) for better UX
  */
-async function getMasterKey(): Promise<Uint8Array | null> {
+async function getMasterKey(
+  options?: ISecureStorageSetOptions,
+): Promise<Uint8Array | null> {
   // Return cached master key if valid
   const cached = await getCachedPrfMasterKey();
   if (cached) {
@@ -181,7 +213,7 @@ async function getMasterKey(): Promise<Uint8Array | null> {
   }
 
   // Get PRF key first
-  const prfResult = await getPrfKey();
+  const prfResult = await getPrfKey(options);
   if (!prfResult) {
     return null;
   }
@@ -216,7 +248,11 @@ async function getMasterKey(): Promise<Uint8Array | null> {
 }
 
 const storage: ISecureStorage = {
-  async setSecureItem(key: string, data: string): Promise<void> {
+  async setSecureItem(
+    key: string,
+    data: string,
+    options?: ISecureStorageSetOptions,
+  ): Promise<void> {
     const supported = await isPrfSupported();
     if (!supported) {
       throw new OneKeyLocalError(
@@ -224,7 +260,7 @@ const storage: ISecureStorage = {
       );
     }
 
-    const masterKey = await getMasterKey();
+    const masterKey = await getMasterKey(options);
     if (!masterKey) {
       throw new OneKeyLocalError(
         'Failed to authenticate with WebAuthn for secure storage',
@@ -288,6 +324,14 @@ const storage: ISecureStorage = {
       undefined,
     );
     return !!encryptedData;
+  },
+
+  async getCredentialId(): Promise<string | null> {
+    return getStoredCredentialId();
+  },
+
+  async resetForPasskeyReEnroll(): Promise<void> {
+    await resetForPasskeyReEnroll();
   },
 
   async supportSecureStorageWithoutInteraction(): Promise<boolean> {

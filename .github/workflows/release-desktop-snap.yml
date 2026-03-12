@@ -73,6 +73,11 @@ jobs:
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v2
 
+      - name: Configure Snapcraft destructive mode for arm64
+        if: ${{ matrix.arch == 'arm64' }}
+        run: |
+          echo "SNAP_DESTRUCTIVE_MODE=true" >> $GITHUB_ENV
+
       - name: 'Setup ENV'
         run: |
           eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
@@ -117,7 +122,7 @@ jobs:
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-snap-${{ matrix.arch }}${{ env.ONEKEY_BUILD_VARIANT_SUFFIX }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
@@ -142,7 +147,7 @@ jobs:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-Linux-Snap-RN${{ env.ONEKEY_BUILD_VARIANT_SUFFIX }}
+          artifact-name: OneKey-Desktop-Linux-Snap-RN
           artifact-bundle-id: 'so.onekey.wallet.desktop'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
