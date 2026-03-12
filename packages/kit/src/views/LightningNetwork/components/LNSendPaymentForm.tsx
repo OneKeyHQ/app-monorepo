@@ -156,6 +156,8 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
           );
         }
 
+        // When maxAmount <= minAmount (abnormal range from server), skip this
+        // check and fall through to the maxSendAmount guard below.
         if (
           maxAmount.gt(0) &&
           maxAmount.gt(minAmount) &&

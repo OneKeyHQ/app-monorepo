@@ -144,6 +144,8 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
           );
         }
 
+        // When maxAmount <= minAmount (abnormal range from server), skip this
+        // check and fall through to the maxReceiveAmount guard below.
         if (
           maxAmount.gt(0) &&
           maxAmount.gt(minAmount) &&
