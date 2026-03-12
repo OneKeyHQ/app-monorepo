@@ -74,19 +74,6 @@ class ServiceAppUpdate extends ServiceBase {
     return service;
   }
 
-  private logUpdateEvent(
-    event: string,
-    payload: Record<string, unknown>,
-    level: 'info' | 'warn' | 'error' = 'info',
-  ) {
-    const message = JSON.stringify({ event, ...payload });
-    if (level === 'error') {
-      defaultLogger.app.error.log(message);
-      return;
-    }
-    defaultLogger.app.appUpdate.log(message);
-  }
-
   private buildTaskLogFields(
     task?: Partial<IPendingInstallTask> | null,
   ): Record<string, unknown> {
@@ -782,7 +769,7 @@ class ServiceAppUpdate extends ServiceBase {
   public async fetchAppUpdateInfo(forceUpdate = false) {
     const traceId = generateUUID();
     const requestSeq = await this.nextRequestSeq();
-    this.logUpdateEvent('app_update_fetch_start', {
+    defaultLogger.app.appUpdate.appUpdateFetchStart( {
       traceId,
       requestSeq,
       forceUpdate,
@@ -798,7 +785,7 @@ class ServiceAppUpdate extends ServiceBase {
     defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
     if (!isNeedSync) {
       const latest = await appUpdatePersistAtom.get();
-      this.logUpdateEvent('app_update_fetch_result', {
+      defaultLogger.app.appUpdate.appUpdateFetchResult( {
         traceId,
         requestSeq,
         hasReleaseInfo: null,
@@ -811,8 +798,7 @@ class ServiceAppUpdate extends ServiceBase {
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
-    this.logUpdateEvent(
-      'app_update_fetch_result',
+    defaultLogger.app.appUpdate.appUpdateFetchResult(
       {
         traceId,
         requestSeq,
@@ -829,8 +815,7 @@ class ServiceAppUpdate extends ServiceBase {
         remoteBundleVersion: releaseInfo.jsBundleVersion,
         allowRollback: true,
       });
-      this.logUpdateEvent(
-        'app_update_decision_resolved',
+      defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
           traceId,
           requestSeq,
@@ -865,7 +850,7 @@ class ServiceAppUpdate extends ServiceBase {
         );
         if (blockedByControl) {
           shouldUpdate = false;
-          this.logUpdateEvent('pending_task_upsert_decision', {
+          defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
             traceId,
             requestSeq,
             upsertAction: 'drop',
@@ -928,7 +913,7 @@ class ServiceAppUpdate extends ServiceBase {
           ? EAppUpdateStatus.notify
           : prev.status;
 
-        this.logUpdateEvent('pending_task_upsert_decision', {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
           traceId,
           requestSeq,
           upsertAction: shouldTransitionToNotify ? 'update' : 'noop',
@@ -968,8 +953,7 @@ class ServiceAppUpdate extends ServiceBase {
         };
       });
     } else {
-      this.logUpdateEvent(
-        'app_update_decision_resolved',
+      defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
           traceId,
           requestSeq,
@@ -986,7 +970,7 @@ class ServiceAppUpdate extends ServiceBase {
       );
     }
     const latest = await appUpdatePersistAtom.get();
-    this.logUpdateEvent('app_update_fetch_result', {
+    defaultLogger.app.appUpdate.appUpdateFetchResult( {
       traceId,
       requestSeq,
       hasReleaseInfo: !!releaseInfo,

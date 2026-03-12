@@ -158,6 +158,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         endInstallPackage: jest.fn(),
         startInstallPackage: jest.fn(),
         log: jest.fn(),
+        appUpdateFetchStart: jest.fn(),
+        appUpdateFetchResult: jest.fn(),
+        appUpdateDecisionResolved: jest.fn(),
+        pendingTaskUpsertDecision: jest.fn(),
       },
       jsBundleDev: {
         fetchBundleVersions: jest.fn(),

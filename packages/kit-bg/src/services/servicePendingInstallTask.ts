@@ -115,19 +115,6 @@ class ServicePendingInstallTask {
     await clearPendingInstallTask();
   }
 
-  private logUpdateEvent(
-    event: string,
-    payload: Record<string, unknown>,
-    level: 'info' | 'warn' | 'error' = 'info',
-  ) {
-    const message = JSON.stringify({ event, ...payload });
-    if (level === 'error') {
-      defaultLogger.app.error.log(message);
-      return;
-    }
-    defaultLogger.app.appUpdate.log(message);
-  }
-
   private buildTaskLogFields(
     task?: Partial<IPendingInstallTask> | null,
   ): Record<string, unknown> {
@@ -156,8 +143,7 @@ class ServicePendingInstallTask {
     level?: 'info' | 'warn' | 'error';
   }) {
     await clearPendingInstallTask();
-    this.logUpdateEvent(
-      'pending_task_cleared',
+    defaultLogger.app.appUpdate.pendingTaskCleared(
       {
         traceId,
         requestSeq: requestSeq ?? null,
@@ -308,8 +294,7 @@ class ServicePendingInstallTask {
         ignoredTargets,
       };
     });
-    this.logUpdateEvent(
-      'update_control_frozen_or_ignored',
+    defaultLogger.app.appUpdate.updateControlFrozenOrIgnored(
       {
         traceId,
         target: targetKey,
@@ -501,7 +486,7 @@ class ServicePendingInstallTask {
     const appInfo = await appUpdatePersistAtom.get();
     if ((appInfo.freezeUntil || 0) > now) {
       if (emitLog) {
-        this.logUpdateEvent('pending_task_upsert_decision', {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
           traceId,
           requestSeq,
           upsertAction: 'drop',
@@ -515,7 +500,7 @@ class ServicePendingInstallTask {
     const ignored = appInfo.ignoredTargets?.[targetKey];
     if (ignored && ignored.expiresAt > now) {
       if (emitLog) {
-        this.logUpdateEvent('pending_task_upsert_decision', {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
           traceId,
           requestSeq,
           upsertAction: 'drop',
@@ -553,7 +538,7 @@ class ServicePendingInstallTask {
       remoteBundleVersion: releaseInfo.jsBundleVersion,
       allowRollback: true,
     });
-    this.logUpdateEvent('app_update_decision_resolved', {
+    defaultLogger.app.appUpdate.appUpdateDecisionResolved( {
       traceId,
       requestSeq,
       decision: decision.decision,
@@ -571,7 +556,7 @@ class ServicePendingInstallTask {
       decision.decision !== 'jsBundleUpgrade' &&
       decision.decision !== 'jsBundleRollback'
     ) {
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         upsertAction: 'noop',
@@ -582,7 +567,7 @@ class ServicePendingInstallTask {
     }
 
     if (releaseInfo.updateStrategy !== EUpdateStrategy.seamless) {
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         upsertAction: 'drop',
@@ -594,7 +579,7 @@ class ServicePendingInstallTask {
     }
 
     if (stage !== 'ready_to_install') {
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         upsertAction: 'drop',
@@ -606,7 +591,7 @@ class ServicePendingInstallTask {
 
     const runtimeAppInfo = appInfo || (await appUpdatePersistAtom.get());
     if (!runtimeAppInfo.downloadedEvent?.downloadedFile) {
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         upsertAction: 'drop',
@@ -632,8 +617,7 @@ class ServicePendingInstallTask {
             requestSeq,
           );
     if (!task || !this.isValidPendingInstallTask(task)) {
-      this.logUpdateEvent(
-        'pending_task_upsert_decision',
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision(
         {
           traceId,
           requestSeq,
@@ -654,7 +638,7 @@ class ServicePendingInstallTask {
     const existingRaw = await getPendingInstallTask();
     if (!existingRaw) {
       await setPendingInstallTask(task);
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -668,8 +652,7 @@ class ServicePendingInstallTask {
     }
 
     if (!this.isValidPendingInstallTask(existingRaw)) {
-      this.logUpdateEvent(
-        'pending_task_unknown_type_dropped',
+      defaultLogger.app.appUpdate.pendingTaskUnknownTypeDropped(
         {
           traceId,
           requestSeq,
@@ -685,7 +668,7 @@ class ServicePendingInstallTask {
         level: 'warn',
       });
       await setPendingInstallTask(task);
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -700,8 +683,7 @@ class ServicePendingInstallTask {
 
     const existing = existingRaw;
     if (existing.revision > requestSeq) {
-      this.logUpdateEvent(
-        'pending_task_upsert_decision',
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision(
         {
           traceId,
           requestSeq,
@@ -722,7 +704,7 @@ class ServicePendingInstallTask {
       existing.taskId === task.taskId &&
       existing.action === task.action
     ) {
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -744,7 +726,7 @@ class ServicePendingInstallTask {
         runningStartedAt: existing.runningStartedAt,
         lastError: existing.lastError,
       });
-      this.logUpdateEvent('pending_task_upsert_decision', {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
         traceId,
         requestSeq,
         taskId: task.taskId,
@@ -758,7 +740,7 @@ class ServicePendingInstallTask {
     }
 
     await setPendingInstallTask(task);
-    this.logUpdateEvent('pending_task_upsert_decision', {
+    defaultLogger.app.appUpdate.pendingTaskUpsertDecision( {
       traceId,
       requestSeq,
       taskId: task.taskId,
@@ -783,8 +765,7 @@ class ServicePendingInstallTask {
 
     if (isFullFlowRetryTrigger) {
       const fullFlowRetryCount = await this.incrementFullFlowRetry(targetKey);
-      this.logUpdateEvent(
-        'full_flow_retry_triggered',
+      defaultLogger.app.appUpdate.fullFlowRetryTriggered(
         {
           traceId,
           requestSeq: requestSeq ?? null,
@@ -852,8 +833,7 @@ class ServicePendingInstallTask {
       lastError: message,
       nextRetryAt,
     });
-    this.logUpdateEvent(
-      'pending_retry_scheduled',
+    defaultLogger.app.appUpdate.pendingRetryScheduled(
       {
         traceId,
         requestSeq: requestSeq ?? null,
@@ -954,14 +934,14 @@ class ServicePendingInstallTask {
     task?: Partial<IPendingInstallTask> | null;
   }) {
     const startedAt = Date.now();
-    this.logUpdateEvent('pending_post_process_refresh_start', {
+    defaultLogger.app.appUpdate.pendingPostProcessRefreshStart( {
       traceId,
       requestSeq,
       ...this.buildTaskLogFields(task),
     });
     try {
       await this.refreshUpdateStatus();
-      this.logUpdateEvent('pending_post_process_refresh_result', {
+      defaultLogger.app.appUpdate.pendingPostProcessRefreshResult( {
         traceId,
         requestSeq,
         result: 'success',
@@ -970,8 +950,7 @@ class ServicePendingInstallTask {
       });
     } catch (error) {
       const message = (error as Error)?.message ?? 'unknown';
-      this.logUpdateEvent(
-        'pending_post_process_refresh_result',
+      defaultLogger.app.appUpdate.pendingPostProcessRefreshResult(
         {
           traceId,
           requestSeq,
@@ -996,8 +975,7 @@ class ServicePendingInstallTask {
     if (this.isProcessingPendingTask) {
       const lockHeldMs = lockNow - this.pendingTaskLockAcquiredAt;
       if (lockHeldMs > PROCESS_LOCK_TIMEOUT_MS) {
-        this.logUpdateEvent(
-          'pending_task_lock_state',
+        defaultLogger.app.appUpdate.pendingTaskLockState(
           {
             traceId,
             requestSeq,
@@ -1010,7 +988,7 @@ class ServicePendingInstallTask {
         this.isProcessingPendingTask = false;
         this.pendingTaskLockAcquiredAt = 0;
       } else {
-        this.logUpdateEvent('pending_task_lock_state', {
+        defaultLogger.app.appUpdate.pendingTaskLockState( {
           traceId,
           requestSeq,
           lockState: 'reentrant',
@@ -1023,7 +1001,7 @@ class ServicePendingInstallTask {
 
     this.isProcessingPendingTask = true;
     this.pendingTaskLockAcquiredAt = Date.now();
-    this.logUpdateEvent('pending_task_lock_state', {
+    defaultLogger.app.appUpdate.pendingTaskLockState( {
       traceId,
       requestSeq,
       lockState: 'acquired',
@@ -1035,7 +1013,7 @@ class ServicePendingInstallTask {
 
       const rawTask = await getPendingInstallTask();
       if (!rawTask) {
-        this.logUpdateEvent('pending_task_validation', {
+        defaultLogger.app.appUpdate.pendingTaskValidation( {
           traceId,
           requestSeq,
           isValid: false,
@@ -1048,8 +1026,7 @@ class ServicePendingInstallTask {
       processedTaskSnapshot = rawTask as Partial<IPendingInstallTask>;
 
       if (!this.isValidPendingInstallTask(rawTask)) {
-        this.logUpdateEvent(
-          'pending_task_unknown_type_dropped',
+        defaultLogger.app.appUpdate.pendingTaskUnknownTypeDropped(
           {
             traceId,
             requestSeq,
@@ -1057,8 +1034,7 @@ class ServicePendingInstallTask {
           },
           'warn',
         );
-        this.logUpdateEvent(
-          'pending_task_validation',
+        defaultLogger.app.appUpdate.pendingTaskValidation(
           {
             traceId,
             requestSeq,
@@ -1079,7 +1055,7 @@ class ServicePendingInstallTask {
 
       let task = rawTask;
       const now = Date.now();
-      this.logUpdateEvent('pending_task_validation', {
+      defaultLogger.app.appUpdate.pendingTaskValidation( {
         traceId,
         requestSeq,
         isValid: true,
@@ -1099,7 +1075,7 @@ class ServicePendingInstallTask {
 
       const targetKey = this.getTargetKey(task);
       if (task.status === 'failed') {
-        this.logUpdateEvent('pending_task_validation', {
+        defaultLogger.app.appUpdate.pendingTaskValidation( {
           traceId,
           requestSeq,
           isValid: true,
@@ -1111,8 +1087,7 @@ class ServicePendingInstallTask {
 
       if (task.status === 'applied_waiting_verify') {
         const aligned = this.isTaskTargetAligned(task);
-        this.logUpdateEvent(
-          'pending_verify_after_restart',
+        defaultLogger.app.appUpdate.pendingVerifyAfterRestart(
           {
             traceId,
             requestSeq,
@@ -1145,7 +1120,7 @@ class ServicePendingInstallTask {
         const runningStartedAt = task.runningStartedAt || task.createdAt;
         const runningDuration = now - runningStartedAt;
         if (runningDuration <= RUNNING_TASK_STALE_MS) {
-          this.logUpdateEvent('pending_task_lock_state', {
+          defaultLogger.app.appUpdate.pendingTaskLockState( {
             traceId,
             requestSeq,
             lockState: 'reentrant',
@@ -1181,7 +1156,7 @@ class ServicePendingInstallTask {
         envMatch = 'scheduled';
       }
 
-      this.logUpdateEvent('pending_task_env_check', {
+      defaultLogger.app.appUpdate.pendingTaskEnvCheck( {
         traceId,
         requestSeq,
         envMatch,
@@ -1213,7 +1188,7 @@ class ServicePendingInstallTask {
       }
 
       if (task.nextRetryAt && task.nextRetryAt > now) {
-        this.logUpdateEvent('pending_task_validation', {
+        defaultLogger.app.appUpdate.pendingTaskValidation( {
           traceId,
           requestSeq,
           isValid: true,
@@ -1230,7 +1205,7 @@ class ServicePendingInstallTask {
       };
       await setPendingInstallTask(runningTask);
       const startedAt = Date.now();
-      this.logUpdateEvent('pending_switch_start', {
+      defaultLogger.app.appUpdate.pendingSwitchStart( {
         traceId,
         requestSeq,
         fromStatus: task.status,
@@ -1246,7 +1221,7 @@ class ServicePendingInstallTask {
           runningStartedAt: undefined,
           lastError: undefined,
         });
-        this.logUpdateEvent('pending_switch_result', {
+        defaultLogger.app.appUpdate.pendingSwitchResult( {
           traceId,
           requestSeq,
           result: 'success',
@@ -1256,8 +1231,7 @@ class ServicePendingInstallTask {
       } catch (error) {
         const durationMs = Date.now() - startedAt;
         const message = (error as Error)?.message ?? 'unknown';
-        this.logUpdateEvent(
-          'pending_switch_result',
+        defaultLogger.app.appUpdate.pendingSwitchResult(
           {
             traceId,
             requestSeq,
@@ -1281,7 +1255,7 @@ class ServicePendingInstallTask {
       }
       this.isProcessingPendingTask = false;
       this.pendingTaskLockAcquiredAt = 0;
-      this.logUpdateEvent('pending_task_lock_state', {
+      defaultLogger.app.appUpdate.pendingTaskLockState( {
         traceId,
         requestSeq,
         lockState: 'released',
