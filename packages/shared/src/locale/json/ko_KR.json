@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "다음 분배",
   "referral.next_distribution_day": "{Month} 10일까지",
   "referral.no_reward": "아직 보상이 없습니다",
+  "referral.not_applicable": "해당 없음",
+  "referral.not_applicable_desc": "이 지갑은 14일 이상 전에 생성되어 추천 코드를 연결할 수 없습니다",
   "referral.onboard_bind_code": "추천 코드 연결",
   "referral.onboard_bind_code_finish": "마치기",
   "referral.onchain_desc": "코드에 연결된 지갑에서",

@@ -7,6 +7,7 @@ import BigNumber from 'bignumber.js';
 
 import {
   analyzeOrderBookPrecision,
+  calculateLiquidationPrice,
   calculatePriceScale,
   countDecimalPlaces,
   formatPriceToSignificantDigits,
@@ -273,5 +274,85 @@ describe('formatPriceToSignificantDigits - HyperLiquid Price Formatting', () => 
     // Small AltCoin prices
     expect(formatPriceToSignificantDigits('0.000123456')).toBe('0.000123'); // Limited by MAX_DECIMALS_PERP = 6
     expect(formatPriceToSignificantDigits('0.12345678')).toBe('0.12345'); // 5 sig figs
+  });
+});
+
+describe('calculateLiquidationPrice', () => {
+  const marginTiers = [{ lowerBound: '0', maxLeverage: 10 }];
+
+  test('keeps mark-price clamp for standard limit orders', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(110),
+      referencePrice: new BigNumber(110),
+      markPrice: new BigNumber(100),
+      clampToCurrentMark: true,
+      positionSize: new BigNumber(1),
+      side: 'long',
+      leverage: 10,
+      mode: 'isolated',
+      marginTiers,
+      maxLeverage: 10,
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(94.736_842, 6);
+  });
+
+  test('uses execution price directly when clamp is disabled', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(110),
+      referencePrice: new BigNumber(110),
+      markPrice: new BigNumber(100),
+      clampToCurrentMark: false,
+      positionSize: new BigNumber(1),
+      side: 'long',
+      leverage: 10,
+      mode: 'isolated',
+      marginTiers,
+      maxLeverage: 10,
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(104.210_526, 6);
+  });
+
+  test('handles same-direction adds with an existing cross position', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(110),
+      referencePrice: new BigNumber(110),
+      clampToCurrentMark: false,
+      positionSize: new BigNumber(1),
+      side: 'long',
+      leverage: 10,
+      mode: 'cross',
+      marginTiers,
+      maxLeverage: 10,
+      crossMarginUsed: new BigNumber(100),
+      crossMaintenanceMarginUsed: new BigNumber(20),
+      existingPositionSize: new BigNumber(2),
+      existingEntryPrice: new BigNumber(100),
+      newOrderSide: 'long',
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(77.192_982, 6);
+  });
+
+  test('handles flip scenarios with an existing cross position', () => {
+    const liquidationPrice = calculateLiquidationPrice({
+      totalValue: new BigNumber(220),
+      referencePrice: new BigNumber(110),
+      clampToCurrentMark: false,
+      positionSize: new BigNumber(2),
+      side: 'long',
+      leverage: 10,
+      mode: 'cross',
+      marginTiers,
+      maxLeverage: 10,
+      crossMarginUsed: new BigNumber(100),
+      crossMaintenanceMarginUsed: new BigNumber(20),
+      existingPositionSize: new BigNumber(-1),
+      existingEntryPrice: new BigNumber(100),
+      newOrderSide: 'long',
+    });
+
+    expect(liquidationPrice?.toNumber()).toBeCloseTo(25.789_474, 6);
   });
 });
