@@ -345,7 +345,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     await service.readyToInstall();
 
     expect(pendingTaskValue).toMatchObject({
-      type: 'appshell-install',
+      type: 'app-install',
       action: 'install-app',
       targetAppVersion: '2.0.0',
       payload: {
@@ -747,7 +747,7 @@ describe('processPendingInstallTask', () => {
       taskId: 'appshell:2.0.0:store',
       revision: 1,
       action: 'install-app',
-      type: 'appshell-install',
+      type: 'app-install',
       targetAppVersion: '2.0.0',
       targetBundleVersion: '1',
       scheduledEnvAppVersion: '1.0.0',
@@ -781,7 +781,7 @@ describe('processPendingInstallTask', () => {
       taskId: 'appshell:2.0.0:direct',
       revision: 1,
       action: 'install-app',
-      type: 'appshell-install',
+      type: 'app-install',
       targetAppVersion: '2.0.0',
       targetBundleVersion: '1',
       scheduledEnvAppVersion: '1.0.0',
@@ -806,12 +806,12 @@ describe('processPendingInstallTask', () => {
     });
   });
 
-  test('appshell-install in applied_waiting_verify within grace period is skipped', async () => {
+  test('app-install in applied_waiting_verify within grace period is skipped', async () => {
     resetPendingTask({
       taskId: 'appshell:2.0.0:direct',
       revision: 1,
       action: 'install-app',
-      type: 'appshell-install',
+      type: 'app-install',
       targetAppVersion: '2.0.0',
       targetBundleVersion: '1',
       scheduledEnvAppVersion: '1.0.0',
@@ -833,7 +833,7 @@ describe('processPendingInstallTask', () => {
     // Task should still be in applied_waiting_verify, not failed
     expect(pendingTaskValue).toMatchObject({
       status: 'applied_waiting_verify',
-      type: 'appshell-install',
+      type: 'app-install',
     });
   });
 });
@@ -1054,7 +1054,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('frozen target blocks appshell-install scheduling', async () => {
+  test('frozen target blocks app-install scheduling', async () => {
     setReadyState({
       latestVersion: '2.0.0',
       jsBundleVersion: '1',

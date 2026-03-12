@@ -150,7 +150,7 @@ function makeAppShellInstallTask(overrides: Record<string, any> = {}) {
     taskId: 'appshell:2.0.0:direct',
     revision: 1,
     action: 'install-app',
-    type: 'appshell-install',
+    type: 'app-install',
     targetAppVersion: '2.0.0',
     targetBundleVersion: '1',
     scheduledEnvAppVersion: '1.0.0',
@@ -528,7 +528,7 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
-  test('appshell-install target already aligned clears task', async () => {
+  test('app-install target already aligned clears task', async () => {
     const service = createService();
     // Target app version matches current env
     pendingTaskValue = makeAppShellInstallTask({
@@ -541,7 +541,7 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('frozen target blocks appshell-install sync', async () => {
+  test('frozen target blocks app-install sync', async () => {
     const service = createService();
     setState({
       latestVersion: '2.0.0',
@@ -576,7 +576,7 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
-  test('ignored target blocks appshell-install sync', async () => {
+  test('ignored target blocks app-install sync', async () => {
     const service = createService();
     setState({
       latestVersion: '2.0.0',
@@ -609,7 +609,7 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('expired appshell-install task is cleared', async () => {
+  test('expired app-install task is cleared', async () => {
     const service = createService();
     pendingTaskValue = makeAppShellInstallTask({
       expiresAt: Date.now() - 1,
@@ -620,7 +620,7 @@ describe('servicePendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('appshell-install retry exhausted freezes target', async () => {
+  test('app-install retry exhausted freezes target', async () => {
     const service = createService();
     setState({
       downloadedEvent: undefined,
