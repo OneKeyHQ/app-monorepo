@@ -242,7 +242,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
               if (!networkId || !tokenSymbol) {
                 return null;
               }
-              if (platformEnv.isNativeAndroid) {
+              if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
                 return (
                   <MobileTradingViewTouchBridge
                     tokenAddress={tokenAddress}
