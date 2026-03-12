@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
+  Badge,
   Button,
+  Checkbox,
   Dialog,
   Input,
   SizableText,
   Stack,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,6 +44,252 @@ function demoError(error: unknown, apiName: string) {
   if (!platformEnv.isNative) {
     console.error('Hyperliquid API Error:', error);
   }
+}
+
+type IDemoOrderType =
+  | 'market'
+  | 'limit'
+  | 'stopMarket'
+  | 'stopLimit'
+  | 'takeMarket'
+  | 'takeLimit';
+
+type IDemoOrderTypeOption = {
+  value: IDemoOrderType;
+  label: string;
+};
+
+const DEMO_ORDER_TYPE_OPTIONS: IDemoOrderTypeOption[] = [
+  { value: 'market', label: 'Market' },
+  { value: 'limit', label: 'Limit' },
+  { value: 'stopMarket', label: 'Stop Market' },
+  { value: 'stopLimit', label: 'Stop Limit' },
+  { value: 'takeMarket', label: 'Take Market' },
+  { value: 'takeLimit', label: 'Take Limit' },
+];
+
+function PerpOrderTypeInteractionDemo() {
+  const [side, setSide] = useState<'long' | 'short'>('long');
+  const [orderType, setOrderType] = useState<IDemoOrderType>('market');
+  const [currentPrice, setCurrentPrice] = useState('67920');
+  const [size, setSize] = useState('0.10');
+  const [limitPrice, setLimitPrice] = useState('67930');
+  const [triggerPrice, setTriggerPrice] = useState('67600');
+  const [executionPrice, setExecutionPrice] = useState('67580');
+  const [reduceOnly, setReduceOnly] = useState(false);
+
+  const isTriggerOrder =
+    orderType.startsWith('stop') || orderType.startsWith('take');
+  const needsLimitPrice = orderType === 'limit';
+  const needsExecutionPrice =
+    orderType === 'stopLimit' || orderType === 'takeLimit';
+  const triggerTpsl = orderType.startsWith('take') ? 'tp' : 'sl';
+  const triggerIsMarket =
+    orderType === 'stopMarket' || orderType === 'takeMarket';
+
+  const payloadPreview = useMemo(() => {
+    const base = {
+      a: 0,
+      b: side === 'long',
+      s: size || '0',
+      r: reduceOnly,
+    };
+
+    if (orderType === 'market') {
+      return {
+        action: 'order',
+        orders: [
+          {
+            ...base,
+            p: currentPrice || '0',
+            t: { limit: { tif: 'Ioc' } },
+          },
+        ],
+        note: 'demo only',
+      };
+    }
+
+    if (orderType === 'limit') {
+      return {
+        action: 'order',
+        orders: [
+          {
+            ...base,
+            p: limitPrice || '0',
+            t: { limit: { tif: 'Gtc' } },
+          },
+        ],
+        note: 'demo only',
+      };
+    }
+
+    return {
+      action: 'order',
+      orders: [
+        {
+          ...base,
+          p: triggerIsMarket ? currentPrice || '0' : executionPrice || '0',
+          t: {
+            trigger: {
+              isMarket: triggerIsMarket,
+              triggerPx: triggerPrice || '0',
+              tpsl: triggerTpsl,
+            },
+          },
+        },
+      ],
+      note: 'demo only',
+    };
+  }, [
+    currentPrice,
+    executionPrice,
+    limitPrice,
+    orderType,
+    reduceOnly,
+    side,
+    size,
+    triggerIsMarket,
+    triggerPrice,
+    triggerTpsl,
+  ]);
+
+  return (
+    <YStack gap="$4">
+      <SizableText size="$bodyLg" fontWeight="600">
+        Perps Order Type UX Demo (No Trading)
+      </SizableText>
+      <SizableText size="$bodySm" color="$textSubdued">
+        This is a UI-only interaction demo based on Hyperliquid order semantics.
+        It does not send any transaction.
+      </SizableText>
+
+      <XStack gap="$2">
+        <Button
+          size="small"
+          variant={side === 'long' ? 'primary' : 'secondary'}
+          onPress={() => setSide('long')}
+        >
+          Long
+        </Button>
+        <Button
+          size="small"
+          variant={side === 'short' ? 'primary' : 'secondary'}
+          onPress={() => setSide('short')}
+        >
+          Short
+        </Button>
+      </XStack>
+
+      <XStack flexWrap="wrap" gap="$2">
+        {DEMO_ORDER_TYPE_OPTIONS.map((option) => (
+          <Button
+            key={option.value}
+            size="small"
+            variant={orderType === option.value ? 'primary' : 'secondary'}
+            onPress={() => setOrderType(option.value)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </XStack>
+
+      <YStack gap="$2">
+        <SizableText size="$bodySm" fontWeight="500">
+          Current Price (USD)
+        </SizableText>
+        <Input value={currentPrice} onChangeText={setCurrentPrice} allowClear />
+      </YStack>
+
+      {needsLimitPrice ? (
+        <YStack gap="$2">
+          <SizableText size="$bodySm" fontWeight="500">
+            Limit Price (USD)
+          </SizableText>
+          <Input value={limitPrice} onChangeText={setLimitPrice} allowClear />
+        </YStack>
+      ) : null}
+
+      {isTriggerOrder ? (
+        <YStack gap="$2">
+          <SizableText size="$bodySm" fontWeight="500">
+            Trigger Price (USD)
+          </SizableText>
+          <Input
+            value={triggerPrice}
+            onChangeText={setTriggerPrice}
+            allowClear
+          />
+        </YStack>
+      ) : null}
+
+      {needsExecutionPrice ? (
+        <YStack gap="$2">
+          <SizableText size="$bodySm" fontWeight="500">
+            Execution Limit Price (USD)
+          </SizableText>
+          <Input
+            value={executionPrice}
+            onChangeText={setExecutionPrice}
+            allowClear
+          />
+        </YStack>
+      ) : null}
+
+      <YStack gap="$2">
+        <SizableText size="$bodySm" fontWeight="500">
+          Size
+        </SizableText>
+        <Input value={size} onChangeText={setSize} allowClear />
+      </YStack>
+
+      <XStack alignItems="center" gap="$2">
+        <Checkbox value={reduceOnly} onChange={(v) => setReduceOnly(!!v)} />
+        <SizableText size="$bodySm">Reduce Only</SizableText>
+        <Badge badgeType="info" badgeSize="sm">
+          demo
+        </Badge>
+      </XStack>
+
+      <YStack gap="$2">
+        <SizableText size="$bodySm" fontWeight="500">
+          Hyperliquid Payload Preview
+        </SizableText>
+        <Stack p="$3" bg="$bgSubdued" borderRadius="$2">
+          <SizableText size="$bodySm" fontFamily="$monoRegular">
+            {JSON.stringify(payloadPreview, null, 2)}
+          </SizableText>
+        </Stack>
+      </YStack>
+
+      <XStack gap="$2">
+        <Button
+          variant="secondary"
+          onPress={() => {
+            setSide('long');
+            setOrderType('market');
+            setCurrentPrice('67920');
+            setSize('0.10');
+            setLimitPrice('67930');
+            setTriggerPrice('67600');
+            setExecutionPrice('67580');
+            setReduceOnly(false);
+          }}
+        >
+          Reset Demo
+        </Button>
+        <Button
+          onPress={() => {
+            Toast.success({
+              title: 'Demo Action',
+              message: 'No transaction sent. UI interaction only.',
+            });
+          }}
+        >
+          Simulate Submit
+        </Button>
+      </XStack>
+    </YStack>
+  );
 }
 
 export function PerpApiTests() {
@@ -514,6 +763,10 @@ const PerpGallery = () => (
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="PerpGallery"
     elements={[
+      {
+        title: 'Perps Order Type UX Demo',
+        element: <PerpOrderTypeInteractionDemo />,
+      },
       {
         title: 'Hyperliquid API Test 2862',
         element: <PerpApiTests />,
