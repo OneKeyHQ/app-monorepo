@@ -414,6 +414,44 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
 
     expect(pendingTaskValue).toEqual(task);
   });
+
+  test('readyToInstall rejected when status is not verifyPackage or ready', async () => {
+    resetAppUpdateState({
+      status: EAppUpdateStatus.downloadPackage,
+      updateStrategy: EUpdateStrategy.seamless,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+        sha256: 'sha256-2',
+      },
+    } as any);
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toBeUndefined();
+    // Status should remain unchanged (not set to ready)
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.downloadPackage);
+  });
+
+  test('rollback with non-seamless strategy creates pending task via readyToInstall', async () => {
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.bundleVersion = '3';
+    setReadyState({
+      updateStrategy: EUpdateStrategy.manual,
+      jsBundleVersion: '2',
+    });
+
+    await service.readyToInstall();
+
+    // Rollback bypasses strategy check — pending task should be created
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      targetBundleVersion: '2',
+    });
+  });
 });
 
 describe('processPendingInstallTask', () => {

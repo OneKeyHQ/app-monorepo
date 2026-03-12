@@ -576,7 +576,12 @@ class ServicePendingInstallTask {
       return;
     }
 
-    if (releaseInfo.updateStrategy !== EUpdateStrategy.seamless) {
+    // Rollback always creates a pending task regardless of server strategy —
+    // it is a corrective action that should not require user confirmation.
+    if (
+      decision.decision !== 'jsBundleRollback' &&
+      releaseInfo.updateStrategy !== EUpdateStrategy.seamless
+    ) {
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,

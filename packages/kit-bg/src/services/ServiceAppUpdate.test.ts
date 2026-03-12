@@ -1693,6 +1693,32 @@ describe('ServiceAppUpdate state transitions', () => {
       // gtVersion returns false → shouldUpdate=false → status stays done
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
     });
+
+    test('blockedByControl=true prevents transition to notify', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.done,
+        updateAt: 0,
+        freezeUntil: Date.now() + 60_000,
+        ignoredTargets: {
+          '2.0.0:0': {
+            reason: 'RETRY_EXHAUSTED',
+            createdAt: Date.now() - 1000,
+            expiresAt: Date.now() + 60_000,
+          },
+        },
+      });
+      mockLatestInfo({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      // Frozen/ignored target blocks shouldUpdate → status stays done
+      expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
   });
 
   // =========================================================================

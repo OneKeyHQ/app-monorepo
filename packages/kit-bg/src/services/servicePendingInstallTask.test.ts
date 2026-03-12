@@ -650,4 +650,85 @@ describe('servicePendingInstallTask', () => {
       type: 'jsbundle-switch',
     });
   });
+
+  test('applied_waiting_verify with runningStartedAt=undefined skips grace period and checks alignment', async () => {
+    const service = createService();
+    // Target doesn't match current env (bundleVersion 2 vs current 1)
+    pendingTaskValue = makeSwitchTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: undefined,
+    });
+
+    await service.processPendingInstallTask();
+
+    // Should immediately check alignment (not wait for grace period)
+    // Target is 1.0.0:2, current is 1.0.0:1 → mismatch → retry
+    expect(pendingTaskValue.status).toBe('pending');
+    expect(pendingTaskValue.retryCount).toBe(1);
+    expect(pendingTaskValue.lastError).toBe('VERIFY_AFTER_RESTART_MISMATCH');
+  });
+
+  test('rollback with non-seamless strategy still creates pending task', async () => {
+    const service = createService();
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.bundleVersion = '3';
+    setState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      updateStrategy: EUpdateStrategy.manual,
+      downloadedEvent: {
+        downloadedFile: '/tmp/bundle-v2.zip',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        signature: 'sig-2',
+      },
+    });
+
+    await service.syncPendingInstallTaskWithReleaseInfo({
+      releaseInfo: {
+        version: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.manual,
+        jsBundle: { signature: 'sig-2' },
+      },
+      requestSeq: 30,
+      traceId: 'trace-rollback-manual',
+      stage: 'ready_to_install',
+      appInfo: appUpdateState,
+    });
+
+    // Rollback should bypass strategy check and create task
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      targetBundleVersion: '2',
+    });
+  });
+
+  test('fullFlowRetryCount exceeds MAX_FULL_FLOW_RETRY freezes target', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(false);
+
+    // Run 3 times: each run increments fullFlowRetryCount (1, 2, 3).
+    // MAX_FULL_FLOW_RETRY = 2, so the third run (count=3) should freeze.
+    for (let i = 0; i < 3; i++) {
+      pendingTaskValue = makeSwitchTask();
+      await service.processPendingInstallTask();
+      expect(pendingTaskValue).toBeUndefined();
+    }
+
+    expect(appUpdateState.freezeUntil).toBeGreaterThan(Date.now());
+    expect(appUpdateState.ignoredTargets?.['1.0.0:2']).toMatchObject({
+      reason: 'FULL_FLOW_RETRY_EXHAUSTED',
+    });
+  });
+
+  test('nextRequestSeq falls back to timestamp-based seq when lastRequestSeq is 0', async () => {
+    const service = createService();
+    setState({ lastRequestSeq: 0 } as any);
+
+    const seq = await service.nextRequestSeq();
+
+    // When lastRequestSeq is 0, fallback uses Date.now() * 1000 + counter
+    expect(seq).toBeGreaterThan(Date.now() * 999);
+  });
 });
