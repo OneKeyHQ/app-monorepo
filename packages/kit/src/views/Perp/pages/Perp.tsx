@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,8 @@ import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeCont
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { consumePerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -55,6 +57,15 @@ function PerpBodyContent() {
 }
 
 function PerpContent() {
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (isFocused) {
+      defaultLogger.perp.common.pageView({
+        source: consumePerpPageEnterSource(),
+      });
+    }
+  }, [isFocused]);
+
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
   );
