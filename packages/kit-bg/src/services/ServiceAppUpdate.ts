@@ -156,9 +156,10 @@ class ServiceAppUpdate extends ServiceBase {
   // buildPendingAppShellTask / buildPendingJsBundleTask would produce so that
   // freeze/ignore checks are consistent across the download gate (here) and
   // the pending-task engine.
-  private computeUpdateTargetKey(
-    appInfo: { latestVersion?: string; jsBundleVersion?: string | null },
-  ): string | null {
+  private computeUpdateTargetKey(appInfo: {
+    latestVersion?: string;
+    jsBundleVersion?: string | null;
+  }): string | null {
     if (!appInfo.latestVersion) return null;
     const decision = resolveUpdateDecision({
       currentAppVersion: platformEnv.version,
@@ -260,9 +261,7 @@ class ServiceAppUpdate extends ServiceBase {
           ...p,
           errorText: undefined,
           status: EAppUpdateStatus.notify,
-          downloadedEvent: shouldClearDownload
-            ? undefined
-            : p.downloadedEvent,
+          downloadedEvent: shouldClearDownload ? undefined : p.downloadedEvent,
         }));
       },
       timerUtils.getTimeDurationMs({ hour: 2 }),
