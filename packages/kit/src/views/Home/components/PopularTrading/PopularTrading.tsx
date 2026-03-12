@@ -30,6 +30,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -719,6 +723,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           });
           return;
         }
+        setPerpPageEnterSource(EPerpPageEnterSource.PopularTrading);
         navigation.switchTab(ETabRoutes.Perp);
         void backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
           coin: record.perpsCoin,

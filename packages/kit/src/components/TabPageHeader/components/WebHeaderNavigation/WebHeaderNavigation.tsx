@@ -15,6 +15,10 @@ import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import {
   ERootRoutes,
   ETabEarnRoutes,
   ETabMarketRoutes,
@@ -168,6 +172,9 @@ function useWebHeaderNavigation({
         return;
       }
 
+      if (tabKey === ETabRoutes.Perp) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
+      }
       if (tabKey) {
         navigation.switchTab(tabKey as ETabRoutes);
       }
