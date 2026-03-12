@@ -173,28 +173,42 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             <InformationPanel />
           </YStack>
         </HeaderScrollGestureWrapper>
-        <HeaderScrollGestureWrapper
-          panActiveOffsetY={[-4, 4]}
-          panFailOffsetX={[-40, 40]}
-          excludeRightEdgeRatio={0.1}
-          scrollScale={1}
-          onHorizontalSwipe={handleHeaderHorizontalSwipe}
-          horizontalSwipeThreshold={24}
-          horizontalSwipeVelocityThreshold={900}
-          simultaneousWithNativeGesture
-          cancelChildTouches={false}
-        >
-          <Stack h={tradingViewHeight} overflow="hidden">
-            {networkId && tokenDetail?.symbol ? (
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail.symbol}
-                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-              />
-            ) : null}
-          </Stack>
-        </HeaderScrollGestureWrapper>
+        <Stack position="relative">
+          <HeaderScrollGestureWrapper
+            panActiveOffsetY={[-4, 4]}
+            panFailOffsetX={[-40, 40]}
+            excludeRightEdgeRatio={0.1}
+            scrollScale={1}
+            onHorizontalSwipe={handleHeaderHorizontalSwipe}
+            horizontalSwipeThreshold={24}
+            horizontalSwipeVelocityThreshold={900}
+            simultaneousWithNativeGesture
+            cancelChildTouches={false}
+          >
+            <Stack h={tradingViewHeight} overflow="hidden">
+              {networkId && tokenDetail?.symbol ? (
+                <MarketTradingView
+                  tokenAddress={tokenAddress}
+                  networkId={networkId}
+                  tokenSymbol={tokenDetail.symbol}
+                  dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+                />
+              ) : null}
+            </Stack>
+          </HeaderScrollGestureWrapper>
+          {platformEnv.isNativeIOS ? (
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 50,
+                bottom: 0,
+                width: 20,
+                zIndex: 9999,
+              }}
+            />
+          ) : null}
+        </Stack>
       </YStack>
     );
   }, [
