@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "Taxa de Saque",
   "perp.withdraw_fee_mgs": "Esta taxa é cobrada pela Hyperliquid. A OneKey não impõe nenhuma taxa sobre saques.",
   "perp.you_will_get": "Você receberá",
+  "perp__deposit_no_second_confirmation__desc": "O depósito será processado imediatamente, sem necessidade de confirmação adicional.",
   "perp_trading_adjust_margin": "Ajustar Margem",
   "perp_trading_adjust_margin_max": "Máx. adicionar",
   "perp_trading_adjust_margin_min": "Remoção máx.",

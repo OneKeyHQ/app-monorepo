@@ -1803,7 +1803,9 @@ function DepositWithdrawContent({
           mt="$-1"
           mb={isMobile ? '$4' : undefined}
         >
-          点击按钮后将一步完成授权和存款，无需二次确认
+          {intl.formatMessage({
+            id: ETranslations.perp__deposit_no_second_confirmation__desc,
+          })}
         </SizableText>
       ) : null}
       {isMobile &&

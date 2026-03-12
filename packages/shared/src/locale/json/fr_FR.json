@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "Frais de retrait",
   "perp.withdraw_fee_mgs": "Ces frais sont facturés par Hyperliquid. OneKey n'impose aucuns frais sur les retraits.",
   "perp.you_will_get": "Vous obtiendrez",
+  "perp__deposit_no_second_confirmation__desc": "Le dépôt sera effectué immédiatement sans autre confirmation.",
   "perp_trading_adjust_margin": "Ajuster la marge",
   "perp_trading_adjust_margin_max": "Max. ajout",
   "perp_trading_adjust_margin_min": "Retrait max.",
