@@ -40,6 +40,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   const ref = useRef<T[]>([]);
   const methodRef = useRef(method);
   const hasLoadedFirstPageRef = useRef(false);
+  const resetGenRef = useRef(0);
   const [query, setQuery] = useState<{ offset: number; limit: number }>({
     offset: 0,
     limit: 10,
@@ -50,6 +51,7 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   useEffect(() => {
     ref.current = [];
     hasLoadedFirstPageRef.current = false;
+    resetGenRef.current += 1;
     setQuery({ offset: 0, limit: 10 });
   }, [networkId, address]);
 
@@ -57,15 +59,24 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     result: { sections, ending },
   } = usePromiseResult(
     async () => {
+      const gen = resetGenRef.current;
       const resp = await methodRef.current({
         networkId,
         address,
         offset: query.offset,
         limit: query.limit,
       });
+      // Skip stale results from before a filter reset
+      if (resetGenRef.current !== gen) {
+        return { sections: [], ending: false };
+      }
       const isSearch = !networkUtils.isAllNetwork({ networkId }) || address;
       if (!isSearch) {
-        ref.current.splice(query.offset, query.limit, ...resp);
+        if (query.offset === 0) {
+          ref.current = [...resp];
+        } else {
+          ref.current.splice(query.offset, query.limit, ...resp);
+        }
       }
       hasLoadedFirstPageRef.current = true;
       return {
