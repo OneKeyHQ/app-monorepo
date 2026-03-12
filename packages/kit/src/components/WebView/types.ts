@@ -84,6 +84,10 @@ export interface IInpageProviderWebViewProps
    * @default false
    */
   allowFileAccess?: boolean;
+  /** @platform native
+   * @description Whitelisted origins that may request camera or microphone access.
+   */
+  mediaPermissionWhitelist?: string[];
 }
 
 export type IWebViewRef = {

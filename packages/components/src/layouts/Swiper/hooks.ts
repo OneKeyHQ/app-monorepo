@@ -204,22 +204,21 @@ export const useScrollEvent = ({
     ISwiperProps<any>['onViewableItemsChanged']
   >(
     () => (params) => {
-      const { changed } = params;
-      const newItem = changed?.[0];
-      if (newItem !== undefined) {
-        const nextIndex = newItem.index as number;
-        if (newItem.isViewable) {
-          setCurrentIndexes((prevState) => ({
-            ...prevState,
-            index: nextIndex,
-          }));
-        } else {
-          setCurrentIndexes((prevState) => ({
-            ...prevState,
-            prevIndex: nextIndex,
-          }));
-        }
+      const visibleItem = params.viewableItems?.find(
+        (item) => item.isViewable && typeof item.index === 'number',
+      );
+      if (!visibleItem || typeof visibleItem.index !== 'number') {
+        return;
       }
+      const nextIndex = visibleItem.index;
+      setCurrentIndexes((prevState) =>
+        prevState.index === nextIndex
+          ? prevState
+          : {
+              index: nextIndex,
+              prevIndex: prevState.index,
+            },
+      );
     },
     [],
   );
