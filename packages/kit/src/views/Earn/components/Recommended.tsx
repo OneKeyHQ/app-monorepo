@@ -1,20 +1,28 @@
-import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  clamp,
+  useAnimatedStyle,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
+  Badge,
+  HeaderScrollGestureWrapper,
   Icon,
-  Image,
-  ScrollGuard,
+  IconButton,
   ScrollView,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -23,6 +31,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
+import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -34,14 +43,47 @@ import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
 
+// TODO: Remove after preview — 2 fake cards for visual testing
+const DEV_PREVIEW_TOKENS: IRecommendAsset[] = [
+  {
+    name: 'Ethereum',
+    symbol: 'ETH',
+    logoURI: 'https://uni.onekey-asset.com/static/chain/eth.png',
+    protocols: [
+      { networkId: 'evm--1', provider: 'lido', vault: '' },
+    ],
+    aprWithoutFee: '6.00',
+    aprInfo: { normal: { text: '6.00% APY' } },
+    bgColor: '$bgSubdued',
+    available: { text: '0.1 ETH', color: '$textSubdued' },
+    badge: { text: 'New' },
+  },
+  {
+    name: 'Solana',
+    symbol: 'SOL',
+    logoURI: 'https://uni.onekey-asset.com/static/chain/sol.png',
+    protocols: [
+      { networkId: 'solana--101', provider: 'marinade', vault: '' },
+    ],
+    aprWithoutFee: '8.25',
+    aprInfo: { normal: { text: '8.25% APY' } },
+    bgColor: '$bgSubdued',
+    available: { text: '0.01 SOL', color: '$textSubdued' },
+  },
+];
+
+const CARD_WIDTH = 240;
+const CARD_GAP = 12;
+const CARD_PADDING_H = 20;
+
 function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (
     <YStack
       gap="$4"
-      px="$pagePadding"
+      px="$4"
       py="$3.5"
       borderRadius="$3"
-      bg="$bg"
+      bg="$bgSubdued"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderCurve="continuous"
@@ -104,18 +146,19 @@ const RecommendedItem = memo(
       <YStack
         role="button"
         flex={1}
-        p="$4"
+        gap="$4"
+        px="$4"
+        py="$3.5"
         borderRadius="$3"
         borderCurve="continuous"
-        bg={token.bgColor}
+        bg="$bgSubdued"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
-        animation="quick"
         hoverStyle={{
-          scale: 1.05,
+          bg: '$bgHover',
         }}
         pressStyle={{
-          scale: 0.95,
+          bg: '$bgActive',
         }}
         onPress={onPress}
         userSelect="none"
@@ -123,48 +166,48 @@ const RecommendedItem = memo(
         overflow="hidden"
         {...rest}
       >
+        <XStack gap="$3" ai="center" width="100%">
+          <Token
+            tokenImageUri={token.logoURI}
+            networkId={token.protocols[0]?.networkId}
+            showNetworkIcon
+            size="md"
+          />
+          <SizableText size="$bodyLgMedium" flex={1} numberOfLines={1}>
+            {token.symbol}
+          </SizableText>
+          {token.badge?.text ? (
+            <Badge badgeType="success" badgeSize="sm">
+              <Badge.Text>{token.badge.text}</Badge.Text>
+            </Badge>
+          ) : null}
+        </XStack>
         <YStack alignItems="flex-start" width="100%">
-          <XStack gap="$2" ai="center" width="100%">
-            <YStack>
-              <Image
-                size="$6"
-                source={{ uri: token.logoURI }}
-                fallback={
-                  <Image.Fallback
-                    w="$6"
-                    h="$6"
-                    alignItems="center"
-                    justifyContent="center"
-                    bg="$bgStrong"
-                  >
-                    <Icon size="$6" name="CoinOutline" color="$iconDisabled" />
-                  </Image.Fallback>
-                }
+          <SizableText size="$headingXl">
+            <AprText
+              asset={{
+                aprWithoutFee: token?.aprWithoutFee ?? '',
+                aprInfo: token?.aprInfo,
+              }}
+            />
+          </SizableText>
+          {!noWalletConnected ? (
+            <XStack gap="$1" ai="center" pt="$3">
+              <Icon
+                name="WalletOutline"
+                size="$3.5"
+                color="$iconSubdued"
               />
-            </YStack>
-            <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-          </XStack>
-          <YStack alignItems="flex-start" width="100%">
-            <SizableText size="$headingXl" pt="$3.5">
-              <AprText
-                asset={{
-                  aprWithoutFee: token?.aprWithoutFee ?? '',
-                  aprInfo: token?.aprInfo,
-                }}
-              />
-            </SizableText>
-            {!noWalletConnected ? (
               <SizableText
-                pt="$1"
-                size="$bodyMd"
-                color={token.available.color ?? '$textSubdued'}
+                size="$bodySmMedium"
+                color="$textSubdued"
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
                 {token?.available?.text}
               </SizableText>
-            ) : null}
-          </YStack>
+            </XStack>
+          ) : null}
         </YStack>
       </YStack>
     );
@@ -173,6 +216,238 @@ const RecommendedItem = memo(
 
 RecommendedItem.displayName = 'RecommendedItem';
 
+// --- Web horizontal scroll with arrow navigation ---
+
+function useScrollElement(scrollViewRef: React.RefObject<any>) {
+  return useCallback((): HTMLElement | null => {
+    const node = scrollViewRef.current;
+    if (!node) return null;
+    if (typeof node.getScrollableNode === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      return node.getScrollableNode() as HTMLElement;
+    }
+    if (node instanceof HTMLElement) {
+      return node;
+    }
+    return null;
+  }, [scrollViewRef]);
+}
+
+function WebRecommendedScroller({
+  children,
+  itemCount,
+}: {
+  children: ReactNode;
+  itemCount: number;
+}) {
+  const scrollViewRef = useRef<any>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const getScrollElement = useScrollElement(scrollViewRef);
+
+  const updateArrows = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setShowLeftArrow(scrollLeft > 1);
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 1);
+  }, [getScrollElement]);
+
+  useEffect(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    const onScroll = () => updateArrows();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const observer = new ResizeObserver(() => updateArrows());
+    observer.observe(el);
+    updateArrows();
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getScrollElement, updateArrows, itemCount]);
+
+  const handleScrollLeft = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: -(CARD_WIDTH + CARD_GAP),
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  const handleScrollRight = useCallback(() => {
+    const el = getScrollElement();
+    if (!el) return;
+    el.scrollBy({
+      left: CARD_WIDTH + CARD_GAP,
+      behavior: 'smooth',
+    });
+  }, [getScrollElement]);
+
+  return (
+    <YStack position="relative">
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          px: '$pagePadding',
+          gap: CARD_GAP,
+          flexGrow: 1,
+        }}
+      >
+        {children}
+      </ScrollView>
+      {/* Web-only: left arrow with gradient background */}
+      <Stack
+        position="absolute"
+        left={0}
+        top={0}
+        bottom={0}
+        zIndex={1}
+        justifyContent="center"
+        pl="$1"
+        pr="$4"
+        opacity={showLeftArrow ? 1 : 0}
+        pointerEvents={showLeftArrow ? 'auto' : 'none'}
+        animation="quick"
+        animateOnly={['opacity']}
+        style={{
+          background:
+            'linear-gradient(90deg, var(--bgApp) 40%, transparent 100%)',
+        }}
+      >
+        <IconButton
+          size="small"
+          icon="ChevronLeftOutline"
+          bg="$gray3"
+          hoverStyle={{ bg: '$gray4' }}
+          pressStyle={{ bg: '$gray5' }}
+          onPress={handleScrollLeft}
+        />
+      </Stack>
+      {/* Web-only: right arrow with gradient background */}
+      <Stack
+        position="absolute"
+        right={0}
+        top={0}
+        bottom={0}
+        zIndex={1}
+        justifyContent="center"
+        pr="$1"
+        pl="$4"
+        opacity={showRightArrow ? 1 : 0}
+        pointerEvents={showRightArrow ? 'auto' : 'none'}
+        animation="quick"
+        animateOnly={['opacity']}
+        style={{
+          background:
+            'linear-gradient(270deg, var(--bgApp) 40%, transparent 100%)',
+        }}
+      >
+        <IconButton
+          size="small"
+          icon="ChevronRightOutline"
+          onPress={handleScrollRight}
+          bg="$gray3"
+          hoverStyle={{ bg: '$gray4' }}
+          pressStyle={{ bg: '$gray5' }}
+        />
+      </Stack>
+    </YStack>
+  );
+}
+
+// --- Native horizontal scroll with gesture-based drag ---
+
+function NativeRecommendedScroller({
+  children,
+  itemCount,
+}: {
+  children: ReactNode;
+  itemCount: number;
+}) {
+  const translateX = useSharedValue(0);
+  const startTranslateX = useSharedValue(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const actualMaxTranslateX = useMemo(() => {
+    const totalWidth =
+      CARD_PADDING_H * 2 +
+      CARD_WIDTH * itemCount +
+      Math.max(0, itemCount - 1) * CARD_GAP;
+    const width = containerWidth || 375;
+    return Math.max(0, totalWidth - width);
+  }, [itemCount, containerWidth]);
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-10, 10])
+        .failOffsetY([-10, 10])
+        .onStart(() => {
+          'worklet';
+
+          startTranslateX.value = translateX.value;
+        })
+        .onUpdate((e) => {
+          'worklet';
+
+          translateX.value = clamp(
+            startTranslateX.value + e.translationX,
+            -actualMaxTranslateX,
+            0,
+          );
+        })
+        .onEnd((e) => {
+          'worklet';
+
+          translateX.value = withDecay({
+            velocity: e.velocityX,
+            clamp: [-actualMaxTranslateX, 0],
+          });
+        }),
+    [translateX, startTranslateX, actualMaxTranslateX],
+  );
+
+  useEffect(() => {
+    translateX.value = Math.min(
+      0,
+      Math.max(translateX.value, -actualMaxTranslateX),
+    );
+  }, [actualMaxTranslateX, translateX]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  return (
+    <HeaderScrollGestureWrapper>
+      <YStack
+        overflow="hidden"
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      >
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              {
+                flexDirection: 'row',
+                paddingHorizontal: CARD_PADDING_H,
+                gap: CARD_GAP,
+              },
+              animatedStyle,
+            ]}
+          >
+            {children}
+          </Animated.View>
+        </GestureDetector>
+      </YStack>
+    </HeaderScrollGestureWrapper>
+  );
+}
+
 function RecommendedContainer({
   withHeader,
   children,
@@ -180,12 +455,17 @@ function RecommendedContainer({
   const intl = useIntl();
 
   if (!withHeader) {
-    return children;
+    // When used without header (e.g. Home page), offset parent padding
+    // so the scroller can handle its own edge-to-edge padding.
+    return (
+      <YStack mx="$-pagePadding">
+        {children}
+      </YStack>
+    );
   }
   return (
     <YStack
       gap="$3"
-      px="$pagePadding"
       $md={
         platformEnv.isNative
           ? {
@@ -199,6 +479,7 @@ function RecommendedContainer({
         gap="$1"
         pointerEvents="box-none"
         zIndex={10}
+        px="$pagePadding"
         $md={
           platformEnv.isNative
             ? {
@@ -231,7 +512,6 @@ export function Recommended(
     enableFetch = true,
   } = props ?? {};
 
-  const { md } = useMedia();
   const allNetworkId = getNetworkIdsMap().onekeyall;
   const {
     activeAccount: { account, indexedAccount },
@@ -279,102 +559,88 @@ export function Recommended(
     },
   );
 
+  // TODO: Remove after preview — prepend fake cards for visual testing
+  const displayTokens = useMemo(
+    () => [...DEV_PREVIEW_TOKENS, ...recommendedTokens],
+    [recommendedTokens],
+  );
+
   // Render skeleton when loading and no data
-  const shouldShowSkeleton = recommendedTokens.length === 0;
+  const shouldShowSkeleton = displayTokens.length === 0;
   if (shouldShowSkeleton) {
     return (
       <RecommendedContainer withHeader={withHeader}>
-        {/* Desktop/Extension with larger screen: 4 items per row */}
         {platformEnv.isNative ? (
-          // Mobile: horizontal scrolling skeleton
-          <ScrollGuard>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingHorizontal: 20,
-              }}
-            >
-              <XStack gap="$3">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <YStack key={index} width="$40">
-                    <RecommendedSkeletonItem />
-                  </YStack>
-                ))}
-              </XStack>
-            </ScrollView>
-          </ScrollGuard>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: CARD_PADDING_H,
+            }}
+          >
+            <XStack gap="$3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <YStack key={index} width={CARD_WIDTH}>
+                  <RecommendedSkeletonItem />
+                </YStack>
+              ))}
+            </XStack>
+          </ScrollView>
         ) : (
-          // Desktop/Extension: grid layout
-          <XStack m="$-5" p="$3.5" flexWrap="wrap">
+          <WebRecommendedScroller itemCount={4}>
             {Array.from({ length: 4 }).map((_, index) => (
-              <YStack
-                key={index}
-                p="$1.5"
-                flexBasis={
-                  md
-                    ? '50%' // Extension small screen: 2 per row
-                    : '25%' // Desktop: 4 per row
-                }
-              >
+              <YStack key={index} minWidth={CARD_WIDTH} flex={1}>
                 <RecommendedSkeletonItem />
               </YStack>
             ))}
-          </XStack>
+          </WebRecommendedScroller>
         )}
       </RecommendedContainer>
     );
   }
 
   // Render actual tokens
-  if (recommendedTokens.length) {
+  if (displayTokens.length) {
+    if (platformEnv.isNative) {
+      const cardItems = displayTokens.map((token) => (
+        <YStack key={token.symbol} minWidth={CARD_WIDTH} flexShrink={0}>
+          <RecommendedItem
+            token={token}
+            noWalletConnected={noWalletConnected}
+            {...recommendedItemContainerProps}
+          />
+        </YStack>
+      ));
+      return (
+        <RecommendedContainer withHeader={withHeader}>
+          <NativeRecommendedScroller itemCount={displayTokens.length}>
+            {cardItems}
+          </NativeRecommendedScroller>
+        </RecommendedContainer>
+      );
+    }
+
+    // Web: responsive flex layout — cards fill parent evenly, min-width 240px,
+    // horizontal scroll only when parent can't fit all cards at min-width.
+    const cardItems = displayTokens.map((token) => (
+      <YStack
+        key={token.symbol}
+        minWidth={CARD_WIDTH}
+        flex={1}
+      >
+        <RecommendedItem
+          token={token}
+          noWalletConnected={noWalletConnected}
+          {...recommendedItemContainerProps}
+        />
+      </YStack>
+    ));
+
     return (
       <RecommendedContainer withHeader={withHeader}>
-        {platformEnv.isNative ? (
-          // Mobile: horizontal scrolling
-          <ScrollGuard>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingHorizontal: 20,
-              }}
-            >
-              <XStack gap="$3">
-                {recommendedTokens.map((token) => (
-                  <YStack key={token.symbol} minWidth="$52">
-                    <RecommendedItem
-                      token={token}
-                      noWalletConnected={noWalletConnected}
-                      {...recommendedItemContainerProps}
-                    />
-                  </YStack>
-                ))}
-              </XStack>
-            </ScrollView>
-          </ScrollGuard>
-        ) : (
-          // Desktop/Extension: grid layout
-          <XStack m="$-5" p="$3.5" flexWrap="wrap">
-            {recommendedTokens.map((token) => (
-              <YStack
-                key={token.symbol}
-                p="$1.5"
-                flexBasis={
-                  md
-                    ? '50%' // Extension small screen: 2 per row
-                    : '25%' // Desktop: 4 per row
-                }
-              >
-                <RecommendedItem
-                  token={token}
-                  noWalletConnected={noWalletConnected}
-                  {...recommendedItemContainerProps}
-                />
-              </YStack>
-            ))}
-          </XStack>
-        )}
+        <WebRecommendedScroller itemCount={displayTokens.length}>
+          {cardItems}
+        </WebRecommendedScroller>
       </RecommendedContainer>
     );
   }
