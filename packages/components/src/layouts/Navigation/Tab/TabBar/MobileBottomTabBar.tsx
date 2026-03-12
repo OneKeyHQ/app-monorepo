@@ -75,7 +75,7 @@ export default function MobileBottomTabBar({
         });
       }
 
-      if (route.name === ETabRoutes.Perp) {
+      if (route.name === ETabRoutes.Perp && !isActive) {
         setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
 

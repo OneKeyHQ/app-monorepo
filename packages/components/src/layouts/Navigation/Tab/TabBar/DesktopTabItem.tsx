@@ -162,7 +162,7 @@ export function DesktopTabItem(
       } else {
         onPress?.(e);
       }
-      if (trackId === 'global-perp') {
+      if (trackId === 'global-perp' && !selected) {
         setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
       if (trackId) {
