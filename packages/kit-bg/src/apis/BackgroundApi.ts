@@ -502,6 +502,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get servicePendingInstallTask() {
+    const ServicePendingInstallTask =
+      require('../services/servicePendingInstallTask') as typeof import('../services/servicePendingInstallTask');
+    const value = new ServicePendingInstallTask.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePendingInstallTask', { value });
+    return value;
+  }
+
   get serviceSpotlight() {
     const ServiceSpotlight =
       require('../services/ServiceSpotlight') as typeof import('../services/ServiceSpotlight');

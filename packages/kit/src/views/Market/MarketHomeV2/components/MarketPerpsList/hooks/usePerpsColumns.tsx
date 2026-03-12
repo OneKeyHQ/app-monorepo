@@ -52,7 +52,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         {
           title: intl.formatMessage({ id: ETranslations.global_name }),
           dataIndex: 'name',
-          columnWidth: 200,
+          columnWidth: gtLg ? 340 : 260,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <XStack alignItems="center" gap="$3" minWidth={0} overflow="hidden">
               <Token

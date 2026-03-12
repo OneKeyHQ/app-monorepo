@@ -75,6 +75,10 @@ export interface IWebViewProps
    * @default true
    */
   useInjectedNativeCode?: boolean;
+  /** @platform native
+   * @description Whitelisted origins that may request camera or microphone access.
+   */
+  mediaPermissionWhitelist?: string[];
 }
 
 const WebView: FC<IWebViewProps> = ({

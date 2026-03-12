@@ -1230,10 +1230,12 @@ class ServiceKeylessWallet extends ServiceBase {
   async buildKeylessOwnerIdFromSocialToken(params: {
     token: string;
     hashId: string; // return from server
+    providerOverride?: EOAuthSocialLoginProvider;
   }): Promise<string> {
-    const { token, hashId } = params;
+    const { token, hashId, providerOverride } = params;
     const socialUserId = this.buildKeylessSocialUserIdFromToken({ token });
-    const provider = this.buildKeylessProviderFromSocialToken({ token });
+    const provider =
+      providerOverride ?? this.buildKeylessProviderFromSocialToken({ token });
     const devSettings = await devSettingsPersistAtom.get();
     const isTestEndpointEnabled = Boolean(
       devSettings.enabled && devSettings.settings?.enableTestEndpoint,
@@ -1254,6 +1256,14 @@ class ServiceKeylessWallet extends ServiceBase {
       bufferUtils.toBuffer(raw, 'utf-8'),
     );
     return bufferUtils.bytesToHex(hashBytes);
+  }
+
+  private getAlternativeKeylessProvider(
+    provider: EOAuthSocialLoginProvider,
+  ): EOAuthSocialLoginProvider {
+    return provider === EOAuthSocialLoginProvider.Google
+      ? EOAuthSocialLoginProvider.Apple
+      : EOAuthSocialLoginProvider.Google;
   }
 
   buildKeylessProviderFromSocialToken(params: {
@@ -1550,17 +1560,38 @@ class ServiceKeylessWallet extends ServiceBase {
       token,
     });
     defaultLogger.wallet.keyless.verifyKeylessBackendShareRetrieved();
-    const socialProvider: EOAuthSocialLoginProvider =
+    let socialProvider: EOAuthSocialLoginProvider =
       this.buildKeylessProviderFromSocialToken({
         token,
       });
+    let ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+      token,
+      hashId,
+      providerOverride: socialProvider,
+    });
     const socialUserId: string = this.buildKeylessSocialUserIdFromToken({
       token,
     });
-    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
-      token,
-      hashId,
-    });
+    if (
+      dangerousRetryByFixedProvider &&
+      !this.fixedKeylessProviderMap[socialUserId]
+    ) {
+      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+      const providerOnCreate = decodedToken?.app_metadata
+        ?.provider as EOAuthSocialLoginProvider;
+      if (providerOnCreate) {
+        const alternativeProvider =
+          this.getAlternativeKeylessProvider(providerOnCreate);
+        if (alternativeProvider !== socialProvider) {
+          socialProvider = alternativeProvider;
+          ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+            token,
+            hashId,
+            providerOverride: socialProvider,
+          });
+        }
+      }
+    }
     defaultLogger.wallet.keyless.verifyKeylessOwnerIdGenerated();
 
     if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {
@@ -1585,6 +1616,12 @@ class ServiceKeylessWallet extends ServiceBase {
         token,
         pin,
       });
+      if (
+        dangerousRetryByFixedProvider &&
+        !this.fixedKeylessProviderMap[socialUserId]
+      ) {
+        this.fixedKeylessProviderMap[socialUserId] = socialProvider;
+      }
     } catch (error) {
       const isPinErrorByInstance = error instanceof IncorrectPinError;
       const isPinErrorByClassName = errorUtils.isErrorByClassName({
@@ -1598,9 +1635,7 @@ class ServiceKeylessWallet extends ServiceBase {
         !this.fixedKeylessProviderMap[socialUserId]
       ) {
         this.fixedKeylessProviderMap[socialUserId] =
-          socialProvider === EOAuthSocialLoginProvider.Google
-            ? EOAuthSocialLoginProvider.Apple
-            : EOAuthSocialLoginProvider.Google;
+          this.getAlternativeKeylessProvider(socialProvider);
         void this.backgroundApi.serviceApp.showDialogLoading({
           title:
             'Provider fixed done, please try again, do not refresh the page or exit the app.',
@@ -1711,19 +1746,38 @@ class ServiceKeylessWallet extends ServiceBase {
     this.fixedKeylessProviderMap = {};
 
     // 1. Get ownerId from token
-    const ownerId = await this.buildKeylessOwnerIdFromSocialToken({
+    const socialProvider = this.buildKeylessProviderFromSocialToken({ token });
+    const targetOwnerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
+      providerOverride: socialProvider,
     });
     defaultLogger.wallet.keyless.resetKeylessOwnerIdGenerated();
 
     // 3. Get mnemonicPassword from secure storage
-    const mnemonicPassword =
+    let mnemonicPasswordSourceOwnerId = targetOwnerId;
+    let mnemonicPassword =
       await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
-        ownerId,
+        ownerId: mnemonicPasswordSourceOwnerId,
         password,
         backgroundApi: this.backgroundApi,
       });
+    if (!mnemonicPassword) {
+      const fallbackProvider =
+        this.getAlternativeKeylessProvider(socialProvider);
+      mnemonicPasswordSourceOwnerId =
+        await this.buildKeylessOwnerIdFromSocialToken({
+          token,
+          hashId,
+          providerOverride: fallbackProvider,
+        });
+      mnemonicPassword =
+        await keylessMnemonicPasswordStorage.getMnemonicPasswordFromStorage({
+          ownerId: mnemonicPasswordSourceOwnerId,
+          password,
+          backgroundApi: this.backgroundApi,
+        });
+    }
     if (!mnemonicPassword) {
       defaultLogger.wallet.keyless.dataCorruptedError({
         reason:
@@ -1787,7 +1841,7 @@ class ServiceKeylessWallet extends ServiceBase {
       juiceboxShare,
       pin: newPin,
       backendShareX,
-      ownerId,
+      ownerId: targetOwnerId,
     });
     defaultLogger.wallet.keyless.resetKeylessJuiceboxShareUploaded({
       backendShareX,
@@ -1796,13 +1850,42 @@ class ServiceKeylessWallet extends ServiceBase {
     // Save tokens to secure storage (refreshToken with passcode, token without)
     if (refreshToken) {
       await keylessRefreshTokenStorage.saveTokensToStorage({
-        ownerId,
+        ownerId: targetOwnerId,
         refreshToken,
         token,
         password,
         backgroundApi: this.backgroundApi,
       });
       defaultLogger.wallet.keyless.resetKeylessTokensStored();
+    }
+
+    if (mnemonicPasswordSourceOwnerId !== targetOwnerId) {
+      await keylessMnemonicPasswordStorage.saveMnemonicPasswordToStorage({
+        ownerId: targetOwnerId,
+        mnemonicPassword,
+        password,
+        backgroundApi: this.backgroundApi,
+      });
+    }
+
+    const socialUserIdHash = await accountUtils.hashKeylessSocialUserId({
+      socialUserId: this.buildKeylessSocialUserIdFromToken({ token }),
+    });
+    const shouldUpdateKeylessDetailsInfo =
+      keylessWallet.keylessDetailsInfo?.keylessOwnerId !== targetOwnerId ||
+      keylessWallet.keylessDetailsInfo?.keylessProvider !== socialProvider ||
+      keylessWallet.keylessDetailsInfo?.socialUserIdHash !== socialUserIdHash;
+    if (shouldUpdateKeylessDetailsInfo) {
+      const nextKeylessDetailsInfo: IKeylessWalletDetailsInfo = {
+        ...keylessWallet.keylessDetailsInfo,
+        keylessOwnerId: targetOwnerId,
+        keylessProvider: socialProvider,
+        socialUserIdHash,
+      };
+      await localDb.updateKeylessWalletDetailsInfo({
+        walletId: keylessWallet.id,
+        keylessDetailsInfo: nextKeylessDetailsInfo,
+      });
     }
 
     void this.apiResetPinConfirmStatus({ token });
