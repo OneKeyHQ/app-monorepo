@@ -710,7 +710,7 @@ describe('servicePendingInstallTask', () => {
 
     // Run 3 times: each run increments fullFlowRetryCount (1, 2, 3).
     // MAX_FULL_FLOW_RETRY = 2, so the third run (count=3) should freeze.
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 3; i += 1) {
       pendingTaskValue = makeSwitchTask();
       await service.processPendingInstallTask();
       expect(pendingTaskValue).toBeUndefined();

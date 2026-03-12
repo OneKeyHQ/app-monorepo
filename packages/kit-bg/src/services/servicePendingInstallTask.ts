@@ -337,11 +337,7 @@ class ServicePendingInstallTask {
     ) {
       return false;
     }
-    if (
-      !Object.values(EPendingInstallTaskStatus).includes(
-        t.status as EPendingInstallTaskStatus,
-      )
-    ) {
+    if (!Object.values(EPendingInstallTaskStatus).includes(t.status)) {
       return false;
     }
     if (!t.payload || typeof t.payload !== 'object') {
