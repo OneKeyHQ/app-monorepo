@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  ListEndIndicator,
   SizableText,
   Stack,
   Tabs,
@@ -55,15 +56,6 @@ function MobileMarketPerpsFlatListImpl({
 
   const keyExtractor = useCallback((item: IMarketPerpsToken) => item.name, []);
 
-  const getItemLayout = useCallback(
-    (_: ArrayLike<IMarketPerpsToken> | null | undefined, index: number) => ({
-      length: 73,
-      offset: 73 * index,
-      index,
-    }),
-    [],
-  );
-
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;
 
   const ListEmptyComponent = useMemo(() => {
@@ -79,6 +71,13 @@ function MobileMarketPerpsFlatListImpl({
     );
   }, [showSkeleton, intl]);
 
+  const ListFooterComponent = useMemo(() => {
+    if (!isLoading && tokens.length > 0) {
+      return <ListEndIndicator />;
+    }
+    return null;
+  }, [isLoading, tokens.length]);
+
   const tabBarHeight = useScrollContentTabBarOffset();
 
   return (
@@ -87,12 +86,12 @@ function MobileMarketPerpsFlatListImpl({
       data={showSkeleton ? EMPTY_DATA : tokens}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
-      getItemLayout={getItemLayout}
       initialNumToRender={15}
       maxToRenderPerBatch={20}
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
       ListEmptyComponent={ListEmptyComponent}
+      ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{
         paddingTop: 8 + (platformEnv.isNative ? 248 : 0),
         paddingBottom: platformEnv.isNativeAndroid
