@@ -18,9 +18,7 @@ import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
@@ -97,10 +95,6 @@ function WebWalletOptions({
   const intl = useIntl();
 
   const handleOpenDesktop = useCallback(() => {
-    defaultLogger.referral.page.acceptReferralInvitation({
-      referralCode,
-      acceptMethod: 'web_no_extension',
-    });
     const deepLinkUrl = uriUtils.buildDeepLinkUrl({
       path: EOneKeyDeepLinkPath.invited_by_friend,
       query: { code: referralCode, page },
@@ -109,12 +103,8 @@ function WebWalletOptions({
   }, [referralCode, page]);
 
   const handleGetExtension = useCallback(() => {
-    defaultLogger.referral.page.acceptReferralInvitation({
-      referralCode,
-      acceptMethod: 'web_no_extension',
-    });
     globalThis.open(EXT_RATE_URL.chrome, '_blank');
-  }, [referralCode]);
+  }, []);
 
   return (
     <YStack bg="$bgApp">
@@ -192,7 +182,7 @@ function InvitedByFriendActions({
 
       const address = accounts?.[0];
       if (!address) {
-        throw new OneKeyError('No account returned from extension');
+        throw new Error('No account returned from extension');
       }
 
       const networkId = getNetworkIdsMap().eth;
@@ -245,10 +235,6 @@ function InvitedByFriendActions({
 
   const handleJoin = useCallback(() => {
     if (activeAccount?.wallet) {
-      defaultLogger.referral.page.acceptReferralInvitation({
-        referralCode,
-        acceptMethod: 'local_app',
-      });
       bindWalletInviteCode({
         wallet: activeAccount.wallet,
         defaultReferralCode: referralCode,
@@ -262,10 +248,6 @@ function InvitedByFriendActions({
     if (platformEnv.isWeb) {
       // Extension installed → bind directly
       if (getOneKeyExtensionProvider()) {
-        defaultLogger.referral.page.acceptReferralInvitation({
-          referralCode,
-          acceptMethod: 'web_extension',
-        });
         void bindViaExtension();
         return;
       }
@@ -274,10 +256,6 @@ function InvitedByFriendActions({
       return;
     }
 
-    defaultLogger.referral.page.acceptReferralInvitation({
-      referralCode,
-      acceptMethod: 'local_app',
-    });
     bindWalletInviteCode({
       defaultReferralCode: referralCode,
       onSuccess: () => {
