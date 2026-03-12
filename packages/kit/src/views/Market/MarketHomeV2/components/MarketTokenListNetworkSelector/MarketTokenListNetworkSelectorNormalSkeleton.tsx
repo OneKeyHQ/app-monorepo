@@ -10,18 +10,27 @@ function MarketTokenListNetworkSelectorNormalSkeleton({
   count = 8,
 }: IMarketTokenListNetworkSelectorNormalSkeletonProps) {
   return (
-    <XStack py="$1" gap="$2" borderWidth={1} borderColor="$transparent">
+    <XStack
+      p="$1"
+      gap="$1"
+      mt="$3"
+      mb="$2"
+      borderWidth={1}
+      borderColor="$neutral4"
+      borderRadius="$3"
+      overflow="hidden"
+    >
       {Array.from({ length: count }).map((_, index) => (
         <XStack
           key={index}
           alignItems="center"
           justifyContent="center"
           px="$2.5"
-          py="$1"
+          py="$1.5"
           gap="$2"
         >
           {/* Network image skeleton */}
-          <Skeleton height="$5" width="$5" borderRadius="$full" />
+          <Skeleton height="$4.5" width="$4.5" borderRadius="$full" />
           {/* Network name skeleton */}
           <Skeleton height="$3" width="$14" />
         </XStack>

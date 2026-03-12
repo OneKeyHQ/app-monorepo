@@ -74,6 +74,21 @@ function safeParseURL(url: string): URL | null {
   }
 }
 
+export function appendUtmSourceToUrl({
+  url,
+  utmSource,
+}: {
+  url: string;
+  utmSource: string;
+}) {
+  const parsedUrl = safeParseURL(url);
+  if (!parsedUrl) {
+    return url;
+  }
+  parsedUrl.searchParams.set('utm_source', utmSource);
+  return parsedUrl.toString();
+}
+
 function isProtocolSupportedOpenInApp(dappUrl: string) {
   return PROTOCOLS_SUPPORTED_TO_OPEN.some((protocol) =>
     dappUrl.toLowerCase().startsWith(protocol.toLowerCase()),
@@ -368,6 +383,7 @@ export default {
   safeGetWalletConnectOrigin,
   parseUrl,
   safeParseURL,
+  appendUtmSourceToUrl,
   isUrlWithoutProtocol,
   ensureHttpsPrefix,
 };
