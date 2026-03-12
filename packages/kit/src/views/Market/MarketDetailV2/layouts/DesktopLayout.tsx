@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
 import {
+  TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -38,6 +39,7 @@ interface IIframeWheelEventMessage {
 const ALLOWED_TRADING_VIEW_ORIGINS = new Set([
   new URL(TRADING_VIEW_URL).origin,
   new URL(TRADING_VIEW_URL_TEST).origin,
+  ...(platformEnv.isDev ? [TRADING_VIEW_LOCALHOST_ORIGIN] : []),
 ]);
 
 // Listen for wheel events forwarded from TradingView iframe via postMessage.

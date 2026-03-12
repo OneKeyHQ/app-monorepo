@@ -1,4 +1,5 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
@@ -39,6 +40,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://1key.so',
   'https://onekey.so',
   'https://onekeytest.com',
+  ...(platformEnv.isDev ? [TRADING_VIEW_LOCALHOST_ORIGIN] : []),
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
 ].filter(Boolean);
 
@@ -66,7 +68,6 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_analytics_line',
   'tradingview_analytics_studyCreated',
   'tradingview_analytics_studyRemoved',
-  'tradingview_touchScroll',
   // Perps chart lines methods
   'tradingview_perpsReady',
   'tradingview_perpsOrderCancel',
