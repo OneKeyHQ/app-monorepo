@@ -56,6 +56,10 @@ const SECOND_LEVEL_MENU_DELAY_MS = 650;
 const DRAG_MOVE_THRESHOLD_PX = 10;
 const AUTOSCROLL_THRESHOLD_PX = 80;
 const AUTOSCROLL_SPEED_PX = 180;
+const MANUAL_AUTOSCROLL_EDGE_PX = 72;
+const MANUAL_AUTOSCROLL_MAX_STEP_PX = 20;
+const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
+const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
 
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
@@ -99,9 +103,30 @@ function MobileMarketWatchlistFlatListImpl({
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data);
 
   const filteredData = filteredGroups[selectedFilter];
+  const DraggableFlatListComponent =
+    (Tabs as any).DraggableFlatList ?? DraggableFlatList;
   const [previewDraggingItemId, setPreviewDraggingItemId] = useState<
     string | null
   >(null);
+  const listRef = useRef<{
+    scrollToOffset: (params: { offset: number; animated?: boolean }) => void;
+  } | null>(null);
+  const scrollOffsetRef = useRef(0);
+  const contentHeightRef = useRef(0);
+  const viewportRef = useRef({
+    top: 0,
+    bottom: 0,
+    height: 0,
+  });
+  const autoScrollRef = useRef<{
+    timer: ReturnType<typeof setInterval> | null;
+    direction: -1 | 0 | 1;
+    step: number;
+  }>({
+    timer: null,
+    direction: 0,
+    step: 0,
+  });
 
   const portalRef = useRef<IPortalManager | null>(null);
   const gestureRef = useRef<{
@@ -143,6 +168,58 @@ function MobileMarketWatchlistFlatListImpl({
       gestureRef.current.menuObserveTimer = null;
     }
   }, []);
+
+  const stopManualAutoScroll = useCallback(() => {
+    if (autoScrollRef.current.timer) {
+      clearInterval(autoScrollRef.current.timer);
+      autoScrollRef.current.timer = null;
+    }
+    autoScrollRef.current.direction = 0;
+    autoScrollRef.current.step = 0;
+  }, []);
+
+  const startManualAutoScroll = useCallback(
+    (direction: -1 | 1, step: number) => {
+      const nextStep = Math.max(
+        1,
+        Math.min(MANUAL_AUTOSCROLL_MAX_STEP_PX, step),
+      );
+      if (autoScrollRef.current.direction === direction) {
+        autoScrollRef.current.step = nextStep;
+        return;
+      }
+
+      stopManualAutoScroll();
+      autoScrollRef.current.direction = direction;
+      autoScrollRef.current.step = nextStep;
+      autoScrollRef.current.timer = setInterval(() => {
+        const viewportHeight = viewportRef.current.height;
+        if (!viewportHeight) return;
+        const maxOffset = Math.max(
+          0,
+          contentHeightRef.current - viewportHeight,
+        );
+        if (maxOffset <= 0) return;
+
+        const nextOffset = Math.max(
+          0,
+          Math.min(
+            maxOffset,
+            scrollOffsetRef.current +
+              autoScrollRef.current.direction * autoScrollRef.current.step,
+          ),
+        );
+        if (nextOffset === scrollOffsetRef.current) return;
+
+        scrollOffsetRef.current = nextOffset;
+        listRef.current?.scrollToOffset({
+          offset: nextOffset,
+          animated: false,
+        });
+      }, 16);
+    },
+    [stopManualAutoScroll],
+  );
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -229,19 +306,20 @@ function MobileMarketWatchlistFlatListImpl({
     () => () => {
       clearDragTimer();
       clearMenuTimer();
+      stopManualAutoScroll();
       if (portalRef.current) {
         portalRef.current.destroy();
         portalRef.current = null;
       }
     },
-    [clearDragTimer, clearMenuTimer],
+    [clearDragTimer, clearMenuTimer, stopManualAutoScroll],
   );
 
   const scheduleSecondLevelMenu = useCallback(
     ({
       item,
       index,
-      pageX,
+      pageX: _pageX,
       pageY,
     }: {
       item: IMarketToken;
@@ -267,7 +345,11 @@ function MobileMarketWatchlistFlatListImpl({
         globalRef.reset();
         setPreviewDraggingItemId(null);
         Haptics.impact(ImpactFeedbackStyle.Medium);
-        handleShowContextMenu(item, index, { x: pageX, y: pageY });
+        const { width } = Dimensions.get('window');
+        handleShowContextMenu(item, index, {
+          x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
+          y: pageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
+        });
       }, SECOND_LEVEL_MENU_DELAY_MS);
     },
     [clearMenuTimer, handleShowContextMenu],
@@ -285,6 +367,7 @@ function MobileMarketWatchlistFlatListImpl({
     }) => {
       clearDragTimer();
       clearMenuTimer();
+      stopManualAutoScroll();
       gestureRef.current.activeItemId = '';
       gestureRef.current.firstLevelTriggered = false;
       gestureRef.current.movedBeyondThreshold = false;
@@ -302,7 +385,13 @@ function MobileMarketWatchlistFlatListImpl({
         next: nextItem ? tokenToWatchListItem(nextItem) : undefined,
       });
     },
-    [actions, clearDragTimer, clearMenuTimer, tokenToWatchListItem],
+    [
+      actions,
+      clearDragTimer,
+      clearMenuTimer,
+      stopManualAutoScroll,
+      tokenToWatchListItem,
+    ],
   );
 
   const renderItem = useCallback(
@@ -360,9 +449,10 @@ function MobileMarketWatchlistFlatListImpl({
               if (!drag) {
                 setPreviewDraggingItemId(null);
                 Haptics.impact(ImpactFeedbackStyle.Medium);
+                const { width } = Dimensions.get('window');
                 handleShowContextMenu(item, resolvedIndex, {
-                  x: pageX,
-                  y: pageY,
+                  x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
+                  y: pageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
                 });
                 return;
               }
@@ -404,14 +494,50 @@ function MobileMarketWatchlistFlatListImpl({
                 gestureRef.current.consumeNextPress = true;
                 clearDragTimer();
                 clearMenuTimer();
+                stopManualAutoScroll();
                 setPreviewDraggingItemId(null);
                 globalRef.reset();
+                return;
               }
+
+              const viewportTop =
+                viewportRef.current.top > 0 ? viewportRef.current.top : 0;
+              const viewportBottom =
+                viewportRef.current.bottom > 0
+                  ? viewportRef.current.bottom
+                  : height;
+              const distToTop = pageY - viewportTop;
+              const distToBottom = viewportBottom - pageY;
+
+              if (distToTop <= MANUAL_AUTOSCROLL_EDGE_PX) {
+                const ratio = Math.max(
+                  0,
+                  Math.min(1, 1 - distToTop / MANUAL_AUTOSCROLL_EDGE_PX),
+                );
+                startManualAutoScroll(
+                  -1,
+                  Math.round(ratio * MANUAL_AUTOSCROLL_MAX_STEP_PX),
+                );
+              } else if (distToBottom <= MANUAL_AUTOSCROLL_EDGE_PX) {
+                const ratio = Math.max(
+                  0,
+                  Math.min(1, 1 - distToBottom / MANUAL_AUTOSCROLL_EDGE_PX),
+                );
+                startManualAutoScroll(
+                  1,
+                  Math.round(ratio * MANUAL_AUTOSCROLL_MAX_STEP_PX),
+                );
+              } else {
+                stopManualAutoScroll();
+              }
+            } else {
+              stopManualAutoScroll();
             }
           }}
           onPressOut={() => {
             clearDragTimer();
             clearMenuTimer();
+            stopManualAutoScroll();
             setPreviewDraggingItemId(null);
             gestureRef.current.activeItemId = '';
             gestureRef.current.firstLevelTriggered = false;
@@ -427,6 +553,8 @@ function MobileMarketWatchlistFlatListImpl({
       navigateToPerps,
       previewDraggingItemId,
       scheduleSecondLevelMenu,
+      startManualAutoScroll,
+      stopManualAutoScroll,
       toMarketDetailPage,
     ],
   );
@@ -466,7 +594,8 @@ function MobileMarketWatchlistFlatListImpl({
   }
 
   return (
-    <DraggableFlatList<IMarketToken>
+    <DraggableFlatListComponent
+      ref={listRef as any}
       showsVerticalScrollIndicator={false}
       data={showSkeleton ? EMPTY_DATA : filteredData}
       onDragEnd={handleDragEnd}
@@ -474,7 +603,30 @@ function MobileMarketWatchlistFlatListImpl({
         gestureRef.current.consumeNextPress = true;
         clearDragTimer();
         clearMenuTimer();
+        stopManualAutoScroll();
         dismissInlineActionBar();
+      }}
+      onScrollOffsetChange={(offset: number) => {
+        scrollOffsetRef.current = offset;
+      }}
+      onContentSizeChange={(_: number, height: number) => {
+        contentHeightRef.current = height;
+      }}
+      onContainerLayout={({ layout, containerRef }: any) => {
+        viewportRef.current.height =
+          layout?.height ?? viewportRef.current.height;
+        const target = containerRef?.current as
+          | {
+              measureInWindow?: (
+                callback: (x: number, y: number, w: number, h: number) => void,
+              ) => void;
+            }
+          | undefined;
+        target?.measureInWindow?.((_x, y, _w, h) => {
+          viewportRef.current.top = y;
+          viewportRef.current.bottom = y + h;
+          viewportRef.current.height = h;
+        });
       }}
       activationDistance={DRAG_MOVE_THRESHOLD_PX}
       autoscrollThreshold={AUTOSCROLL_THRESHOLD_PX}

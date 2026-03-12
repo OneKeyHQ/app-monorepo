@@ -1,7 +1,16 @@
 // eslint-disable-next-line no-restricted-syntax
 import React from 'react';
 
-import {
+import DraggableFlatList from 'react-native-draggable-flatlist';
+
+import type { FlatList as RNFlatList } from 'react-native';
+import type * as ICollapsibleTabHooks from 'react-native-collapsible-tab-view/lib/typescript/src/hooks';
+import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
+
+// Keep runtime hooks from the same source tree as Tabs.Container/Tab (react-native field),
+// while using stable type declarations from lib/typescript.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const {
   useAfterMountEffect,
   useChainCallback,
   useCollapsibleStyle,
@@ -10,11 +19,8 @@ import {
   useTabNameContext,
   useTabsContext,
   useUpdateScrollViewContentSize,
-} from 'react-native-collapsible-tab-view';
-import DraggableFlatList from 'react-native-draggable-flatlist';
-
-import type { FlatList as RNFlatList } from 'react-native';
-import type { DraggableFlatListProps } from 'react-native-draggable-flatlist';
+} =
+  require('react-native-collapsible-tab-view/src/hooks') as typeof ICollapsibleTabHooks;
 
 function TabsDraggableFlatListImpl<T>(
   {
