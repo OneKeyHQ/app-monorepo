@@ -39,18 +39,20 @@ function PerpSettingsPopoverContent({
   const intl = useIntl();
 
   const handleToggleFavorite = useCallback(() => {
-    const action = isFavorite ? 'remove' : 'add';
-    setFavorites((prev) => ({
-      ...prev,
-      favorites: isFavorite
-        ? prev.favorites.filter((f) => f !== activeAsset.coin)
-        : [...prev.favorites, activeAsset.coin],
-    }));
-    void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
-      coin: activeAsset.coin,
-      action,
+    setFavorites((prev) => {
+      const alreadyFavorite = prev.favorites.includes(activeAsset.coin);
+      void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+        coin: activeAsset.coin,
+        action: alreadyFavorite ? 'remove' : 'add',
+      });
+      return {
+        ...prev,
+        favorites: alreadyFavorite
+          ? prev.favorites.filter((f) => f !== activeAsset.coin)
+          : [...prev.favorites, activeAsset.coin],
+      };
     });
-  }, [activeAsset.coin, isFavorite, setFavorites]);
+  }, [activeAsset.coin, setFavorites]);
 
   return (
     <YStack py="$3" px="$2">
