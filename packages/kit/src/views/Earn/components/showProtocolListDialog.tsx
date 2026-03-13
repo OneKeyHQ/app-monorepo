@@ -346,6 +346,7 @@ export function showProtocolListDialog({
                 accountId,
                 indexedAccountId,
                 networkId: protocol.network.networkId,
+                btcOnlyTaproot: true,
               });
 
             await onProtocolSelect({
