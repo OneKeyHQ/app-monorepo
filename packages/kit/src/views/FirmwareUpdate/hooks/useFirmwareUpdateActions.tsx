@@ -5,11 +5,7 @@ import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
-import {
-  Dialog,
-  resetToRoute,
-  rootNavigationRef,
-} from '@onekeyhq/components';
+import { Dialog, resetToRoute, rootNavigationRef } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
