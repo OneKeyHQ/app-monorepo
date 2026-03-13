@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "Abhebungsgebühr",
   "perp.withdraw_fee_mgs": "Diese Gebühr wird von Hyperliquid erhoben. OneKey erhebt keine Gebühren für Auszahlungen.",
   "perp.you_will_get": "Sie erhalten",
+  "perp__deposit_no_second_confirmation__desc": "Die Einzahlung erfolgt sofort ohne weitere Bestätigung.",
   "perp_trading_adjust_margin": "Marge anpassen",
   "perp_trading_adjust_margin_max": "Max. hinzufügen",
   "perp_trading_adjust_margin_min": "Max. entfernen",
