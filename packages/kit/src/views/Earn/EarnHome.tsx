@@ -364,13 +364,7 @@ function BasicEarnHome({
               />
             </YStack>
             {banners ? (
-              <View
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => e.stopPropagation()}
-              >
-                <YStack width="100%">{banners}</YStack>
-              </View>
+              <YStack width="100%">{banners}</YStack>
             ) : null}
           </YStack>
         </YStack>

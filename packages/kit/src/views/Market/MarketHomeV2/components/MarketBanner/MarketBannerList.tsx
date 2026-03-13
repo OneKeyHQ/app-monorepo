@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { memo } from 'react';
 
 import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
+import { ScrollGuardWrapper } from '@onekeyhq/kit/src/components/ScrollGuardWrapper';
 
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
@@ -10,17 +11,20 @@ import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
 function BannerContainerMobile({ children }: { children: ReactNode }) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{
-        py: '$2',
-        px: '$4',
-        gap: '$3',
-      }}
-    >
-      {children}
-    </ScrollView>
+    <ScrollGuardWrapper>
+      <ScrollView
+        horizontal
+        bounces={false}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          py: '$2',
+          px: '$4',
+          gap: '$3',
+        }}
+      >
+        {children}
+      </ScrollView>
+    </ScrollGuardWrapper>
   );
 }
 

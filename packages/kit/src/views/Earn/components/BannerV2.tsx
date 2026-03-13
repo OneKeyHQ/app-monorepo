@@ -8,6 +8,7 @@ import {
   getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
+import { ScrollGuardWrapper } from '@onekeyhq/kit/src/components/ScrollGuardWrapper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
@@ -163,9 +164,11 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   ]);
 
   return (
-    <Stack width="100%" onLayout={handleLayout} overflow="hidden">
-      {content}
-    </Stack>
+    <ScrollGuardWrapper>
+      <Stack width="100%" onLayout={handleLayout} overflow="hidden">
+        {content}
+      </Stack>
+    </ScrollGuardWrapper>
   );
 }
 
