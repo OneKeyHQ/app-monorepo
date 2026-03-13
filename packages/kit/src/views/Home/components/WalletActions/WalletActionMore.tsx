@@ -7,10 +7,12 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorSceneInfo,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
@@ -30,6 +32,7 @@ import { WalletActionVote } from './WalletActionVote';
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
 
   const show = useReviewControl();
@@ -227,7 +230,8 @@ export function WalletActionMore() {
       return (
         <AccountSelectorProviderMirror
           config={{
-            sceneName: EAccountSelectorSceneName.home,
+            sceneName,
+            sceneUrl,
           }}
           enabledNum={[0]}
         >
@@ -250,6 +254,8 @@ export function WalletActionMore() {
       rewardCenterConfig,
       getActionCustomization,
       devSettings?.settings?.showDevExportPrivateKey,
+      sceneName,
+      sceneUrl,
     ],
   );
 
