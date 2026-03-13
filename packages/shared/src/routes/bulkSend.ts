@@ -51,4 +51,9 @@ export type IModalBulkSendParamList = {
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };
+  [EModalBulkSendRoutes.BulkSendProcess]: {
+    networkId: string;
+    accountId: string | undefined;
+    isInModal?: boolean;
+  };
 };

@@ -10,6 +10,7 @@ export enum ETabHomeRoutes {
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
+  TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
   TabHomeApprovalList = 'TabHomeApprovalList',
 }
 
@@ -56,6 +57,11 @@ export type ITabHomeParamList = {
     tokenInfo: IToken;
     tokenDetails: { info: IToken } & ITokenFiat;
     bulkSendMode: EBulkSendMode;
+    isInModal?: boolean;
+  };
+  [ETabHomeRoutes.TabHomeBulkSendProcess]: {
+    networkId: string;
+    accountId: string | undefined;
     isInModal?: boolean;
   };
   [ETabHomeRoutes.TabHomeApprovalList]: {
