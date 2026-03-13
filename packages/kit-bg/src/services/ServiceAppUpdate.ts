@@ -1172,7 +1172,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   async devFetchBundlesForVersion(version: string): Promise<
     {
-      bundleVersion: string;
+      ciBundleVersion: string;
       downloadUrl: string;
       sha256: string;
       signature?: string;
@@ -1188,7 +1188,7 @@ class ServiceAppUpdate extends ServiceBase {
       const response = await client.get<{
         code: number;
         data: {
-          bundleVersion: string;
+          ciBundleVersion: string;
           downloadUrl: string;
           sha256: string;
           signature?: string;
@@ -1206,14 +1206,14 @@ class ServiceAppUpdate extends ServiceBase {
           version,
           resultCount: data.length,
           bundles: data.map((item) => ({
-            bundleVersion: item.bundleVersion,
+            bundleVersion: item.ciBundleVersion,
             downloadUrl: item.downloadUrl,
             sha256: item.sha256,
             fileSize: item.fileSize,
           })),
         });
         return data.map((item) => ({
-          bundleVersion: item.bundleVersion,
+          ciBundleVersion: item.ciBundleVersion,
           downloadUrl: item.downloadUrl,
           sha256: item.sha256,
           signature: item.signature || PLACEHOLDER_SIGNATURE,

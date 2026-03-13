@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-recipes
-description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, and keyboard avoidance for input fields.
+description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, keyboard avoidance for input fields, and iOS overlay navigation freeze prevention (resetAboveMainRoute).
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -17,6 +17,7 @@ Bite-sized solutions for common UI issues.
 | Horizontal Scroll in Collapsible Tab Headers | [collapsible-tab-horizontal-scroll.md](references/rules/collapsible-tab-horizontal-scroll.md) | Bidirectional `Gesture.Pan()` + programmatic `scrollTo` via `CollapsibleTabContext` |
 | Android Bottom Tab Touch Interception | [android-bottom-tab-touch-intercept.md](references/rules/android-bottom-tab-touch-intercept.md) | **Temporary** — `GestureDetector` + `Gesture.Tap()` in `.android.tsx` to bypass native tab bar touch stealing |
 | Keyboard Avoidance for Input Fields | [keyboard-avoidance.md](references/rules/keyboard-avoidance.md) | `KeyboardAwareScrollView` auto-scroll, Footer animated padding, `useKeyboardHeight` / `useKeyboardEvent` hooks |
+| iOS Overlay Navigation Freeze | [ios-overlay-navigation-freeze.md](references/rules/ios-overlay-navigation-freeze.md) | Use `resetAboveMainRoute()` instead of sequential `goBack()` to close overlays before navigating |
 
 ## Critical Rules Summary
 
@@ -83,8 +84,7 @@ Standard `Page` and `Dialog` components handle keyboard avoidance automatically.
 
 - **Page inputs**: Automatic — `PageContainer` wraps with `KeyboardAwareScrollView` (90px `bottomOffset`)
 - **Page Footer**: Automatic — animates `paddingBottom` via `useReanimatedKeyboardAnimation`
-- **Dialog Footer**: Automatic — listens via `useKeyboardEventWithoutNavigation`
-- **Dialog with `showFooter: false`**: ⚠️ **NOT automatic** — Footer keyboard avoidance is skipped. Wrap `renderContent` with a custom `Animated.View` that listens to keyboard events (see `DialogKeyboardAvoidingView` pattern in keyboard-avoidance.md)
+- **Dialog**: Automatic — keyboard avoidance is handled at the Dialog level for all dialogs (including `showFooter: false`)
 - **Custom layout**: Use `Keyboard.AwareScrollView` with custom `bottomOffset`
 
 ```typescript
@@ -113,6 +113,38 @@ useKeyboardEvent({
 ```
 
 > Use `useKeyboardEventWithoutNavigation` for components outside NavigationContainer (Dialog, Modal).
+
+### 6. iOS Overlay Navigation Freeze (`resetAboveMainRoute`)
+
+On iOS with native `UITabBarController`, closing overlay routes (Modal, FullScreenPush) via sequential `goBack()` calls triggers an `RNSScreenStack` window-nil race condition. Popped pages' screen stacks lose their iOS window reference and enter a retry storm (50 retries × ~100ms), freezing navigation for ~5 seconds.
+
+**Symptom**: After closing a modal, the app appears stuck on the home page. A touch on the screen "unsticks" navigation.
+
+**Root cause**: `goBack()` triggers animated modal dismiss. Screen stacks inside detached tab views get `window=NIL` and retry indefinitely until the retry limit (50) is exhausted.
+
+**Fix**: Use `resetAboveMainRoute()` to atomically remove all overlay routes via `CommonActions.reset` instead of sequential `goBack()` calls.
+
+```typescript
+import { resetAboveMainRoute, rootNavigationRef } from '@onekeyhq/components';
+
+// ❌ WRONG: Sequential goBack() causes iOS window-nil freeze
+const closeModalPages = async () => {
+  rootNavigationRef.current?.goBack();
+  await timerUtils.wait(150);
+  await closeModalPages(); // recursive — each call triggers native animation
+};
+await closeModalPages();
+await timerUtils.wait(250);
+rootNavigationRef.current?.navigate(targetRoute);
+
+// ✅ CORRECT: Atomic reset, no orphaned screen stacks
+resetAboveMainRoute();
+await timerUtils.wait(100);
+rootNavigationRef.current?.navigate(targetRoute);
+```
+
+> **Key file**: `packages/components/src/layouts/Navigation/Navigator/NavigationContainer.tsx`
+> **Reference**: commit `2cabd040` (OK-50182) — same fix applied to scan QR code navigation.
 
 ---
 
