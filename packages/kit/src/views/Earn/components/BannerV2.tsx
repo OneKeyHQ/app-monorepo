@@ -112,44 +112,48 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
       if (media.gtSm) {
         return (
-          <Stack>
-            <Carousel
-              data={data}
-              maxPageWidth={440}
-              containerStyle={{
-                height: 130,
-                paddingTop: 30,
-              }}
-              pagerProps={{
-                keyboardDismissMode: 'none',
-              }}
-              renderItem={renderItem}
-              autoPlayInterval={3000}
-              loop={shouldAutoPlay}
-              showPagination
-              defaultIndex={0}
-            />
-          </Stack>
+          <ScrollGuardWrapper>
+            <Stack>
+              <Carousel
+                data={data}
+                maxPageWidth={440}
+                containerStyle={{
+                  height: 130,
+                  paddingTop: 30,
+                }}
+                pagerProps={{
+                  keyboardDismissMode: 'none',
+                }}
+                renderItem={renderItem}
+                autoPlayInterval={3000}
+                loop={shouldAutoPlay}
+                showPagination
+                defaultIndex={0}
+              />
+            </Stack>
+          </ScrollGuardWrapper>
         );
       }
 
       return (
-        <Carousel
-          data={data}
-          maxPageWidth={440}
-          containerStyle={{
-            height: 130,
-            paddingTop: 30,
-          }}
-          pagerProps={{
-            keyboardDismissMode: 'none',
-          }}
-          renderItem={renderItem}
-          autoPlayInterval={3000}
-          loop={shouldAutoPlay}
-          showPagination
-          defaultIndex={0}
-        />
+        <ScrollGuardWrapper>
+          <Carousel
+            data={data}
+            maxPageWidth={440}
+            containerStyle={{
+              height: 130,
+              paddingTop: 30,
+            }}
+            pagerProps={{
+              keyboardDismissMode: 'none',
+            }}
+            renderItem={renderItem}
+            autoPlayInterval={3000}
+            loop={shouldAutoPlay}
+            showPagination
+            defaultIndex={0}
+          />
+        </ScrollGuardWrapper>
       );
     }
 
@@ -164,11 +168,9 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   ]);
 
   return (
-    <ScrollGuardWrapper>
-      <Stack width="100%" onLayout={handleLayout} overflow="hidden">
-        {content}
-      </Stack>
-    </ScrollGuardWrapper>
+    <Stack width="100%" onLayout={handleLayout} overflow="hidden">
+      {content}
+    </Stack>
   );
 }
 

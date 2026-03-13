@@ -16,6 +16,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ScrollGuardWrapper } from '@onekeyhq/kit/src/components/ScrollGuardWrapper';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -286,21 +287,23 @@ export function Recommended(
         {/* Desktop/Extension with larger screen: 4 items per row */}
         {platformEnv.isNative ? (
           // Mobile: horizontal scrolling skeleton
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-            }}
-          >
-            <XStack gap="$3">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <YStack key={index} width="$40">
-                  <RecommendedSkeletonItem />
-                </YStack>
-              ))}
-            </XStack>
-          </ScrollView>
+          <ScrollGuardWrapper>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+              }}
+            >
+              <XStack gap="$3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <YStack key={index} width="$40">
+                    <RecommendedSkeletonItem />
+                  </YStack>
+                ))}
+              </XStack>
+            </ScrollView>
+          </ScrollGuardWrapper>
         ) : (
           // Desktop/Extension: grid layout
           <XStack m="$-5" p="$3.5" flexWrap="wrap">
@@ -329,25 +332,27 @@ export function Recommended(
       <RecommendedContainer withHeader={withHeader}>
         {platformEnv.isNative ? (
           // Mobile: horizontal scrolling
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-            }}
-          >
-            <XStack gap="$3">
-              {recommendedTokens.map((token) => (
-                <YStack key={token.symbol} minWidth="$52">
-                  <RecommendedItem
-                    token={token}
-                    noWalletConnected={noWalletConnected}
-                    {...recommendedItemContainerProps}
-                  />
-                </YStack>
-              ))}
-            </XStack>
-          </ScrollView>
+          <ScrollGuardWrapper>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+              }}
+            >
+              <XStack gap="$3">
+                {recommendedTokens.map((token) => (
+                  <YStack key={token.symbol} minWidth="$52">
+                    <RecommendedItem
+                      token={token}
+                      noWalletConnected={noWalletConnected}
+                      {...recommendedItemContainerProps}
+                    />
+                  </YStack>
+                ))}
+              </XStack>
+            </ScrollView>
+          </ScrollGuardWrapper>
         ) : (
           // Desktop/Extension: grid layout
           <XStack m="$-5" p="$3.5" flexWrap="wrap">
