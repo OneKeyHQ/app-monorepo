@@ -16,8 +16,8 @@ import {
   Portal,
   SegmentControl,
   SizableText,
-  TextAreaInput,
   Stack,
+  TextAreaInput,
   XStack,
   YStack,
   useKeyboardEvent,
@@ -242,10 +242,7 @@ export default function ImportPhraseOrPrivateKey() {
   const footerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        translateY:
-          height.value < 0
-            ? height.value + rootBottomPadding / 2
-            : 0,
+        translateY: height.value < 0 ? height.value + rootBottomPadding / 2 : 0,
       },
     ],
   }));
