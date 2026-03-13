@@ -60,6 +60,7 @@ const MANUAL_AUTOSCROLL_EDGE_PX = 72;
 const MANUAL_AUTOSCROLL_MAX_STEP_PX = 20;
 const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
+const WATCHLIST_CONTENT_PADDING_TOP = 8 + (platformEnv.isNative ? 248 : 0);
 
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
@@ -150,6 +151,7 @@ function MobileMarketWatchlistFlatListImpl({
     menuObserveTimer: null,
     consumeNextPress: false,
   });
+  const isDragSessionActiveRef = useRef(false);
 
   const clearDragTimer = useCallback(() => {
     if (gestureRef.current.dragTimer) {
@@ -366,6 +368,7 @@ function MobileMarketWatchlistFlatListImpl({
       to: number;
       data: IMarketToken[];
     }) => {
+      isDragSessionActiveRef.current = false;
       clearDragTimer();
       clearMenuTimer();
       stopManualAutoScroll();
@@ -431,7 +434,9 @@ function MobileMarketWatchlistFlatListImpl({
           onPressIn={(event: GestureResponderEvent) => {
             clearDragTimer();
             clearMenuTimer();
+            isDragSessionActiveRef.current = false;
             const { pageX = 0, pageY = 0 } = event.nativeEvent;
+            const getLatestIndex = () => getIndex() ?? resolvedIndex;
             const current = gestureRef.current;
             current.activeItemId = item.id;
             current.pressX = pageX;
@@ -448,21 +453,23 @@ function MobileMarketWatchlistFlatListImpl({
               setPreviewDraggingItemId(item.id);
 
               if (!drag) {
+                const latestIndex = getLatestIndex();
                 setPreviewDraggingItemId(null);
                 Haptics.impact(ImpactFeedbackStyle.Medium);
                 const { width } = Dimensions.get('window');
-                handleShowContextMenu(item, resolvedIndex, {
+                handleShowContextMenu(item, latestIndex, {
                   x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
                   y: pageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
                 });
                 return;
               }
 
+              const latestIndex = getLatestIndex();
               drag();
               Haptics.impact(ImpactFeedbackStyle.Medium);
               scheduleSecondLevelMenu({
                 item,
-                index: resolvedIndex,
+                index: latestIndex,
                 pageX,
                 pageY,
               });
@@ -536,12 +543,16 @@ function MobileMarketWatchlistFlatListImpl({
             }
           }}
           onPressOut={() => {
+            if (isDragSessionActiveRef.current || isActive) {
+              return;
+            }
             clearDragTimer();
             clearMenuTimer();
             stopManualAutoScroll();
             setPreviewDraggingItemId(null);
             gestureRef.current.activeItemId = '';
             gestureRef.current.firstLevelTriggered = false;
+            gestureRef.current.movedBeyondThreshold = false;
           }}
           isDragging={isActive || previewDraggingItemId === item.id}
         />
@@ -579,6 +590,15 @@ function MobileMarketWatchlistFlatListImpl({
   }, [showSkeleton, intl]);
 
   const tabBarHeight = useScrollContentTabBarOffset();
+  const contentContainerStyle = useMemo(
+    () => ({
+      paddingTop: WATCHLIST_CONTENT_PADDING_TOP,
+      paddingBottom: platformEnv.isNativeAndroid
+        ? listContainerProps.paddingBottom
+        : tabBarHeight,
+    }),
+    [listContainerProps.paddingBottom, tabBarHeight],
+  );
 
   // Wait for data to be loaded
   if (!watchlistState.isMounted) {
@@ -601,6 +621,7 @@ function MobileMarketWatchlistFlatListImpl({
       data={showSkeleton ? EMPTY_DATA : filteredData}
       onDragEnd={handleDragEnd}
       onDragBegin={() => {
+        isDragSessionActiveRef.current = true;
         gestureRef.current.consumeNextPress = true;
         clearDragTimer();
         clearMenuTimer();
@@ -640,12 +661,7 @@ function MobileMarketWatchlistFlatListImpl({
       removeClippedSubviews={platformEnv.isNativeIOS}
       onScrollBeginDrag={dismissInlineActionBar}
       ListEmptyComponent={ListEmptyComponent}
-      contentContainerStyle={{
-        paddingTop: 8 + (platformEnv.isNative ? 248 : 0),
-        paddingBottom: platformEnv.isNativeAndroid
-          ? listContainerProps.paddingBottom
-          : tabBarHeight,
-      }}
+      contentContainerStyle={contentContainerStyle}
     />
   );
 }

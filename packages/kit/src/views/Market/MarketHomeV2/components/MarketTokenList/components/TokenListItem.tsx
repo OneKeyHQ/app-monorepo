@@ -1,9 +1,8 @@
 import type { FC } from 'react';
 import { memo } from 'react';
 
-import { Platform } from 'react-native';
-
 import { NumberSizeableText, XStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PriceChangeBadge } from '../../PriceChangeBadge';
 
@@ -20,6 +19,28 @@ interface ITokenListItemProps {
   onTouchMove?: (event: GestureResponderEvent) => void;
   onPressOut?: (event: GestureResponderEvent) => void;
   isDragging?: boolean;
+}
+
+const IOS_DRAGGING_SHADOW_STYLE = {
+  shadowColor: '#000',
+  shadowOpacity: 0.2,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 4 },
+} as const;
+
+const ANDROID_DRAGGING_ELEVATION_STYLE = {
+  elevation: 8,
+} as const;
+
+let DRAGGING_STYLE:
+  | typeof IOS_DRAGGING_SHADOW_STYLE
+  | typeof ANDROID_DRAGGING_ELEVATION_STYLE
+  | undefined;
+
+if (platformEnv.isNativeIOS) {
+  DRAGGING_STYLE = IOS_DRAGGING_SHADOW_STYLE;
+} else if (platformEnv.isNativeAndroid) {
+  DRAGGING_STYLE = ANDROID_DRAGGING_ELEVATION_STYLE;
 }
 
 const BasicTokenListItem: FC<ITokenListItemProps> = ({
@@ -44,21 +65,7 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       alignItems="center"
       borderRadius="$3"
       bg={isDragging ? '$bgActive' : '$bgApp'}
-      style={
-        isDragging
-          ? {
-              ...Platform.select({
-                ios: {
-                  shadowColor: '#000',
-                  shadowOpacity: 0.2,
-                  shadowRadius: 8,
-                  shadowOffset: { width: 0, height: 4 },
-                },
-                android: { elevation: 8 },
-              }),
-            }
-          : undefined
-      }
+      style={isDragging ? DRAGGING_STYLE : undefined}
     >
       <XStack flex={1} alignItems="center" minWidth={0}>
         <TokenIdentityItem

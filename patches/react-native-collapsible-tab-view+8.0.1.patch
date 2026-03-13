@@ -6,7 +6,7 @@ index 83c5549..aaeca52 100644
      }) => React.ReactElement;
  };
  export { Container, Tab, Lazy, FlatList, ScrollView, SectionList, FlashList, MasonryFlashList, };
--export { useCurrentTabScrollY, useHeaderMeasurements, useFocusedTab, useAnimatedTabIndex, useCollapsibleStyle, } from './hooks';
+-export { useCurrentTabScrollY, useHeaderMeasurements, useFocusedTab, useAnimatedTabIndex, useCollapsibleStyle, useTabNameContext } from './hooks';
 +export { useCurrentTabScrollY, useHeaderMeasurements, useFocusedTab, useAnimatedTabIndex, useCollapsibleStyle, useTabNameContext, useTabsContext, useAfterMountEffect, useChainCallback, useScrollHandlerY, useSharedAnimatedRef, useUpdateScrollViewContentSize } from './hooks';
  export type { HeaderMeasurements } from './hooks';
  export { MaterialTabBar } from './MaterialTabBar/TabBar';
@@ -978,11 +978,9 @@ diff --git a/node_modules/react-native-collapsible-tab-view/src/index.tsx b/node
 index 3d0be9d..94c928f 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/index.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/index.tsx
-@@ -58,6 +58,13 @@ export {
-   useFocusedTab,
-   useAnimatedTabIndex,
+@@ -61,6 +61,12 @@ export {
    useCollapsibleStyle,
-+  useTabNameContext,
+   useTabNameContext,
 +  useTabsContext,
 +  useAfterMountEffect,
 +  useChainCallback,
