@@ -1178,6 +1178,8 @@ class ServiceAppUpdate extends ServiceBase {
       signature?: string;
       fileSize: number;
       commitHash?: string;
+      branch?: string;
+      prTitle?: string;
       changeLog?: string;
     }[]
   > {
@@ -1193,6 +1195,7 @@ class ServiceAppUpdate extends ServiceBase {
           fileSize: number;
           commitHash?: string;
           branch?: string;
+          prTitle?: string;
         }[];
       }>('/utility/v1/app-update/bundles', {
         params: { version },
@@ -1216,6 +1219,8 @@ class ServiceAppUpdate extends ServiceBase {
           signature: item.signature || PLACEHOLDER_SIGNATURE,
           fileSize: item.fileSize,
           commitHash: item.commitHash,
+          branch: item.branch,
+          prTitle: item.prTitle,
           changeLog: item.commitHash
             ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
             : undefined,
