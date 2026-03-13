@@ -15,6 +15,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type ETabEarnRoutes,
   ETabRoutes,
@@ -361,6 +362,10 @@ function BasicEarnHome({
         handleModeChange('borrow');
       } else if (direction === 'right' && currentMode === 'borrow') {
         handleModeChange('earn');
+      } else if (direction === 'right' && currentMode === 'earn') {
+        appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+          tab: ETranslations.global_market,
+        });
       }
     },
     [handleModeChange],
