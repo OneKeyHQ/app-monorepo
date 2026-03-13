@@ -401,13 +401,20 @@ export default function SettingDevBundleList() {
         );
 
         const existsChecks = await Promise.all(
-          data.map(async (b) => ({
-            ciBundleVersion: b.ciBundleVersion,
-            exists: await BundleUpdate.isBundleExists(
-              version,
-              b.ciBundleVersion,
-            ),
-          })),
+          data.map(async (b) => {
+            if (!b.ciBundleVersion) {
+              return { ciBundleVersion: b.ciBundleVersion, exists: false };
+            }
+            try {
+              const exists = await BundleUpdate.isBundleExists(
+                version,
+                b.ciBundleVersion,
+              );
+              return { ciBundleVersion: b.ciBundleVersion, exists };
+            } catch {
+              return { ciBundleVersion: b.ciBundleVersion, exists: false };
+            }
+          }),
         );
         for (const check of existsChecks) {
           defaultLogger.app.jsBundleDev.checkBundleExists({
