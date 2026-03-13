@@ -334,6 +334,7 @@ function MobileMarketWatchlistFlatListImpl({
         }
       }, 16);
       gestureRef.current.menuTimer = setTimeout(() => {
+        clearMenuTimer();
         const current = gestureRef.current;
         if (current.activeItemId !== item.id) return;
         if (!current.firstLevelTriggered) return;
