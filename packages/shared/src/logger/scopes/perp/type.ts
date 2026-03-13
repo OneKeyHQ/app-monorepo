@@ -6,6 +6,7 @@ export enum EPerpPageEnterSource {
   Notification = 'notification',
   MarketList = 'marketList',
   MarketBanner = 'marketBanner',
+  WalletBanner = 'walletBanner',
   UniversalSearch = 'search',
   PopularTrading = 'popularTrading',
   Referral = 'referral',
