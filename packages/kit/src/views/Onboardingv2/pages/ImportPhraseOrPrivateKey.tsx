@@ -369,26 +369,26 @@ export default function ImportPhraseOrPrivateKey() {
         </OnboardingLayout.Body>
         {!gtMd ? (
           <OnboardingLayout.Footer>
-            <YStack>
-              <Animated.View style={footerAnimatedStyle}>
-                <YStack>
-                  {isKeyboardVisible ? (
-                    <Stack
-                      mx="$-5"
-                      borderTopWidth={StyleSheet.hairlineWidth}
-                      borderColor="$borderSubdued"
-                    />
-                  ) : null}
-                  <XStack
-                    bg="$bgApp"
-                    alignItems="center"
-                    justifyContent="center"
-                    pt="$3"
-                    pb={500}
-                    mb={-500}
-                  >
-                    <YStack w="100%" gap="$3">
-                      {platformEnv.isNative ? (
+            {platformEnv.isNative ? (
+              <YStack>
+                <Animated.View style={footerAnimatedStyle}>
+                  <YStack>
+                    {isKeyboardVisible ? (
+                      <Stack
+                        mx="$-5"
+                        borderTopWidth={StyleSheet.hairlineWidth}
+                        borderColor="$borderSubdued"
+                      />
+                    ) : null}
+                    <XStack
+                      bg="$bgApp"
+                      alignItems="center"
+                      justifyContent="center"
+                      pt="$3"
+                      pb={500}
+                      mb={-500}
+                    >
+                      <YStack w="100%" gap="$3">
                         <HeightTransition>
                           <XStack onPress={noop}>
                             <Portal.Container
@@ -396,23 +396,37 @@ export default function ImportPhraseOrPrivateKey() {
                             />
                           </XStack>
                         </HeightTransition>
-                      ) : null}
-                      <Button
-                        size="large"
-                        variant="primary"
-                        onPress={handleConfirm}
-                        loading={isConfirming}
-                        w="100%"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_confirm,
-                        })}
-                      </Button>
-                    </YStack>
-                  </XStack>
-                </YStack>
-              </Animated.View>
-            </YStack>
+                        <Button
+                          size="large"
+                          variant="primary"
+                          onPress={handleConfirm}
+                          loading={isConfirming}
+                          w="100%"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.global_confirm,
+                          })}
+                        </Button>
+                      </YStack>
+                    </XStack>
+                  </YStack>
+                </Animated.View>
+              </YStack>
+            ) : (
+              <YStack w="100%" pb="$5">
+                <Button
+                  size="large"
+                  variant="primary"
+                  onPress={handleConfirm}
+                  loading={isConfirming}
+                  w="100%"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_confirm,
+                  })}
+                </Button>
+              </YStack>
+            )}
           </OnboardingLayout.Footer>
         ) : null}
       </OnboardingLayout>
