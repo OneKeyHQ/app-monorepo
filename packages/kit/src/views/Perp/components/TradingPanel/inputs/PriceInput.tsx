@@ -71,7 +71,7 @@ export const PriceInput = memo(
         placeholder={
           placeholder ??
           intl.formatMessage({
-            id: ETranslations.perp_trade_price_place_holder,
+            id: ETranslations.perps_input_price_place_holder,
           })
         }
         value={value}

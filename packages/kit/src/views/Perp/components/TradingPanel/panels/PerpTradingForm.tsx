@@ -502,7 +502,7 @@ function PerpTradingForm({
               id: ETranslations.dexmarket_pro_trigger_price,
             })}
             placeholder={intl.formatMessage({
-              id: ETranslations.perps_input_trigger_price,
+              id: ETranslations.perps_input_tirgger_price_place_holder,
             })}
             value={triggerPrice}
             onChange={(value) => updateForm({ triggerPrice: value })}

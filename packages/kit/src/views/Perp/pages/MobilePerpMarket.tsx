@@ -30,6 +30,7 @@ import {
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { useMobileTabTouchScrollBridge } from '../../../hooks/useMobileTabTouchScrollBridge';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpCandles } from '../components/PerpCandles';
@@ -124,9 +125,19 @@ function MobilePerpMarket() {
     };
   }, [isLandscape, isTablet]);
 
+  const renderHeaderRight = useCallback(
+    () => <FavoriteButton coin={coin} iconSize="$5" />,
+    [coin],
+  );
+
   const pageHeader = useMemo(
-    () => <Page.Header headerLeft={renderHeaderTitle} />,
-    [renderHeaderTitle],
+    () => (
+      <Page.Header
+        headerLeft={renderHeaderTitle}
+        headerRight={renderHeaderRight}
+      />
+    ),
+    [renderHeaderTitle, renderHeaderRight],
   );
 
   const marketHeaderContent = useMemo(
