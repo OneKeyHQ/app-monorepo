@@ -370,13 +370,19 @@ export default function ImportPhraseOrPrivateKey() {
                     pb={500}
                     mb={-500}
                   >
-                    <YStack w="100%" gap="$3">
+                    <YStack
+                      w="100%"
+                      gap="$3"
+                      pb="$3"
+                    >
                       {platformEnv.isNative ? (
-                        <XStack onPress={noop}>
-                          <Portal.Container
-                            name={Portal.Constant.SUGGESTION_LIST}
-                          />
-                        </XStack>
+                        <HeightTransition>
+                          <XStack onPress={noop}>
+                            <Portal.Container
+                              name={Portal.Constant.SUGGESTION_LIST}
+                            />
+                          </XStack>
+                        </HeightTransition>
                       ) : null}
                       <Button
                         size="large"
