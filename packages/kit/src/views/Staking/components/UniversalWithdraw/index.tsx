@@ -44,7 +44,6 @@ import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
   IEarnText,
-  IEarnTextTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -68,6 +67,7 @@ import {
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
@@ -1361,30 +1361,9 @@ export function UniversalWithdraw({
                   size="$bodyMd"
                 />
                 {transactionConfirmation?.tooltip ? (
-                  <Popover
-                    placement="top"
-                    title={transactionConfirmation?.title?.text ?? ''}
-                    renderTrigger={
-                      <IconButton
-                        iconColor="$iconSubdued"
-                        size="small"
-                        icon="InfoCircleOutline"
-                        variant="tertiary"
-                      />
-                    }
-                    renderContent={
-                      <Stack p="$5">
-                        <EarnText
-                          text={
-                            transactionConfirmation?.tooltip?.type === 'text'
-                              ? transactionConfirmation.tooltip?.data
-                                  ?.description
-                              : undefined
-                          }
-                          size="$bodyMd"
-                        />
-                      </Stack>
-                    }
+                  <EarnTooltip
+                    title={transactionConfirmation?.title?.text}
+                    tooltip={transactionConfirmation?.tooltip}
                   />
                 ) : null}
               </XStack>
@@ -1418,14 +1397,9 @@ export function UniversalWithdraw({
                           flexShrink={1}
                         />
                         {hasTooltip ? (
-                          <Popover.Tooltip
-                            iconSize="$5"
+                          <EarnTooltip
                             title={reward.title.text}
-                            tooltip={
-                              (reward.tooltip as IEarnTextTooltip)?.data
-                                ?.description?.text
-                            }
-                            placement="top"
+                            tooltip={reward.tooltip}
                           />
                         ) : null}
                       </XStack>
