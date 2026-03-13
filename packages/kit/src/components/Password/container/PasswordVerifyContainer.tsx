@@ -94,9 +94,7 @@ const PasswordVerifyContainer = ({
     if (shouldCheck) {
       void (async () => {
         try {
-          const hasPassword = platformEnv.isExtension
-            ? await biologyAuthUtils.hasSecurePasswordWithoutAuth()
-            : await biologyAuthUtils.hasPassword();
+          const hasPassword = await biologyAuthUtils.hasPassword();
           setHasSecurePassword(hasPassword);
         } catch (_e) {
           setHasSecurePassword(false);
@@ -408,17 +406,14 @@ const PasswordVerifyContainer = ({
         // This runs for any successful manual password verification flow.
         if (platformEnv.isExtension && isBiologyAuthSwitchOn) {
           try {
-            const hasSecurePasswordNow =
-              await biologyAuthUtils.hasSecurePasswordWithoutAuth();
+            const hasSecurePasswordNow = await biologyAuthUtils.hasPassword();
             if (!hasSecurePasswordNow) {
               await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
               const prfCredentialId =
                 await biologyAuthUtils.savePasswordForPasskey(verifiedPassword, {
                   repairBrokenState: true,
                 });
-              setHasSecurePassword(
-                await biologyAuthUtils.hasSecurePasswordWithoutAuth(),
-              );
+              setHasSecurePassword(await biologyAuthUtils.hasPassword());
               if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
                 setPasswordPersist((v) => ({
                   ...v,
