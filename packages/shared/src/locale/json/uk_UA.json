@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Перед запуском",
   "perps.pro_execution_price": "Ціна виконання",
   "perps.pro_order_trigger_price": "{type} тригерна ціна має бути {dir} середня ціна",
+  "perps.recevied_zero_token": "Немає токенів у вашому гаманці?",
   "perps.reduce_only": "Тільки зменшити",
   "perps.saving_breakdown": "Збереження розподілу",
   "perps.search_perps": "Виберіть правопорушників",

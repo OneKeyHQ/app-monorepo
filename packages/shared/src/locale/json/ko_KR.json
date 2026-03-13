@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "사전 출시",
   "perps.pro_execution_price": "실행 가격",
   "perps.pro_order_trigger_price": "{type} 트리거 가격은 다음과 같아야 합니다. {dir} 중간 가격",
+  "perps.recevied_zero_token": "지갑에 토큰이 없으신가요?",
   "perps.reduce_only": "줄이기만",
   "perps.saving_breakdown": "저장 분석",
   "perps.search_perps": "계약 선택",

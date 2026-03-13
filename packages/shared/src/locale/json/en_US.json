@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Pre-launch",
   "perps.pro_execution_price": "Execution Price",
   "perps.pro_order_trigger_price": "{type} trigger price must be {dir} the mid price",
+  "perps.recevied_zero_token": "No tokens in your wallet?",
   "perps.reduce_only": "Reduce Only",
   "perps.saving_breakdown": "Saving Breakdown",
   "perps.search_perps": "Select perps",

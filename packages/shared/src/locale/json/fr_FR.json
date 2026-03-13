@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Pré-lancement",
   "perps.pro_execution_price": "Prix ​​d'exécution",
   "perps.pro_order_trigger_price": "{type} Le prix de déclenchement doit être {dir} le prix moyen",
+  "perps.recevied_zero_token": "Vous n'avez pas de jetons dans votre portefeuille ?",
   "perps.reduce_only": "Réduire seulement",
   "perps.saving_breakdown": "Répartition des économies",
   "perps.search_perps": "Sélectionner les coupables",

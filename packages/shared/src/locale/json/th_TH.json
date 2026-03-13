@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Pre-launch",
   "perps.pro_execution_price": "ราคาดำเนินการ",
   "perps.pro_order_trigger_price": "{type} ราคาทริกเกอร์ต้องเป็น {dir} ราคากลาง",
+  "perps.recevied_zero_token": "ไม่มีโทเค็นในกระเป๋าเงินของคุณใช่ไหม?",
   "perps.reduce_only": "ลดเพียงเท่านั้น",
   "perps.saving_breakdown": "รายละเอียดการออม",
   "perps.search_perps": "เลือกผู้กระทำผิด",

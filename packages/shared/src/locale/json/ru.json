@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Предварительный запуск",
   "perps.pro_execution_price": "Цена исполнения",
   "perps.pro_order_trigger_price": "{type} Цена срабатывания должна быть {dir} средняя цена",
+  "perps.recevied_zero_token": "Нет жетонов в кошельке?",
   "perps.reduce_only": "Сократить только",
   "perps.saving_breakdown": "Разбор процесса экономии",
   "perps.search_perps": "Избранные преступники",

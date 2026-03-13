@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Pra-peluncuran",
   "perps.pro_execution_price": "Harga Eksekusi",
   "perps.pro_order_trigger_price": "{type} harga pemicu harus {dir} harga tengah",
+  "perps.recevied_zero_token": "Tidak ada token di dompet Anda?",
   "perps.reduce_only": "Kurangi Saja",
   "perps.saving_breakdown": "Rincian Tabungan",
   "perps.search_perps": "Pilih pelaku",

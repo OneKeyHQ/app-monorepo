@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Pre-lancio",
   "perps.pro_execution_price": "Prezzo di esecuzione",
   "perps.pro_order_trigger_price": "{type} il prezzo di attivazione deve essere {dir} il prezzo medio",
+  "perps.recevied_zero_token": "Nessun token nel tuo portafoglio?",
   "perps.reduce_only": "Riduci solo",
   "perps.saving_breakdown": "Ripartizione del risparmio",
   "perps.search_perps": "Seleziona i criminali",

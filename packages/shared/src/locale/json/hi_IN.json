@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "प्री-लॉन्च",
   "perps.pro_execution_price": "निष्पादन मूल्य",
   "perps.pro_order_trigger_price": "{type} ट्रिगर मूल्य अवश्य होना चाहिए {dir} मध्य मूल्य",
+  "perps.recevied_zero_token": "आपके वॉलेट में टोकन नहीं हैं?",
   "perps.reduce_only": "केवल कम करें",
   "perps.saving_breakdown": "बचत का विवरण",
   "perps.search_perps": "अपराधियों का चयन करें",

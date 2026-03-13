@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Tiền phát hành",
   "perps.pro_execution_price": "Giá thực hiện",
   "perps.pro_order_trigger_price": "{type} Giá kích hoạt phải là {dir} giá tầm trung",
+  "perps.recevied_zero_token": "Không có token nào trong ví của bạn?",
   "perps.reduce_only": "Chỉ giảm giá",
   "perps.saving_breakdown": "Phân tích chi tiết khoản tiết kiệm",
   "perps.search_perps": "Chọn thủ phạm",

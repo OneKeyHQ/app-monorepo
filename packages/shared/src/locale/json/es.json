@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Pre-lanzamiento",
   "perps.pro_execution_price": "Precio de ejecución",
   "perps.pro_order_trigger_price": "{type} El precio de activación debe ser {dir} el precio medio",
+  "perps.recevied_zero_token": "¿No tienes tokens en tu billetera?",
   "perps.reduce_only": "Reducir solamente",
   "perps.saving_breakdown": "Desglose del ahorro",
   "perps.search_perps": "Seleccionar a los perpetradores",

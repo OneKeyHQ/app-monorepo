@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "প্রাক-লঞ্চ",
   "perps.pro_execution_price": "কার্যকর করার মূল্য",
   "perps.pro_order_trigger_price": "{type} ট্রিগার মূল্য অবশ্যই হতে হবে {dir} মাঝারি দাম",
+  "perps.recevied_zero_token": "আপনার মানিব্যাগে কোন টোকেন নেই?",
   "perps.reduce_only": "শুধুমাত্র হ্রাস করুন",
   "perps.saving_breakdown": "ব্রেকডাউন সেভ করা হচ্ছে",
   "perps.search_perps": "পারপস নির্বাচন করুন",

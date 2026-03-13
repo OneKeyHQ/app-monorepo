@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "预发布",
   "perps.pro_execution_price": "执行价格",
   "perps.pro_order_trigger_price": "{type}触发价格必须{dir}中间价",
+  "perps.recevied_zero_token": "您的钱包里没有代币？",
   "perps.reduce_only": "只减仓",
   "perps.saving_breakdown": "费用节省",
   "perps.search_perps": "选择合约",

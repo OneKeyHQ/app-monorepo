@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "プレローンチ",
   "perps.pro_execution_price": "執行価格",
   "perps.pro_order_trigger_price": "{type} トリガー価格は {dir} 中間価格",
+  "perps.recevied_zero_token": "ウォレットにトークンがありませんか？",
   "perps.reduce_only": "削減のみ",
   "perps.saving_breakdown": "貯蓄の内訳",
   "perps.search_perps": "銘柄を切替",

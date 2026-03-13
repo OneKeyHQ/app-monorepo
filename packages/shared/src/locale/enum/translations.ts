@@ -2851,6 +2851,7 @@
   perps_pre_launch = 'perps.pre_launch',
   perps_pro_execution_price = 'perps.pro_execution_price',
   perps_pro_order_trigger_price = 'perps.pro_order_trigger_price',
+  perps_recevied_zero_token = 'perps.recevied_zero_token',
   perps_reduce_only = 'perps.reduce_only',
   perps_saving_breakdown = 'perps.saving_breakdown',
   perps_search_perps = 'perps.search_perps',

@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "Pre-launch",
   "perps.pro_execution_price": "Ausführungspreis",
   "perps.pro_order_trigger_price": "{type} Der Auslösepreis muss sein {dir} der mittlere Preis",
+  "perps.recevied_zero_token": "Keine Token in Ihrer Wallet?",
   "perps.reduce_only": "Reduzieren Sie nur",
   "perps.saving_breakdown": "Sparaufschlüsselung",
   "perps.search_perps": "Täter auswählen",

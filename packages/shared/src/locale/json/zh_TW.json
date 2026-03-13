@@ -2846,6 +2846,7 @@
   "perps.pre_launch": "預啟動",
   "perps.pro_execution_price": "執行價格",
   "perps.pro_order_trigger_price": "{type}觸發價格必須{dir}中價位",
+  "perps.recevied_zero_token": "您的錢包裡沒有代幣？",
   "perps.reduce_only": "僅减仓",
   "perps.saving_breakdown": "費用節省",
   "perps.search_perps": "選擇合約",
