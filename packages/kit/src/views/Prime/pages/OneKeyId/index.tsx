@@ -47,7 +47,6 @@ function OneKeyIdPage() {
           if (platformEnv.isNative) {
             resetAboveMainRoute();
           }
-          await timerUtils.wait(100);
           rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
             screen: EModalRoutes.PrimeModal,
             params: {
