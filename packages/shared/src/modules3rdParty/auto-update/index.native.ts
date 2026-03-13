@@ -279,7 +279,12 @@ export const BundleUpdate: IBundleUpdate = {
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
   resetToBuiltInBundle: async () => {
-    await ReactNativeBundleUpdate.resetToBuiltInBundle();
+    const resetToBuiltInBundle = (
+      ReactNativeBundleUpdate as {
+        resetToBuiltInBundle?: () => Promise<void> | void;
+      }
+    ).resetToBuiltInBundle;
+    await Promise.resolve(resetToBuiltInBundle?.());
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);

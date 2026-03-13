@@ -32,11 +32,11 @@ import { InlineActionBar } from './components/InlineActionBar';
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
-import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
+import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
 
-import type { IWatchlistFilterType } from './MarketWatchlistCategorySelector';
 import type { IMarketToken } from './MarketTokenData';
+import type { IWatchlistFilterType } from './MarketWatchlistCategorySelector';
 import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketWatchlistFlatListProps {

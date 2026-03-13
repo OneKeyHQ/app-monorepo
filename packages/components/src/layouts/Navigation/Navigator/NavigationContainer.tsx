@@ -236,11 +236,6 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
   }
 };
 
-export const popToMainRoute = async () => {
-  resetAboveMainRoute();
-  await timerUtils.wait(100);
-};
-
 function isScanModalCurrentRoute(): boolean {
   const rootState = rootNavigationRef.current?.getRootState();
   const currentRoute = rootState?.routes?.[rootState.index];
@@ -328,7 +323,7 @@ export const popActionCenterPages = async (maxRetryTimes = 99) => {
  * Prefer this over sequential goBack() calls when you need to dismiss multiple
  * overlay routes and the intermediate animation is not important.
  */
-export const resetAboveMainRoute = () => {
+export function resetAboveMainRoute() {
   const state = rootNavigationRef.current?.getRootState();
   if (!state) {
     return;
@@ -346,6 +341,11 @@ export const resetAboveMainRoute = () => {
       index: mainRoutes.length - 1,
     }),
   );
+}
+
+export const popToMainRoute = async () => {
+  resetAboveMainRoute();
+  await timerUtils.wait(100);
 };
 
 /**
