@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "উত্তোলন ফি",
   "perp.withdraw_fee_mgs": "এই ফিটি Hyperliquid দ্বারা ধার্য করা হয়। OneKey উত্তোলনে কোনো ফি আরোপ করে না।",
   "perp.you_will_get": "আপনি পাবেন",
+  "perp__deposit_no_second_confirmation__desc": "আর কোনও নিশ্চিতকরণ ছাড়াই জমা অবিলম্বে এগিয়ে যাবে",
   "perp_trading_adjust_margin": "মার্জিন সমন্বয় করুন",
   "perp_trading_adjust_margin_max": "সর্বোচ্চ যোগ",
   "perp_trading_adjust_margin_min": "সর্বোচ্চ অপসারণ",

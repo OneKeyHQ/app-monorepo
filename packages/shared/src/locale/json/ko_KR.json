@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "출금 수수료",
   "perp.withdraw_fee_mgs": "이 수수료는 Hyperliquid에서 부과합니다. OneKey는 출금에 대해 어떠한 수수료도 부과하지 않습니다.",
   "perp.you_will_get": "당신은 받게 됩니다",
+  "perp__deposit_no_second_confirmation__desc": "입금은 추가 확인 절차 없이 즉시 진행됩니다.",
   "perp_trading_adjust_margin": "마진 조정",
   "perp_trading_adjust_margin_max": "최대 추가",
   "perp_trading_adjust_margin_min": "최대 제거",

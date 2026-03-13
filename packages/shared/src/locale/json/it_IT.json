@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "Commissione di prelievo",
   "perp.withdraw_fee_mgs": "Questa commissione è addebitata da Hyperliquid. OneKey non applica alcuna commissione sui prelievi.",
   "perp.you_will_get": "Riceverai",
+  "perp__deposit_no_second_confirmation__desc": "Il deposito verrà effettuato immediatamente senza ulteriore conferma",
   "perp_trading_adjust_margin": "Regola margine",
   "perp_trading_adjust_margin_max": "Aggiunta max.",
   "perp_trading_adjust_margin_min": "Rim. max.",

@@ -2808,6 +2808,7 @@
   perp_withdraw_fee = 'perp.withdraw_fee',
   perp_withdraw_fee_mgs = 'perp.withdraw_fee_mgs',
   perp_you_will_get = 'perp.you_will_get',
+  perp__deposit_no_second_confirmation__desc = 'perp__deposit_no_second_confirmation__desc',
   perp_trading_adjust_margin = 'perp_trading_adjust_margin',
   perp_trading_adjust_margin_max = 'perp_trading_adjust_margin_max',
   perp_trading_adjust_margin_min = 'perp_trading_adjust_margin_min',

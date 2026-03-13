@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "निकासी शुल्क",
   "perp.withdraw_fee_mgs": "यह शुल्क Hyperliquid द्वारा लिया जाता है। OneKey निकासी पर कोई शुल्क नहीं लगाता है।",
   "perp.you_will_get": "आपको मिलेगा",
+  "perp__deposit_no_second_confirmation__desc": "जमा राशि की प्रक्रिया बिना किसी और पुष्टि के तुरंत पूरी हो जाएगी।",
   "perp_trading_adjust_margin": "मार्जिन समायोजित करें",
   "perp_trading_adjust_margin_max": "अधिकतम जोड़",
   "perp_trading_adjust_margin_min": "अधिकतम हटाएं",
