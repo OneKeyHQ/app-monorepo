@@ -519,6 +519,9 @@ function PerpTradingForm({
                   });
                 }
               }}
+              placeholder={intl.formatMessage({
+                id: ETranslations.perps_input_price_place_holder,
+              })}
               value={formData.executionPrice ?? ''}
               onChange={(value) => updateForm({ executionPrice: value })}
               szDecimals={universe?.szDecimals ?? 2}

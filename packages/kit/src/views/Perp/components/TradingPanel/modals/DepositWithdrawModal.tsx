@@ -276,6 +276,12 @@ function SelectTokenPopoverContent({
             }),
             onPrimaryPress: () => {
               void closePopover?.();
+              if (platformEnv.isNativeIOS) {
+                setTimeout(() => {
+                  onReceivePress?.();
+                }, 100);
+                return;
+              }
               onReceivePress?.();
             },
           }}
