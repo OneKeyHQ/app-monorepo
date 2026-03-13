@@ -10,6 +10,7 @@ import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { ISecureStorageSetOptions } from '@onekeyhq/shared/src/storage/secureStorage/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
@@ -80,14 +81,27 @@ class BiologyAuthUtils implements IBiologyAuth {
     );
   };
 
-  hasPassword = async (): Promise<boolean> => {
+  hasSecurePasswordWithoutAuth = async (): Promise<boolean> => {
+    if (!platformEnv.isExtension) {
+      return false;
+    }
     if (!(await appStorage.secureStorage.supportSecureStorage())) {
       return false;
     }
-    if (appStorage.secureStorage.hasSecureItem) {
-      return appStorage.secureStorage.hasSecureItem(
-        SECURE_STORAGE_PASSWORD_KEY,
-      );
+    if (!appStorage.secureStorage.hasSecureItem) {
+      return false;
+    }
+    return appStorage.secureStorage.hasSecureItem(
+      SECURE_STORAGE_PASSWORD_KEY,
+    );
+  };
+
+  hasPassword = async (): Promise<boolean> => {
+    if (platformEnv.isExtension) {
+      return this.hasSecurePasswordWithoutAuth();
+    }
+    if (!(await appStorage.secureStorage.supportSecureStorage())) {
+      return false;
     }
     const value = await appStorage.secureStorage.getSecureItem(
       SECURE_STORAGE_PASSWORD_KEY,
