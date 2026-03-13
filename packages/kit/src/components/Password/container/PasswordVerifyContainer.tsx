@@ -410,9 +410,12 @@ const PasswordVerifyContainer = ({
             if (!hasSecurePasswordNow) {
               await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
               const prfCredentialId =
-                await biologyAuthUtils.savePasswordForPasskey(verifiedPassword, {
-                  repairBrokenState: true,
-                });
+                await biologyAuthUtils.savePasswordForPasskey(
+                  verifiedPassword,
+                  {
+                    repairBrokenState: true,
+                  },
+                );
               setHasSecurePassword(await biologyAuthUtils.hasPassword());
               if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
                 setPasswordPersist((v) => ({
