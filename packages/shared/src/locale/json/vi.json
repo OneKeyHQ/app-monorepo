@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "Phí rút tiền",
   "perp.withdraw_fee_mgs": "Khoản phí này do Hyperliquid thu. OneKey không áp dụng bất kỳ khoản phí nào cho việc rút tiền.",
   "perp.you_will_get": "Bạn sẽ nhận được",
+  "perp__deposit_no_second_confirmation__desc": "Giao dịch chuyển khoản sẽ được thực hiện ngay lập tức mà không cần xác nhận thêm.",
   "perp_trading_adjust_margin": "Điều chỉnh biên",
   "perp_trading_adjust_margin_max": "Tối đa thêm",
   "perp_trading_adjust_margin_min": "Loại bỏ tối đa",
