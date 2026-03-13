@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
 import {
@@ -23,6 +23,7 @@ import {
   useKeyboardEvent,
   useMedia,
   useReanimatedKeyboardAnimation,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -225,6 +226,7 @@ export default function ImportPhraseOrPrivateKey() {
   };
 
   const { height } = useReanimatedKeyboardAnimation();
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(
     selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
   );
@@ -232,6 +234,21 @@ export default function ImportPhraseOrPrivateKey() {
     keyboardWillShow: () => setIsKeyboardVisible(true),
     keyboardWillHide: () => setIsKeyboardVisible(false),
   });
+
+  // The root layout adds pb: safeAreaBottom + 10 which creates a gap below
+  // the footer when keyboard is up. Compensate by translating down half that
+  // distance so the footer content is vertically centered.
+  const rootBottomPadding = safeAreaBottom + 10;
+  const footerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY:
+          height.value < 0
+            ? height.value + rootBottomPadding / 2
+            : 0,
+      },
+    ],
+  }));
 
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
@@ -353,7 +370,7 @@ export default function ImportPhraseOrPrivateKey() {
         {!gtMd ? (
           <OnboardingLayout.Footer>
             <YStack>
-              <Animated.View style={{ transform: [{ translateY: height }] }}>
+              <Animated.View style={footerAnimatedStyle}>
                 <YStack>
                   {isKeyboardVisible ? (
                     <Stack
@@ -370,11 +387,7 @@ export default function ImportPhraseOrPrivateKey() {
                     pb={500}
                     mb={-500}
                   >
-                    <YStack
-                      w="100%"
-                      gap="$3"
-                      pb="$3"
-                    >
+                    <YStack w="100%" gap="$3">
                       {platformEnv.isNative ? (
                         <HeightTransition>
                           <XStack onPress={noop}>
