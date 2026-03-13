@@ -79,30 +79,49 @@ const SubtitleBadge = memo(({ subtitle }: { subtitle: string }) => {
 });
 SubtitleBadge.displayName = 'SubtitleBadge';
 
-const StockIsOpenBadge = memo(({ isOpen }: { isOpen: boolean }) => {
-  const intl = useIntl();
-  return (
-    <XStack
-      borderRadius="$1"
-      bg={isOpen ? '$bgSuccess' : '$bgStrong'}
-      justifyContent="center"
-      alignItems="center"
-      px="$1.5"
-    >
-      <SizableText
-        fontSize={10}
-        color={isOpen ? '$textSuccess' : '$textSubdued'}
-        lineHeight={16}
+const StockIsOpenBadge = memo(
+  ({ stock }: { stock: IMarketStockInfo }) => {
+    const intl = useIntl();
+    const { isOpen, description } = stock;
+
+    const statusText = intl.formatMessage({
+      id: isOpen
+        ? ETranslations.dexmarket_stock_status_open
+        : ETranslations.dexmarket_stock_status_closed,
+    });
+
+    const badge = (
+      <XStack
+        borderRadius="$1"
+        bg={isOpen ? '$bgSuccess' : '$bgStrong'}
+        justifyContent="center"
+        alignItems="center"
+        px="$1.5"
       >
-        {intl.formatMessage({
-          id: isOpen
-            ? ETranslations.dexmarket_stock_status_open
-            : ETranslations.dexmarket_stock_status_closed,
-        })}
-      </SizableText>
-    </XStack>
-  );
-});
+        <SizableText
+          fontSize={10}
+          color={isOpen ? '$textSuccess' : '$textSubdued'}
+          lineHeight={16}
+        >
+          {statusText}
+        </SizableText>
+      </XStack>
+    );
+
+    if (!description) {
+      return badge;
+    }
+
+    return (
+      <Tooltip
+        hovering
+        placement="bottom"
+        renderContent={description}
+        renderTrigger={<Stack cursor="pointer">{badge}</Stack>}
+      />
+    );
+  },
+);
 StockIsOpenBadge.displayName = 'StockIsOpenBadge';
 
 const StockSourceLogo = memo(
