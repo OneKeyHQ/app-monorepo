@@ -293,7 +293,11 @@ export function usePromiseResult<T>(
     void runRef.current({ pollingNonce: pollingNonceRef.current });
   }, [runRef]);
 
-  const { isRawInternetReachable: isInternetReachable } = useNetInfo();
+  // Most callers don't need reconnect revalidation. Avoid subscribing them
+  // to global network polling updates, which can cause periodic rerenders.
+  const { isRawInternetReachable: isInternetReachable } = useNetInfo(
+    !!options.revalidateOnReconnect,
+  );
   const prevIsInternetReachableRef = useRef(isInternetReachable);
 
   useEffect(() => {

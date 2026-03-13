@@ -190,26 +190,66 @@ export const refreshNetInfo = () => {
   globalNetInfo.refresh();
 };
 
-export const useNetInfo = () => {
+const buildReachabilityState = (
+  isInternetReachable: boolean | null,
+): IReachabilityState & {
+  isRawInternetReachable: boolean | null;
+} => ({
+  isInternetReachable: isInternetReachable ?? true,
+  isRawInternetReachable: isInternetReachable,
+});
+
+const mergeReachabilityState = (
+  prevState: IReachabilityState & {
+    isRawInternetReachable: boolean | null;
+  },
+  nextState: IReachabilityState & {
+    isRawInternetReachable: boolean | null;
+  },
+) => {
+  if (
+    prevState.isInternetReachable === nextState.isInternetReachable &&
+    prevState.isRawInternetReachable === nextState.isRawInternetReachable
+  ) {
+    return prevState;
+  }
+
+  return nextState;
+};
+
+export const useNetInfo = (enabled = true) => {
   const [reachabilityState, setReachabilityState] = useState<
     IReachabilityState & {
       isRawInternetReachable: boolean | null;
     }
   >(() => {
     const { isInternetReachable } = globalNetInfo.currentState();
-    return {
-      isInternetReachable: isInternetReachable ?? true,
-      isRawInternetReachable: isInternetReachable,
-    };
+    return buildReachabilityState(isInternetReachable);
   });
+
   useEffect(() => {
+    const { isInternetReachable } = globalNetInfo.currentState();
+    setReachabilityState((prevState) =>
+      mergeReachabilityState(
+        prevState,
+        buildReachabilityState(isInternetReachable),
+      ),
+    );
+
+    if (!enabled) {
+      return undefined;
+    }
+
     const remove = globalNetInfo.addEventListener(({ isInternetReachable }) => {
-      setReachabilityState({
-        isInternetReachable: isInternetReachable ?? true,
-        isRawInternetReachable: isInternetReachable,
-      });
+      setReachabilityState((prevState) =>
+        mergeReachabilityState(
+          prevState,
+          buildReachabilityState(isInternetReachable),
+        ),
+      );
     });
     return remove;
-  }, []);
+  }, [enabled]);
+
   return reachabilityState;
 };
