@@ -281,7 +281,7 @@ export default function ImportPhraseOrPrivateKey() {
             id: ETranslations.import_phrase_or_private_key,
           })}
         />
-        <OnboardingLayout.Body constrained={false} bottomOffset={150}>
+        <OnboardingLayout.Body constrained={false} bottomOffset={200}>
           <OnboardingLayout.ConstrainedContent gap="$5">
             <SegmentControl
               value={selected}
