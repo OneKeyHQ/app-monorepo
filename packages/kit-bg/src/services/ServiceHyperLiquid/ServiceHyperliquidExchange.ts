@@ -35,6 +35,7 @@ import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
   getValidPriceDecimals,
+  mapTriggerOrderType,
   parseSignatureToRSV,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -56,6 +57,7 @@ import type {
   IPlaceOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
+  ITriggerOrderParams,
   IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -793,6 +795,81 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to place market order open: ${String(error)}`,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async orderTrigger(params: ITriggerOrderParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
+    try {
+      const { isMarket, tpsl } = mapTriggerOrderType(params.triggerOrderType);
+
+      // Format trigger price
+      const triggerPxDecimals = getValidPriceDecimals(params.triggerPx);
+      const formattedTriggerPx = formatPriceToSignificantDigits(
+        +params.triggerPx,
+        MAX_DECIMALS_PERP - triggerPxDecimals,
+      );
+
+      // Determine execution price (p):
+      // - Market trigger: apply slippage to triggerPx
+      // - Limit trigger: use executionPx directly
+      let executionPrice: string;
+      if (isMarket) {
+        executionPrice = this._calculateSlippagePrice({
+          markPrice: params.triggerPx,
+          isBuy: params.isBuy,
+          slippage: params.slippage || this.slippage,
+        });
+      } else {
+        if (!params.executionPx) {
+          throw new OneKeyLocalError(
+            'Limit trigger orders require an execution price',
+          );
+        }
+        const execDecimals = getValidPriceDecimals(params.executionPx);
+        executionPrice = formatPriceToSignificantDigits(
+          +params.executionPx,
+          MAX_DECIMALS_PERP - execDecimals,
+        );
+      }
+
+      const order: IOrderParams = {
+        a: params.assetId,
+        b: params.isBuy,
+        p: executionPrice,
+        s: params.size,
+        r: params.reduceOnly,
+        t: {
+          trigger: {
+            isMarket,
+            triggerPx: formattedTriggerPx,
+            tpsl,
+          },
+        },
+      };
+
+      const response = await this.placeOrderRaw(
+        {
+          orders: [order],
+          grouping: 'na',
+        },
+        {
+          action: 'orderTrigger',
+          originalParams: params,
+          extra: {
+            triggerOrderType: params.triggerOrderType,
+            isMarket,
+            tpsl,
+            reduceOnly: params.reduceOnly,
+          },
+        },
+      );
+      return response;
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to place trigger order: ${String(error)}`,
       );
     }
   }

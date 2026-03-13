@@ -1,4 +1,4 @@
-import { StackActions } from '@react-navigation/native';
+import { CommonActions, StackActions } from '@react-navigation/native';
 import { isNil } from 'lodash';
 
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -13,7 +13,13 @@ import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
-import { EModalAssetDetailRoutes, EModalRoutes, ETabRoutes } from '../routes';
+import {
+  EModalAssetDetailRoutes,
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+  ETabReferFriendsRoutes,
+  ETabRoutes,
+} from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
@@ -59,19 +65,23 @@ type IGetEarnAccountFunc = (params: {
   account: INetworkAccount;
 } | null>;
 
-const popToMainRoute = async (maxRetryTimes = 99) => {
-  if (maxRetryTimes <= 0) {
+const popToMainRoute = async () => {
+  const state = appGlobals.$navigationRef.current?.getRootState();
+  if (!state) return;
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
     return;
   }
-  const rootState = appGlobals.$navigationRef.current?.getRootState();
-  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
-    return;
-  }
-  if (appGlobals.$navigationRef.current?.canGoBack()) {
-    appGlobals.$navigationRef.current?.goBack?.();
-  }
-  await timerUtils.wait(150);
-  await popToMainRoute(maxRetryTimes - 1);
+  appGlobals.$navigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+  await timerUtils.wait(100);
 };
 
 export async function navigateToNotificationDetailByLocalParams({
@@ -161,6 +171,23 @@ export async function navigateToNotificationDetailByLocalParams({
   };
 
   if (screen === ERootRoutes.Main) {
+    // On native, ReferFriends is a modal, not a tab
+    if (
+      platformEnv.isNative &&
+      navigationParams?.screen === ETabRoutes.ReferFriends
+    ) {
+      const subScreen = navigationParams?.params?.screen;
+      const modalScreen =
+        subScreen === ETabReferFriendsRoutes.TabInviteReward
+          ? EModalReferFriendsRoutes.InviteReward
+          : EModalReferFriendsRoutes.ReferAFriend;
+      appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+        screen: EModalRoutes.ReferFriendsModal,
+        params: { screen: modalScreen },
+      });
+      return;
+    }
+
     if (
       appGlobals.$tabletMainViewNavigationRef?.current &&
       navigationParams?.screen &&

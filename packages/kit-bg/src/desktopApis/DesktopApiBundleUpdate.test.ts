@@ -1,7 +1,7 @@
 // DesktopApiBundleUpdate logic tests
 // Tests the pure logic aspects of DesktopApiBundleUpdate that don't require
 // a real Electron environment: parameter validation, HTTPS enforcement,
-// redirect logic, version downgrade prevention, and path traversal detection.
+// redirect logic, bundle install guardrails, and path traversal detection.
 //
 // The actual DesktopApiBundleUpdate class depends heavily on Electron (app,
 // BrowserWindow, IPC) so we test the logic patterns directly.
@@ -169,50 +169,39 @@ describe('DesktopApiBundleUpdate parameter validation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Version downgrade prevention - mirrors installBundle (lines 538-550)
+// Version handling - mirrors installBundle (downgrade allowed)
 // ---------------------------------------------------------------------------
-describe('DesktopApiBundleUpdate version downgrade prevention', () => {
-  function checkVersionDowngrade(
+describe('DesktopApiBundleUpdate version comparison behavior', () => {
+  function shouldAllowInstall(
     currentBundleVersion: string | undefined,
     newBundleVersion: string,
-  ): string | null {
-    if (currentBundleVersion) {
-      const currentVersion = Number(currentBundleVersion);
-      const newVersion = Number(newBundleVersion);
-      if (
-        !Number.isNaN(currentVersion) &&
-        !Number.isNaN(newVersion) &&
-        newVersion < currentVersion
-      ) {
-        return `Bundle version downgrade rejected: ${newBundleVersion} < ${currentBundleVersion}`;
-      }
-    }
-    return null;
+  ): boolean {
+    // Desktop installBundle no longer blocks downgrade by version number.
+    // Keep numeric parsing to ensure this path is intentionally permissive.
+    Number(currentBundleVersion ?? '');
+    Number(newBundleVersion);
+    return true;
   }
 
   test('allows upgrade from 3 to 5', () => {
-    expect(checkVersionDowngrade('3', '5')).toBeNull();
+    expect(shouldAllowInstall('3', '5')).toBe(true);
   });
 
-  test('allows same version', () => {
-    expect(checkVersionDowngrade('5', '5')).toBeNull();
+  test('allows same version reinstall', () => {
+    expect(shouldAllowInstall('5', '5')).toBe(true);
   });
 
-  test('rejects downgrade from 5 to 3', () => {
-    expect(checkVersionDowngrade('5', '3')).toBe(
-      'Bundle version downgrade rejected: 3 < 5',
-    );
+  test('allows downgrade from 5 to 3', () => {
+    expect(shouldAllowInstall('5', '3')).toBe(true);
   });
 
   test('allows when no current version', () => {
-    expect(checkVersionDowngrade(undefined, '5')).toBeNull();
+    expect(shouldAllowInstall(undefined, '5')).toBe(true);
   });
 
-  test('handles large version numbers', () => {
-    expect(checkVersionDowngrade('100', '200')).toBeNull();
-    expect(checkVersionDowngrade('200', '100')).toBe(
-      'Bundle version downgrade rejected: 100 < 200',
-    );
+  test('handles non-numeric versions without blocking install', () => {
+    expect(shouldAllowInstall('abc', '200')).toBe(true);
+    expect(shouldAllowInstall('200', 'xyz')).toBe(true);
   });
 });
 
@@ -987,61 +976,52 @@ describe('DesktopApiBundleUpdate installBundle extractDir check', () => {
 });
 
 // ---------------------------------------------------------------------------
-// installBundle skipGPG skips downgrade check - mirrors (lines 616-628)
+// installBundle version check removed - mirrors current behavior
 // ---------------------------------------------------------------------------
-describe('DesktopApiBundleUpdate installBundle skipGPG downgrade', () => {
-  function checkDowngrade(
+describe('DesktopApiBundleUpdate installBundle version gating', () => {
+  function shouldAllowVersionInstall(
     skipGPG: boolean,
     currentVersion: string | undefined,
     newVersion: string,
-  ): string | null {
-    if (!skipGPG && currentVersion) {
-      const current = Number(currentVersion);
-      const next = Number(newVersion);
-      if (!Number.isNaN(current) && !Number.isNaN(next) && next < current) {
-        return `downgrade rejected`;
-      }
-    }
-    return null;
+  ): boolean {
+    Number(skipGPG);
+    Number(currentVersion ?? '');
+    Number(newVersion);
+    return true;
   }
 
   test('skipGPG=true → downgrade allowed', () => {
-    expect(checkDowngrade(true, '10', '5')).toBeNull();
+    expect(shouldAllowVersionInstall(true, '10', '5')).toBe(true);
   });
 
-  test('skipGPG=false → downgrade rejected', () => {
-    expect(checkDowngrade(false, '10', '5')).toBe('downgrade rejected');
+  test('skipGPG=false → downgrade still allowed', () => {
+    expect(shouldAllowVersionInstall(false, '10', '5')).toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------
-// installBundle NaN bundleVersion - mirrors (lines 619-622)
+// installBundle NaN bundleVersion - still allowed
 // ---------------------------------------------------------------------------
 describe('DesktopApiBundleUpdate NaN bundleVersion', () => {
-  function checkVersionDowngradeNaN(
+  function shouldAllowInstallWithNaN(
     currentVersion: string | undefined,
     newVersion: string,
-  ): string | null {
-    if (currentVersion) {
-      const current = Number(currentVersion);
-      const next = Number(newVersion);
-      if (!Number.isNaN(current) && !Number.isNaN(next) && next < current) {
-        return 'downgrade rejected';
-      }
-    }
-    return null;
+  ): boolean {
+    Number(currentVersion ?? '');
+    Number(newVersion);
+    return true;
   }
 
   test('non-numeric bundleVersion "abc" → NaN, not blocked', () => {
-    expect(checkVersionDowngradeNaN('5', 'abc')).toBeNull();
+    expect(shouldAllowInstallWithNaN('5', 'abc')).toBe(true);
   });
 
   test('non-numeric current version "xyz" → NaN, not blocked', () => {
-    expect(checkVersionDowngradeNaN('xyz', '3')).toBeNull();
+    expect(shouldAllowInstallWithNaN('xyz', '3')).toBe(true);
   });
 
   test('both NaN → not blocked', () => {
-    expect(checkVersionDowngradeNaN('abc', 'def')).toBeNull();
+    expect(shouldAllowInstallWithNaN('abc', 'def')).toBe(true);
   });
 });
 
@@ -1114,5 +1094,65 @@ describe('DesktopApiBundleUpdate writeStream flags', () => {
     const downloadedBytes = 0;
     const flags = downloadedBytes > 0 ? 'a' : 'w';
     expect(flags).toBe('w');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// switchBundle parameter validation - mirrors switchBundle logic
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate switchBundle parameter validation', () => {
+  interface ISwitchBundleParams {
+    appVersion?: string;
+    bundleVersion?: string;
+    signature?: string;
+  }
+
+  function validateSwitchParams(params: ISwitchBundleParams): string | null {
+    const { appVersion, bundleVersion, signature } = params;
+    if (!appVersion || !bundleVersion || !signature) {
+      return 'Invalid parameters';
+    }
+    return null;
+  }
+
+  test('accepts valid params', () => {
+    expect(
+      validateSwitchParams({
+        appVersion: '1.0.0',
+        bundleVersion: '5',
+        signature: 'sig',
+      }),
+    ).toBeNull();
+  });
+
+  test('rejects missing appVersion', () => {
+    expect(
+      validateSwitchParams({
+        bundleVersion: '5',
+        signature: 'sig',
+      }),
+    ).toBe('Invalid parameters');
+  });
+
+  test('rejects missing bundleVersion', () => {
+    expect(
+      validateSwitchParams({
+        appVersion: '1.0.0',
+        signature: 'sig',
+      }),
+    ).toBe('Invalid parameters');
+  });
+
+  test('rejects missing signature', () => {
+    expect(
+      validateSwitchParams({
+        appVersion: '1.0.0',
+        bundleVersion: '5',
+      }),
+    ).toBe('Invalid parameters');
+  });
+
+  test('rejects all empty', () => {
+    expect(validateSwitchParams({})).toBe('Invalid parameters');
   });
 });

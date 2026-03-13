@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "การแจกจ่ายครั้งถัดไป",
   "referral.next_distribution_day": "ภายในวันที่ 10 {Month}",
   "referral.no_reward": "ยังไม่มีรางวัล",
+  "referral.not_applicable": "ไม่สามารถใช้ได้",
+  "referral.not_applicable_desc": "กระเป๋าสตางค์นี้ถูกสร้างขึ้นมานานกว่า 14 วันแล้ว และไม่สามารถผูกกับรหัสผู้อ้างอิงได้",
   "referral.onboard_bind_code": "ผูกโค้ดแนะนำ",
   "referral.onboard_bind_code_finish": "เสร็จสิ้น",
   "referral.onchain_desc": "จากวอลเล็ตที่ลิงก์กับโค้ดของคุณ",

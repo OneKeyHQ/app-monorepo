@@ -5,6 +5,7 @@
 
 import BigNumber from 'bignumber.js';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   EPerpsSizeInputMode,
   IPerpsFormattedAssetCtx,
@@ -19,6 +20,7 @@ import type {
   IPerpsUniverse,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 import type {
   IPerpTokenSortDirection,
   IPerpTokenSortField,
@@ -34,6 +36,7 @@ interface ILiquidationPriceParams {
   totalValue: BigNumber;
   referencePrice: BigNumber;
   markPrice?: BigNumber;
+  clampToCurrentMark?: boolean;
   positionSize: BigNumber;
   side: 'long' | 'short';
   leverage: number;
@@ -772,6 +775,7 @@ function calculateLiquidationPrice(
     totalValue,
     referencePrice,
     markPrice,
+    clampToCurrentMark = true,
     positionSize,
     side,
     leverage,
@@ -788,7 +792,7 @@ function calculateLiquidationPrice(
   if (positionSize.isZero()) return null;
 
   let effectivePrice = referencePrice;
-  if (markPrice) {
+  if (markPrice && clampToCurrentMark) {
     const _side = newOrderSide || side;
     if (_side === 'long') {
       // Long: if limit price > mark price, will execute at market price
@@ -1206,6 +1210,163 @@ export function sortPerpsAssetIndices({
   return indicesWithData.map((item) => item.index);
 }
 
+// ── Standalone Trigger Order Utilities ──
+
+/**
+ * Map trigger order type to HyperLiquid `isMarket` and `tpsl` fields.
+ *
+ * HyperLiquid uses:
+ * - `isMarket: true` for market triggers, `false` for limit triggers
+ * - `tpsl: 'tp'` for take-profit types, `'sl'` for stop types
+ */
+function mapTriggerOrderType(triggerOrderType: ETriggerOrderType): {
+  isMarket: boolean;
+  tpsl: 'tp' | 'sl';
+} {
+  switch (triggerOrderType) {
+    case ETriggerOrderType.STOP_MARKET:
+      return { isMarket: true, tpsl: 'sl' };
+    case ETriggerOrderType.STOP_LIMIT:
+      return { isMarket: false, tpsl: 'sl' };
+    case ETriggerOrderType.TAKE_MARKET:
+      return { isMarket: true, tpsl: 'tp' };
+    case ETriggerOrderType.TAKE_LIMIT:
+      return { isMarket: false, tpsl: 'tp' };
+    default: {
+      const _exhaustive: never = triggerOrderType;
+      throw new OneKeyLocalError(
+        `Unknown trigger order type: ${String(_exhaustive)}`,
+      );
+    }
+  }
+}
+
+/**
+ * Get the required trigger price direction rule for a standalone trigger order.
+ *
+ * Returns 'above' if triggerPrice must be above mid price, 'below' if below.
+ *
+ * Rules (per HL order-types doc):
+ * - Stop + Long (buy stop): trigger must be ABOVE mid (triggers when price rises)
+ * - Stop + Short (sell stop): trigger must be BELOW mid (triggers when price drops)
+ * - Take + Long (buy TP): trigger must be BELOW mid (triggers when price drops)
+ * - Take + Short (sell TP): trigger must be ABOVE mid (triggers when price rises)
+ */
+function getTriggerDirectionRule(
+  triggerOrderType: ETriggerOrderType,
+  side: 'long' | 'short',
+): 'above' | 'below' {
+  const isStop =
+    triggerOrderType === ETriggerOrderType.STOP_MARKET ||
+    triggerOrderType === ETriggerOrderType.STOP_LIMIT;
+  const isLong = side === 'long';
+  // Stop + Long → above, Stop + Short → below
+  // Take + Long → below, Take + Short → above
+  if (isStop) {
+    return isLong ? 'above' : 'below';
+  }
+  return isLong ? 'below' : 'above';
+}
+
+/**
+ * Validate that a standalone trigger price satisfies the direction constraint
+ * relative to the current mark/mid price.
+ *
+ * @returns `true` if the trigger price is valid (on the correct side of mark price)
+ */
+function validateStandaloneTriggerPrice(
+  triggerPrice: string | BigNumber,
+  markPrice: string | BigNumber,
+  triggerOrderType: ETriggerOrderType,
+  side: 'long' | 'short',
+): boolean {
+  const triggerPriceBN =
+    triggerPrice instanceof BigNumber
+      ? triggerPrice
+      : new BigNumber(triggerPrice);
+  const markPriceBN =
+    markPrice instanceof BigNumber ? markPrice : new BigNumber(markPrice);
+
+  if (
+    !triggerPriceBN.isFinite() ||
+    triggerPriceBN.lte(0) ||
+    !markPriceBN.isFinite() ||
+    markPriceBN.lte(0)
+  ) {
+    return false;
+  }
+
+  const direction = getTriggerDirectionRule(triggerOrderType, side);
+  if (direction === 'above') {
+    return triggerPriceBN.gt(markPriceBN);
+  }
+  return triggerPriceBN.lt(markPriceBN);
+}
+
+/**
+ * Compute a reasonable default trigger price for a standalone trigger order.
+ * Applies a small offset (±0.5%) from mid price based on the direction rule.
+ */
+function getDefaultStandaloneTriggerPrice(
+  midPrice: string | BigNumber,
+  triggerOrderType: ETriggerOrderType,
+  side: 'long' | 'short',
+): string {
+  const midPriceBN =
+    midPrice instanceof BigNumber ? midPrice : new BigNumber(midPrice);
+
+  if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+    return '';
+  }
+
+  const direction = getTriggerDirectionRule(triggerOrderType, side);
+  const multiplier = direction === 'above' ? 1.005 : 0.995;
+  return formatPriceToSignificantDigits(midPriceBN.multipliedBy(multiplier));
+}
+
+/**
+ * Get the effective price used for size/margin calculations in trigger mode.
+ *
+ * - Market trigger: uses triggerPrice (the price at which the order activates)
+ * - Limit trigger: uses executionPrice (the limit price for the resulting order)
+ * - Fallback: uses midPrice
+ */
+function getTriggerEffectivePrice(params: {
+  triggerOrderType: ETriggerOrderType;
+  triggerPrice?: string;
+  executionPrice?: string;
+  midPrice?: string;
+}): BigNumber {
+  const { triggerOrderType, triggerPrice, executionPrice, midPrice } = params;
+
+  const isLimitTrigger =
+    triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
+    triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+
+  if (isLimitTrigger && executionPrice) {
+    const execBN = new BigNumber(executionPrice);
+    if (execBN.isFinite() && execBN.gt(0)) {
+      return execBN;
+    }
+  }
+
+  if (triggerPrice) {
+    const trigBN = new BigNumber(triggerPrice);
+    if (trigBN.isFinite() && trigBN.gt(0)) {
+      return trigBN;
+    }
+  }
+
+  if (midPrice) {
+    const midBN = new BigNumber(midPrice);
+    if (midBN.isFinite() && midBN.gt(0)) {
+      return midBN;
+    }
+  }
+
+  return new BigNumber(0);
+}
+
 export function parseSignatureToRSV(signatureHex: string): {
   r: string;
   s: string;
@@ -1302,6 +1463,11 @@ export {
   resolveTradingSize,
   resolveTradingSizeBN,
   getHyperliquidTokenImageUrl,
+  mapTriggerOrderType,
+  getTriggerDirectionRule,
+  validateStandaloneTriggerPrice,
+  getDefaultStandaloneTriggerPrice,
+  getTriggerEffectivePrice,
 };
 export default {
   formatAssetCtx,
@@ -1335,4 +1501,9 @@ export default {
   getHyperliquidTokenImageUrl,
   findTokensByAlias,
   getTokenSubtitle,
+  mapTriggerOrderType,
+  getTriggerDirectionRule,
+  validateStandaloneTriggerPrice,
+  getDefaultStandaloneTriggerPrice,
+  getTriggerEffectivePrice,
 };

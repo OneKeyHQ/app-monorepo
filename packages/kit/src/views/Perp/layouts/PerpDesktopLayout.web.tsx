@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,6 +32,7 @@ function PerpDesktopLayout() {
   const intl = useIntl();
   const { gtXl } = useMedia();
   const [layoutState, setLayoutState] = usePerpsLayoutStateAtom();
+  const scrollContainerRef = useRef<HTMLElement>(null);
 
   const layout = PERP_LAYOUT_CONFIG.desktop;
 
@@ -51,6 +52,9 @@ function PerpDesktopLayout() {
       orderBook: { visible: !(prev.orderBook?.visible ?? true) },
     }));
   }, [setLayoutState]);
+  const handleTradingViewTouchScroll = useCallback((deltaY: number) => {
+    scrollContainerRef.current?.scrollBy({ top: deltaY });
+  }, []);
 
   const tradingPanel = useMemo(() => {
     return (
@@ -98,7 +102,11 @@ function PerpDesktopLayout() {
   }, [intl, tradingWidth]);
 
   return (
-    <Stack flex={1} style={{ overflowY: 'auto' }}>
+    <Stack
+      ref={scrollContainerRef as any}
+      flex={1}
+      style={{ overflowY: 'auto' }}
+    >
       <YStack>
         <PerpTips />
         <FavoritesBar />
@@ -110,7 +118,7 @@ function PerpDesktopLayout() {
             <YStack flex={1} minWidth={PERP_LAYOUT_CONFIG.main.marketMinWidth}>
               <XStack flex={1} overflow="hidden">
                 <YStack flex={1} position="relative">
-                  <PerpCandles />
+                  <PerpCandles onTouchScroll={handleTradingViewTouchScroll} />
 
                   {gtXl ? (
                     <Stack

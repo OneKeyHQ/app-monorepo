@@ -1,4 +1,11 @@
-import { useCallback, useContext, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -33,25 +40,43 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
   const ref = useRef<T[]>([]);
   const methodRef = useRef(method);
   const hasLoadedFirstPageRef = useRef(false);
+  const resetGenRef = useRef(0);
   const [query, setQuery] = useState<{ offset: number; limit: number }>({
     offset: 0,
     limit: 10,
   });
   const { networkId, searchContent: address } = useContext(SignatureContext);
 
+  // Reset accumulated data and pagination when filters change
+  useEffect(() => {
+    ref.current = [];
+    hasLoadedFirstPageRef.current = false;
+    resetGenRef.current += 1;
+    setQuery({ offset: 0, limit: 10 });
+  }, [networkId, address]);
+
   const {
     result: { sections, ending },
   } = usePromiseResult(
     async () => {
+      const gen = resetGenRef.current;
       const resp = await methodRef.current({
         networkId,
         address,
         offset: query.offset,
         limit: query.limit,
       });
+      // Skip stale results from before a filter reset
+      if (resetGenRef.current !== gen) {
+        return { sections: [], ending: false };
+      }
       const isSearch = !networkUtils.isAllNetwork({ networkId }) || address;
       if (!isSearch) {
-        ref.current.splice(query.offset, query.limit, ...resp);
+        if (query.offset === 0) {
+          ref.current = [...resp];
+        } else {
+          ref.current.splice(query.offset, query.limit, ...resp);
+        }
       }
       hasLoadedFirstPageRef.current = true;
       return {

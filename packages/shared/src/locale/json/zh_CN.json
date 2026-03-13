@@ -3309,6 +3309,8 @@
   "referral.next_distribution": "下一次发放",
   "referral.next_distribution_day": "{Month} 10 日之前",
   "referral.no_reward": "暂无奖励",
+  "referral.not_applicable": "不适用",
+  "referral.not_applicable_desc": "该钱包创建已超过 14 天，无法绑定邀请码",
   "referral.onboard_bind_code": "绑定邀请码",
   "referral.onboard_bind_code_finish": "完成",
   "referral.onchain_desc": "来自绑定您邀请码的钱包",

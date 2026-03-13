@@ -30,7 +30,7 @@ import {
 
 import {
   DAppAccountListStandAloneItem,
-  DAppAccountListStandAloneItemForHomeScene,
+  DAppAccountListStandAloneItemReadonly,
 } from '../../../DAppConnection/components/DAppAccountList';
 import {
   DAppRequestFooter,
@@ -242,7 +242,10 @@ function LnurlPayRequestModal() {
             urlSecurityInfo={urlSecurityInfo}
           >
             {routeParams.isSendFlow ? (
-              <DAppAccountListStandAloneItemForHomeScene />
+              <DAppAccountListStandAloneItemReadonly
+                accountId={accountId}
+                networkId={networkId}
+              />
             ) : (
               <DAppAccountListStandAloneItem readonly />
             )}

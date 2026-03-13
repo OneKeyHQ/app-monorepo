@@ -1,4 +1,4 @@
-// This file is automatically created by `yarn fetch:locale`.
+// This file is automatically created by `yarn i18n:pull`.
 
 // @ts-ignore
 /* eslint-disable  */
@@ -3314,6 +3314,8 @@
   referral_next_distribution = 'referral.next_distribution',
   referral_next_distribution_day = 'referral.next_distribution_day',
   referral_no_reward = 'referral.no_reward',
+  referral_not_applicable = 'referral.not_applicable',
+  referral_not_applicable_desc = 'referral.not_applicable_desc',
   referral_onboard_bind_code = 'referral.onboard_bind_code',
   referral_onboard_bind_code_finish = 'referral.onboard_bind_code_finish',
   referral_onchain_desc = 'referral.onchain_desc',

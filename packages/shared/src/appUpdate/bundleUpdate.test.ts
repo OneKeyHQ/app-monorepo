@@ -26,6 +26,195 @@ function loadAppUpdate(appVersion: string, bundleVersion: string) {
   return require('./index') as typeof import('./index');
 }
 
+describe('resolveUpdateDecision', () => {
+  test('appShellUpdate when remote app version is greater', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '1',
+        remoteAppVersion: '2.0.0',
+        remoteBundleVersion: '1',
+      }),
+    ).toMatchObject({
+      decision: 'appShellUpdate',
+      isValid: true,
+    });
+  });
+
+  test('jsBundleUpgrade when app versions are equal and remote bundle is greater', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '1',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '2',
+      }),
+    ).toMatchObject({
+      decision: 'jsBundleUpgrade',
+      isValid: true,
+    });
+  });
+
+  test('jsBundleRollback when app versions are equal, remote bundle is lower and allowRollback=true', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '3');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '3',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '2',
+        allowRollback: true,
+      }),
+    ).toMatchObject({
+      decision: 'jsBundleRollback',
+      isValid: true,
+    });
+  });
+
+  test('staleRemote when remote app version is lower', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('2.0.0', '1');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '2.0.0',
+        currentBundleVersion: '1',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '9',
+      }),
+    ).toMatchObject({
+      decision: 'staleRemote',
+      isValid: true,
+    });
+  });
+
+  test('staleRemote when app versions are equal, remote bundle is lower and allowRollback=false', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '3');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '3',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '2',
+        allowRollback: false,
+      }),
+    ).toMatchObject({
+      decision: 'staleRemote',
+      isValid: true,
+    });
+  });
+
+  test('invalidLocal when currentAppVersion is invalid semver', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: 'invalid',
+        currentBundleVersion: '1',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '1',
+      }),
+    ).toMatchObject({
+      decision: 'invalidLocal',
+      isValid: false,
+      reason: 'invalid_current_app_version',
+    });
+  });
+
+  test('invalidRemote when remoteAppVersion is invalid semver', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '1',
+        remoteAppVersion: 'invalid',
+        remoteBundleVersion: '1',
+      }),
+    ).toMatchObject({
+      decision: 'invalidRemote',
+      isValid: false,
+      reason: 'invalid_remote_app_version',
+    });
+  });
+
+  test('none when remoteBundleVersion is non-numeric (treated as not available)', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '1');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '1',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: 'abc',
+      }),
+    ).toMatchObject({
+      decision: 'none',
+      isValid: true,
+      reason: 'remote_bundle_version_not_available',
+    });
+  });
+
+  test('none when remoteBundleVersion is undefined (no false rollback)', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '5');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '5',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: undefined,
+      }),
+    ).toMatchObject({
+      decision: 'none',
+      isValid: true,
+      reason: 'remote_bundle_version_not_available',
+    });
+  });
+
+  test('allowRollback: true + equal versions → none (not misclassified as rollback)', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '5');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '5',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '5',
+        allowRollback: true,
+      }),
+    ).toMatchObject({
+      decision: 'none',
+      isValid: true,
+    });
+  });
+
+  test('allowRollback defaults to true — remote bundle < current yields jsBundleRollback', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '5');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '5',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '2',
+      }),
+    ).toMatchObject({
+      decision: 'jsBundleRollback',
+      isValid: true,
+    });
+  });
+
+  test('none when app and bundle versions fully match', () => {
+    const { resolveUpdateDecision } = loadAppUpdate('1.0.0', '3');
+    expect(
+      resolveUpdateDecision({
+        currentAppVersion: '1.0.0',
+        currentBundleVersion: '3',
+        remoteAppVersion: '1.0.0',
+        remoteBundleVersion: '3',
+      }),
+    ).toMatchObject({
+      decision: 'none',
+      isValid: true,
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // gtVersion – decides whether a remote version is newer than local
 // ---------------------------------------------------------------------------
@@ -60,9 +249,9 @@ describe('gtVersion', () => {
     expect(gtVersion('1.0.0', '1')).toBe(false);
   });
 
-  test('returns false when same app version but lower bundle version', () => {
+  test('returns true when same app version but lower bundle version (rollback)', () => {
     const { gtVersion } = loadAppUpdate('1.0.0', '5');
-    expect(gtVersion('1.0.0', '3')).toBe(false);
+    expect(gtVersion('1.0.0', '3')).toBe(true);
   });
 
   test('returns true when higher app version with higher bundle version', () => {
@@ -119,10 +308,10 @@ describe('isNeedUpdate', () => {
       status: EAppUpdateStatus.notify,
     });
     expect(result.shouldUpdate).toBe(false);
-    expect(result.fileType).toBe(EUpdateFileType.jsBundle);
+    expect(result.fileType).toBe(EUpdateFileType.appShell);
   });
 
-  test('no jsBundle update when bundle version is lower', () => {
+  test('rollback returns fileType jsBundle with shouldUpdate false and isRollback true', () => {
     const { isNeedUpdate } = loadAppUpdate('1.0.0', '5');
     const result = isNeedUpdate({
       latestVersion: '1.0.0',
@@ -130,6 +319,41 @@ describe('isNeedUpdate', () => {
       status: EAppUpdateStatus.notify,
     });
     expect(result.shouldUpdate).toBe(false);
+    expect(result.fileType).toBe(EUpdateFileType.jsBundle);
+    expect(result.isRollback).toBe(true);
+  });
+
+  test('does not trigger update when bundle version is lower (rollback path)', () => {
+    const { isNeedUpdate } = loadAppUpdate('1.0.0', '5');
+    const result = isNeedUpdate({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
+      status: EAppUpdateStatus.notify,
+    });
+    expect(result.shouldUpdate).toBe(false);
+    expect(result.isRollback).toBe(true);
+  });
+
+  test('upgrade returns isRollback false', () => {
+    const { isNeedUpdate } = loadAppUpdate('1.0.0', '1');
+    const result = isNeedUpdate({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+      status: EAppUpdateStatus.notify,
+    });
+    expect(result.shouldUpdate).toBe(true);
+    expect(result.isRollback).toBe(false);
+  });
+
+  test('appShellUpdate returns isRollback false', () => {
+    const { isNeedUpdate } = loadAppUpdate('1.0.0', '1');
+    const result = isNeedUpdate({
+      latestVersion: '2.0.0',
+      jsBundleVersion: '1',
+      status: EAppUpdateStatus.notify,
+    });
+    expect(result.shouldUpdate).toBe(true);
+    expect(result.isRollback).toBe(false);
   });
 
   test('no update when latestVersion is undefined', () => {
@@ -157,6 +381,13 @@ describe('getUpdateFileType', () => {
     const { getUpdateFileType } = loadAppUpdate('1.0.0', '1');
     expect(
       getUpdateFileType({ latestVersion: '1.0.0', jsBundleVersion: '5' }),
+    ).toBe(EUpdateFileType.jsBundle);
+  });
+
+  test('returns jsBundle for rollback decision (same app version, lower remote bundle)', () => {
+    const { getUpdateFileType } = loadAppUpdate('1.0.0', '5');
+    expect(
+      getUpdateFileType({ latestVersion: '1.0.0', jsBundleVersion: '3' }),
     ).toBe(EUpdateFileType.jsBundle);
   });
 
@@ -298,39 +529,37 @@ describe('HTTPS URL validation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Version downgrade prevention – mirrors DesktopApiBundleUpdate.installBundle
+// Version comparison behavior – mirrors DesktopApiBundleUpdate.installBundle
 // ---------------------------------------------------------------------------
-describe('version downgrade prevention', () => {
-  function isVersionDowngrade(
+describe('version comparison behavior', () => {
+  function shouldAllowInstall(
     currentBundleVersion: string | undefined,
     newBundleVersion: string,
-  ): boolean {
-    if (!currentBundleVersion) return false;
-    const current = Number(currentBundleVersion);
-    const next = Number(newBundleVersion);
-    if (Number.isNaN(current) || Number.isNaN(next)) return false;
-    return next < current;
+  ): true {
+    Number(currentBundleVersion ?? '');
+    Number(newBundleVersion);
+    return true;
   }
 
-  test('detects downgrade from version 5 to 3', () => {
-    expect(isVersionDowngrade('5', '3')).toBe(true);
+  test('allows downgrade from version 5 to 3', () => {
+    expect(shouldAllowInstall('5', '3')).toBe(true);
   });
 
   test('allows upgrade from version 3 to 5', () => {
-    expect(isVersionDowngrade('3', '5')).toBe(false);
+    expect(shouldAllowInstall('3', '5')).toBe(true);
   });
 
   test('allows same version reinstall', () => {
-    expect(isVersionDowngrade('5', '5')).toBe(false);
+    expect(shouldAllowInstall('5', '5')).toBe(true);
   });
 
   test('allows install when no current version', () => {
-    expect(isVersionDowngrade(undefined, '5')).toBe(false);
+    expect(shouldAllowInstall(undefined, '5')).toBe(true);
   });
 
-  test('handles NaN gracefully', () => {
-    expect(isVersionDowngrade('abc', '5')).toBe(false);
-    expect(isVersionDowngrade('5', 'abc')).toBe(false);
+  test('handles NaN gracefully without blocking install', () => {
+    expect(shouldAllowInstall('abc', '5')).toBe(true);
+    expect(shouldAllowInstall('5', 'abc')).toBe(true);
   });
 });
 
@@ -672,11 +901,11 @@ describe('fallback bundle management', () => {
 // gtVersion: bundleVersion "0" edge case
 // ---------------------------------------------------------------------------
 describe('gtVersion edge cases', () => {
-  test('bundleVersion "0" with same app version → false', () => {
-    // gtVersion compares remote vs local. "0" is not > local bundleVersion
+  test('bundleVersion "0" with same app version → true (rollback)', () => {
+    // gtVersion now includes rollback: remote bundle 0 < local bundle 1 → rollback
     const { gtVersion } = loadAppUpdate('1.0.0', '1');
     const result = gtVersion('1.0.0', '0');
-    expect(result).toBe(false);
+    expect(result).toBe(true);
   });
 
   test('both appVersion and bundleVersion undefined → false', () => {
@@ -691,33 +920,29 @@ describe('gtVersion edge cases', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Version downgrade: non-numeric bundleVersion
+// Version comparison: non-numeric bundleVersion
 // ---------------------------------------------------------------------------
-describe('version downgrade non-numeric', () => {
-  function checkDowngrade(current: string, next: string): boolean {
-    const currentNum = Number(current);
-    const nextNum = Number(next);
-    return (
-      !Number.isNaN(currentNum) &&
-      !Number.isNaN(nextNum) &&
-      nextNum < currentNum
-    );
+describe('version comparison non-numeric', () => {
+  function shouldAllowInstall(current: string, next: string): boolean {
+    Number(current);
+    Number(next);
+    return true;
   }
 
   test('bundleVersion "abc" → NaN, not blocked', () => {
-    expect(checkDowngrade('5', 'abc')).toBe(false);
+    expect(shouldAllowInstall('5', 'abc')).toBe(true);
   });
 
   test('bundleVersion "3a" → NaN, not blocked', () => {
-    expect(checkDowngrade('5', '3a')).toBe(false);
+    expect(shouldAllowInstall('5', '3a')).toBe(true);
   });
 
-  test('bundleVersion "-1" → negative, detected as downgrade from "5"', () => {
-    expect(checkDowngrade('5', '-1')).toBe(true);
+  test('bundleVersion "-1" → negative value still allowed', () => {
+    expect(shouldAllowInstall('5', '-1')).toBe(true);
   });
 
   test('both NaN → not blocked', () => {
-    expect(checkDowngrade('abc', 'def')).toBe(false);
+    expect(shouldAllowInstall('abc', 'def')).toBe(true);
   });
 });
 

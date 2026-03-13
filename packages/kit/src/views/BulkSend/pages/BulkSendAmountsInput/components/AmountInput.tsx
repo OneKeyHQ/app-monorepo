@@ -379,6 +379,7 @@ export function RangeAmountInput() {
               px="$0"
               {...(platformEnv.isNativeAndroid && {
                 includeFontPadding: false,
+                h: 44,
               })}
             />
           </XStack>
@@ -429,6 +430,7 @@ export function RangeAmountInput() {
               px="$0"
               {...(platformEnv.isNativeAndroid && {
                 includeFontPadding: false,
+                h: 44,
               })}
             />
           </XStack>
