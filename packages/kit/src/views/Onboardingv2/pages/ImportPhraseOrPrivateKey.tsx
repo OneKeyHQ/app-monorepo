@@ -20,7 +20,7 @@ import {
   Stack,
   XStack,
   YStack,
-  useKeyboardState,
+  useKeyboardEvent,
   useMedia,
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
@@ -225,7 +225,13 @@ export default function ImportPhraseOrPrivateKey() {
   };
 
   const { height } = useReanimatedKeyboardAnimation();
-  const { isVisible: isKeyboardVisible } = useKeyboardState?.() || {};
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(
+    selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
+  );
+  useKeyboardEvent({
+    keyboardWillShow: () => setIsKeyboardVisible(true),
+    keyboardWillHide: () => setIsKeyboardVisible(false),
+  });
 
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
