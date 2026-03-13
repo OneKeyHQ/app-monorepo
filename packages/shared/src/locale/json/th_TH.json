@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "ค่าธรรมเนียมการถอน",
   "perp.withdraw_fee_mgs": "ค่าธรรมเนียมนี้ถูกเรียกเก็บโดย Hyperliquid โดย OneKey ไม่ได้เรียกเก็บค่าธรรมเนียมใด ๆ สำหรับการถอน",
   "perp.you_will_get": "คุณจะได้รับ",
+  "perp__deposit_no_second_confirmation__desc": "การโอนเงินจะดำเนินการทันทีโดยไม่ต้องมีการยืนยันเพิ่มเติม",
   "perp_trading_adjust_margin": "ปรับระยะขอบ",
   "perp_trading_adjust_margin_max": "เพิ่มสูงสุด",
   "perp_trading_adjust_margin_min": "เอาออกสูงสุด",
