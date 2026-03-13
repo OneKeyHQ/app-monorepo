@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { resetAboveMainRoute, rootNavigationRef } from '@onekeyhq/components';
+import { resetToRoute } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,7 +12,6 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
@@ -68,10 +67,8 @@ export const useToOnBoardingPage = () => {
             window.close();
           }
         } else {
-          resetAboveMainRoute();
-          await timerUtils.wait(100);
           if (isOnboardingDone) {
-            rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+            resetToRoute(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
               params: {
                 screen: EOnboardingPagesV2.CreateOrImportWallet,
@@ -82,7 +79,7 @@ export const useToOnBoardingPage = () => {
             });
           } else {
             // First-time user - navigate to GetStarted
-            rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+            resetToRoute(ERootRoutes.Onboarding, {
               screen: EOnboardingV2Routes.OnboardingV2,
               params: {
                 screen: EOnboardingPagesV2.GetStarted,
@@ -115,9 +112,7 @@ export const useNavigateToPickYourDevicePage = () => {
           window.close();
         }
       } else {
-        resetAboveMainRoute();
-        await timerUtils.wait(100);
-        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+        resetToRoute(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
             screen: EOnboardingPagesV2.PickYourDevice,

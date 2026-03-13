@@ -7,7 +7,7 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Dialog,
-  resetAboveMainRoute,
+  resetToRoute,
   rootNavigationRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,7 +19,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -140,9 +140,7 @@ export function useFirmwareUpdateActions() {
 
   const restartOnboarding = useCallback(
     async ({ deviceType }: { deviceType: EDeviceType | undefined }) => {
-      resetAboveMainRoute();
-      await timerUtils.wait(100);
-      rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+      resetToRoute(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
         params: {
           screen: EOnboardingPagesV2.ConnectYourDevice,

@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
   resetAboveMainRoute,
+  resetToRoute,
   rootNavigationRef,
   useUpdateEffect,
 } from '@onekeyhq/components';
@@ -45,14 +46,20 @@ function OneKeyIdPage() {
       try {
         if (isPrimeAvailable) {
           if (platformEnv.isNative) {
-            resetAboveMainRoute();
+            resetToRoute(ERootRoutes.iOSFullScreen, {
+              screen: EModalRoutes.PrimeModal,
+              params: {
+                screen: EPrimePages.PrimeDashboard,
+              },
+            });
+          } else {
+            rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
+              screen: EModalRoutes.PrimeModal,
+              params: {
+                screen: EPrimePages.PrimeDashboard,
+              },
+            });
           }
-          rootNavigationRef.current?.navigate(ERootRoutes.iOSFullScreen, {
-            screen: EModalRoutes.PrimeModal,
-            params: {
-              screen: EPrimePages.PrimeDashboard,
-            },
-          });
         }
       } catch (e) {
         defaultLogger.prime.subscription.onekeyIdLogout({

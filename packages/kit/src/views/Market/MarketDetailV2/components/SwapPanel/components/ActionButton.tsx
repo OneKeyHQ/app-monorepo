@@ -5,8 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
-  resetAboveMainRoute,
-  rootNavigationRef,
+  resetToRoute,
   useMedia,
 } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
@@ -18,7 +17,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
 import {
   EModalRoutes,
   EModalSwapRoutes,
@@ -300,9 +299,7 @@ export function ActionButton({
         return;
       }
       if (noAccount) {
-        resetAboveMainRoute();
-        await timerUtils.wait(100);
-        rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+        resetToRoute(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
             screen: EOnboardingPagesV2.GetStarted,

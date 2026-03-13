@@ -349,6 +349,38 @@ export const resetAboveMainRoute = () => {
 };
 
 /**
+ * Atomically replace all overlay routes with a target route in a single
+ * CommonActions.reset dispatch. This avoids the race condition where
+ * resetAboveMainRoute() triggers a native modal dismiss animation, and a
+ * subsequent navigate() gets popped when the dismiss completes.
+ *
+ * State transition: [Main, Modal, ...] → [Main, targetRoute]
+ */
+export const resetToRoute = (
+  routeName: string,
+  params?: Record<string, unknown>,
+) => {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
+  }
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0) {
+    return;
+  }
+  const targetRoute = { name: routeName, params };
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: [...mainRoutes, targetRoute],
+      index: mainRoutes.length,
+    }),
+  );
+};
+
+/**
  * Safely navigate from an overlay route (Modal/FullScreenPush) to a tab page.
  *
  * When using native UITabBarController, calling goBack() on overlay routes
