@@ -45,6 +45,7 @@ export type ITabHomeParamList = {
     indexedAccountId: string | undefined;
     tokenInfo?: IToken;
     isInModal?: boolean;
+    bulkSendMode?: EBulkSendMode;
   };
   [ETabHomeRoutes.TabHomeBulkSendAmountsInput]: {
     networkId: string;

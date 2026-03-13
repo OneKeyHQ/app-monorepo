@@ -11,6 +11,7 @@ import {
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 export function useNavigateToBulkSend() {
@@ -23,11 +24,13 @@ export function useNavigateToBulkSend() {
       accountId,
       indexedAccountId,
       tokenInfo,
+      bulkSendMode,
     }: {
       networkId: string | undefined;
       accountId: string | undefined;
       indexedAccountId: string | undefined;
       tokenInfo?: IToken;
+      bulkSendMode?: EBulkSendMode;
     }) => {
       if (
         platformEnv.isExtensionUiPopup ||
@@ -42,6 +45,7 @@ export function useNavigateToBulkSend() {
             accountId,
             indexedAccountId,
             tokenInfo,
+            bulkSendMode,
           },
         });
       } else if (media.gtMd) {
@@ -56,6 +60,7 @@ export function useNavigateToBulkSend() {
                 accountId,
                 indexedAccountId,
                 tokenInfo,
+                bulkSendMode,
               },
             },
           },
@@ -72,6 +77,7 @@ export function useNavigateToBulkSend() {
             indexedAccountId,
             tokenInfo,
             isInModal: true,
+            bulkSendMode,
           },
         });
       }

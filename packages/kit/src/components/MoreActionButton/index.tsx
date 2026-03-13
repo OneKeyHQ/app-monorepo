@@ -76,6 +76,7 @@ import { useOnLock } from '../../hooks/useOnLock';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
+import { useBulkSendModeDialog } from '../../views/BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../views/BulkSend/hooks/useNavigateToBulkSend';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
 import { HomeFirmwareUpdateReminder } from '../../views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
@@ -981,6 +982,7 @@ const MoreActionWalletGrid = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToBulkSend = useNavigateToBulkSend();
+  const showBulkSendModeDialog = useBulkSendModeDialog();
   const handleBackup = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListSubModal,
@@ -1070,16 +1072,22 @@ const MoreActionWalletGrid = () => {
       return;
     }
 
-    void navigateToBulkSend({
-      networkId: network?.id,
-      accountId: account?.id,
-      indexedAccountId: indexedAccount?.id,
+    showBulkSendModeDialog({
+      onSelect: (mode) => {
+        void navigateToBulkSend({
+          networkId: network?.id,
+          accountId: account?.id,
+          indexedAccountId: indexedAccount?.id,
+          bulkSendMode: mode,
+        });
+      },
     });
   }, [
     network?.id,
     account?.id,
     indexedAccount?.id,
     navigateToBulkSend,
+    showBulkSendModeDialog,
     checkIsPrimeUser,
   ]);
 

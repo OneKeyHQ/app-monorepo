@@ -22,6 +22,7 @@ export type IModalBulkSendParamList = {
     indexedAccountId: string | undefined;
     tokenInfo?: IToken;
     isInModal: boolean;
+    bulkSendMode?: EBulkSendMode;
   };
   [EModalBulkSendRoutes.BulkSendAmountsInput]: {
     networkId: string;
