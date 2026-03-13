@@ -49,6 +49,7 @@ export const usePortfolioAction = ({
       accountId,
       networkId,
       indexedAccountId,
+      btcOnlyTaproot: true,
     });
   }, [accountId, networkId, indexedAccountId]);
 

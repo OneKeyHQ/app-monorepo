@@ -125,6 +125,7 @@ function PasswordVerify({
       onPress?: () => void;
       loading?: boolean;
       disabled?: boolean;
+      tabIndex?: number;
     }>[] = [];
     if (isEnable && !passwordInput) {
       actions.push({
@@ -145,6 +146,7 @@ function PasswordVerify({
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
         disabled: confirmBtnDisabled,
         testID: 'verifying-password',
+        tabIndex: 0,
       });
     }
 
