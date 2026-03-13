@@ -8,13 +8,13 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-export function usePerpsNavigation() {
+export function usePerpsNavigation(source?: EPerpPageEnterSource) {
   const navigation = useAppNavigation();
 
   const navigateToPerps = useCallback(
     (coin: string) => {
       setTimeout(async () => {
-        setPerpPageEnterSource(EPerpPageEnterSource.MarketList);
+        setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
         navigation.switchTab(ETabRoutes.Perp);
         try {
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
@@ -25,7 +25,7 @@ export function usePerpsNavigation() {
         }
       }, 80);
     },
-    [navigation],
+    [navigation, source],
   );
 
   return { navigateToPerps };
