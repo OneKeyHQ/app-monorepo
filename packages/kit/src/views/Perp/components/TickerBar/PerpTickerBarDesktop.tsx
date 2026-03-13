@@ -16,7 +16,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -26,6 +29,7 @@ import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.cons
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
+import { FavoriteButton } from '../TokenSelector/PerpTokenSelectorRow';
 
 function useTickerBarIsLoading() {
   const { isReady, hasError } = usePerpSession();
@@ -628,13 +632,14 @@ function TickerBarFundingRate() {
 }
 
 function PerpTickerBarDesktop() {
+  const [activeAsset] = usePerpsActiveAssetAtom();
   const content = (
     <XStack
       bg="$bgApp"
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
       py="$4"
-      pl="$2.5"
+      pl="$5"
       pr="$3"
       alignItems="center"
       justifyContent="flex-start"
@@ -642,7 +647,11 @@ function PerpTickerBarDesktop() {
       h={PERP_LAYOUT_CONFIG.desktop.tickerBarHeight}
     >
       <XStack gap="$4" alignItems="center">
-        <PerpTokenSelector />
+        <XStack gap="$2" alignItems="center">
+          <FavoriteButton coin={activeAsset.coin} iconSize="$4" />
+          <PerpTokenSelector />
+        </XStack>
+
         <XStack alignItems="center" width={140} gap="$1.5" cursor="default">
           <TickerBarMarkPrice />
           <TickerBarChange24hPercent />

@@ -98,8 +98,16 @@ function TokenSelectorRowProvider({
   );
 }
 
-const FavoriteButton = memo(
-  ({ coin, isMobile }: { coin: string; isMobile?: boolean }) => {
+export const FavoriteButton = memo(
+  ({
+    coin,
+    isMobile,
+    iconSize,
+  }: {
+    coin: string;
+    isMobile?: boolean;
+    iconSize?: string;
+  }) => {
     const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
     const isFavorite = favorites.favorites.includes(coin);
 
@@ -125,7 +133,7 @@ const FavoriteButton = memo(
         size="small"
         iconProps={{
           color: isFavorite ? '$icon' : '$iconSubdued',
-          size: isMobile ? '$5' : '$3',
+          size: iconSize ?? (isMobile ? '$5' : '$3'),
         }}
         onPress={handleToggle}
         stopPropagation
