@@ -31,7 +31,7 @@ export default function ManualBackupSelectWalletPage() {
         reason: EReasonForNeedPassword.Security,
       });
 
-    await navigateToBackupWalletReminderPage({
+    navigateToBackupWalletReminderPage({
       walletId: item.id,
       isWalletBackedUp: item.backuped,
       mnemonic,

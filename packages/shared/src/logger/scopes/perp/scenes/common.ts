@@ -6,7 +6,7 @@ export class CommonScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public pageView({ source }: { source: EPerpPageEnterSource }) {
-    return { source };
+    return { source, pageName: 'Perp' };
   }
 
   @LogToServer()

@@ -401,25 +401,33 @@ const PasswordVerifyContainer = ({
         }
         await callOnVerifyRes(verifiedPassword);
         setVerifiedStatus();
-        // Save to secure storage for future biometric unlock on extension.
-        // Clear skipPrfCache first — the flag is set during promptPasswordVerify
-        // to force real WebAuthn for the biometric button, but password
-        // verification has already succeeded here so it's safe to use cache.
+        // Backfill secure storage once for migrated extension users whose
+        // biometric switch is on but password was never stored with PRF.
+        // This runs for any successful manual password verification flow.
         if (platformEnv.isExtension && isBiologyAuthSwitchOn) {
           try {
-            await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
-            const prfCredentialId =
-              await biologyAuthUtils.savePasswordForPasskey(verifiedPassword, {
-                repairBrokenState: true,
-              });
-            if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
-              setPasswordPersist((v) => ({
-                ...v,
-                webAuthCredentialId: prfCredentialId,
-              }));
+            const hasSecurePasswordNow = await biologyAuthUtils.hasPassword();
+            if (!hasSecurePasswordNow) {
+              await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
+              const prfCredentialId =
+                await biologyAuthUtils.savePasswordForPasskey(
+                  verifiedPassword,
+                  {
+                    repairBrokenState: true,
+                  },
+                );
+              setHasSecurePassword(await biologyAuthUtils.hasPassword());
+              if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
+                setPasswordPersist((v) => ({
+                  ...v,
+                  webAuthCredentialId: prfCredentialId,
+                }));
+              }
+            } else if (!hasSecurePassword) {
+              setHasSecurePassword(true);
             }
           } catch (e) {
-            console.error('Failed to save password to secure storage:', e);
+            console.error('Failed to backfill secure storage password:', e);
           }
         }
       } catch (e) {
@@ -496,6 +504,7 @@ const PasswordVerifyContainer = ({
       passwordVerifyStatus.value,
       pageMode,
       resetApp,
+      hasSecurePassword,
       setPasswordAtom,
       setPasswordErrorProtectionTimeMinutesSurplus,
       setPasswordPersist,

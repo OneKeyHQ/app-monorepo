@@ -62,6 +62,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => {
     verifyBundle: jest.fn(),
     installBundle: jest.fn(),
     clearBundle: jest.fn(),
+    resetToBuiltInBundle: jest.fn(),
     isSkipGpgVerificationAllowed: jest.fn().mockResolvedValue(false),
   };
   (globalThis as any).__mockAppUpd = au;

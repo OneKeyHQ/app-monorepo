@@ -1,12 +1,9 @@
-import { type ReactNode, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions, type GestureResponderEvent } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
+import { Dimensions, type GestureResponderEvent, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
@@ -18,7 +15,6 @@ import {
   YStack,
   useInPageDialog,
   useIsOverlayPage,
-  useKeyboardEventWithoutNavigation,
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -72,29 +68,6 @@ function MobileTradingViewTouchBridge({
       onTouchScroll={handleTouchScroll}
     />
   );
-}
-
-const DEFAULT_KEYBOARD_HEIGHT = 330;
-function DialogKeyboardAvoidingView({ children }: { children: ReactNode }) {
-  const { bottom } = useSafeAreaInsets();
-  const keyboardHeightValue = useSharedValue(0);
-  const animatedStyle = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value,
-  }));
-  useKeyboardEventWithoutNavigation({
-    keyboardWillShow: (e) => {
-      const height = e.endCoordinates.height;
-      const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
-      keyboardHeightValue.value = keyboardHeight - bottom;
-    },
-    keyboardWillHide: () => {
-      keyboardHeightValue.value = 0;
-    },
-  });
-  if (!platformEnv.isNative) {
-    return <>{children}</>;
-  }
-  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
 }
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
@@ -350,7 +323,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         showFooter: false,
         showExitButton: true,
         renderContent: (
-          <DialogKeyboardAvoidingView>
+          <View>
             <AccountSelectorProviderMirror
               config={{
                 sceneName: EAccountSelectorSceneName.home,
@@ -366,7 +339,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                 />
               </MarketWatchListProviderMirrorV2>
             </AccountSelectorProviderMirror>
-          </DialogKeyboardAvoidingView>
+          </View>
         ),
       });
     }

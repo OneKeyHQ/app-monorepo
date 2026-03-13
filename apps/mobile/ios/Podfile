@@ -246,6 +246,7 @@ target 'OneKeyWallet' do
 
       if content.include?('floorf(cropBoxFrame.size.height * (aspectRatio.width/aspectRatio.height))')
         content = content.sub(old_portrait.strip, new_code.strip)
+        FileUtils.chmod(0644, tocrop_file) unless File.writable?(tocrop_file)
         File.write(tocrop_file, content)
         Pod::UI.puts "Applied TOCropView rotation fix (OK-51551)"
       else

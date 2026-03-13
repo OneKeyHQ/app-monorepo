@@ -85,6 +85,8 @@ class BiologyAuthUtils implements IBiologyAuth {
       return false;
     }
     if (appStorage.secureStorage.hasSecureItem) {
+      // Extension PRF storage can check password-item existence by key
+      // without triggering a WebAuthn prompt.
       return appStorage.secureStorage.hasSecureItem(
         SECURE_STORAGE_PASSWORD_KEY,
       );

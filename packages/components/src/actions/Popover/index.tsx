@@ -427,6 +427,7 @@ function RawPopover({
       {/* floating panel */}
       {platformEnv.isNative ? null : (
         <TMPopover.Content
+          trapFocus={false}
           unstyled
           display={display}
           style={{
