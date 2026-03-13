@@ -978,9 +978,11 @@ diff --git a/node_modules/react-native-collapsible-tab-view/src/index.tsx b/node
 index 3d0be9d..94c928f 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/index.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/index.tsx
-@@ -61,5 +61,11 @@ export {
+@@ -58,6 +58,13 @@ export {
+   useFocusedTab,
+   useAnimatedTabIndex,
    useCollapsibleStyle,
-   useTabNameContext,
++  useTabNameContext,
 +  useTabsContext,
 +  useAfterMountEffect,
 +  useChainCallback,
