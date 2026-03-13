@@ -84,6 +84,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     downloadBundleASC: jest.fn(async () => undefined),
     installBundle: jest.fn(async () => undefined),
     clearBundle: jest.fn(async () => undefined),
+    resetToBuiltInBundle: jest.fn(async () => undefined),
     switchBundle: jest.fn(async () => undefined),
     isBundleExists: jest.fn(async () => false),
     verifyExtractedBundle: jest.fn(async () => undefined),
