@@ -18,7 +18,6 @@ import {
   rootNavigationRef,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -179,7 +178,6 @@ function RecommendCardItem({
 
 function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
-  const currencyInfo = useCurrency();
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
@@ -243,7 +241,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                       <LeverageBadge leverage={record.maxLeverage} />
                     ) : null}
                   </XStack>
-                  <SizableText size="$bodyMd" color="$textSubdued">
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    maxWidth={200}
+                  >
                     {record.name}
                   </SizableText>
                 </YStack>
@@ -259,7 +262,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               size="$bodyLgMedium"
               formatter="price"
               formatterOptions={{
-                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                currency: '$',
               }}
             >
               {record.price ?? '-'}
@@ -294,7 +297,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               size="$bodyLgMedium"
               formatter="marketCap"
               formatterOptions={{
-                currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                currency: '$',
               }}
             >
               {new BigNumber(record.volume24h).isNaN() ? '-' : record.volume24h}
@@ -342,7 +345,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   size="$bodyMd"
                   formatter="marketCap"
                   formatterOptions={{
-                    currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                    currency: '$',
                   }}
                 >
                   {new BigNumber(record.volume24h).isNaN()
@@ -367,7 +370,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 size="$bodyLgMedium"
                 formatter="price"
                 formatterOptions={{
-                  currency: record.perpsCoin ? '$' : currencyInfo?.symbol,
+                  currency: '$',
                 }}
               >
                 {record.price ?? '-'}
@@ -385,7 +388,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         },
       },
     ];
-  }, [intl, currencyInfo?.symbol, tableLayout]);
+  }, [intl, tableLayout]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {

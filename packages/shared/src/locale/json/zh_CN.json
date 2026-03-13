@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "提现手续费",
   "perp.withdraw_fee_mgs": "此费用由 Hyperliquid 收取。OneKey 不对提现收取任何费用",
   "perp.you_will_get": "您将获得",
+  "perp__deposit_no_second_confirmation__desc": "点击按钮后将一步完成授权和存款，无需二次确认",
   "perp_trading_adjust_margin": "调整保证金",
   "perp_trading_adjust_margin_max": "最大可添加",
   "perp_trading_adjust_margin_min": "最大可移除",
