@@ -17,8 +17,10 @@ import {
   SegmentControl,
   SizableText,
   TextAreaInput,
+  Stack,
   XStack,
   YStack,
+  useKeyboardState,
   useMedia,
   useReanimatedKeyboardAnimation,
 } from '@onekeyhq/components';
@@ -223,6 +225,7 @@ export default function ImportPhraseOrPrivateKey() {
   };
 
   const { height } = useReanimatedKeyboardAnimation();
+  const { isVisible: isKeyboardVisible } = useKeyboardState?.() || {};
 
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
@@ -346,13 +349,22 @@ export default function ImportPhraseOrPrivateKey() {
             <YStack>
               <Animated.View style={{ transform: [{ translateY: height }] }}>
                 <YStack>
+                  {isKeyboardVisible ? (
+                    <Stack
+                      mx="$-5"
+                      borderTopWidth={StyleSheet.hairlineWidth}
+                      borderColor="$borderSubdued"
+                    />
+                  ) : null}
                   <XStack
                     bg="$bgApp"
                     alignItems="center"
                     justifyContent="center"
-                    pt="$5"
+                    pt="$3"
+                    pb={500}
+                    mb={-500}
                   >
-                    <YStack w="100%">
+                    <YStack w="100%" gap="$3">
                       {platformEnv.isNative ? (
                         <XStack onPress={noop}>
                           <Portal.Container
