@@ -81,29 +81,16 @@ class BiologyAuthUtils implements IBiologyAuth {
     );
   };
 
-  private hasSecurePasswordWithoutAuth = async (): Promise<boolean> => {
-    if (!platformEnv.isExtension) {
-      return false;
-    }
+  hasPassword = async (): Promise<boolean> => {
     if (!(await appStorage.secureStorage.supportSecureStorage())) {
       return false;
     }
-    if (!appStorage.secureStorage.hasSecureItem) {
-      return false;
-    }
-    return appStorage.secureStorage.hasSecureItem(
-      SECURE_STORAGE_PASSWORD_KEY,
-    );
-  };
-
-  hasPassword = async (): Promise<boolean> => {
-    if (platformEnv.isExtension) {
+    if (platformEnv.isExtension && appStorage.secureStorage.hasSecureItem) {
       // Extension PRF storage can check password-item existence by key
       // without triggering a WebAuthn prompt.
-      return this.hasSecurePasswordWithoutAuth();
-    }
-    if (!(await appStorage.secureStorage.supportSecureStorage())) {
-      return false;
+      return appStorage.secureStorage.hasSecureItem(
+        SECURE_STORAGE_PASSWORD_KEY,
+      );
     }
     const value = await appStorage.secureStorage.getSecureItem(
       SECURE_STORAGE_PASSWORD_KEY,
