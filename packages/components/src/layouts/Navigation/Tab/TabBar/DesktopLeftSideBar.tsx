@@ -343,6 +343,7 @@ function OverflowMoreButton({
         </YStack>
       </TMPopover.Trigger>
       <TMPopover.Content
+        trapFocus={false}
         unstyled
         w={200}
         p={0}
