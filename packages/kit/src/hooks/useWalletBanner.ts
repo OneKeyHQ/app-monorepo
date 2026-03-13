@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -68,6 +74,19 @@ function useWalletBanner({
 
       if (item.mode) {
         parseNotificationPayload(item.mode, item.payload, () => {});
+        if (item.mode === ENotificationPushMessageMode.page && item.payload) {
+          try {
+            const payloadObj = JSON.parse(item.payload);
+            if (
+              payloadObj?.screen === 'main' &&
+              payloadObj?.params?.screen === ETabRoutes.Perp
+            ) {
+              setPerpPageEnterSource(EPerpPageEnterSource.WalletBanner);
+            }
+          } catch {
+            // ignore malformed payload
+          }
+        }
         return;
       }
 
