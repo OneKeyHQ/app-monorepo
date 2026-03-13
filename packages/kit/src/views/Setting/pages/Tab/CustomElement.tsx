@@ -53,7 +53,10 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
+import {
+  displayAppUpdateVersion,
+  encodeBundleVersionForDisplay,
+} from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
   ONEKEY_URL,
@@ -586,15 +589,12 @@ export function SocialButtonGroup() {
   }, []);
 
   const version = useMemo(() => {
-    const commitHash = String(platformEnv.githubSHA || '');
     let bundleSuffix = '';
-    if (isSkipGpgVerificationAllowed && commitHash) {
-      bundleSuffix = `(${commitHash.slice(0, 8)})`;
-    } else if (platformEnv.bundleVersion) {
-      bundleSuffix = `(${platformEnv.bundleVersion})`;
+    if (platformEnv.bundleVersion) {
+      bundleSuffix = `(${encodeBundleVersionForDisplay(platformEnv.bundleVersion)})`;
     }
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}${bundleSuffix}`;
-  }, [isSkipGpgVerificationAllowed]);
+  }, []);
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,

@@ -35,8 +35,8 @@ export function UniversalSearchPerpItem({
   const tag = isPerpsType ? `${maxLeverage}X` : 'xyz';
 
   const handlePress = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.UniversalSearch);
     setTimeout(async () => {
-      setPerpPageEnterSource(EPerpPageEnterSource.UniversalSearch);
       navigation.switchTab(ETabRoutes.Perp);
       try {
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({

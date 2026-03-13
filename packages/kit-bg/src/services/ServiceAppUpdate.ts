@@ -1172,12 +1172,14 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   async devFetchBundlesForVersion(version: string): Promise<
     {
-      bundleVersion: string;
+      ciBundleVersion: string;
       downloadUrl: string;
       sha256: string;
       signature?: string;
       fileSize: number;
       commitHash?: string;
+      branch?: string;
+      prTitle?: string;
       changeLog?: string;
     }[]
   > {
@@ -1186,13 +1188,14 @@ class ServiceAppUpdate extends ServiceBase {
       const response = await client.get<{
         code: number;
         data: {
-          bundleVersion: string;
+          ciBundleVersion: string;
           downloadUrl: string;
           sha256: string;
           signature?: string;
           fileSize: number;
           commitHash?: string;
           branch?: string;
+          prTitle?: string;
         }[];
       }>('/utility/v1/app-update/bundles', {
         params: { version },
@@ -1203,19 +1206,21 @@ class ServiceAppUpdate extends ServiceBase {
           version,
           resultCount: data.length,
           bundles: data.map((item) => ({
-            bundleVersion: item.bundleVersion,
+            bundleVersion: item.ciBundleVersion,
             downloadUrl: item.downloadUrl,
             sha256: item.sha256,
             fileSize: item.fileSize,
           })),
         });
         return data.map((item) => ({
-          bundleVersion: item.bundleVersion,
+          ciBundleVersion: item.ciBundleVersion,
           downloadUrl: item.downloadUrl,
           sha256: item.sha256,
           signature: item.signature || PLACEHOLDER_SIGNATURE,
           fileSize: item.fileSize,
           commitHash: item.commitHash,
+          branch: item.branch,
+          prTitle: item.prTitle,
           changeLog: item.commitHash
             ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
             : undefined,
