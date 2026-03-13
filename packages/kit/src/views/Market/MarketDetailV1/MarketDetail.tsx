@@ -88,7 +88,7 @@ function TokenDetailHeader({
           {name}
         </SizableText>
         <XStack ai="center" jc="space-between" pt="$2">
-          <Currency sourceCurrency="usd" size="$heading3xl">
+          <Currency size="$heading3xl">
             {currentPrice}
           </Currency>
         </XStack>
