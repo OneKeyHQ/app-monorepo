@@ -24,7 +24,7 @@ import type { IMarketPerpsToken } from './useMarketPerpsTokenList';
 
 export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
   const intl = useIntl();
-  const { gtLg } = useMedia();
+  const { gtXl } = useMedia();
 
   return useMemo(
     () =>
@@ -52,7 +52,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         {
           title: intl.formatMessage({ id: ETranslations.global_name }),
           dataIndex: 'name',
-          columnWidth: gtLg ? 340 : 260,
+          columnWidth: gtXl ? 340 : 260,
           render: (_: unknown, record: IMarketPerpsToken) => (
             <XStack alignItems="center" gap="$3" minWidth={0} overflow="hidden">
               <Token
@@ -203,7 +203,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
         },
 
         // Column 7: Funding Rate (only on larger screens)
-        gtLg
+        gtXl
           ? {
               title: intl.formatMessage({
                 id: ETranslations.perp_position_funding,
@@ -232,7 +232,7 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
             }
           : undefined,
       ].filter(Boolean) as ITableColumn<IMarketPerpsToken>[],
-    [intl, gtLg],
+    [intl, gtXl],
   );
 }
 
