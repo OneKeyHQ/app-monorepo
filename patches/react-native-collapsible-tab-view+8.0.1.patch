@@ -978,7 +978,7 @@ diff --git a/node_modules/react-native-collapsible-tab-view/src/index.tsx b/node
 index 3d0be9d..94c928f 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/index.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/index.tsx
-@@ -61,6 +61,12 @@ export {
+@@ -61,5 +61,11 @@ export {
    useCollapsibleStyle,
    useTabNameContext,
 +  useTabsContext,
