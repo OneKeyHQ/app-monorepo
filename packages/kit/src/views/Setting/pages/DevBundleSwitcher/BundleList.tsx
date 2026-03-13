@@ -41,6 +41,8 @@ type IBundleInfo = {
   signature?: string;
   fileSize: number;
   commitHash?: string;
+  branch?: string;
+  prTitle?: string;
   changeLog?: string;
 };
 
@@ -276,12 +278,9 @@ function BundleItem({
                 </Badge>
               ) : null}
             </XStack>
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$bodyXs" color="$textSubdued" flex={1}>
-                {formatFileSize(bundle.fileSize)}
-                {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
-              </SizableText>
-            </XStack>
+            <SizableText size="$bodyXs" color="$textSubdued">
+              {formatFileSize(bundle.fileSize)}
+            </SizableText>
           </YStack>
         </XStack>
 
@@ -337,13 +336,19 @@ function BundleItem({
         </XStack>
       ) : null}
 
-      {bundle.commitHash ? (
-        <XStack pl="$10" justifyContent="flex-end">
+      <YStack pl="$10" gap="$0.5">
+        <XStack alignItems="center" gap="$2" flexWrap="wrap">
           <SizableText size="$bodyXs" color="$textSubdued">
-            {bundle.commitHash.slice(0, 8)}
+            {bundle.commitHash ? bundle.commitHash.slice(0, 8) : '-'}
           </SizableText>
+          <Badge badgeType="default" badgeSize="sm">
+            <Badge.Text>{bundle.branch || '-'}</Badge.Text>
+          </Badge>
         </XStack>
-      ) : null}
+        <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={2}>
+          {bundle.prTitle || '-'}
+        </SizableText>
+      </YStack>
     </YStack>
   );
 }
@@ -368,10 +373,9 @@ export default function SettingDevBundleList() {
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
   const currentCommitHash = normalizeCommitHash(platformEnv.githubSHA);
-  const currentBundleLabel =
-    skipGpgVerificationAllowed && currentCommitHash
-      ? currentCommitHash.slice(0, 8)
-      : `#${currentBundleVersion}`;
+  const currentBundleLabel = currentCommitHash
+    ? `#${currentBundleVersion} ${currentCommitHash.slice(0, 8)}`
+    : `#${currentBundleVersion}`;
 
   useEffect(() => {
     let isMounted = true;
