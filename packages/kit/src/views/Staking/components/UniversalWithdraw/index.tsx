@@ -120,6 +120,7 @@ type IUniversalWithdrawProps = {
     withdrawAll,
     signature,
     message,
+    effectiveApy,
     useEthenaCooldown,
     resumeEthenaCooldownUnstake,
     onStepChange,
@@ -130,6 +131,7 @@ type IUniversalWithdrawProps = {
     // Stakefish: signature and message for withdraw all
     signature?: string;
     message?: string;
+    effectiveApy?: string | number;
     // Pendle: Ethena cooldown path vs instant swap
     useEthenaCooldown?: boolean;
     resumeEthenaCooldownUnstake?: boolean;
@@ -682,6 +684,7 @@ export function UniversalWithdraw({
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
+        effectiveApy: transactionConfirmation?.effectiveApy,
         useEthenaCooldown: shouldUseEthenaCooldown ? true : undefined,
         resumeEthenaCooldownUnstake: shouldResumeEthenaCooldownUnstake
           ? true
@@ -735,6 +738,7 @@ export function UniversalWithdraw({
     symbol,
     price,
     receiveInputConfig,
+    transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
     pendingEthenaCooldownUnstake,
   ]);
