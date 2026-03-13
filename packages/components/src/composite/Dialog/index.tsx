@@ -306,7 +306,7 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          <FocusScope trapped={effectiveTrapFocus} loop>
+          <FocusScope trapped={open && effectiveTrapFocus} loop>
             <Stack>
               {!disableDrag ? <SheetGrabber /> : null}
               {renderDialogContent}
