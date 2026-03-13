@@ -851,7 +851,9 @@ class DesktopApiAppBundleUpdate {
 
   async resetToBuiltInBundle() {
     store.clearUpdateBundleData();
-    logger.info('resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart');
+    logger.info(
+      'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
+    );
   }
 
   async clearAllJSBundleData() {

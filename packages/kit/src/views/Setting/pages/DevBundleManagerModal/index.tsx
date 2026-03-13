@@ -363,6 +363,32 @@ export default function DevBundleManagerModal() {
                     );
                   }}
                 />
+                <XStack mx="$4">
+                  <Divider />
+                </XStack>
+                <ActionRow
+                  icon="UndoOutline"
+                  title="Reset to Built-in Bundle"
+                  subtitle="Use app's original bundle, keep downloads"
+                  destructive
+                  onPress={() => {
+                    Dialog.show({
+                      title: 'Reset to Built-in Bundle',
+                      description:
+                        'This will reset the app to use the built-in JS bundle. Downloaded bundles will be preserved. The app will restart.',
+                      confirmButtonProps: {
+                        variant: 'destructive',
+                      },
+                      onConfirm: async () => {
+                        try {
+                          await BundleUpdate.resetToBuiltInBundle();
+                        } catch (error) {
+                          showTestError(error);
+                        }
+                      },
+                    });
+                  }}
+                />
               </SectionCard>
             </YStack>
           ) : null}
@@ -495,28 +521,6 @@ export default function DevBundleManagerModal() {
                         showTestError={showTestError}
                       />
                     ),
-                  });
-                }}
-              />
-              <XStack mx="$4">
-                <Divider />
-              </XStack>
-              <ActionRow
-                icon="UndoOutline"
-                title="Reset to Built-in Bundle"
-                subtitle="Use app's original bundle, keep downloads"
-                onPress={() => {
-                  Dialog.show({
-                    title: 'Reset to Built-in Bundle',
-                    description:
-                      'This will reset the app to use the built-in JS bundle. Downloaded bundles will be preserved. The app will restart.',
-                    onConfirm: async () => {
-                      try {
-                        await BundleUpdate.resetToBuiltInBundle();
-                      } catch (error) {
-                        showTestError(error);
-                      }
-                    },
                   });
                 }}
               />
