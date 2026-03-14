@@ -66,29 +66,27 @@ export const useToOnBoardingPage = () => {
           if (platformEnv.isExtensionUiSidePanel) {
             window.close();
           }
+        } else if (isOnboardingDone) {
+          resetToRoute(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.CreateOrImportWallet,
+              params: {
+                fullOptions: true,
+              },
+            },
+          });
         } else {
-          if (isOnboardingDone) {
-            resetToRoute(ERootRoutes.Onboarding, {
-              screen: EOnboardingV2Routes.OnboardingV2,
+          // First-time user - navigate to GetStarted
+          resetToRoute(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.GetStarted,
               params: {
-                screen: EOnboardingPagesV2.CreateOrImportWallet,
-                params: {
-                  fullOptions: true,
-                },
+                ...params,
               },
-            });
-          } else {
-            // First-time user - navigate to GetStarted
-            resetToRoute(ERootRoutes.Onboarding, {
-              screen: EOnboardingV2Routes.OnboardingV2,
-              params: {
-                screen: EOnboardingPagesV2.GetStarted,
-                params: {
-                  ...params,
-                },
-              },
-            });
-          }
+            },
+          });
         }
       },
     [navigation],

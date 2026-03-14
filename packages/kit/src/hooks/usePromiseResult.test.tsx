@@ -4,8 +4,9 @@
 /* eslint-disable import/first */
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { act, renderHook, waitFor } from '@testing-library/react';
 import { useRef } from 'react';
+
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -35,7 +36,7 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-import { globalNetInfo } from '../../../components/src/hooks/useNetInfo';
+import { globalNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
 
 import { usePromiseResult } from './usePromiseResult';
 

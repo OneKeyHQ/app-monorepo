@@ -6,12 +6,12 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
-import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
+import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { ENotificationPushMessageMode } from '@onekeyhq/shared/types/notification';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 

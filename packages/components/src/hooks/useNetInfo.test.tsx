@@ -2,8 +2,9 @@
  * @jest-environment jsdom
  */
 
-import { act, renderHook } from '@testing-library/react';
 import { useRef } from 'react';
+
+import { act, renderHook } from '@testing-library/react';
 
 jest.mock('./useVisibilityChange', () => ({
   __esModule: true,
@@ -12,6 +13,7 @@ jest.mock('./useVisibilityChange', () => ({
 }));
 
 const netInfoModule: typeof import('./useNetInfo') = require('./useNetInfo');
+
 const { globalNetInfo, useNetInfo } = netInfoModule;
 
 function useNetInfoWithRenderCount(enabled: boolean) {

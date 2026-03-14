@@ -78,37 +78,40 @@ export type ITokenSelectorListItem = {
   assetId?: number;
 };
 
-const TabItem = memo(function TabItem({
-  id,
-  name,
-  isFocused,
-  onPress,
-}: {
-  id: string;
-  name: string;
-  isFocused: boolean;
-  onPress: (id: string) => void;
-}) {
-  const handlePress = useCallback(() => onPress(id), [id, onPress]);
-  return (
-    <XStack
-      py="$3"
-      ml="$4"
-      mr="$2"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
-      onPress={handlePress}
-      cursor="default"
-    >
-      <SizableText
-        size="$headingXs"
-        color={isFocused ? '$text' : '$textSubdued'}
+const TabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        py="$3"
+        ml="$4"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={handlePress}
+        cursor="default"
       >
-        {name}
-      </SizableText>
-    </XStack>
-  );
-});
+        <SizableText
+          size="$headingXs"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+TabItem.displayName = 'TabItem';
 
 function TokenListHeader() {
   const intl = useIntl();
