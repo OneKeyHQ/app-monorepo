@@ -36,8 +36,8 @@ module.exports = {
         },
       },
     ],
-    // Adding libdbus-1-3 to stagePackages forces snapcraft full build
-    // instead of using the outdated template app (gnome-3-28-1804)
+    // Adding libdbus-1-3 to stagePackages forces snapcraft full build // cspell:disable-line
+    // instead of using the outdated template app (gnome-3-28-1804) // cspell:disable-line
     'stagePackages': ['default', 'libdbus-1-3'],
   },
 };
