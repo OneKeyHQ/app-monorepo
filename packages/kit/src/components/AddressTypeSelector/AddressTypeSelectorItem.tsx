@@ -101,6 +101,7 @@ function AddressTypeSelectorItem(props: IProps) {
         dashColor="$textDisabled"
         dashThickness={0.5}
         cursor="help"
+        alignSelf="flex-start"
       >
         {titleText ?? ''}
       </DashText>
