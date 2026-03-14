@@ -101,7 +101,6 @@ function AddressTypeSelectorItem(props: IProps) {
         dashColor="$textDisabled"
         dashThickness={0.5}
         cursor="help"
-        alignSelf="flex-start"
       >
         {titleText ?? ''}
       </DashText>
@@ -109,26 +108,30 @@ function AddressTypeSelectorItem(props: IProps) {
 
     if (platformEnv.isNative) {
       return (
-        <Popover
-          title=""
-          showHeader={false}
-          placement="top"
-          renderTrigger={dashTrigger}
-          renderContent={
-            <YStack p="$5">
-              <SizableText size="$bodyMd">{tooltipText}</SizableText>
-            </YStack>
-          }
-        />
+        <YStack alignSelf="flex-start">
+          <Popover
+            title=""
+            showHeader={false}
+            placement="top"
+            renderTrigger={dashTrigger}
+            renderContent={
+              <YStack p="$5">
+                <SizableText size="$bodyMd">{tooltipText}</SizableText>
+              </YStack>
+            }
+          />
+        </YStack>
       );
     }
 
     return (
-      <Tooltip
-        placement="top"
-        renderTrigger={dashTrigger}
-        renderContent={tooltipText}
-      />
+      <YStack alignSelf="flex-start">
+        <Tooltip
+          placement="top"
+          renderTrigger={dashTrigger}
+          renderContent={tooltipText}
+        />
+      </YStack>
     );
   }, [titleText, tooltipText]);
 
