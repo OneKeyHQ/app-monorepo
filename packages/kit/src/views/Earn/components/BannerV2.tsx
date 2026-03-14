@@ -2,13 +2,13 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import {
   Carousel,
+  ScrollGuard,
   Skeleton,
   Stack,
   XStack,
   getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
-import { ScrollGuardWrapper } from '@onekeyhq/kit/src/components/ScrollGuardWrapper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
@@ -112,7 +112,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
 
       if (media.gtSm) {
         return (
-          <ScrollGuardWrapper>
+          <ScrollGuard>
             <Stack>
               <Carousel
                 data={data}
@@ -131,12 +131,12 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
                 defaultIndex={0}
               />
             </Stack>
-          </ScrollGuardWrapper>
+          </ScrollGuard>
         );
       }
 
       return (
-        <ScrollGuardWrapper>
+        <ScrollGuard>
           <Carousel
             data={data}
             maxPageWidth={440}
@@ -153,7 +153,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
             showPagination
             defaultIndex={0}
           />
-        </ScrollGuardWrapper>
+        </ScrollGuard>
       );
     }
 

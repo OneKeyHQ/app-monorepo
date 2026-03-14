@@ -9213,6 +9213,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
+    "@onekeyfe/react-native-scroll-guard": "npm:0.1.1"
     "@onekeyfe/react-native-tab-view": "npm:1.1.38"
     "@react-navigation/bottom-tabs": "npm:7.10.1"
     "@react-navigation/elements": "npm:2.9.5"

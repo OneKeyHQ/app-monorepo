@@ -8,6 +8,7 @@ import type { IYStackProps } from '@onekeyhq/components';
 import {
   Icon,
   Image,
+  ScrollGuard,
   ScrollView,
   SizableText,
   Skeleton,
@@ -16,7 +17,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ScrollGuardWrapper } from '@onekeyhq/kit/src/components/ScrollGuardWrapper';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -287,7 +287,7 @@ export function Recommended(
         {/* Desktop/Extension with larger screen: 4 items per row */}
         {platformEnv.isNative ? (
           // Mobile: horizontal scrolling skeleton
-          <ScrollGuardWrapper>
+          <ScrollGuard>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -303,7 +303,7 @@ export function Recommended(
                 ))}
               </XStack>
             </ScrollView>
-          </ScrollGuardWrapper>
+          </ScrollGuard>
         ) : (
           // Desktop/Extension: grid layout
           <XStack m="$-5" p="$3.5" flexWrap="wrap">
@@ -332,7 +332,7 @@ export function Recommended(
       <RecommendedContainer withHeader={withHeader}>
         {platformEnv.isNative ? (
           // Mobile: horizontal scrolling
-          <ScrollGuardWrapper>
+          <ScrollGuard>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -352,7 +352,7 @@ export function Recommended(
                 ))}
               </XStack>
             </ScrollView>
-          </ScrollGuardWrapper>
+          </ScrollGuard>
         ) : (
           // Desktop/Extension: grid layout
           <XStack m="$-5" p="$3.5" flexWrap="wrap">

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { memo } from 'react';
 
-import { ScrollView, XStack, useMedia } from '@onekeyhq/components';
-import { ScrollGuardWrapper } from '@onekeyhq/kit/src/components/ScrollGuardWrapper';
+import { ScrollGuard, ScrollView, XStack, useMedia } from '@onekeyhq/components';
 
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
@@ -11,7 +10,7 @@ import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
 function BannerContainerMobile({ children }: { children: ReactNode }) {
   return (
-    <ScrollGuardWrapper>
+    <ScrollGuard>
       <ScrollView
         horizontal
         bounces={false}
@@ -24,7 +23,7 @@ function BannerContainerMobile({ children }: { children: ReactNode }) {
       >
         {children}
       </ScrollView>
-    </ScrollGuardWrapper>
+    </ScrollGuard>
   );
 }
 

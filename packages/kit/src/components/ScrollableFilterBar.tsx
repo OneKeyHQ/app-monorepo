@@ -12,10 +12,14 @@ import type { ReactNode } from 'react';
 
 import { ScrollView } from 'react-native';
 
-import { GradientMask, Stack, XStack, useStyle } from '@onekeyhq/components';
+import {
+  GradientMask,
+  ScrollGuard,
+  Stack,
+  XStack,
+  useStyle,
+} from '@onekeyhq/components';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-
-import { ScrollGuardWrapper } from './ScrollGuardWrapper';
 
 import type {
   LayoutChangeEvent,
@@ -197,7 +201,7 @@ function ScrollableFilterBarImpl({
 
   return (
     <ScrollableFilterBarContext.Provider value={ctxValue}>
-      <ScrollGuardWrapper>
+      <ScrollGuard>
         <Stack position="relative" width="100%" overflow="hidden">
           <ScrollView
             horizontal
@@ -224,7 +228,7 @@ function ScrollableFilterBarImpl({
             position="right"
           />
         </Stack>
-      </ScrollGuardWrapper>
+      </ScrollGuard>
     </ScrollableFilterBarContext.Provider>
   );
 }
