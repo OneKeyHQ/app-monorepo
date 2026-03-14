@@ -20,13 +20,17 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { ListItem } from '../ListItem';
 
 import AddressTypeCheckMark from './AddressTypeCheckMark';
 import AddressTypeFiat from './AddressTypeFiat';
-import { useAddressTypeSelectorDynamicContext } from './AddressTypeSelectorContext';
+import {
+  useAddressTypeSelectorDynamicContext,
+  useAddressTypeSelectorStableContext,
+} from './AddressTypeSelectorContext';
 
 const addressTypeTooltipMap: Partial<Record<EAddressEncodings, ETranslations>> =
   {
@@ -84,10 +88,14 @@ function AddressTypeSelectorItem(props: IProps) {
   const { deriveInfo, deriveType, account } = data;
   const intl = useIntl();
   const { isCreatingAddress } = useAddressTypeSelectorDynamicContext();
+  const { networkId } = useAddressTypeSelectorStableContext();
 
-  const tooltipI18nKey = deriveInfo.addressEncoding
-    ? addressTypeTooltipMap[deriveInfo.addressEncoding]
-    : undefined;
+  const isBTC = networkUtils.isBTCNetwork(networkId);
+
+  const tooltipI18nKey =
+    isBTC && deriveInfo.addressEncoding
+      ? addressTypeTooltipMap[deriveInfo.addressEncoding]
+      : undefined;
 
   const tooltipText = tooltipI18nKey
     ? intl.formatMessage({ id: tooltipI18nKey })
