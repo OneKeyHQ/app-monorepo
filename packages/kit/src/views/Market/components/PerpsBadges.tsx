@@ -92,14 +92,14 @@ const StockIsOpenBadge = memo(({ stock }: { stock: IMarketStockInfo }) => {
   const badge = (
     <XStack
       borderRadius="$1"
-      bg={isOpen ? '$bgSuccess' : '$bgStrong'}
+      bg={isOpen ? '$bgSuccess' : '$bgCaution'}
       justifyContent="center"
       alignItems="center"
       px="$1.5"
     >
       <SizableText
         fontSize={10}
-        color={isOpen ? '$textSuccess' : '$textSubdued'}
+        color={isOpen ? '$textSuccess' : '$textCaution'}
         lineHeight={16}
       >
         {statusText}
