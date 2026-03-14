@@ -4,10 +4,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Badge,
+  Button,
   Dialog,
+  Divider,
   ESwitchSize,
-  Empty,
   HeaderIconButton,
   Page,
   ScrollView,
@@ -17,14 +17,22 @@ import {
   startViewTransition,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2OneKeyIDLoginMode,
+  EOnboardingV2Routes,
+} from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
@@ -95,6 +103,30 @@ function AutoLockUpdateDialogContent({
   );
 }
 
+function CloudSyncHeader({ onLearnMore }: { onLearnMore: () => void }) {
+  return (
+    <>
+      <Stack px="$5" pt="$4" pb="$3">
+        <SizableText size="$headingMd">
+          Sync your data across devices
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {'Wallet names, bookmarks, and settings — end-to-end encrypted. '}
+          <SizableText
+            size="$bodyMd"
+            color="$textInteractive"
+            textDecorationLine="underline"
+            onPress={onLearnMore}
+          >
+            Learn more
+          </SizableText>
+        </SizableText>
+      </Stack>
+      <Divider />
+    </>
+  );
+}
+
 function AppDataSection() {
   const forceReloadServerUserInfo = useRef(false);
 
@@ -103,13 +135,38 @@ function AppDataSection() {
   const manualSyncingRef = useRef(false);
 
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 
-  // Scenario derivation
-  const isActiveIdUser = !!config.isCloudSyncEnabled;
-  const isActiveKwUser =
-    !!config.isCloudSyncEnabledKeyless && !config.isCloudSyncEnabled;
-  const isSyncOff =
-    !config.isCloudSyncEnabled && !config.isCloudSyncEnabledKeyless;
+  // Fetch keyless wallet existence + info in one call to avoid loading flash
+  const { result: keylessWalletResult, isLoading: kwLoading } =
+    usePromiseResult(async () => {
+      if (!isKeylessWalletEnabled) {
+        return { exists: false, info: null };
+      }
+      const wallet = await backgroundApiProxy.serviceAccount.getKeylessWallet();
+      if (!wallet) return { exists: false, info: null };
+      return {
+        exists: true,
+        info: {
+          name: wallet.name,
+          emoji: wallet.avatarInfo?.emoji ?? '',
+          label: `${wallet.avatarInfo?.emoji ?? ''} ${wallet.name}`.trim(),
+        },
+      };
+    }, [isKeylessWalletEnabled]);
+
+  const kwExists = keylessWalletResult?.exists ?? false;
+  const keylessWalletInfo = keylessWalletResult?.info ?? null;
+
+  // Scenario derivation (4 states, priority: 4 > 3 > 2 > 1)
+  // Scenarios 1/2 depend on kwExists, so skip them while loading to avoid flash
+  const isActiveIdUser = !!config.isCloudSyncEnabled; // Scenario 4
+  const isActiveKwUser = !!config.isCloudSyncEnabledKeyless && !isActiveIdUser; // Scenario 3
+  const isSyncOffWithKw =
+    !kwLoading && !isActiveIdUser && !isActiveKwUser && kwExists; // Scenario 2
+  const isSyncOffNoKw =
+    !kwLoading && !isActiveIdUser && !isActiveKwUser && !kwExists; // Scenario 1
 
   // Last update times
   const shouldUseLegacyLastSyncTime =
@@ -155,55 +212,63 @@ function AppDataSection() {
 
   // --- Handlers ---
 
-  // Enable Keyless (Scenario 1 → Scenario 3)
-  const handleEnableKeyless = useCallback(async () => {
-    if (isSubmittingRef.current) return;
+  // Navigate to KW creation flow (Scenario 1)
+  const handleCreateKeylessWallet = useCallback(() => {
+    navigation.navigate(ERootRoutes.Onboarding, {
+      screen: EOnboardingV2Routes.OnboardingV2,
+      params: {
+        screen: EOnboardingPagesV2.OneKeyIDLogin,
+        params: {
+          mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+        },
+      },
+    });
+  }, [navigation]);
+
+  // Migrate ID → Keyless (Scenario 4 "Switch Now")
+  const handleMigrateToKeyless = useCallback(async () => {
+    if (!kwExists) {
+      Dialog.show({
+        title: 'Cloud syncing require a keyless wallet.',
+        onConfirmText: 'Create keyless wallet',
+        onConfirm: () => handleCreateKeylessWallet(),
+      });
+      return;
+    }
+    // Has KW → proceed directly (no extra confirm — "Switch Now" is already explicit intent)
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    await backgroundApiProxy.serviceApp.showDialogLoading({
+      title: intl.formatMessage({
+        id: ETranslations.global_syncing,
+      }),
+    });
     try {
-      isSubmittingRef.current = true;
+      // Sync ID data first to ensure latest data is downloaded
+      await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+        callerName: 'Migration: ID sync before switch',
+        noDebounceUpload: true,
+      });
+      // Then disable ID and enable KW (re-encrypts data)
+      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+        enabled: false,
+      });
       await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
         enabled: true,
       });
+      await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
+        syncMode: ECloudSyncMode.Keyless,
+      });
     } finally {
-      isSubmittingRef.current = false;
+      await timerUtils.wait(1000);
+      await backgroundApiProxy.serviceApp.hideDialogLoading();
     }
-  }, []);
-
-  // Migrate ID → Keyless (Scenario 2 → Scenario 3)
-  const handleMigrateToKeyless = useCallback(() => {
-    Dialog.show({
-      title: 'Switch to Keyless Sync?',
-      description:
-        'Your synced data will be re-encrypted with your wallet key. OneKey ID sync will be turned off.',
-      onConfirmText: 'Switch',
-      onConfirm: async () => {
-        await backgroundApiProxy.serviceApp.showDialogLoading({
-          title: intl.formatMessage({
-            id: ETranslations.global_syncing,
-          }),
-        });
-        try {
-          await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-            enabled: false,
-          });
-          await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless(
-            { enabled: true },
-          );
-          await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-            syncMode: ECloudSyncMode.Keyless,
-          });
-        } finally {
-          await timerUtils.wait(1000);
-          await backgroundApiProxy.serviceApp.hideDialogLoading();
-        }
-        void backgroundApiProxy.serviceApp.showToast({
-          method: 'success',
-          title: 'Switched to Keyless sync',
-        });
-      },
+    void backgroundApiProxy.serviceApp.showToast({
+      method: 'success',
+      title: 'Switched to Keyless sync',
     });
-  }, [intl]);
+  }, [kwExists, intl, handleCreateKeylessWallet]);
 
-  // Toggle ID sync (Scenario 2)
+  // Toggle ID sync (Scenario 4)
   const handleToggleIdSync = useCallback(
     async (value: boolean) => {
       if (isSubmittingRef.current) return;
@@ -243,20 +308,29 @@ function AppDataSection() {
     [intl, shouldChangePasswordAutoLock],
   );
 
-  // Toggle Keyless sync (Scenario 3)
-  const handleToggleKeylessSync = useCallback(async (value: boolean) => {
-    if (isSubmittingRef.current) return;
-    try {
-      isSubmittingRef.current = true;
-      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
-        enabled: value,
-      });
-    } finally {
-      isSubmittingRef.current = false;
-    }
-  }, []);
+  // Toggle Keyless sync (Scenario 2 → 3 or 3 → 2)
+  const handleToggleKeylessSync = useCallback(
+    async (value: boolean) => {
+      if (isSubmittingRef.current) return;
+      try {
+        isSubmittingRef.current = true;
+        await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
+          enabled: value,
+        });
+        if (value && keylessWalletInfo) {
+          void backgroundApiProxy.serviceApp.showToast({
+            method: 'success',
+            title: `Syncing data with ${keylessWalletInfo.label}. To sync on another device, log in with the same wallet.`,
+          });
+        }
+      } finally {
+        isSubmittingRef.current = false;
+      }
+    },
+    [keylessWalletInfo],
+  );
 
-  // Manual sync ID (Scenario 2)
+  // Manual sync ID (Scenario 4)
   const handleManualSyncOneKeyId = useCallback(async () => {
     if (!config.isCloudSyncEnabled) return;
     if (manualSyncingRef.current) return;
@@ -322,24 +396,79 @@ function AppDataSection() {
 
   return (
     <>
-      {/* Scenario 1: Sync Off — empty state */}
-      {isSyncOff ? (
-        <Empty
-          icon="CloudOutline"
-          title="Sync your data across devices"
-          description="Wallet names, bookmarks, and settings — end-to-end encrypted."
-          buttonProps={{
-            children: 'Enable Cloud Sync',
-            onPress: handleEnableKeyless,
-          }}
-        />
+      {/* Persistent header — always shown */}
+      <CloudSyncHeader
+        onLearnMore={() => navigation.navigate(EPrimePages.PrimeCloudSyncInfo)}
+      />
+
+      {/* Scenario 1: No KW, sync off */}
+      {isSyncOffNoKw ? (
+        <Stack px="$5" pt="$4" gap="$3">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Cloud syncing require a keyless wallet.
+          </SizableText>
+          <Button onPress={handleCreateKeylessWallet}>
+            Create keyless wallet
+          </Button>
+        </Stack>
       ) : null}
 
-      {/* Scenario 2: Active ID User — migration alert + ID controls */}
+      {/* Scenario 2: Has KW, sync off */}
+      {isSyncOffWithKw ? (
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.global_onekey_cloud,
+          })}
+          icon="CloudOutline"
+          subtitle={`${intl.formatMessage({
+            id: ETranslations.prime_last_update,
+          })} : ${keylessLastUpdateTime}`}
+        >
+          <Switch
+            size={ESwitchSize.small}
+            onChange={handleToggleKeylessSync}
+            value={false}
+          />
+        </ListItem>
+      ) : null}
+
+      {/* Scenario 3: KW sync active */}
+      {isActiveKwUser ? (
+        <>
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.global_onekey_cloud,
+            })}
+            icon="CloudOutline"
+            subtitle={`${intl.formatMessage({
+              id: ETranslations.prime_last_update,
+            })} : ${keylessLastUpdateTime}`}
+          >
+            {keylessWalletInfo ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {keylessWalletInfo.label}
+              </SizableText>
+            ) : null}
+            <Switch
+              size={ESwitchSize.small}
+              onChange={handleToggleKeylessSync}
+              value={!!config.isCloudSyncEnabledKeyless}
+            />
+          </ListItem>
+          <ListItem
+            title="Sync now"
+            icon="RefreshCwOutline"
+            drillIn
+            onPress={handleManualSyncKeyless}
+          />
+        </>
+      ) : null}
+
+      {/* Scenario 4: Active ID user */}
       {isActiveIdUser ? (
         <>
           <Alert
-            type="info"
+            type="warning"
             title="Upgrade to Keyless Sync"
             description="OneKey ID sync will be discontinued. Keyless sync is simpler — no account needed."
             action={{
@@ -358,9 +487,9 @@ function AppDataSection() {
               id: ETranslations.prime_last_update,
             })} : ${oneKeyIdLastUpdateTime}`}
           >
-            <Badge badgeSize="sm" badgeType="default">
-              <Badge.Text>OneKey ID</Badge.Text>
-            </Badge>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              OneKey ID
+            </SizableText>
             <Switch
               size={ESwitchSize.small}
               onChange={handleToggleIdSync}
@@ -368,17 +497,13 @@ function AppDataSection() {
             />
           </ListItem>
           <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.wallet_backup_now,
-            })}
+            title="Sync now"
             icon="RefreshCwOutline"
             drillIn
             onPress={handleManualSyncOneKeyId}
           />
           <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.prime_change_backup_password,
-            })}
+            title="Change OneKey ID password"
             icon="Key2Outline"
             drillIn
             onPress={async () => {
@@ -389,35 +514,6 @@ function AppDataSection() {
                 await reloadServerUserInfo();
               }
             }}
-          />
-        </>
-      ) : null}
-
-      {/* Scenario 3: Active KW User — switch + backup */}
-      {isActiveKwUser ? (
-        <>
-          <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.global_onekey_cloud,
-            })}
-            icon="CloudOutline"
-            subtitle={`${intl.formatMessage({
-              id: ETranslations.prime_last_update,
-            })} : ${keylessLastUpdateTime}`}
-          >
-            <Switch
-              size={ESwitchSize.small}
-              onChange={handleToggleKeylessSync}
-              value={!!config.isCloudSyncEnabledKeyless}
-            />
-          </ListItem>
-          <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.wallet_backup_now,
-            })}
-            icon="RefreshCwOutline"
-            drillIn
-            onPress={handleManualSyncKeyless}
           />
         </>
       ) : null}

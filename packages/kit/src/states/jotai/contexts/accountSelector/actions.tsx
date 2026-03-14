@@ -908,9 +908,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               indexedAccount,
             });
           }
-          if (wallet.isKeyless) {
-            void backgroundApiProxy.servicePrimeCloudSync.autoEnableCloudSyncKeyless();
-          }
+          // Auto-sync after KW creation removed — user must explicitly enable sync
         },
       }),
   );
