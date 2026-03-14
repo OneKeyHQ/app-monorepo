@@ -146,6 +146,7 @@ export function useUniversalStake({
       inputTokenAddress,
       outputTokenAddress,
       slippage,
+      effectiveApy,
       stakingInfo,
       onSuccess,
       onFail,
@@ -167,6 +168,7 @@ export function useUniversalStake({
       inputTokenAddress?: string;
       outputTokenAddress?: string;
       slippage?: number;
+      effectiveApy?: string | number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -190,6 +192,7 @@ export function useUniversalStake({
           inputTokenAddress,
           outputTokenAddress,
           slippage,
+          effectiveApy,
           // Stakefish specific param
           validatorPublicKey,
         });
@@ -307,6 +310,7 @@ export function useUniversalWithdraw({
       protocolVault,
       withdrawAll,
       slippage,
+      effectiveApy,
       stakingInfo,
       onSuccess,
       onFail,
@@ -328,6 +332,7 @@ export function useUniversalWithdraw({
       protocolVault?: string;
       withdrawAll: boolean;
       slippage?: number;
+      effectiveApy?: string | number;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -387,6 +392,7 @@ export function useUniversalWithdraw({
             provider,
             inputTokenAddress,
             outputTokenAddress,
+            effectiveApy,
             signature: signHash,
             deadline,
           });
@@ -406,6 +412,7 @@ export function useUniversalWithdraw({
               withdrawAll,
               useEthenaCooldown: true,
               slippage,
+              effectiveApy,
             });
           const unstakeEncodedTx =
             await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -464,6 +471,7 @@ export function useUniversalWithdraw({
             withdrawAll,
             ethenaPath: true,
             slippage,
+            effectiveApy,
           });
         const swapEncodedTx =
           await backgroundApiProxy.serviceStaking.buildInternalDappTx({
@@ -558,6 +566,7 @@ export function useUniversalWithdraw({
             signature: withdrawSignature,
             message: withdrawMessage,
             slippage,
+            effectiveApy,
           });
       }
 
