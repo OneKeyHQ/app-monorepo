@@ -3,12 +3,10 @@ import { memo, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Icon,
+  DashText,
   Popover,
   SizableText,
-  Stack,
   Tooltip,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -41,34 +39,6 @@ const addressTypeTooltipMap: Partial<Record<EAddressEncodings, ETranslations>> =
       ETranslations.address_type_tooltip_nested_segwit__desc,
     [EAddressEncodings.P2PKH]: ETranslations.address_type_tooltip_legacy__desc,
   };
-
-function AddressTypeTooltip({ tooltipText }: { tooltipText: string }) {
-  const icon = <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />;
-
-  if (platformEnv.isNative) {
-    return (
-      <Popover
-        title=""
-        showHeader={false}
-        placement="top"
-        renderTrigger={<Stack p="$1">{icon}</Stack>}
-        renderContent={
-          <YStack p="$5">
-            <SizableText size="$bodyMd">{tooltipText}</SizableText>
-          </YStack>
-        }
-      />
-    );
-  }
-
-  return (
-    <Tooltip
-      placement="top"
-      renderTrigger={<Stack px="$1">{icon}</Stack>}
-      renderContent={tooltipText}
-    />
-  );
-}
 
 type IProps = {
   data: {
@@ -111,34 +81,70 @@ function AddressTypeSelectorItem(props: IProps) {
       })
     : intl.formatMessage({ id: ETranslations.global_create_address });
 
+  const titleElement = useMemo(() => {
+    if (!tooltipText) {
+      return (
+        <SizableText
+          size="$bodyMdMedium"
+          $gtMd={{ size: '$bodySmMedium' }}
+          pb="$0.5"
+        >
+          {titleText}
+        </SizableText>
+      );
+    }
+
+    const dashTrigger = (
+      <DashText
+        size="$bodyMdMedium"
+        $gtMd={{ size: '$bodySmMedium' }}
+        dashColor="$textDisabled"
+        dashThickness={0.5}
+        cursor="help"
+      >
+        {titleText ?? ''}
+      </DashText>
+    );
+
+    if (platformEnv.isNative) {
+      return (
+        <Popover
+          title=""
+          showHeader={false}
+          placement="top"
+          renderTrigger={dashTrigger}
+          renderContent={
+            <YStack p="$5">
+              <SizableText size="$bodyMd">{tooltipText}</SizableText>
+            </YStack>
+          }
+        />
+      );
+    }
+
+    return (
+      <Tooltip
+        placement="top"
+        renderTrigger={dashTrigger}
+        renderContent={tooltipText}
+      />
+    );
+  }, [titleText, tooltipText]);
+
   const renderItemText = useMemo(
     () => (
-      <YStack flex={1} userSelect="none">
-        <XStack alignItems="center" pb="$0.5">
-          <SizableText
-            size="$bodyMdMedium"
-            $gtMd={{
-              size: '$bodySmMedium',
-            }}
-          >
-            {titleText}
-          </SizableText>
-          {tooltipText ? (
-            <AddressTypeTooltip tooltipText={tooltipText} />
-          ) : null}
-        </XStack>
+      <YStack flex={1} userSelect="none" pb="$0.5">
+        {titleElement}
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
-          $gtMd={{
-            size: '$bodySm',
-          }}
+          $gtMd={{ size: '$bodySm' }}
         >
           {subtitleText}
         </SizableText>
       </YStack>
     ),
-    [titleText, tooltipText, subtitleText],
+    [titleElement, subtitleText],
   );
 
   return (
