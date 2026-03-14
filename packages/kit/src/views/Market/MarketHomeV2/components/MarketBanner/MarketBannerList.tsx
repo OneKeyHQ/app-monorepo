@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
 import { memo } from 'react';
 
-import { ScrollGuard, ScrollView, XStack, useMedia } from '@onekeyhq/components';
+import {
+  ScrollGuard,
+  ScrollView,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 
 import { MarketBannerItem } from './MarketBannerItem';
 import { MarketBannerItemSkeleton } from './MarketBannerItemSkeleton';
