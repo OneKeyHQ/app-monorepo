@@ -96,12 +96,14 @@ function BasicStakePage() {
       approveType,
       permitSignature,
       unsignedMessage,
+      effectiveApy,
     }: IApproveConfirmFnParams) => {
       await handleStake({
         amount,
         approveType,
         permitSignature,
         unsignedMessage,
+        effectiveApy,
         symbol,
         provider: providerName,
         stakingInfo: {

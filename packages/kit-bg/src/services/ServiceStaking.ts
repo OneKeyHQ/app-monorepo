@@ -319,6 +319,7 @@ class ServiceStaking extends ServiceBase {
       permitSignature,
       unsignedMessage,
       message,
+      effectiveApy,
       validatorPublicKey,
       ...rest
     } = params;
@@ -366,6 +367,7 @@ class ServiceStaking extends ServiceBase {
       unsignedMessage:
         approveType === EApproveType.Permit ? unsignedMessage : undefined,
       message,
+      effectiveApy,
       ...rest,
     };
 
@@ -392,7 +394,8 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, protocolVault, ...rest } = params;
+    const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
+      params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -417,6 +420,7 @@ class ServiceStaking extends ServiceBase {
         accountId,
       }),
       vault: isVaultBased ? protocolVault : undefined,
+      effectiveApy,
       ...rest,
     });
     return resp.data.data;

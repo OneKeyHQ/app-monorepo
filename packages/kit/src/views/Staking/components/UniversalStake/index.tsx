@@ -775,6 +775,7 @@ export function UniversalStake({
       try {
         await onConfirm?.({
           amount: amountValue,
+          effectiveApy: transactionConfirmation?.effectiveApy,
           ...permitSignatureParams,
           ...stakefishParams,
         });
@@ -853,6 +854,7 @@ export function UniversalStake({
     symbol,
     tokenInfo?.price,
     receiveInputConfig,
+    transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
   ]);
 
