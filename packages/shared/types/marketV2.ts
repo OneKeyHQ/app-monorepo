@@ -119,8 +119,11 @@ export interface IMarketTokenListItemExtraData {
 export interface IMarketStockInfo {
   title?: string;
   subtitle: string;
+  source?: string;
   sourceLogoUri: string;
   isOpen: boolean;
+  // Localized description from backend (tooltip when open, countdown + tooltip when closed)
+  description?: string;
 }
 
 export interface IMarketTokenListItem {
