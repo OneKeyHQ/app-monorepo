@@ -1,4 +1,4 @@
-import { StackActions } from '@react-navigation/native';
+import { CommonActions, StackActions } from '@react-navigation/native';
 import { isNil } from 'lodash';
 
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -65,19 +65,23 @@ type IGetEarnAccountFunc = (params: {
   account: INetworkAccount;
 } | null>;
 
-const popToMainRoute = async (maxRetryTimes = 99) => {
-  if (maxRetryTimes <= 0) {
+const popToMainRoute = async () => {
+  const state = appGlobals.$navigationRef.current?.getRootState();
+  if (!state) return;
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
     return;
   }
-  const rootState = appGlobals.$navigationRef.current?.getRootState();
-  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
-    return;
-  }
-  if (appGlobals.$navigationRef.current?.canGoBack()) {
-    appGlobals.$navigationRef.current?.goBack?.();
-  }
-  await timerUtils.wait(150);
-  await popToMainRoute(maxRetryTimes - 1);
+  appGlobals.$navigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+  await timerUtils.wait(100);
 };
 
 export async function navigateToNotificationDetailByLocalParams({

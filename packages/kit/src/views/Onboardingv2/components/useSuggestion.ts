@@ -31,11 +31,11 @@ export const useSearchWords = () => {
       if (cachedSuggestions) {
         updateSuggestions(cachedSuggestions);
       } else {
-        const suggestionWords = wordLists.filter((text: string) =>
-          text.startsWith(value),
+        const shuffledWords = shuffle(
+          wordLists.filter((text: string) => text.startsWith(value)),
         );
-        ref.current.set(value, shuffle(suggestionWords));
-        updateSuggestions(suggestionWords);
+        ref.current.set(value, shuffledWords);
+        updateSuggestions(shuffledWords);
       }
       return suggestionsRef.current;
     },

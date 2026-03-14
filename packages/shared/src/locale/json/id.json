@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "Biaya Penarikan",
   "perp.withdraw_fee_mgs": "Biaya ini dikenakan oleh Hyperliquid. OneKey tidak mengenakan biaya apa pun untuk penarikan.",
   "perp.you_will_get": "Anda akan mendapatkan",
+  "perp__deposit_no_second_confirmation__desc": "Setoran akan diproses segera tanpa konfirmasi lebih lanjut.",
   "perp_trading_adjust_margin": "Sesuaikan Margin",
   "perp_trading_adjust_margin_max": "Tambah maks.",
   "perp_trading_adjust_margin_min": "Hapus maks.",

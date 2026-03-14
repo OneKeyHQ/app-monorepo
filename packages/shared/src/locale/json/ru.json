@@ -2803,6 +2803,7 @@
   "perp.withdraw_fee": "Комиссия за вывод",
   "perp.withdraw_fee_mgs": "Эта комиссия взимается Hyperliquid. OneKey не взимает никаких комиссий за вывод средств.",
   "perp.you_will_get": "Вы получите",
+  "perp__deposit_no_second_confirmation__desc": "Зачисление средств будет произведено немедленно без дополнительного подтверждения.",
   "perp_trading_adjust_margin": "Настроить поля",
   "perp_trading_adjust_margin_max": "Макс. добавление",
   "perp_trading_adjust_margin_min": "Макс. удалить",
