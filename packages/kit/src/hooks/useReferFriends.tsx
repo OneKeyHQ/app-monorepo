@@ -220,7 +220,12 @@ export const useReferFriends = () => {
       source: 'Earn' | 'Perps' = 'Earn',
       copyAsUrl = false,
     ) => {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const [isLogin, postConfig] = await Promise.all([
+        backgroundApiProxy.servicePrime.isLoggedIn(),
+        backgroundApiProxy.serviceReferralCode.getPostConfig().catch(
+          () => undefined,
+        ),
+      ]);
       let myReferralCode = '';
       if (isLogin) {
         try {
@@ -237,8 +242,6 @@ export const useReferFriends = () => {
         myReferralCode =
           await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
       }
-      const postConfig: IInvitePostConfig | undefined =
-        await backgroundApiProxy.serviceReferralCode.getPostConfig();
 
       const sourceConfig: IInvitePostConfig['locales']['Earn'] =
         source === 'Perps' && postConfig?.locales.Perps
