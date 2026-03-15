@@ -66,7 +66,104 @@ import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 
 logger.initialize();
-logger.transports.file.maxSize = 1024 * 1024 * 10;
+
+// Align file logging with react-native-native-logger behavior:
+// - File name: app-latest.log (matches iOS/Android)
+// - Max size: 20MB per file (matches native MAX_FILE_SIZE)
+// - Rolling: date-based archives as app-{date}.{i}.log
+// - Max history: 6 archived files (matches native MAX_HISTORY)
+logger.transports.file.fileName = 'app-latest.log';
+logger.transports.file.maxSize = 20 * 1024 * 1024;
+
+// Custom archive function: rename rolled log to app-{yyyy-MM-dd}.{i}.log
+// and clean up archives beyond MAX_HISTORY, matching native behavior.
+const MAX_LOG_HISTORY = 6;
+logger.transports.file.archiveLogFn = (oldLogFile: {
+  path: string;
+  toString(): string;
+}) => {
+  const oldPath = oldLogFile.path || oldLogFile.toString();
+  const dir = path.dirname(oldPath);
+  const now = new Date();
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const dateStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+
+  // Find next available index and rename, retrying on collision (TOCTOU-safe)
+  let index = 0;
+  let moved = false;
+  while (!moved && index < 1000) {
+    const archivePath = path.join(dir, `app-${dateStr}.${index}.log`);
+    if (!fs.existsSync(archivePath)) {
+      try {
+        fs.renameSync(oldPath, archivePath);
+        moved = true;
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e?.code !== 'EEXIST' && !fs.existsSync(archivePath)) {
+          // Use console.warn instead of logger.warn to avoid re-entering
+          // the file transport while rotation is in progress, which would
+          // cause infinite recursion.
+          // eslint-disable-next-line no-console
+          console.warn('[log-archive] Failed to archive log file:', e);
+          break;
+        }
+        // Collision: another process created the file; retry next index
+      }
+    }
+    index += 1;
+  }
+  if (!moved) {
+    // eslint-disable-next-line no-console
+    console.warn('[log-archive] Could not archive after 1000 attempts');
+  }
+
+  // Cleanup: remove oldest archives beyond MAX_HISTORY
+  try {
+    const files = fs
+      .readdirSync(dir)
+      .filter(
+        (f: string) =>
+          f.startsWith('app-') && f.endsWith('.log') && f !== 'app-latest.log',
+      )
+      .sort()
+      .reverse();
+
+    if (files.length > MAX_LOG_HISTORY) {
+      for (const file of files.slice(MAX_LOG_HISTORY)) {
+        try {
+          fs.unlinkSync(path.join(dir, file));
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+    }
+  } catch {
+    // ignore cleanup errors
+  }
+};
+
+// Custom file format: app-scoped messages from the renderer (react-native-logs)
+// already contain timestamps and level info, so write them as-is to match
+// the output format of react-native-native-logger on mobile.
+// Main process messages keep the standard electron-log prefix.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+logger.transports.file.format = (params: {
+  data: any[];
+  level: string;
+  message: { date: Date; scope?: string };
+}) => {
+  if (params.message?.scope === 'app') {
+    // Return data array as-is; react-native-logs already formatted it
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return params.data;
+  }
+  const d = params.message.date;
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const pad3 = (n: number) => String(n).padStart(3, '0');
+  const ts = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return [`[${ts}] [${params.level}]`, ...params.data];
+};
 
 initSentry();
 
