@@ -11,10 +11,16 @@ import {
   SizableText,
   Video,
   XStack,
+  resetToRoute,
 } from '@onekeyhq/components';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EOnboardingPagesV2,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -58,8 +64,14 @@ function ConnectQRCodePage() {
         isOnboarding: true,
         isOnboardingV2: true,
         onFinalizeWalletSetupError: () => {
-          // only pop when finalizeWalletSetup pushed
-          navigation.pop();
+          // resetToRoute was used to navigate to FinalizeWalletSetup,
+          // so navigation.pop() won't work. Reset back to this page.
+          resetToRoute(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.ConnectQRCode,
+            },
+          });
         },
       });
 
