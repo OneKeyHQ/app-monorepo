@@ -222,9 +222,9 @@ export const useReferFriends = () => {
     ) => {
       const [isLogin, postConfig] = await Promise.all([
         backgroundApiProxy.servicePrime.isLoggedIn(),
-        backgroundApiProxy.serviceReferralCode.getPostConfig().catch(
-          () => undefined,
-        ),
+        backgroundApiProxy.serviceReferralCode
+          .getPostConfig()
+          .catch(() => undefined),
       ]);
       let myReferralCode = '';
       if (isLogin) {

@@ -46,7 +46,6 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsDepositTokensAtom,
-  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
@@ -316,7 +315,6 @@ function DepositWithdrawContent({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
-  const [settingsPersistAtom] = useSettingsPersistAtom();
   const unrealizedPnl = accountSummary?.totalUnrealizedPnl ?? '0';
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(unrealizedPnl || '0');

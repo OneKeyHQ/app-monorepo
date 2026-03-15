@@ -547,9 +547,7 @@ export default class ServiceSwap extends ServiceBase {
                 accountId,
               },
             )),
-            ...(currency
-              ? { 'x-onekey-request-currency': currency }
-              : {}),
+            ...(currency ? { 'x-onekey-request-currency': currency } : {}),
           },
         },
       );
