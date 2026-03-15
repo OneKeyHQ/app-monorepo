@@ -220,7 +220,7 @@ export const displayFullVersion = (
 };
 
 export const displayWhatsNewVersion = (
-  appUpdateInfo: IAppUpdateInfo | undefined,
+  _appUpdateInfo: IAppUpdateInfo | undefined,
 ) => displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
 
 export const displayAppUpdateVersion = (
