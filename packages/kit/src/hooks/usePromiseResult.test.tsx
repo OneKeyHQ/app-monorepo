@@ -36,7 +36,8 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-import { globalNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
+// eslint-disable-next-line import/no-relative-packages
+import { globalNetInfo } from '../../../components/src/hooks/useNetInfo';
 
 import { usePromiseResult } from './usePromiseResult';
 
