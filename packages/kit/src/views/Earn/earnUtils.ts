@@ -224,6 +224,20 @@ export async function safePushToEarnRoute(
         rootNavigation,
         targetKey,
       });
+      // Re-query stack state after popToTop — the old topRoute is stale
+      const updatedStack = findTargetStack(
+        rootNavigation.getRootState?.(),
+        targetTab,
+      );
+      const updatedTopRoute = updatedStack?.topRoute;
+      if (updatedTopRoute?.name === route) {
+        dispatchToTargetStack({
+          action: StackActions.replace(route, params),
+          rootNavigation,
+          targetKey,
+        });
+        return;
+      }
     }
 
     if (topRoute?.name === route) {
