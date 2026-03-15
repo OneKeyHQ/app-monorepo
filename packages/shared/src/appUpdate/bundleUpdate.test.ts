@@ -802,7 +802,7 @@ describe('displayAppUpdateVersion', () => {
 describe('displayWhatsNewVersion', () => {
   test('returns current app version with bundle when no info', () => {
     const { displayWhatsNewVersion } = loadAppUpdate('1.5.0', '3');
-    expect(displayWhatsNewVersion(undefined)).toBe('1.5.0(3)');
+    expect(displayWhatsNewVersion()).toBe('1.5.0(3)');
   });
 });
 

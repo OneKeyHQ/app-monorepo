@@ -219,9 +219,8 @@ export const displayFullVersion = (
   return parts.join('');
 };
 
-export const displayWhatsNewVersion = (
-  _appUpdateInfo: IAppUpdateInfo | undefined,
-) => displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
+export const displayWhatsNewVersion = () =>
+  displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
 
 export const displayAppUpdateVersion = (
   appUpdateInfo: IAppUpdateInfo | undefined,

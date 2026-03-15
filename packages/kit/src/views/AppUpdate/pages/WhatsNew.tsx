@@ -28,7 +28,7 @@ function WhatsNew() {
         title={intl.formatMessage(
           { id: ETranslations.update_changelog_updated_title },
           {
-            ver: displayWhatsNewVersion(appUpdateInfo),
+            ver: displayWhatsNewVersion(),
           },
         )}
       />
