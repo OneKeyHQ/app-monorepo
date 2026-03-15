@@ -279,7 +279,12 @@ export const useReferFriends = () => {
             });
           }
         } else {
-          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+          try {
+            await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+            void shareReferRewards(_onSuccess, _onFail, source, copyAsUrl);
+          } catch {
+            // User cancelled login, do nothing
+          }
         }
       };
 
