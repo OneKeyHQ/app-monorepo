@@ -23,7 +23,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -36,7 +35,6 @@ function ConnectQRCodePage() {
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const themeVariant = useThemeVariant();
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const STEPS = [
     intl.formatMessage({ id: ETranslations.select_connect_app_on_home }),
     intl.formatMessage({ id: ETranslations.tap_more_button_on_top_right }),
@@ -90,7 +88,7 @@ function ConnectQRCodePage() {
       });
       throw error;
     }
-  }, [createQrWallet, isSoftwareWalletOnlyUser, navigation]);
+  }, [createQrWallet, isSoftwareWalletOnlyUser]);
 
   return (
     <Page>
