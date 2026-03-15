@@ -221,14 +221,17 @@ export const displayFullVersion = (
 
 export const displayWhatsNewVersion = (
   appUpdateInfo: IAppUpdateInfo | undefined,
-) =>
-  displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
+) => displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
 
 export const displayAppUpdateVersion = (
   appUpdateInfo: IAppUpdateInfo | undefined,
 ) => {
   if (!appUpdateInfo) {
-    return displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
+    return displayFullVersion(
+      APP_VERSION,
+      APP_BUILD_NUMBER,
+      APP_BUNDLE_VERSION,
+    );
   }
   return displayFullVersion(
     appUpdateInfo.latestVersion,

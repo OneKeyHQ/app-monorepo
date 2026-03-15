@@ -16,10 +16,7 @@ import {
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  EOnboardingPagesV2,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { EOnboardingPagesV2, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
