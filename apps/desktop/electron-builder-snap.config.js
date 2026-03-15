@@ -45,7 +45,27 @@ module.exports = {
         },
       },
     ],
-    // Adding libdbus-1-3 to stagePackages forces snapcraft full build // cspell:disable-line
-    'stagePackages': ['default', 'libdbus-1-3'],
+    // gnome-46-2404 no longer bundles X11/GTK/audio libs (gnome-42-2204 did),
+    // so they must be staged explicitly for Electron.
+    // libgtk-3-0 pulls in X11, ATK, cairo, pango, cups, etc. via apt deps.
+    'stagePackages': [
+      'default',
+      'libdbus-1-3',
+      'libgtk-3-0',
+      'libgbm1',
+      'libasound2',
+    ],
+    // Override default stage exclusions from electron-builder template.
+    // The template excludes X11/GTK/audio libs assuming gnome-3-28-1804
+    // provides them, but gnome-46-2404 does not — so we must keep them.
+    'appPartStage': [
+      '-usr/lib/python*',
+      '-usr/bin/python*',
+      '-var/lib/ucf',
+      '-usr/include',
+      '-usr/share',
+      '-usr/sbin',
+      '-usr/bin',
+    ],
   },
 };
