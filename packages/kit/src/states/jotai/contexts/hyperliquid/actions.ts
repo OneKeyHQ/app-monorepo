@@ -1052,10 +1052,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               const balanceBN = new BigNumber(
                 activeAssetDataValue?.availableToTrade?.[availableIdx] ?? 0,
               );
-              if (effLeverage.gt(0) && balanceBN.gt(0)) {
+              const markPxBN = new BigNumber(
+                activeAssetCtxValue?.ctx?.markPrice ?? 0,
+              );
+              if (effLeverage.gt(0) && balanceBN.gt(0) && markPxBN.gt(0)) {
+                // Produce tokens-at-markPrice so resolveTradingSize converts correctly
                 const triggerMax = balanceBN
                   .multipliedBy(effLeverage)
-                  .dividedBy(effPriceBN);
+                  .dividedBy(markPxBN);
                 triggerMaxTradeSzs = [
                   formData.side === 'long' ? triggerMax.toFixed() : '0',
                   formData.side === 'short' ? triggerMax.toFixed() : '0',
