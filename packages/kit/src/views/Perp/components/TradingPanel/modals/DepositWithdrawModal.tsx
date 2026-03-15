@@ -101,6 +101,9 @@ interface IDepositWithdrawContentProps {
   isMobile?: boolean;
 }
 
+// Perps is USD-denominated; always show dollar sign regardless of system fiat setting
+const PERPS_CURRENCY_SYMBOL = '$';
+
 function usePerpsAccountResult(selectedAccount: IPerpsActiveAccountAtom) {
   const { serviceAccount } = backgroundApiProxy;
 
@@ -466,6 +469,7 @@ function DepositWithdrawContent({
                         .join(',') || '',
                     accountAddress: accountAddressInfo.addressDetail.address,
                     accountId: accountAddressInfo.id ?? '',
+                    currency: 'usd',
                   }),
                   backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
                     networkId,
@@ -1308,7 +1312,7 @@ function DepositWithdrawContent({
         }
         renderContent={
           <SelectTokenPopoverContent
-            symbol={settingsPersistAtom.currencyInfo?.symbol}
+            symbol={PERPS_CURRENCY_SYMBOL}
             depositTokensWithPrice={depositTokensWithPrice}
             handleSwitchToTradePress={handleSwitchToTradePress}
             handleMaxPress={handleMaxPress}
@@ -1324,7 +1328,6 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.symbol,
     currentPerpsDepositSelectedToken?.logoURI,
     currentPerpsDepositSelectedToken?.networkLogoURI,
-    settingsPersistAtom.currencyInfo?.symbol,
     depositTokensWithPrice,
     checkAccountSupport,
   ]);
