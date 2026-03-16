@@ -52,9 +52,6 @@ module.exports = {
     // is a virtual package that may resolve to the oss4-salsa shim instead
     // of real ALSA, causing missing symbols (snd_device_name_get_hint) and // cspell:disable-line
     // libOSSlib.so errors. libasound2t64 is always the real ALSA library. // cspell:disable-line
-    // NOTE: Do NOT stage libgbm1 here — gpu-2404 provides a properly-pathed
-    // libgbm.so.1 that knows where to find GBM backends inside the snap.
-    // The staged (apt) version hardcodes /usr/lib/... host paths.
     'stagePackages': [
       'default',
       'libdbus-1-3',
@@ -77,6 +74,19 @@ module.exports = {
     // (gnome-platform), but libEGL/Mesa DRI drivers live in gpu-2404.
     // Extend LD_LIBRARY_PATH so Electron can find them.
     // Both arch triplets are listed so the same config works for x64 and arm64.
+    // Snap layouts: map host-absolute paths that Mesa libgbm has
+    // compiled-in for loading GBM backends (dri_gbm.so) to the actual
+    // locations inside the gpu-2404 content snap.
+    // Without this, libgbm tries /usr/lib/<arch>/gbm/ which doesn't
+    // exist inside the snap, causing EGL initialization to fail.
+    'layout': {
+      '/usr/lib/x86_64-linux-gnu/gbm': {
+        'bind': '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/gbm',
+      },
+      '/usr/lib/aarch64-linux-gnu/gbm': {
+        'bind': '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/gbm',
+      },
+    },
     'environment': {
       'LD_LIBRARY_PATH': [
         '$SNAP_LIBRARY_PATH',
