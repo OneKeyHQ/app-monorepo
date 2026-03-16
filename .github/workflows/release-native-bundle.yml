@@ -136,7 +136,7 @@ jobs:
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run || inputs.notify_slack }}
-        uses: onekeyhq/actions/slack-notify-webhook@main
+        uses: originalix/actions/slack-notify-webhook@feat/bundle-release-notification
         continue-on-error: true
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
