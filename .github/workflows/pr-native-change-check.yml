@@ -1,9 +1,18 @@
-name: PR Native Change Check
+name: Native Change Check
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [x, 'release/**']
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: 'Base ref (branch, tag, or commit SHA)'
+        required: true
+        default: 'x'
+      head_ref:
+        description: 'Head ref (branch, tag, or commit SHA)'
+        required: true
 
 permissions:
   contents: read
@@ -18,11 +27,37 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve refs
+        id: refs
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "base=${{ inputs.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ inputs.head_ref }}" >> "$GITHUB_OUTPUT"
+            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+            # Fetch refs that may not exist locally
+            git fetch origin "${{ inputs.base_ref }}" --no-tags 2>/dev/null || true
+            git fetch origin "${{ inputs.head_ref }}" --no-tags 2>/dev/null || true
+          else
+            echo "base=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "head=HEAD" >> "$GITHUB_OUTPUT"
+            echo "is_pr=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Detect native changes
         id: detect
         run: |
-          BASE_REF="origin/${{ github.base_ref }}"
-          CHANGED_FILES=$(git diff --name-only "$BASE_REF"...HEAD)
+          BASE_REF="${{ steps.refs.outputs.base }}"
+          HEAD_REF="${{ steps.refs.outputs.head }}"
+
+          # Resolve to commit SHAs for reliable comparison
+          BASE_SHA=$(git rev-parse "$BASE_REF" 2>/dev/null || git rev-parse "origin/$BASE_REF" 2>/dev/null) || { echo "::error::Cannot resolve base ref: $BASE_REF"; exit 1; }
+          HEAD_SHA=$(git rev-parse "$HEAD_REF" 2>/dev/null || git rev-parse "origin/$HEAD_REF" 2>/dev/null) || { echo "::error::Cannot resolve head ref: $HEAD_REF"; exit 1; }
+
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "Comparing: $BASE_REF ($BASE_SHA) ... $HEAD_REF ($HEAD_SHA)"
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA" 2>/dev/null || git diff --name-only "$BASE_SHA" "$HEAD_SHA")
 
           if [ -z "$CHANGED_FILES" ]; then
             echo "has_native=false" >> "$GITHUB_OUTPUT"
@@ -121,8 +156,8 @@ jobs:
           if [ -n "$VERSION_FILES" ]; then
             VER_REPORT=""
             while IFS= read -r vfile; do
-              OLD_VER=$(git show "$BASE_REF":"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
-              NEW_VER=$(cat "$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
+              OLD_VER=$(git show "$BASE_SHA":"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
+              NEW_VER=$(git show "$HEAD_SHA":"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
               if [ -n "$OLD_VER" ] && [ -n "$NEW_VER" ] && [ "$OLD_VER" != "$NEW_VER" ]; then
                 VER_REPORT="${VER_REPORT}- \`${vfile}\`: ${OLD_VER} → ${NEW_VER}\n"
               fi
@@ -137,7 +172,7 @@ jobs:
           YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
           if [ -n "$YARN_LOCK_CHANGED" ]; then
             NATIVE_PKG_PATTERNS='react-native-|@react-native/|@onekeyfe/react-native-|expo-|@react-navigation/|react-native$'
-            LOCK_NATIVE_HITS=$(git diff "$BASE_REF"...HEAD -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
+            LOCK_NATIVE_HITS=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
             if [ -n "$LOCK_NATIVE_HITS" ]; then
               HAS_NATIVE=true
               REPORT="${REPORT}### yarn.lock Native Package Changes\n"
@@ -153,7 +188,42 @@ jobs:
           # Write report to file to handle multiline
           echo -e "$REPORT" > /tmp/native-report.md
 
+      - name: Write Job Summary
+        run: |
+          HAS_NATIVE="${{ steps.detect.outputs.has_native }}"
+          BASE_REF="${{ steps.refs.outputs.base }}"
+          HEAD_REF="${{ steps.refs.outputs.head }}"
+          BASE_SHA="${{ steps.detect.outputs.base_sha }}"
+          HEAD_SHA="${{ steps.detect.outputs.head_sha }}"
+
+          {
+            echo "## Native Change Check"
+            echo ""
+            echo "| | Ref | SHA |"
+            echo "|---|---|---|"
+            echo "| **Base** | \`${BASE_REF}\` | \`${BASE_SHA:0:10}\` |"
+            echo "| **Head** | \`${HEAD_REF}\` | \`${HEAD_SHA:0:10}\` |"
+            echo ""
+
+            if [ "$HAS_NATIVE" = "true" ]; then
+              echo "### ⚠️ Native Changes Detected"
+              echo ""
+              echo "This range contains changes that **cannot be shipped via bundle update** and requires a full App Shell release."
+              echo ""
+              cat /tmp/native-report.md
+              echo ""
+              echo "**Action required:**"
+              echo "- Add the \`no-release\` label if this should not be included in bundle releases"
+              echo "- Coordinate with the release team for App Shell release scheduling"
+            else
+              echo "### ✅ No Native Changes"
+              echo ""
+              echo "This range is safe for bundle update."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Comment or cleanup PR comment
+        if: steps.refs.outputs.is_pr == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -211,7 +281,7 @@ jobs:
             }
 
       - name: Add no-release label suggestion
-        if: steps.detect.outputs.has_native == 'true'
+        if: steps.refs.outputs.is_pr == 'true' && steps.detect.outputs.has_native == 'true'
         uses: actions/github-script@v7
         continue-on-error: true
         with:
