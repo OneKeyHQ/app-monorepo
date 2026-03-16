@@ -62,7 +62,8 @@ export const collectLogDigest = async (
   };
 };
 
-export const exportLogs = async () => {
+export const exportLogs = async (fileBaseName?: string) => {
+  const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
   try {
     const connectionInfo =
@@ -82,7 +83,9 @@ export const exportLogs = async () => {
     });
   }
   await waitAsync(50);
-  void globalThis.desktopApiProxy.dev.openLoggerFile();
+  await globalThis.desktopApiProxy.dev.exportLoggerZip({
+    fileBaseName: baseName,
+  });
 };
 
 export const uploadLogBundle = async ({
