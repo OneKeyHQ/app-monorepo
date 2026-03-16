@@ -56,24 +56,34 @@ exports.default = async function fileOperation(context) {
     // Map (platform, arch) to the exact prebuild dir names to keep.
     // darwin-x64+arm64 is a universal binary, always kept for darwin/mas.
     // For universal builds, keep all dirs matching the platform.
-    const archSuffix = { 0: 'ia32', 1: 'x64', 2: 'arm', 3: 'arm64' };
+    const archSuffix = { 0: 'ia32', 1: 'x64', 2: 'armv7l', 3: 'arm64' };
     const platformName =
       electronPlatformName === 'mas' ? 'darwin' : electronPlatformName;
     const isUniversal = arch === 4;
+    const currentArch = archSuffix[arch];
+
+    // Windows ARM64 has no native prebuild; it runs x64 via WoW64 emulation.
+    // Keep win32-x64 as fallback.
+    const fallbackArch =
+      electronPlatformName === 'win32' && currentArch === 'arm64'
+        ? 'x64'
+        : null;
 
     for (const dir of fs.readdirSync(prebuildsBase)) {
       if (!dir.startsWith(`${platformName}-`)) {
         // Wrong platform, always remove
         fs.rmSync(path.join(prebuildsBase, dir), { recursive: true });
         console.log(`Removed unused prebuild: ${dir}`);
-      } else if (!isUniversal && archSuffix[arch]) {
+      } else if (!isUniversal && currentArch) {
         // Right platform but check arch (skip for universal builds)
         const dirArch = dir.slice(`${platformName}-`.length);
-        // darwin-x64+arm64 contains both arches, always keep
-        if (
-          !dirArch.includes(archSuffix[arch]) &&
-          !dirArch.includes('+')
-        ) {
+        // Keep if: matches current arch, contains '+' (universal binary),
+        // or matches fallback arch (e.g., win32-x64 for win arm64)
+        const shouldKeep =
+          dirArch.includes(currentArch) ||
+          dirArch.includes('+') ||
+          (fallbackArch && dirArch.includes(fallbackArch));
+        if (!shouldKeep) {
           fs.rmSync(path.join(prebuildsBase, dir), { recursive: true });
           console.log(`Removed unused prebuild: ${dir}`);
         }
