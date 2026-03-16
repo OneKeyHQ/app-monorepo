@@ -126,3 +126,4 @@ For detailed guidance, use these skills (invoke with `/skill-name`):
 - **1k-i18n** - Internationalization guidelines
 - **1k-cross-platform** - Platform-specific development
 - **1k-adding-chains** - Adding new blockchain support
+- **1k-bundle-release** - Bundle hot update release management (cherry-pick, diff-check, publish)
