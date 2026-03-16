@@ -5,7 +5,11 @@ import { Keyboard } from 'react-native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IOtpInputProps } from './OtpInput.types';
-import type { NativeSyntheticEvent, TargetedEvent, TextInput } from 'react-native';
+import type {
+  NativeSyntheticEvent,
+  TargetedEvent,
+  TextInput,
+} from 'react-native';
 
 const regexMap = {
   alpha: /[^a-zA-Z]/,
