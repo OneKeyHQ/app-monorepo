@@ -39,6 +39,34 @@ exports.default = async function fileOperation(context) {
     console.log('remove file finish..');
   }
 
+  // Remove unused @serialport/bindings-cpp prebuilds for other platforms.
+  // The package bundles prebuilds for all platforms (android, linux, darwin,
+  // win32) but each build only needs the matching one. Removing the rest
+  // reduces package size and eliminates snap linter warnings.
+  const prebuildsBase = path.join(
+    appOutDir,
+    electronPlatformName === 'darwin' || electronPlatformName === 'mas'
+      ? `${appName}.app/Contents/Resources`
+      : 'resources',
+    'app.asar.unpacked/node_modules/@serialport/bindings-cpp/prebuilds',
+  );
+  if (fs.existsSync(prebuildsBase)) {
+    const keepPrefixes = {
+      darwin: ['darwin-'],
+      mas: ['darwin-'],
+      linux: ['linux-'],
+      win32: ['win32-'],
+    };
+    const keep = keepPrefixes[electronPlatformName] || [];
+    for (const dir of fs.readdirSync(prebuildsBase)) {
+      if (!keep.some((prefix) => dir.startsWith(prefix))) {
+        const fullPath = path.join(prebuildsBase, dir);
+        fs.rmSync(fullPath, { recursive: true });
+        console.log(`Removed unused prebuild: ${dir}`);
+      }
+    }
+  }
+
   if (electronPlatformName === 'darwin' || electronPlatformName === 'win32') {
     await context.packager.addElectronFuses(context, {
       version: FuseVersion.V1,
