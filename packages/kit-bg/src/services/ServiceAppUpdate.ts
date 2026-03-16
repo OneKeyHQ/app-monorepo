@@ -173,12 +173,10 @@ class ServiceAppUpdate extends ServiceBase {
     if (
       decision.decision === 'appShellUpdate' ||
       decision.decision === 'jsBundleUpgrade' ||
-      decision.decision === 'jsBundleRollback' ||
-      decision.decision === 'jsBundleRollbackToBuiltin'
+      decision.decision === 'jsBundleRollback'
     ) {
       const targetBundleVersion =
-        decision.decision === 'appShellUpdate' ||
-        decision.decision === 'jsBundleRollbackToBuiltin'
+        decision.decision === 'appShellUpdate'
           ? appInfo.jsBundleVersion || String(platformEnv.bundleVersion || '')
           : appInfo.jsBundleVersion;
       // For jsBundleUpgrade/jsBundleRollback, jsBundleVersion must be present
