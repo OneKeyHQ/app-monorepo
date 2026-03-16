@@ -199,7 +199,7 @@ fi
 YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
 if [ -n "$YARN_LOCK_CHANGED" ]; then
   # Get the diff of yarn.lock and look for known native packages
-  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine'
+  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|@sentry/react-native|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine'
   # Match both key lines ("pkg@...":) and resolution lines (resolution: "pkg@...")
   LOCK_NATIVE_HITS=$(git diff "$BASE_REF"...HEAD -- yarn.lock 2>/dev/null | grep -E "^[+-].*(\"($NATIVE_PKG_PATTERNS))" | head -20 || true)
   if [ -n "$LOCK_NATIVE_HITS" ]; then
@@ -251,7 +251,7 @@ if [ -n "$DB_ALL_HITS" ]; then
   DB_CONSTS_FILE="packages/kit-bg/src/dbs/local/consts.ts"
   if echo "$CHANGED_FILES" | grep -q "$DB_CONSTS_FILE"; then
     OLD_DB_VER=$(git show "$BASE_REF":"$DB_CONSTS_FILE" 2>/dev/null | grep -oE 'LOCAL_DB_VERSION\s*=\s*[0-9]+' | grep -oE '[0-9]+' || echo "")
-    NEW_DB_VER=$(grep -oE 'LOCAL_DB_VERSION\s*=\s*[0-9]+' "$DB_CONSTS_FILE" 2>/dev/null | grep -oE '[0-9]+' || echo "")
+    NEW_DB_VER=$(git show HEAD:"$DB_CONSTS_FILE" 2>/dev/null | grep -oE 'LOCAL_DB_VERSION\s*=\s*[0-9]+' | grep -oE '[0-9]+' || echo "")
     if [ -n "$OLD_DB_VER" ] && [ -n "$NEW_DB_VER" ] && [ "$OLD_DB_VER" != "$NEW_DB_VER" ]; then
       DB_VERSION_CHANGED=1
     fi
