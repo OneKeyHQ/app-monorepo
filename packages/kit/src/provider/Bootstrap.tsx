@@ -45,6 +45,7 @@ import {
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
+import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -766,15 +767,7 @@ export function Bootstrap() {
     if (!platformEnv.isNative && !platformEnv.isDesktop) return;
     const timer = setTimeout(() => {
       try {
-        if (platformEnv.isNative) {
-          const {
-            ReactNativeDeviceUtils,
-          } = require('@onekeyfe/react-native-device-utils');
-          ReactNativeDeviceUtils.markBootSuccess();
-        }
-        if (platformEnv.isDesktop) {
-          globalThis.desktopApi?.markBootSuccess?.();
-        }
+        BootRecovery.markBootSuccess();
       } catch {
         // Silently fail — don't let recovery mechanism crash the app
       }
@@ -787,11 +780,7 @@ export function Bootstrap() {
     if (!platformEnv.isNative) return;
     const checkRecoveryFlag = async () => {
       try {
-        const {
-          default: ReactNativeDeviceUtils,
-        } = require('react-native-device-utils');
-        const action =
-          await ReactNativeDeviceUtils.getAndClearRecoveryAction();
+        const action = await BootRecovery.getAndClearRecoveryAction();
         if (action) {
           defaultLogger.app.error.log(
             `recovery_page_shown: action=${action}, platform=${platformEnv.isNativeIOS ? 'ios' : 'android'}`,

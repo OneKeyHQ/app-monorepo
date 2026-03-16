@@ -838,15 +838,12 @@ const BaseDevSettingsSection = () => {
                 title="Show Recovery Page on Next Launch"
                 subtitle="Sets crash counter to 3, triggering recovery page on restart"
                 onPress={async () => {
-                  if (platformEnv.isNative) {
-                    const {
-                      ReactNativeDeviceUtils,
-                    } = require('@onekeyfe/react-native-device-utils');
-                    ReactNativeDeviceUtils.setConsecutiveBootFailCount(3);
-                  }
-                  if (platformEnv.isDesktop) {
-                    globalThis.desktopApi?.setConsecutiveBootFailCount?.(3);
-                  }
+                  const BootRecovery = (
+                    await import(
+                      '@onekeyhq/shared/src/modules/BootRecovery'
+                    )
+                  ).default;
+                  BootRecovery.setConsecutiveBootFailCount(3);
                   Toast.success({
                     title: 'Recovery page will show on next launch',
                   });
