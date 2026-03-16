@@ -3927,7 +3927,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
         }
         const resultSorted = [...result].toSorted((a, b) => a.order - b.order);
-        console.log('getAccountNameFromAddress', { resultSorted, result });
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('getAccountNameFromAddress', { resultSorted, result });
+        }
         return resultSorted;
       }
       return [];
