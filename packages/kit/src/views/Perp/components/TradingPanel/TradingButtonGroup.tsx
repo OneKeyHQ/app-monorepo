@@ -332,10 +332,25 @@ function SideButtonInternal({
       const hasSizeEmpty = isSliderMode
         ? !formData.sizePercent || formData.sizePercent <= 0
         : !formData.size || formData.size.trim() === '';
-      if (hasSizeEmpty || !computedSizeForSide.gt(0)) {
+      if (hasSizeEmpty) {
+        // TODO: i18n - add translation key for cost mode placeholder
+        const sizeEmptyTitle =
+          tradingPreferences.sizeInputUnit === 'margin'
+            ? 'Enter Cost'
+            : intl.formatMessage({
+                id: ETranslations.perp_trade_amount_place_holder,
+              });
+        Toast.message({ title: sizeEmptyTitle });
+        return;
+      }
+      if (!computedSizeForSide.gt(0)) {
+        // TODO: i18n - needs dedicated error keys instead of reusing label/button keys
         Toast.message({
           title: intl.formatMessage({
-            id: ETranslations.perp_trade_amount_place_holder,
+            id:
+              isTriggerMode && formData.triggerReduceOnly
+                ? ETranslations.perps_reduce_only
+                : ETranslations.perp_trading_button_no_enough_margin,
           }),
         });
         return;
