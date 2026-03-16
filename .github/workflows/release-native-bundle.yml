@@ -155,8 +155,8 @@ jobs:
           server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
           upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
           bundle-dir: ./apps/mobile/out-dir-bundle-zip
-          commit-hash: ${{ github.sha }}
-          branch: ${{ github.ref_name }}
+          commit-hash: ${{ env.COMMIT }}
+          branch: ${{ env.BRANCH }}
           pr-title: ${{ github.event.pull_request.title || github.event.workflow_run.name || '' }}
 
       - name: 'Notify to Slack'
