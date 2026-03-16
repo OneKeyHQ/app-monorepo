@@ -266,7 +266,7 @@ function OuterTabPagerViewComponent({
     prevActiveIndexRef.current = activePageIndex;
     if (prev === activePageIndex) return;
 
-    requestAnimationFrame(() => {
+    const rafId = requestAnimationFrame(() => {
       // Only scroll PagerView for programmatic switches (header tab taps).
       // For user-gesture swipes, PagerView already handles scrolling natively.
       if (!wasUserDragRef.current) {
@@ -280,6 +280,7 @@ function OuterTabPagerViewComponent({
         earnTabsRef?.current?.syncCurrentPage();
       }
     });
+    return () => cancelAnimationFrame(rafId);
   }, [activePageIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
 
   const marketPage = useMemo(
