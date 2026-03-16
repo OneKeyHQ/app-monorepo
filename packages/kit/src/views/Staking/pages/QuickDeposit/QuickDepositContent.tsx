@@ -8,16 +8,15 @@ import {
   Popover,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import { AprText } from '../../../Earn/components/AprText';
 import { capitalizeString } from '../../utils/utils';
 import { ManagePositionContent } from '../ManagePosition/components/ManagePositionContent';
 
@@ -50,10 +49,51 @@ function formatTvl(tvl: string | undefined): string | undefined {
 
 function getAprDisplayText(item: IStakeProtocolListItem): string {
   const { aprInfo } = item;
-  if (aprInfo?.highlight) return aprInfo.highlight.text;
-  if (aprInfo?.normal) return aprInfo.normal.text;
-  if (aprInfo?.deprecated) return aprInfo.deprecated.text;
-  return `${item.provider.aprWithoutFee || '0'} APR`;
+  let text = '';
+  if (aprInfo?.highlight) {
+    text = aprInfo.highlight.text;
+  } else if (aprInfo?.normal) {
+    text = aprInfo.normal.text;
+  } else if (aprInfo?.deprecated) {
+    text = aprInfo.deprecated.text;
+  } else {
+    return `${item.provider.aprWithoutFee || '0'} APR`;
+  }
+  // Ensure text always includes APY/APR suffix
+  if (!/\s*(APY|APR)\s*$/i.test(text)) {
+    return `${text} APR`;
+  }
+  return text;
+}
+
+function ProtocolImage({
+  logoURI,
+  networkLogoURI,
+}: {
+  logoURI?: string;
+  networkLogoURI?: string;
+}) {
+  return (
+    <Stack position="relative" w="$9" h="$9" flexShrink={0}>
+      <Image
+        w="$9"
+        h="$9"
+        borderRadius="$2"
+        source={logoURI ? { uri: logoURI } : undefined}
+      />
+      {networkLogoURI ? (
+        <Stack
+          position="absolute"
+          bottom={-2}
+          right={-2}
+          bg="$bgApp"
+          borderRadius="$full"
+        >
+          <NetworkAvatarBase size="$4" logoURI={networkLogoURI} />
+        </Stack>
+      ) : null}
+    </Stack>
+  );
 }
 
 function findMatchingItem(
@@ -136,9 +176,33 @@ function ProtocolSwitcher({
       protocol: IProtocol;
       item?: IStakeProtocolListItem;
     }> = [];
+    // Find first real item to use as fallback image for mock protocols
+    let firstRealItem: IStakeProtocolListItem | undefined;
     for (const p of protocols) {
       const item = findMatchingItem(protocolList, p);
+      if (item && !firstRealItem) {
+        firstRealItem = item;
+      }
       matched.push({ protocol: p, item });
+    }
+    // TODO: remove mock - inject fake data for unmatched protocols
+    for (const m of matched) {
+      if (!m.item && firstRealItem) {
+        m.item = {
+          ...firstRealItem,
+          provider: {
+            ...firstRealItem.provider,
+            name: m.protocol.provider,
+            logoURI: firstRealItem.provider.logoURI,
+            tvl: '8520000',
+            aprWithoutFee: '4.12',
+            vault: m.protocol.vault,
+          },
+          aprInfo: {
+            normal: { text: '4.12% APY' },
+          },
+        } as IStakeProtocolListItem;
+      }
     }
     return matched;
   }, [protocols, protocolList]);
@@ -146,25 +210,23 @@ function ProtocolSwitcher({
   const renderContent = useCallback(
     () => (
       <YStack p="$1">
-        <XStack px="$2" py="$1.5">
+        <XStack px="$2" py="$1.5" gap="$2">
           <SizableText
             size="$bodySmMedium"
             color="$textSubdued"
             flex={1}
-            maxWidth={160}
           >
             Protocol
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$textSubdued" flex={1} textAlign="right">
+          <SizableText
+            size="$bodySmMedium"
+            color="$textSubdued"
+            textAlign="right"
+          >
             APR/APY
           </SizableText>
         </XStack>
         {matchedProtocols.map(({ protocol, item }) => {
-          const isSelected =
-            protocol.provider === selectedProtocol.provider &&
-            protocol.networkId === selectedProtocol.networkId &&
-            protocol.vault === selectedProtocol.vault;
-
           const tvlFormatted = formatTvl(item?.provider.tvl);
           const subtitle = [tvlFormatted, item?.provider.vaultName]
             .filter(Boolean)
@@ -177,38 +239,48 @@ function ProtocolSwitcher({
             .trim();
 
           return (
-            <ListItem
+            <XStack
               key={`${protocol.provider}-${protocol.networkId}-${protocol.vault}`}
               onPress={() => onSelectProtocol(protocol)}
+              ai="center"
+              gap="$3"
+              p="$2"
               borderRadius="$2"
               borderCurve="continuous"
-              px="$2"
               hoverStyle={{ bg: '$bgHover' }}
               pressStyle={{ bg: '$bgActive' }}
+              cursor="pointer"
+              role="button"
             >
-              <Token
-                size="md"
-                borderRadius="$2"
-                tokenImageUri={item?.provider.logoURI}
+              <ProtocolImage
+                logoURI={item?.provider.logoURI}
+                networkLogoURI={item?.network.logoURI}
               />
-              <ListItem.Text
-                flex={1}
-                primary={capitalizeString(
-                  item?.provider.name || protocol.provider,
-                )}
-                primaryTextProps={{ size: '$bodyLgMedium' }}
-                secondary={subtitle || undefined}
-                secondaryTextProps={{ size: '$bodySm', mt: '$0.5' }}
-              />
+              <YStack flex={1} gap="$0.5">
+                <SizableText size="$bodyLgMedium">
+                  {capitalizeString(
+                    item?.provider.name || protocol.provider,
+                  )}
+                </SizableText>
+                {subtitle ? (
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                  >
+                    {subtitle}
+                  </SizableText>
+                ) : null}
+              </YStack>
               <SizableText size="$bodyLgMedium" textAlign="right">
                 {aprValueOnly}
               </SizableText>
-            </ListItem>
+            </XStack>
           );
         })}
       </YStack>
     ),
-    [matchedProtocols, selectedProtocol, onSelectProtocol],
+    [matchedProtocols, onSelectProtocol],
   );
 
   const renderTrigger = useMemo(
@@ -297,16 +369,9 @@ function ProtocolInfoCard({
 
   return (
     <XStack ai="center" gap="$3">
-      <Image
-        w="$9"
-        h="$9"
-        borderRadius="$2"
-        flexShrink={0}
-        source={
-          matchingItem?.provider.logoURI
-            ? { uri: matchingItem.provider.logoURI }
-            : undefined
-        }
+      <ProtocolImage
+        logoURI={matchingItem?.provider.logoURI}
+        networkLogoURI={matchingItem?.network.logoURI}
       />
       <YStack flex={1} gap="$0.5">
         <SizableText size="$bodyLgMedium">{providerName}</SizableText>
@@ -354,7 +419,6 @@ export function QuickDepositContent({
     symbol,
     accountId,
     indexedAccountId,
-    filterNetworkId: selectedProtocol.networkId,
   });
 
   const handleSelectProtocol = useCallback((protocol: IProtocol) => {
