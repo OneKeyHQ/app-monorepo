@@ -1179,13 +1179,31 @@ class ServiceAppUpdate extends ServiceBase {
         decision.decision === 'jsBundleRollback' &&
         (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
       ) {
-        defaultLogger.app.appUpdate.log(
-          'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
-        );
-        // Use setTimeout to avoid blocking the current fetch flow
-        setTimeout(() => {
-          void this.downloadPackage();
-        }, 0);
+        // Verify target is not frozen/ignored before auto-triggering download
+        const rollbackTargetKey =
+          releaseInfo.version && releaseInfo.jsBundleVersion
+            ? this.getTargetKey({
+                targetAppVersion: releaseInfo.version,
+                targetBundleVersion: releaseInfo.jsBundleVersion,
+              })
+            : null;
+        const rollbackBlocked = rollbackTargetKey
+          ? await this.shouldSkipTargetByControl(
+              rollbackTargetKey,
+              traceId,
+              requestSeq,
+              false,
+            )
+          : false;
+        if (!rollbackBlocked) {
+          defaultLogger.app.appUpdate.log(
+            'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+          );
+          // Use setTimeout to avoid blocking the current fetch flow
+          setTimeout(() => {
+            void this.downloadPackage();
+          }, 0);
+        }
       }
     } else {
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
