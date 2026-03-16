@@ -249,6 +249,41 @@ class DesktopApiDev {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // NativeLogger-compatible methods (aligned with react-native-native-logger)
+  // -----------------------------------------------------------------------
+
+  getLogDirectory(): string {
+    return path.dirname(logger.transports.file.getFile().path);
+  }
+
+  async getLogFilePaths(): Promise<string[]> {
+    const logDir = this.getLogDirectory();
+    const files = await fsPromises.readdir(logDir);
+    return files.filter((f) => f.endsWith('.log')).sort();
+  }
+
+  async deleteLogFiles(): Promise<void> {
+    const logDir = this.getLogDirectory();
+    const files = await fsPromises.readdir(logDir);
+    for (const file of files) {
+      if (!file.endsWith('.log')) {
+        continue;
+      }
+      const filePath = path.join(logDir, file);
+      try {
+        if (file === 'app-latest.log') {
+          // Truncate active log file instead of deleting (matches native behavior)
+          await fsPromises.writeFile(filePath, '');
+        } else {
+          await fsPromises.unlink(filePath);
+        }
+      } catch {
+        // ignore individual file errors
+      }
+    }
+  }
+
   async changeDevTools(isOpen: boolean): Promise<void> {
     store.setDevTools(isOpen);
     globalThis.$desktopMainAppFunctions?.refreshMenu?.();

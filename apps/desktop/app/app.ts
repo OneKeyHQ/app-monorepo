@@ -150,6 +150,15 @@ logger.transports.file.archiveLogFn = (oldLogFile: {
         }
       }
     }
+
+    // Clean up legacy main.log / main.old.log files from previous electron-log defaults
+    for (const legacyFile of ['main.log', 'main.old.log']) {
+      try {
+        fs.unlinkSync(path.join(dir, legacyFile));
+      } catch {
+        // ignore if not exists
+      }
+    }
   } catch {
     // ignore cleanup errors
   }
@@ -873,6 +882,11 @@ async function createMainWindow() {
   ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDevServer;
+  });
+
+  ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
+  ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
+    event.returnValue = path.dirname(logger.transports.file.getFile().path);
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
