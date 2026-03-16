@@ -165,6 +165,7 @@ export default function SettingDevLocalBundleList() {
         true,
       );
       await backgroundApiProxy.serviceAppUpdate.reset();
+      await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
       await BundleUpdate.switchBundle({
         ...bundle,
         signature: 'dev-local-switch',

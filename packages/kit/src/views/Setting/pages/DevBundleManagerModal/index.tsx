@@ -245,8 +245,10 @@ async function enableIgnoreServerBundleUpdate() {
     'ignoreServerBundleUpdate',
     true,
   );
-  // Clear local update state so any pending rollback is discarded
+  // Clear both update atom and pending install task so any queued
+  // rollback/upgrade is fully discarded (they are stored separately).
   await backgroundApiProxy.serviceAppUpdate.reset();
+  await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
 }
 
 function IgnoreServerBundleUpdateToggle() {
@@ -265,8 +267,10 @@ function IgnoreServerBundleUpdateToggle() {
       value,
     );
     if (value) {
-      // Clear local update state so pending rollback is discarded
+      // Clear both update atom and pending install task so any queued
+      // rollback/upgrade is fully discarded.
       await backgroundApiProxy.serviceAppUpdate.reset();
+      await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
     }
   }, []);
 

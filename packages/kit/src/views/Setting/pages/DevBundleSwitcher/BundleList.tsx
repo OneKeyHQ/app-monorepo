@@ -174,6 +174,7 @@ function BundleItem({
       true,
     );
     await backgroundApiProxy.serviceAppUpdate.reset();
+    await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
     defaultLogger.app.jsBundleDev.installBundle({
       version,
       bundleVersion: bundle.ciBundleVersion,
