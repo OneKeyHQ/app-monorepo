@@ -267,6 +267,8 @@ export function Carousel<T>({
                 initialPage={defaultIndex}
                 pageWidth={pageWidth}
                 onPageSelected={onPageSelected}
+                // Only effective on native; web PagerView ignores this and uses "none"
+                // to avoid globally blurring focused inputs via dismissKeyboard().
                 keyboardDismissMode="on-drag"
                 disableAnimation={disableAnimation}
                 {...pagerProps}
