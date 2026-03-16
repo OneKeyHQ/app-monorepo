@@ -411,18 +411,17 @@ function AppDataSection() {
     }
     manualSyncingRef.current = true;
     try {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      const { password } =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
           id: ETranslations.global_syncing,
         }),
       });
-      await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+      await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
         callerName: 'Manual Cloud Sync Keyless',
         noDebounceUpload: true,
-      });
-      await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.Keyless,
+        password,
       });
     } finally {
       manualSyncingRef.current = false;
