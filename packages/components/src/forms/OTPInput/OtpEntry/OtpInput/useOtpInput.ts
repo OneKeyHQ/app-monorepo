@@ -93,7 +93,7 @@ export const useOtpInput = ({
     // (e.g. due to FocusScope trap in Dialog, browser quirks, or cursor
     // interactions). When relatedTarget is null it means no other element
     // is receiving focus, so we auto-refocus to keep the input active.
-    if (platformEnv.isDesktop || platformEnv.isRuntimeBrowser) {
+    if (!platformEnv.isNative) {
       const nativeEvent = (e as unknown as { nativeEvent?: FocusEvent })
         ?.nativeEvent;
       if (nativeEvent && !nativeEvent.relatedTarget) {
