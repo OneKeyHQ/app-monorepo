@@ -252,6 +252,7 @@ jobs:
 
       - name: Comment or cleanup PR comment
         if: steps.refs.outputs.is_pr == 'true'
+        continue-on-error: true # Fork PRs have read-only tokens; don't fail the job
         uses: actions/github-script@v7
         with:
           script: |
