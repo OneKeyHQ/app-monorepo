@@ -40,6 +40,7 @@ type IParams = {
 type IBuildUnsignedTxParams = {
   encodedTx?: IEncodedTx;
   unsignedTx?: IUnsignedTxPro;
+  unsignedTxs?: IUnsignedTxPro[];
   transfersInfo?: ITransferInfo[];
   approvesInfo?: IApproveInfo[];
   wrappedInfo?: IWrappedInfo;
@@ -51,6 +52,7 @@ type IBuildUnsignedTxParams = {
   sameModal?: boolean;
   transferPayload?: ITransferPayload;
   signOnly?: boolean;
+  returnAllMultiTxResults?: boolean;
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   feeInfo?: IFeeInfoUnit;
@@ -110,6 +112,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onCancel,
         transferPayload: transferPayloadBase,
         signOnly,
+        returnAllMultiTxResults,
         useFeeInTx,
         feeInfoEditable,
         approvesInfo,
@@ -120,9 +123,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
       } = params;
       let transferPayload = transferPayloadBase;
       try {
-        const unsignedTxs = [];
+        const unsignedTxs = [...(params.unsignedTxs ?? [])];
         // for batch approve&swap
         if (
+          unsignedTxs.length === 0 &&
           approvesInfo &&
           !isEmpty(approvesInfo) &&
           (encodedTx || !isEmpty(transfersInfo))
@@ -153,7 +157,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               ...rest,
             }),
           );
-        } else {
+        } else if (unsignedTxs.length === 0) {
           unsignedTxs.push(
             await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
               networkId,
@@ -199,6 +203,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             onCancel,
             transferPayload,
             signOnly,
+            returnAllMultiTxResults,
             useFeeInTx,
             feeInfoEditable,
           });
@@ -214,6 +219,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               onCancel,
               transferPayload,
               signOnly,
+              returnAllMultiTxResults,
               useFeeInTx,
               feeInfoEditable,
             },

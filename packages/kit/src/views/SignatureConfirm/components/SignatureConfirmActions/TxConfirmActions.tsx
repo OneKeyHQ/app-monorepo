@@ -67,6 +67,7 @@ type IProps = {
   onCancel?: () => void;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
+  returnAllMultiTxResults?: boolean;
   transferPayload?: ITransferPayload;
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
@@ -84,6 +85,7 @@ function TxConfirmActions(props: IProps) {
     onCancel,
     sourceInfo,
     signOnly,
+    returnAllMultiTxResults,
     transferPayload,
     useFeeInTx,
     feeInfoEditable,
@@ -312,6 +314,7 @@ function TxConfirmActions(props: IProps) {
           unsignedTxs: newUnsignedTxs,
           feeInfos: sendSelectedFeeInfo?.feeInfos,
           signOnly,
+          returnAllMultiTxResults,
           sourceInfo,
           replaceTxInfo,
           transferPayload,
@@ -474,6 +477,7 @@ function TxConfirmActions(props: IProps) {
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     signOnly,
+    returnAllMultiTxResults,
     transferPayload,
     intl,
     onSuccess,
