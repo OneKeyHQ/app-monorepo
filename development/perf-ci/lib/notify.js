@@ -78,6 +78,12 @@ function getReportBaseUrl(localConfig) {
   return value ? trimTrailingSlash(value) : null;
 }
 
+function getPerfDashboardBaseUrl(localConfig) {
+  const value =
+    process.env.PERF_DASHBOARD_URL || localConfig?.perfDashboardBaseUrl;
+  return value ? trimTrailingSlash(value) : null;
+}
+
 function buildLinks({
   report,
   outputRoot,
@@ -117,6 +123,12 @@ function buildLinks({
     links.homeRefreshUrl = `${dashboardBaseUrl}/api/sessions/${encodeURIComponent(
       representativeSessionId,
     )}/home-refresh`;
+  }
+
+  const perfDashboardBaseUrl = getPerfDashboardBaseUrl(localConfig);
+  const jobId = report?.meta?.jobId;
+  if (perfDashboardBaseUrl && jobId) {
+    links.perfDashboardUrl = `${perfDashboardBaseUrl}/?job_id=${encodeURIComponent(jobId)}`;
   }
 
   return links;

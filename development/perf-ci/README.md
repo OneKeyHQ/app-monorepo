@@ -292,7 +292,8 @@ Example:
   "reportBaseUrl": "https://perf.example.com/reports",
   "alertStateRoot": "/Users/<you>/perf-alert-state",
   "analyticsUrl": "https://perf-analytics.example.workers.dev",
-  "analyticsSecret": "your-secret-here"
+  "analyticsSecret": "your-secret-here",
+  "perfDashboardBaseUrl": "https://perf-dashboard.example.pages.dev"
 }
 ```
 
@@ -308,6 +309,7 @@ Core:
 - `PERF_ALERT_STATE_ROOT`: optional directory used to persist last alert state
 - `PERF_ANALYTICS_URL`: analytics worker base URL (prefer `config.local.json` → `analyticsUrl`)
 - `PERF_ANALYTICS_SECRET`: analytics shared secret (prefer `config.local.json` → `analyticsSecret`)
+- `PERF_DASHBOARD_URL`: Cloudflare Pages dashboard base URL for Slack deep links (prefer `config.local.json` → `perfDashboardBaseUrl`)
 
 Note:
 

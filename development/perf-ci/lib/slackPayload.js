@@ -390,8 +390,11 @@ function buildContextFields(model) {
 
 function buildActionText(model) {
   const items = [];
+  if (model.links.perfDashboardUrl) {
+    items.push(slackLink(model.links.perfDashboardUrl, '打开 Perf Dashboard'));
+  }
   if (model.links.dashboardUrl) {
-    items.push(slackLink(model.links.dashboardUrl, '打开 Dashboard'));
+    items.push(slackLink(model.links.dashboardUrl, '打开 Session Dashboard'));
   }
   if (model.links.outputUrl) {
     items.push(slackLink(model.links.outputUrl, '打开产物目录'));
@@ -438,8 +441,10 @@ function buildFallbackText(model) {
     lines.push(...model.diagnosisLines);
   }
   if (model.links.reportUrl) lines.push(`report: ${model.links.reportUrl}`);
-  if (model.links.dashboardUrl)
-    lines.push(`dashboard: ${model.links.dashboardUrl}`);
+  if (model.links.perfDashboardUrl)
+    lines.push(`dashboard: ${model.links.perfDashboardUrl}`);
+  else if (model.links.dashboardUrl)
+    lines.push(`session-dashboard: ${model.links.dashboardUrl}`);
   lines.push(`output: ${model.outputDir}`);
   return lines.join('\n');
 }
