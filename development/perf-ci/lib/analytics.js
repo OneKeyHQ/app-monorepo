@@ -12,13 +12,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// Auto-load development/perf-ci/.env if present (before any env reads)
-try {
-  require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-} catch (_) {
-  // dotenv not available — rely on shell environment
-}
-
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------

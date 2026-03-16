@@ -397,8 +397,8 @@ async function main() {
         jobId,
         sessionsDir,
         platform: meta.targetKey,
-        analyticsUrl: process.env.PERF_ANALYTICS_URL,
-        analyticsSecret: process.env.PERF_ANALYTICS_SECRET,
+        analyticsUrl: process.env.PERF_ANALYTICS_URL || localConfig.analyticsUrl,
+        analyticsSecret: process.env.PERF_ANALYTICS_SECRET || localConfig.analyticsSecret,
       }).catch(() => {});
     }
 

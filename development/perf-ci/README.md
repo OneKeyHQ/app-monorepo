@@ -290,7 +290,9 @@ Example:
   "androidAvdName": "Pixel_7_Pro_API_34",
   "dashboardBaseUrl": "http://perf-machine:9527",
   "reportBaseUrl": "https://perf.example.com/reports",
-  "alertStateRoot": "/Users/<you>/perf-alert-state"
+  "alertStateRoot": "/Users/<you>/perf-alert-state",
+  "analyticsUrl": "https://perf-analytics.example.workers.dev",
+  "analyticsSecret": "your-secret-here"
 }
 ```
 
@@ -304,6 +306,8 @@ Core:
 - `PERF_DASHBOARD_BASE_URL`: optional public dashboard base URL used in Slack links
 - `PERF_REPORT_BASE_URL`: optional public report base URL used in Slack links
 - `PERF_ALERT_STATE_ROOT`: optional directory used to persist last alert state
+- `PERF_ANALYTICS_URL`: analytics worker base URL (prefer `config.local.json` → `analyticsUrl`)
+- `PERF_ANALYTICS_SECRET`: analytics shared secret (prefer `config.local.json` → `analyticsSecret`)
 
 Note:
 

@@ -152,8 +152,8 @@ async function notifyPerfResult({
   slackWebhookUrl,
   localConfig,
 }) {
-  const analyticsUrl = process.env.PERF_ANALYTICS_URL || null;
-  const analyticsSecret = process.env.PERF_ANALYTICS_SECRET || null;
+  const analyticsUrl = process.env.PERF_ANALYTICS_URL || localConfig?.analyticsUrl || null;
+  const analyticsSecret = process.env.PERF_ANALYTICS_SECRET || localConfig?.analyticsSecret || null;
 
   const targetKey = report?.meta?.targetKey || 'perf';
   const alertStatePath = getAlertStatePath({
@@ -268,9 +268,7 @@ async function notifyPerfFailure({
   };
   await postModelToSlack({ slackWebhookUrl, model }).catch(() => {});
   writeAlertState(alertStatePath, buildStateSnapshot(model));
-  const analyticsUrl = process.env.PERF_ANALYTICS_URL || null;
-  const analyticsSecret = process.env.PERF_ANALYTICS_SECRET || null;
-  await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
+  // Failures (build errors, unexpected crashes, etc.) are not uploaded to analytics.
   return model;
 }
 
