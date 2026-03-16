@@ -106,3 +106,24 @@ index be3bb87..1b25951 100644
              apps: {
                  [snapName]: appDescriptor,
              },
+diff --git a/node_modules/app-builder-lib/templates/snap/snapcraft.yaml b/node_modules/app-builder-lib/templates/snap/snapcraft.yaml
+index f0d706d..d40777d 100644
+--- a/node_modules/app-builder-lib/templates/snap/snapcraft.yaml
++++ b/node_modules/app-builder-lib/templates/snap/snapcraft.yaml
+@@ -5,6 +5,16 @@ parts:
+   launch-scripts:
+     plugin: dump
+     source: scripts
++    override-prime: |
++      snapcraftctl prime
++      # Fix LIBGL_DRIVERS_PATH: desktop-common.sh sets it to gnome-platform's
++      # dri dir only, but GPU drivers live in the gpu-2404 content snap.
++      # Append gpu-2404 DRI paths after the original export line.
++      if [ -f desktop-common.sh ]; then
++        sed -i '/^export LIBGL_DRIVERS_PATH=.*SNAP_DESKTOP_RUNTIME.*dri"/a\
++      append_dir LIBGL_DRIVERS_PATH "$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/dri"\
++      append_dir LIBGL_DRIVERS_PATH "$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/dri"' desktop-common.sh
++      fi
+   gnome-platform-empty-dirs:
+     plugin: nil
+     override-build: >
