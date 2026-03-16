@@ -714,6 +714,11 @@ export function useKeylessWallet() {
           },
         );
       if (isCreated) {
+        await cacheKeylessOnboardingSameEmailAccountStatus({
+          status: {
+            isSameEmailAccountAtOldVersion: false,
+          },
+        });
         const sameEmailAccountStatus =
           await backgroundApiProxy.serviceKeylessWallet.apiGetKeylessSameEmailAccountStatus(
             {
