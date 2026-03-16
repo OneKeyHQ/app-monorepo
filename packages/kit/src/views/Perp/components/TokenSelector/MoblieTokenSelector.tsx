@@ -55,42 +55,45 @@ import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import type { ITokenSelectorListItem } from './PerpTokenSelector';
 import type { LayoutChangeEvent } from 'react-native';
 
-const TabItem = memo(function TabItem({
-  id,
-  name,
-  isFocused,
-  onPress,
-}: {
-  id: string;
-  name: string;
-  isFocused: boolean;
-  onPress: (id: string) => void;
-}) {
-  const { handleItemLayout } = useScrollableFilterBar();
-  const handlePress = useCallback(() => onPress(id), [id, onPress]);
-  return (
-    <XStack
-      alignItems="center"
-      justifyContent="center"
-      px="$2.5"
-      py="$1.5"
-      borderRadius="$full"
-      userSelect="none"
-      cursor="default"
-      backgroundColor={isFocused ? '$bgActive' : '$transparent'}
-      onPress={handlePress}
-      onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
-    >
-      <SizableText
-        numberOfLines={1}
-        size="$bodyMdMedium"
-        color={isFocused ? '$text' : '$textSubdued'}
+const TabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const { handleItemLayout } = useScrollableFilterBar();
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        alignItems="center"
+        justifyContent="center"
+        px="$2.5"
+        py="$1.5"
+        borderRadius="$full"
+        userSelect="none"
+        cursor="default"
+        backgroundColor={isFocused ? '$bgActive' : '$transparent'}
+        onPress={handlePress}
+        onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
       >
-        {name}
-      </SizableText>
-    </XStack>
-  );
-});
+        <SizableText
+          numberOfLines={1}
+          size="$bodyMdMedium"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+TabItem.displayName = 'TabItem';
 
 function MobileTokenSelectorModal({
   onLoadingChange,

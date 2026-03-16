@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { resetAboveMainRoute } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 
 export function usePrimeTransferExit() {
