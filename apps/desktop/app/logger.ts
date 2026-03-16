@@ -197,6 +197,9 @@ const rateLimitBuckets = {
   warn: createBucket(1000, 2000),
 };
 
+// 1s cooldown for drop reports, matching native lastDropReportMs behavior
+let lastDropReportAt = 0;
+
 logger.hooks.push((message: any) => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const level: string = message?.level ?? 'info';
@@ -217,9 +220,11 @@ logger.hooks.push((message: any) => {
   }
   if (bucket.tokens >= 1) {
     bucket.tokens -= 1;
-    if (bucket.dropped > 0) {
+    // Report dropped count at most once per second to avoid self-flooding
+    if (bucket.dropped > 0 && now - lastDropReportAt >= 1000) {
       const dropped = bucket.dropped;
       bucket.dropped = 0;
+      lastDropReportAt = now;
       logger.warn(
         `[OneKeyLog] Rate-limited: dropped ${dropped} ${level} log messages`,
       );

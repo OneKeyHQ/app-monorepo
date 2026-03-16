@@ -76,11 +76,14 @@ class DesktopApiDev {
     const zipDir = path.join(path.dirname(logDir), 'logs_zip');
     await fsPromises.mkdir(zipDir, { recursive: true });
 
-    // Clean up old zip files before creating a new one
+    const zipPath = path.join(zipDir, zipName);
+
+    // Clean up old zip files, but skip the one we're about to create
+    // to avoid removing a digest that a concurrent upload flow may still need
     try {
       const existingZips = await fsPromises.readdir(zipDir);
       for (const oldZip of existingZips) {
-        if (oldZip.endsWith('.zip')) {
+        if (oldZip.endsWith('.zip') && oldZip !== zipName) {
           try {
             await fsPromises.unlink(path.join(zipDir, oldZip));
           } catch {
@@ -91,8 +94,6 @@ class DesktopApiDev {
     } catch {
       // ignore cleanup errors
     }
-
-    const zipPath = path.join(zipDir, zipName);
 
     const zip = new AdmZip();
     logFiles
