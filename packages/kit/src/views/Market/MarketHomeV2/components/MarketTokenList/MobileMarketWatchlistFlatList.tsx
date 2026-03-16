@@ -48,6 +48,7 @@ interface IMobileMarketWatchlistFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
+  topAutoScrollTriggerOffset?: number;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -66,9 +67,6 @@ const MANUAL_AUTOSCROLL_MIN_STEP_PX = 4;
 const MANUAL_AUTOSCROLL_MAX_STEP_PX = 28;
 const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
-// On native, Tabs.DraggableFlatList uses useCollapsibleStyle() to inject
-// dynamic paddingTop based on actual header height. Do NOT override it.
-const WATCHLIST_CONTENT_PADDING_TOP = platformEnv.isNative ? undefined : 8;
 const DRAG_END_FALLBACK_DELAY_MS = 220;
 const DRAG_POINTER_TRACK_INTERVAL_MS = 16;
 type IAutoScrollDirection = -1 | 0 | 1;
@@ -77,9 +75,30 @@ type IAutoScrollResolveResult = {
   step: number;
 };
 
+function getWatchlistViewportTopBoundaryY({
+  viewportTop,
+  headerBottomOffset,
+}: {
+  viewportTop: number;
+  headerBottomOffset: number;
+}) {
+  return Math.max(0, viewportTop) + Math.max(0, headerBottomOffset);
+}
+
+function getDraggedItemTopY({
+  anchorRowTopY,
+  translationY,
+}: {
+  anchorRowTopY: number;
+  translationY: number;
+}) {
+  return anchorRowTopY + translationY;
+}
+
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
   listContainerProps,
+  topAutoScrollTriggerOffset = 0,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -303,7 +322,10 @@ function MobileMarketWatchlistFlatListImpl({
         viewportRef.current.top > 0 ? viewportRef.current.top : 0;
       const viewportBottom =
         viewportRef.current.bottom > 0 ? viewportRef.current.bottom : height;
-      const headerBottomY = viewportTop + (WATCHLIST_CONTENT_PADDING_TOP ?? 0);
+      const headerBottomY = getWatchlistViewportTopBoundaryY({
+        viewportTop,
+        headerBottomOffset: topAutoScrollTriggerOffset,
+      });
       const distToTop = dragItemTopY - headerBottomY;
       const distToBottom = viewportBottom - dragItemBottomY;
       const normalizedDistToTop = Math.max(0, distToTop);
@@ -343,7 +365,7 @@ function MobileMarketWatchlistFlatListImpl({
         ),
       };
     },
-    [],
+    [topAutoScrollTriggerOffset],
   );
 
   const updateManualAutoScroll = useCallback(
@@ -402,7 +424,10 @@ function MobileMarketWatchlistFlatListImpl({
       if (anchorRowTopY <= 0) {
         return;
       }
-      const dragItemTopY = anchorRowTopY + globalRef.translationY;
+      const dragItemTopY = getDraggedItemTopY({
+        anchorRowTopY,
+        translationY: globalRef.translationY,
+      });
       updateManualAutoScroll({
         dragItemTopY,
         dragItemBottomY:
@@ -761,7 +786,11 @@ function MobileMarketWatchlistFlatListImpl({
             }
 
             if (current.firstLevelTriggered && isActive) {
-              const dragItemTopY = current.rowTop + globalRef.translationY;
+              const dragItemTopY = getDraggedItemTopY({
+                anchorRowTopY:
+                  dragPointerTrackRef.current.anchorRowTopY || current.rowTop,
+                translationY: globalRef.translationY,
+              });
               updateManualAutoScroll({
                 dragItemTopY,
                 dragItemBottomY:
@@ -852,9 +881,7 @@ function MobileMarketWatchlistFlatListImpl({
   const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
     () => ({
-      ...(WATCHLIST_CONTENT_PADDING_TOP !== undefined
-        ? { paddingTop: WATCHLIST_CONTENT_PADDING_TOP }
-        : {}),
+      ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
       paddingBottom: platformEnv.isNativeAndroid
         ? listContainerProps.paddingBottom
         : tabBarHeight,
@@ -899,8 +926,10 @@ function MobileMarketWatchlistFlatListImpl({
         dismissInlineActionBar();
         if (syncDragItemAnchor()) {
           startDragPointerTracking();
-          const dragItemTopY =
-            dragPointerTrackRef.current.anchorRowTopY + globalRef.translationY;
+          const dragItemTopY = getDraggedItemTopY({
+            anchorRowTopY: dragPointerTrackRef.current.anchorRowTopY,
+            translationY: globalRef.translationY,
+          });
           updateManualAutoScroll({
             dragItemTopY,
             dragItemBottomY:
@@ -934,7 +963,6 @@ function MobileMarketWatchlistFlatListImpl({
       autoscrollThreshold={AUTOSCROLL_THRESHOLD_PX}
       autoscrollSpeed={AUTOSCROLL_SPEED_PX}
       scrollEnabled={!primedItemId}
-      animationConfig={{ damping: 25, stiffness: 400, mass: 0.4 }}
       renderItem={renderItem}
       renderPlaceholder={renderPlaceholder}
       keyExtractor={keyExtractor}

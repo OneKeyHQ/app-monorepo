@@ -65,12 +65,14 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
   spotTabName: string;
   perpsTabName: string;
+  onWatchlistColumnHeaderLayout?: (offsetY: number) => void;
 }
 
 function MarketHomeTabBar({
   watchlistTabName,
   spotTabName,
   perpsTabName,
+  onWatchlistColumnHeaderLayout,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
   const focusedTab = useFocusedTab();
@@ -97,7 +99,17 @@ function MarketHomeTabBar({
               pb: '$2',
             }}
           />
-          <MarketListColumnHeader />
+          <YStack
+            onLayout={(event: {
+              nativeEvent: { layout: { y: number; height: number } };
+            }) => {
+              onWatchlistColumnHeaderLayout?.(
+                event.nativeEvent.layout.y + event.nativeEvent.layout.height,
+              );
+            }}
+          >
+            <MarketListColumnHeader />
+          </YStack>
         </>
       ) : null}
       <YStack
@@ -152,6 +164,8 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
+  const [watchlistColumnHeaderOffsetY, setWatchlistColumnHeaderOffsetY] =
+    useState(0);
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -226,6 +240,7 @@ function MobileLayoutComponent({
         watchlistTabName={watchlistTabName}
         spotTabName={spotTabName}
         perpsTabName={perpsTabName}
+        onWatchlistColumnHeaderLayout={setWatchlistColumnHeaderOffsetY}
       />
     ),
     [watchlistTabName, spotTabName, perpsTabName],
@@ -276,6 +291,7 @@ function MobileLayoutComponent({
           <MobileMarketWatchlistFlatList
             selectedFilter={watchlistFilter}
             listContainerProps={listContainerProps}
+            topAutoScrollTriggerOffset={watchlistColumnHeaderOffsetY}
           />
         </Tabs.Tab>
         <Tabs.Tab name={spotTabName}>
