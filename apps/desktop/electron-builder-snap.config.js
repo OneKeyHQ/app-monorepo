@@ -48,10 +48,10 @@ module.exports = {
     // gnome-46-2404 no longer bundles X11/GTK/audio libs (gnome-42-2204 did),
     // so they must be staged explicitly for Electron.
     // libgtk-3-0 pulls in X11, ATK, cairo, pango, cups, etc. via apt deps. // cspell:disable-line
-    // NOTE: Use libasound2t64 (not libasound2). On Ubuntu 24.04+ libasound2
+    // NOTE: Use libasound2t64 (not libasound2). On Ubuntu 24.04+ libasound2 // cspell:disable-line
     // is a virtual package that may resolve to the oss4-salsa shim instead
-    // of real ALSA, causing missing symbols (snd_device_name_get_hint) and
-    // libOSSlib.so errors. libasound2t64 is always the real ALSA library.
+    // of real ALSA, causing missing symbols (snd_device_name_get_hint) and // cspell:disable-line
+    // libOSSlib.so errors. libasound2t64 is always the real ALSA library. // cspell:disable-line
     'stagePackages': [
       'default',
       'libdbus-1-3',
