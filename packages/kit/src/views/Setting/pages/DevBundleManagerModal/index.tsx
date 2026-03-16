@@ -277,7 +277,8 @@ function IgnoreServerBundleUpdateToggle() {
           Ignore Server Bundle Update
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          Prevent auto-rollback when testing a manually switched bundle
+          Prevent server-driven update or rollback when testing a manually
+          switched bundle
         </SizableText>
       </YStack>
       <Switch
