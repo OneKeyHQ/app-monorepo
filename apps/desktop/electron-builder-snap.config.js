@@ -48,12 +48,16 @@ module.exports = {
     // gnome-46-2404 no longer bundles X11/GTK/audio libs (gnome-42-2204 did),
     // so they must be staged explicitly for Electron.
     // libgtk-3-0 pulls in X11, ATK, cairo, pango, cups, etc. via apt deps. // cspell:disable-line
+    // NOTE: Use libasound2t64 (not libasound2). On Ubuntu 24.04+ libasound2
+    // is a virtual package that may resolve to the oss4-salsa shim instead
+    // of real ALSA, causing missing symbols (snd_device_name_get_hint) and
+    // libOSSlib.so errors. libasound2t64 is always the real ALSA library.
     'stagePackages': [
       'default',
       'libdbus-1-3',
       'libgtk-3-0',
       'libgbm1',
-      'libasound2',
+      'libasound2t64',
     ],
     // Override default stage exclusions from electron-builder template.
     // The template excludes X11/GTK/audio libs assuming gnome-3-28-1804
@@ -67,5 +71,24 @@ module.exports = {
       '-usr/sbin',
       '-usr/bin',
     ],
+    // desktop-common.sh only sets GPU paths for $SNAP_DESKTOP_RUNTIME
+    // (gnome-platform), but libEGL/Mesa DRI drivers live in gpu-2404.
+    // Extend LD_LIBRARY_PATH so Electron can find them.
+    // Both arch triplets are listed so the same config works for x64 and arm64.
+    'environment': {
+      'LD_LIBRARY_PATH': [
+        '$SNAP_LIBRARY_PATH',
+        '$SNAP/lib:$SNAP/usr/lib',
+        '$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu',
+        '$SNAP/lib/aarch64-linux-gnu:$SNAP/usr/lib/aarch64-linux-gnu',
+        '$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu',
+        '$SNAP/gnome-platform/usr/lib/aarch64-linux-gnu',
+        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu',
+        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/gbm',
+        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu',
+        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/gbm',
+        '$LD_LIBRARY_PATH',
+      ].join(':'),
+    },
   },
 };
