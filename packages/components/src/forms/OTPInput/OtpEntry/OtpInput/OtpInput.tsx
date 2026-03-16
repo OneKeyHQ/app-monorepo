@@ -1,7 +1,9 @@
 import * as React from 'react';
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useImperativeHandle, useMemo } from 'react';
 
 import { Platform, Pressable, Text, View } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useOnWebPaste } from '../../../Input';
 import TextInput from '../../../Input/TextInput';
@@ -60,6 +62,12 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
 
     useOnWebPaste(inputRef, textInputProps?.onPaste);
 
+    const autoComplete = useMemo(() => {
+      if (platformEnv.isDesktop) return 'off' as const;
+      if (Platform.OS === 'android') return 'sms-otp' as const;
+      return 'one-time-code' as const;
+    }, []);
+
     const generatePinCodeContainerStyle = (
       isFocusedContainer: boolean,
       char: string,
@@ -107,7 +115,7 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
 
             return (
               <Pressable
-                key={`${char}-${index}`}
+                key={index}
                 disabled={disabled}
                 onPress={handlePress}
                 style={generatePinCodeContainerStyle(isFocusedContainer, char)}
@@ -139,11 +147,11 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
           onChangeText={handleTextChange}
           maxLength={numberOfDigits}
           inputMode={type === 'numeric' ? type : 'text'}
-          textContentType="oneTimeCode"
+          textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
           ref={inputRef}
           autoFocus={autoFocus}
           secureTextEntry={secureTextEntry}
-          autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
+          autoComplete={autoComplete}
           aria-disabled={disabled}
           editable={!disabled}
           testID="otp-input-hidden"

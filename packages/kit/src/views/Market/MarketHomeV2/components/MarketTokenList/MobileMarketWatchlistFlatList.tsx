@@ -66,7 +66,9 @@ const MANUAL_AUTOSCROLL_MIN_STEP_PX = 4;
 const MANUAL_AUTOSCROLL_MAX_STEP_PX = 28;
 const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
-const WATCHLIST_CONTENT_PADDING_TOP = platformEnv.isNative ? 0 : 8;
+// On native, Tabs.DraggableFlatList uses useCollapsibleStyle() to inject
+// dynamic paddingTop based on actual header height. Do NOT override it.
+const WATCHLIST_CONTENT_PADDING_TOP = platformEnv.isNative ? undefined : 8;
 const DRAG_END_FALLBACK_DELAY_MS = 220;
 const DRAG_POINTER_TRACK_INTERVAL_MS = 16;
 type IAutoScrollDirection = -1 | 0 | 1;
@@ -301,10 +303,12 @@ function MobileMarketWatchlistFlatListImpl({
         viewportRef.current.top > 0 ? viewportRef.current.top : 0;
       const viewportBottom =
         viewportRef.current.bottom > 0 ? viewportRef.current.bottom : height;
-      const headerBottomY = viewportTop + WATCHLIST_CONTENT_PADDING_TOP;
-      const distToTop = headerBottomY - dragItemTopY;
+      const headerBottomY = viewportTop + (WATCHLIST_CONTENT_PADDING_TOP ?? 0);
+      const distToTop = dragItemTopY - headerBottomY;
       const distToBottom = viewportBottom - dragItemBottomY;
-      const topActive = distToTop >= 0;
+      const normalizedDistToTop = Math.max(0, distToTop);
+      const normalizedDistToBottom = Math.max(0, distToBottom);
+      const topActive = distToTop <= MANUAL_AUTOSCROLL_TOP_EDGE_PX;
       const bottomActive = distToBottom <= MANUAL_AUTOSCROLL_BOTTOM_EDGE_PX;
 
       if (!topActive && !bottomActive) {
@@ -312,17 +316,18 @@ function MobileMarketWatchlistFlatListImpl({
       }
 
       const direction: -1 | 1 =
-        topActive && (!bottomActive || distToTop <= distToBottom) ? -1 : 1;
-      const distanceToEdge = direction === -1 ? distToTop : distToBottom;
+        topActive &&
+        (!bottomActive || normalizedDistToTop <= normalizedDistToBottom)
+          ? -1
+          : 1;
+      const distanceToEdge =
+        direction === -1 ? normalizedDistToTop : normalizedDistToBottom;
       const edgePx =
         direction === -1
           ? MANUAL_AUTOSCROLL_TOP_EDGE_PX
           : MANUAL_AUTOSCROLL_BOTTOM_EDGE_PX;
       const clampedDistance = Math.max(0, Math.min(edgePx, distanceToEdge));
-      const ratio =
-        direction === -1
-          ? clampedDistance / edgePx
-          : 1 - clampedDistance / edgePx;
+      const ratio = 1 - clampedDistance / edgePx;
       const easedRatio = ratio * ratio;
       const step = Math.round(
         MANUAL_AUTOSCROLL_MIN_STEP_PX +
@@ -847,7 +852,9 @@ function MobileMarketWatchlistFlatListImpl({
   const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
     () => ({
-      paddingTop: WATCHLIST_CONTENT_PADDING_TOP,
+      ...(WATCHLIST_CONTENT_PADDING_TOP !== undefined
+        ? { paddingTop: WATCHLIST_CONTENT_PADDING_TOP }
+        : {}),
       paddingBottom: platformEnv.isNativeAndroid
         ? listContainerProps.paddingBottom
         : tabBarHeight,
@@ -927,6 +934,7 @@ function MobileMarketWatchlistFlatListImpl({
       autoscrollThreshold={AUTOSCROLL_THRESHOLD_PX}
       autoscrollSpeed={AUTOSCROLL_SPEED_PX}
       scrollEnabled={!primedItemId}
+      animationConfig={{ damping: 25, stiffness: 400, mass: 0.4 }}
       renderItem={renderItem}
       renderPlaceholder={renderPlaceholder}
       keyExtractor={keyExtractor}

@@ -171,6 +171,25 @@ function CellContainer<T>({
   );
 }
 
+// Auto-scroll edge zone size (px) and max speed (px per frame)
+const AUTOSCROLL_EDGE_PX = 80;
+const AUTOSCROLL_MAX_SPEED_PX = 15;
+
+function findScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
+  let current = el?.parentElement ?? null;
+  while (current) {
+    const { overflowY } = getComputedStyle(current);
+    if (
+      (overflowY === 'auto' || overflowY === 'scroll') &&
+      current.scrollHeight > current.clientHeight
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
 function BaseSortableListView<T>(
   {
     data,
@@ -185,19 +204,87 @@ function BaseSortableListView<T>(
     stickyHeaderIndices = [],
     ListHeaderComponent,
     getItemDragDisabled,
+    scrollEnabled = true,
     ...restProps
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
 ) {
+  // Custom auto-scroll for when the list's own scroll is disabled
+  // (e.g. inside Tabs.Container on web where outer container scrolls)
+  const autoScrollRef = useRef<{
+    rafId: number;
+    mouseY: number;
+    scrollContainer: HTMLElement | null;
+    cleanup?: () => void;
+  }>({ rafId: 0, mouseY: -1, scrollContainer: null });
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const stopAutoScroll = useCallback(() => {
+    autoScrollRef.current.cleanup?.();
+    autoScrollRef.current.cleanup = undefined;
+  }, []);
+
+  const startAutoScroll = useCallback(() => {
+    stopAutoScroll(); // Clean up any previous session defensively
+    if (scrollEnabled) return; // built-in auto-scroll works when scroll is enabled
+
+    // Only auto-scroll if a real scrollable ancestor exists (e.g. Tabs.Container).
+    // Do NOT fall back to document.documentElement — that would scroll the entire
+    // page for lists that are simply non-scrollable (e.g. overflow:hidden pinned tabs).
+    const container = findScrollableAncestor(listContainerRef.current);
+    if (!container) return;
+    autoScrollRef.current.mouseY = -1; // Reset stale position from previous session
+    autoScrollRef.current.scrollContainer = container;
+
+    const onMouseMove = (e: MouseEvent) => {
+      autoScrollRef.current.mouseY = e.clientY;
+    };
+    // eslint-disable-next-line unicorn/prefer-global-this
+    window.addEventListener('mousemove', onMouseMove);
+
+    const tick = () => {
+      const { mouseY, scrollContainer } = autoScrollRef.current;
+      // Skip until we have a real mouse position from the mousemove listener
+      if (!scrollContainer || mouseY < 0) {
+        autoScrollRef.current.rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const rect = scrollContainer.getBoundingClientRect();
+      const distToTop = mouseY - rect.top;
+      const distToBottom = rect.bottom - mouseY;
+
+      if (distToTop < AUTOSCROLL_EDGE_PX && distToTop >= 0) {
+        const ratio = 1 - distToTop / AUTOSCROLL_EDGE_PX;
+        scrollContainer.scrollTop -= Math.ceil(ratio * AUTOSCROLL_MAX_SPEED_PX);
+      } else if (distToBottom < AUTOSCROLL_EDGE_PX && distToBottom >= 0) {
+        const ratio = 1 - distToBottom / AUTOSCROLL_EDGE_PX;
+        scrollContainer.scrollTop += Math.ceil(ratio * AUTOSCROLL_MAX_SPEED_PX);
+      }
+
+      autoScrollRef.current.rafId = requestAnimationFrame(tick);
+    };
+    autoScrollRef.current.rafId = requestAnimationFrame(tick);
+
+    autoScrollRef.current.cleanup = () => {
+      // eslint-disable-next-line unicorn/prefer-global-this
+      window.removeEventListener('mousemove', onMouseMove);
+      cancelAnimationFrame(autoScrollRef.current.rafId);
+      autoScrollRef.current.scrollContainer = null;
+    };
+  }, [scrollEnabled, stopAutoScroll]);
+
   const reloadOnDragStart = useCallback(
     (params: DragStart) => {
       appEventBus.emit(EAppEventBusNames.onDragBeginInListView, undefined);
       onDragBegin?.(params.source.index);
+      startAutoScroll();
     },
-    [onDragBegin],
+    [onDragBegin, startAutoScroll],
   );
   const reloadOnDragEnd = useCallback(
     (params: DropResult) => {
+      stopAutoScroll();
       appEventBus.emit(EAppEventBusNames.onDragEndInListView, undefined);
       if (!params.destination) {
         return;
@@ -220,7 +307,7 @@ function BaseSortableListView<T>(
 
       onDragEnd?.(p);
     },
-    [onDragEnd, data],
+    [onDragEnd, data, stopAutoScroll],
   );
 
   useEffect(
@@ -340,94 +427,136 @@ function BaseSortableListView<T>(
     ],
   );
 
+  // Cleanup auto-scroll on unmount
+  useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
+
   return (
-    <DragDropContext
-      onDragStart={reloadOnDragStart}
-      onDragEnd={reloadOnDragEnd}
+    <div
+      ref={listContainerRef}
+      style={{
+        display: 'flex',
+        flex: 1,
+        flexDirection: 'column',
+        minHeight: 0,
+      }}
     >
-      <Droppable
-        droppableId="droppable"
-        mode="virtual"
-        type="DEFAULT"
-        direction="vertical"
-        isDropDisabled={false}
-        isCombineEnabled={false}
-        ignoreContainerClipping={false}
-        renderClone={(provided, snapshot, rubric) => {
-          return (
-            <Item
-              isDragging
-              dragProps={{}}
-              drag={noop}
-              item={data[rubric.source.index]}
-              renderItem={renderItem}
-              provided={provided}
-              getIndex={() => rubric.source.index}
-            />
-          );
-        }}
-        getContainerForClone={getBody}
+      <DragDropContext
+        onDragStart={reloadOnDragStart}
+        onDragEnd={reloadOnDragEnd}
       >
-        {(provided, snapshot) => {
-          const paddingBottom = (rawContentContainerStyle?.paddingBottom ??
-            rawContentContainerStyle?.paddingVertical) as string;
-          let overridePaddingBottom = parseInt(paddingBottom ?? '0', 10);
-          if (snapshot?.draggingFromThisWith) {
-            const index = data.findIndex(
-              (item, _index) =>
-                keyExtractor(item, _index) === snapshot.draggingFromThisWith,
+        <Droppable
+          droppableId="droppable"
+          mode="virtual"
+          type="DEFAULT"
+          direction="vertical"
+          isDropDisabled={false}
+          isCombineEnabled={false}
+          ignoreContainerClipping={!scrollEnabled}
+          renderClone={(provided, snapshot, rubric) => {
+            const isDropping = snapshot.isDropAnimating;
+            return (
+              <Item
+                isDragging={!isDropping}
+                dragProps={{}}
+                drag={noop}
+                item={data[rubric.source.index]}
+                renderItem={renderItem}
+                provided={provided}
+                getIndex={() => rubric.source.index}
+                style={{
+                  boxShadow: isDropping
+                    ? 'none'
+                    : '0 4px 24px rgba(0, 0, 0, 0.12)',
+                  borderRadius: 12,
+                  // Speed up drop animation
+                  ...(isDropping
+                    ? {
+                        transition:
+                          'transform 0.08s ease, box-shadow 0.08s ease',
+                      }
+                    : {}),
+                }}
+              />
             );
-            overridePaddingBottom += useFlashList
-              ? 0
-              : (getItemLayout?.(data, index)?.length ?? 0);
-          }
-          const ListViewComponent = useFlashList ? FlashList : ListView;
-          return (
-            <ListViewComponent
-              ref={(_ref: any) => {
-                if (_ref) {
-                  if (typeof ref === 'function') {
-                    ref(_ref);
-                  } else if (ref && 'current' in ref) {
-                    ref.current = _ref;
-                  }
-                  // FlashList
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  if (_ref?.getNativeScrollRef) {
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                    const scrollRef = _ref?.getNativeScrollRef();
-                    if (scrollRef) {
-                      provided.innerRef(scrollRef);
+          }}
+          getContainerForClone={getBody}
+        >
+          {(provided, snapshot) => {
+            const paddingBottom = (rawContentContainerStyle?.paddingBottom ??
+              rawContentContainerStyle?.paddingVertical) as string;
+            let overridePaddingBottom = parseInt(paddingBottom ?? '0', 10);
+            if (snapshot?.draggingFromThisWith) {
+              const index = data.findIndex(
+                (item, _index) =>
+                  keyExtractor(item, _index) === snapshot.draggingFromThisWith,
+              );
+              overridePaddingBottom += useFlashList
+                ? 0
+                : (getItemLayout?.(data, index)?.length ?? 0);
+            }
+            const ListViewComponent = useFlashList ? FlashList : ListView;
+            return (
+              <ListViewComponent
+                ref={(_ref: any) => {
+                  if (_ref) {
+                    if (typeof ref === 'function') {
+                      ref(_ref);
+                    } else if (ref && 'current' in ref) {
+                      ref.current = _ref;
+                    }
+
+                    // When scroll is disabled (e.g. inside Tabs.Container),
+                    // point react-beautiful-dnd to the actual scrolling ancestor
+                    // so it correctly calculates drop positions during drag.
+                    if (!scrollEnabled && listContainerRef.current) {
+                      const scrollAncestor = findScrollableAncestor(
+                        listContainerRef.current,
+                      );
+                      if (scrollAncestor) {
+                        provided.innerRef(scrollAncestor);
+                        return;
+                      }
+                    }
+
+                    // FlashList
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    if (_ref?.getNativeScrollRef) {
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                      const scrollRef = _ref?.getNativeScrollRef();
+                      if (scrollRef) {
+                        provided.innerRef(scrollRef);
+                      }
+                    }
+
+                    // FlatList
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    if (_ref?._listRef?._scrollRef) {
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                      provided.innerRef(_ref?._listRef?._scrollRef);
                     }
                   }
-
-                  // FlatList
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                  if (_ref?._listRef?._scrollRef) {
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    provided.innerRef(_ref?._listRef?._scrollRef);
-                  }
+                }}
+                data={data}
+                contentContainerStyle={{
+                  ...rawContentContainerStyle,
+                  paddingBottom: overridePaddingBottom,
+                }}
+                renderItem={reloadRenderItem as ListRenderItem<T>}
+                CellRendererComponent={
+                  useFlashList ? CellContainer : FragmentComponent
                 }
-              }}
-              data={data}
-              contentContainerStyle={{
-                ...rawContentContainerStyle,
-                paddingBottom: overridePaddingBottom,
-              }}
-              renderItem={reloadRenderItem as ListRenderItem<T>}
-              CellRendererComponent={
-                useFlashList ? CellContainer : FragmentComponent
-              }
-              getItemLayout={useFlashList ? undefined : getItemLayout}
-              keyExtractor={keyExtractor}
-              stickyHeaderIndices={stickyHeaderIndices}
-              ListHeaderComponent={ListHeaderComponent}
-              {...(restProps as any)}
-            />
-          );
-        }}
-      </Droppable>
-    </DragDropContext>
+                getItemLayout={useFlashList ? undefined : getItemLayout}
+                keyExtractor={keyExtractor}
+                stickyHeaderIndices={stickyHeaderIndices}
+                ListHeaderComponent={ListHeaderComponent}
+                scrollEnabled={scrollEnabled}
+                {...(restProps as any)}
+              />
+            );
+          }}
+        </Droppable>
+      </DragDropContext>
+    </div>
   );
 }
 

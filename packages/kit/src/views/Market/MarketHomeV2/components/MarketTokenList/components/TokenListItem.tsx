@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { memo } from 'react';
 
-import { NumberSizeableText, XStack } from '@onekeyhq/components';
+import { NumberSizeableText, XStack, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PriceChangeBadge } from '../../PriceChangeBadge';
@@ -58,7 +58,9 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   isPrimed,
   isDragging,
 }) => {
-  const isHighlighted = Boolean(isPrimed || isDragging);
+  const themeName = useThemeName();
+  const isDarkMode = themeName?.includes('dark');
+  const isHighlighted = Boolean(isPrimed || (isDragging && isDarkMode));
   return (
     <XStack
       pressStyle={{ opacity: 0.8 }}
