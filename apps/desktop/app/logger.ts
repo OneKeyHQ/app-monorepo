@@ -155,14 +155,21 @@ function truncateMessage(message: string): string {
   return message;
 }
 
-function sanitizeAndTruncateData(data: any[]): any[] {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+function sanitizeAndTruncateData(data: any[]): string[] {
   return data.map((item) => {
+    // Serialize non-string items so sensitive data in objects/arrays
+    // (e.g. Bearer tokens in headers, hex keys in data structures) is also redacted
+    let str: string;
     if (typeof item === 'string') {
-      return truncateMessage(sanitizeMessage(item));
+      str = item;
+    } else {
+      try {
+        str = JSON.stringify(item);
+      } catch {
+        str = String(item);
+      }
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return item;
+    return truncateMessage(sanitizeMessage(str));
   });
 }
 
@@ -220,14 +227,18 @@ logger.hooks.push((message: any) => {
   }
   if (bucket.tokens >= 1) {
     bucket.tokens -= 1;
-    // Report dropped count at most once per second to avoid self-flooding
+    // Report dropped count at most once per second, deferred to avoid
+    // re-entering the hook (which would consume warn bucket tokens)
     if (bucket.dropped > 0 && now - lastDropReportAt >= 1000) {
       const dropped = bucket.dropped;
+      const droppedLevel = level;
       bucket.dropped = 0;
       lastDropReportAt = now;
-      logger.warn(
-        `[OneKeyLog] Rate-limited: dropped ${dropped} ${level} log messages`,
-      );
+      setImmediate(() => {
+        logger.warn(
+          `[OneKeyLog] Rate-limited: dropped ${dropped} ${droppedLevel} log messages`,
+        );
+      });
     }
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return message;
