@@ -1163,9 +1163,9 @@ class ServiceAppUpdate extends ServiceBase {
             ? undefined
             : prev.downloadedEvent,
           status: nextStatus,
-          isRollbackTarget: shouldTransitionToNotify
-            ? decision.decision === 'jsBundleRollback'
-            : prev.isRollbackTarget,
+          // Always refresh based on current decision — a stale flag from a
+          // previous rollback would break first-launch detection for upgrades.
+          isRollbackTarget: decision.decision === 'jsBundleRollback',
           previousAppVersion: shouldTransitionToNotify
             ? platformEnv.version
             : prev.previousAppVersion,
