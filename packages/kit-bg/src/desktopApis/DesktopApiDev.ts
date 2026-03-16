@@ -78,14 +78,18 @@ class DesktopApiDev {
 
     const zipPath = path.join(zipDir, zipName);
 
-    // Clean up old zip files, but skip the one we're about to create
-    // to avoid removing a digest that a concurrent upload flow may still need
+    // Clean up stale zip files (older than 1 hour) to avoid removing
+    // archives that a concurrent upload/download flow may still be using
+    const ONE_HOUR_MS = 60 * 60 * 1000;
     try {
       const existingZips = await fsPromises.readdir(zipDir);
       for (const oldZip of existingZips) {
         if (oldZip.endsWith('.zip') && oldZip !== zipName) {
           try {
-            await fsPromises.unlink(path.join(zipDir, oldZip));
+            const stat = await fsPromises.stat(path.join(zipDir, oldZip));
+            if (Date.now() - stat.mtimeMs > ONE_HOUR_MS) {
+              await fsPromises.unlink(path.join(zipDir, oldZip));
+            }
           } catch {
             // ignore individual cleanup errors
           }
