@@ -199,7 +199,7 @@ fi
 YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
 if [ -n "$YARN_LOCK_CHANGED" ]; then
   # Get the diff of yarn.lock and look for known native packages
-  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@onekeyfe/react-native-|expo[-@]|@react-navigation/'
+  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine'
   LOCK_NATIVE_HITS=$(git diff "$BASE_REF"...HEAD -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
   if [ -n "$LOCK_NATIVE_HITS" ]; then
     HAS_NATIVE_CHANGES=1

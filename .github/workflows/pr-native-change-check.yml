@@ -198,7 +198,7 @@ jobs:
           # yarn.lock native package changes
           YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
           if [ -n "$YARN_LOCK_CHANGED" ]; then
-            NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@onekeyfe/react-native-|expo[-@]|@react-navigation/'
+            NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine'
             LOCK_NATIVE_HITS=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
             if [ -n "$LOCK_NATIVE_HITS" ]; then
               HAS_NATIVE=true
@@ -267,7 +267,7 @@ jobs:
               issue_number: context.issue.number,
               per_page: 100,
             });
-            const existing = comments.find(c => c.body.includes(marker));
+            const existing = comments.find(c => c.body?.includes(marker));
 
             if (hasNative) {
               const report = fs.readFileSync('/tmp/native-report.md', 'utf8');
