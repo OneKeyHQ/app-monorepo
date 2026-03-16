@@ -50,11 +50,9 @@ class ServiceReferralCode extends ServiceBase {
   @backgroundMethod()
   async getSummaryInfo() {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
-    // Short timeout because we fall back to cached referral code on failure
-    const SUMMARY_TIMEOUT_MS = 5000;
     const summary = await client.get<{
       data: IInviteSummary;
-    }>('/rebate/v1/invite/summary', { timeout: SUMMARY_TIMEOUT_MS });
+    }>('/rebate/v1/invite/summary');
     if (summary.data.data.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         summary.data.data.inviteCode,

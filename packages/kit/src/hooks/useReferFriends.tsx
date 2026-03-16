@@ -229,9 +229,12 @@ export const useReferFriends = () => {
       let myReferralCode = '';
       if (isLogin) {
         try {
-          // Fetch fresh primary code from API to avoid stale cache
-          const summary =
-            await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+          // Short timeout; falls back to cached referral code on failure
+          const SUMMARY_TIMEOUT_MS = 5000;
+          const summary = await timerUtils.timeout(
+            backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+            SUMMARY_TIMEOUT_MS,
+          );
           myReferralCode = summary.inviteCode || '';
         } catch {
           // Fall back to cached code on API failure
