@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useImperativeHandle, useMemo } from 'react';
 
 import { Platform, Pressable, Text, View } from 'react-native';
 
@@ -61,6 +61,12 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
     }));
 
     useOnWebPaste(inputRef, textInputProps?.onPaste);
+
+    const autoComplete = useMemo(() => {
+      if (platformEnv.isDesktop) return 'off' as const;
+      if (Platform.OS === 'android') return 'sms-otp' as const;
+      return 'one-time-code' as const;
+    }, []);
 
     const generatePinCodeContainerStyle = (
       isFocusedContainer: boolean,
@@ -145,11 +151,7 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
           ref={inputRef}
           autoFocus={autoFocus}
           secureTextEntry={secureTextEntry}
-          autoComplete={(() => {
-            if (platformEnv.isDesktop) return 'off';
-            if (Platform.OS === 'android') return 'sms-otp';
-            return 'one-time-code';
-          })()}
+          autoComplete={autoComplete}
           aria-disabled={disabled}
           editable={!disabled}
           testID="otp-input-hidden"
