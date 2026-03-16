@@ -29,16 +29,30 @@ jobs:
 
       - name: Resolve refs
         id: refs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_BASE: ${{ inputs.base_ref }}
+          INPUT_HEAD: ${{ inputs.head_ref }}
+          PR_BASE: ${{ github.base_ref }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "base=${{ inputs.base_ref }}" >> "$GITHUB_OUTPUT"
-            echo "head=${{ inputs.head_ref }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Validate inputs: only allow alphanumeric, dots, dashes, slashes, underscores
+            if ! echo "$INPUT_BASE" | grep -qE '^[a-zA-Z0-9._/@^~-]+$'; then
+              echo "::error::Invalid base_ref: $INPUT_BASE"
+              exit 1
+            fi
+            if ! echo "$INPUT_HEAD" | grep -qE '^[a-zA-Z0-9._/@^~-]+$'; then
+              echo "::error::Invalid head_ref: $INPUT_HEAD"
+              exit 1
+            fi
+            echo "base=$INPUT_BASE" >> "$GITHUB_OUTPUT"
+            echo "head=$INPUT_HEAD" >> "$GITHUB_OUTPUT"
             echo "is_pr=false" >> "$GITHUB_OUTPUT"
             # Fetch refs that may not exist locally
-            git fetch origin "${{ inputs.base_ref }}" --no-tags 2>/dev/null || true
-            git fetch origin "${{ inputs.head_ref }}" --no-tags 2>/dev/null || true
+            git fetch origin "$INPUT_BASE" --no-tags 2>/dev/null || true
+            git fetch origin "$INPUT_HEAD" --no-tags 2>/dev/null || true
           else
-            echo "base=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "base=origin/$PR_BASE" >> "$GITHUB_OUTPUT"
             echo "head=HEAD" >> "$GITHUB_OUTPUT"
             echo "is_pr=true" >> "$GITHUB_OUTPUT"
           fi
@@ -140,8 +154,7 @@ jobs:
           DB_REALM=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/realm/schemas/' || true)
           DB_MIGRATION=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/migrations/' || true)
           DB_INDEXED=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/indexed/(LocalDbIndexedBase|indexedDBUtils)\.ts$' || true)
-          DB_ALL="${DB_HITS}${DB_REALM}${DB_MIGRATION}${DB_INDEXED}"
-          DB_ALL=$(echo "$DB_ALL" | grep -v '^$' || true)
+          DB_ALL=$(printf '%s\n%s\n%s\n%s' "$DB_HITS" "$DB_REALM" "$DB_MIGRATION" "$DB_INDEXED" | grep -v '^$' || true)
           if [ -n "$DB_ALL" ]; then
             HAS_NATIVE=true
             COUNT=$(echo "$DB_ALL" | wc -l | tr -d ' ')
@@ -149,6 +162,19 @@ jobs:
             REPORT="${REPORT}$(echo "$DB_ALL" | head -5 | sed 's/^/- `/' | sed 's/$/`/')\n"
             if [ "$COUNT" -gt 5 ]; then REPORT="${REPORT}- ... and $((COUNT-5)) more\n"; fi
             REPORT="${REPORT}\n> ⚠️ DB changes prevent bundle rollback — old bundles cannot read new schemas\n\n"
+          fi
+
+          # Patch files targeting native packages
+          PATCH_FILES=$(echo "$CHANGED_FILES" | grep -E '^patches/' || true)
+          if [ -n "$PATCH_FILES" ]; then
+            # Known native package prefixes in patch filenames
+            NATIVE_PATCH_HITS=$(echo "$PATCH_FILES" | grep -iE '(react-native|expo-|@react-native|@onekeyfe.*react-native|hermes)' || true)
+            if [ -n "$NATIVE_PATCH_HITS" ]; then
+              HAS_NATIVE=true
+              COUNT=$(echo "$NATIVE_PATCH_HITS" | wc -l | tr -d ' ')
+              REPORT="${REPORT}### Patches Targeting Native Packages ($COUNT files)\n"
+              REPORT="${REPORT}$(echo "$NATIVE_PATCH_HITS" | sed 's/^/- `/' | sed 's/$/`/')\n\n"
+            fi
           fi
 
           # App version changes
@@ -171,7 +197,7 @@ jobs:
           # yarn.lock native package changes
           YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
           if [ -n "$YARN_LOCK_CHANGED" ]; then
-            NATIVE_PKG_PATTERNS='react-native-|@react-native/|@onekeyfe/react-native-|expo-|@react-navigation/|react-native$'
+            NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@onekeyfe/react-native-|expo-|@react-navigation/'
             LOCK_NATIVE_HITS=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
             if [ -n "$LOCK_NATIVE_HITS" ]; then
               HAS_NATIVE=true

@@ -141,12 +141,22 @@ if [ -n "$NATIVE_PATCHES" ]; then
       # Unscoped: pkg+version → drop +version
       pkg_name=$(echo "$raw_name" | sed 's|+.*||')
     fi
-    # Check if this package has native code (ios/ android/ *.podspec)
+    # Check if this package has native code
     pkg_dir="node_modules/$pkg_name"
+    is_native=false
     if [ -d "$pkg_dir" ]; then
+      # Check installed package for native code markers
       if [ -d "$pkg_dir/ios" ] || [ -d "$pkg_dir/android" ] || ls "$pkg_dir"/*.podspec 1>/dev/null 2>&1; then
-        NATIVE_PATCH_HITS="${NATIVE_PATCH_HITS}${patch_file}\n"
+        is_native=true
       fi
+    else
+      # Fallback: match known native package name patterns when node_modules is absent
+      if echo "$pkg_name" | grep -qiE '(react-native|expo-|@react-native|@onekeyfe.*react-native|hermes)'; then
+        is_native=true
+      fi
+    fi
+    if [ "$is_native" = true ]; then
+      NATIVE_PATCH_HITS="${NATIVE_PATCH_HITS}${patch_file}\n"
     fi
   done <<< "$NATIVE_PATCHES"
 
@@ -189,7 +199,7 @@ fi
 YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
 if [ -n "$YARN_LOCK_CHANGED" ]; then
   # Get the diff of yarn.lock and look for known native packages
-  NATIVE_PKG_PATTERNS='react-native-|@react-native/|@onekeyfe/react-native-|expo-|@react-navigation/|react-native$'
+  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@onekeyfe/react-native-|expo-|@react-navigation/'
   LOCK_NATIVE_HITS=$(git diff "$BASE_REF"...HEAD -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
   if [ -n "$LOCK_NATIVE_HITS" ]; then
     HAS_NATIVE_CHANGES=1
