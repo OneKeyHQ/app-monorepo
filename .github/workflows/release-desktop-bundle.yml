@@ -77,6 +77,9 @@ jobs:
         run: |
           echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
           echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          # Also update .env file since shared-env already wrote the old values
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
 
       - name: Setup Node
         uses: actions/setup-node@v6
