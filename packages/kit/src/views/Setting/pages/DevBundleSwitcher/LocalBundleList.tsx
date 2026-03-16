@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -159,6 +160,12 @@ export default function SettingDevLocalBundleList() {
         bundle.appVersion,
         bundle.bundleVersion,
       );
+      await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+        'ignoreServerBundleUpdate',
+        true,
+      );
+      await backgroundApiProxy.serviceAppUpdate.reset();
+      await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
       await BundleUpdate.switchBundle({
         ...bundle,
         signature: 'dev-local-switch',

@@ -31,6 +31,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 import { PLACEHOLDER_SIGNATURE } from './servicePendingInstallTask';
@@ -190,18 +191,23 @@ class ServiceAppUpdate extends ServiceBase {
     return null;
   }
 
-  private shouldUpdateFromReleaseInfo(releaseInfo: IResponseAppUpdateInfo) {
+  private shouldUpdateFromReleaseInfo(
+    releaseInfo: IResponseAppUpdateInfo,
+    hasActiveCustomBundle = false,
+  ) {
     const resolved = resolveUpdateDecision({
       currentAppVersion: platformEnv.version,
       currentBundleVersion: platformEnv.bundleVersion,
       remoteAppVersion: releaseInfo.version,
       remoteBundleVersion: releaseInfo.jsBundleVersion,
       allowRollback: true,
+      hasActiveCustomBundle,
     });
     return (
       resolved.decision === 'appShellUpdate' ||
       resolved.decision === 'jsBundleUpgrade' ||
-      resolved.decision === 'jsBundleRollback'
+      resolved.decision === 'jsBundleRollback' ||
+      resolved.decision === 'jsBundleRollbackToBuiltin'
     );
   }
 
@@ -804,6 +810,7 @@ class ServiceAppUpdate extends ServiceBase {
       status: EAppUpdateStatus.done,
       jsBundle: undefined,
       previousAppVersion: undefined,
+      isRollbackTarget: undefined,
       downloadedEvent: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
@@ -902,6 +909,23 @@ class ServiceAppUpdate extends ServiceBase {
       action: null,
     });
 
+    // Dev mode: skip all server bundle update checks when the toggle is on.
+    // This prevents auto-rollback from interfering with QA/dev bundle testing.
+    try {
+      const devSettings = await devSettingsPersistAtom.get();
+      if (
+        devSettings.enabled &&
+        devSettings.settings?.ignoreServerBundleUpdate
+      ) {
+        defaultLogger.app.appUpdate.log(
+          'fetchAppUpdateInfo: skipped — ignoreServerBundleUpdate is enabled',
+        );
+        return appUpdatePersistAtom.get();
+      }
+    } catch {
+      // ignore — proceed with normal flow
+    }
+
     await this.cleanupUpdateControlState();
     // NOTE: refreshUpdateStatus() was previously called here, but it resets
     // ANY failed status to notify unconditionally — including same-version
@@ -942,12 +966,20 @@ class ServiceAppUpdate extends ServiceBase {
       releaseInfo ? 'info' : 'warn',
     );
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
+      let hasActiveCustomBundle = false;
+      try {
+        const jsBundlePath = await BundleUpdate.getJsBundlePath();
+        hasActiveCustomBundle = !!jsBundlePath;
+      } catch {
+        // ignore — default to false
+      }
       const decision = resolveUpdateDecision({
         currentAppVersion: platformEnv.version,
         currentBundleVersion: platformEnv.bundleVersion,
         remoteAppVersion: releaseInfo.version,
         remoteBundleVersion: releaseInfo.jsBundleVersion,
         allowRollback: true,
+        hasActiveCustomBundle,
       });
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
@@ -965,7 +997,53 @@ class ServiceAppUpdate extends ServiceBase {
         decision.isValid ? 'info' : 'warn',
       );
 
-      let shouldUpdate = this.shouldUpdateFromReleaseInfo(releaseInfo);
+      // Rollback to builtin: no download needed, just clear bundle data and
+      // relaunch.  The app will load from its embedded resources on restart.
+      if (decision.decision === 'jsBundleRollbackToBuiltin') {
+        defaultLogger.app.appUpdate.log(
+          'fetchAppUpdateInfo: jsBundleRollbackToBuiltin — resetting to builtin bundle',
+        );
+        try {
+          // Clear stored bundle data so next launch uses builtin resources.
+          await BundleUpdate.resetToBuiltInBundle();
+          // Trigger app relaunch (switchBundle with empty values will destroy
+          // the window, relaunch, and exit — getBundleIndexHtmlPath returns
+          // undefined for empty appVersion/bundleVersion).
+          await BundleUpdate.switchBundle({
+            appVersion: '',
+            bundleVersion: '',
+            signature: '',
+          });
+        } catch (error) {
+          defaultLogger.app.appUpdate.log(
+            `rollbackToBuiltin failed: ${
+              (error as Error)?.message || 'unknown'
+            }`,
+          );
+          // Transition to failed state so startFailedRecoveryTimer can retry.
+          // Persist releaseInfo + updateAt so the atom is not stale when the
+          // recovery timer fires and isNeedSyncAppUpdateInfo re-evaluates.
+          // Clear latestVersion so isFirstLaunchAfterUpdated's fallback branch
+          // does not treat this failure as a successful first launch (which
+          // would short-circuit the recovery timer by resetting to done).
+          await appUpdatePersistAtom.set((prev) => ({
+            ...prev,
+            ...releaseInfo,
+            latestVersion: undefined,
+            updateAt: Date.now(),
+            status: EAppUpdateStatus.failed,
+            errorText: undefined,
+          }));
+          this.startFailedRecoveryTimer();
+        }
+        const latest = await appUpdatePersistAtom.get();
+        return latest;
+      }
+
+      let shouldUpdate = this.shouldUpdateFromReleaseInfo(
+        releaseInfo,
+        hasActiveCustomBundle,
+      );
       if (
         (decision.decision === 'jsBundleUpgrade' ||
           decision.decision === 'jsBundleRollback' ||
@@ -1091,11 +1169,57 @@ class ServiceAppUpdate extends ServiceBase {
             ? undefined
             : prev.downloadedEvent,
           status: nextStatus,
+          // Always refresh based on current decision — a stale flag from a
+          // previous rollback would break first-launch detection for upgrades.
+          isRollbackTarget: decision.decision === 'jsBundleRollback',
           previousAppVersion: shouldTransitionToNotify
             ? platformEnv.version
             : prev.previousAppVersion,
         };
       });
+
+      // Auto-trigger silent download for rollback decisions so the user does
+      // not need to manually initiate the update.  The download flow will
+      // eventually call readyToInstall → syncPendingInstallTask → relaunch.
+      if (
+        decision.decision === 'jsBundleRollback' &&
+        (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
+      ) {
+        // Verify target is not frozen/ignored before auto-triggering download
+        const rollbackTargetKey =
+          releaseInfo.version && releaseInfo.jsBundleVersion
+            ? this.getTargetKey({
+                targetAppVersion: releaseInfo.version,
+                targetBundleVersion: releaseInfo.jsBundleVersion,
+              })
+            : null;
+        const rollbackBlocked = rollbackTargetKey
+          ? await this.shouldSkipTargetByControl(
+              rollbackTargetKey,
+              traceId,
+              requestSeq,
+              false,
+            )
+          : false;
+        if (!rollbackBlocked) {
+          // Use setTimeout to avoid blocking the current fetch flow.
+          // Re-check status inside the callback: if the UI hook already
+          // called downloadPackage(), status will be 'downloadPackage'
+          // by now — skip to avoid duplicate concurrent downloads.
+          setTimeout(() => {
+            void (async () => {
+              const current = await appUpdatePersistAtom.get();
+              if (current.status !== EAppUpdateStatus.notify) {
+                return;
+              }
+              defaultLogger.app.appUpdate.log(
+                'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+              );
+              void this.downloadPackage();
+            })();
+          }, 0);
+        }
+      }
     } else {
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
