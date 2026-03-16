@@ -1,5 +1,23 @@
 /* eslint-disable dot-notation */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+
+// Fix GPU driver paths for snap packages.
+// The gnome-46-2404 desktop-common.sh script overrides LIBGL_DRIVERS_PATH
+// to point at gnome-platform's dri dir, which has no GPU drivers.
+// The actual Mesa DRI drivers live in the gpu-2404 content snap.
+// We prepend the gpu-2404 path so Mesa can find them.
+if (process.env['SNAP']) {
+  const snap = process.env['SNAP'];
+  const archTriplets = ['x86_64-linux-gnu', 'aarch64-linux-gnu'];
+
+  const gpu2404DriPaths = archTriplets
+    .map((t) => `${snap}/gpu-2404/usr/lib/${t}/dri`)
+    .join(':');
+  process.env['LIBGL_DRIVERS_PATH'] = process.env['LIBGL_DRIVERS_PATH']
+    ? `${gpu2404DriPaths}:${process.env['LIBGL_DRIVERS_PATH']}`
+    : gpu2404DriPaths;
+}
+
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import os from 'os';
