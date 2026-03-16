@@ -29,7 +29,7 @@ const IOS_DRAGGING_SHADOW_STYLE = {
 } as const;
 
 const ANDROID_DRAGGING_ELEVATION_STYLE = {
-  elevation: 8,
+  elevation: 0,
 } as const;
 
 let DRAGGING_STYLE:
