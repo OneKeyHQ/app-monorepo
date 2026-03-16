@@ -7,6 +7,22 @@ on:
     types:
       - completed
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      build_number:
+        type: string
+        required: true
+      build_bundle_version:
+        type: string
+        required: true
+      notify_slack:
+        type: boolean
+        required: false
+        default: true
+      build_source:
+        type: string
+        required: false
+        default: 'daily-build'
 
 env:
   NODE_ENV: production
@@ -56,6 +72,14 @@ jobs:
             echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
           fi
 
+      - name: Override params from caller
+        if: ${{ github.event_name == 'workflow_call' }}
+        run: |
+          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          # Also update .env file since shared-env already wrote the old values
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -171,8 +195,8 @@ jobs:
           pr-title: ${{ github.event.pull_request.title || github.event.workflow_run.name || '' }}
 
       - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
-        uses: onekeyhq/actions/slack-notify-webhook@main
+        if: ${{ github.event.workflow_run || inputs.notify_slack }}
+        uses: originalix/actions/slack-notify-webhook@feat/bundle-release-notification
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
@@ -182,3 +206,5 @@ jobs:
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+          artifact-build-source: '${{ inputs.build_source }}'
