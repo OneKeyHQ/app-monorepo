@@ -169,7 +169,7 @@ jobs:
           PATCH_FILES=$(echo "$CHANGED_FILES" | grep -E '^patches/' || true)
           if [ -n "$PATCH_FILES" ]; then
             # Known native package prefixes in patch filenames
-            NATIVE_PATCH_HITS=$(echo "$PATCH_FILES" | grep -iE '(react-native|expo-|@react-native|@onekeyfe.*react-native|hermes)' || true)
+            NATIVE_PATCH_HITS=$(echo "$PATCH_FILES" | grep -iE '(react-native|expo[-+]|@react-native|@onekeyfe.*react-native|hermes)' || true)
             if [ -n "$NATIVE_PATCH_HITS" ]; then
               HAS_NATIVE=true
               COUNT=$(echo "$NATIVE_PATCH_HITS" | wc -l | tr -d ' ')

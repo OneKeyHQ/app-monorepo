@@ -151,7 +151,7 @@ if [ -n "$NATIVE_PATCHES" ]; then
       fi
     else
       # Fallback: match known native package name patterns when node_modules is absent
-      if echo "$pkg_name" | grep -qiE '(react-native|expo-|@react-native|@onekeyfe.*react-native|hermes)'; then
+      if echo "$pkg_name" | grep -qiE '(react-native|expo[-+]|^expo$|@react-native|@onekeyfe.*react-native|hermes)'; then
         is_native=true
       fi
     fi
