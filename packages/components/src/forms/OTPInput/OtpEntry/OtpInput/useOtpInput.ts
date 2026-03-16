@@ -28,6 +28,7 @@ export const useOtpInput = ({
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(autoFocus);
   const inputRef = useRef<TextInput>(null);
+  const isIntentionalBlurRef = useRef(false);
   const focusedInputIndex = text.length;
   const placeholder = useMemo(
     () =>
@@ -58,6 +59,7 @@ export const useOtpInput = ({
     if (v.length === numberOfDigits) {
       onFilled?.(v);
       if (blurOnFilled) {
+        isIntentionalBlurRef.current = true;
         inputRef.current?.blur();
       }
     }
@@ -89,14 +91,19 @@ export const useOtpInput = ({
     // (e.g. due to FocusScope trap in Dialog, browser quirks, or cursor
     // interactions). When relatedTarget is null it means no other element
     // is receiving focus, so we auto-refocus to keep the input active.
+    // Skip auto-refocus for intentional blurs (e.g. blurOnFilled).
     if (!platformEnv.isNative) {
-      const nativeEvent = (e as unknown as { nativeEvent?: FocusEvent })
-        ?.nativeEvent;
-      if (nativeEvent && !nativeEvent.relatedTarget) {
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 0);
-        return;
+      if (isIntentionalBlurRef.current) {
+        isIntentionalBlurRef.current = false;
+      } else {
+        const nativeEvent = (e as unknown as { nativeEvent?: FocusEvent })
+          ?.nativeEvent;
+        if (nativeEvent && !nativeEvent.relatedTarget) {
+          setTimeout(() => {
+            inputRef.current?.focus();
+          }, 0);
+          return;
+        }
       }
     }
     setIsFocused(false);
