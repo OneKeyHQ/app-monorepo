@@ -13,9 +13,25 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
 
   override enableCache = false;
 
+  private _invalidItemsCleaned = false;
+
   async getMarketWatchListV2() {
     const result = await this.getRawData();
-    return { data: result?.data ?? [] };
+    const data = result?.data ?? [];
+
+    // One-time cleanup of invalid items on first read after app launch
+    if (!this._invalidItemsCleaned) {
+      this._invalidItemsCleaned = true;
+      const cleanData = data.filter(
+        (item) => item.perpsCoin || item.chainId?.trim(),
+      );
+      if (cleanData.length !== data.length) {
+        void this.setRawData(() => ({ data: cleanData }));
+        return { data: cleanData };
+      }
+    }
+
+    return { data };
   }
 
   async getMarketWatchListItemV2({
