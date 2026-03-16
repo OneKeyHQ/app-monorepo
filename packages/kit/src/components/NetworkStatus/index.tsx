@@ -10,7 +10,8 @@ import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export function NetworkStatus() {
   const intl = useIntl();
-  const { isInternetReachable } = useNetInfo();
+  // Temporary verification: disable footer netinfo subscription on slower machines.
+  const { isInternetReachable } = useNetInfo(false);
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
   const [perpsNetworkStatus] = usePerpsNetworkStatusAtom();
 
