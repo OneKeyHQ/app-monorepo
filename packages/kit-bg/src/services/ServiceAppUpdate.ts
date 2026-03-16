@@ -16,6 +16,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -92,7 +93,7 @@ class ServiceAppUpdate extends ServiceBase {
   private get pendingInstallTaskService() {
     const service = this.backgroundApi.servicePendingInstallTask;
     if (!service) {
-      throw new Error('servicePendingInstallTask is not available');
+      throw new OneKeyLocalError('servicePendingInstallTask is not available');
     }
     return service;
   }
