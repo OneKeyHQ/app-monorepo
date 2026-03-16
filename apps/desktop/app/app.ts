@@ -88,26 +88,39 @@ logger.transports.file.archiveLogFn = (oldLogFile: {
   const pad2 = (n: number) => String(n).padStart(2, '0');
   const dateStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 
-  // Find next available index and rename, retrying on collision (TOCTOU-safe)
+  // Find next available index using link+unlink for cross-platform safety.
+  // On Linux, renameSync silently overwrites the target, so we use
+  // linkSync (which throws EEXIST atomically) to avoid overwriting archives.
   let index = 0;
   let moved = false;
   while (!moved && index < 1000) {
     const archivePath = path.join(dir, `app-${dateStr}.${index}.log`);
-    if (!fs.existsSync(archivePath)) {
-      try {
-        fs.renameSync(oldPath, archivePath);
-        moved = true;
-      } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.code !== 'EEXIST' && !fs.existsSync(archivePath)) {
-          // Use console.warn instead of logger.warn to avoid re-entering
-          // the file transport while rotation is in progress, which would
-          // cause infinite recursion.
+    try {
+      fs.linkSync(oldPath, archivePath);
+      fs.unlinkSync(oldPath);
+      moved = true;
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (e?.code === 'EEXIST') {
+        // Collision: archive slot taken; try next index
+        index += 1;
+        continue;
+      }
+      // linkSync not supported (e.g. cross-device) — fall back to renameSync
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (e?.code === 'EXDEV') {
+        try {
+          fs.renameSync(oldPath, archivePath);
+          moved = true;
+        } catch {
           // eslint-disable-next-line no-console
           console.warn('[log-archive] Failed to archive log file:', e);
           break;
         }
-        // Collision: another process created the file; retry next index
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn('[log-archive] Failed to archive log file:', e);
+        break;
       }
     }
     index += 1;
@@ -142,10 +155,38 @@ logger.transports.file.archiveLogFn = (oldLogFile: {
   }
 };
 
+// Sanitize sensitive data in main process logs, matching native NativeLogger.sanitize()
+const MAIN_PROCESS_SENSITIVE_PATTERNS = [
+  /(?:0x)?[0-9a-fA-F]{64}/g,
+  /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/g,
+  /\b[xyzXYZ](?:prv|pub)[1-9A-HJ-NP-Za-km-z]{107,108}\b/g,
+  /(?:\b[a-z]{3,8}\b[\s,]+){11,}\b[a-z]{3,8}\b/g,
+  /(?:Bearer|token[=:]?)\s*[A-Za-z0-9_.\-+/=]{20,}/g,
+  /(?:eyJ|AAAA)[A-Za-z0-9+/=]{40,}/g,
+];
+
+function sanitizeMainProcess(message: string): string {
+  let result = message;
+  for (const pattern of MAIN_PROCESS_SENSITIVE_PATTERNS) {
+    pattern.lastIndex = 0;
+    result = result.replace(pattern, '[REDACTED]');
+  }
+  return result.replace(/\n/g, ' ').replace(/\r/g, ' ');
+}
+
+function sanitizeDataArray(data: any[]): any[] {
+  return data.map((item) => {
+    if (typeof item === 'string') {
+      return sanitizeMainProcess(item);
+    }
+    return item;
+  });
+}
+
 // Custom file format: app-scoped messages from the renderer (react-native-logs)
 // already contain timestamps and level info, so write them as-is to match
 // the output format of react-native-native-logger on mobile.
-// Main process messages keep the standard electron-log prefix.
+// Main process messages keep the standard electron-log prefix and are sanitized.
 // eslint-disable-next-line @typescript-eslint/no-unsafe-return
 logger.transports.file.format = (params: {
   data: any[];
@@ -153,7 +194,7 @@ logger.transports.file.format = (params: {
   message: { date: Date; scope?: string };
 }) => {
   if (params.message?.scope === 'app') {
-    // Return data array as-is; react-native-logs already formatted it
+    // App-scoped messages are already sanitized in the renderer
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return params.data;
   }
@@ -162,7 +203,7 @@ logger.transports.file.format = (params: {
   const pad3 = (n: number) => String(n).padStart(3, '0');
   const ts = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return [`[${ts}] [${params.level}]`, ...params.data];
+  return [`[${ts}] [${params.level}]`, ...sanitizeDataArray(params.data)];
 };
 
 initSentry();

@@ -26,8 +26,9 @@ const SENSITIVE_PATTERNS = [
   // Extended keys (xprv/xpub/zprv/zpub/yprv/ypub)
   /\b[xyzXYZ](?:prv|pub)[1-9A-HJ-NP-Za-km-z]{107,108}\b/g,
   // BIP39 mnemonic-like sequences (12+ words of 3-8 lowercase letters)
-  // Use single space instead of [\s,]+ to avoid nested quantifier ReDoS
-  /(?:\b[a-z]{3,8} ){11,}\b[a-z]{3,8}\b/g,
+  // Matches space and comma separators, aligned with native NativeLogger.sanitize()
+  // V8 regex engine handles this linearly due to disjoint character classes
+  /(?:\b[a-z]{3,8}\b[\s,]+){11,}\b[a-z]{3,8}\b/g,
   // Bearer/API tokens
   /(?:Bearer|token[=:]?)\s*[A-Za-z0-9_.\-+/=]{20,}/g,
   // Base64 encoded data that looks like keys (44+ chars)
@@ -53,35 +54,59 @@ function truncate(message: string): string {
   return message;
 }
 
-// Rate limiting: token bucket matching native debugInfoRate=400/s, burst=2000
-const RATE_PER_SECOND = 400;
-const BURST_CAPACITY = 2000;
-let rateLimitTokens = BURST_CAPACITY;
-let rateLimitLastRefill = Date.now();
-let rateLimitDropped = 0;
+// Per-level rate limiting matching native token bucket behavior:
+// - DEBUG/INFO: 400/s, burst 2000
+// - WARN: 1000/s, burst 2000
+// - ERROR: never limited
+type IRateLimitBucket = {
+  tokens: number;
+  lastRefill: number;
+  dropped: number;
+  ratePerSecond: number;
+  burstCapacity: number;
+};
 
-function isRateLimited(): boolean {
-  const now = Date.now();
-  const elapsed = Math.max(0, now - rateLimitLastRefill);
-  if (elapsed > 0) {
-    rateLimitTokens = Math.min(
-      BURST_CAPACITY,
-      rateLimitTokens + (elapsed / 1000) * RATE_PER_SECOND,
-    );
-    rateLimitLastRefill = now;
+function createBucket(ratePerSecond: number, burstCapacity: number) {
+  return {
+    tokens: burstCapacity,
+    lastRefill: Date.now(),
+    dropped: 0,
+    ratePerSecond,
+    burstCapacity,
+  } satisfies IRateLimitBucket;
+}
+
+const rateLimitBuckets = {
+  debugInfo: createBucket(400, 2000),
+  warn: createBucket(1000, 2000),
+};
+
+function isRateLimited(level: 'info' | 'warn' | 'error' = 'info'): boolean {
+  if (level === 'error') {
+    return false;
   }
-  if (rateLimitTokens >= 1) {
-    rateLimitTokens -= 1;
-    if (rateLimitDropped > 0) {
-      const dropped = rateLimitDropped;
-      rateLimitDropped = 0;
+  const bucket = level === 'warn' ? rateLimitBuckets.warn : rateLimitBuckets.debugInfo;
+  const now = Date.now();
+  const elapsed = Math.max(0, now - bucket.lastRefill);
+  if (elapsed > 0) {
+    bucket.tokens = Math.min(
+      bucket.burstCapacity,
+      bucket.tokens + (elapsed / 1000) * bucket.ratePerSecond,
+    );
+    bucket.lastRefill = now;
+  }
+  if (bucket.tokens >= 1) {
+    bucket.tokens -= 1;
+    if (bucket.dropped > 0) {
+      const dropped = bucket.dropped;
+      bucket.dropped = 0;
       appLogger.warn(
-        `[OneKeyLog] Rate-limited: dropped ${dropped} log messages`,
+        `[OneKeyLog] Rate-limited: dropped ${dropped} ${level} log messages`,
       );
     }
     return false;
   }
-  rateLimitDropped += 1;
+  bucket.dropped += 1;
   return true;
 }
 

@@ -41,6 +41,21 @@ class DesktopApiDev {
     await shell.openPath(path.dirname(logger.transports.file.getFile().path));
   }
 
+  async exportLoggerZip(params: {
+    fileBaseName: string;
+  }): Promise<{ filePath: string }> {
+    const digest = await this.collectLoggerDigest(params);
+    const mainWindow =
+      this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      throw new OneKeyLocalError('No active window for download');
+    }
+    // Trigger Electron's built-in download via file:// URL
+    const fileUrl = `file://${digest.filePath}`;
+    mainWindow.webContents.downloadURL(fileUrl);
+    return { filePath: digest.filePath };
+  }
+
   async collectLoggerDigest(params: { fileBaseName: string }): Promise<{
     filePath: string;
     fileName: string;
@@ -57,9 +72,27 @@ class DesktopApiDev {
     const logFiles = await fsPromises.readdir(logDir);
 
     const zipName = `${baseName}.zip`;
-    const tempDir = path.join(app.getPath('temp'), '@onekeyhq-desktop-logs');
-    await fsPromises.mkdir(tempDir, { recursive: true });
-    const zipPath = path.join(tempDir, zipName);
+    // Store zips in logs_zip/ next to log directory, matching native behavior
+    const zipDir = path.join(path.dirname(logDir), 'logs_zip');
+    await fsPromises.mkdir(zipDir, { recursive: true });
+
+    // Clean up old zip files before creating a new one
+    try {
+      const existingZips = await fsPromises.readdir(zipDir);
+      for (const oldZip of existingZips) {
+        if (oldZip.endsWith('.zip')) {
+          try {
+            await fsPromises.unlink(path.join(zipDir, oldZip));
+          } catch {
+            // ignore individual cleanup errors
+          }
+        }
+      }
+    } catch {
+      // ignore cleanup errors
+    }
+
+    const zipPath = path.join(zipDir, zipName);
 
     const zip = new AdmZip();
     logFiles
