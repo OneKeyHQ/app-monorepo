@@ -1340,10 +1340,25 @@ class ServiceKeylessWallet extends ServiceBase {
     retryProvider?: EOAuthSocialLoginProvider;
   }> {
     const { token } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<
+      IApiClientResponse<{
+        hasWrongProviders: boolean;
+      }>
+    >('/prime/v1/keyless-wallet/hasWrongProviders', {
+      token,
+    });
 
-    // TODO: Mock server response: a stale app_metadata.provider implies the user is
-    // in the Apple/Google same-email state and should retry with the other provider.
-    const isSameEmailAccountAtOldVersion = true;
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+    if (!isSuccess) {
+      throw new OneKeyLocalError(
+        'Failed to get keyless same email account status',
+      );
+    }
+
+    const wrongProvidersData = res?.data?.data;
+    const isSameEmailAccountAtOldVersion =
+      wrongProvidersData?.hasWrongProviders ?? false;
 
     const actualProvider = this.buildKeylessProviderFromSocialToken({
       token,
@@ -1360,13 +1375,14 @@ class ServiceKeylessWallet extends ServiceBase {
     ) {
       currentProvider = initProvider;
     }
+    const retryProvider = isSameEmailAccountAtOldVersion
+      ? this.getAlternativeKeylessProvider(currentProvider)
+      : undefined;
 
     return {
       isSameEmailAccountAtOldVersion,
       currentProvider,
-      retryProvider: isSameEmailAccountAtOldVersion
-        ? this.getAlternativeKeylessProvider(currentProvider)
-        : undefined,
+      retryProvider,
     };
   }
 
@@ -1990,7 +2006,22 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('social login token is required');
     }
 
-    // TODO: replace this mock with the real server API.
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<IApiClientResponse<undefined>>(
+      '/prime/v1/keyless-wallet/resetPinDone',
+      {
+        token,
+      },
+    );
+
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+
+    if (!isSuccess) {
+      throw new OneKeyLocalError(
+        'Failed to mark keyless same email reset pin success',
+      );
+    }
+
     return { success: true };
   }
 

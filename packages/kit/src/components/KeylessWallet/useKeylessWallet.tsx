@@ -354,12 +354,12 @@ async function cacheKeylessOnboardingToken({
   }
 }
 
-export async function getKeylessOnboardingToken() {
+async function getKeylessOnboardingToken() {
   const token = keylessOnboardingCacheGet('socialLoginToken');
   return token;
 }
 
-export async function getKeylessOnboardingRefreshToken() {
+async function getKeylessOnboardingRefreshToken() {
   const refreshToken = keylessOnboardingCacheGet('socialLoginRefreshToken');
   return refreshToken;
 }

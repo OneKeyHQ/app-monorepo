@@ -46,11 +46,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import {
-  getKeylessOnboardingPin,
-  getKeylessOnboardingRefreshToken,
-  getKeylessOnboardingToken,
-} from '../../../components/KeylessWallet/useKeylessWallet';
+import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
@@ -280,13 +276,28 @@ function FinalizeWalletSetupPage({
             if (shouldRunAutoReset) {
               void (async () => {
                 try {
+                  if (!keylessDetailsInfo?.keylessOwnerId) {
+                    return;
+                  }
+                  const refreshResult =
+                    await backgroundApiProxy.serviceKeylessWallet.tryRefreshTokenFromStorage(
+                      {
+                        ownerId: keylessDetailsInfo?.keylessOwnerId,
+                        forceRefresh: true,
+                      },
+                    );
+                  if (
+                    !refreshResult?.accessToken ||
+                    !refreshResult?.refreshToken
+                  ) {
+                    return;
+                  }
                   const [token, refreshToken, pin] = await Promise.all([
-                    getKeylessOnboardingToken(),
-                    getKeylessOnboardingRefreshToken(),
+                    refreshResult.accessToken,
+                    refreshResult.refreshToken,
                     getKeylessOnboardingPin(),
                   ]);
-
-                  if (!token || !pin) {
+                  if (!token || !pin || !refreshToken) {
                     console.error(
                       'Skip keyless auto reset pin: missing onboarding token or pin.',
                     );
