@@ -5,7 +5,7 @@ import * as path from 'path';
 import { pathToFileURL } from 'url';
 
 import AdmZip from 'adm-zip';
-import { app, shell } from 'electron';
+import { shell } from 'electron';
 import logger from 'electron-log/main';
 import fetch from 'node-fetch';
 
@@ -46,8 +46,7 @@ class DesktopApiDev {
     fileBaseName: string;
   }): Promise<{ filePath: string }> {
     const digest = await this.collectLoggerDigest(params);
-    const mainWindow =
-      this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+    const mainWindow = this.desktopApi.appUpdate.getMainWindow() ?? undefined;
     if (!mainWindow || mainWindow.isDestroyed()) {
       throw new OneKeyLocalError('No active window for download');
     }
@@ -261,16 +260,14 @@ class DesktopApiDev {
   async getLogFilePaths(): Promise<string[]> {
     const logDir = this.getLogDirectory();
     const files = await fsPromises.readdir(logDir);
-    return files.filter((f) => f.endsWith('.log')).sort();
+    return files.filter((f) => f.endsWith('.log')).toSorted();
   }
 
   async deleteLogFiles(): Promise<void> {
     const logDir = this.getLogDirectory();
     const files = await fsPromises.readdir(logDir);
-    for (const file of files) {
-      if (!file.endsWith('.log')) {
-        continue;
-      }
+    const logFiles = files.filter((f) => f.endsWith('.log'));
+    for (const file of logFiles) {
       const filePath = path.join(logDir, file);
       try {
         if (file === 'app-latest.log') {

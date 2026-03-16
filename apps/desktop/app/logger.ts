@@ -51,6 +51,7 @@ logger.transports.file.archiveLogFn = (oldLogFile: {
       if (e?.code === 'EEXIST') {
         // Collision: archive slot taken; try next index
         index += 1;
+        // eslint-disable-next-line no-continue
         continue;
       }
       // linkSync not supported (e.g. cross-device) — fall back to renameSync
@@ -85,12 +86,14 @@ logger.transports.file.archiveLogFn = (oldLogFile: {
         (f: string) =>
           f.startsWith('app-') && f.endsWith('.log') && f !== 'app-latest.log',
       )
-      .sort((a: string, b: string) => {
+      .toSorted((a: string, b: string) => {
         // Sort by date desc, then by numeric index desc
         // e.g. app-2026-03-16.10.log should sort after app-2026-03-16.2.log
         const parseArchive = (f: string) => {
           const m = f.match(/^app-(\d{4}-\d{2}-\d{2})\.(\d+)\.log$/);
-          return m ? { date: m[1], index: parseInt(m[2], 10) } : { date: f, index: 0 };
+          return m
+            ? { date: m[1], index: parseInt(m[2], 10) }
+            : { date: f, index: 0 };
         };
         const pa = parseArchive(a);
         const pb = parseArchive(b);
@@ -153,10 +156,12 @@ function truncateMessage(message: string): string {
 }
 
 function sanitizeAndTruncateData(data: any[]): any[] {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return data.map((item) => {
     if (typeof item === 'string') {
       return truncateMessage(sanitizeMessage(item));
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return item;
   });
 }
@@ -196,6 +201,7 @@ logger.hooks.push((message: any) => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const level: string = message?.level ?? 'info';
   if (level === 'error') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return message;
   }
   const bucket =
