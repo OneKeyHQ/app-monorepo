@@ -70,23 +70,9 @@ module.exports = {
       '-usr/sbin',
       '-usr/bin',
     ],
-    // desktop-common.sh only sets GPU paths for $SNAP_DESKTOP_RUNTIME
-    // (gnome-platform), but libEGL/Mesa DRI drivers live in gpu-2404.
-    // Extend LD_LIBRARY_PATH so Electron can find them.
+    // gpu-2404 provides Mesa DRI/EGL drivers. desktop-common.sh sets some
+    // GPU paths for gnome-platform, but gpu-2404 paths must also be present.
     // Both arch triplets are listed so the same config works for x64 and arm64.
-    // Snap layouts: map host-absolute paths that Mesa libgbm has
-    // compiled-in for loading GBM backends (dri_gbm.so) to the actual
-    // locations inside the gpu-2404 content snap.
-    // Without this, libgbm tries /usr/lib/<arch>/gbm/ which doesn't
-    // exist inside the snap, causing EGL initialization to fail.
-    'layout': {
-      '/usr/lib/x86_64-linux-gnu/gbm': {
-        'bind': '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/gbm',
-      },
-      '/usr/lib/aarch64-linux-gnu/gbm': {
-        'bind': '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/gbm',
-      },
-    },
     'environment': {
       'LD_LIBRARY_PATH': [
         '$SNAP_LIBRARY_PATH',
