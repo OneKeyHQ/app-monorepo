@@ -8,6 +8,7 @@ import {
   Dialog,
   Divider,
   ESwitchSize,
+  Icon,
   Page,
   ScrollView,
   SizableText,
@@ -17,9 +18,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -223,11 +224,16 @@ function AppDataSection() {
   const handleMigrateToKeyless = useCallback(async () => {
     if (!kwExists) {
       Dialog.show({
-        title: 'Create a keyless wallet first',
-        description:
-          'Keyless sync requires a keyless wallet to encrypt and sync your data.',
+        title: intl.formatMessage({
+          id: ETranslations.create_keyless_wallet_first__title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.create_keyless_wallet_first__desc,
+        }),
         showCancelButton: false,
-        onConfirmText: 'Create keyless wallet',
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.create_keyless_wallet,
+        }),
         onConfirm: () => handleCreateKeylessWallet(),
       });
       return;
@@ -261,7 +267,9 @@ function AppDataSection() {
     }
     void backgroundApiProxy.serviceApp.showToast({
       method: 'success',
-      title: 'Switched to Keyless sync',
+      title: intl.formatMessage({
+        id: ETranslations.now_syncing_with_keyless_wallet__msg,
+      }),
     });
   }, [kwExists, intl, handleCreateKeylessWallet]);
 
@@ -319,14 +327,17 @@ function AppDataSection() {
             `${keylessWallet.avatarInfo?.emoji ?? ''} ${keylessWallet.name}`.trim();
           void backgroundApiProxy.serviceApp.showToast({
             method: 'success',
-            title: `Syncing data with ${walletLabel}. To sync on another device, log in with the same wallet.`,
+            title: intl.formatMessage(
+              { id: ETranslations.syncing_with_wallet__msg },
+              { walletLabel },
+            ),
           });
         }
       } finally {
         isSubmittingRef.current = false;
       }
     },
-    [keylessWallet],
+    [keylessWallet, intl],
   );
 
   // Manual sync ID (Scenario 4)
@@ -365,8 +376,7 @@ function AppDataSection() {
   const handleSyncNowKwRemoved = useCallback(() => {
     void backgroundApiProxy.serviceApp.showToast({
       method: 'error',
-      title:
-        'Your keyless wallet has been removed. Create or restore it to resume syncing.',
+      title: 'Your keyless wallet was removed. Restore it to resume syncing.',
     });
   }, []);
 
@@ -410,12 +420,29 @@ function AppDataSection() {
 
       {/* Scenario 1: No KW, sync off */}
       {isSyncOffNoKw ? (
-        <Stack px="$5" pt="$4" gap="$3">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            Cloud syncing require a keyless wallet.
-          </SizableText>
-          <Button onPress={handleCreateKeylessWallet}>
-            Create keyless wallet
+        <Stack px="$5" gap="$4" pt="$5">
+          <Stack
+            p="$2"
+            borderRadius="$full"
+            bg="$brand3"
+            alignSelf="flex-start"
+          >
+            <Icon name="CloudOutline" size="$10" color="$brand9" />
+          </Stack>
+          <Stack gap="$2">
+            <SizableText size="$headingLg">
+              {intl.formatMessage({
+                id: ETranslations.create_keyless_wallet_first__title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.create_keyless_wallet_first__desc,
+              })}
+            </SizableText>
+          </Stack>
+          <Button variant="primary" onPress={handleCreateKeylessWallet}>
+            {intl.formatMessage({ id: ETranslations.create_keyless_wallet })}
           </Button>
         </Stack>
       ) : null}
@@ -480,11 +507,17 @@ function AppDataSection() {
         <>
           <Alert
             type="warning"
-            title="Syncing paused"
-            description="Your keyless wallet has been removed. Create or restore it to resume syncing."
+            title={intl.formatMessage({
+              id: ETranslations.syncing_paused__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.keyless_wallet_removed__desc,
+            })}
             $sm={{ actionLayout: 'vertical' }}
             action={{
-              primary: 'Create keyless wallet',
+              primary: intl.formatMessage({
+                id: ETranslations.restore_keyless_wallet__action,
+              }),
               onPrimaryPress: handleCreateKeylessWallet,
             }}
             mx="$5"
@@ -521,11 +554,17 @@ function AppDataSection() {
         <>
           <Alert
             type="warning"
-            title="Upgrade to Keyless Sync"
-            description="OneKey ID sync will be discontinued. Keyless sync is simpler — no account needed."
+            title={intl.formatMessage({
+              id: ETranslations.switch_to_keyless_wallet_sync__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.switch_to_keyless_wallet_sync__desc,
+            })}
             $sm={{ actionLayout: 'vertical' }}
             action={{
-              primary: 'Switch Now',
+              primary: intl.formatMessage({
+                id: ETranslations.switch_now__action,
+              }),
               onPrimaryPress: handleMigrateToKeyless,
             }}
             mx="$5"
