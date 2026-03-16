@@ -199,7 +199,7 @@ fi
 YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
 if [ -n "$YARN_LOCK_CHANGED" ]; then
   # Get the diff of yarn.lock and look for known native packages
-  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@onekeyfe/react-native-|expo-|@react-navigation/'
+  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@onekeyfe/react-native-|expo[-@]|@react-navigation/'
   LOCK_NATIVE_HITS=$(git diff "$BASE_REF"...HEAD -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
   if [ -n "$LOCK_NATIVE_HITS" ]; then
     HAS_NATIVE_CHANGES=1
@@ -271,8 +271,8 @@ fi
 # Summary: JS-only changes (safe for bundle update)
 # ------------------------------------------------------------------
 JS_ONLY=$(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx|js|jsx|json|css|svg|png|jpg|gif|md)$' | grep -vE '^(apps/mobile/(ios|android)/|apps/desktop/app/)' || true)
-JS_COUNT=$(echo "$JS_ONLY" | grep -c '.' || echo 0)
-TOTAL_COUNT=$(echo "$CHANGED_FILES" | grep -c '.' || echo 0)
+JS_COUNT=$(echo "$JS_ONLY" | grep -c '.' 2>/dev/null) || JS_COUNT=0
+TOTAL_COUNT=$(echo "$CHANGED_FILES" | grep -c '.' 2>/dev/null) || TOTAL_COUNT=0
 
 echo -e "${BOLD}============================================${NC}"
 echo -e "${BOLD} Summary${NC}"
