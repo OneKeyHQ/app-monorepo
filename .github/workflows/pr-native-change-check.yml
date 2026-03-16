@@ -101,6 +101,22 @@ jobs:
             REPORT="${REPORT}$(echo "$ELECTRON_CFG" | sed 's/^/- `/' | sed 's/$/`/')\n\n"
           fi
 
+          # Database schema / version / migration changes
+          DB_HITS=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/(consts\.ts|localDBStoreNames\.ts|types\.ts)$' || true)
+          DB_REALM=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/realm/schemas/' || true)
+          DB_MIGRATION=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/migrations/' || true)
+          DB_INDEXED=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/indexed/(LocalDbIndexedBase|indexedDBUtils)\.ts$' || true)
+          DB_ALL="${DB_HITS}${DB_REALM}${DB_MIGRATION}${DB_INDEXED}"
+          DB_ALL=$(echo "$DB_ALL" | grep -v '^$' || true)
+          if [ -n "$DB_ALL" ]; then
+            HAS_NATIVE=true
+            COUNT=$(echo "$DB_ALL" | wc -l | tr -d ' ')
+            REPORT="${REPORT}### Database Schema / Migration ($COUNT files)\n"
+            REPORT="${REPORT}$(echo "$DB_ALL" | head -5 | sed 's/^/- `/' | sed 's/$/`/')\n"
+            if [ "$COUNT" -gt 5 ]; then REPORT="${REPORT}- ... and $((COUNT-5)) more\n"; fi
+            REPORT="${REPORT}\n> ⚠️ DB changes prevent bundle rollback — old bundles cannot read new schemas\n\n"
+          fi
+
           echo "has_native=$HAS_NATIVE" >> "$GITHUB_OUTPUT"
 
           # Write report to file to handle multiline

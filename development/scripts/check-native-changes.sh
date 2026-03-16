@@ -209,6 +209,46 @@ if [ -n "$ELECTRON_BUILD" ]; then
 fi
 
 # ------------------------------------------------------------------
+# Category 11: Database Schema / Version Changes
+# ------------------------------------------------------------------
+# DB version or schema changes are JS-level but have the same impact
+# as native changes: bundle rollback after a DB migration can corrupt
+# user data, and old bundles can't read new DB schemas.
+DB_SCHEMA_FILES=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/(consts\.ts|localDBStoreNames\.ts|types\.ts)$' || true)
+DB_REALM_SCHEMAS=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/realm/schemas/' || true)
+DB_MIGRATION_FILES=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/migrations/' || true)
+DB_INDEXED_BASE=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/indexed/(LocalDbIndexedBase|indexedDBUtils)\.ts$' || true)
+
+DB_ALL_HITS=""
+if [ -n "$DB_SCHEMA_FILES" ]; then DB_ALL_HITS="${DB_ALL_HITS}${DB_SCHEMA_FILES}\n"; fi
+if [ -n "$DB_REALM_SCHEMAS" ]; then DB_ALL_HITS="${DB_ALL_HITS}${DB_REALM_SCHEMAS}\n"; fi
+if [ -n "$DB_MIGRATION_FILES" ]; then DB_ALL_HITS="${DB_ALL_HITS}${DB_MIGRATION_FILES}\n"; fi
+if [ -n "$DB_INDEXED_BASE" ]; then DB_ALL_HITS="${DB_ALL_HITS}${DB_INDEXED_BASE}\n"; fi
+
+if [ -n "$DB_ALL_HITS" ]; then
+  # Extra check: did LOCAL_DB_VERSION actually change?
+  DB_VERSION_CHANGED=0
+  DB_CONSTS_FILE="packages/kit-bg/src/dbs/local/consts.ts"
+  if echo "$CHANGED_FILES" | grep -q "$DB_CONSTS_FILE"; then
+    OLD_DB_VER=$(git show "$BASE_REF":"$DB_CONSTS_FILE" 2>/dev/null | grep -oE 'LOCAL_DB_VERSION\s*=\s*[0-9]+' | grep -oE '[0-9]+' || echo "")
+    NEW_DB_VER=$(grep -oE 'LOCAL_DB_VERSION\s*=\s*[0-9]+' "$DB_CONSTS_FILE" 2>/dev/null | grep -oE '[0-9]+' || echo "")
+    if [ -n "$OLD_DB_VER" ] && [ -n "$NEW_DB_VER" ] && [ "$OLD_DB_VER" != "$NEW_DB_VER" ]; then
+      DB_VERSION_CHANGED=1
+    fi
+  fi
+
+  HAS_NATIVE_CHANGES=1
+  if [ "$DB_VERSION_CHANGED" -eq 1 ]; then
+    echo -e "${RED}[BLOCKED] Database Version Changed (${OLD_DB_VER} → ${NEW_DB_VER})${NC}"
+  else
+    echo -e "${RED}[BLOCKED] Database Schema / Migration Changes${NC}"
+  fi
+  echo -e "$DB_ALL_HITS" | grep -v '^$' | sed 's/^/  - /'
+  echo -e "  ${YELLOW}⚠ DB changes prevent bundle rollback — old bundles cannot read new schemas${NC}"
+  echo ""
+fi
+
+# ------------------------------------------------------------------
 # Summary: JS-only changes (safe for bundle update)
 # ------------------------------------------------------------------
 JS_ONLY=$(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx|js|jsx|json|css|svg|png|jpg|gif|md)$' | grep -vE '^(apps/mobile/(ios|android)/|apps/desktop/app/)' || true)
