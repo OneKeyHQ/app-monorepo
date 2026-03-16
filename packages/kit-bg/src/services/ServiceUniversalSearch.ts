@@ -593,9 +593,11 @@ class ServiceUniversalSearch extends ServiceBase {
         batchValidateResult,
       });
       addressSearchItems = externalAddressResults.items;
-      console.log('[universalSearchOfAddress] externalItems: ', {
-        items: addressSearchItems,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[universalSearchOfAddress] externalItems: ', {
+          items: addressSearchItems,
+        });
+      }
     }
 
     // Step 4: Merge results with address search results having priority
@@ -604,7 +606,9 @@ class ServiceUniversalSearch extends ServiceBase {
       ...accountNameResults.items, // Account name search results second
     ];
 
-    console.log('[universalSearchOfAddress] mergedItems: ', mergedItems);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[universalSearchOfAddress] mergedItems: ', mergedItems);
+    }
 
     return { items: mergedItems } as IUniversalSearchSingleResult;
   }

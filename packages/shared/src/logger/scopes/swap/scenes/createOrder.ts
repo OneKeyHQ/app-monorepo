@@ -49,13 +49,13 @@ export class CreateOrderScene extends BaseScene {
     toAddress: string;
     orderId?: string;
   }) {
+    void fromAddress;
+    void toAddress;
     return {
       orderId,
       quoteToTokenAmount,
       fromTokenAmount,
       toTokenAmount,
-      fromAddress,
-      toAddress,
       status,
       message,
       isFirstTime,
