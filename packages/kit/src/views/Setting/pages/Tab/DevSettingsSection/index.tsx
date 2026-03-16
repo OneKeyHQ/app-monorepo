@@ -833,6 +833,25 @@ const BaseDevSettingsSection = () => {
               />
 
               <SentryCrashSettings />
+              <SectionPressItem
+                icon="ShieldCheckDoneOutline"
+                title="Show Recovery Page on Next Launch"
+                subtitle="Sets crash counter to 3, triggering recovery page on restart"
+                onPress={async () => {
+                  if (platformEnv.isNative) {
+                    const {
+                      default: ReactNativeDeviceUtils,
+                    } = require('react-native-device-utils');
+                    ReactNativeDeviceUtils.setConsecutiveBootFailCount(3);
+                  }
+                  if (platformEnv.isDesktop) {
+                    globalThis.desktopApi?.setConsecutiveBootFailCount?.(3);
+                  }
+                  Toast.success({
+                    title: 'Recovery page will show on next launch',
+                  });
+                }}
+              />
               <CrashDevSettings />
             </Accordion.Content>
           </Accordion.HeightAnimator>

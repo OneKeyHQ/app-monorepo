@@ -88,6 +88,12 @@ type IDesktopAPILegacy = {
       total: string;
     };
   }>;
+  // Boot Recovery
+  markBootSuccess: () => void;
+  setConsecutiveBootFailCount: (count: number) => void;
+  recoveryExportLogs: () => Promise<{ error?: string }>;
+  recoveryTryAgain: () => Promise<void>;
+  recoveryAutoRepair: () => Promise<{ error?: string }>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -319,6 +325,20 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
   getMemoryUsage: () =>
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),
+  // Boot Recovery
+  markBootSuccess: () =>
+    ipcRenderer.send(ipcMessageKeys.MARK_BOOT_SUCCESS),
+  setConsecutiveBootFailCount: (count: number) =>
+    ipcRenderer.send(
+      ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT,
+      count,
+    ),
+  recoveryExportLogs: () =>
+    ipcRenderer.invoke(ipcMessageKeys.RECOVERY_EXPORT_LOGS),
+  recoveryTryAgain: () =>
+    ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
+  recoveryAutoRepair: () =>
+    ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
 });
 
 globalThis.desktopApi = desktopApi;

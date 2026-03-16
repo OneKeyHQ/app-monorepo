@@ -128,6 +128,14 @@ build({
   },
 })
   .then(() => {
+    // Copy static assets (recovery.html) to dist
+    const fs = require('fs');
+    const recoveryHtmlSrc = path.join(electronSource, 'recovery.html');
+    const recoveryHtmlDst = path.join(__dirname, '..', 'app/dist', 'recovery.html');
+    if (fs.existsSync(recoveryHtmlSrc)) {
+      fs.copyFileSync(recoveryHtmlSrc, recoveryHtmlDst);
+      console.log('[Electron Build] Copied recovery.html to dist');
+    }
     const hrend = process.hrtime(hrstart);
     console.log(
       '[Electron Build] Finished in %dms',

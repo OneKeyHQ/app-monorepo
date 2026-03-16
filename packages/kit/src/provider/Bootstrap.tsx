@@ -761,6 +761,49 @@ export function Bootstrap() {
     };
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
 
+  // === Boot Recovery: mark boot success after 5s stability window ===
+  useEffect(() => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) return;
+    const timer = setTimeout(() => {
+      try {
+        if (platformEnv.isNative) {
+          const {
+            default: ReactNativeDeviceUtils,
+          } = require('react-native-device-utils');
+          ReactNativeDeviceUtils.markBootSuccess();
+        }
+        if (platformEnv.isDesktop) {
+          globalThis.desktopApi?.markBootSuccess?.();
+        }
+      } catch {
+        // Silently fail — don't let recovery mechanism crash the app
+      }
+    }, 5_000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    const checkRecoveryFlag = async () => {
+      try {
+        const {
+          default: ReactNativeDeviceUtils,
+        } = require('react-native-device-utils');
+        const action =
+          await ReactNativeDeviceUtils.getAndClearRecoveryAction();
+        if (action) {
+          defaultLogger.app.error.log(
+            `recovery_page_shown: action=${action}, platform=${platformEnv.isNativeIOS ? 'ios' : 'android'}`,
+          );
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    void checkRecoveryFlag();
+  }, []);
+
   useFetchCurrencyList();
   useFetchMarketBasicConfig();
   useFetchPerpConfig();

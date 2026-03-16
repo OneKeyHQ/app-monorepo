@@ -218,3 +218,25 @@ export const clearGPUCrashStats = () => {
   store.delete(EDesktopStoreKeys.LastGPUCrashTime);
   logger.info('GPU crash statistics cleared');
 };
+
+// ==================== Boot Recovery ====================
+export const getConsecutiveBootFailCount = () =>
+  store.get(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+
+export const incrementConsecutiveBootFailCount = () => {
+  const newCount = getConsecutiveBootFailCount() + 1;
+  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, newCount);
+  return newCount;
+};
+
+export const resetConsecutiveBootFailCount = () =>
+  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+
+export const setConsecutiveBootFailCount = (count: number) =>
+  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, count);
+
+export const getBootFailAppVersion = () =>
+  store.get(EDesktopStoreKeys.BootFailAppVersion, '');
+
+export const setBootFailAppVersion = (version: string) =>
+  store.set(EDesktopStoreKeys.BootFailAppVersion, version);
