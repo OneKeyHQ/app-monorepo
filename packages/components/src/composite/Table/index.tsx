@@ -7,6 +7,7 @@ import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   getTokenValue,
+  useThemeName,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -67,6 +68,8 @@ function TableRow<T>({
   scrollAtRef?: RefObject<number>;
 }) {
   const { md } = useMedia();
+  const themeName = useThemeName();
+  const isDarkMode = themeName?.includes('dark');
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
@@ -136,7 +139,7 @@ function TableRow<T>({
   return (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
-      bg={isDragging ? '$bgActive' : '$bgApp'}
+      bg={isDragging && isDarkMode ? '$bgActive' : '$bgApp'}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}

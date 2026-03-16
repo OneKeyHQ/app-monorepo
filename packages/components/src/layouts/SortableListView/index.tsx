@@ -460,7 +460,7 @@ function BaseSortableListView<T>(
             const isDropping = snapshot.isDropAnimating;
             return (
               <Item
-                isDragging={isDropping ? false : !!isDarkMode}
+                isDragging={!isDropping}
                 dragProps={{}}
                 drag={noop}
                 item={data[rubric.source.index]}
