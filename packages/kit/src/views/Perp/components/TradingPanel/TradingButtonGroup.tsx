@@ -613,6 +613,7 @@ function SideButtonInternal({
               size="$bodyMdMedium"
               lineHeight={18}
               color="$textOnColor"
+              numberOfLines={1}
             >
               {buttonText}
             </SizableText>
@@ -623,6 +624,7 @@ function SideButtonInternal({
                 color="$textOnColor"
                 opacity={0.8}
                 lineHeight={11}
+                numberOfLines={1}
               >
                 {buttonSecondaryText}
               </SizableText>
@@ -650,6 +652,7 @@ function SideButtonInternal({
             size="$bodyMdMedium"
             lineHeight={18}
             color="$textOnColor"
+            numberOfLines={1}
           >
             {buttonText}
           </SizableText>
@@ -659,6 +662,7 @@ function SideButtonInternal({
               color="$textOnColor"
               opacity={0.8}
               lineHeight={11}
+              numberOfLines={1}
             >
               {buttonSecondaryText}
             </SizableText>

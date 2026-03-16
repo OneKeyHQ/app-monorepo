@@ -16,6 +16,7 @@ interface IPriceInputProps {
   onUseMidPrice?: () => void;
   szDecimals?: number;
   label?: string;
+  placeholder?: string;
   ifOnDialog?: boolean;
   isMobile?: boolean;
 }
@@ -29,6 +30,7 @@ export const PriceInput = memo(
     onUseMidPrice,
     szDecimals,
     label,
+    placeholder,
     ifOnDialog = false,
     isMobile = false,
   }: IPriceInputProps) => {
@@ -66,9 +68,12 @@ export const PriceInput = memo(
 
     return (
       <TradingFormInput
-        placeholder={intl.formatMessage({
-          id: ETranslations.perp_trade_price_place_holder,
-        })}
+        placeholder={
+          placeholder ??
+          intl.formatMessage({
+            id: ETranslations.perp_trade_price_place_holder,
+          })
+        }
         value={value}
         onChange={handleInputChange}
         label={
