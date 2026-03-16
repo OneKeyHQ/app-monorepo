@@ -1023,10 +1023,13 @@ class ServiceAppUpdate extends ServiceBase {
           // Transition to failed state so startFailedRecoveryTimer can retry.
           // Persist releaseInfo + updateAt so the atom is not stale when the
           // recovery timer fires and isNeedSyncAppUpdateInfo re-evaluates.
+          // Clear latestVersion so isFirstLaunchAfterUpdated's fallback branch
+          // does not treat this failure as a successful first launch (which
+          // would short-circuit the recovery timer by resetting to done).
           await appUpdatePersistAtom.set((prev) => ({
             ...prev,
             ...releaseInfo,
-            latestVersion: releaseInfo.version || prev.latestVersion,
+            latestVersion: undefined,
             updateAt: Date.now(),
             status: EAppUpdateStatus.failed,
             errorText: undefined,
