@@ -240,14 +240,16 @@ export const useNetInfo = (enabled = true) => {
       return undefined;
     }
 
-    const remove = globalNetInfo.addEventListener(({ isInternetReachable }) => {
-      setReachabilityState((prevState) =>
-        mergeReachabilityState(
-          prevState,
-          buildReachabilityState(isInternetReachable),
-        ),
-      );
-    });
+    const remove = globalNetInfo.addEventListener(
+      ({ isInternetReachable: nextInternetReachable }) => {
+        setReachabilityState((prevState) =>
+          mergeReachabilityState(
+            prevState,
+            buildReachabilityState(nextInternetReachable),
+          ),
+        );
+      },
+    );
     return remove;
   }, [enabled]);
 

@@ -19,7 +19,6 @@ import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-
 import useAppNavigation from '../useAppNavigation';
 
 export function useConnectExternalWallet() {

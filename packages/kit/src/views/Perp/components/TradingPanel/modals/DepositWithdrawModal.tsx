@@ -7,6 +7,7 @@ import { InputAccessoryView } from 'react-native';
 
 import type { IPageNavigationProp, useInTabDialog } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   DashText,
   Divider,
@@ -183,10 +184,14 @@ function SelectTokenPopoverContent({
   depositTokensWithPrice,
   handleSwitchToTradePress,
   handleMaxPress,
+  allBalancesZero,
+  onReceivePress,
 }: {
   depositTokensWithPrice: IPerpsDepositToken[];
   symbol: string;
   handleSwitchToTradePress: () => void;
+  allBalancesZero?: boolean;
+  onReceivePress?: () => void;
   handleMaxPress: (params?: {
     networkId: string;
     isNative: boolean;
@@ -257,6 +262,36 @@ function SelectTokenPopoverContent({
   );
   return (
     <YStack>
+      {allBalancesZero ? (
+        <Alert
+          type="info"
+          title={intl.formatMessage({
+            id: ETranslations.perps_recevied_zero_token,
+          })}
+          icon="InfoCircleOutline"
+          borderRadius={0}
+          borderWidth={0}
+          $gtMd={{
+            borderTopLeftRadius: '$3',
+            borderTopRightRadius: '$3',
+          }}
+          action={{
+            primary: intl.formatMessage({
+              id: ETranslations.global_receive,
+            }),
+            onPrimaryPress: () => {
+              void closePopover?.();
+              if (platformEnv.isNativeIOS) {
+                setTimeout(() => {
+                  onReceivePress?.();
+                }, 100);
+                return;
+              }
+              onReceivePress?.();
+            },
+          }}
+        />
+      ) : null}
       <ListView
         contentContainerStyle={{
           borderRadius: 12,
@@ -1234,6 +1269,24 @@ function DepositWithdrawContent({
     ],
   );
 
+  const allBalancesZero = useMemo(
+    () =>
+      selectedAction === 'deposit' &&
+      !balanceLoading &&
+      checkAccountSupport &&
+      depositTokensWithPrice.length > 0 &&
+      depositTokensWithPrice.every(
+        (token) =>
+          !token.balanceParsed || new BigNumber(token.balanceParsed).isZero(),
+      ),
+    [
+      selectedAction,
+      balanceLoading,
+      checkAccountSupport,
+      depositTokensWithPrice,
+    ],
+  );
+
   useEffect(() => {
     if (!currentPerpsDepositSelectedToken) {
       const arbUSDCToken = depositTokensWithPrice.find((token) =>
@@ -1314,6 +1367,8 @@ function DepositWithdrawContent({
             depositTokensWithPrice={depositTokensWithPrice}
             handleSwitchToTradePress={handleSwitchToTradePress}
             handleMaxPress={handleMaxPress}
+            allBalancesZero={allBalancesZero}
+            onReceivePress={handleBuyPress}
           />
         }
       />
@@ -1321,6 +1376,7 @@ function DepositWithdrawContent({
   }, [
     handleMaxPress,
     handleSwitchToTradePress,
+    handleBuyPress,
     balanceLoading,
     intl,
     currentPerpsDepositSelectedToken?.symbol,
@@ -1328,6 +1384,7 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.networkLogoURI,
     depositTokensWithPrice,
     checkAccountSupport,
+    allBalancesZero,
   ]);
 
   const depositToAmount = useMemo(() => {

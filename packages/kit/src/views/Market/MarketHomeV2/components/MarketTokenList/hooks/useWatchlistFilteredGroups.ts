@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
-import type { IWatchlistFilterType } from '../MarketWatchlistCategorySelector';
 import type { IMarketToken } from '../MarketTokenData';
+import type { IWatchlistFilterType } from '../MarketWatchlistCategorySelector';
 
 export function useWatchlistFilteredGroups(
   data: IMarketToken[],
