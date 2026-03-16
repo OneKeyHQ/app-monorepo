@@ -448,6 +448,18 @@ describe('isFirstLaunchAfterUpdated', () => {
     };
     expect(isFirstLaunchAfterUpdated(info)).toBe(false);
   });
+
+  test('returns false when local bundle is HIGHER than target (rollback not yet applied)', () => {
+    const { isFirstLaunchAfterUpdated } = loadAppUpdate('1.0.0', '5');
+    const info: IAppUpdateInfo = {
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
+      updateAt: Date.now(),
+      status: EAppUpdateStatus.notify,
+      updateStrategy: EUpdateStrategy.manual,
+    };
+    expect(isFirstLaunchAfterUpdated(info)).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

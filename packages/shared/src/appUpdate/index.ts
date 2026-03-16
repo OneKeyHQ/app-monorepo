@@ -1,6 +1,8 @@
 import semver from 'semver';
 
 import platformEnv from '../platformEnv';
+import { syncStorage } from '../storage/instance/syncStorageInstance';
+import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import { EAppUpdateStatus, EUpdateFileType } from './type';
 
@@ -239,6 +241,46 @@ export const displayAppUpdateVersion = (
   );
 };
 
+interface IWhatsNewShownData {
+  appVersion: string;
+  bundleVersions: string[];
+}
+
+export const isWhatsNewShown = (): boolean => {
+  const data = syncStorage.getObject<IWhatsNewShownData>(
+    EAppSyncStorageKeys.onekey_whats_new_shown,
+  );
+  if (!data || data.appVersion !== APP_VERSION) {
+    return false;
+  }
+  if (!Array.isArray(data.bundleVersions)) {
+    return false;
+  }
+  return data.bundleVersions.map(String).includes(String(APP_BUNDLE_VERSION));
+};
+
+export const markWhatsNewShown = (): void => {
+  const bundleVersion = String(APP_BUNDLE_VERSION);
+  const data = syncStorage.getObject<IWhatsNewShownData>(
+    EAppSyncStorageKeys.onekey_whats_new_shown,
+  );
+  if (!data || data.appVersion !== APP_VERSION) {
+    syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
+      appVersion: APP_VERSION,
+      bundleVersions: [bundleVersion],
+    });
+    return;
+  }
+  const versions = data.bundleVersions.map(String);
+  if (!versions.includes(bundleVersion)) {
+    versions.push(bundleVersion);
+    syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
+      ...data,
+      bundleVersions: versions,
+    });
+  }
+};
+
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   // App shell version is equal to the latest version, check js bundle version
   if (
@@ -248,7 +290,7 @@ export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   ) {
     return (
       appUpdateInfo.status !== EAppUpdateStatus.done &&
-      Number(APP_BUNDLE_VERSION) >= Number(appUpdateInfo.jsBundleVersion)
+      Number(APP_BUNDLE_VERSION) === Number(appUpdateInfo.jsBundleVersion)
     );
   }
   return (
