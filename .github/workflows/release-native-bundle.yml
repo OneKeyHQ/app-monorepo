@@ -73,7 +73,7 @@ jobs:
           fi
 
       - name: Override params from caller
-        if: ${{ github.event_name == 'workflow_call' }}
+        if: ${{ inputs.build_number }}
         run: |
           echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
           echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
@@ -151,4 +151,4 @@ jobs:
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
-          artifact-build-source: '${{ inputs.build_source }}'
+          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
