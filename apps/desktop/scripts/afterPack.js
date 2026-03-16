@@ -43,6 +43,8 @@ exports.default = async function fileOperation(context) {
   // The package bundles prebuilds for all platforms (android, linux, darwin,
   // win32) but each build only needs the matching one. Removing the rest
   // reduces package size and eliminates snap linter warnings.
+  // Arch enum: ia32=0, x64=1, armv7l=2, arm64=3, universal=4
+  const { arch } = context;
   const prebuildsBase = path.join(
     appOutDir,
     electronPlatformName === 'darwin' || electronPlatformName === 'mas'
@@ -51,18 +53,30 @@ exports.default = async function fileOperation(context) {
     'app.asar.unpacked/node_modules/@serialport/bindings-cpp/prebuilds',
   );
   if (fs.existsSync(prebuildsBase)) {
-    const keepPrefixes = {
-      darwin: ['darwin-'],
-      mas: ['darwin-'],
-      linux: ['linux-'],
-      win32: ['win32-'],
-    };
-    const keep = keepPrefixes[electronPlatformName] || [];
+    // Map (platform, arch) to the exact prebuild dir names to keep.
+    // darwin-x64+arm64 is a universal binary, always kept for darwin/mas.
+    // For universal builds, keep all dirs matching the platform.
+    const archSuffix = { 0: 'ia32', 1: 'x64', 2: 'arm', 3: 'arm64' };
+    const platformName =
+      electronPlatformName === 'mas' ? 'darwin' : electronPlatformName;
+    const isUniversal = arch === 4;
+
     for (const dir of fs.readdirSync(prebuildsBase)) {
-      if (!keep.some((prefix) => dir.startsWith(prefix))) {
-        const fullPath = path.join(prebuildsBase, dir);
-        fs.rmSync(fullPath, { recursive: true });
+      if (!dir.startsWith(`${platformName}-`)) {
+        // Wrong platform, always remove
+        fs.rmSync(path.join(prebuildsBase, dir), { recursive: true });
         console.log(`Removed unused prebuild: ${dir}`);
+      } else if (!isUniversal && archSuffix[arch]) {
+        // Right platform but check arch (skip for universal builds)
+        const dirArch = dir.slice(`${platformName}-`.length);
+        // darwin-x64+arm64 contains both arches, always keep
+        if (
+          !dirArch.includes(archSuffix[arch]) &&
+          !dirArch.includes('+')
+        ) {
+          fs.rmSync(path.join(prebuildsBase, dir), { recursive: true });
+          console.log(`Removed unused prebuild: ${dir}`);
+        }
       }
     }
   }
