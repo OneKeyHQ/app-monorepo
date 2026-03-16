@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 
 import AdmZip from 'adm-zip';
 import { app, shell } from 'electron';
@@ -50,8 +51,8 @@ class DesktopApiDev {
     if (!mainWindow || mainWindow.isDestroyed()) {
       throw new OneKeyLocalError('No active window for download');
     }
-    // Trigger Electron's built-in download via file:// URL
-    const fileUrl = `file://${digest.filePath}`;
+    // Use pathToFileURL to properly handle Windows backslashes, spaces, and special chars
+    const fileUrl = pathToFileURL(digest.filePath).href;
     mainWindow.webContents.downloadURL(fileUrl);
     return { filePath: digest.filePath };
   }

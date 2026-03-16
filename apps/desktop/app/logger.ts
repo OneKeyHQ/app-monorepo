@@ -85,8 +85,18 @@ logger.transports.file.archiveLogFn = (oldLogFile: {
         (f: string) =>
           f.startsWith('app-') && f.endsWith('.log') && f !== 'app-latest.log',
       )
-      .sort()
-      .reverse();
+      .sort((a: string, b: string) => {
+        // Sort by date desc, then by numeric index desc
+        // e.g. app-2026-03-16.10.log should sort after app-2026-03-16.2.log
+        const parseArchive = (f: string) => {
+          const m = f.match(/^app-(\d{4}-\d{2}-\d{2})\.(\d+)\.log$/);
+          return m ? { date: m[1], index: parseInt(m[2], 10) } : { date: f, index: 0 };
+        };
+        const pa = parseArchive(a);
+        const pb = parseArchive(b);
+        if (pa.date !== pb.date) return pb.date.localeCompare(pa.date);
+        return pb.index - pa.index;
+      });
 
     if (files.length > MAX_LOG_HISTORY) {
       for (const file of files.slice(MAX_LOG_HISTORY)) {
