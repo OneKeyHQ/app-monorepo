@@ -15,14 +15,16 @@ on:
       build_bundle_version:
         type: string
         required: true
-      notify_slack:
-        type: boolean
-        required: false
-        default: true
       build_source:
         type: string
         required: false
         default: 'daily-build'
+      branch:
+        type: string
+        required: false
+      commit:
+        type: string
+        required: false
 
 env:
   NODE_ENV: production
@@ -80,6 +82,26 @@ jobs:
           # Also update .env file since shared-env already wrote the old values
           sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
           sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+
+      - name: Resolve branch and commit
+        env:
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WR_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -n "$INPUT_BRANCH" ]; then
+            BRANCH="$INPUT_BRANCH"
+            COMMIT="$INPUT_COMMIT"
+          elif [ -n "$WR_COMMIT" ]; then
+            BRANCH="$WR_BRANCH"
+            COMMIT="$WR_COMMIT"
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "COMMIT=$COMMIT" >> $GITHUB_ENV
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -190,12 +212,11 @@ jobs:
           server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
           upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
           bundle-dir: ./apps/desktop/bundle-zip
-          commit-hash: ${{ github.sha }}
-          branch: ${{ github.ref_name }}
+          commit-hash: ${{ env.COMMIT }}
+          branch: ${{ env.BRANCH }}
           pr-title: ${{ github.event.pull_request.title || github.event.workflow_run.name || '' }}
 
       - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run || inputs.notify_slack }}
         uses: originalix/actions/slack-notify-webhook@feat/bundle-release-notification
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -208,3 +229,5 @@ jobs:
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
           artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-branch: '${{ env.BRANCH }}'
+          artifact-commit: '${{ env.COMMIT }}'
