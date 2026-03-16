@@ -82,6 +82,7 @@ import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
+import RelayDepositContent from './RelayDepositContent';
 
 import type { ListRenderItem } from 'react-native';
 
@@ -344,6 +345,9 @@ function DepositWithdrawContent({
   const withdrawable = accountSummary?.withdrawable ?? '';
   const [selectedAction, setSelectedAction] =
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
+  const [depositMode, setDepositMode] = useState<'wallet' | 'relay'>(
+    'wallet',
+  );
   const [amount, setAmount] = useState('');
   const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
     'token',
@@ -1521,6 +1525,33 @@ function DepositWithdrawContent({
         ]}
       />
 
+      {selectedAction === 'deposit' ? (
+        <XStack gap="$2">
+          <Button
+            flex={1}
+            size="small"
+            variant={depositMode === 'wallet' ? 'primary' : 'secondary'}
+            onPress={() => setDepositMode('wallet')}
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_deposit_direct,
+            })}
+          </Button>
+          <Button
+            flex={1}
+            size="small"
+            variant={depositMode === 'relay' ? 'primary' : 'secondary'}
+            onPress={() => setDepositMode('relay')}
+          >
+            Crypto Transfer
+          </Button>
+        </XStack>
+      ) : null}
+
+      {selectedAction === 'deposit' && depositMode === 'relay' ? (
+        <RelayDepositContent selectedAccount={selectedAccount} />
+      ) : (
+      <>
       <YStack gap="$2">
         {selectedAction === 'deposit' ? (
           <XStack
@@ -1888,6 +1919,9 @@ function DepositWithdrawContent({
         </SizableText>
       ) : null}
       {isMobile && !showDepositNoConfirmHint ? <YStack mb="$4" /> : null}
+      </>
+      )}
+
     </YStack>
   );
 
