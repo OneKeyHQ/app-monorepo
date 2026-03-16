@@ -60,7 +60,7 @@ const MANUAL_AUTOSCROLL_EDGE_PX = 72;
 const MANUAL_AUTOSCROLL_MAX_STEP_PX = 20;
 const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
-const WATCHLIST_CONTENT_PADDING_TOP = 8 + (platformEnv.isNative ? 248 : 0);
+const WATCHLIST_CONTENT_PADDING_TOP = platformEnv.isNative ? 0 : 8;
 
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
