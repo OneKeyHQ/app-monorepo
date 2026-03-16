@@ -13,6 +13,7 @@ import {
   useState,
 } from 'react';
 
+import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -20,8 +21,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
-
-import { FocusScope } from '@tamagui/focus-scope';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
@@ -306,7 +305,7 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          <FocusScope trapped={open && effectiveTrapFocus} loop>
+          <FocusScope trapped={open ? effectiveTrapFocus : undefined} loop>
             <Stack>
               {!disableDrag ? <SheetGrabber /> : null}
               {renderDialogContent}

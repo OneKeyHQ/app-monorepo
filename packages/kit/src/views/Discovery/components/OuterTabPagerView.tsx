@@ -313,8 +313,8 @@ function OuterTabPagerViewComponent({
       style={styles.pager}
       initialPage={initialPage}
       scrollEnabled={showDiscoveryPage}
-      overdrag={false}
-      overScrollMode="never"
+      overdrag
+      overScrollMode="always"
       offscreenPageLimit={1}
       onPageScroll={handleOuterPageScroll}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}

@@ -220,13 +220,21 @@ export const useReferFriends = () => {
       source: 'Earn' | 'Perps' = 'Earn',
       copyAsUrl = false,
     ) => {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const [isLogin, postConfig] = await Promise.all([
+        backgroundApiProxy.servicePrime.isLoggedIn(),
+        backgroundApiProxy.serviceReferralCode
+          .getPostConfig()
+          .catch(() => undefined),
+      ]);
       let myReferralCode = '';
       if (isLogin) {
         try {
-          // Fetch fresh primary code from API to avoid stale cache
-          const summary =
-            await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+          // Short timeout; falls back to cached referral code on failure
+          const SUMMARY_TIMEOUT_MS = 5000;
+          const summary = await timerUtils.timeout(
+            backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+            SUMMARY_TIMEOUT_MS,
+          );
           myReferralCode = summary.inviteCode || '';
         } catch {
           // Fall back to cached code on API failure
@@ -237,8 +245,6 @@ export const useReferFriends = () => {
         myReferralCode =
           await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
       }
-      const postConfig: IInvitePostConfig | undefined =
-        await backgroundApiProxy.serviceReferralCode.getPostConfig();
 
       const sourceConfig: IInvitePostConfig['locales']['Earn'] =
         source === 'Perps' && postConfig?.locales.Perps
@@ -276,7 +282,12 @@ export const useReferFriends = () => {
             });
           }
         } else {
-          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+          try {
+            await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+            void shareReferRewards(_onSuccess, _onFail, source, copyAsUrl);
+          } catch {
+            // User cancelled login, do nothing
+          }
         }
       };
 

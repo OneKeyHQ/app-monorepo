@@ -12,7 +12,13 @@ import type { ReactNode } from 'react';
 
 import { ScrollView } from 'react-native';
 
-import { GradientMask, Stack, XStack, useStyle } from '@onekeyhq/components';
+import {
+  GradientMask,
+  ScrollGuard,
+  Stack,
+  XStack,
+  useStyle,
+} from '@onekeyhq/components';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import type {
@@ -195,31 +201,34 @@ function ScrollableFilterBarImpl({
 
   return (
     <ScrollableFilterBarContext.Provider value={ctxValue}>
-      <Stack position="relative" width="100%" overflow="hidden">
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          contentContainerStyle={resolvedContentContainerStyle}
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          onLayout={handleLayout}
-          onContentSizeChange={handleContentSizeChange}
-        >
-          <XStack gap={itemGap} pr={itemPr}>
-            {children}
-          </XStack>
-        </ScrollView>
+      <ScrollGuard>
+        <Stack position="relative" width="100%" overflow="hidden">
+          <ScrollView
+            horizontal
+            ref={scrollViewRef}
+            bounces={false}
+            contentContainerStyle={resolvedContentContainerStyle}
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            onLayout={handleLayout}
+            onContentSizeChange={handleContentSizeChange}
+          >
+            <XStack gap={itemGap} pr={itemPr}>
+              {children}
+            </XStack>
+          </ScrollView>
 
-        <GradientMask
-          opacity={shouldShowLeftGradient ? 1 : 0}
-          position="left"
-        />
-        <GradientMask
-          opacity={shouldShowRightGradient ? 1 : 0}
-          position="right"
-        />
-      </Stack>
+          <GradientMask
+            opacity={shouldShowLeftGradient ? 1 : 0}
+            position="left"
+          />
+          <GradientMask
+            opacity={shouldShowRightGradient ? 1 : 0}
+            position="right"
+          />
+        </Stack>
+      </ScrollGuard>
     </ScrollableFilterBarContext.Provider>
   );
 }
