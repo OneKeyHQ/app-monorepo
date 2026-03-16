@@ -1,0 +1,75 @@
+name: release-app-bundles
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  prepare-params:
+    runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ steps.params.outputs.build_number }}
+      build_bundle_version: ${{ steps.params.outputs.build_bundle_version }}
+      notify_slack: ${{ steps.params.outputs.notify_slack }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Generate build parameters
+        id: params
+        run: |
+          # Read BUILD_NUMBER from .env.version
+          BUILD_NUMBER=""
+          NOTIFY_SLACK="false"
+          if [ -f .env.version ]; then
+            BUILD_NUMBER=$(grep -E '^BUILD_NUMBER=' .env.version | cut -d '=' -f 2 || true)
+          fi
+
+          if [ -n "$BUILD_NUMBER" ]; then
+            echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
+            NOTIFY_SLACK="true"
+          else
+            # Fallback: daily-build-dev format 1000MMDD{run_number % 100}
+            DATE=$(date -u "+%m%d")
+            RUN_MOD=$(( $GITHUB_RUN_NUMBER % 100 ))
+            RUN_MOD=$(printf "%02d" $RUN_MOD)
+            BUILD_NUMBER="1000${DATE}${RUN_MOD}"
+            echo "Generated BUILD_NUMBER: $BUILD_NUMBER"
+          fi
+
+          # Generate BUILD_BUNDLE_VERSION: seconds since 2026-01-01T00:00:00Z
+          EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
+          NOW=$(date -u +%s)
+          BUILD_BUNDLE_VERSION=$(( NOW - EPOCH_2026 ))
+
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
+          echo "notify_slack=$NOTIFY_SLACK" >> $GITHUB_OUTPUT
+
+          echo "Summary:"
+          echo "  BUILD_NUMBER=$BUILD_NUMBER"
+          echo "  BUILD_BUNDLE_VERSION=$BUILD_BUNDLE_VERSION"
+          echo "  NOTIFY_SLACK=$NOTIFY_SLACK"
+
+  desktop-bundle:
+    needs: prepare-params
+    uses: ./.github/workflows/release-desktop-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      notify_slack: ${{ needs.prepare-params.outputs.notify_slack == 'true' }}
+      build_source: 'bundle-release'
+    secrets: inherit
+
+  native-bundle:
+    needs: prepare-params
+    uses: ./.github/workflows/release-native-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      notify_slack: ${{ needs.prepare-params.outputs.notify_slack == 'true' }}
+      build_source: 'bundle-release'
+    secrets: inherit
