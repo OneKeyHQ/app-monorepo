@@ -301,7 +301,7 @@ export function Carousel<T>({
                 disabled={data.length <= 1}
               />
             ) : null}
-            <XStack flex={1} gap="$0.5" ai="center" jc="center">
+            <XStack flex={1} gap="$0" ai="center" jc="center">
               {data.map((item, index) => {
                 return renderPaginationItem?.(
                   {

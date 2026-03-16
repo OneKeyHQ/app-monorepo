@@ -16,8 +16,12 @@ import {
   AccountSelectorProviderMirror,
   NetworkSelectorTriggerDappConnection,
 } from '@onekeyhq/kit/src/components/AccountSelector';
-import { AccountSelectorTriggerDappConnection } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
+import {
+  AccountSelectorTriggerDappConnection,
+  AccountSelectorTriggerDappConnectionCmp,
+} from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { useAccountSelectorAvailableNetworks } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorAvailableNetworks';
+import { NetworkSelectorTriggerDappConnectionCmp } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger/NetworkSelectorTriggerDApp';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -25,15 +29,29 @@ import {
   useAccountSelectorActions,
   useAccountSelectorSyncLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
 
 import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
+
+type IReadonlyDAppAccountData = {
+  account: INetworkAccount | undefined;
+  network: IServerNetwork | undefined;
+  wallet: IDBWallet | undefined;
+  indexedAccount: IDBIndexedAccount | undefined;
+};
 
 function DAppAccountListInitFromHome({
   num,
@@ -312,6 +330,91 @@ function DAppAccountListStandAloneItemForHomeScene() {
   );
 }
 
+function DAppAccountListStandAloneItemReadonly({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  const intl = useIntl();
+  const { serviceAccount, serviceNetwork } = backgroundApiProxy;
+  const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+
+  const { result, isLoading } = usePromiseResult<IReadonlyDAppAccountData>(
+    async () => {
+      const [account, network, wallet] = await Promise.all([
+        serviceAccount.getAccount({
+          accountId,
+          networkId,
+        }),
+        serviceNetwork.getNetwork({
+          networkId,
+        }),
+        serviceAccount.getWallet({
+          walletId,
+        }),
+      ]);
+
+      let indexedAccount;
+      if (account?.indexedAccountId) {
+        indexedAccount = await serviceAccount.getIndexedAccount({
+          id: account.indexedAccountId,
+        });
+      }
+
+      return {
+        account,
+        network,
+        wallet,
+        indexedAccount,
+      };
+    },
+    [accountId, networkId, serviceAccount, serviceNetwork, walletId],
+    {
+      initResult: {
+        account: undefined,
+        network: undefined,
+        wallet: undefined,
+        indexedAccount: undefined,
+      },
+    },
+  );
+
+  return (
+    <YStack gap="$2" testID="DAppAccountListStandAloneItem">
+      <SizableText size="$headingMd" color="$text">
+        {intl.formatMessage({ id: ETranslations.global_accounts })}
+      </SizableText>
+      <YGroup
+        bg="$bg"
+        borderRadius="$3"
+        borderColor="$borderSubdued"
+        borderWidth={StyleSheet.hairlineWidth}
+        separator={<Divider />}
+        disabled
+      >
+        <YGroup.Item>
+          <NetworkSelectorTriggerDappConnectionCmp
+            network={result.network}
+            isLoading={isLoading}
+            triggerDisabled
+          />
+        </YGroup.Item>
+        <YGroup.Item>
+          <AccountSelectorTriggerDappConnectionCmp
+            wallet={result.wallet}
+            account={result.account}
+            indexedAccount={result.indexedAccount}
+            isLoading={isLoading}
+            triggerDisabled
+          />
+        </YGroup.Item>
+      </YGroup>
+    </YStack>
+  );
+}
+
 function WalletConnectAccountTriggerList({
   sceneUrl,
   sessionAccountsInfo,
@@ -371,5 +474,6 @@ export {
   DAppAccountListItem,
   DAppAccountListStandAloneItem,
   DAppAccountListStandAloneItemForHomeScene,
+  DAppAccountListStandAloneItemReadonly,
   WalletConnectAccountTriggerList,
 };

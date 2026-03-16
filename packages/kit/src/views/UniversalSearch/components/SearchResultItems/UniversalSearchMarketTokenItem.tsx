@@ -1,17 +1,18 @@
 import { useCallback } from 'react';
 
 import { XStack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
+import { formatTokenSymbolForDisplay } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
-import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchMarketToken;
@@ -26,7 +27,7 @@ export function UniversalSearchMarketTokenItem({
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
-  const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
+  const { image, coingeckoId, price, symbol, name } = item.payload;
 
   const handlePress = useCallback(() => {
     setTimeout(async () => {
@@ -69,20 +70,14 @@ export function UniversalSearchMarketTokenItem({
       jc="space-between"
       onPress={handlePress}
       renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
-      title={symbol.toUpperCase()}
+      title={formatTokenSymbolForDisplay(symbol)}
       subtitle={name}
       subtitleProps={{
         numberOfLines: 1,
       }}
     >
       <XStack>
-        <BaseMarketTokenPrice
-          price={String(price)}
-          size="$bodyLgMedium"
-          lastUpdated={lastUpdated}
-          tokenName={name}
-          tokenSymbol={symbol}
-        />
+        <Currency size="$bodyLgMedium">{String(price)}</Currency>
       </XStack>
     </ListItem>
   );

@@ -8,12 +8,10 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.betomorrow.rnfilelogger.FileLoggerModule;
+import com.margelo.nitro.nativelogger.OneKeyLog;
+import com.margelo.nitro.reactnativesplashscreen.SplashScreenBridge;
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
-import com.facebook.react.ReactRootView;
-import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
@@ -22,30 +20,12 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
-import so.onekey.app.wallet.splashscreen.SplashScreenImageResizeMode;
-import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
-import so.onekey.app.wallet.splashscreen.SplashScreenReactActivityLifecycleListener;
-import so.onekey.app.wallet.splashscreen.SplashScreenViewController;
-import so.onekey.app.wallet.splashscreen.singletons.SplashScreen;
 
 public class MainActivity extends ReactActivity {
-    private FileLoggerModule fileLogger;
-    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
-    private SplashScreenImageResizeMode getResizeMode(Context context) {
-    String resizeModeString = context.getString(R.string.expo_splash_screen_resize_mode).toLowerCase();
-    SplashScreenImageResizeMode mode = SplashScreenImageResizeMode.fromString(resizeModeString);
-    return mode != null ? mode : SplashScreenImageResizeMode.CONTAIN;
-  }
-
-  private boolean getStatusBarTranslucent(Context context) {
-    return Boolean.parseBoolean(context.getString(R.string.expo_splash_screen_status_bar_translucent));
-  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -83,12 +63,7 @@ public class MainActivity extends ReactActivity {
     super.onCreate(null);
     setTheme(R.style.AppTheme);
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-        SplashScreen.INSTANCE.show(
-                this,
-                getResizeMode(this),
-                ReactRootView.class,
-                getStatusBarTranslucent(this)
-        );
+        SplashScreenBridge.show(this);
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       try {
@@ -101,7 +76,6 @@ public class MainActivity extends ReactActivity {
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
     EventBus.getDefault().register(this);
-    fileLogger = new FileLoggerModule((ReactApplicationContext) getReactHost().getCurrentReactContext());
   }
 
   @Override
@@ -122,8 +96,7 @@ public class MainActivity extends ReactActivity {
     public void onLogEvent(Object event)
     {
         List<String> messages = (List<String>) event;
-        String currentTime = sdf.format(new Date());
-        fileLogger.write(1, currentTime + " | INFO : app => native => " + messages.get(0) + ": " + messages.get(1));
+        OneKeyLog.info("App", "native => " + messages.get(0) + ": " + messages.get(1));
     };
 
 

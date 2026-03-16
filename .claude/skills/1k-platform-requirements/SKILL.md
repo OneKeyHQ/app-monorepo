@@ -256,8 +256,6 @@ gem install cocoapods -v 1.16.2
 grep "go_version = " apps/mobile/ios/Podfile
 ```
 
-**Note**: Go is auto-installed by Podfile if not present. The gopenpgp XCFramework is pre-built and cached in `apps/mobile/ios/XCFrameworks/`.
-
 ### Xcode (macOS only)
 
 **Required**: 26.2
@@ -345,7 +343,6 @@ fi
 - Gradle: [apps/mobile/android/gradle/wrapper/gradle-wrapper.properties](apps/mobile/android/gradle/wrapper/gradle-wrapper.properties)
 - iOS: [apps/mobile/ios/Podfile](apps/mobile/ios/Podfile)
 - iOS: [apps/mobile/ios/Podfile.lock](apps/mobile/ios/Podfile.lock)
-- iOS XCFrameworks: [apps/mobile/ios/XCFrameworks/](apps/mobile/ios/XCFrameworks/)
 - Extension: [apps/ext/src/manifest/chrome_v3.js](apps/ext/src/manifest/chrome_v3.js)
 - Desktop: [apps/desktop/package.json](apps/desktop/package.json)
 - Desktop: [apps/desktop/electron-builder.config.js](apps/desktop/electron-builder.config.js)

@@ -1,8 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
+import {
+  Dialog,
+  Form,
+  Input,
+  SizableText,
+  Stack,
+  XStack,
+  useForm,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -47,6 +55,7 @@ function PrimeLoginEmailDialogV2(props: {
   const { sendCode, loginWithCode } = useLoginWithEmail();
 
   const intl = useIntl();
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
 
   const form = useForm<{ email: string }>({
     defaultValues: { email: lastOneKeyIdLoginEmail || '' },
@@ -117,7 +126,9 @@ function PrimeLoginEmailDialogV2(props: {
         <Dialog.Title>
           {title ||
             intl.formatMessage({
-              id: ETranslations.prime_signup_login,
+              id: isSignUpMode
+                ? ETranslations.prime_onekeyid_signup
+                : ETranslations.prime_signup_login,
             })}
         </Dialog.Title>
         <Dialog.Description>
@@ -176,6 +187,37 @@ function PrimeLoginEmailDialogV2(props: {
         onConfirm={async ({ preventClose }) => {
           await submit({ preventClose });
         }}
+        extraContent={
+          !title ? (
+            <XStack jc="center" px="$5" pb="$5">
+              {isSignUpMode ? null : (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {`${intl.formatMessage({
+                    id: ETranslations.no_account,
+                  })}?`}
+                </SizableText>
+              )}
+              <SizableText
+                size="$bodyMdMedium"
+                color="$textInteractive"
+                ml="$1"
+                cursor="pointer"
+                role="button"
+                hoverStyle={{ opacity: 0.8 }}
+                pressStyle={{ opacity: 0.7 }}
+                onPress={() => setIsSignUpMode((prev) => !prev)}
+              >
+                {isSignUpMode
+                  ? intl.formatMessage({
+                      id: ETranslations.prime_signup_login,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.prime_onekeyid_signup,
+                    })}
+              </SizableText>
+            </XStack>
+          ) : undefined
+        }
       />
     </Stack>
   );

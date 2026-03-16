@@ -3,7 +3,6 @@ package so.onekey.app.wallet;
 import android.app.Application;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
-import android.os.Build;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
@@ -15,14 +14,14 @@ import com.facebook.react.ReactHost;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
-import com.facebook.react.defaults.DefaultReactNativeHost;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 
 import cn.jiguang.plugins.push.JPushModule;
+import com.margelo.nitro.nativelogger.OneKeyLog;
+import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
-import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -42,16 +41,7 @@ public class MainApplication extends Application implements ReactApplication {
         @SuppressWarnings("UnnecessaryLocalVariable")
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
-        packages.add(new AutoUpdateModulePackage(mReactNativeHost));
-        packages.add(new BundleUpdatePackage());
-        // packages.add(new GeckoViewPackage());
-        packages.add(new ExitPackage());
-        packages.add(new PerfMemoryPackage());
-        packages.add(new WebViewCheckerPackage());
-        packages.add(new LaunchOptionPackage());
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-          packages.add(new SplashScreenPackage());
-        }
+        // All native modules are now Nitro modules (auto-linked)
         return packages;
       }
 
@@ -100,8 +90,9 @@ public class MainApplication extends Application implements ReactApplication {
     super.onCreate();
     
     long startupTime = System.currentTimeMillis();
-    LaunchOptionModule.saveStartupTimeStatic(startupTime);
-    
+    ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);
+    OneKeyLog.info("App", "OneKey started");
+
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
       field.setAccessible(true);

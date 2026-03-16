@@ -6,6 +6,9 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   Badge,
+  Empty,
+  IconButton,
+  SearchBar,
   SizableText,
   Tabs,
   XStack,
@@ -20,6 +23,7 @@ import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/N
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useEarnActions,
   useEarnAtom,
@@ -27,38 +31,31 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
+import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
 export function AvailableAssetsTabViewList() {
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
   const actions = useEarnActions();
   const intl = useIntl();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  const [searchText, setSearchText] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
   const media = useMedia();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const accountId = activeAccount.account?.id;
+  const accountReady = activeAccount.ready;
+  const activeNetworkId = activeAccount.network?.id;
 
   const tabData = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({ id: ETranslations.global_earn }),
-        type: EAvailableAssetsTypeEnum.SimpleEarn,
-      },
-      {
-        title: intl.formatMessage({ id: ETranslations.earn_fixed_apy }),
-        type: EAvailableAssetsTypeEnum.FixedRate,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.wallet_defi_position_module_staked,
-        }),
-        type: EAvailableAssetsTypeEnum.Staking,
-      },
-    ],
+    () => buildEarnAvailableAssetCategoryTabs(intl),
     [intl],
   );
 
@@ -67,11 +64,18 @@ export function AvailableAssetsTabViewList() {
   }, [tabData]);
   const focusedTab = useSharedValue(TabNames[0]);
 
-  // Get filtered assets based on selected tab
+  // Get filtered assets based on selected tab and search text
   const assets = useMemo(() => {
     const currentTabType = tabData[selectedTabIndex]?.type;
-    return availableAssetsByType[currentTabType] || [];
-  }, [availableAssetsByType, selectedTabIndex, tabData]);
+    const source = availableAssetsByType[currentTabType] || [];
+    if (!searchText) return source;
+    const query = searchText.toLowerCase();
+    return source.filter(
+      (a) =>
+        a.symbol.toLowerCase().includes(query) ||
+        a.name.toLowerCase().includes(query),
+    );
+  }, [availableAssetsByType, selectedTabIndex, tabData, searchText]);
 
   // Use ref to track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -208,30 +212,81 @@ export function AvailableAssetsTabViewList() {
     [intl],
   );
 
-  // Handle row press
-  const handleRowPress = useCallback(
-    async (asset: IEarnAvailableAsset) => {
+  // Navigate to asset detail or protocol list, reused by both table and search dialog
+  const navigateToAsset = useCallback(
+    async (
+      asset: IEarnAvailableAsset,
+      categoryType?: EAvailableAssetsTypeEnum,
+    ) => {
       defaultLogger.staking.page.selectAsset({ tokenSymbol: asset.symbol });
 
-      if (asset.protocols.length === 1) {
-        const protocol = asset.protocols[0];
-        await EarnNavigation.pushToEarnProtocolDetails(navigation, {
-          networkId: protocol.networkId,
-          symbol: asset.symbol,
-          provider: protocol.provider,
-          vault: protocol.vault,
-        });
-      } else {
+      const defaultCategory =
+        categoryType === EAvailableAssetsTypeEnum.SimpleEarn ||
+        categoryType === EAvailableAssetsTypeEnum.FixedRate
+          ? (categoryType as 'simpleEarn' | 'fixedRate')
+          : undefined;
+      const navigateToProtocolList = () => {
         EarnNavigation.pushToEarnProtocols(navigation, {
           symbol: asset.symbol,
           filterNetworkId: undefined,
           logoURI: asset.logoURI
             ? encodeURIComponent(asset.logoURI)
             : undefined,
+          defaultCategory,
         });
+      };
+
+      // When current tab has only 1 protocol, check total across ALL categories.
+      // A token like USDe may have 1 FixedRate protocol but multiple SimpleEarn
+      // protocols — the user should still see the list page in that case.
+      if (asset.protocols.length === 1) {
+        const accountNetworkId =
+          activeNetworkId ?? asset.protocols[0]?.networkId;
+        const canQueryWithAccount =
+          accountReady && Boolean(accountId) && Boolean(accountNetworkId);
+        if (!canQueryWithAccount) {
+          navigateToProtocolList();
+          return;
+        }
+
+        let totalProtocols = 1;
+        try {
+          const allProtocols =
+            await backgroundApiProxy.serviceStaking.getProtocolList({
+              symbol: asset.symbol,
+              accountId,
+              networkId: accountNetworkId,
+            });
+          totalProtocols = allProtocols?.length ?? 1;
+        } catch {
+          // Fallback: use current tab's count
+        }
+
+        if (totalProtocols <= 1) {
+          const protocol = asset.protocols[0];
+          await EarnNavigation.pushToEarnProtocolDetails(navigation, {
+            networkId: protocol.networkId,
+            symbol: asset.symbol,
+            provider: protocol.provider,
+            vault: protocol.vault,
+          });
+          return;
+        }
       }
+
+      // Multiple protocols across categories → go to protocol list page
+      navigateToProtocolList();
     },
-    [navigation],
+    [navigation, accountId, accountReady, activeNetworkId],
+  );
+
+  // Handle row press in the main table
+  const handleRowPress = useCallback(
+    (asset: IEarnAvailableAsset) => {
+      const currentTabType = tabData[selectedTabIndex]?.type;
+      return navigateToAsset(asset, currentTabType);
+    },
+    [navigateToAsset, tabData, selectedTabIndex],
   );
 
   // Mobile custom renderer
@@ -240,12 +295,9 @@ export function AvailableAssetsTabViewList() {
       <ListItem
         userSelect="none"
         onPress={() => handleRowPress(asset)}
-        avatarProps={{
-          src: asset.logoURI,
-          fallbackProps: {
-            borderRadius: '$full',
-          },
-        }}
+        renderAvatar={
+          <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
+        }
       >
         <ListItem.Text
           flex={1}
@@ -277,6 +329,142 @@ export function AvailableAssetsTabViewList() {
     [handleRowPress],
   );
 
+  // Memoize keyExtractor for TableList
+  const keyExtractor = useCallback(
+    (asset: IEarnAvailableAsset) => asset.symbol,
+    [],
+  );
+
+  // Memoize onPressRow wrapper for TableList
+  const onPressRow = useCallback(
+    (asset: IEarnAvailableAsset) => void handleRowPress(asset),
+    [handleRowPress],
+  );
+
+  // Memoize TabBar renderItem
+  const renderTabItem = useCallback(
+    ({
+      name,
+      isFocused,
+      onPress,
+    }: {
+      name: string;
+      isFocused: boolean;
+      onPress: (name: string) => void;
+    }) => (
+      <XStack
+        px="$2"
+        py="$1.5"
+        mr="$1"
+        bg={isFocused ? '$bgActive' : '$bg'}
+        borderRadius="$2"
+        borderCurve="continuous"
+        onPress={() => onPress(name)}
+      >
+        <SizableText
+          size="$bodyMdMedium"
+          color={isFocused ? '$text' : '$textSubdued'}
+          letterSpacing={-0.15}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    ),
+    [],
+  );
+
+  // Memoize SearchBar containerProps
+  const searchBarContainerProps = useMemo(
+    () => ({
+      w: 200,
+      borderRadius: '$full' as const,
+      bg: '$bgStrong' as const,
+      borderColor: '$transparent' as const,
+      overflow: 'hidden' as const,
+    }),
+    [],
+  );
+
+  // Memoize ListEmptyComponent
+  const listEmptyComponent = useMemo(
+    () =>
+      searchText ? (
+        <Empty
+          icon="SearchOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_search_no_results_title,
+          })}
+        />
+      ) : null,
+    [searchText, intl],
+  );
+
+  // Pre-fetch all categories and open search dialog
+  const handleMobileSearchPress = useCallback(() => {
+    void (async () => {
+      setSearchLoading(true);
+      try {
+        const allTypes = [
+          EAvailableAssetsTypeEnum.SimpleEarn,
+          EAvailableAssetsTypeEnum.FixedRate,
+          EAvailableAssetsTypeEnum.Staking,
+        ];
+
+        // Build complete data: use existing atom data + fetch missing categories
+        const completeData: Partial<
+          Record<EAvailableAssetsTypeEnum, IEarnAvailableAsset[]>
+        > = { ...availableAssetsByType };
+
+        const missingTypes = allTypes.filter(
+          (type) => !completeData[type]?.length,
+        );
+
+        if (missingTypes.length > 0) {
+          const results = await Promise.all(
+            missingTypes.map(async (type) => {
+              try {
+                const data =
+                  await backgroundApiProxy.serviceStaking.getAvailableAssets({
+                    type,
+                  });
+                actions.current.updateAvailableAssetsByType(type, data);
+                return { type, data };
+              } catch {
+                return { type, data: [] as IEarnAvailableAsset[] };
+              }
+            }),
+          );
+
+          for (const { type, data } of results) {
+            completeData[type] = data;
+          }
+        }
+
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.EarnAssetSearch,
+          params: {
+            availableAssetsByType: completeData,
+            initialCategoryType:
+              tabData[selectedTabIndex]?.type ??
+              EAvailableAssetsTypeEnum.SimpleEarn,
+            onAssetSelect: (asset, categoryType) => {
+              void navigateToAsset(asset, categoryType);
+            },
+          },
+        });
+      } finally {
+        setSearchLoading(false);
+      }
+    })();
+  }, [
+    availableAssetsByType,
+    actions,
+    navigateToAsset,
+    navigation,
+    selectedTabIndex,
+    tabData,
+  ]);
+
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -289,47 +477,53 @@ export function AvailableAssetsTabViewList() {
 
   return (
     <YStack gap="$3">
-      <SizableText px="$pagePadding" size="$headingLg">
-        {intl.formatMessage({ id: ETranslations.earn_available_assets })}
-      </SizableText>
-      <Tabs.TabBar
-        containerStyle={{ px: '$5' }}
-        divider={false}
-        onTabPress={handleTabChange}
-        tabNames={TabNames}
-        focusedTab={focusedTab}
-        renderItem={({ name, isFocused, onPress }) => (
-          <XStack
-            px="$2"
-            py="$1.5"
-            mr="$1"
-            bg={isFocused ? '$bgActive' : '$bg'}
-            borderRadius="$2"
-            borderCurve="continuous"
-            onPress={() => onPress(name)}
-          >
-            <SizableText
-              size="$bodyMdMedium"
-              color={isFocused ? '$text' : '$textSubdued'}
-              letterSpacing={-0.15}
-            >
-              {name}
-            </SizableText>
-          </XStack>
+      <XStack px="$pagePadding" ai="center" jc="space-between">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_available_assets })}
+        </SizableText>
+        {media.gtMd ? null : (
+          <IconButton
+            variant="tertiary"
+            icon="SearchOutline"
+            iconSize="$5"
+            loading={searchLoading}
+            disabled={searchLoading}
+            onPress={handleMobileSearchPress}
+          />
         )}
-      />
+      </XStack>
+      <XStack ai="center" jc="space-between" px="$pagePadding">
+        <Tabs.TabBar
+          containerStyle={{ px: '$0' }}
+          divider={false}
+          onTabPress={handleTabChange}
+          tabNames={TabNames}
+          focusedTab={focusedTab}
+          renderItem={renderTabItem}
+        />
+        {media.gtMd ? (
+          <SearchBar
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search_asset,
+            })}
+            onSearchTextChange={setSearchText}
+            containerProps={searchBarContainerProps}
+          />
+        ) : null}
+      </XStack>
 
       <TableList<IEarnAvailableAsset>
         key={`assets-tab-${selectedTabIndex}`}
         data={assets ?? []}
         columns={columns}
-        keyExtractor={(asset) => asset.symbol}
+        keyExtractor={keyExtractor}
         withHeader={platformEnv.isNative ? false : media.gtMd}
         defaultSortKey="yield"
         defaultSortDirection="desc"
-        onPressRow={(asset) => void handleRowPress(asset)}
+        onPressRow={onPressRow}
         mobileRenderItem={mobileRenderItem}
         enableDrillIn
+        ListEmptyComponent={listEmptyComponent}
       />
     </YStack>
   );

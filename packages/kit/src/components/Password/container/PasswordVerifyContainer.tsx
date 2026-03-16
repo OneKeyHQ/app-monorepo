@@ -88,17 +88,20 @@ const PasswordVerifyContainer = ({
   }, [webAuthCredentialId, isBiologyAuthSwitchOn]);
 
   useEffect(() => {
-    if (isEnable && isBiologyAuthSwitchOn) {
+    const shouldCheck =
+      (isEnable || (platformEnv.isExtension && !!webAuthCredentialId)) &&
+      isBiologyAuthSwitchOn;
+    if (shouldCheck) {
       void (async () => {
         try {
-          const securePassword = await biologyAuthUtils.getPassword();
-          setHasSecurePassword(!!securePassword);
+          const hasPassword = await biologyAuthUtils.hasPassword();
+          setHasSecurePassword(hasPassword);
         } catch (_e) {
           setHasSecurePassword(false);
         }
       })();
     }
-  }, [isEnable, isBiologyAuthSwitchOn]);
+  }, [isEnable, isBiologyAuthSwitchOn, webAuthCredentialId]);
 
   const passwordVerifyStatusRef = useRef(passwordVerifyStatus);
   useEffect(() => {
@@ -148,7 +151,7 @@ const PasswordVerifyContainer = ({
         isBiologyAuthSwitchOn &&
         verifyPeriodBiologyEnable &&
         ((isEnable && hasSecurePassword) ||
-          (!!webAuthCredentialId && !!hasCachedPassword))
+          (!!webAuthCredentialId && (!!hasCachedPassword || hasSecurePassword)))
       );
     },
     [
@@ -242,9 +245,32 @@ const PasswordVerifyContainer = ({
       }));
       try {
         if (isExtLockNoCachePassword) {
+          // Try to retrieve password from secure storage (WebAuthn PRF)
+          try {
+            const securePassword = await biologyAuthUtils.getPassword();
+            if (securePassword) {
+              const verifiedPassword =
+                await backgroundApiProxy.servicePassword.verifyPassword({
+                  password: securePassword,
+                  passwordMode,
+                });
+              await callOnVerifyRes(verifiedPassword);
+              setVerifiedStatus();
+              return;
+            }
+          } catch (e) {
+            if ((e as Error)?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+              throw e;
+            }
+            // No secure password stored — fall through to credential-only
+          }
+          // Fallback: old behavior (credential-only verification).
+          // Call checkWebAuth directly — note it may retry getPassword()
+          // internally but the PRF master key should be cached from the
+          // first attempt, avoiding a redundant user prompt.
           const result = await checkWebAuth();
           if (result) {
-            await callOnVerifyRes('');
+            await callOnVerifyRes(typeof result === 'string' ? result : '');
             setVerifiedStatus();
           } else {
             throw new OneKeyLocalError('biology auth verify error');
@@ -270,6 +296,7 @@ const PasswordVerifyContainer = ({
           }
         }
       } catch (e: any) {
+        console.error('onBiologyAuthenticate error', e);
         const error = e as {
           message?: string;
           cause?: string;
@@ -374,6 +401,35 @@ const PasswordVerifyContainer = ({
         }
         await callOnVerifyRes(verifiedPassword);
         setVerifiedStatus();
+        // Backfill secure storage once for migrated extension users whose
+        // biometric switch is on but password was never stored with PRF.
+        // This runs for any successful manual password verification flow.
+        if (platformEnv.isExtension && isBiologyAuthSwitchOn) {
+          try {
+            const hasSecurePasswordNow = await biologyAuthUtils.hasPassword();
+            if (!hasSecurePasswordNow) {
+              await backgroundApiProxy.servicePassword.setSkipPrfCache(false);
+              const prfCredentialId =
+                await biologyAuthUtils.savePasswordForPasskey(
+                  verifiedPassword,
+                  {
+                    repairBrokenState: true,
+                  },
+                );
+              setHasSecurePassword(await biologyAuthUtils.hasPassword());
+              if (prfCredentialId && prfCredentialId !== webAuthCredentialId) {
+                setPasswordPersist((v) => ({
+                  ...v,
+                  webAuthCredentialId: prfCredentialId,
+                }));
+              }
+            } else if (!hasSecurePassword) {
+              setHasSecurePassword(true);
+            }
+          } catch (e) {
+            console.error('Failed to backfill secure storage password:', e);
+          }
+        }
       } catch (e) {
         const errorWithFlag = e as Error & { isCallbackError?: boolean };
         const isCallbackError = errorWithFlag?.isCallbackError === true;
@@ -448,6 +504,7 @@ const PasswordVerifyContainer = ({
       passwordVerifyStatus.value,
       pageMode,
       resetApp,
+      hasSecurePassword,
       setPasswordAtom,
       setPasswordErrorProtectionTimeMinutesSurplus,
       setPasswordPersist,
@@ -455,6 +512,8 @@ const PasswordVerifyContainer = ({
       unlockPeriodPasswordArray,
       callOnVerifyRes,
       setVerifiedStatus,
+      isBiologyAuthSwitchOn,
+      webAuthCredentialId,
     ],
   );
 

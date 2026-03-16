@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { closeOnboardingPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
+import { resetAboveMainRoute } from '@onekeyhq/components';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function usePrimeTransferExit() {
   const navigation = useAppNavigation();
@@ -21,8 +20,7 @@ export function usePrimeTransferExit() {
       setTimeout(async () => {
         navigation.popStack();
         if (!skipCloseOnboardingPages) {
-          await timerUtils.wait(150);
-          await closeOnboardingPages();
+          resetAboveMainRoute();
         }
       }, delay);
     },

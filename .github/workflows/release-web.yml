@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 env:
+  NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:

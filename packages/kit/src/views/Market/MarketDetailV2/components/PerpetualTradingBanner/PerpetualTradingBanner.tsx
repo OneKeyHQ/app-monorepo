@@ -14,6 +14,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -54,6 +58,7 @@ export function PerpetualTradingBanner({
       hlTicker,
     });
     setTimeout(async () => {
+      setPerpPageEnterSource(EPerpPageEnterSource.MarketBanner);
       navigation.switchTab(ETabRoutes.Perp);
       try {
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({

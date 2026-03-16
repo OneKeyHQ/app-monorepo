@@ -43,11 +43,12 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
           fallbackIcon="CryptoCoinOutline"
         />
         <YStack flex={1} minWidth={0}>
-          <XStack alignItems="center" gap="$1">
+          <XStack alignItems="center" gap="$1" minWidth={0} overflow="hidden">
             <SizableText
               size="$bodyLgMedium"
               numberOfLines={1}
               flexShrink={1}
+              ellipsizeMode="tail"
               userSelect="none"
             >
               {item.displayName}

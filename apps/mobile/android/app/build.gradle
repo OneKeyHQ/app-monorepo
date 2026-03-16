@@ -207,6 +207,18 @@ android {
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
+
+    // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors
+    applicationVariants.configureEach { variant ->
+        if (variant.flavorName != "prod") {
+            variant.compileConfiguration.resolutionStrategy.dependencySubstitution {
+                substitute project(':onekeyfe_react-native-app-update') using project(':app-update-noop')
+            }
+            variant.runtimeConfiguration.resolutionStrategy.dependencySubstitution {
+                substitute project(':onekeyfe_react-native-app-update') using project(':app-update-noop')
+            }
+        }
+    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
@@ -271,9 +283,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    // Add BouncyCastle OpenPGP dependency
-    implementation("org.bouncycastle:bcpg-jdk15to18:1.78.1")
 
     // Google Play Services
     implementation("com.google.android.gms:play-services-base:18.5.0")

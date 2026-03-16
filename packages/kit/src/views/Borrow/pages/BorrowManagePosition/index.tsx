@@ -35,7 +35,6 @@ const BorrowManagePosition = () => {
     reserveAddress,
     marketAddress,
     type,
-    borrowReserves,
   } = route.params;
   const intl = useIntl();
   const appNavigation = useAppNavigation();
@@ -115,7 +114,6 @@ const BorrowManagePosition = () => {
           type={type}
           reserveAddress={reserveAddress}
           marketAddress={marketAddress}
-          borrowReserves={borrowReserves}
           defaultTab={defaultTab}
         />
       </Page.Body>

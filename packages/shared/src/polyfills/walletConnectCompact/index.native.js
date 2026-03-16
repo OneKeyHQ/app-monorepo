@@ -1,3 +1,4 @@
+// oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
 import { getApplicationModule } from '@walletconnect/react-native-compat/module';
 

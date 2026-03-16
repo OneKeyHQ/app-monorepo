@@ -17,6 +17,7 @@ import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
+import type ServicePendingInstallTask from '../services/servicePendingInstallTask';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
@@ -278,6 +279,10 @@ class BackgroundApiProxy
   serviceAppUpdate = this._createProxyService(
     'serviceAppUpdate',
   ) as ServiceAppUpdate;
+
+  servicePendingInstallTask = this._createProxyService(
+    'servicePendingInstallTask',
+  ) as ServicePendingInstallTask;
 
   serviceSpotlight = this._createProxyService(
     'serviceSpotlight',

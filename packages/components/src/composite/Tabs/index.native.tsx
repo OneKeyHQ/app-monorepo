@@ -1,6 +1,4 @@
-// eslint-disable-next-line no-restricted-syntax
-import React from 'react';
-import type { PropsWithChildren } from 'react';
+import { type PropsWithChildren, forwardRef } from 'react';
 
 import { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
@@ -9,7 +7,11 @@ import { TabsDraggableFlatList } from './TabsDraggableFlatList';
 
 import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 
-const Container = React.forwardRef<any, PropsWithChildren<CollapsibleProps>>(
+interface IExtendedContainerProps extends CollapsibleProps {
+  useNativeHeaderAnimation?: boolean;
+}
+
+const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
   ({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
     return (
       <NativeTabs.Container

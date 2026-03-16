@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   ListEndIndicator,
+  SizableText,
   Spinner,
   Stack,
   Table,
+  YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -21,8 +25,12 @@ import type {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
+import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
@@ -93,6 +101,7 @@ type IMarketTokenListBaseProps = {
   copyFrom?: ECopyFrom;
   draggable?: boolean;
   tabIntegrated?: boolean;
+  tabName?: string;
   listContainerProps?: {
     paddingBottom: number;
   };
@@ -119,12 +128,14 @@ function MarketTokenListBase({
   copyFrom,
   draggable = false,
   tabIntegrated,
+  tabName,
   listContainerProps,
   onDragEnd,
   onItemLongPress,
   onItemContextMenu,
   onScrollBegin,
 }: IMarketTokenListBaseProps) {
+  const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
@@ -256,17 +267,74 @@ function MarketTokenListBase({
     ],
   );
 
+  // Stable ref for handleHeaderRow to avoid portalContent useMemo recreation
+  // when sort state changes. Same ref pattern used in MobileLayout for perps category.
+  const handleHeaderRowRef = useRef(handleHeaderRow);
+  handleHeaderRowRef.current = handleHeaderRow;
+  const stableHandleHeaderRow = useCallback(
+    (...args: Parameters<typeof handleHeaderRow>) =>
+      handleHeaderRowRef.current(...args),
+    [],
+  );
+
   const handleEndReached = useCallback(() => {
     if (canLoadMore && loadMore && !isLoadingMore) {
       void loadMore();
     }
   }, [canLoadMore, loadMore, isLoadingMore]);
 
+  // Stable onRow handler — uses refs to avoid re-creating on every render,
+  // which prevents the Table from seeing a new onRow prop and re-rendering all rows.
+  const onItemPressRef = useRef(onItemPress);
+  onItemPressRef.current = onItemPress;
+  const onItemLongPressRef = useRef(onItemLongPress);
+  onItemLongPressRef.current = onItemLongPress;
+  const onItemContextMenuRef = useRef(onItemContextMenu);
+  onItemContextMenuRef.current = onItemContextMenu;
+
+  const stableOnRow = useCallback(
+    (item: IMarketToken, index: number) => ({
+      onPress: onItemPressRef.current
+        ? () => onItemPressRef.current!(item)
+        : () => {
+            if (item.perpsCoin) {
+              navigateToPerps(item.perpsCoin);
+              return;
+            }
+            void toMarketDetailPage({
+              symbol: item.symbol,
+              tokenAddress: item.address,
+              networkId: item.networkId,
+              isNative: item.isNative,
+            });
+          },
+      onLongPress: onItemLongPressRef.current
+        ? () => onItemLongPressRef.current!(item, index)
+        : undefined,
+      onContextMenu: onItemContextMenuRef.current
+        ? (position?: { x: number; y: number }) =>
+            onItemContextMenuRef.current!(item, index, position)
+        : undefined,
+    }),
+    [navigateToPerps, toMarketDetailPage],
+  );
+
   // Show skeleton on initial load or network switching
   // Initial load: when there's no data yet
   // Network switching: when network is changing (provides better UX feedback)
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
+
+  const TableEmptyComponent = useMemo(() => {
+    if (isLoading) return null;
+    return (
+      <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_no_data })}
+        </SizableText>
+      </Stack>
+    );
+  }, [isLoading, intl]);
 
   const TableFooterComponent = useMemo(() => {
     if (isLoadingMore) {
@@ -309,14 +377,44 @@ function MarketTokenListBase({
     return () => observer.disconnect();
   }, [webTabIntegrated, handleEndReached]);
 
+  // Desktop sticky header: portal the column header + toolbar into the
+  // renderTabBar area so they stick when scrolling in the collapsible tab.
+  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
+  const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
+  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
+  const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
+
+  const portalContent = useMemo(() => {
+    if (!useDesktopPortal || !isTabFocused || !stickyPortalTarget) return null;
+    return (
+      <StickyHeaderPortal target={stickyPortalTarget}>
+        <YStack bg="$bgApp" px="$4">
+          {toolbar ? (
+            <Stack width="100%" mb="$3">
+              {toolbar}
+            </Stack>
+          ) : null}
+          <Table.HeaderRow
+            columns={marketTokenColumns}
+            onHeaderRow={stableHandleHeaderRow}
+          />
+        </YStack>
+      </StickyHeaderPortal>
+    );
+  }, [
+    useDesktopPortal,
+    isTabFocused,
+    stickyPortalTarget,
+    toolbar,
+    marketTokenColumns,
+    stableHandleHeaderRow,
+  ]);
+
   return (
     <Stack flex={1} width="100%">
-      {/* render custom toolbar if provided */}
-      {toolbar ? (
-        <Stack width="100%" mb="$3">
-          {toolbar}
-        </Stack>
-      ) : null}
+      {portalContent}
+      {/* render custom toolbar if provided (only when not in desktop portal mode) */}
+      {!useDesktopPortal ? toolbar : null}
 
       {/* Table container with horizontal scroll support */}
       <Stack
@@ -348,7 +446,7 @@ function MarketTokenListBase({
               contentContainerStyle={
                 tabIntegrated
                   ? {
-                      paddingTop: 8 + (platformEnv.isNative ? 170 : 0),
+                      paddingTop: 8 + (platformEnv.isNative ? 195 : 0),
                       paddingBottom: platformEnv.isNativeAndroid
                         ? (listContainerProps?.paddingBottom ??
                           SPINNER_HEIGHT * 2)
@@ -361,6 +459,7 @@ function MarketTokenListBase({
                     }
               }
               stickyHeader
+              showHeader={!useDesktopPortal}
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
               tabIntegrated={tabIntegrated}
@@ -370,32 +469,11 @@ function MarketTokenListBase({
               dataSource={data}
               keyExtractor={(item) => item.id}
               extraData={networkId}
-              onHeaderRow={handleHeaderRow}
+              onHeaderRow={stableHandleHeaderRow}
+              TableEmptyComponent={TableEmptyComponent}
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
-              onRow={(item, index) => ({
-                onPress: onItemPress
-                  ? () => onItemPress(item)
-                  : () => {
-                      if (item.perpsCoin) {
-                        navigateToPerps(item.perpsCoin);
-                        return;
-                      }
-                      void toMarketDetailPage({
-                        symbol: item.symbol,
-                        tokenAddress: item.address,
-                        networkId: item.networkId,
-                        isNative: item.isNative,
-                      });
-                    },
-                onLongPress: onItemLongPress
-                  ? () => onItemLongPress(item, index)
-                  : undefined,
-                onContextMenu: onItemContextMenu
-                  ? (position?: { x: number; y: number }) =>
-                      onItemContextMenu(item, index, position)
-                  : undefined,
-              })}
+              onRow={stableOnRow}
             />
           )}
           {webTabIntegrated ? (

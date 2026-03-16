@@ -19,7 +19,6 @@ import { XStack, YStack } from '../../primitives';
 
 import { TabsContext, TabsScrollContext } from './context';
 import { TabBar } from './TabBar';
-import { startViewTransition } from './utils';
 
 import type { LayoutChangeEvent } from 'react-native';
 import type {
@@ -287,25 +286,28 @@ export function Container({
         isSwitchingTabRef.current = true;
         const index = tabNames.findIndex((name) => name === tabName);
         let scrollTop = scrollTopRef.current[tabName] || 0;
-        startViewTransition(() => {
-          updateListContainerHeight();
-          const width = scrollElement?.clientWidth || 0;
-          listContainerRef.current?.scrollTo({
-            left: width * index,
-            behavior: 'instant',
-          });
 
-          if (stickyHeaderHeight.current > 0) {
-            if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
-              scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
-              scrollElement?.scrollTo({
-                top: scrollTop,
-                behavior: 'instant',
-              });
-            }
-          }
-          isSwitchingTabRef.current = false;
+        // Execute DOM updates synchronously instead of inside startViewTransition.
+        // startViewTransition's callback runs asynchronously and gets aborted when
+        // a new transition starts during rapid switching, which causes scrollTo
+        // to never execute and the tab switch to visually fail.
+        updateListContainerHeight();
+        const width = scrollElement?.clientWidth || 0;
+        listContainerRef.current?.scrollTo({
+          left: width * index,
+          behavior: 'instant',
         });
+
+        if (stickyHeaderHeight.current > 0) {
+          if ((scrollElement?.scrollTop || 0) >= stickyHeaderHeight.current) {
+            scrollTop = Math.max(scrollTop, stickyHeaderHeight.current);
+            scrollElement?.scrollTo({
+              top: scrollTop,
+              behavior: 'instant',
+            });
+          }
+        }
+        isSwitchingTabRef.current = false;
       }
     },
   );

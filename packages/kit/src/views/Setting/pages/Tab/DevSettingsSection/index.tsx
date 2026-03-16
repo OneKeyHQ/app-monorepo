@@ -173,7 +173,9 @@ const DevSettingsAccordionTrigger = ({
         <YStack flexDirection="row" alignItems="center" gap="$3">
           {icon ? <Icon name={icon} color="$iconSubdued" /> : null}
           <YStack>
-            <SizableText size="$bodyLgMedium">{title}</SizableText>
+            <SizableText textAlign="left" size="$bodyLgMedium">
+              {title}
+            </SizableText>
             {description || title ? (
               <SizableText textAlign="left" size="$bodyMd" color="$textSubdued">
                 {description || title}
@@ -602,25 +604,6 @@ const BaseDevSettingsSection = () => {
               />
 
               <SectionPressItem
-                icon="ArrowTopCircleOutline"
-                title="Dev App Update Settings"
-                onPress={() => {
-                  navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
-                }}
-              />
-
-              <SectionPressItem
-                icon="OnekeyDeviceCustom"
-                title="FirmwareUpdateDevSettings"
-                testID="firmware-update-dev-settings-menu"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevFirmwareUpdateModal,
-                  );
-                }}
-              />
-
-              <SectionPressItem
                 icon="BellOutline"
                 title="NotificationDevSettings"
                 onPress={() => {
@@ -706,6 +689,46 @@ const BaseDevSettingsSection = () => {
                     title: 'Image',
                     renderContent: <ImagePanel />,
                   });
+                }}
+              />
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+
+        <Accordion.Item value="appUpdate">
+          <DevSettingsAccordionTrigger
+            title="App & Firmware Updates"
+            description="App update, JS bundle, firmware update"
+            icon="ArrowTopCircleOutline"
+          />
+          <Accordion.HeightAnimator animation="quick">
+            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
+              <SectionPressItem
+                icon="ArrowTopCircleOutline"
+                title="App Update Test"
+                subtitle="Simulate update failures"
+                onPress={() => {
+                  navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
+                }}
+              />
+              <SectionPressItem
+                icon="CodeOutline"
+                title="JS Bundle Manager"
+                subtitle="Manage and switch JS bundles"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevBundleManagerModal,
+                  );
+                }}
+              />
+              <SectionPressItem
+                icon="OnekeyDeviceCustom"
+                title="Firmware Update Dev Settings"
+                testID="firmware-update-dev-settings-menu"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+                  );
                 }}
               />
             </Accordion.Content>

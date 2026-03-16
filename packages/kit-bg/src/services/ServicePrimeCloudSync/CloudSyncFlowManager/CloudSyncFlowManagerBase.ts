@@ -340,10 +340,9 @@ export abstract class CloudSyncFlowManagerBase<
 
     if (tx) {
       keylessCloudSyncCredential =
-        (await this.backgroundApi.servicePrimeCloudSync.getKeylessCloudSyncCredentialCache()) ||
-        (await this.backgroundApi.localDb.txGetKeylessCloudSyncCredential({
+        await this.backgroundApi.localDb.txGetKeylessCloudSyncCredential({
           tx,
-        }));
+        });
     }
 
     // Asynchronously fetching sync credentials may cause the transaction to commit prematurely, leading to the failure of subsequent database transaction operations.

@@ -71,6 +71,8 @@ export type ISendBitcoinParams = {
   toAddress: string;
   satoshis: string;
   feeRate?: string;
+  memo?: string;
+  memos?: string[];
 };
 
 export type ISignMessageParams = {

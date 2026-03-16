@@ -36,7 +36,10 @@ import type {
 import type { INotificationWatchlistToken } from '@onekeyhq/shared/types/notification';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
-import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import {
+  devSettingsPersistAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { perpTokenFavoritesPersistAtom } from '../states/jotai/atoms/perps';
 
 import ServiceBase from './ServiceBase';
@@ -73,15 +76,21 @@ class ServiceMarketV2 extends ServiceBase {
     tokenAddress: string,
     networkId: string,
   ) {
+    const settings = await settingsPersistAtom.get();
+    const selectedCurrencyId = settings.currencyInfo?.id ?? 'usd';
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const params: Record<string, string> = {
+      tokenAddress,
+      networkId,
+      currency: 'usd',
+    };
+    // When the user has selected a non-USD currency, request a converted price
+    if (selectedCurrencyId !== 'usd') {
+      params.convertCurrency = selectedCurrencyId;
+    }
     const response = await client.get<IMarketTokenDetailResponse>(
       '/utility/v2/market/token/detail',
-      {
-        params: {
-          tokenAddress,
-          networkId,
-        },
-      },
+      { params },
     );
     return response.data;
   }
@@ -162,6 +171,7 @@ class ServiceMarketV2 extends ServiceBase {
         limit,
         minLiquidity,
         maxLiquidity,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -200,6 +210,7 @@ class ServiceMarketV2 extends ServiceBase {
         interval: innerInterval,
         timeFrom,
         timeTo,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -227,6 +238,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
         ...(cursor !== undefined && { cursor }),
         ...(limit !== undefined && { limit }),
       },
@@ -262,6 +274,7 @@ class ServiceMarketV2 extends ServiceBase {
           accountAddress,
           tokenAddress,
           networkId,
+          currency: 'usd',
           ...(cursor !== undefined && { cursor }),
           ...(timeFrom !== undefined && { timeFrom }),
           ...(timeTo !== undefined && { timeTo }),
@@ -295,6 +308,7 @@ class ServiceMarketV2 extends ServiceBase {
       params: {
         tokenAddress,
         networkId,
+        currency: 'usd',
       },
     });
     const { data } = response.data;
@@ -345,9 +359,16 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenBatchListResponse;
-    }>('/utility/v2/market/token/list/batch', {
-      tokenAddressList: missingTokens,
-    });
+    }>(
+      '/utility/v2/market/token/list/batch',
+      {
+        tokenAddressList: missingTokens,
+        currency: 'usd',
+      },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+      },
+    );
 
     const { data } = response.data;
 
@@ -575,11 +596,13 @@ class ServiceMarketV2 extends ServiceBase {
     }));
 
     let tokenDetails: IMarketTokenBatchListResponse = { list: [] };
+    let batchSucceeded = false;
 
     try {
       tokenDetails = await this.fetchMarketTokenListBatch({
         tokenAddressList,
       });
+      batchSucceeded = true;
     } catch (error) {
       console.error(
         '[ServiceMarketV2] buildWatchlistTokensForNotification fetchMarketTokenListBatch error:',
@@ -601,7 +624,12 @@ class ServiceMarketV2 extends ServiceBase {
       },
     );
 
-    return tokens;
+    // Only filter out symbol-less tokens when batch succeeded;
+    // if batch failed, return all entries to avoid wiping server-side watchlist.
+    // Always filter out tokens with empty networkId to avoid server validation errors.
+    return batchSucceeded
+      ? tokens.filter((t) => t.symbol && t.networkId)
+      : tokens.filter((t) => t.networkId);
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(
@@ -668,6 +696,7 @@ class ServiceMarketV2 extends ServiceBase {
           accountAddress,
           tokenAddress,
           xpub,
+          currency: 'usd',
         },
       });
 
@@ -722,9 +751,25 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketBannerTokenListResponse;
-    }>(`/utility/v2/market/banner/token-list/${tokenListId}`);
+    }>(
+      `/utility/v2/market/banner/token-list/${encodeURIComponent(tokenListId)}`,
+      { params: { currency: 'usd' } },
+    );
     const { data } = response.data;
     return data.list;
+  }
+
+  @backgroundMethod()
+  async fetchMarketBannerPerpsTokenList({
+    tokenListId,
+  }: {
+    tokenListId: string;
+  }): Promise<IMarketPerpsTokenListData> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<IMarketPerpsTokenListResponse>(
+      `/utility/v2/market/banner/perps-token-list/${encodeURIComponent(tokenListId)}`,
+    );
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -816,7 +861,7 @@ class ServiceMarketV2 extends ServiceBase {
       const marketPerpsCoins = new Set(
         watchListData.data
           .filter((item) => !!item.perpsCoin)
-          .map((item) => item.perpsCoin!),
+          .map((item) => item.perpsCoin ?? ''),
       );
       const perpsCoins = new Set(perpsFavorites.favorites);
 

@@ -40,6 +40,7 @@ export type ITokenProps = {
   fallbackIcon?: IKeyOfIcons;
   size?: ITokenSize;
   tokenImageUri?: ImageURISource['uri'];
+  tokenImageUris?: string[];
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   networkId?: string;
@@ -66,6 +67,7 @@ export function Token({
   isNFT,
   size,
   tokenImageUri,
+  tokenImageUris,
   networkImageUri,
   networkId,
   showNetworkIcon,
@@ -101,40 +103,57 @@ export function Token({
     bgProp ?? (themeVariant === 'light' ? undefined : '$neutral6Dark');
   const shouldShowBorder = themeVariant === 'dark';
 
-  const tokenImage = (
-    <Image
-      size={tokenImageSize}
-      borderRadius={borderRadius}
-      source={source}
-      bg={resolvedBg}
-      borderWidth={shouldShowBorder ? '$px' : undefined}
-      borderColor={shouldShowBorder ? '$neutral2Dark' : undefined}
-      fallback={
-        <Stack
-          bg="$gray5"
-          ai="center"
-          jc="center"
-          borderRadius={borderRadius}
-          w={tokenImageSize}
-          h={tokenImageSize}
-        >
-          <Icon
-            size={fallbackIconSize}
-            name={fallbackIconName}
-            color="$iconSubdued"
-          />
-        </Stack>
-      }
-      skeleton={
-        <Skeleton
-          w={rest.w ?? tokenImageSize}
-          h={rest.h ?? tokenImageSize}
-          radius="round"
+  const fallbackElement = useMemo(
+    () => (
+      <Stack
+        bg="$gray5"
+        ai="center"
+        jc="center"
+        borderRadius={borderRadius}
+        w={tokenImageSize}
+        h={tokenImageSize}
+      >
+        <Icon
+          size={fallbackIconSize}
+          name={fallbackIconName}
+          color="$iconSubdued"
         />
-      }
-      {...rest}
-    />
+      </Stack>
+    ),
+    [borderRadius, tokenImageSize, fallbackIconSize, fallbackIconName],
   );
+
+  const skeletonElement = useMemo(
+    () => (
+      <Skeleton
+        w={rest.w ?? tokenImageSize}
+        h={rest.h ?? tokenImageSize}
+        radius="round"
+      />
+    ),
+    [rest.w, rest.h, tokenImageSize],
+  );
+
+  const sharedImageProps = {
+    size: tokenImageSize,
+    borderRadius: borderRadius as IImageProps['borderRadius'],
+    bg: resolvedBg,
+    borderWidth: shouldShowBorder ? ('$px' as const) : undefined,
+    borderColor: shouldShowBorder ? ('$neutral2Dark' as const) : undefined,
+    fallback: fallbackElement,
+    skeleton: skeletonElement,
+    ...rest,
+  };
+
+  const tokenImage =
+    tokenImageUris && tokenImageUris.length > 0 ? (
+      <Image.WithFallbackSources
+        sources={tokenImageUris}
+        {...sharedImageProps}
+      />
+    ) : (
+      <Image source={source} {...sharedImageProps} />
+    );
 
   if (networkImageUri) {
     return (

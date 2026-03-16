@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 env:
+  NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
@@ -51,6 +52,9 @@ jobs:
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+          if [ -z "${{ env.BUILD_BUNDLE_VERSION }}" ]; then
+            echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
+          fi
 
 
       - name: Setup Node
@@ -107,6 +111,7 @@ jobs:
           bundle-dir: ./apps/mobile/out-dir-bundle-zip
           commit-hash: ${{ github.sha }}
           branch: ${{ github.ref_name }}
+          pr-title: ${{ github.event.pull_request.title || github.event.workflow_run.name || '' }}
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

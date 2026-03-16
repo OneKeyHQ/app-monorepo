@@ -2,7 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert } from '@onekeyhq/components';
+import { Alert, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useApprovalsInfoAtom } from '../states/jotai/contexts/accountOverview';
@@ -37,20 +37,20 @@ function BasicRiskApprovalAlert() {
   }
 
   return (
-    <Alert
-      mt="$2"
-      mx="$pagePadding"
-      type="warning"
-      icon="ShieldCheckDoneOutline"
-      title={intl.formatMessage(
-        { id: ETranslations.wallet_approval_risky_suggestion_title },
-        { number: riskApprovalsCount },
-      )}
-      action={{
-        primary: intl.formatMessage({ id: ETranslations.global_view }),
-        onPrimaryPress: handlePress,
-      }}
-    />
+    <Stack pt="$2" px="$pagePadding" bg="$bgApp">
+      <Alert
+        type="warning"
+        icon="ShieldCheckDoneOutline"
+        title={intl.formatMessage(
+          { id: ETranslations.wallet_approval_risky_suggestion_title },
+          { number: riskApprovalsCount },
+        )}
+        action={{
+          primary: intl.formatMessage({ id: ETranslations.global_view }),
+          onPrimaryPress: handlePress,
+        }}
+      />
+    </Stack>
   );
 }
 

@@ -58,8 +58,10 @@ import {
   UniversalSearchDappItem,
   UniversalSearchMarketTokenItem,
   UniversalSearchPerpItem,
+  UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
+import { useSettingsSearch } from '../hooks/useSettingsSearch';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -94,10 +96,21 @@ const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
     [EUniversalSearchType.AccountAssets]: platformEnv.isWebDappMode ? 0 : 5,
     // DApps tab index changes based on whether My Assets tab is shown
     [EUniversalSearchType.Dapp]: platformEnv.isWebDappMode ? 5 : 6,
+    // Settings tab is last
+    [EUniversalSearchType.Settings]: platformEnv.isWebDappMode ? 6 : 7,
   };
 
   return tabMapping[searchType];
 };
+
+const DEFAULT_SLICE_LIMIT = 5;
+const MARKET_SLICE_LIMIT = 3;
+const MARKET_TAB_INDEX = getTabIndexForSearchType(
+  EUniversalSearchType.V2MarketToken,
+);
+const PRIORITIZED_SECONDARY_TAB_INDEX = getTabIndexForSearchType(
+  EUniversalSearchType.Perp,
+);
 
 const SkeletonItem = () => (
   <XStack py="$2" alignItems="center">
@@ -127,7 +140,7 @@ function ListEmptyComponent() {
   );
 }
 
-const isMarketSection = (tabIndex: number) => tabIndex === 2;
+const isMarketSection = (tabIndex: number) => tabIndex === MARKET_TAB_INDEX;
 
 export function UniversalSearch({
   filterTypes,
@@ -162,6 +175,8 @@ export function UniversalSearch({
     setIsFocusInMarketTab(isFocus);
   });
 
+  const searchSettings = useSettingsSearch();
+
   const tabTitles = useMemo(() => {
     return [
       intl.formatMessage({
@@ -188,6 +203,10 @@ export function UniversalSearch({
       !platformEnv.isWebDappMode &&
         intl.formatMessage({
           id: ETranslations.global_universal_search_tabs_dapps,
+        }),
+      !platformEnv.isWeb &&
+        intl.formatMessage({
+          id: ETranslations.global_settings,
         }),
     ].filter(Boolean);
   }, [intl]);
@@ -252,8 +271,17 @@ export function UniversalSearch({
       await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
         searchTypes: [EUniversalSearchType.MarketToken],
       });
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      // Convert MarketToken items to V2MarketToken format for table-style rendering
+
+    // Prefer V2MarketToken (has network badge from searchRecommendTokens)
+    if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
+      searchResultSections.push({
+        tabIndex: 2,
+        title: intl.formatMessage({ id: ETranslations.market_trending }),
+        data: result[EUniversalSearchType.V2MarketToken]
+          .items as IUniversalSearchResultItem[],
+      });
+    } else if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      // Fallback: convert MarketToken (coingecko-based, no network) to V2MarketToken
       const v2Items = result[EUniversalSearchType.MarketToken].items.map(
         (item) => {
           const token = item.payload;
@@ -318,8 +346,8 @@ export function UniversalSearch({
       const generateDataFn = (data: IUniversalSearchResultItem[]) => {
         return {
           data,
-          sliceData: data.slice(0, 5),
-          showMore: data.length > 5,
+          sliceData: data.slice(0, DEFAULT_SLICE_LIMIT),
+          showMore: data.length > DEFAULT_SLICE_LIMIT,
         };
       };
 
@@ -342,14 +370,15 @@ export function UniversalSearch({
           (_, index) => index !== googleSearchIndex,
         );
 
-        // Take first 5 non-Google results + always include Google search item
-        const slicedOtherResults = otherResults.slice(0, 5);
+        // Take first N non-Google results + always include Google search item
+        const slicedOtherResults = otherResults.slice(0, DEFAULT_SLICE_LIMIT);
         const sliceData = [...slicedOtherResults, googleSearchItem];
 
         return {
           data,
           sliceData,
-          showMore: otherResults.length > 5, // Only count non-Google items for showMore
+          // Only count non-Google items for showMore
+          showMore: otherResults.length > DEFAULT_SLICE_LIMIT,
         };
       };
 
@@ -377,7 +406,9 @@ export function UniversalSearch({
           title: intl.formatMessage({
             id: ETranslations.global_market,
           }),
-          ...generateDataFn(data),
+          data,
+          sliceData: data.slice(0, MARKET_SLICE_LIMIT),
+          showMore: data.length > MARKET_SLICE_LIMIT,
         });
       }
 
@@ -431,6 +462,19 @@ export function UniversalSearch({
         });
       }
 
+      // Settings search runs locally (no backend needed), hidden on Web
+      const settingsResults = platformEnv.isWeb ? [] : searchSettings(input);
+      if (settingsResults.length > 0) {
+        const data = settingsResults as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getTabIndexForSearchType(EUniversalSearchType.Settings),
+          title: intl.formatMessage({
+            id: ETranslations.global_settings,
+          }),
+          ...generateDataFn(data),
+        });
+      }
+
       setSections(searchResultSections);
       setSearchStatus(ESearchStatus.done);
 
@@ -481,6 +525,21 @@ export function UniversalSearch({
               {section.title}
             </SizableText>
           </XStack>
+        </YStack>
+      );
+    },
+    [],
+  );
+
+  const renderRecommendSectionHeader = useCallback(
+    ({ section }: { section: IUniversalSection }) => {
+      return (
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
           {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
         </YStack>
       );
@@ -521,7 +580,15 @@ export function UniversalSearch({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: IUniversalSearchResultItem }) => {
+    ({
+      item,
+      section,
+      index,
+    }: {
+      item: IUniversalSearchResultItem;
+      section: IUniversalSection;
+      index: number;
+    }) => {
       switch (item.type) {
         case EUniversalSearchType.Address:
           return (
@@ -538,7 +605,19 @@ export function UniversalSearch({
             />
           );
         case EUniversalSearchType.V2MarketToken:
-          return <UniversalSearchV2MarketTokenItem item={item} />;
+          return (
+            <>
+              {index === 0 &&
+              isMarketSection(section.tabIndex) &&
+              searchStatus !== ESearchStatus.init ? (
+                <MarketTableHeader />
+              ) : null}
+              <UniversalSearchV2MarketTokenItem
+                item={item}
+                isTrending={searchStatus === ESearchStatus.init}
+              />
+            </>
+          );
         case EUniversalSearchType.AccountAssets:
           return (
             <UniversalSearchAccountAssetItem
@@ -555,6 +634,8 @@ export function UniversalSearch({
           );
         case EUniversalSearchType.Perp:
           return <UniversalSearchPerpItem item={item} />;
+        case EUniversalSearchType.Settings:
+          return <UniversalSearchSettingsItem item={item} />;
         default:
           return null;
       }
@@ -585,6 +666,8 @@ export function UniversalSearch({
           return `${type}-${payload.dappId ?? index}`;
         case EUniversalSearchType.Perp:
           return `${type}-${payload.name}-${index}`;
+        case EUniversalSearchType.Settings:
+          return `${type}-${payload.title}-${index}`;
         default:
           return String(index);
       }
@@ -602,17 +685,23 @@ export function UniversalSearch({
       // When focused in Market tab, prioritize market section
       if (isFocusInMarketTab) {
         const marketSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === 2, // market tab index
+          (section) => section.tabIndex === MARKET_TAB_INDEX,
         );
-        const tokenSection = sectionsWithSliceData.find(
-          (section) => section.tabIndex === 3,
+        const prioritizedSecondarySection = sectionsWithSliceData.find(
+          (section) => section.tabIndex === PRIORITIZED_SECONDARY_TAB_INDEX,
         );
         const otherSections = sectionsWithSliceData.filter(
-          (section) => section.tabIndex !== 2 && section.tabIndex !== 3,
+          (section) =>
+            section.tabIndex !== MARKET_TAB_INDEX &&
+            section.tabIndex !== PRIORITIZED_SECONDARY_TAB_INDEX,
         );
 
         return marketSection
-          ? [marketSection, tokenSection, ...otherSections].filter(Boolean)
+          ? [
+              marketSection,
+              prioritizedSecondarySection,
+              ...otherSections,
+            ].filter(Boolean)
           : sectionsWithSliceData;
       }
 
@@ -627,7 +716,8 @@ export function UniversalSearch({
       case ESearchStatus.init:
         return (
           <SectionList
-            renderSectionHeader={renderSectionHeader}
+            stickySectionHeadersEnabled
+            renderSectionHeader={renderRecommendSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
@@ -696,6 +786,7 @@ export function UniversalSearch({
   }, [
     searchStatus,
     renderSectionHeader,
+    renderRecommendSectionHeader,
     recommendSections,
     renderItem,
     keyExtractor,

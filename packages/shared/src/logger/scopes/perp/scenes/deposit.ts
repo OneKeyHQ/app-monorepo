@@ -10,25 +10,25 @@ export class PerpDepositScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public perpDepositInitiate(params: IPerpDepositInitiateParams) {
+    const { userAddress, receiverAddress, ...rest } = params;
+    void userAddress;
+    void receiverAddress;
     return {
-      ...params,
-      tokenInfo: params.token,
+      ...rest,
       tokenSymbol: params.token?.symbol,
       tokenAddress: params.token?.contractAddress,
       tokenNetworkId: params.token?.networkId,
       tokenDecimals: params.token?.decimals,
-      tokenLogoURI: params.token?.logoURI,
       tokenName: params.token?.name,
       tokenIsNative: params.token?.isNative,
-      tokenPrice: params.token?.price,
-      tokenFiatValue: params.token?.fiatValue,
-      tokenBalanceParsed: params.token?.balanceParsed,
     };
   }
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public perpUserSelectDepositToken(params: IPerpUserSelectDepositTokenParams) {
-    return params;
+    const { userAddress, ...rest } = params;
+    void userAddress;
+    return rest;
   }
 }

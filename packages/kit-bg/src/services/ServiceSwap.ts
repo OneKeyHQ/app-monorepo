@@ -65,6 +65,7 @@ import type {
   IFetchQuoteResult,
   IFetchQuotesParams,
   IFetchResponse,
+  IFetchSpeedCheckResult,
   IFetchSwapQuoteParams,
   IFetchSwapTxHistoryStatusResponse,
   IFetchTokenDetailParams,
@@ -473,12 +474,14 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     contractAddress,
     direction,
+    currency,
   }: {
     networkId: string;
     accountAddress?: string;
     accountId?: string;
     contractAddress: string;
     direction?: ESwapDirectionType;
+    currency?: string;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
@@ -487,6 +490,7 @@ export default class ServiceSwap extends ServiceBase {
         networkId,
         accountAddress,
         contractAddress,
+        currency,
       };
       if (direction) {
         if (direction === ESwapDirectionType.FROM) {
@@ -2291,6 +2295,30 @@ export default class ServiceSwap extends ServiceBase {
     } catch (error) {
       console.error(error);
       return defaultConfig;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSpeedCheck(params: {
+    fromNetworkId: string;
+    toNetworkId: string;
+    fromTokenAddress: string;
+    toTokenAddress: string;
+    fromTokenAmount: string;
+    protocol: string;
+  }): Promise<IFetchSpeedCheckResult | null> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<IFetchResponse<IFetchSpeedCheckResult>>(
+        '/swap/v1/check/speed',
+        {
+          params,
+        },
+      );
+      return data?.data ?? null;
+    } catch (error) {
+      console.error(error);
+      return null;
     }
   }
 

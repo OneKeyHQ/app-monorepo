@@ -1,1077 +1,368 @@
 ---
 name: 1k-code-review-pr
-description: Structured PR code review checklist for OneKey monorepo. Use when reviewing PRs to identify build issues, script problems, CI workflow gaps, and documentation inconsistencies. Focuses on actionable feedback with priority levels and specific fix suggestions. 代码审查. Code Review PR.
-disable-model-invocation: true
+description: Comprehensive PR code review for OneKey monorepo. Use when reviewing PRs, code changes, or diffs — covers security (secrets/PII leakage, supply-chain, AuthN/AuthZ), code quality (hooks, race conditions, null safety, concurrent requests), and OneKey-specific patterns (Fabric crashes, MIUI, BigNumber). Triggers on "review PR", "review this PR", "code review", "check this diff", "审查 PR", "代码审查", "review #123". Always use this skill for any PR review task in this repo, even if the user doesn't explicitly mention "code review".
 allowed-tools: Read, Grep, Glob, Bash, WebFetch
 ---
 
 # OneKey PR Code Review
 
-**输出语言**: 使用中文输出所有审查报告内容。
-
-This skill provides a structured approach to reviewing PRs in the OneKey monorepo, focusing on practical issues that can break builds, cause runtime errors, or lead to maintenance problems.
+**输出语言**: 中文
 
 ## Review Scope
 
-- Base branch: `x` (main branch)
-- Use triple-dot diff: `git fetch origin && git diff origin/x...HEAD`
+- Base branch: `x`
+- Diff: `git fetch origin && git diff origin/x...HEAD` (triple-dot)
 
-## Relationship with `pr-review` Skill
+## Workflow
 
-This skill complements the existing `pr-review` skill:
+1. **Checkout** — `gh pr checkout <PR_NUMBER>` (skip if already on branch)
+2. **Scope** — `git diff origin/x...HEAD --stat` to see change scope
+3. **Triage** — Determine which review modules apply (see triage table)
+4. **Primary Review** — Read each changed file, apply relevant checks from `references/`
+5. **Codex Cross-Review** — If Codex MCP available, run full parallel review (see below)
+6. **PR Comment Analysis** — Fetch all existing PR comments (bot + human), analyze with local codebase context (see below)
+7. **Merge Findings** — Combine primary + Codex + PR comment findings, deduplicate, annotate confidence
+8. **Score** — Rate the PR across 4 dimensions (see Scoring System). **This step is MANDATORY — every report MUST include the scoring table.**
+9. **Report** — Generate structured report using the unified format. **Follow the template exactly — every section is required.**
+10. **GH Comment** — For Blocker issues, offer to post inline PR comments (with confirmation)
 
-| Aspect | `pr-review` | `1k-code-review-pr` |
-|--------|-------------|---------------------|
-| Focus | **Security** & supply-chain risk | **Build reliability** & runtime quality |
-| Best for | Dependency updates, auth changes, sensitive data | Business logic, UI components, scripts |
-| Depth | Deep security analysis | Practical code patterns |
+## Codex MCP Integration
 
-**Recommendation**: For complex PRs, use both skills for comprehensive coverage.
+Check if `mcp__codex__codex` is in available tools.
 
-## Review Checklist
+**If available:**
+1. Send the full diff to Codex for an independent full review:
+   ```
+   Review this PR diff for the OneKey crypto wallet monorepo. Focus on:
+   - Security vulnerabilities (secret leakage, auth bypass, supply-chain risks)
+   - Runtime bugs (race conditions, null safety, memory leaks)
+   - Architecture violations (import hierarchy, cross-platform issues)
+   - Code quality (hooks safety, error handling, performance)
+   Report each finding with: file:line, severity (Critical/High/Medium/Low), description, fix suggestion.
+   ```
+2. Retrieve response via `mcp__codex__codex-reply`
+3. Merge into primary review:
+   - **Both found same issue** → Mark `{Cross-validated ✅}`, auto-promote to 🔵 High confidence
+   - **Codex-only finding** → Include with tag `[Codex]`, review manually to assign confidence
+   - **Primary-only finding** → Include normally
+4. Add a **Codex 交叉验证摘要** table in the report (see report template)
 
-### 1. Accidental File Commits (HIGH PRIORITY)
+**If unavailable:** Skip silently. Set "Codex 交叉验证: ⏭️ 未启用" in the report header. Do NOT mention Codex anywhere else.
 
-Check for files that shouldn't be in the repository:
+## PR Comment Analysis
+
+Collect ALL existing comments on the PR — bot and human — then analyze each with your local codebase context. You have full source access, type system, and dependency graph; most commenters only saw the diff. Use this asymmetry.
+
+### Fetching All Comments
+
+Use `gh api` to get full user metadata (including `type` field for bot detection):
 
 ```bash
-# Check for files in root directory that look suspicious
-git diff origin/x...HEAD --name-only | grep -E "^[^/]+$" | grep -v -E "\.(md|json|js|ts|yml|yaml)$"
+# Top-level PR reviews (review bodies)
+gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
+  --jq '[.[] | select(.body != "") | {author: .user.login, is_bot: (.user.type == "Bot"), body: .body, state: .state, association: .author_association}]'
 
-# Check for common accidental commits
-git diff origin/x...HEAD --name-only | grep -E "(\.DS_Store|Thumbs\.db|\.env\.local|node_modules|\.log$)"
+# Inline review comments (file:line annotations)
+gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
+  --jq '[.[] | {author: .user.login, is_bot: (.user.type == "Bot"), path: .path, line: .line, body: .body, association: .author_association}]'
+
+# General PR comments (issue-level)
+gh api repos/{owner}/{repo}/issues/{pr_number}/comments \
+  --jq '[.[] | {author: .user.login, is_bot: (.user.type == "Bot"), body: .body, association: .author_association}]'
 ```
 
-**Report Format:**
+**Bot detection** — use the `user.type == "Bot"` field from GitHub API, not hardcoded username lists. This automatically covers any bot (current and future) without maintenance.
+
+If no comments exist, set "PR 评论分析: ⏭️ 无评论" in the report header and skip this section.
+
+### Analysis Framework
+
+For each substantive comment (skip empty approvals, CI status badges, pure formatting):
+
+| Verdict | Meaning | Action |
+|---------|---------|--------|
+| **✅ Confirmed** | Comment identifies a real issue | Include in findings, tag source `[<author>]` |
+| **🔍 Enriched** | Real issue, but analysis is shallow or fix is wrong | Include with deeper fix guidance from your codebase knowledge |
+| **❌ Noise** | Not an issue given full codebase context | Note in "评论误报分析" with brief explanation of why |
+| **📋 Already Covered** | Your primary review caught it | Cross-validate, boost confidence |
+
+**Your local advantages — use them aggressively:**
+- **Full source** — trace data flow across files, not just the diff
+- **Type system** — run `tsc`, verify types end-to-end
+- **Architecture** — you know OneKey's import hierarchy and platform patterns
+- **Dependencies** — `yarn info`, changelogs, actual vulnerability reachability
+- **Runtime reasoning** — state flows, async lifecycles, race conditions
+
+When someone flags something vague, dig into the source to confirm or refute. When a comment misses context (e.g., a function is safely guarded upstream), explain why. When a comment is right, amplify with richer context.
+
+### Cross-Validation Rules
+
+- Comment + primary review agree → Mark `{Cross-validated ✅}`, promote to 🔵 High
+- Comment-only finding you confirm → Include at appropriate confidence with `[<author>]` tag
+- Comment-only finding you can't confirm or refute → Include as ⚪ Low with note
+- Comment you refute with evidence → Add to "评论误报分析" section
+
+### Security Comment Special Handling
+
+For security-related comments (from bots like Snyk/Dependabot or from human reviewers):
+- **Vulnerability reports** — check if the vulnerable code path is actually reachable in OneKey's usage
+- **License issues** — verify against OneKey's license policy
+- **Dependency alerts** — check if the flagged version is actually used (not just in lockfile)
+
+## Triage: Which Checks to Run
+
+Run `git diff origin/x...HEAD --name-only` and match:
+
+| Changed Files Match | Load |
+|---------------------|------|
+| `package.json`, lockfiles, `node_modules` patches, `patches/*.patch` | [security-and-supply-chain.md] — full supply-chain review |
+| `**/auth/**`, `**/vault/**`, `**/signing/**`, `**/crypto/**`, `manifest.json`, `**/manifest/*.js` | [security-and-supply-chain.md] — full security review |
+| Any `.ts`/`.tsx` with business logic | [code-quality-patterns.md] — hooks, race conditions, null safety |
+| `.android.ts(x)`, `.ios.ts(x)`, `.native.ts(x)`, `.desktop.ts(x)`, `.ext.ts(x)`, `.web.ts(x)`, native modules, `BigNumber` usage | [onekey-platform-patterns.md] — platform crashes & numeric safety |
+| Shell scripts (`.sh`), CI workflows (`.yml`) | [onekey-platform-patterns.md] — build & CI section |
+
+**Always check** regardless of file type:
+- Accidental file commits (`.DS_Store`, `.env`, `node_modules`)
+- Import hierarchy violations (see below)
+- PR description matches actual changes
+- Run relevant commands from [quick-commands.md]
+
+## Import Hierarchy (ALWAYS verify)
+
+```
+@onekeyhq/shared     <- FORBIDDEN to import from other OneKey packages
+    ↓
+@onekeyhq/components <- ONLY imports shared
+    ↓
+@onekeyhq/core       <- ONLY imports shared
+    ↓
+@onekeyhq/kit-bg     <- imports shared, core (NEVER components or kit)
+    ↓
+@onekeyhq/kit        <- imports shared, components, kit-bg
+    ↓
+apps/*               <- imports all
+```
+
+```bash
+# Quick hierarchy violation check on changed files
+git diff origin/x...HEAD --name-only | grep -E '\.tsx?$' | \
+  while IFS= read -r f; do [ -f "$f" ] && grep -l "from.*@onekeyhq" "$f" 2>/dev/null; done | \
+  while IFS= read -r f; do echo "=== $f ==="; grep "from.*@onekeyhq" "$f"; done
+```
+
+## File Risk Classification
+
+| Risk | Patterns | Action |
+|------|----------|--------|
+| **Critical** | `**/vault/**`, `**/signing/**`, `**/crypto/**`, `**/core/src/**`, hardware wallet SDK | Line-by-line review |
+| **High** | `**/auth/**`, API endpoints, state management, `package.json`, `manifest.json` | Deep review |
+| **Medium** | UI components, platform-specific code, background services | Standard review |
+| **Low** | Comments, type-only, formatting, tests, docs | Scan for anomalies |
+
+## Scoring System
+
+**MANDATORY** — every report must include this scoring table, no exceptions.
+
+Rate the PR on 4 dimensions (1-10 each):
+
+| Dimension | Weight | What to evaluate |
+|-----------|--------|-----------------|
+| **🔒 安全性** | 35% | Secret leakage, auth bypass, supply-chain risk, input validation |
+| **💎 代码质量** | 30% | Hooks safety, error handling, race conditions, null safety, DRY |
+| **🏛️ 架构合理性** | 20% | Import hierarchy, separation of concerns, cross-platform consistency |
+| **✅ 完整性** | 15% | Edge cases handled, test coverage, migration paths, docs |
+
+**Total Score** = weighted average, rounded to 1 decimal.
+
+| Score | Verdict | Action |
+|-------|---------|--------|
+| **8.0 - 10.0** | ✅ 可直接合入 | No blockers, minor suggestions only |
+| **5.0 - 7.9** | ⚠️ 需修改后复审 | Has issues that should be fixed before merge |
+| **< 5.0** | ❌ 建议打回重做 | Fundamental issues in security or architecture |
+
+**Scoring anchors** — to keep scores consistent:
+- Start at 8 for each dimension, deduct for issues found
+- A single Critical security issue → Security capped at 3
+- A single High bug → Code Quality capped at 5
+- Import hierarchy violation → Architecture capped at 4
+
+## Confidence Levels
+
+**MANDATORY** — every finding must use exactly one of these three emoji tags. Do NOT use percentages, do NOT use plain text like "高/中/低" without the emoji. Always use this exact format:
+
+| Tag | Meaning | When to use |
+|-----|---------|-------------|
+| **🔵 High** | Confirmed, verifiable from code | Clear bug, obvious violation, reproducible |
+| **🟠 Medium** | Likely issue, needs context | Pattern suggests problem, might be intentional |
+| **⚪ Low** | Possible issue, needs human check | Heuristic match, depends on business logic |
+
+Cross-validated findings (primary + Codex agree, or primary + PR comment agree) → automatically **🔵 High**.
+
+## Auto-Fix Patches
+
+**MANDATORY for these categories** — if a finding matches one of these, you MUST include a diff patch:
+- `console.error/warn/log` → project logger (`defaultLogger`)
+- Missing optional chaining on nullable refs
+- Import hierarchy violations
+- Missing cleanup in useEffect
+- BigNumber type coercion (`Number(decimals)`)
+- Missing type in union type definitions
+
+**Format — always use this exact structure:**
 ```markdown
-## 问题: 意外提交的文件
-**文件**: `filename`
-**问题描述**: 描述为什么这个文件不应该被提交
-**修复方案**:
-```bash
-git rm filename
-```
-**优先级**: 高
+**Auto-fix:**
+\```diff
+- old code
++ new code
+\```
 ```
 
-### 2. Build Failure Risks (HIGH PRIORITY)
+For other findings where the fix is unambiguous and doesn't require business context, also include auto-fix. When in doubt, include it — it's more useful to have a suggested fix than not.
 
-Check for configurations that reference files which may not exist:
+Do NOT generate auto-fix for:
+- Logic changes requiring business context understanding
+- Security fixes needing architectural decisions
+- Performance optimizations with tradeoffs
 
-**Pattern 1: extraResources referencing generated files**
-```javascript
-// electron-builder configs
-'extraResources': [
-  { 'from': 'path/to/generated/file', 'to': '...' }
-]
-```
+## GH CLI Inline Comments
 
-If the file is generated by a script that may skip execution (e.g., platform-specific tools), the build will fail.
+After generating the report, if there are findings that meet the comment threshold:
 
-**Fix Pattern:**
-- Create placeholder files when skipping generation
-- Add file existence checks in CI
+**Comment threshold**: 🔴 高 priority (any confidence) OR 🟡 中 priority with 🔵 High confidence. This means:
+- All 🔴 高 findings (regardless of confidence)
+- All 🟡 中 findings with 🔵 High confidence (cross-validated or confirmed from code)
+- Excludes: 🟢 低 findings, and 🟡 中 with 🟠 Medium or ⚪ Low confidence
 
-**Pattern 2: Scripts with early exit without cleanup**
-```bash
-# Bad: exits without creating expected output
-if ! command -v tool &> /dev/null; then
-    echo "Tool not found"
-    exit 0  # Build will fail if expecting output file
-fi
-
-# Good: create placeholder before exit
-if ! command -v tool &> /dev/null; then
-    echo "Tool not found"
-    mkdir -p "$OUTPUT_PATH"
-    touch "$OUTPUT_PATH/expected-file"  # Placeholder
-    exit 0
-fi
-```
-
-**Report Format:**
-```markdown
-## 问题: 构建失败风险
-**相关文件**:
-- config-file.js
-- script.sh
-
-**问题描述**:
-详细说明为什么构建可能失败
-
-**修复方案**:
-```bash
-# 具体的代码修复
-```
-
-**主要修改点**:
-1. 修改点1
-2. 修改点2
-
-**优先级**: 高
-```
-
-### 3. Script Accuracy (MEDIUM PRIORITY)
-
-Check for inaccurate comments or misleading error messages:
+1. List the qualifying findings that warrant PR comments
+2. **Ask the reviewer**: "以下问题建议直接评论到 PR 上，是否确认？"
+3. **Only after explicit yes**, post via:
 
 ```bash
-# Check error messages and comments in shell scripts
-grep -n "echo.*Warning\|echo.*Error\|#.*requires\|#.*only available" apps/*/scripts/*.sh
+# Inline comment on specific file:line
+gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
+  --field body="🟡 **问题标题**: 描述...
+
+**建议修复:**
+\`\`\`suggestion
+修复代码
+\`\`\`
+
+_— Auto-review by Claude_" \
+  --field path="path/to/file.tsx" \
+  --field line=42 \
+  --field side="RIGHT" \
+  --field commit_id="$(git rev-parse HEAD)"
 ```
 
-**Common Issues:**
-- Claiming a tool is "only available on X" when it's available elsewhere
-- Incorrect version requirements
-- Misleading prerequisite descriptions
+**Rules:**
+- Never post without explicit reviewer confirmation
+- Only post findings meeting the comment threshold (see above)
+- Include auto-fix in `suggestion` block when available
+- Maximum 5 inline comments per PR
 
-**Report Format:**
-```markdown
-## 问题: 脚本注释不准确
-**文件**: `path/to/script.sh:LINE`
+## Unified Report Format
 
-**问题描述**:
-注释说 X，但实际上 Y
-
-**修复方案**:
-将第 N 行从：
-```bash
-echo "原始内容"
-```
-改为：
-```bash
-echo "修正后内容"
-```
-
-**优先级**: 中
-```
-
-### 4. CI Workflow Verification (LOW-MEDIUM PRIORITY)
-
-Check for missing verification steps in CI:
-
-**Pattern: Operations without verification**
-```yaml
-# Bad: no verification after generation
-- name: Generate Assets
-  run: bash scripts/generate.sh
-
-# Good: verify generation succeeded
-- name: Generate Assets
-  run: bash scripts/generate.sh
-
-- name: Verify Assets
-  run: bash scripts/verify.sh
-```
-
-**Check Points:**
-1. File generation steps should have verification
-2. Platform-specific steps should handle cross-platform CI
-3. Critical paths should fail fast with clear errors
-
-**Report Format:**
-```markdown
-## 问题: CI 工作流缺少验证
-**相关文件**:
-- .github/workflows/workflow.yml
-
-**问题描述**:
-CI 在执行某操作后没有验证是否成功
-
-**修复方案**:
-```yaml
-- name: Verify Step
-  run: |
-    # verification logic
-```
-
-**优先级**: 低
-```
-
-### 5. Documentation Consistency (LOW PRIORITY)
-
-Check for PR description matching actual changes:
-
-```bash
-# List all changed files
-git diff origin/x...HEAD --name-status
-
-# Compare with PR description
-gh pr view PRNUM --json body
-```
-
-**Check Points:**
-- All significant file changes mentioned in PR
-- iOS/Android changes called out for mobile icon updates
-- Breaking changes clearly documented
-- Migration steps provided if needed
-
-## Output Format
-
-### Summary Report Structure
+**CRITICAL: Follow this template exactly. Every section marked [REQUIRED] must appear in every report. Do not skip or reorder sections.**
 
 ```markdown
-# PR #NUMBER 代码审查建议
+# PR #NUMBER 代码审查报告
 
-## 问题 1: [问题标题]
-**文件**: `path/to/file`
-**问题描述**: 详细描述问题
-**修复方案**:
-```code
-具体修复代码
-```
-**优先级**: 高/中/低
+## 审查概要 [REQUIRED]
+- **变更范围**: X 个文件, +Y / -Z 行
+- **风险等级**: Critical / High / Medium / Low
+- **涉及平台**: Extension / Mobile / Desktop / Web
+- **Codex 交叉验证**: ✅ 已启用 / ⏭️ 未启用
+- **PR 评论分析**: ✅ 已分析 (N 条评论, 其中 M 条来自 Bot) / ⏭️ 无评论
 
-## 问题 2: [问题标题]
-...
+## 评分 [REQUIRED — NEVER SKIP THIS SECTION]
 
-## 修改清单总结
-| 优先级 | 文件 | 修改类型 | 描述 |
-|--------|------|----------|------|
-| 高 | file1 | 修改 | 描述 |
-| 中 | file2 | 删除 | 描述 |
+| 维度 | 得分 | 说明 |
+|------|------|------|
+| 🔒 安全性 | X/10 | 简要说明 |
+| 💎 代码质量 | X/10 | 简要说明 |
+| 🏛️ 架构合理性 | X/10 | 简要说明 |
+| ✅ 完整性 | X/10 | 简要说明 |
+| **总分** | **X.X/10** | **✅ 可直接合入 / ⚠️ 需修改后复审 / ❌ 建议打回** |
 
-## 测试验证
-修复完成后，建议进行以下测试：
-1. 测试场景1
-2. 测试场景2
+## Codex 交叉验证摘要 [REQUIRED if Codex was used, OMIT if not]
+
+| 发现 | Primary | Codex | 状态 |
+|------|---------|-------|------|
+| 问题描述 | Yes/No | Yes/No | 交叉验证 / 仅 Primary / 仅 Codex |
+
+## PR 评论分析 [REQUIRED if comments exist, OMIT if none]
+
+| 来源 | 类型 | 发现 | 判定 | 说明 |
+|------|------|------|------|------|
+| Snyk | 🤖 Bot | 依赖漏洞 CVE-XXXX | ✅ Confirmed | 漏洞路径在 OneKey 中可达 |
+| @reviewer | 👤 Human | 缺少 null check | 🔍 Enriched | 实际需要在上游 hook 中处理 |
+| Devin | 🤖 Bot | 变量命名建议 | ❌ Noise | 命名符合项目规范 |
+
+### 评论误报分析 [OMIT if no noise findings]
+- **[来源] 误报**: 具体说明为什么这不是问题（引用源码上下文）
+
+## 发现的问题 [REQUIRED]
+
+### [🔴 高] [🔵 High] 问题标题 {Cross-validated ✅}
+**文件**: `path/to/file.tsx:42`
+**类型**: 安全 / 构建 / 运行时 / 性能 / 规范
+**描述**: 问题是什么，为什么有风险
+**Auto-fix:**
+\```diff
+- old code
++ new code
+\```
+
+---
+
+### [🟡 中] [🟠 Medium] 问题标题
+**文件**: `path/to/file.tsx:18`
+**类型**: 运行时
+**描述**: ...
+**修复建议**: ...
+
+---
+
+## 修改清单 [REQUIRED]
+
+| 优先级 | 置信度 | 文件 | 类型 | 描述 | Auto-fix |
+|--------|--------|------|------|------|----------|
+| 🔴 高 | 🔵 High | file1.tsx:42 | 安全 | 描述 | ✅ |
+| 🟡 中 | 🟠 Medium | file2.tsx:18 | 运行时 | 描述 | — |
+
+## 测试建议 [REQUIRED]
+1. 测试场景
+2. 测试场景
+
+## GH 评论操作 [REQUIRED if qualifying findings exist, OMIT if none]
+以下问题（🔵 High 置信度 + 🟡 中及以上）建议直接评论到 PR：
+- [ ] 问题1 — `file.tsx:42`
+- [ ] 问题2 — `file.tsx:88`
+
+> 确认后将通过 `gh` CLI 发送 inline comments。
 ```
 
 ## Priority Definitions
 
-| Priority | Description | Action |
-|----------|-------------|--------|
-| **高 (High)** | Build failures, security issues, data loss risks | Must fix before merge |
-| **中 (Medium)** | Incorrect behavior, misleading docs, maintainability | Should fix before merge |
-| **低 (Low)** | Nice-to-have improvements, minor inconsistencies | Can fix in follow-up PR |
-
-## Quick Commands
-
-```bash
-# Get PR diff summary
-git diff origin/x...HEAD --stat
-
-# Check for generated file references in configs
-grep -r "extraResources\|extraFiles" apps/*/electron-builder*.js
-
-# Find shell scripts with early exits
-grep -n "exit 0\|exit 1" apps/*/scripts/*.sh
-
-# Check CI workflow steps
-yq '.jobs.*.steps[].name' .github/workflows/*.yml 2>/dev/null || \
-  grep -A2 "name:" .github/workflows/*.yml
-
-# Find useEffect with eslint-disable (potential dependency issues)
-git diff origin/x...HEAD | grep -A5 "useEffect" | grep "eslint-disable"
-
-# Find loops with await inside (performance issue)
-git diff origin/x...HEAD | grep -E "for.*\{|forEach|\.map\(" -A10 | grep "await"
-
-# Check for deprecated packages in new dependencies
-git diff origin/x...HEAD -- '**/package.json' | grep '^\+' | \
-  grep -oE '"[^"]+": "[^"]+"' | cut -d'"' -f2 | \
-  xargs -I{} sh -c 'npm view {} deprecated 2>/dev/null && echo "^^^ {}"'
-
-# Find silent error handling (catch without user feedback)
-git diff origin/x...HEAD | grep -A3 "catch" | grep -v "Toast\|throw\|error"
-
-# Check for missing file size validation in uploads
-git diff origin/x...HEAD | grep -B5 -A10 "file\." | grep -v "size"
-
-# Find potential null/undefined issues (missing optional chaining)
-git diff origin/x...HEAD | grep -E "\.current\.[a-zA-Z]|ref\.[a-zA-Z]" | grep -v "?."
-
-# Find array index access without bounds check
-git diff origin/x...HEAD | grep -E "\[index\]|\[i\]|\[0\]" -A2 | grep -v "if.*length\|if.*!"
-
-# Find potential race conditions (state updates in async)
-git diff origin/x...HEAD | grep -B5 "setState\|set[A-Z]" | grep -E "then\(|await"
-
-# Find platform-specific files
-git diff origin/x...HEAD --name-only | grep -E "\.(android|ios|native|desktop)\.(ts|tsx)$"
-
-# Find BigNumber operations without type coercion
-git diff origin/x...HEAD | grep -E "BigNumber|shiftedBy|dividedBy" | grep -v "Number("
-
-# Find debounced functions that may not return promises
-git diff origin/x...HEAD | grep -E "debounce|setTimeout.*validate" -A5 | grep -v "Promise\|resolve"
-
-# Find setState without clearing stale data
-git diff origin/x...HEAD | grep -B3 -A3 "useEffect" | grep -E "fetch|load" | grep -v "set.*\[\]|set.*null"
-
-# Find captured refs in useEffect cleanup (potential stale ref)
-git diff origin/x...HEAD | grep -B10 "return.*=>" | grep "const.*=.*Ref.current"
-
-# Check for division operations without zero guards
-git diff origin/x...HEAD | grep -E "/ [a-zA-Z]" | grep -v "if.*===.*0\|if.*>.*0"
-
-# Find map/forEach with index that mutates array
-git diff origin/x...HEAD | grep -E "\.map\(|\.forEach\(" -A5 | grep -E "splice|shift|pop"
-```
-
-### 6. React Hooks Safety (HIGH PRIORITY)
-
-Check for hooks-related issues that can cause infinite loops, memory leaks, or race conditions:
-
-**Pattern 1: useEffect with missing dependencies**
-```typescript
-// Bad: eslint-disable hides dependency issues
-useEffect(() => {
-  doSomething(someValue);  // someValue not in deps
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
-
-// Good: include all dependencies or use refs
-useEffect(() => {
-  doSomething(someValue);
-}, [someValue]);
-```
-
-**Pattern 2: Non-functional setState in useCallback**
-```typescript
-// Bad: uses stale state
-const handleClick = useCallback(() => {
-  setState({ ...state, updated: true });  // state may be stale
-}, [state]);
-
-// Good: functional update
-const handleClick = useCallback(() => {
-  setState(prev => ({ ...prev, updated: true }));
-}, []);
-```
-
-**Pattern 3: Missing cleanup in useEffect**
-```typescript
-// Bad: timer not cleaned up
-useEffect(() => {
-  const timer = setInterval(() => { ... }, 1000);
-  if (condition) return;  // Early return without cleanup!
-  return () => clearInterval(timer);
-}, []);
-
-// Good: always return cleanup
-useEffect(() => {
-  if (condition) return () => {};
-  const timer = setInterval(() => { ... }, 1000);
-  return () => clearInterval(timer);
-}, []);
-```
-
-**Pattern 4: Async validation without abort**
-```typescript
-// Bad: no cancellation on unmount
-useEffect(() => {
-  validateAsync(value).then(setResult);
-}, [value]);
-
-// Good: with AbortController
-useEffect(() => {
-  const controller = new AbortController();
-  validateAsync(value, controller.signal).then(setResult);
-  return () => controller.abort();
-}, [value]);
-```
-
-**Report Format:**
-```markdown
-## 问题: Hooks 安全风险
-**文件**: `path/to/component.tsx:LINE`
-
-**问题描述**:
-- 风险类型：死循环/内存泄漏/竞态条件/过时闭包
-- 具体说明
-
-**修复方案**:
-```typescript
-// 修复后的代码
-```
-
-**优先级**: 高
-```
-
-### 7. Concurrent Request Control (HIGH PRIORITY)
-
-Check for code that may overwhelm backend with too many requests:
-
-**Pattern 1: Sequential await in loop (performance issue)**
-```typescript
-// Bad: 500 addresses = 500 sequential API calls = 50+ seconds
-for (const address of addresses) {
-  await validateAddress(address);  // O(n) API calls
-}
-
-// Good: concurrent with rate limiting
-import pLimit from 'p-limit';
-const limit = pLimit(10);  // max 10 concurrent
-await Promise.all(addresses.map(addr =>
-  limit(() => validateAddress(addr))
-));
-```
-
-**Pattern 2: Missing request deduplication**
-```typescript
-// Bad: polling may stack up requests
-useEffect(() => {
-  const interval = setInterval(() => {
-    fetchData();  // No guard against overlapping requests
-  }, 1000);
-  return () => clearInterval(interval);
-}, [fetchData]);  // fetchData changes = new interval
-
-// Good: with request guard
-const isLoading = useRef(false);
-useEffect(() => {
-  const interval = setInterval(async () => {
-    if (isLoading.current) return;
-    isLoading.current = true;
-    try { await fetchData(); }
-    finally { isLoading.current = false; }
-  }, 1000);
-  return () => clearInterval(interval);
-}, []);
-```
-
-**Pattern 3: Unbatched validation**
-```typescript
-// Bad: validate each item individually
-items.forEach(async item => {
-  const result = await api.validate(item);
-});
-
-// Good: batch API if available
-const results = await api.validateBatch(items);
-```
-
-**Check Points:**
-1. Loops with `await` inside - consider `Promise.all` with `p-limit`
-2. Polling without request guards
-3. Form validation that calls API per field
-4. File processing without chunking
-
-**Report Format:**
-```markdown
-## 问题: 大量并发/串行请求
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-| 场景 | 请求数 | 预估耗时 |
-|------|--------|----------|
-| 100 项 | 100 次 | 10 秒 |
-| 500 项 | 500 次 | 50 秒 |
-
-**修复方案**:
-```typescript
-// 使用并发控制
-import pLimit from 'p-limit';
-const limit = pLimit(10);
-await Promise.all(items.map(i => limit(() => process(i))));
-```
-
-**优先级**: 高
-```
-
-### 8. Deprecated Dependencies (MEDIUM PRIORITY)
-
-Check for deprecated or renamed packages:
-
-```bash
-# Check for deprecated packages in package.json changes
-git diff origin/x...HEAD -- '**/package.json' | grep -E '^\+.*"[^"]+": "[^"]+"'
-
-# Verify package status
-npm view PACKAGE_NAME deprecated 2>/dev/null
-```
-
-**Common Patterns:**
-- Package renamed (e.g., `react-native-document-picker` → `@react-native-documents/picker`)
-- Package no longer maintained
-- Security vulnerabilities in dependencies
-
-**Report Format:**
-```markdown
-## 问题: 依赖包已废弃
-**文件**: `package.json`
-**包名**: `deprecated-package`
-
-**问题描述**:
-该包已被废弃，官方推荐迁移到新包
-
-**迁移建议**:
-```bash
-yarn remove deprecated-package
-yarn add new-package
-```
-
-**API 变更**:
-```typescript
-// 旧 API
-import { old } from 'deprecated-package';
-
-// 新 API
-import { new } from 'new-package';
-```
-
-**优先级**: 中
-```
-
-### 9. Error Handling Patterns (MEDIUM PRIORITY)
-
-Check for proper error handling:
-
-**Pattern 1: Silent failures**
-```typescript
-// Bad: error swallowed, user gets no feedback
-try {
-  await submitForm();
-} catch (error) {
-  console.error(error);  // Only logged, not shown
-}
-
-// Good: show error to user
-try {
-  await submitForm();
-} catch (error) {
-  Toast.error({ title: error.message });
-}
-```
-
-**Pattern 2: Empty catch blocks**
-```typescript
-// Bad: completely silent
-try { riskyOperation(); } catch {}
-
-// Good: at least log
-try { riskyOperation(); } catch (e) { console.warn(e); }
-```
-
-**Pattern 3: Silent early returns**
-```typescript
-// Bad: function exits without feedback
-const handleSubmit = () => {
-  if (!data) return;  // User clicks button, nothing happens
-  // ...
-};
-
-// Good: provide feedback
-const handleSubmit = () => {
-  if (!data) {
-    Toast.warning({ title: 'Please fill required fields' });
-    return;
-  }
-  // ...
-};
-```
-
-**Report Format:**
-```markdown
-## 问题: 错误处理不完整
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-错误被静默处理，用户无法得知失败原因
-
-**修复方案**:
-```typescript
-// 添加用户反馈
-Toast.error({ title: error.message });
-```
-
-**优先级**: 中
-```
-
-### 10. Null/Undefined Safety (HIGH PRIORITY)
-
-Check for missing null/undefined guards that can cause crashes:
-
-**Pattern 1: Optional chaining missing**
-```typescript
-// Bad: crashes if ref is undefined
-const value = ref.current.getValue();
-
-// Good: optional chaining
-const value = ref.current?.getValue();
-```
-
-**Pattern 2: Array access without bounds check**
-```typescript
-// Bad: may access undefined
-const item = items[index];
-item.name;  // TypeError if undefined
-
-// Good: with guard
-const item = items[index];
-if (!item) return;
-item.name;
-```
-
-**Pattern 3: Callback without null check**
-```typescript
-// Bad: callback may fire after unmount
-onDomReady(() => {
-  webviewRef.current.reload();  // ref may be null
-});
-
-// Good: with null check
-onDomReady(() => {
-  if (!webviewRef.current) return;
-  webviewRef.current.reload();
-});
-```
-
-**Pattern 4: Index shifting after array mutation**
-```typescript
-// Bad: index becomes invalid after splice
-for (let i = 0; i < items.length; i++) {
-  if (shouldRemove(items[i])) {
-    items.splice(i, 1);  // i now points to wrong item!
-  }
-}
-
-// Good: iterate backwards or use filter
-const filtered = items.filter(item => !shouldRemove(item));
-```
-
-**Common Crash Sources (from Sentry):**
-- `TypeError: Cannot read property 'X' of undefined`
-- `nil NSString crash in TurboModule`
-- `EXC_BAD_ACCESS when URI is nil`
-- `RetryableMountingLayerException: Unable to find viewState for tag`
-
-**Report Format:**
-```markdown
-## 问题: 空值安全
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-缺少空值检查，可能导致 TypeError 或崩溃
-
-**修复方案**:
-```typescript
-// 添加可选链或空值检查
-if (!value) return;
-```
-
-**优先级**: 高
-```
-
-### 11. Race Conditions & Cleanup (HIGH PRIORITY)
-
-Check for race conditions in React components, especially with React Native Fabric:
-
-**Pattern 1: State update after unmount**
-```typescript
-// Bad: may update unmounted component
-useEffect(() => {
-  fetchData().then(data => {
-    setState(data);  // Component may be unmounted
-  });
-}, []);
-
-// Good: with mount check
-useEffect(() => {
-  let isMounted = true;
-  fetchData().then(data => {
-    if (isMounted) setState(data);
-  });
-  return () => { isMounted = false; };
-}, []);
-```
-
-**Pattern 2: Dialog close + navigation race**
-```typescript
-// Bad: Fabric crash during rapid navigation
-const handleConfirm = () => {
-  dialog.close();
-  navigation.push('NextPage');  // Race with dialog unmount
-};
-
-// Good: delay navigation
-const handleConfirm = async () => {
-  dialog.close();
-  await new Promise(r => setTimeout(r, 100));  // Allow cleanup
-  navigation.push('NextPage');
-};
-```
-
-**Pattern 3: WebView ref access after cleanup**
-```typescript
-// Bad: ref may be null during cleanup
-useEffect(() => {
-  return () => {
-    webviewRef.current?.stopLoading();  // May crash
-  };
-}, []);
-
-// Good: capture ref before cleanup
-useEffect(() => {
-  const webview = webviewRef.current;
-  return () => {
-    webview?.stopLoading();  // Uses captured reference
-  };
-}, []);
-```
-
-**Common Fabric Crashes:**
-- `RetryableMountingLayerException` - View already unmounted
-- `SurfaceControl crashes on Android` - MIUI/HyperOS specific
-- `SIGSEGV during navigation cleanup` - WebView race condition
-
-**Report Format:**
-```markdown
-## 问题: 竞态条件
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-组件卸载时状态更新/Dialog 关闭与导航竞争
-
-**修复方案**:
-```typescript
-// 添加 isMounted 检查或延迟
-```
-
-**优先级**: 高
-```
-
-### 12. Platform-specific Issues (MEDIUM PRIORITY)
-
-Check for platform-specific code that may cause issues:
-
-**Android Common Issues:**
-```typescript
-// MIUI/HyperOS splash screen crash
-// - SurfaceControl error needs defensive handling
-// - Add try-catch for splash operations
-
-// Layout re-measurement
-// - tabBarHidden changes need layout update
-// - Use LayoutAnimation or forceUpdate
-
-// OOM with images
-// - Check bitmap memory limits
-// - Use resizeMode and memory-efficient loading
-```
-
-**iOS Common Issues:**
-```typescript
-// EXC_BAD_ACCESS with nil strings
-// - Always check for nil before NSString operations
-// - Use optional binding in native code
-
-// expo-image crashes
-// - Validate URI before passing to Image
-// - Handle empty/nil URI gracefully:
-if (!uri || uri.length === 0) return null;
-
-// Stack overflow in recursive calls
-// - Debounce recursive operations
-// - Add depth limits
-```
-
-**Quick Check Commands:**
-```bash
-# Find platform-specific files in diff
-git diff origin/x...HEAD --name-only | grep -E "\.(android|ios)\.(ts|tsx)$"
-
-# Check for native module interactions
-git diff origin/x...HEAD | grep -E "NativeModules|TurboModule|requireNativeComponent"
-```
-
-**Report Format:**
-```markdown
-## 问题: 平台特定问题
-**平台**: Android/iOS
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-[平台] 特有的崩溃或异常行为
-
-**修复方案**:
-```typescript
-// 平台特定的防御性代码
-```
-
-**优先级**: 中
-```
-
-### 13. Type Safety for Numeric Operations (MEDIUM PRIORITY)
-
-Check for type coercion issues with BigNumber/decimal operations:
-
-**Pattern 1: Ensure number type before BigNumber**
-```typescript
-// Bad: decimals might be string from JSON
-const amount = new BigNumber(value).shiftedBy(-decimals);
-
-// Good: ensure number type
-const amount = new BigNumber(value).shiftedBy(-Number(decimals));
-```
-
-**Pattern 2: String vs Number in API responses**
-```typescript
-// Bad: API might return string or number
-const balance = response.balance;  // Could be "100" or 100
-
-// Good: normalize type
-const balance = String(response.balance);  // Or Number() if needed
-```
-
-**Pattern 3: Division with potential zero**
-```typescript
-// Bad: division by zero or undefined
-const rate = amount / total;
-
-// Good: guard against zero
-const rate = total > 0 ? amount / total : 0;
-```
-
-**Report Format:**
-```markdown
-## 问题: 数值类型安全
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-类型强制转换可能导致 NaN 或计算错误
-
-**修复方案**:
-```typescript
-// 确保类型正确
-const value = Number(input);
-if (isNaN(value)) throw new Error('Invalid number');
-```
-
-**优先级**: 中
-```
-
-### 14. Stale Data Management (MEDIUM PRIORITY)
-
-Check for stale data issues when context changes:
-
-**Pattern 1: Clear cache on context switch**
-```typescript
-// Bad: stale provider list shown when switching
-const [providers, setProviders] = useState([]);
-useEffect(() => {
-  fetchProviders(type).then(setProviders);
-}, [type]);
-
-// Good: clear before fetching
-useEffect(() => {
-  setProviders([]);  // Clear stale data immediately
-  fetchProviders(type).then(setProviders);
-}, [type]);
-```
-
-**Pattern 2: State/callback captured at wrong time**
-```typescript
-// Bad: callback captured at setup time, becomes stale
-useEffect(() => {
-  const savedCallback = onUpdate;  // Captured at setup
-  const interval = setInterval(() => {
-    savedCallback(getData());  // Uses stale callback!
-  }, 1000);
-  return () => clearInterval(interval);
-}, []);  // Missing onUpdate dependency
-
-// Good: use ref for latest callback value
-const onUpdateRef = useRef(onUpdate);
-onUpdateRef.current = onUpdate;  // Always fresh
-useEffect(() => {
-  const interval = setInterval(() => {
-    onUpdateRef.current(getData());  // Always uses latest
-  }, 1000);
-  return () => clearInterval(interval);
-}, []);
-```
-
-**Note on Refs in Cleanup:** For DOM/component refs (like `webviewRef`), you SHOULD capture the ref before cleanup to ensure you're cleaning up the correct resource. See Section 11, Pattern 3 for the correct ref cleanup pattern.
-
-**Pattern 3: State derived from props not updating**
-```typescript
-// Bad: initial state never updates
-const [value, setValue] = useState(props.initialValue);
-
-// Good: sync with prop changes
-const [value, setValue] = useState(props.initialValue);
-useEffect(() => {
-  setValue(props.initialValue);
-}, [props.initialValue]);
-```
-
-**Report Format:**
-```markdown
-## 问题: 陈旧数据
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-上下文切换时显示旧数据，造成用户困惑
-
-**修复方案**:
-```typescript
-// 切换时立即清除旧数据
-setData(null);
-fetchNewData().then(setData);
-```
-
-**优先级**: 中
-```
-
-### 15. Debounced Async Validation (MEDIUM PRIORITY)
-
-Check for issues with debounced validation that returns promises:
-
-**Pattern 1: Promise never resolves**
-```typescript
-// Bad: debounced function may not resolve promise
-const debouncedValidate = useMemo(() => {
-  let timeoutId: NodeJS.Timeout;
-  return (value: string) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(async () => {
-      await validate(value);  // Promise not returned!
-    }, 300);
-  };
-}, []);
-
-// Good: track and resolve promises
-const debouncedValidate = useCallback((value: string) => {
-  return new Promise<boolean>((resolve) => {
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(async () => {
-      const result = await validate(value);
-      resolve(result);
-    }, 300);
-  });
-}, [validate]);
-```
-
-**Pattern 2: Form validation hangs**
-```typescript
-// Bad: react-hook-form waits forever
-rules={{
-  validate: (value) => {
-    debouncedValidate(value);  // Returns undefined, not promise!
-    return true;  // Always passes initially
-  }
-}}
-
-// Good: return the promise
-rules={{
-  validate: (value) => debouncedValidate(value)
-}}
-```
-
-**Pattern 3: Cleanup pending validations**
-```typescript
-// Bad: validation continues after unmount
-useEffect(() => {
-  return () => {
-    // No cleanup of pending validation
-  };
-}, []);
-
-// Good: clear pending validation
-useEffect(() => {
-  return () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (pendingResolve.current) pendingResolve.current(true);
-  };
-}, []);
-```
-
-**Report Format:**
-```markdown
-## 问题: 防抖验证 Promise 处理
-**文件**: `path/to/file.tsx:LINE`
-
-**问题描述**:
-防抖验证函数未正确返回 Promise，导致表单验证挂起
-
-**修复方案**:
-```typescript
-// 确保返回 Promise 并在卸载时清理
-```
-
-**优先级**: 中
-```
-
-### 16. Security Considerations for Bulk Operations (HIGH PRIORITY)
-
-Check security aspects of features handling multiple items:
-
-**Pattern 1: File upload without size limits**
-```typescript
-// Bad: no file size check
-const handleFile = async (file: File) => {
-  const content = await file.text();  // Could be gigabytes
-};
-
-// Good: check size first
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-const handleFile = async (file: File) => {
-  if (file.size > MAX_SIZE) {
-    throw new Error('File too large');
-  }
-  const content = await file.text();
-};
-```
-
-**Pattern 2: Hardcoded contract addresses**
-```typescript
-// Risk: if address is wrong, funds could be lost
-const CONTRACT = '0x123...';  // Should verify checksum
-
-// Better: validate address format
-import { getAddress } from 'ethers';
-const CONTRACT = getAddress('0x123...');  // Throws if invalid
-```
-
-**Pattern 3: Missing input validation**
-```typescript
-// Bad: trusting user input
-const amounts = userInput.split(',').map(Number);
-
-// Good: validate each value
-const amounts = userInput.split(',').map(v => {
-  const num = Number(v.trim());
-  if (isNaN(num) || num < 0) throw new Error('Invalid amount');
-  return num;
-});
-```
-
-**Report Format:**
-```markdown
-## 问题: 安全风险
-**文件**: `path/to/file.tsx:LINE`
-**风险类型**: 输入验证/资金安全/DoS风险
-
-**问题描述**:
-详细说明安全风险
-
-**修复方案**:
-```typescript
-// 安全的实现
-```
-
-**优先级**: 高
-```
-
-## Review Workflow
-
-1. **Checkout**: Switch to the PR branch before reviewing: `gh pr checkout <PR_NUMBER>` (skip if already on the target branch)
-2. **Scope**: Run `git diff origin/x...HEAD --stat` to understand change scope
-3. **Files**: Check for accidental commits and generated file references
-4. **Scripts**: Review shell scripts for proper error handling and placeholders
-5. **CI**: Verify CI workflows have appropriate verification steps
-6. **Hooks**: Check React hooks for dependency issues, memory leaks, infinite loops
-7. **Requests**: Verify concurrent/sequential request handling is optimized
-8. **Dependencies**: Check for deprecated packages in new dependencies
-9. **Errors**: Ensure proper error handling with user feedback
-10. **Null Safety**: Check for missing null/undefined guards
-11. **Race Conditions**: Look for Fabric race conditions, cleanup issues
-12. **Platform**: Check Android/iOS specific crash patterns
-13. **Type Safety**: Verify numeric types before BigNumber/decimal operations
-14. **Stale Data**: Check for cache clearing on context switches
-15. **Debounce**: Verify debounced async functions return proper promises
-16. **Security**: Review security aspects for bulk/batch operations
-17. **Docs**: Ensure PR description matches actual changes
-18. **Report**: Generate structured report with priorities and fix suggestions
+| Priority | Criteria | Action |
+|----------|----------|--------|
+| **🔴 高** | Build failure, security vulnerability, data loss, crash | Must fix before merge |
+| **🟡 中** | Runtime bug, incorrect behavior, maintainability | Should fix before merge |
+| **🟢 低** | Nice-to-have, minor inconsistency | Can fix in follow-up |
+
+## Review Discipline
+
+- **Read the code** — don't just grep. Read each changed file to understand intent.
+- **No false positives** — only report issues you're confident about. Uncertain? Lower the confidence.
+- **No style nitpicks** — focus on security, correctness, architecture, performance.
+- **Context matters** — understand why the code was written this way before suggesting changes.
+- **Prioritize** — 3 high-quality findings beats 20 marginal complaints.
+- **Score honestly** — the score reflects reality, not diplomacy.
+- **Auto-fix aggressively** — when the fix is clear, always include a diff patch. Reviewers prefer actionable suggestions.
+
+## Reference Files
+
+- [references/security-and-supply-chain.md](references/security-and-supply-chain.md) — PII leakage, AuthN/AuthZ, supply-chain, manifest permissions
+- [references/code-quality-patterns.md](references/code-quality-patterns.md) — Hooks, race conditions, null safety, concurrent requests, error handling
+- [references/onekey-platform-patterns.md](references/onekey-platform-patterns.md) — Android/iOS crashes, Fabric, BigNumber, build/CI
+- [references/quick-commands.md](references/quick-commands.md) — Bash one-liners for automated checking

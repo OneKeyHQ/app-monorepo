@@ -16,7 +16,6 @@ import {
   IconButton,
   Image,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
@@ -48,7 +47,6 @@ import type {
   IEarnEstimateFeeResp,
   IEarnPermit2ApproveSignData,
   IEarnSelectField,
-  IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTransactionConfirmation,
@@ -68,6 +66,7 @@ import {
   capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
+  shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
@@ -81,11 +80,16 @@ import {
 } from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -366,8 +370,12 @@ export function UniversalStake({
     ],
   );
 
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
+
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
+      setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
         setTransactionConfirmation(resp);
@@ -376,6 +384,8 @@ export function UniversalStake({
         }
       } catch {
         // keep stale state
+      } finally {
+        setTransactionConfirmationLoading(false);
       }
     },
     350,
@@ -544,6 +554,8 @@ export function UniversalStake({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+
+  const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
   const checkAmount = useDebouncedCallback(
     async ({ amount, identity }: { amount: string; identity?: string }) => {
@@ -763,6 +775,7 @@ export function UniversalStake({
       try {
         await onConfirm?.({
           amount: amountValue,
+          effectiveApy: transactionConfirmation?.effectiveApy,
           ...permitSignatureParams,
           ...stakefishParams,
         });
@@ -773,6 +786,28 @@ export function UniversalStake({
         setSubmitting(false);
       }
     };
+
+    // Check high price impact (Pendle only)
+    if (isPendleProvider) {
+      const payFiatValue =
+        Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
+          ? new BigNumber(amountValue)
+              .multipliedBy(tokenInfo?.price ?? '0')
+              .toFixed()
+          : undefined;
+      const impactInfo = calcPriceImpactInfo({
+        payFiatValue,
+        receiveConfig: receiveInputConfig,
+        receiveDescription: transactionConfirmation?.receive,
+      });
+      if (impactInfo) {
+        const userConfirmed = await showHighPriceImpactDialog(intl, {
+          percent: impactInfo.percent,
+          lossAmount: `${symbol}${impactInfo.lossAmount}`,
+        });
+        if (!userConfirmed) return;
+      }
+    }
 
     if (estimateFeeResp) {
       const daySpent =
@@ -806,6 +841,7 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
+    isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
     signPersonalMessage,
@@ -814,6 +850,12 @@ export function UniversalStake({
     tokenSymbol,
     providerName,
     onQuoteReset,
+    intl,
+    symbol,
+    tokenInfo?.price,
+    receiveInputConfig,
+    transactionConfirmation?.effectiveApy,
+    transactionConfirmation?.receive,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -1152,6 +1194,7 @@ export function UniversalStake({
     receiveInputConfig,
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
+    loading: quoteLoading,
   });
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
@@ -1331,6 +1374,7 @@ export function UniversalStake({
         <PendleSummarySection
           rewardRows={pendleRewardRows}
           tipText={pendleTipText}
+          loading={quoteLoading}
         />
       );
     }
@@ -1346,29 +1390,9 @@ export function UniversalStake({
             }}
           />
           {transactionConfirmation?.tooltip ? (
-            <Popover
-              placement="top"
-              title={transactionConfirmation?.title?.text ?? ''}
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <Stack p="$5">
-                  <EarnText
-                    text={
-                      transactionConfirmation?.tooltip?.type === 'text'
-                        ? transactionConfirmation?.tooltip?.data?.description
-                        : undefined
-                    }
-                    size="$bodyMd"
-                  />
-                </Stack>
-              }
+            <EarnTooltip
+              title={transactionConfirmation?.title?.text}
+              tooltip={transactionConfirmation?.tooltip}
             />
           ) : null}
         </XStack>
@@ -1402,14 +1426,9 @@ export function UniversalStake({
                     flexShrink={1}
                   />
                   {hasTooltip ? (
-                    <Popover.Tooltip
-                      iconSize="$5"
+                    <EarnTooltip
                       title={reward.title.text}
-                      tooltip={
-                        (reward.tooltip as IEarnTextTooltip)?.data?.description
-                          ?.text
-                      }
-                      placement="top"
+                      tooltip={reward.tooltip}
                     />
                   ) : null}
                 </XStack>
@@ -1425,7 +1444,16 @@ export function UniversalStake({
     pendleRewardRows,
     pendleTipText,
     transactionConfirmation,
+    quoteLoading,
   ]);
+
+  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
+    isDisabled,
+    isPendleProvider,
+    amountValue,
+    hasSummarySection,
+    showPendleTransactionSection,
+  });
 
   return (
     <StakingFormWrapper>
@@ -1472,6 +1500,7 @@ export function UniversalStake({
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
             payFiatValue={currentValue}
+            loading={quoteLoading}
           />
         </YStack>
         {showReceiveInput ? (
@@ -1541,7 +1570,7 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {!isDisabled ? (
+      {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}
@@ -1660,14 +1689,16 @@ export function UniversalStake({
                 </Accordion.Item>
               </Accordion>
             ) : null}
-            <TradeOrBuy
-              token={tokenInfo?.token as IToken}
-              accountId={accountId}
-              networkId={networkId}
-              containerStyle={{
-                pt: '$0',
-              }}
-            />
+            {isPendleProvider ? null : (
+              <TradeOrBuy
+                token={tokenInfo?.token as IToken}
+                accountId={accountId}
+                networkId={networkId}
+                containerStyle={{
+                  pt: '$0',
+                }}
+              />
+            )}
           </YStack>
         </YStack>
       ) : null}

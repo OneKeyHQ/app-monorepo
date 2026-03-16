@@ -1,6 +1,9 @@
 export interface IMarketTokenDetail {
+  networkId?: string;
+  isNative?: boolean;
   address: string;
   logoUrl: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
@@ -19,6 +22,7 @@ export interface IMarketTokenDetail {
     warningMessage?: string;
   };
   price?: string;
+  priceConverted?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -90,6 +94,7 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   communityRecognized?: boolean;
+  stock?: IMarketStockInfo;
   [key: string]: unknown;
 }
 
@@ -111,9 +116,20 @@ export interface IMarketTokenListItemExtraData {
   [key: string]: unknown;
 }
 
+export interface IMarketStockInfo {
+  title?: string;
+  subtitle: string;
+  source?: string;
+  sourceLogoUri: string;
+  isOpen: boolean;
+  // Localized description from backend (tooltip when open, countdown + tooltip when closed)
+  description?: string;
+}
+
 export interface IMarketTokenListItem {
   address: string;
   logoUrl?: string;
+  logoUrls?: string[];
   name: string;
   symbol: string;
   decimals: number;
@@ -182,6 +198,7 @@ export interface IMarketTokenListItem {
   chainId?: string;
   communityRecognized?: boolean;
   isNative?: boolean;
+  stock?: IMarketStockInfo;
 }
 
 export interface IMarketTokenListResponse {
@@ -416,6 +433,11 @@ export interface IMarketAccountPortfolioResponse {
 }
 
 // Banner types
+export enum EMarketBannerType {
+  Ticker = 'ticker',
+  Perps = 'perps',
+}
+
 export interface IMarketBannerDescription {
   text: string;
   fontColor: string;
@@ -432,6 +454,7 @@ export interface IMarketBannerItem {
   tokenListId: string;
   description?: IMarketBannerDescription;
   tokenLogos?: string[];
+  type?: EMarketBannerType;
 }
 
 export interface IMarketBannerListResponse {

@@ -119,7 +119,13 @@ export type IQRCodeHandlerParseResult<T extends IBaseValue> =
 export type IQRCodeHandlerParseOutsideOptions = {
   handlers?: EQRCodeHandlerNames[];
   defaultHandler?: (value: string) => void;
-  autoHandleResult?: boolean;
+  /**
+   * When true, parse() executes built-in side effects for recognized payloads
+   * (navigation, WalletConnect connect, reward/update redirects, etc.).
+   * When false, parse() only returns parsed data and leaves follow-up actions
+   * to the caller.
+   */
+  autoExecuteParsedAction?: boolean;
   popNavigation?: boolean;
   account?: INetworkAccount;
   network?: IServerNetwork;

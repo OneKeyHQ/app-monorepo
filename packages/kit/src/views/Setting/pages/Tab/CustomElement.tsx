@@ -53,7 +53,10 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
+import {
+  displayAppUpdateVersion,
+  encodeBundleVersionForDisplay,
+} from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
   ONEKEY_URL,
@@ -66,6 +69,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -562,11 +566,33 @@ export function SocialButtonGroup() {
   const { copyText } = useClipboard();
   const [{ locale }] = useSettingsPersistAtom();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const [isSkipGpgVerificationAllowed, setIsSkipGpgVerificationAllowed] =
+    useState(false);
   const isTabNavigator = useIsTabNavigator();
+
+  useEffect(() => {
+    let isMounted = true;
+    void BundleUpdate.isSkipGpgVerificationAllowed()
+      .then((allowed) => {
+        if (isMounted) {
+          setIsSkipGpgVerificationAllowed(Boolean(allowed));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsSkipGpgVerificationAllowed(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const version = useMemo(() => {
-    const bundleSuffix = platformEnv.bundleVersion
-      ? `(${platformEnv.bundleVersion})`
-      : '';
+    let bundleSuffix = '';
+    if (platformEnv.bundleVersion) {
+      bundleSuffix = `(${encodeBundleVersionForDisplay(platformEnv.bundleVersion)})`;
+    }
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}${bundleSuffix}`;
   }, []);
   const versionString = intl.formatMessage(
@@ -657,6 +683,16 @@ export function SocialButtonGroup() {
         >
           {upperFirst(versionString)}
         </SizableText>
+        {isSkipGpgVerificationAllowed ? (
+          <XStack mt="$2" gap="$2" ai="center">
+            <Badge badgeType="warning" badgeSize="lg">
+              TEST
+            </Badge>
+            <Badge badgeType="critical" badgeSize="lg">
+              SKIP GPG
+            </Badge>
+          </XStack>
+        ) : null}
         {!isTabNavigator && isUpToDate ? (
           <SizableText
             color="$textDisabled"

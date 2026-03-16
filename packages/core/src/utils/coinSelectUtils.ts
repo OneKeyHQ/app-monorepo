@@ -40,6 +40,8 @@ export type ICoinSelectOptions = {
   algorithm?: ICoinSelectAlgorithm;
 };
 
+export type ICoinSelectSortingStrategy = 'bip69' | 'none' | 'random';
+
 export type ICoinSelectWithWitnessOptions = {
   inputsForCoinSelect: IInputsForCoinSelect;
   outputsForCoinSelect: IOutputsForCoinSelect;
@@ -51,6 +53,7 @@ export type ICoinSelectWithWitnessOptions = {
   };
   txType: ICoinSelectPaymentType;
   skipUtxoSelection?: boolean;
+  sortingStrategy?: ICoinSelectSortingStrategy;
 };
 
 function utxoScore(x: ICoinSelectInput, feeRate: number) {
@@ -187,6 +190,7 @@ export function coinSelectWithWitness(
     network,
     changeAddress,
     txType,
+    sortingStrategy,
   } = params;
   const coinselectParams = {
     utxos: inputsForCoinSelect.map((u) => ({
@@ -200,6 +204,7 @@ export function coinSelectWithWitness(
     network,
     changeAddress,
     txType,
+    sortingStrategy,
   };
   try {
     return coinSelectWitness(coinselectParams);

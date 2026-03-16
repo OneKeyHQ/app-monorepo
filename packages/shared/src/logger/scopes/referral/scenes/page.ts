@@ -82,4 +82,23 @@ export class PageScene extends BaseScene {
   public toggleReceivingAddressVisibility(isVisible: boolean) {
     return { isVisible };
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public enterFromReferralLink(params: {
+    referralCode: string;
+    landingPage: string;
+    utmSource: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public acceptReferralInvitation(params: {
+    referralCode: string;
+    acceptMethod: 'local_app' | 'web_extension' | 'web_no_extension';
+  }) {
+    return params;
+  }
 }

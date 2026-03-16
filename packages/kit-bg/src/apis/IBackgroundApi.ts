@@ -20,6 +20,7 @@ import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
+import type ServicePendingInstallTask from '../services/servicePendingInstallTask';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
@@ -200,6 +201,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
   serviceAppUpdate: ServiceAppUpdate;
+  servicePendingInstallTask: ServicePendingInstallTask;
   serviceSpotlight: ServiceSpotlight;
   serviceMarket: ServiceMarket;
   serviceMarketV2: ServiceMarketV2;

@@ -1,15 +1,33 @@
-import { memo, useCallback, useMemo } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { RefObject } from 'react';
 
 import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
+import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useMarketBasicConfig } from '../../hooks/useMarketBasicConfig';
 import { MarketBannerList } from '../components/MarketBanner';
+import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
+import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
-import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
+import {
+  type IWatchlistFilterType,
+  MarketWatchlistCategorySelector,
+} from '../components/MarketTokenList/MarketWatchlistCategorySelector';
+import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 
 import { useMarketTabsLogic } from './hooks';
 
@@ -27,6 +45,84 @@ interface IMobileLayoutProps {
   selectedNetworkId: string;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
   tabsRef?: RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
+}
+
+// Context for dynamic tab bar values so renderTabBar stays stable.
+interface ITabBarDynamicContext {
+  filterBarProps: IMobileLayoutProps['filterBarProps'];
+  watchlistFilter: IWatchlistFilterType;
+  onSelectWatchlistFilter: (filter: IWatchlistFilterType) => void;
+  isWatchlistEmpty: boolean;
+  perpsCategories: { tabId: string; name: string }[];
+  selectedCategoryId: string;
+  onSelectCategory: (categoryId: string) => void;
+}
+
+const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
+
+interface IMarketHomeTabBarProps extends TabBarProps<string> {
+  watchlistTabName: string;
+  spotTabName: string;
+  perpsTabName: string;
+}
+
+function MarketHomeTabBar({
+  watchlistTabName,
+  spotTabName,
+  perpsTabName,
+  ...tabBarProps
+}: IMarketHomeTabBarProps) {
+  const focusedTab = useFocusedTab();
+  const ctx = useContext(TabBarDynamicContext)!;
+
+  // Watchlist sub-header: conditional rendering (hidden when empty).
+  // Spot & Perps sub-headers: display toggling keeps both mounted across
+  // tab switches — avoids remount flicker and loading re-trigger for the
+  // network selector and perps category selector.
+  const isSpotOrPerps =
+    focusedTab === spotTabName || focusedTab === perpsTabName;
+
+  return (
+    <YStack bg="$bgApp">
+      <Tabs.TabBar {...tabBarProps} />
+      {focusedTab === watchlistTabName && !ctx.isWatchlistEmpty ? (
+        <>
+          <MarketWatchlistCategorySelector
+            selectedFilter={ctx.watchlistFilter}
+            onSelectFilter={ctx.onSelectWatchlistFilter}
+            containerStyle={{
+              px: '$5',
+              pt: '$3',
+              pb: '$2',
+            }}
+          />
+          <MarketListColumnHeader />
+        </>
+      ) : null}
+      <YStack
+        display={isSpotOrPerps && focusedTab === spotTabName ? 'flex' : 'none'}
+      >
+        <MarketFilterBarSmall {...ctx.filterBarProps} />
+        <MarketListColumnHeader />
+      </YStack>
+      <YStack
+        display={isSpotOrPerps && focusedTab === perpsTabName ? 'flex' : 'none'}
+      >
+        <MarketPerpsCategorySelector
+          categories={ctx.perpsCategories}
+          selectedCategoryId={ctx.selectedCategoryId}
+          onSelectCategory={ctx.onSelectCategory}
+          containerStyle={{
+            px: '$5',
+            pt: '$3',
+            pb: '$2',
+          }}
+        />
+        <MarketListColumnHeader />
+      </YStack>
+    </YStack>
+  );
 }
 
 function MobileLayoutComponent({
@@ -34,6 +130,7 @@ function MobileLayoutComponent({
   selectedNetworkId,
   onTabChange,
   tabsRef,
+  nestedPager = false,
 }: IMobileLayoutProps) {
   const {
     watchlistTabName,
@@ -46,6 +143,40 @@ function MobileLayoutComponent({
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
+
+  // Watchlist state — used to hide category selector when empty
+  const [watchlistState] = useMarketWatchListV2Atom();
+  const isWatchlistEmpty =
+    !watchlistState.data || watchlistState.data.length === 0;
+
+  // Watchlist category filter state
+  const [watchlistFilter, setWatchlistFilter] =
+    useState<IWatchlistFilterType>('all');
+
+  // Perps category state (lifted from MobileMarketPerpsFlatList)
+  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
+
+  const perpsCategories = useMemo(
+    () =>
+      rawPerpsCategories.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+      })),
+    [rawPerpsCategories],
+  );
+
+  const initialCategoryId = useMemo(
+    () => perpsCategories[0]?.tabId ?? '',
+    [perpsCategories],
+  );
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useState(initialCategoryId);
+
+  useEffect(() => {
+    if (!selectedCategoryId && initialCategoryId) {
+      setSelectedCategoryId(initialCategoryId);
+    }
+  }, [initialCategoryId, selectedCategoryId]);
 
   const initialTabName = useMemo(() => {
     if (selectedTab === 'watchlist') return watchlistTabName;
@@ -81,12 +212,18 @@ function MobileLayoutComponent({
     };
   }, [tabBarHeight]);
 
-  const renderTabBar = useCallback((tabBarProps: TabBarProps<string>) => {
-    const handleTabPress = (name: string) => {
-      tabBarProps.onTabPress?.(name);
-    };
-    return <Tabs.TabBar {...tabBarProps} onTabPress={handleTabPress} />;
-  }, []);
+  // Stable renderTabBar — reads dynamic values from context, not props.
+  const renderTabBar = useCallback(
+    (tabBarProps: TabBarProps<string>) => (
+      <MarketHomeTabBar
+        {...tabBarProps}
+        watchlistTabName={watchlistTabName}
+        spotTabName={spotTabName}
+        perpsTabName={perpsTabName}
+      />
+    ),
+    [watchlistTabName, spotTabName, perpsTabName],
+  );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
@@ -95,35 +232,62 @@ function MobileLayoutComponent({
     [handleTabChange],
   );
 
+  const dynamicCtx = useMemo<ITabBarDynamicContext>(
+    () => ({
+      filterBarProps,
+      watchlistFilter,
+      onSelectWatchlistFilter: setWatchlistFilter,
+      isWatchlistEmpty,
+      perpsCategories,
+      selectedCategoryId,
+      onSelectCategory: setSelectedCategoryId,
+    }),
+    [
+      filterBarProps,
+      watchlistFilter,
+      isWatchlistEmpty,
+      perpsCategories,
+      selectedCategoryId,
+    ],
+  );
+
   return (
-    <Tabs.Container
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ref={tabsRef as any}
-      width={platformEnv.isNative ? tabContainerWidth : undefined}
-      renderTabBar={renderTabBar}
-      initialTabName={initialTabName}
-      onTabChange={onTabChangeHandler}
-      {...containerProps}
-    >
-      <Tabs.Tab name={watchlistTabName}>
-        <MarketWatchlistTokenList
-          tabIntegrated
-          listContainerProps={listContainerProps}
-        />
-      </Tabs.Tab>
-      <Tabs.Tab name={spotTabName}>
-        <MobileMarketTokenFlatList
-          networkId={selectedNetworkId}
-          filterBarProps={filterBarProps}
-          listContainerProps={listContainerProps}
-        />
-      </Tabs.Tab>
-      {showPerpsTab ? (
-        <Tabs.Tab name={perpsTabName}>
-          <MobileMarketPerpsFlatList listContainerProps={listContainerProps} />
+    <TabBarDynamicContext.Provider value={dynamicCtx}>
+      <Tabs.Container
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ref={tabsRef as any}
+        width={platformEnv.isNative ? tabContainerWidth : undefined}
+        renderTabBar={renderTabBar}
+        initialTabName={initialTabName}
+        onTabChange={onTabChangeHandler}
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        pagerProps={
+          nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
+        }
+        {...containerProps}
+      >
+        <Tabs.Tab name={watchlistTabName}>
+          <MobileMarketWatchlistFlatList
+            selectedFilter={watchlistFilter}
+            listContainerProps={listContainerProps}
+          />
         </Tabs.Tab>
-      ) : null}
-    </Tabs.Container>
+        <Tabs.Tab name={spotTabName}>
+          <MobileMarketTokenFlatList
+            networkId={selectedNetworkId}
+            listContainerProps={listContainerProps}
+          />
+        </Tabs.Tab>
+        {showPerpsTab ? (
+          <Tabs.Tab name={perpsTabName}>
+            <MobileMarketPerpsFlatList
+              selectedCategoryId={selectedCategoryId}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>
+        ) : null}
+      </Tabs.Container>
+    </TabBarDynamicContext.Provider>
   );
 }
 

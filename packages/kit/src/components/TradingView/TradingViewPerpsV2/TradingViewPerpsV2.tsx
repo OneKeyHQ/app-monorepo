@@ -29,6 +29,7 @@ interface IBaseTradingViewPerpsV2Props {
   webviewKey?: string;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
+  onTouchScroll?: (deltaY: number) => void;
 }
 
 export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
@@ -38,9 +39,11 @@ export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
 const useSymbolSync = ({
   webRef,
   symbol,
+  isChartReady,
 }: {
   webRef: React.RefObject<IWebViewRef | null>;
   symbol: string;
+  isChartReady: boolean;
 }) => {
   const prevSymbolRef = useRef<string>(symbol);
 
@@ -61,6 +64,19 @@ const useSymbolSync = ({
       prevSymbolRef.current = symbol;
     }
   }, [symbol, webRef]);
+
+  // Re-sync symbol when chart becomes ready to catch messages lost during iframe load
+  useEffect(() => {
+    if (isChartReady && webRef.current) {
+      webRef.current.sendMessageViaInjectedScript({
+        type: 'SYMBOL_CHANGE',
+        payload: {
+          symbol,
+          force: false,
+        },
+      });
+    }
+  }, [isChartReady, symbol, webRef]);
 };
 
 // WebView Memoized component to prevent unnecessary re-renders
@@ -107,6 +123,7 @@ export function TradingViewPerpsV2(
     userAddress,
     onLoadEnd,
     onTradeUpdate,
+    onTouchScroll,
     webviewKey,
     ...stackStyle
   } = props;
@@ -169,6 +186,7 @@ export function TradingViewPerpsV2(
   useSymbolSync({
     webRef,
     symbol,
+    isChartReady: isChartLinesReady,
   });
 
   // Callback when TradingView iframe signals chart lines are ready
@@ -226,6 +244,7 @@ export function TradingViewPerpsV2(
     webRef,
     onChartLinesReady,
     onOrderCancel,
+    onTouchScroll,
   });
 
   // Chart lines management (liquidation, position, orders)

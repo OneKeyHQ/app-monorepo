@@ -20,6 +20,11 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import { MarketStarV2 } from '../../../components/MarketStarV2';
+import {
+  StockIsOpenBadge,
+  StockSourceLogo,
+  SubtitleBadge,
+} from '../../../components/PerpsBadges';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
@@ -68,8 +73,10 @@ export function TokenDetailHeaderLeft({
     symbol = '',
     address = '',
     logoUrl = '',
+    logoUrls,
     extraData,
     communityRecognized,
+    stock,
   } = tokenDetail || {};
 
   const { website, twitter } = extraData || {};
@@ -109,6 +116,7 @@ export function TokenDetailHeaderLeft({
         <Token
           size="md"
           tokenImageUri={logoUrl}
+          tokenImageUris={logoUrls}
           networkImageUri={effectiveNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
@@ -127,7 +135,12 @@ export function TokenDetailHeaderLeft({
             >
               {symbol}
             </SizableText>
+            <StockSourceLogo stock={stock} />
             {communityRecognized ? <CommunityRecognizedBadge /> : null}
+            {stock?.subtitle ? (
+              <SubtitleBadge subtitle={stock.subtitle} />
+            ) : null}
+            {stock ? <StockIsOpenBadge stock={stock} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">

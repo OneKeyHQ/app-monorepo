@@ -81,17 +81,9 @@ export const SupplyCard = () => {
         providerLogoURI: market.logoURI,
         logoURI: item.token.logoURI,
         type: EManagePositionType.Supply,
-        borrowReserves: reserves.data ?? undefined,
       });
     },
-    [
-      noConnectedWalletRef,
-      toOnBoardingPage,
-      navigation,
-      market,
-      accountId,
-      reserves.data,
-    ],
+    [noConnectedWalletRef, toOnBoardingPage, navigation, market, accountId],
   );
 
   const handlePressRow = useCallback(

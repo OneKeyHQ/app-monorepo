@@ -1,4 +1,5 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
@@ -38,6 +39,8 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
 export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://1key.so',
   'https://onekey.so',
+  'https://onekeytest.com',
+  ...(platformEnv.isDev ? [TRADING_VIEW_LOCALHOST_ORIGIN] : []),
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
 ].filter(Boolean);
 
@@ -71,8 +74,6 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_lineDragCommit',
   'btc_requestAccount',
   'btc_signTransaction',
-  'wallet_getRookieGuideInfo',
-  'wallet_resetRookieGuideProgress',
 ];
 
 // white list method which can be called from any origin
@@ -87,6 +88,7 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
+      origin?.endsWith('.onekeytest.com') ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }

@@ -4,6 +4,8 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { showTronResourceDetailsDialog } from './TronResource';
 
+export { ResourceBannerCard } from './ResourceBannerCard';
+
 export const showResourceDetailsDialog = (
   props: IDialogShowProps & {
     accountId: string;

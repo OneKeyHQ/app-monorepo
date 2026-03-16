@@ -11,6 +11,7 @@ import {
   useRouterEventsRef,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -275,6 +276,29 @@ export const useRouterConfig = () => {
                   'onStateChange',
                   `activeTab=${activeTabName}, tabIndex=${tabIndex}`,
                 );
+              }
+            }
+          }
+          // Log navigation state changes for tab switch + push debugging
+          if (platformEnv.isNative) {
+            const mainRoute = state?.routes?.[state?.index ?? 0];
+            const tabState = mainRoute?.state;
+            if (tabState) {
+              const tabIndex = tabState?.index ?? 0;
+              const activeTab = tabState?.routes?.[tabIndex];
+              const stackState = activeTab?.state;
+              const topRoute =
+                stackState?.routes?.[(stackState?.routes?.length ?? 1) - 1];
+              if (
+                activeTab?.name === ETabRoutes.Home &&
+                stackState &&
+                (stackState?.routes?.length ?? 0) > 1
+              ) {
+                defaultLogger.app.router.navStateChange({
+                  tab: activeTab?.name,
+                  stackDepth: stackState?.routes?.length ?? 0,
+                  topRoute: topRoute?.name,
+                });
               }
             }
           }

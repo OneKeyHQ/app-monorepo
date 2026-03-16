@@ -81,6 +81,7 @@ const DesktopWebView = forwardRef(
       // @ts-expect-error
       onNewWindow,
       onDomReady,
+      onShouldStartLoadWithRequest,
       ...props
     }: ComponentProps<typeof WEBVIEW_TAG> &
       IElectronWebViewEvents &
@@ -170,6 +171,16 @@ const DesktopWebView = forwardRef(
           event: DidStartNavigationEvent,
         ) => {
           const { isMainFrame, url } = event ?? {};
+          if (isMainFrame && onShouldStartLoadWithRequest && url) {
+            const shouldLoad = onShouldStartLoadWithRequest({
+              url,
+              isTopFrame: true,
+            });
+            if (!shouldLoad) {
+              webviewRef.current?.stop();
+              return;
+            }
+          }
           if (isMainFrame) {
             setDesktopLoadError(false);
             setIsDomReady(false);
@@ -233,6 +244,7 @@ const DesktopWebView = forwardRef(
       onPageTitleUpdated,
       onDidStartNavigation,
       onLoadEnd,
+      onShouldStartLoadWithRequest,
     ]);
     if (isDev && props.preload) {
       console.warn(

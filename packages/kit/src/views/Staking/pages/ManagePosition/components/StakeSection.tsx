@@ -25,7 +25,6 @@ import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
-  IBorrowReserveItem,
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -85,7 +84,6 @@ export const StakeSection = ({
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
-  borrowReserves?: IBorrowReserveItem;
   borrowActionLabel?: string;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   pendleSlippage?: number;
@@ -121,85 +119,42 @@ export const StakeSection = ({
     (borrowApiCtx.borrowApiParams.action === 'supply' ||
       borrowApiCtx.borrowApiParams.action === 'borrow');
 
-  const { result: stakeAssetsList, isLoading: stakeAssetsLoading } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          !accountId ||
-          !protocolInfo?.symbol
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-          accountId,
-          networkId,
-          provider: providerName,
-          symbol: protocolInfo.symbol,
-          vault: protocolInfo.vault || undefined,
-          action: 'stake',
-        });
-      },
-      [
-        hasRequiredData,
-        isPendleProvider,
+  const { result: stakeAssetsList } = usePromiseResult(
+    async () => {
+      if (
+        !hasRequiredData ||
+        !isPendleProvider ||
+        !accountId ||
+        !protocolInfo?.symbol
+      ) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
         accountId,
         networkId,
-        providerName,
-        protocolInfo?.symbol,
-        protocolInfo?.vault,
-      ],
-      {
-        watchLoading: true,
-        revalidateOnFocus: true,
-      },
-    );
-
-  const { result: nativeTokenDetail, isLoading: nativeTokenLoading } =
-    usePromiseResult(
-      async () => {
-        if (
-          !hasRequiredData ||
-          !isPendleProvider ||
-          useBorrowApi ||
-          !accountId ||
-          !networkId
-        ) {
-          return undefined;
-        }
-        return backgroundApiProxy.serviceToken.getNativeToken({
-          accountId,
-          networkId,
-        });
-      },
-      [hasRequiredData, isPendleProvider, useBorrowApi, accountId, networkId],
-      {
-        watchLoading: true,
-      },
-    );
-
-  const nativeFallbackStakeAsset = useMemo<IEarnTokenItem | undefined>(() => {
-    if (!nativeTokenDetail) {
-      return undefined;
-    }
-    return {
-      balance: '0',
-      balanceParsed: '0',
-      fiatValue: '0',
-      price: '0',
-      price24h: '0',
-      info: nativeTokenDetail,
-    };
-  }, [nativeTokenDetail]);
+        provider: providerName,
+        symbol: protocolInfo.symbol,
+        vault: protocolInfo.vault || undefined,
+        action: 'stake',
+      });
+    },
+    [
+      hasRequiredData,
+      isPendleProvider,
+      accountId,
+      networkId,
+      providerName,
+      protocolInfo?.symbol,
+      protocolInfo?.vault,
+    ],
+    {
+      watchLoading: true,
+    },
+  );
 
   const selectableStakeAssets = useMemo(() => {
-    const assets = stakeAssetsList?.assets ?? [];
-    if (assets.length > 0) {
-      return assets;
-    }
-    return nativeFallbackStakeAsset ? [nativeFallbackStakeAsset] : [];
-  }, [stakeAssetsList?.assets, nativeFallbackStakeAsset]);
+    return stakeAssetsList?.assets ?? [];
+  }, [stakeAssetsList?.assets]);
 
   useEffect(() => {
     if (!selectableStakeAssets.length) {
@@ -286,6 +241,7 @@ export const StakeSection = ({
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
       providerName: protocolInfo?.provider || '',
+      networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
       backendApproveType: protocolInfo?.approve?.approveType,
@@ -295,6 +251,7 @@ export const StakeSection = ({
     protocolInfo?.approve?.approveType,
     effectiveStakeTokenInfo?.token?.isNative,
     approveSpenderAddress,
+    networkId,
   ]);
 
   const selectedStakeTokenUniqueKey = useMemo(() => {
@@ -350,10 +307,7 @@ export const StakeSection = ({
     }
 
     return {
-      disabled:
-        stakeAssetsLoading ||
-        nativeTokenLoading ||
-        selectableStakeAssets.length <= 1,
+      disabled: selectableStakeAssets.length <= 1,
       onPress:
         selectableStakeAssets.length > 1
           ? handleOpenStakeTokenSelector
@@ -362,8 +316,6 @@ export const StakeSection = ({
   }, [
     isPendleProvider,
     selectableStakeAssets.length,
-    stakeAssetsLoading,
-    nativeTokenLoading,
     handleOpenStakeTokenSelector,
   ]);
 
@@ -415,6 +367,7 @@ export const StakeSection = ({
     async () => {
       if (
         !hasRequiredData ||
+        !effectiveApproveType ||
         !approveSpenderAddress ||
         effectiveStakeTokenInfo?.token?.isNative
       ) {
@@ -458,6 +411,7 @@ export const StakeSection = ({
       permitSignature,
       unsignedMessage,
       message,
+      effectiveApy,
       validatorPubkey,
     }: IApproveConfirmFnParams) => {
       if (!hasRequiredData) return;
@@ -477,6 +431,7 @@ export const StakeSection = ({
         inputTokenAddress: selectedStakeTokenAddress,
         outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
         slippage: pendleSlippage,
+        effectiveApy,
         stakingInfo: {
           label: isPendleProvider ? EEarnLabels.Buy : EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({

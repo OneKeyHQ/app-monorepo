@@ -330,7 +330,12 @@ export function HomePageView({
   );
 
   const renderHeader = useCallback(() => {
-    return <HomeHeaderContainer />;
+    return (
+      <>
+        <RiskApprovalAlert />
+        <HomeHeaderContainer />
+      </>
+    );
   }, []);
 
   const tabConfigs = useMemo(() => {
@@ -415,8 +420,6 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        // @ts-ignore
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
@@ -623,7 +626,6 @@ export function HomePageView({
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
             <NetworkAlert />
-            <RiskApprovalAlert />
             {content}
             {platformEnv.isNative ? (
               <YStack

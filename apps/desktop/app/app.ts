@@ -26,7 +26,12 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
-import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+import {
+  getFiatPaySiteWhitelistDomainKeys,
+  getFiatPaySiteWhitelistOrigins,
+  getOriginDomainKey,
+  getTemplatePhishingUrls,
+} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -68,6 +73,21 @@ initSentry();
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
+
+function isWhitelistedMediaOrigin(
+  origin: string,
+  whitelistOrigins: Set<string>,
+  whitelistDomainKeys: Set<string>,
+): boolean {
+  if (!origin) {
+    return false;
+  }
+  if (whitelistOrigins.has(origin)) {
+    return true;
+  }
+  const domainKey = getOriginDomainKey(origin);
+  return !!domainKey && whitelistDomainKeys.has(domainKey);
+}
 
 if (isPerfCiMode) {
   // Keep prepared state in a stable location on perf machines.
@@ -382,7 +402,7 @@ function quitOrMinimizeApp() {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (isMac) {
-    // **** renderer app will reload after minimize, and keytar not working.
+    // **** renderer app will reload after minimize.
     const safelyMainWindow = getSafelyMainWindow();
     safelyMainWindow?.hide();
     // ****
@@ -887,6 +907,48 @@ async function createMainWindow() {
     }
     return false;
   });
+
+  // Permission handler for webview (partition: persist:onekey)
+  //
+  // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
+  // - notifications: already disabled at the webview tag level via
+  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
+  //   so the Notification API is completely unavailable and this handler
+  //   will never receive a 'notifications' permission request.
+  // - all other permissions: allowed to preserve default Electron behavior.
+  const webviewSession = session.fromPartition('persist:onekey');
+  webviewSession.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      const requestingUrl = details.requestingUrl || '';
+      const topLevelUrl = webContents.getURL();
+
+      if (permission === 'media') {
+        try {
+          const requestingOrigin = requestingUrl
+            ? new URL(requestingUrl).origin
+            : '';
+          const topLevelOrigin = topLevelUrl ? new URL(topLevelUrl).origin : '';
+          const origins = getFiatPaySiteWhitelistOrigins();
+          const domainKeys = getFiatPaySiteWhitelistDomainKeys();
+          const isWhitelisted =
+            isWhitelistedMediaOrigin(requestingOrigin, origins, domainKeys) ||
+            isWhitelistedMediaOrigin(topLevelOrigin, origins, domainKeys);
+          if (isWhitelisted) {
+            callback(true);
+            return;
+          }
+        } catch {
+          // Ignore malformed URLs and fall through to deny by default.
+        }
+        callback(false);
+        return;
+      }
+      // Allow all non-media permissions to preserve default Electron behavior.
+      // Note: 'notifications' is never requested here because it is disabled
+      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
+      callback(true);
+    },
+  );
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,

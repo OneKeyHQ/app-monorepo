@@ -112,6 +112,7 @@ export const useHandleStake = () => {
       });
       const effectiveApproveType = earnUtils.resolveEarnApproveType({
         providerName: protocolInfo?.provider || '',
+        networkId,
         tokenIsNative: tokenInfo?.token?.isNative,
         approveSpenderAddress,
         backendApproveType: protocolInfo?.approve?.approveType,

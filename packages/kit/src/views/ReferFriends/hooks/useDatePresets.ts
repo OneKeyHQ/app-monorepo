@@ -43,7 +43,7 @@ export function useDatePresets(): IDateRangePreset[] {
         },
       },
       {
-        label: 'This week',
+        label: intl.formatMessage({ id: ETranslations.referral_this_week }),
         getRange: makeRange((now) => {
           const start = new Date(now);
           const day = start.getDay();
@@ -53,7 +53,7 @@ export function useDatePresets(): IDateRangePreset[] {
         }),
       },
       {
-        label: 'This month',
+        label: intl.formatMessage({ id: ETranslations.referral_this_month }),
         getRange: makeRange(
           (now) => new Date(now.getFullYear(), now.getMonth(), 1),
         ),
@@ -67,7 +67,7 @@ export function useDatePresets(): IDateRangePreset[] {
         }),
       },
       {
-        label: 'Last 6 months',
+        label: intl.formatMessage({ id: ETranslations.referral_last_6_months }),
         getRange: makeRange((now) => {
           const start = new Date(now);
           start.setMonth(start.getMonth() - 6);
@@ -75,7 +75,7 @@ export function useDatePresets(): IDateRangePreset[] {
         }),
       },
       {
-        label: 'Last 1 year',
+        label: intl.formatMessage({ id: ETranslations.referral_last_1_year }),
         getRange: makeRange((now) => {
           const start = new Date(now);
           start.setFullYear(start.getFullYear() - 1);

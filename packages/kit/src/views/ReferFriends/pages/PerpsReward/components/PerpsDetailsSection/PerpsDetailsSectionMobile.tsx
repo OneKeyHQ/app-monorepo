@@ -13,6 +13,7 @@ import { PerpsEmptyData } from '../PerpsEmptyData';
 import { PerpsRecordCard } from '../PerpsRecordCard';
 
 import { TabButton } from './TabButton';
+import { TabLoadingOverlay } from './TabLoadingOverlay';
 
 import type { IPerpsDetailsSectionProps } from '.';
 
@@ -86,28 +87,25 @@ export function PerpsDetailsSectionMobile({
       ) : null}
 
       {/* Card List */}
-      {/* eslint-disable no-nested-ternary */}
-      {isTabLoading ? (
-        <YStack ai="center" py="$8">
-          <Spinner size="small" />
-        </YStack>
-      ) : hasData ? (
-        <YStack gap="$4">
-          {records.map((record) => (
-            <PerpsRecordCard key={record._id} item={record} />
-          ))}
-          {isLoadingMore ? (
-            <YStack ai="center" py="$4">
-              <Spinner size="small" />
-            </YStack>
-          ) : null}
-        </YStack>
-      ) : (
-        <YStack py="$8">
-          <PerpsEmptyData />
-        </YStack>
-      )}
-      {/* eslint-enable no-nested-ternary */}
+      <YStack position="relative" minHeight={200}>
+        <TabLoadingOverlay visible={!!isTabLoading} />
+        {!isTabLoading && !hasData ? (
+          <YStack py="$8">
+            <PerpsEmptyData />
+          </YStack>
+        ) : (
+          <YStack gap="$4">
+            {records.map((record) => (
+              <PerpsRecordCard key={record._id} item={record} />
+            ))}
+            {isLoadingMore ? (
+              <YStack ai="center" py="$4">
+                <Spinner size="small" />
+              </YStack>
+            ) : null}
+          </YStack>
+        )}
+      </YStack>
     </YStack>
   );
 }

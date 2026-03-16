@@ -140,6 +140,7 @@ export const {
   const { webAuthCredentialId } = get(passwordPersistAtom.atom());
   const isSupport = await isSupportWebAuth();
   const isEnable = isSupport && webAuthCredentialId?.length > 0;
+
   return { isSupport, isEnable };
 });
 

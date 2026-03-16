@@ -323,6 +323,14 @@ const ApyChartComponent = ({
               label={intl.formatMessage({
                 id: ETranslations.defi_show_underlying_apy,
               })}
+              containerProps={{
+                ai: 'center',
+              }}
+              labelContainerProps={{
+                py: '$0',
+                my: '$0',
+                justifyContent: 'center',
+              }}
               labelProps={{
                 variant: '$bodyMd',
               }}
@@ -387,10 +395,15 @@ const ApyChartComponent = ({
               shadowRadius={8}
               zIndex={9999}
               pointerEvents="none"
-              minWidth={144}
+              width={144}
+              overflow="hidden"
             >
               <YStack gap="$2" width="100%">
-                <SizableText size="$bodySm" color="$textSubdued">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
                   {formatPopoverDate(hoverData.time)}
                 </SizableText>
                 <XStack jc="space-between" ai="center" width="100%">

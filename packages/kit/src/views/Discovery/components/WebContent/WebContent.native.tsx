@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
+import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
@@ -50,6 +51,8 @@ function WebContent({
   const [progress, setProgress] = useState(5);
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const [{ fiatPaySiteWhitelist }] =
+    useSettingsFiatPaySiteWhitelistPersistAtom();
   const { onNavigation, gotoSite, validateWebviewSrc } =
     useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
@@ -148,6 +151,7 @@ function WebContent({
         androidLayerType={androidLayerType}
         pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
+        mediaPermissionWhitelist={fiatPaySiteWhitelist}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
@@ -187,7 +191,15 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, siteMode, gotoSite, showHome, androidLayerType, url],
+    [
+      androidLayerType,
+      fiatPaySiteWhitelist,
+      gotoSite,
+      id,
+      showHome,
+      siteMode,
+      url,
+    ],
   );
 
   const progressBar = useMemo(() => {

@@ -29,8 +29,14 @@ import type {
 } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+
+import { useBrowserSubmenu } from './BrowserSubmenuColumn/BrowserSubmenuContext';
 
 import type {
   Animated,
@@ -119,6 +125,7 @@ export function DesktopTabItem(
   } = props;
 
   const intl = useIntl();
+  const { reportPopoverOpen } = useBrowserSubmenu();
   const stackRef = useRef<TamaguiElement>(null);
   const openActionList = useRef<() => void | undefined>(undefined);
   const [isHovered, setIsHovered] = useState(false);
@@ -154,6 +161,9 @@ export function DesktopTabItem(
         // Removed: openActionList?.current?.() to avoid conflict with hover popover
       } else {
         onPress?.(e);
+      }
+      if (trackId === 'global-perp' && !selected) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
       }
       if (trackId) {
         defaultLogger.app.page.tabBarClick(trackId);
@@ -265,6 +275,7 @@ export function DesktopTabItem(
               return undefined;
             }}
             onOpenChange={(isOpened) => {
+              reportPopoverOpen(isOpened);
               setIsContextMenuOpened(isOpened);
               setIsHovered(isOpened);
             }}
@@ -293,6 +304,7 @@ export function DesktopTabItem(
       tabBarLabelStyle,
       hideCloseButton,
       actionList,
+      reportPopoverOpen,
       intl,
       onClose,
       children,

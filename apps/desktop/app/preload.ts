@@ -16,6 +16,7 @@ import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
 export interface IVerifyUpdateParams {
   downloadedFile?: string;
   downloadUrl?: string;
+  skipGPGVerification?: boolean;
 }
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {

@@ -240,6 +240,8 @@ class ServiceHardware extends ServiceBase {
 
   private registeredEvents = false;
 
+  private connectedDeviceTracked = new Set<string>();
+
   checkSdkVersionValid() {
     if (process.env.NODE_ENV !== 'production') {
       const {
@@ -537,6 +539,44 @@ class ServiceHardware extends ServiceBase {
           });
         },
       );
+
+      instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
+        const { features } = message.device || {};
+        if (!features || !features.device_id) return;
+        const { device_id: deviceId } = features;
+        if (this.connectedDeviceTracked.has(deviceId)) return;
+
+        void (async () => {
+          try {
+            const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+              features,
+            });
+            if (
+              deviceType !== EDeviceType.Pro &&
+              deviceType !== EDeviceType.Classic1s
+            ) {
+              // Mark ineligible devices to avoid repeated async checks on reconnect
+              this.connectedDeviceTracked.add(deviceId);
+              return;
+            }
+            const firmwareType = await deviceUtils.getFirmwareType({
+              features,
+            });
+            defaultLogger.hardware.connection.hwDeviceConnected({
+              deviceType,
+              firmwareType:
+                firmwareType === EFirmwareType.BitcoinOnly
+                  ? 'btconly'
+                  : 'universal',
+              deviceId,
+            });
+            // Mark only after successful tracking, allowing retry on transient errors
+            this.connectedDeviceTracked.add(deviceId);
+          } catch (_e) {
+            // ignore tracking errors — device not marked, so retry is possible
+          }
+        })();
+      });
 
       // TODO how to emit this event?
       // call getFeatures() or checkFirmwareRelease();
@@ -1394,6 +1434,17 @@ class ServiceHardware extends ServiceBase {
       await this.updateHwWalletsDeprecatedStatus({
         connectId,
       });
+      const updateFirmwareInfo = params?.releaseResult?.updateInfos?.firmware;
+      if (
+        updateFirmwareInfo?.fromFirmwareType !== undefined &&
+        updateFirmwareInfo?.toFirmwareType !== undefined
+      ) {
+        defaultLogger.update.firmware.firmwareSwitchSuccess({
+          deviceType: dbDevice.deviceType,
+          fromFirmwareType: updateFirmwareInfo.fromFirmwareType,
+          toFirmwareType: updateFirmwareInfo.toFirmwareType,
+        });
+      }
     }
   }
 

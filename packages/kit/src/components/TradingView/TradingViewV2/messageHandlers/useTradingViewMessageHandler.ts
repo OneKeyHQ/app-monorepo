@@ -16,6 +16,7 @@ interface IUseTradingViewMessageHandlerParams {
   accountAddress?: string;
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
+  onTouchScroll?: (deltaY: number) => void;
 }
 
 export function useTradingViewMessageHandler({
@@ -26,6 +27,7 @@ export function useTradingViewMessageHandler({
   accountAddress,
   tokenSymbol,
   marksTimeRange,
+  onTouchScroll,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -73,6 +75,17 @@ export function useTradingViewMessageHandler({
 
         await handleAnalyticsEvent(data.method, { data, context });
       }
+
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_touchScroll'
+      ) {
+        const touchData = data.data as { deltaY?: number } | undefined;
+        const deltaY = Number(touchData?.deltaY ?? 0);
+        if (Number.isFinite(deltaY) && deltaY !== 0) {
+          onTouchScroll?.(deltaY);
+        }
+      }
     },
     [
       tokenAddress,
@@ -82,6 +95,7 @@ export function useTradingViewMessageHandler({
       accountAddress,
       tokenSymbol,
       marksTimeRange,
+      onTouchScroll,
     ],
   );
 

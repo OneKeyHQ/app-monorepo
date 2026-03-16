@@ -92,7 +92,7 @@ await Keyboard.dismissWithDelay();   // close + wait 80ms (useful before navigat
 |----------|----------|-------------|
 | Input in a standard `Page` | Automatic via `PageContainer` | No |
 | Bottom buttons in `Page` | Automatic via `Page.Footer` | No |
-| Input in `Dialog` | Automatic via `Dialog.Footer` | No |
+| Input in `Dialog` | Automatic via Dialog-level keyboard avoidance | No |
 | Custom layout (e.g. Onboarding) | `Keyboard.AwareScrollView` + `bottomOffset` | Yes |
 | Layout adjusted by keyboard state | `useKeyboardHeight()` / `useKeyboardEvent()` | Yes |
 | Dismiss keyboard before action | `Keyboard.dismiss()` / `Keyboard.dismissWithDelay()` | Yes |

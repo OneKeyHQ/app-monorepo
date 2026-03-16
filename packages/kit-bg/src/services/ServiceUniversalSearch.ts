@@ -37,6 +37,7 @@ import type {
   IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
+  IUniversalSearchV2MarketToken,
 } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -78,14 +79,90 @@ class ServiceUniversalSearch extends ServiceBase {
       return [] as IUniversalSearchBatchResult;
     }
     if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
-      const items =
-        await this.backgroundApi.serviceMarket.fetchSearchTrending();
-      result[EUniversalSearchType.MarketToken] = {
-        items: items.map((item) => ({
-          type: EUniversalSearchType.MarketToken,
-          payload: item,
-        })),
-      };
+      try {
+        // Prefer V2 trending endpoint (has network badge, dynamic data)
+        const trendingItems =
+          await this.backgroundApi.serviceMarket.fetchTrendingV2();
+
+        const validTrendingItems = trendingItems.filter(
+          (item) => Boolean(item.price) && Number(item.price) > 0,
+        );
+        if (validTrendingItems.length) {
+          result[EUniversalSearchType.V2MarketToken] = {
+            items: validTrendingItems.map((item) => ({
+              type: EUniversalSearchType.V2MarketToken,
+              payload: item,
+            })),
+          };
+          return result;
+        }
+      } catch {
+        // V2 trending failed, fall through to searchRecommendTokens
+      }
+
+      try {
+        // Fallback to searchRecommendTokens from market basic config
+        const basicConfig =
+          await this.backgroundApi.serviceMarketV2.fetchMarketBasicConfig();
+        const recommendTokens = basicConfig?.data?.searchRecommendTokens;
+
+        if (recommendTokens?.length) {
+          const batchResult =
+            await this.backgroundApi.serviceMarketV2.fetchMarketTokenListBatch({
+              tokenAddressList: recommendTokens.map((t) => ({
+                contractAddress: t.contractAddress,
+                chainId: t.chainId,
+                isNative: t.isNative,
+              })),
+            });
+
+          const chainIdToNetworkId = new Map(
+            basicConfig?.data?.networkList?.map((n) => [
+              n.chainId,
+              n.networkId,
+            ]) ?? [],
+          );
+
+          const v2Items: IUniversalSearchV2MarketToken[] = recommendTokens
+            .map((configToken, index) => {
+              const batchItem = batchResult?.list?.[index];
+              const networkId =
+                batchItem?.networkId ??
+                chainIdToNetworkId.get(configToken.chainId) ??
+                configToken.chainId;
+              return {
+                type: EUniversalSearchType.V2MarketToken as const,
+                payload: {
+                  name: batchItem?.name ?? configToken.name,
+                  symbol: batchItem?.symbol ?? configToken.symbol,
+                  price: batchItem?.price ?? '0',
+                  address: batchItem?.address ?? configToken.contractAddress,
+                  network: networkId,
+                  logoUrl: batchItem?.logoUrl ?? configToken.logo ?? '',
+                  isNative: configToken.isNative,
+                  decimals: batchItem?.decimals ?? 18,
+                  liquidity: batchItem?.liquidity ?? '0',
+                  volume_24h: batchItem?.volume24h ?? '0',
+                  volume24h: batchItem?.volume24h,
+                  marketCap: batchItem?.marketCap,
+                  priceChange24hPercent: batchItem?.priceChange24hPercent,
+                  communityRecognized: batchItem?.communityRecognized,
+                },
+              };
+            })
+            .filter(
+              (item) =>
+                (Boolean(item.payload.address) || item.payload.isNative) &&
+                Number(item.payload.price) > 0,
+            );
+
+          if (v2Items.length) {
+            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+          }
+        }
+      } catch {
+        // searchRecommendTokens also failed
+      }
     }
     return result;
   }
@@ -516,9 +593,11 @@ class ServiceUniversalSearch extends ServiceBase {
         batchValidateResult,
       });
       addressSearchItems = externalAddressResults.items;
-      console.log('[universalSearchOfAddress] externalItems: ', {
-        items: addressSearchItems,
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[universalSearchOfAddress] externalItems: ', {
+          items: addressSearchItems,
+        });
+      }
     }
 
     // Step 4: Merge results with address search results having priority
@@ -527,7 +606,9 @@ class ServiceUniversalSearch extends ServiceBase {
       ...accountNameResults.items, // Account name search results second
     ];
 
-    console.log('[universalSearchOfAddress] mergedItems: ', mergedItems);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[universalSearchOfAddress] mergedItems: ', mergedItems);
+    }
 
     return { items: mergedItems } as IUniversalSearchSingleResult;
   }

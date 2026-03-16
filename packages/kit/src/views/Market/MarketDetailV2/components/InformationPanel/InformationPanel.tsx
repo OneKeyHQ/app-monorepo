@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -32,9 +35,16 @@ const marketCapFormatter: INumberFormatProps = {
   formatter: 'marketCap',
 };
 
+const usdCurrencyFormatter: INumberFormatProps = {
+  formatter: 'marketCap',
+  formatterOptions: {
+    currency: '$',
+  },
+};
+
 export function InformationPanel() {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
+  const currencyInfo = useCurrency();
   const { tokenDetail, networkId, tokenAddress } = useTokenDetail();
 
   // Directly use the security data hook to check if we have security data
@@ -42,16 +52,6 @@ export function InformationPanel() {
     tokenAddress,
     networkId,
   });
-
-  const currencyFormatter: INumberFormatProps = useMemo(() => {
-    const currencySymbol = settings.currencyInfo.symbol;
-    return {
-      formatter: 'marketCap',
-      formatterOptions: {
-        currency: currencySymbol,
-      },
-    };
-  }, [settings.currencyInfo.symbol]);
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
@@ -62,18 +62,19 @@ export function InformationPanel() {
     priceChange24hPercent = '--',
     marketCap,
     liquidity,
+    priceConverted,
     holders = 0,
     address = '',
   } = tokenDetail;
 
   const formattedMarketCap = formatStatValueWithFormatter(
     marketCap,
-    currencyFormatter,
+    usdCurrencyFormatter,
   );
 
   const formattedLiquidity = formatStatValueWithFormatter(
     liquidity,
-    currencyFormatter,
+    usdCurrencyFormatter,
   );
 
   const formattedHolders = formatStatValueWithFormatter(
@@ -93,6 +94,16 @@ export function InformationPanel() {
           tokenName={name}
           tokenSymbol={symbol}
         />
+        {priceConverted ? (
+          <NumberSizeableText
+            size="$bodySm"
+            color="$textSubdued"
+            formatter="price"
+            formatterOptions={{ currency: currencyInfo.symbol }}
+          >
+            {priceConverted}
+          </NumberSizeableText>
+        ) : null}
         <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
           {priceChangeDisplay}
         </SizableText>
