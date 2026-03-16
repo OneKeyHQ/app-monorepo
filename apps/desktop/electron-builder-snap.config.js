@@ -47,7 +47,7 @@ module.exports = {
     ],
     // gnome-46-2404 no longer bundles X11/GTK/audio libs (gnome-42-2204 did),
     // so they must be staged explicitly for Electron.
-    // libgtk-3-0 pulls in X11, ATK, cairo, pango, cups, etc. via apt deps.
+    // libgtk-3-0 pulls in X11, ATK, cairo, pango, cups, etc. via apt deps. // cspell:disable-line
     'stagePackages': [
       'default',
       'libdbus-1-3',

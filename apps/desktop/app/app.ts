@@ -1627,10 +1627,10 @@ if (process.env.SNAP) {
         return false;
       }
     });
-  if (driPaths.length > 0 && !process.env.LIBGL_DRIVERS_PATH) {
-    process.env.LIBGL_DRIVERS_PATH = driPaths.join(':');
+  if (driPaths.length > 0 && !process.env.LIBGL_DRIVERS_PATH) { // cspell:disable-line
+    process.env.LIBGL_DRIVERS_PATH = driPaths.join(':'); // cspell:disable-line
     logger.info(
-      `[Snap] Set LIBGL_DRIVERS_PATH=${process.env.LIBGL_DRIVERS_PATH}`,
+      `[Snap] Set LIBGL_DRIVERS_PATH=${process.env.LIBGL_DRIVERS_PATH}`, // cspell:disable-line
     );
   }
 }
