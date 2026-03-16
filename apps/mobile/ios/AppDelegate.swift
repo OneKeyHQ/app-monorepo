@@ -55,13 +55,14 @@ public class AppDelegate: ExpoAppDelegate {
     defaults.synchronize()
 
     if newCount >= 3 {
-      // Call super first to ensure ExpoAppDelegate lifecycle setup completes,
-      // then override the window with our recovery UI
-      let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+      // Skip super.application() and React Native initialization entirely.
+      // Create our own window — this replaces the system launch storyboard.
+      // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
+      // and show the Expo splash screen overlay, which would cover recovery UI.
       window = UIWindow(frame: UIScreen.main.bounds)
       window?.rootViewController = RecoveryViewController()
       window?.makeKeyAndVisible()
-      return result
+      return true
     }
 
     let store = NitroModuleBridge.launchOptionsStore()
