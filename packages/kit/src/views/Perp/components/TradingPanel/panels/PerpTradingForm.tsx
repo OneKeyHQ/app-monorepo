@@ -501,6 +501,9 @@ function PerpTradingForm({
             label={intl.formatMessage({
               id: ETranslations.dexmarket_pro_trigger_price,
             })}
+            placeholder={intl.formatMessage({
+              id: ETranslations.perps_input_tirgger_price_place_holder,
+            })}
             value={triggerPrice}
             onChange={(value) => updateForm({ triggerPrice: value })}
             szDecimals={universe?.szDecimals ?? 2}
@@ -516,6 +519,9 @@ function PerpTradingForm({
                   });
                 }
               }}
+              placeholder={intl.formatMessage({
+                id: ETranslations.perps_input_price_place_holder,
+              })}
               value={formData.executionPrice ?? ''}
               onChange={(value) => updateForm({ executionPrice: value })}
               szDecimals={universe?.szDecimals ?? 2}

@@ -317,6 +317,15 @@ class ServiceKeylessWallet extends ServiceBase {
     await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
       result.wallet.id,
     );
+    void this.backgroundApi.servicePrimeCloudSync
+      .syncNowKeyless({
+        callerName: 'Create Keyless Wallet',
+        noDebounceUpload: true,
+        password,
+      })
+      .catch((error) => {
+        errorUtils.autoPrintErrorIgnore(error);
+      });
     return result;
   }
 
@@ -397,12 +406,14 @@ class ServiceKeylessWallet extends ServiceBase {
     // 2. Upload AuthKeyPack to server (Auth Service)
     // 3. Upload CloudKeyPack to cloud storage (iCloud/Google Drive)
     const { deviceKeyPack, authKeyPack, cloudKeyPack } = params;
-    console.log(
-      'enableKeylessWallet',
-      deviceKeyPack,
-      authKeyPack,
-      cloudKeyPack,
-    );
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(
+        'enableKeylessWallet',
+        deviceKeyPack,
+        authKeyPack,
+        cloudKeyPack,
+      );
+    }
   }
 
   @backgroundMethod()
@@ -592,14 +603,16 @@ class ServiceKeylessWallet extends ServiceBase {
           '[ServiceKeylessWallet] Device pack mismatch detected:',
           JSON.stringify(mismatchedPaths, null, 2),
         );
-        console.error(
-          '[ServiceKeylessWallet] Saved device pack:',
-          JSON.stringify(savedDevicePack, null, 2),
-        );
-        console.error(
-          '[ServiceKeylessWallet] Expected device pack:',
-          JSON.stringify(params.devicePack, null, 2),
-        );
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(
+            '[ServiceKeylessWallet] Saved device pack:',
+            JSON.stringify(savedDevicePack, null, 2),
+          );
+          console.error(
+            '[ServiceKeylessWallet] Expected device pack:',
+            JSON.stringify(params.devicePack, null, 2),
+          );
+        }
       }
       throw new OneKeyLocalError(
         'Failed to save device pack to storage, mismatched fields',

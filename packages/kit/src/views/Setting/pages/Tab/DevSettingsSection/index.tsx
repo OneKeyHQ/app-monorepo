@@ -173,7 +173,9 @@ const DevSettingsAccordionTrigger = ({
         <YStack flexDirection="row" alignItems="center" gap="$3">
           {icon ? <Icon name={icon} color="$iconSubdued" /> : null}
           <YStack>
-            <SizableText size="$bodyLgMedium">{title}</SizableText>
+            <SizableText textAlign="left" size="$bodyLgMedium">
+              {title}
+            </SizableText>
             {description || title ? (
               <SizableText textAlign="left" size="$bodyMd" color="$textSubdued">
                 {description || title}
@@ -695,7 +697,7 @@ const BaseDevSettingsSection = () => {
 
         <Accordion.Item value="appUpdate">
           <DevSettingsAccordionTrigger
-            title="App Update"
+            title="App & Firmware Updates"
             description="App update, JS bundle, firmware update"
             icon="ArrowTopCircleOutline"
           />

@@ -16,6 +16,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -92,7 +93,7 @@ class ServiceAppUpdate extends ServiceBase {
   private get pendingInstallTaskService() {
     const service = this.backgroundApi.servicePendingInstallTask;
     if (!service) {
-      throw new Error('servicePendingInstallTask is not available');
+      throw new OneKeyLocalError('servicePendingInstallTask is not available');
     }
     return service;
   }
@@ -1172,7 +1173,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   async devFetchBundlesForVersion(version: string): Promise<
     {
-      bundleVersion: string;
+      ciBundleVersion: string;
       downloadUrl: string;
       sha256: string;
       signature?: string;
@@ -1188,7 +1189,7 @@ class ServiceAppUpdate extends ServiceBase {
       const response = await client.get<{
         code: number;
         data: {
-          bundleVersion: string;
+          ciBundleVersion: string;
           downloadUrl: string;
           sha256: string;
           signature?: string;
@@ -1206,14 +1207,14 @@ class ServiceAppUpdate extends ServiceBase {
           version,
           resultCount: data.length,
           bundles: data.map((item) => ({
-            bundleVersion: item.bundleVersion,
+            bundleVersion: item.ciBundleVersion,
             downloadUrl: item.downloadUrl,
             sha256: item.sha256,
             fileSize: item.fileSize,
           })),
         });
         return data.map((item) => ({
-          bundleVersion: item.bundleVersion,
+          ciBundleVersion: item.ciBundleVersion,
           downloadUrl: item.downloadUrl,
           sha256: item.sha256,
           signature: item.signature || PLACEHOLDER_SIGNATURE,

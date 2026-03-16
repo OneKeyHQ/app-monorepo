@@ -1,12 +1,9 @@
-import { type ReactNode, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { Dimensions, type GestureResponderEvent } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
+import { Dimensions, type GestureResponderEvent, View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 
 import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
 import {
@@ -18,7 +15,6 @@ import {
   YStack,
   useInPageDialog,
   useIsOverlayPage,
-  useKeyboardEventWithoutNavigation,
   usePageWidth,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -72,29 +68,6 @@ function MobileTradingViewTouchBridge({
       onTouchScroll={handleTouchScroll}
     />
   );
-}
-
-const DEFAULT_KEYBOARD_HEIGHT = 330;
-function DialogKeyboardAvoidingView({ children }: { children: ReactNode }) {
-  const { bottom } = useSafeAreaInsets();
-  const keyboardHeightValue = useSharedValue(0);
-  const animatedStyle = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value,
-  }));
-  useKeyboardEventWithoutNavigation({
-    keyboardWillShow: (e) => {
-      const height = e.endCoordinates.height;
-      const keyboardHeight = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
-      keyboardHeightValue.value = keyboardHeight - bottom;
-    },
-    keyboardWillHide: () => {
-      keyboardHeightValue.value = 0;
-    },
-  });
-  if (!platformEnv.isNative) {
-    return <>{children}</>;
-  }
-  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
 }
 
 export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
@@ -226,25 +199,37 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             <InformationPanel />
           </YStack>
         </HeaderScrollGestureWrapper>
-        <HeaderScrollGestureWrapper
-          panActiveOffsetY={[-4, 4]}
-          panFailOffsetX={[-40, 40]}
-          excludeRightEdgeRatio={0.1}
-          scrollScale={1}
-          onHorizontalSwipe={handleHeaderHorizontalSwipe}
-          horizontalSwipeThreshold={24}
-          horizontalSwipeVelocityThreshold={900}
-          simultaneousWithNativeGesture
-          cancelChildTouches={false}
-        >
-          <Stack h={tradingViewHeight} overflow="hidden">
-            {(() => {
-              if (!networkId || !tokenSymbol) {
-                return null;
-              }
-              if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
+        <Stack position="relative">
+          <HeaderScrollGestureWrapper
+            panActiveOffsetY={[-4, 4]}
+            panFailOffsetX={[-40, 40]}
+            excludeRightEdgeRatio={0.1}
+            scrollScale={1}
+            onHorizontalSwipe={handleHeaderHorizontalSwipe}
+            horizontalSwipeThreshold={24}
+            horizontalSwipeVelocityThreshold={900}
+            simultaneousWithNativeGesture
+            cancelChildTouches={false}
+          >
+            <Stack h={tradingViewHeight} overflow="hidden">
+              {(() => {
+                if (!networkId || !tokenSymbol) {
+                  return null;
+                }
+                if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
+                  return (
+                    <MobileTradingViewTouchBridge
+                      tokenAddress={tokenAddress}
+                      networkId={networkId}
+                      tokenSymbol={tokenSymbol}
+                      dataSource={
+                        websocketConfig?.kline ? 'websocket' : 'polling'
+                      }
+                    />
+                  );
+                }
                 return (
-                  <MobileTradingViewTouchBridge
+                  <MarketTradingView
                     tokenAddress={tokenAddress}
                     networkId={networkId}
                     tokenSymbol={tokenSymbol}
@@ -253,18 +238,22 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                     }
                   />
                 );
-              }
-              return (
-                <MarketTradingView
-                  tokenAddress={tokenAddress}
-                  networkId={networkId}
-                  tokenSymbol={tokenSymbol}
-                  dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-                />
-              );
-            })()}
-          </Stack>
-        </HeaderScrollGestureWrapper>
+              })()}
+            </Stack>
+          </HeaderScrollGestureWrapper>
+          {platformEnv.isNativeIOS ? (
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 50,
+                bottom: 0,
+                width: 20,
+                zIndex: 9999,
+              }}
+            />
+          ) : null}
+        </Stack>
       </YStack>
     );
   }, [
@@ -350,7 +339,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         showFooter: false,
         showExitButton: true,
         renderContent: (
-          <DialogKeyboardAvoidingView>
+          <View>
             <AccountSelectorProviderMirror
               config={{
                 sceneName: EAccountSelectorSceneName.home,
@@ -366,7 +355,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                 />
               </MarketWatchListProviderMirrorV2>
             </AccountSelectorProviderMirror>
-          </DialogKeyboardAvoidingView>
+          </View>
         ),
       });
     }

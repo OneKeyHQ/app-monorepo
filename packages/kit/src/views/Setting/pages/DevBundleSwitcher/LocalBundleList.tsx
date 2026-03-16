@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,30 +33,18 @@ function LocalBundleItem({
   isSwitching: boolean;
 }) {
   return (
-    <XStack py="$3" px="$4" alignItems="center" gap="$3">
-      <Stack
-        w="$8"
-        h="$8"
-        borderRadius="$2"
-        bg={isCurrent ? '$bgSuccessStrong' : '$bgStrong'}
-        alignItems="center"
-        justifyContent="center"
-      >
-        {isCurrent ? (
-          <Icon name="CheckRadioSolid" size="$4.5" color="$iconInverse" />
-        ) : (
-          <SizableText size="$bodySmMedium" color="$text">
-            {`#${bundle.bundleVersion}`}
-          </SizableText>
-        )}
-      </Stack>
-      <YStack flex={1}>
-        <XStack alignItems="center" gap="$1.5">
+    <YStack px="$4" py="$3" gap="$2">
+      {/* Row 1: app version + bundle hash + status */}
+      <XStack alignItems="center" justifyContent="space-between">
+        <XStack alignItems="center" gap="$2" flex={1}>
+          {isCurrent ? (
+            <Icon name="CheckRadioSolid" size="$4.5" color="$iconSuccess" />
+          ) : null}
           <SizableText size="$bodyMdMedium">
             {`v${bundle.appVersion}`}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
-            {`#${bundle.bundleVersion}`}
+            {encodeBundleVersionForDisplay(bundle.bundleVersion)}
           </SizableText>
           {isCurrent ? (
             <Badge badgeType="success" badgeSize="sm">
@@ -63,25 +52,30 @@ function LocalBundleItem({
             </Badge>
           ) : null}
         </XStack>
-      </YStack>
-      {!isCurrent ? (
-        <Button
-          variant="secondary"
-          size="small"
-          disabled={isSwitching}
-          onPress={() => onSwitch(bundle)}
-        >
-          {isSwitching ? (
-            <XStack alignItems="center" gap="$1.5">
-              <Spinner size="small" />
-              <SizableText size="$bodySm">Switching</SizableText>
-            </XStack>
-          ) : (
-            'Switch'
-          )}
-        </Button>
-      ) : null}
-    </XStack>
+        {!isCurrent ? (
+          <Button
+            variant="secondary"
+            size="small"
+            disabled={isSwitching}
+            onPress={() => onSwitch(bundle)}
+          >
+            {isSwitching ? (
+              <XStack alignItems="center" gap="$1.5">
+                <Spinner size="small" />
+                <SizableText size="$bodySm">Switching</SizableText>
+              </XStack>
+            ) : (
+              'Switch'
+            )}
+          </Button>
+        ) : null}
+      </XStack>
+
+      {/* Row 2: bundle version number */}
+      <SizableText size="$bodyXs" color="$textDisabled">
+        {`#${bundle.bundleVersion}`}
+      </SizableText>
+    </YStack>
   );
 }
 
@@ -98,10 +92,13 @@ export default function SettingDevLocalBundleList() {
     let isMounted = true;
     void (async () => {
       try {
-        const [localBundles, fallbackBundles] = await Promise.all([
+        const [localBundles, rawFallbackBundles] = await Promise.all([
           BundleUpdate.listLocalBundles().catch(() => []),
           BundleUpdate.getFallbackBundles().catch(() => []),
         ]);
+        const fallbackBundles = Array.isArray(rawFallbackBundles)
+          ? rawFallbackBundles
+          : [];
 
         const merged = new Map<string, ILocalBundle>();
         for (const b of localBundles) {
