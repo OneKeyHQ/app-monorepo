@@ -770,9 +770,9 @@ describe('getVersion', () => {
 // displayAppUpdateVersion / displayWhatsNewVersion
 // ---------------------------------------------------------------------------
 describe('displayAppUpdateVersion', () => {
-  test('returns app version when no update info', () => {
+  test('returns app version with bundle when no update info', () => {
     const { displayAppUpdateVersion } = loadAppUpdate('1.0.0', '1');
-    expect(displayAppUpdateVersion(undefined)).toBe('1.0.0');
+    expect(displayAppUpdateVersion(undefined)).toBe('1.0.0(1)');
   });
 
   test('shows version with bundle when same as local', () => {
@@ -784,7 +784,6 @@ describe('displayAppUpdateVersion', () => {
       status: EAppUpdateStatus.notify,
       updateStrategy: EUpdateStrategy.manual,
     };
-    // latestVersion === APP_VERSION → "1.0.0(5)"
     expect(displayAppUpdateVersion(info)).toBe('1.0.0(5)');
   });
 
@@ -801,9 +800,9 @@ describe('displayAppUpdateVersion', () => {
 });
 
 describe('displayWhatsNewVersion', () => {
-  test('returns current app version when no info', () => {
+  test('returns current app version with bundle when no info', () => {
     const { displayWhatsNewVersion } = loadAppUpdate('1.5.0', '3');
-    expect(displayWhatsNewVersion(undefined)).toBe('1.5.0');
+    expect(displayWhatsNewVersion()).toBe('1.5.0(3)');
   });
 });
 

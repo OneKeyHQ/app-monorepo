@@ -11,6 +11,7 @@ export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
 const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
+const APP_BUILD_NUMBER = platformEnv.buildNumber;
 
 export function encodeBundleVersionForDisplay(version: string): string {
   // BUNDLE_VERSION is seconds since 2026-01-01T00:00:00Z epoch, base36 encode for short display
@@ -202,41 +203,38 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   };
 };
 
-const displayVersion = (
-  newVersion?: string,
-  latestVersion?: string,
+export const displayFullVersion = (
+  version?: string,
+  buildNumber?: string,
   bundleVersion?: string,
 ) => {
-  if (!newVersion) {
-    return latestVersion;
+  const ver = version ?? APP_VERSION;
+  const parts = [ver];
+  if (buildNumber) {
+    parts.push(` ${buildNumber}`);
   }
-  return newVersion === latestVersion
-    ? `${newVersion}(${encodeBundleVersionForDisplay(bundleVersion ?? '1')})`
-    : newVersion;
+  if (bundleVersion) {
+    parts.push(`(${encodeBundleVersionForDisplay(bundleVersion)})`);
+  }
+  return parts.join('');
 };
 
-export const displayWhatsNewVersion = (
-  appUpdateInfo: IAppUpdateInfo | undefined,
-) => {
-  if (!appUpdateInfo) {
-    return APP_VERSION;
-  }
-  return displayVersion(
-    APP_VERSION,
-    appUpdateInfo.previousAppVersion,
-    APP_BUNDLE_VERSION,
-  );
-};
+export const displayWhatsNewVersion = () =>
+  displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
 
 export const displayAppUpdateVersion = (
   appUpdateInfo: IAppUpdateInfo | undefined,
 ) => {
   if (!appUpdateInfo) {
-    return APP_VERSION;
+    return displayFullVersion(
+      APP_VERSION,
+      APP_BUILD_NUMBER,
+      APP_BUNDLE_VERSION,
+    );
   }
-  return displayVersion(
+  return displayFullVersion(
     appUpdateInfo.latestVersion,
-    APP_VERSION,
+    undefined,
     appUpdateInfo.jsBundleVersion,
   );
 };
