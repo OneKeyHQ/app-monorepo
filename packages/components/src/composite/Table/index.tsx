@@ -357,22 +357,32 @@ function BasicTable<T>({
   }, [estimatedItemSize]);
 
   const renderSortableItem = useCallback(
-    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
-      <TableRow
-        pressStyle={!showSkeleton}
-        isActive={isActive}
-        draggable={draggable}
-        dataSet={dragProps}
-        showSkeleton={showSkeleton}
-        drag={drag}
-        scrollAtRef={scrollAtRef}
-        item={item}
-        index={index}
-        columns={columns}
-        onRow={showSkeleton ? undefined : onRow}
-        rowProps={rowProps}
-      />
-    ),
+    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => {
+      const row = (
+        <TableRow
+          pressStyle={!showSkeleton}
+          isActive={isActive}
+          draggable={draggable}
+          dataSet={dragProps}
+          showSkeleton={showSkeleton}
+          drag={drag}
+          scrollAtRef={scrollAtRef}
+          item={item}
+          index={index}
+          columns={columns}
+          onRow={showSkeleton ? undefined : onRow}
+          rowProps={rowProps}
+        />
+      );
+      if (platformEnv.isNative) {
+        return (
+          <SortableListView.ShadowDecorator>
+            {row}
+          </SortableListView.ShadowDecorator>
+        );
+      }
+      return row;
+    },
     [columns, draggable, onRow, rowProps, showSkeleton],
   );
   // On native, when tabIntegrated the header row MUST be inside the list
