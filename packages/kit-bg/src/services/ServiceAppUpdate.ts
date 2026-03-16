@@ -1199,12 +1199,21 @@ class ServiceAppUpdate extends ServiceBase {
             )
           : false;
         if (!rollbackBlocked) {
-          defaultLogger.app.appUpdate.log(
-            'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
-          );
-          // Use setTimeout to avoid blocking the current fetch flow
+          // Use setTimeout to avoid blocking the current fetch flow.
+          // Re-check status inside the callback: if the UI hook already
+          // called downloadPackage(), status will be 'downloadPackage'
+          // by now — skip to avoid duplicate concurrent downloads.
           setTimeout(() => {
-            void this.downloadPackage();
+            void (async () => {
+              const current = await appUpdatePersistAtom.get();
+              if (current.status !== EAppUpdateStatus.notify) {
+                return;
+              }
+              defaultLogger.app.appUpdate.log(
+                'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+              );
+              void this.downloadPackage();
+            })();
           }, 0);
         }
       }
