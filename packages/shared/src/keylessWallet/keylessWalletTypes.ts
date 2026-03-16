@@ -127,7 +127,7 @@ export type ISupabaseJWTPayload = JWTPayload & {
      2. Even if they subsequently log in using Apple, the field will not update to reflect Apple.
      This remains the case as long as the same Gmail address is associated with both the Apple and Google accounts.
     */
-    // provider: string;
+    provider: string;
   };
   user_metadata: {
     sub: string;

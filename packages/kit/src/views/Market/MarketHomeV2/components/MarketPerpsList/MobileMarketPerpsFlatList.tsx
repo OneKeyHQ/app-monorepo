@@ -93,7 +93,7 @@ function MobileMarketPerpsFlatListImpl({
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{
-        paddingTop: 8 + (platformEnv.isNative ? 248 : 0),
+        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

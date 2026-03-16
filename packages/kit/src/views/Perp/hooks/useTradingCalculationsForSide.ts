@@ -48,13 +48,21 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       activeAssetData?.availableToTrade?.[availableIdx] ?? 0,
     );
 
-    if (!effectivePrice.gt(0) || !leverageBN.gt(0) || !balanceBN.gt(0)) {
+    const markPriceBN = new BigNumber(activeAssetData?.markPx ?? 0);
+
+    if (
+      !effectivePrice.gt(0) ||
+      !leverageBN.gt(0) ||
+      !balanceBN.gt(0) ||
+      !markPriceBN.gt(0)
+    ) {
       return activeAssetData?.maxTradeSzs;
     }
 
+    // Produce tokens-at-markPrice so computeMaxTradeSize converts correctly
     const triggerMax = balanceBN
       .multipliedBy(leverageBN)
-      .dividedBy(effectivePrice);
+      .dividedBy(markPriceBN);
     return [
       side === 'long' ? triggerMax.toFixed() : '0',
       side === 'short' ? triggerMax.toFixed() : '0',

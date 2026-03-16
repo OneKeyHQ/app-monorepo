@@ -20,6 +20,8 @@ export function AccountSelectorTriggerHome({
   } = useActiveAccount({
     num,
   });
+  const resolvedLinkNetworkId =
+    linkNetworkId ?? (!network?.isAllNetworks ? network?.id : undefined);
 
   return (
     <AccountSelectorTriggerBase
@@ -31,7 +33,7 @@ export function AccountSelectorTriggerHome({
       num={num}
       linkNetwork={!network?.isAllNetworks}
       hideAddress={hideAddress ?? vaultSettings?.mergeDeriveAssetsEnabled}
-      linkNetworkId={linkNetworkId}
+      linkNetworkId={resolvedLinkNetworkId}
       keepAllOtherAccounts
       allowSelectEmptyAccount
       spotlightProps={spotlightProps}

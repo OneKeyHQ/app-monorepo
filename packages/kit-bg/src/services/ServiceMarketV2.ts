@@ -626,7 +626,10 @@ class ServiceMarketV2 extends ServiceBase {
 
     // Only filter out symbol-less tokens when batch succeeded;
     // if batch failed, return all entries to avoid wiping server-side watchlist.
-    return batchSucceeded ? tokens.filter((t) => t.symbol) : tokens;
+    // Always filter out tokens with empty networkId to avoid server validation errors.
+    return batchSucceeded
+      ? tokens.filter((t) => t.symbol && t.networkId)
+      : tokens.filter((t) => t.networkId);
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(

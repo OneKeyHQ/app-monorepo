@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -57,14 +57,21 @@ function PerpBodyContent() {
 }
 
 function PerpContent() {
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (isFocused) {
-      defaultLogger.perp.common.pageView({
-        source: consumePerpPageEnterSource(),
-      });
-    }
-  }, [isFocused]);
+  const firedRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!firedRef.current) {
+        firedRef.current = true;
+        defaultLogger.perp.common.pageView({
+          source: consumePerpPageEnterSource(),
+        });
+      }
+      return () => {
+        firedRef.current = false;
+      };
+    }, []),
+  );
 
   const [tabPageHeight, setTabPageHeight] = useState(
     platformEnv.isNativeIOS ? 143 : 92,
@@ -163,6 +170,7 @@ function ExtPerpNull() {
 
 export default function Perp() {
   const canRenderPerp = useNativePerpFeatureGuard();
+
   if (!canRenderPerp) {
     return shouldOpenExpandExtPerp ? <ExtPerpNull /> : null;
   }
