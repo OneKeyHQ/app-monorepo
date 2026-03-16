@@ -36,6 +36,13 @@ jest.mock('../states/jotai/atoms', () => ({
   appUpdatePersistAtom,
 }));
 
+jest.mock('../states/jotai/atoms/devSettings', () => ({
+  devSettingsPersistAtom: {
+    get: jest.fn(async () => ({ enabled: false, settings: {} })),
+    set: jest.fn(),
+  },
+}));
+
 const appStorageMock = {
   syncStorage: {
     getObject: jest.fn(async () => pendingTaskValue),
@@ -1150,5 +1157,85 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
         reason: 'newer_revision_replace_target',
       }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rollback: executeBundleSwitchTask falls back to builtin when bundle missing
+// ---------------------------------------------------------------------------
+describe('executeBundleSwitchTask rollback to builtin', () => {
+  let service: ReturnType<typeof createService>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetAppUpdateState();
+    resetPendingTask();
+    service = createService();
+  });
+
+  test('rollback target not found locally falls back to builtin bundle', async () => {
+    // platformEnv.bundleVersion is '1', target is '0' (lower → rollback)
+    const { BundleUpdate } =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update') as {
+        BundleUpdate: Record<string, jest.Mock>;
+      };
+    BundleUpdate.isBundleExists.mockReset().mockResolvedValue(false);
+    BundleUpdate.resetToBuiltInBundle.mockReset().mockResolvedValue(undefined);
+    BundleUpdate.switchBundle.mockReset().mockResolvedValue(undefined);
+
+    const rollbackTask = makeSwitchTask({
+      taskId: 'jsbundle:1.0.0:0',
+      targetBundleVersion: '0',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '0',
+        signature: 'sig-0',
+      },
+    });
+
+    // Call executeBundleSwitchTask directly via prototype.
+    // It throws BUILTIN_FALLBACK_RELAUNCH after clearing the task and
+    // triggering relaunch, so the caller's success path is skipped.
+    const pendingService = service.backgroundApi.servicePendingInstallTask;
+    const proto = Object.getPrototypeOf(pendingService);
+    await expect(
+      proto.executeBundleSwitchTask.call(pendingService, rollbackTask),
+    ).rejects.toThrow('BUILTIN_FALLBACK_RELAUNCH');
+
+    expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalled();
+    expect(BundleUpdate.switchBundle).toHaveBeenCalledWith({
+      appVersion: '',
+      bundleVersion: '',
+      signature: '',
+    });
+  });
+
+  test('upgrade target not found locally throws BUNDLE_MISSING', async () => {
+    const { BundleUpdate } =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update') as {
+        BundleUpdate: Record<string, jest.Mock>;
+      };
+    BundleUpdate.isBundleExists.mockReset().mockResolvedValue(false);
+    BundleUpdate.resetToBuiltInBundle.mockReset().mockResolvedValue(undefined);
+    BundleUpdate.switchBundle.mockReset().mockResolvedValue(undefined);
+
+    // target '2' > current '1' → upgrade, should throw
+    const upgradeTask = makeSwitchTask({
+      taskId: 'jsbundle:1.0.0:2',
+      targetBundleVersion: '2',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '2',
+        signature: 'sig-2',
+      },
+    });
+
+    const pendingService = service.backgroundApi.servicePendingInstallTask;
+    const proto = Object.getPrototypeOf(pendingService);
+    await expect(
+      proto.executeBundleSwitchTask.call(pendingService, upgradeTask),
+    ).rejects.toThrow();
+
+    expect(BundleUpdate.resetToBuiltInBundle).not.toHaveBeenCalled();
   });
 });

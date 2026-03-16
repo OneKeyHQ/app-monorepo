@@ -142,27 +142,61 @@ export function Carousel<T>({
   }, [data.length, debouncedSetPageIndex, setPage]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPageVisibleRef = useRef(true);
+
+  const stopAutoPlay = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   const startAutoPlay = useCallback(() => {
-    if (loop) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+    if (loop && isPageVisibleRef.current) {
+      stopAutoPlay();
       timerRef.current = setTimeout(() => {
         scrollToNextPage();
         startAutoPlay();
       }, autoPlayInterval);
     }
-  }, [loop, autoPlayInterval, scrollToNextPage]);
+  }, [loop, autoPlayInterval, scrollToNextPage, stopAutoPlay]);
+
+  // Pause auto-play when the Carousel is not visible in the viewport
+  // (e.g. user switched to another in-app tab). This avoids unnecessary
+  // scroll events firing in the background which can blur focused inputs
+  // on other pages via react-native-web's dismissKeyboard().
+  const containerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (platformEnv.isNative || !loop) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const nowVisible = entry?.isIntersecting ?? true;
+        const prevVisible = isPageVisibleRef.current;
+        isPageVisibleRef.current = nowVisible;
+        if (nowVisible && !prevVisible) {
+          startAutoPlay();
+        } else if (!nowVisible && prevVisible) {
+          stopAutoPlay();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loop, startAutoPlay, stopAutoPlay]);
 
   useEffect(() => {
     startAutoPlay();
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
+      stopAutoPlay();
     };
-  }, [loop, autoPlayInterval, scrollToNextPage, startAutoPlay]);
+  }, [loop, autoPlayInterval, scrollToNextPage, startAutoPlay, stopAutoPlay]);
 
   useImperativeHandle(instanceRef, () => {
     return {
@@ -239,7 +273,7 @@ export function Carousel<T>({
 
   return (
     <CarouselContext.Provider value={value}>
-      <YStack userSelect="none">
+      <YStack userSelect="none" ref={containerRef as any}>
         <XStack
           {...(containerStyle as any)}
           onLayout={handleLayout}
@@ -267,6 +301,8 @@ export function Carousel<T>({
                 initialPage={defaultIndex}
                 pageWidth={pageWidth}
                 onPageSelected={onPageSelected}
+                // Only effective on native; web PagerView ignores this and uses "none"
+                // to avoid globally blurring focused inputs via dismissKeyboard().
                 keyboardDismissMode="on-drag"
                 disableAnimation={disableAnimation}
                 {...pagerProps}

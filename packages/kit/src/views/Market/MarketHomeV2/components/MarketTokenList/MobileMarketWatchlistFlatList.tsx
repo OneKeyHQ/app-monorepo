@@ -60,7 +60,9 @@ const MANUAL_AUTOSCROLL_EDGE_PX = 72;
 const MANUAL_AUTOSCROLL_MAX_STEP_PX = 20;
 const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
-const WATCHLIST_CONTENT_PADDING_TOP = platformEnv.isNative ? 0 : 8;
+// On native, Tabs.DraggableFlatList uses useCollapsibleStyle() to inject
+// dynamic paddingTop based on actual header height. Do NOT override it.
+const WATCHLIST_CONTENT_PADDING_TOP = platformEnv.isNative ? undefined : 8;
 
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
@@ -592,7 +594,9 @@ function MobileMarketWatchlistFlatListImpl({
   const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
     () => ({
-      paddingTop: WATCHLIST_CONTENT_PADDING_TOP,
+      ...(WATCHLIST_CONTENT_PADDING_TOP !== undefined
+        ? { paddingTop: WATCHLIST_CONTENT_PADDING_TOP }
+        : {}),
       paddingBottom: platformEnv.isNativeAndroid
         ? listContainerProps.paddingBottom
         : tabBarHeight,
@@ -653,6 +657,7 @@ function MobileMarketWatchlistFlatListImpl({
       activationDistance={DRAG_MOVE_THRESHOLD_PX}
       autoscrollThreshold={AUTOSCROLL_THRESHOLD_PX}
       autoscrollSpeed={AUTOSCROLL_SPEED_PX}
+      animationConfig={{ damping: 25, stiffness: 400, mass: 0.4 }}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       initialNumToRender={15}

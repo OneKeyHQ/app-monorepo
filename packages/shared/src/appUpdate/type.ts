@@ -22,6 +22,7 @@ export type IUpdateDecision =
   | 'appShellUpdate'
   | 'jsBundleUpgrade'
   | 'jsBundleRollback'
+  | 'jsBundleRollbackToBuiltin'
   | 'staleRemote'
   | 'invalidLocal'
   | 'invalidRemote';
@@ -158,6 +159,8 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   summary?: string;
   // the last time the update dialog was shown (for rate limiting)
   lastUpdateDialogShownAt?: number;
+  // true when the pending update target is a rollback (target bundle < current bundle)
+  isRollbackTarget?: boolean;
   freezeUntil?: number;
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;

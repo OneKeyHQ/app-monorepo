@@ -187,8 +187,14 @@ function MobileLayoutComponent({
   const containerProps = useMemo(
     () => ({
       allowHeaderOverscroll: true,
+      // NOTE: renderHeader must never return a 0-height tree after it had
+      // a positive height, because react-native-collapsible-tab-view's
+      // useLayoutHeight guard ignores 0-height re-layouts once a positive
+      // height has been measured. Wrapping in a YStack with minHeight={1}
+      // ensures the layout callback always fires with height >= 1 so the
+      // library re-measures correctly when the banner disappears.
       renderHeader: () => (
-        <YStack bg="$bgApp" pointerEvents="box-none">
+        <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
           <MarketBannerList />
         </YStack>
       ),

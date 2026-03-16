@@ -74,6 +74,26 @@ git log $base_sha..release/$app_version --oneline
 git diff --stat $base_sha..release/$app_version
 ```
 
+### Generate GitHub compare link
+
+Build a compare URL so the team can review the full diff in the browser:
+
+```bash
+# Derive GitHub repo URL from remote
+repo_url=$(git remote get-url origin | sed 's/git@github.com:/https:\/\/github.com\//' | sed 's/\.git$//')
+
+# Compare link: base_sha...release branch HEAD
+echo "${repo_url}/compare/${base_sha}...release/${app_version}"
+```
+
+This produces a link like: `https://github.com/OneKeyHQ/app-monorepo/compare/abc1234...release/v5.20.0`
+
+If the baseline is an App Shell tag (first release), prefer using the tag name for readability:
+
+```
+https://github.com/OneKeyHQ/app-monorepo/compare/v5.20.0...release/v5.20.0
+```
+
 ### Identify included PRs
 
 Cherry-pick commits created with `-x` contain "(cherry picked from commit ...)" in their message. Extract those original commit SHAs and cross-reference with `gh` to get PR numbers:
@@ -89,6 +109,12 @@ This helps the team understand what was intentionally left out:
 
 ```bash
 git log x --not release/$app_version --oneline
+```
+
+Generate a compare link for this direction too:
+
+```
+${repo_url}/compare/release/${app_version}...x
 ```
 
 Cross-reference with PRs:
@@ -109,10 +135,12 @@ Cross-reference with PRs:
 📦 Changes since last release (seq #2, sha: def5678):
    - 3 commits, 8 files changed
    - PRs included: #1270, #1275, #1278
+   - 🔗 Compare: https://github.com/OneKeyHQ/app-monorepo/compare/def5678...release/v5.20.0
 
 📋 Content on x not in this release:
    - 12 commits without 'release-ready' label (expected)
    - 1 commit with 'release-ready' label pending ⚠️
+   - 🔗 Compare: https://github.com/OneKeyHQ/app-monorepo/compare/release/v5.20.0...x
 
 Conclusion: ✅ Ready for /1k-bundle-release publish
 ```

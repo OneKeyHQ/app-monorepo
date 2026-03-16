@@ -557,6 +557,9 @@ class ServicePendingInstallTask {
       stage,
     });
 
+    // jsBundleRollbackToBuiltin is handled by fetchAppUpdateInfo directly
+    // (no download needed — just reset and relaunch).
+
     if (
       decision.decision !== 'appShellUpdate' &&
       decision.decision !== 'jsBundleUpgrade' &&
@@ -907,6 +910,35 @@ class ServicePendingInstallTask {
       bundleVersion,
     );
     if (!bundleExists) {
+      // The target bundle is not extracted locally.  If this is a rollback
+      // (target < current), fall back to the builtin bundle instead of
+      // retrying the download — the builtin bundle is always available.
+      const currentBundle = Number(platformEnv.bundleVersion || '0');
+      const targetBundle = Number(bundleVersion || '0');
+      if (
+        Number.isFinite(currentBundle) &&
+        Number.isFinite(targetBundle) &&
+        targetBundle < currentBundle
+      ) {
+        defaultLogger.app.appUpdate.log(
+          `executeBundleSwitchTask: rollback target ${bundleVersion} not found locally, falling back to builtin`,
+        );
+        // Clear the pending task before relaunch — the task targets the
+        // missing bundle version, not builtin.  Without clearing, post-
+        // relaunch verification would fail against the stale target.
+        // We clear AND throw so the caller's success path (which would
+        // re-persist the task as appliedWaitingVerify) is skipped.
+        await clearPendingInstallTask();
+        await BundleUpdate.resetToBuiltInBundle();
+        // switchBundle triggers app.exit(0) on desktop / restart on native,
+        // so the throw below is a safety net for unexpected survival.
+        await BundleUpdate.switchBundle({
+          appVersion: '',
+          bundleVersion: '',
+          signature: '',
+        });
+        throw new OneKeyLocalError('BUILTIN_FALLBACK_RELAUNCH');
+      }
       throw new OneKeyLocalError(RETRY_TRIGGER_BUNDLE_MISSING);
     }
 
@@ -1295,19 +1327,31 @@ class ServicePendingInstallTask {
       } catch (error) {
         const durationMs = Date.now() - startedAt;
         const message = (error as Error)?.message ?? 'unknown';
-        defaultLogger.app.appUpdate.pendingSwitchResult(
-          {
+        // Builtin fallback already cleared the task and triggered relaunch.
+        // Do not re-persist or retry — the app is restarting with builtin.
+        if (message === 'BUILTIN_FALLBACK_RELAUNCH') {
+          defaultLogger.app.appUpdate.pendingSwitchResult({
             traceId,
             requestSeq,
-            result: 'fail',
+            result: 'builtin_fallback',
             durationMs,
-            errorCode: message,
-            errorMessage: message,
             ...this.buildTaskLogFields(runningTask),
-          },
-          'error',
-        );
-        await this.markTaskFailed(runningTask, message, traceId, undefined);
+          });
+        } else {
+          defaultLogger.app.appUpdate.pendingSwitchResult(
+            {
+              traceId,
+              requestSeq,
+              result: 'fail',
+              durationMs,
+              errorCode: message,
+              errorMessage: message,
+              ...this.buildTaskLogFields(runningTask),
+            },
+            'error',
+          );
+          await this.markTaskFailed(runningTask, message, traceId, undefined);
+        }
       }
     } finally {
       if (shouldRunPostRefresh) {
