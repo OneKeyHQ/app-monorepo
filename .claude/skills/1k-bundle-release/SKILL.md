@@ -46,10 +46,11 @@ These three steps are designed to run in sequence, but each can also run indepen
 
 | Label | Meaning |
 |-------|---------|
-| `release-ready` | This PR should be included in the next release |
+| `release-ready` | QA Bundle verification passed — this PR should be included in the next release |
 | `no-release` | Explicitly excluded — contains native changes or requires App Shell update |
+| `bundle-testing` | PR is ready for QA Bundle verification — developer has self-verified, QA is testing via Bundle in App |
 
-Developers add the `release-ready` label when creating PRs. No label = not included by default.
+Label lifecycle: developer self-verifies on branch → adds `bundle-testing` → QA tests via Bundle in App → QA passes → label changed to `release-ready`. No label = not included by default.
 
 ## Key Files
 
