@@ -1,4 +1,11 @@
-import { memo, startTransition, useCallback, useMemo, useRef } from 'react';
+import {
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -130,6 +137,50 @@ function MobileTokenSelectorModal({
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
 
+  // Freeze sort order; only refresh on sort/tab change or first data arrival.
+  const ctxSnapshotRef = useRef(assetCtxsByDex);
+  const lastSortRef = useRef<{
+    field?: string;
+    direction?: string;
+    activeTab?: string;
+  } | null>(null);
+  useEffect(() => {
+    const field = selectorConfig?.field;
+    const direction = selectorConfig?.direction;
+    const currentTab = selectorConfig?.activeTab;
+    const last = lastSortRef.current;
+    const sortChanged =
+      last?.field !== field ||
+      last?.direction !== direction ||
+      last?.activeTab !== currentTab;
+    // Also refresh when snapshot is empty (first WS data arrival after mount)
+    const snapshotEmpty = !ctxSnapshotRef.current?.some(
+      (arr) => arr?.length > 0,
+    );
+    if (!sortChanged && !snapshotEmpty) {
+      return;
+    }
+    lastSortRef.current = { field, direction, activeTab: currentTab };
+    ctxSnapshotRef.current = assetCtxsByDex;
+    if (sortChanged) {
+      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
+    }
+  }, [
+    selectorConfig?.direction,
+    selectorConfig?.field,
+    selectorConfig?.activeTab,
+    assetCtxsByDex,
+  ]);
+
+  // Container-level mark instead of per-row
+  useEffect(() => {
+    actions.current.markAllAssetCtxsRequired();
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      actions.current.markAllAssetCtxsNotRequired();
+    };
+  }, [actions]);
+
   const tabLabels = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
@@ -146,7 +197,6 @@ function MobileTokenSelectorModal({
           activeTab: tab,
         }));
       });
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSelectorConfig],
   );
@@ -223,7 +273,9 @@ function MobileTokenSelectorModal({
 
   const mockedListData = useMemo(() => {
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
-    const assetCtxsByDexTyped: IPerpsAssetCtx[][] = assetCtxsByDex || [];
+    // Use frozen snapshot to prevent FlashList recycling issues from real-time WS updates
+    const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
+      ctxSnapshotRef.current || [];
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
@@ -293,7 +345,6 @@ function MobileTokenSelectorModal({
     return result;
   }, [
     activeTab,
-    assetCtxsByDex,
     assetsByDex,
     computeSortValues,
     dynamicTabs,
@@ -328,6 +379,7 @@ function MobileTokenSelectorModal({
         isOnModal
         mockedToken={mockedToken}
         onPress={handleSelectToken}
+        skipMarkRequired
       />
     ),
     [handleSelectToken],
@@ -356,7 +408,6 @@ function MobileTokenSelectorModal({
           activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
         };
       });
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSelectorConfig],
   );
