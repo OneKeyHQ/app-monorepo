@@ -165,6 +165,16 @@ export class HyperLiquidScene extends BaseScene {
   }
 
   @LogToServer()
+  public orderTrigger(
+    params: IHyperLiquidLogParams<
+      IHyperLiquidOrderRequestPayload,
+      IOrderResponse | IApiErrorResponse
+    >,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
   public cancelOrder(
     params: IHyperLiquidLogParams<
       { cancels: Array<{ a: number; o: number }> },
@@ -252,6 +262,7 @@ export class HyperLiquidScene extends BaseScene {
 export type IHyperLiquidOrderAction =
   | 'placeOrder'
   | 'orderOpen'
+  | 'orderTrigger'
   | 'ordersClose'
   | 'multiOrder'
   | 'setPositionTpsl';
@@ -281,6 +292,9 @@ export function dispatchHyperLiquidOrderLog({
       break;
     case 'setPositionTpsl':
       scene.setPositionTpsl(payload);
+      break;
+    case 'orderTrigger':
+      scene.orderTrigger(payload);
       break;
     case 'placeOrder':
     default:

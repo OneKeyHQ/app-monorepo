@@ -25,8 +25,13 @@ import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
+import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
+import {
+  type IWatchlistFilterType,
+  MarketWatchlistCategorySelector,
+} from './MarketWatchlistCategorySelector';
 
 type IMarketWatchlistTokenListProps = {
   onItemPress?: (item: IMarketToken) => void;
@@ -58,6 +63,14 @@ function MarketWatchlistTokenList({
   const { recommendedTokens } = useMarketBasicConfig();
 
   const actions = useWatchListV2Actions();
+
+  // Watchlist category filter: all / spot / perps
+  const [selectedFilter, setSelectedFilter] =
+    useState<IWatchlistFilterType>('all');
+  const handleSelectFilter = useCallback(
+    (filter: IWatchlistFilterType) => setSelectedFilter(filter),
+    [],
+  );
 
   // State for mobile inline action bar
   const [activeActionItem, setActiveActionItem] = useState<{
@@ -96,13 +109,23 @@ function MarketWatchlistTokenList({
     pageSize: 999,
   });
 
+  const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
+    hideNativeToken,
+    hidePerps,
+  });
+
   const filteredResult = useMemo(() => {
-    if (!hideNativeToken && !hidePerps) return watchlistResult;
-    const filtered = watchlistResult.data.filter(
-      (t) => (!hideNativeToken || !t.isNative) && (!hidePerps || !t.perpsCoin),
-    );
-    return { ...watchlistResult, data: filtered };
-  }, [watchlistResult, hideNativeToken, hidePerps]);
+    const filtered = filteredGroups[selectedFilter];
+    if (filtered === watchlistResult.data) return watchlistResult;
+    return {
+      ...watchlistResult,
+      data: filtered,
+      // Suppress loading when raw data exists but filter produces empty results,
+      // so MarketTokenListBase shows "no data" instead of flashing skeleton.
+      isLoading:
+        watchlistResult.data.length > 0 ? false : watchlistResult.isLoading,
+    };
+  }, [watchlistResult, filteredGroups, selectedFilter]);
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -258,6 +281,16 @@ function MarketWatchlistTokenList({
     [],
   );
 
+  const categorySelector = useMemo(
+    () => (
+      <MarketWatchlistCategorySelector
+        selectedFilter={selectedFilter}
+        onSelectFilter={handleSelectFilter}
+      />
+    ),
+    [selectedFilter, handleSelectFilter],
+  );
+
   // Wait for data to be loaded before rendering anything
   // This prevents flashing the recommend list while data is still loading
   if (!watchlistState.isMounted) {
@@ -286,7 +319,7 @@ function MarketWatchlistTokenList({
   return (
     <MarketTokenListBase
       onItemPress={onItemPress}
-      toolbar={toolbar}
+      toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator

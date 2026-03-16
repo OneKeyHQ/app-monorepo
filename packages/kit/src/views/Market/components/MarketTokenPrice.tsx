@@ -146,8 +146,6 @@ export function MarketTokenPrice({
     return lastUpdated ? new Date(lastUpdated).getTime() : Date.now();
   }, [lastUpdated]);
 
-  console.log('lastUpdated', lastUpdated, lastUpdateDate);
-
   const tokenPrice = useTokenPrice({
     name: tokenName,
     price,
@@ -174,19 +172,21 @@ export function BaseMarketTokenPrice({
   tokenSymbol,
   lastUpdated,
   size,
+  currency = '$',
   ...props
 }: {
   price: string;
   tokenSymbol: string;
   tokenName: string;
   lastUpdated?: string;
+  currency?: string;
 } & ISizableTextProps) {
   return (
     <NumberSizeableText
       userSelect="none"
       formatter="price"
       size={size}
-      formatterOptions={{ currency: '$' }}
+      formatterOptions={{ currency }}
       {...props}
     >
       {price}

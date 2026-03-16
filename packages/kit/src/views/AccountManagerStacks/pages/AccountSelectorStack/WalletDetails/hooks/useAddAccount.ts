@@ -1,10 +1,9 @@
 import { useDebouncedCallback } from 'use-debounce';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import { resetToRoute } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { closeModalPages } from '@onekeyhq/kit/src/hooks/usePageNavigation';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -77,8 +76,7 @@ export function useAddAccount({
             screen: EOnboardingPages.ImportAddress,
           });
         } else if (walletId === WALLET_TYPE_IMPORTED) {
-          await closeModalPages();
-          rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+          resetToRoute(ERootRoutes.Onboarding, {
             screen: EOnboardingV2Routes.OnboardingV2,
             params: {
               screen: EOnboardingPagesV2.ImportPhraseOrPrivateKey,

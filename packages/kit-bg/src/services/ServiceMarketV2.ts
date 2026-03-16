@@ -359,10 +359,16 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenBatchListResponse;
-    }>('/utility/v2/market/token/list/batch', {
-      tokenAddressList: missingTokens,
-      currency: 'usd',
-    });
+    }>(
+      '/utility/v2/market/token/list/batch',
+      {
+        tokenAddressList: missingTokens,
+        currency: 'usd',
+      },
+      {
+        headers: { 'x-onekey-request-currency': 'usd' },
+      },
+    );
 
     const { data } = response.data;
 
@@ -620,7 +626,10 @@ class ServiceMarketV2 extends ServiceBase {
 
     // Only filter out symbol-less tokens when batch succeeded;
     // if batch failed, return all entries to avoid wiping server-side watchlist.
-    return batchSucceeded ? tokens.filter((t) => t.symbol) : tokens;
+    // Always filter out tokens with empty networkId to avoid server validation errors.
+    return batchSucceeded
+      ? tokens.filter((t) => t.symbol && t.networkId)
+      : tokens.filter((t) => t.networkId);
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(

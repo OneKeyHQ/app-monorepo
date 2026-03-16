@@ -1660,6 +1660,38 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
+  async syncNowKeyless({
+    callerName = 'Manual Cloud Sync Keyless',
+    noDebounceUpload = true,
+    password,
+  }: {
+    callerName?: string;
+    noDebounceUpload?: boolean;
+    password?: string;
+  } = {}): Promise<boolean> {
+    const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
+    if (!isCloudSyncEnabledKeyless) {
+      return false;
+    }
+    const syncCredential = await this.getSyncCredentialSafe();
+    if (!syncCredential) {
+      return false;
+    }
+    await this.initLocalSyncItemsDB({
+      syncCredential,
+      password,
+    });
+    await this.startServerSyncFlow({
+      callerName,
+      noDebounceUpload,
+    });
+    await this.updateLastSyncTime({
+      syncMode: ECloudSyncMode.Keyless,
+    });
+    return true;
+  }
+
+  @backgroundMethod()
   async updateLastSyncTime({
     syncMode,
   }: {

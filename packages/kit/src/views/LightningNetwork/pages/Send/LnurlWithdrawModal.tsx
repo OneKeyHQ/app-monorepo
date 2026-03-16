@@ -21,7 +21,7 @@ import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
 import {
   DAppAccountListStandAloneItem,
-  DAppAccountListStandAloneItemForHomeScene,
+  DAppAccountListStandAloneItemReadonly,
 } from '../../../DAppConnection/components/DAppAccountList';
 import {
   DAppRequestFooter,
@@ -180,7 +180,10 @@ function LnurlWithdrawModal() {
             urlSecurityInfo={urlSecurityInfo}
           >
             {isSendFlow ? (
-              <DAppAccountListStandAloneItemForHomeScene />
+              <DAppAccountListStandAloneItemReadonly
+                accountId={accountId}
+                networkId={networkId}
+              />
             ) : (
               <DAppAccountListStandAloneItem readonly />
             )}

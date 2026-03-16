@@ -3,83 +3,16 @@ import { memo } from 'react';
 import {
   GradientMask,
   ScrollView,
-  SizableText,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
-import {
-  ScrollableFilterBar,
-  useScrollableFilterBar,
-} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 
 import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
-
-function CategoryFilterItem({
-  name,
-  isSelected,
-  ...rest
-}: {
-  name: string;
-  isSelected: boolean;
-} & IXStackProps) {
-  const { md } = useMedia();
-  return (
-    <XStack
-      alignItems="center"
-      justifyContent="center"
-      px="$2.5"
-      py="$1.5"
-      gap={md ? '$1' : '$2'}
-      borderRadius={md ? '$full' : '$2.5'}
-      userSelect="none"
-      backgroundColor={isSelected ? '$bgActive' : '$transparent'}
-      {...(!isSelected && {
-        focusable: true,
-        hoverStyle: {
-          bg: '$bgStrongHover',
-        },
-        pressStyle: {
-          bg: '$bgStrongActive',
-        },
-        focusVisibleStyle: {
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineColor: '$focusRing',
-        },
-      })}
-      {...rest}
-    >
-      <SizableText
-        numberOfLines={1}
-        color={isSelected ? '$text' : '$textSubdued'}
-        size="$bodyMdMedium"
-      >
-        {name}
-      </SizableText>
-    </XStack>
-  );
-}
-
-function CategoryFilterItemWithLayout({
-  category,
-  isSelected,
-  onPress,
-}: {
-  category: ICategoryTab;
-  isSelected: boolean;
-  onPress: () => void;
-}) {
-  const { handleItemLayout } = useScrollableFilterBar();
-  return (
-    <CategoryFilterItem
-      name={category.name}
-      isSelected={isSelected}
-      onPress={onPress}
-      onLayout={(event) => handleItemLayout(category.tabId, event)}
-    />
-  );
-}
+import {
+  CategoryFilterItem,
+  CategoryFilterItemWithLayout,
+} from '../CategoryFilterItem';
 
 interface ICategoryTab {
   tabId: string;
@@ -113,7 +46,8 @@ function MarketPerpsCategorySelectorMobile({
       {categories.map((category) => (
         <CategoryFilterItemWithLayout
           key={category.tabId}
-          category={category}
+          id={category.tabId}
+          name={category.name}
           isSelected={category.tabId === selectedCategoryId}
           onPress={() => onSelectCategory(category.tabId)}
         />

@@ -22,6 +22,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -71,6 +72,36 @@ function OrderConfirmContent({
   }, []);
   const buttonStyleProps = GetTradingButtonStyleProps(effectiveSide, false);
   const intl = useIntl();
+
+  const isTriggerMode = formData.orderMode === 'trigger';
+  const isLimitTrigger =
+    formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
+    formData.triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+
+  const triggerTypeLabel = useMemo(() => {
+    if (!isTriggerMode) return null;
+    switch (formData.triggerOrderType) {
+      case ETriggerOrderType.STOP_MARKET:
+        return intl.formatMessage({
+          id: ETranslations.perp_order_stop_market,
+        });
+      case ETriggerOrderType.STOP_LIMIT:
+        return intl.formatMessage({
+          id: ETranslations.perp_order_stop_limit,
+        });
+      case ETriggerOrderType.TAKE_MARKET:
+        return intl.formatMessage({
+          id: ETranslations.perp_order_tp_market,
+        });
+      case ETriggerOrderType.TAKE_LIMIT:
+        return intl.formatMessage({
+          id: ETranslations.perp_order_tp_limit,
+        });
+      default:
+        return null;
+    }
+  }, [isTriggerMode, formData.triggerOrderType, intl]);
+
   const actionText =
     effectiveSide === 'long'
       ? intl.formatMessage({
@@ -170,14 +201,68 @@ function OrderConfirmContent({
         {/* Action */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.perp_confirm_order_action,
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_order_type,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium" color={actionColor}>
-            {actionText}
-          </SizableText>
+          {triggerTypeLabel ? (
+            <SizableText size="$bodyMdMedium" color={actionColor}>
+              {triggerTypeLabel} /{' '}
+              {intl.formatMessage({
+                id:
+                  effectiveSide === 'long'
+                    ? ETranslations.dexmarket_details_transactions_buy
+                    : ETranslations.dexmarket_details_transactions_sell,
+              })}
+            </SizableText>
+          ) : (
+            <SizableText size="$bodyMdMedium" color={actionColor}>
+              {actionText}
+            </SizableText>
+          )}
         </XStack>
+
+        {/* Trigger Price (trigger orders only) */}
+        {isTriggerMode && formData.triggerPrice ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_pro_trigger_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              $ {formData.triggerPrice}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {/* Execution Price (limit trigger orders only) */}
+        {isTriggerMode && isLimitTrigger && formData.executionPrice ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perps_pro_execution_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              $ {formData.executionPrice}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {/* Reduce Only (trigger orders) */}
+        {isTriggerMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perps_reduce_only,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {formData.triggerReduceOnly ? 'Yes' : 'No'}
+            </SizableText>
+          </XStack>
+        ) : null}
 
         {/* Position Size */}
         <XStack justifyContent="space-between" alignItems="center">
@@ -189,15 +274,17 @@ function OrderConfirmContent({
           <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
         </XStack>
 
-        {/* Price */}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.perp_orderbook_price,
-            })}
-          </SizableText>
-          {priceDisplay}
-        </XStack>
+        {/* Price (standard orders only — trigger orders show trigger/execution price above) */}
+        {!isTriggerMode ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_orderbook_price,
+              })}
+            </SizableText>
+            {priceDisplay}
+          </XStack>
+        ) : null}
 
         {/* Liquidation Price */}
         <XStack justifyContent="space-between" alignItems="center">

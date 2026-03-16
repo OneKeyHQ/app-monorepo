@@ -61,6 +61,8 @@ module.exports = {
     'extendInfo': {
       'CFBundleIconName': 'OneKeyLogo',
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
+      'NSMicrophoneUsageDescription':
+        'Please allow OneKey to use your microphone',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
       'NSBluetoothPeripheralUsageDescription':

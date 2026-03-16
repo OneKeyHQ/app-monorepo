@@ -28,6 +28,10 @@ import {
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
@@ -293,6 +297,9 @@ function ReferralLandingPage() {
       const pageLower = page?.toLowerCase() ?? '';
       const targetTabRoute = PAGE_TO_TAB_ROUTE[pageLower] ?? ETabRoutes.Market;
 
+      if (targetTabRoute === ETabRoutes.Perp) {
+        setPerpPageEnterSource(EPerpPageEnterSource.Referral);
+      }
       navigation.switchTab(targetTabRoute);
 
       modalTimerId = setTimeout(() => {

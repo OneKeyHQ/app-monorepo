@@ -278,6 +278,12 @@ export const BundleUpdate: IBundleUpdate = {
     }, 2500);
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
+  resetToBuiltInBundle: async () => {
+    await ReactNativeBundleUpdate.resetToBuiltInBundle();
+    setTimeout(() => {
+      RNRestart.restart();
+    }, 2500);
+  },
   isSkipGpgVerificationAllowed: () =>
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),

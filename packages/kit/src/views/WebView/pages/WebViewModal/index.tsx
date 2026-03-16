@@ -13,6 +13,7 @@ import {
   Toast,
   useClipboard,
 } from '@onekeyhq/components';
+import { useSettingsFiatPaySiteWhitelistPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
@@ -50,6 +51,8 @@ export default function WebViewModal() {
 
   const { copyText } = useClipboard();
   const intl = useIntl();
+  const [{ fiatPaySiteWhitelist }] =
+    useSettingsFiatPaySiteWhitelistPersistAtom();
 
   // Track if component is unmounting to prevent race conditions
   const isUnmounting = useRef(false);
@@ -216,6 +219,7 @@ export default function WebViewModal() {
           <WebView
             onWebViewRef={(ref) => ref && setWebViewRef(ref)}
             src={url}
+            mediaPermissionWhitelist={fiatPaySiteWhitelist}
             allowpopups={!!redirectExternalNavigation}
             onNavigationStateChange={onNavigationStateChange}
             onShouldStartLoadWithRequest={

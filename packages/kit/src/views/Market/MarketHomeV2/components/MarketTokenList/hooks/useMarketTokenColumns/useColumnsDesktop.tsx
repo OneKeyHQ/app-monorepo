@@ -48,6 +48,7 @@ export const useColumnsDesktop = (
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
+  const watchlistNameWidth = gtLg ? 340 : 260;
 
   return [
     {
@@ -81,7 +82,7 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: 200,
+      columnWidth: isWatchlistMode ? watchlistNameWidth : 200,
       render: (_: unknown, record: IMarketToken) =>
         record.perpsCoin ? (
           <XStack

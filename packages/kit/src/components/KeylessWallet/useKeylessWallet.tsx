@@ -947,9 +947,11 @@ export function useKeylessWallet() {
     async ({
       pin,
       mode,
+      dangerousRetryByFixedProvider,
     }: {
       pin: string;
       mode?: EOnboardingV2OneKeyIDLoginMode;
+      dangerousRetryByFixedProvider: boolean;
     }) => {
       const token = await getKeylessOnboardingToken();
       if (!token) {
@@ -963,6 +965,7 @@ export function useKeylessWallet() {
           pin,
           refreshToken,
           mode,
+          dangerousRetryByFixedProvider,
         },
       );
 
@@ -1079,6 +1082,14 @@ export function useVerifyKeylessPinChecking() {
               { ownerId },
             );
           let shouldVerifyPin = false;
+          if (accessToken) {
+            void backgroundApiProxy.serviceKeylessWallet.fixKeylessWalletAvatar(
+              {
+                wallet: activeWallet,
+                accessToken,
+              },
+            );
+          }
           if (accessToken) {
             const { shouldRemind } =
               await backgroundApiProxy.serviceKeylessWallet.apiGetPinConfirmStatus(

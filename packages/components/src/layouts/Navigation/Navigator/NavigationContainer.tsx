@@ -236,19 +236,9 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
   }
 };
 
-export const popToMainRoute = async (maxRetryTimes = 99) => {
-  if (maxRetryTimes <= 0) {
-    return;
-  }
-  const rootState = rootNavigationRef.current?.getRootState();
-  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
-    return;
-  }
-  if (rootNavigationRef.current?.canGoBack()) {
-    rootNavigationRef.current?.goBack?.();
-  }
-  await timerUtils.wait(150);
-  await popToMainRoute(maxRetryTimes - 1);
+export const popToMainRoute = async () => {
+  resetAboveMainRoute();
+  await timerUtils.wait(100);
 };
 
 function isScanModalCurrentRoute(): boolean {
@@ -354,6 +344,38 @@ export const resetAboveMainRoute = () => {
       ...state,
       routes: mainRoutes,
       index: mainRoutes.length - 1,
+    }),
+  );
+};
+
+/**
+ * Atomically replace all overlay routes with a target route in a single
+ * CommonActions.reset dispatch. This avoids the race condition where
+ * resetAboveMainRoute() triggers a native modal dismiss animation, and a
+ * subsequent navigate() gets popped when the dismiss completes.
+ *
+ * State transition: [Main, Modal, ...] → [Main, targetRoute]
+ */
+export const resetToRoute = (
+  routeName: string,
+  params?: Record<string, unknown>,
+) => {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
+  }
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0) {
+    return;
+  }
+  const targetRoute = { name: routeName, params };
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: [...mainRoutes, targetRoute],
+      index: mainRoutes.length,
     }),
   );
 };

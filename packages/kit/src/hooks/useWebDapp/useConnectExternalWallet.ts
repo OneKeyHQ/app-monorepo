@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Toast } from '@onekeyhq/components';
+import { Toast, resetAboveMainRoute } from '@onekeyhq/components';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -19,8 +19,8 @@ import {
   useAccountSelectorActions,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+
 import useAppNavigation from '../useAppNavigation';
-import { closeOnboardingPages } from '../usePageNavigation';
 
 export function useConnectExternalWallet() {
   const [jotaiLoading, setJotaiLoading] =
@@ -146,7 +146,7 @@ export function useConnectExternalWallet() {
         });
         navigation.popStack();
         await timerUtils.wait(150);
-        await closeOnboardingPages();
+        resetAboveMainRoute();
         await dialogRef.current?.close();
 
         let finalConnectionInfo: IExternalConnectionInfo;

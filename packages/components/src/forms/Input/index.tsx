@@ -555,6 +555,7 @@ function BaseInput(
                   testID = '',
                   renderContent,
                   tooltipProps,
+                  ...addOnRest
                 },
                 index,
               ) => {
@@ -583,6 +584,7 @@ function BaseInput(
                         onPress={onPress}
                         tooltipProps={tooltipProps}
                         {...addOnsItemProps}
+                        {...addOnRest}
                       />
                     )}
                   </Group.Item>

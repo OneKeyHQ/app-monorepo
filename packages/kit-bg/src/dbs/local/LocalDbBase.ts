@@ -771,6 +771,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  async updateKeylessWalletDetailsInfo(params: {
+    walletId: IDBWalletId;
+    keylessDetailsInfo: IKeylessWalletDetailsInfo;
+  }): Promise<void> {
+    const { walletId, keylessDetailsInfo } = params;
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater: (record) => {
+          record.keylessDetails = JSON.stringify(keylessDetailsInfo);
+          return record;
+        },
+      });
+    });
+  }
+
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 

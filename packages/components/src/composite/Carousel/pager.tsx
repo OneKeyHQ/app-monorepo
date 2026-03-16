@@ -29,19 +29,58 @@ export function PagerView({
   pageWidth: number | string;
   disableAnimation?: boolean;
 }) {
+  const isWeb = typeof document !== 'undefined';
   const scrollViewRef = useRef<ScrollView>(null);
   const pageIndex = useRef<number>(initialPage);
   const timerId = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragClickResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isMouseDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollXRef = useRef(0);
+  const hasMovedWhileDraggingRef = useRef(false);
+  const shouldPreventNextClickRef = useRef(false);
   const pageSize = useMemo(() => {
     return Children.count(children);
   }, [children]);
 
+  const getScrollableNode = useCallback((): HTMLElement | null => {
+    const node = (
+      scrollViewRef.current as unknown as {
+        getScrollableNode?: () => HTMLElement;
+      }
+    )?.getScrollableNode?.();
+    return node instanceof HTMLElement ? node : null;
+  }, []);
+
   const getPageWidth = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return typeof pageWidthProp === 'number'
       ? pageWidthProp
-      : (scrollViewRef.current as unknown as HTMLDivElement)?.clientWidth || 0;
-  }, [pageWidthProp]);
+      : getScrollableNode()?.clientWidth || 0;
+  }, [getScrollableNode, pageWidthProp]);
+
+  const scrollToX = useCallback(
+    ({ x, animated }: { x: number; animated: boolean }) => {
+      scrollViewRef.current?.scrollTo({
+        x,
+        y: 0,
+        animated,
+      });
+    },
+    [],
+  );
+
+  /** Direct DOM scrollLeft for low-latency drag following */
+  const setScrollLeft = useCallback(
+    (left: number) => {
+      const node = getScrollableNode();
+      if (node) {
+        node.scrollLeft = left;
+      }
+    },
+    [getScrollableNode],
+  );
 
   const isLockPageIndex = useRef(false);
 
@@ -80,9 +119,8 @@ export function PagerView({
     const pageWidth = getPageWidth();
     if (pageWidth > 0 && initialPage > 0 && scrollViewRef.current) {
       const safeInitialPage = getSafePageIndex(initialPage);
-      scrollViewRef.current.scrollTo({
+      scrollToX({
         x: safeInitialPage * pageWidth,
-        y: 0,
         animated: false,
       });
       pageIndex.current = safeInitialPage;
@@ -92,7 +130,7 @@ export function PagerView({
         },
       } as any);
     }
-  }, [initialPage, getSafePageIndex, onPageSelected, getPageWidth]);
+  }, [initialPage, getSafePageIndex, onPageSelected, getPageWidth, scrollToX]);
 
   useEffect(() => {
     const debouncedSetPage = debounce(() => {
@@ -120,6 +158,134 @@ export function PagerView({
     }, 500);
   }, []);
 
+  const handleMouseDown = useCallback(
+    (event: MouseEvent) => {
+      if (!isWeb || event.button !== 0) {
+        return;
+      }
+      const pageWidth = getPageWidth();
+      if (!pageWidth) {
+        return;
+      }
+      const scrollNode = getScrollableNode();
+      if (!scrollNode) {
+        return;
+      }
+
+      isMouseDraggingRef.current = true;
+      hasMovedWhileDraggingRef.current = false;
+      shouldPreventNextClickRef.current = false;
+      dragStartXRef.current = event.clientX;
+      dragStartScrollXRef.current = scrollNode.scrollLeft || 0;
+      event.preventDefault();
+    },
+    [getPageWidth, getScrollableNode, isWeb],
+  );
+
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      if (!isMouseDraggingRef.current) {
+        return;
+      }
+      const scrollElement = scrollViewRef.current as unknown as
+        | HTMLDivElement
+        | undefined;
+      if (!scrollElement) {
+        return;
+      }
+
+      const deltaX = event.clientX - dragStartXRef.current;
+      if (Math.abs(deltaX) > 2) {
+        hasMovedWhileDraggingRef.current = true;
+      }
+      const targetScrollLeft = dragStartScrollXRef.current - deltaX;
+      setScrollLeft(targetScrollLeft);
+      event.preventDefault();
+    },
+    [setScrollLeft],
+  );
+
+  const handleMouseUp = useCallback(
+    (event: MouseEvent) => {
+      if (!isMouseDraggingRef.current) {
+        return;
+      }
+      isMouseDraggingRef.current = false;
+
+      const pageWidth = getPageWidth();
+      if (!pageWidth) {
+        return;
+      }
+      const deltaX = event.clientX - dragStartXRef.current;
+      const currentPage = pageIndex.current;
+      const threshold = pageWidth * 0.2;
+      let targetPage = currentPage;
+
+      if (Math.abs(deltaX) > threshold) {
+        targetPage = getSafePageIndex(
+          deltaX > 0 ? currentPage - 1 : currentPage + 1,
+        );
+      }
+
+      lockScrollEvent(targetPage);
+      scrollToX({
+        x: targetPage * pageWidth,
+        animated: !disableAnimation,
+      });
+      shouldPreventNextClickRef.current = hasMovedWhileDraggingRef.current;
+      if (dragClickResetTimerRef.current) {
+        clearTimeout(dragClickResetTimerRef.current);
+      }
+      dragClickResetTimerRef.current = setTimeout(() => {
+        shouldPreventNextClickRef.current = false;
+      }, 0);
+      event.preventDefault();
+    },
+    [
+      disableAnimation,
+      getPageWidth,
+      getSafePageIndex,
+      lockScrollEvent,
+      scrollToX,
+    ],
+  );
+
+  useEffect(() => {
+    if (!isWeb) {
+      return;
+    }
+
+    const onMouseMove = (event: Event) => {
+      handleMouseMove(event as MouseEvent);
+    };
+    const onMouseUp = (event: Event) => {
+      handleMouseUp(event as MouseEvent);
+    };
+
+    globalThis.addEventListener('mousemove', onMouseMove);
+    globalThis.addEventListener('mouseup', onMouseUp);
+    return () => {
+      globalThis.removeEventListener('mousemove', onMouseMove);
+      globalThis.removeEventListener('mouseup', onMouseUp);
+      if (dragClickResetTimerRef.current) {
+        clearTimeout(dragClickResetTimerRef.current);
+      }
+    };
+  }, [handleMouseMove, handleMouseUp, isWeb]);
+
+  const mouseDragProps = isWeb
+    ? {
+        onMouseDown: (event: MouseEvent) => handleMouseDown(event),
+        onClickCapture: (event: MouseEvent) => {
+          if (shouldPreventNextClickRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
+            shouldPreventNextClickRef.current = false;
+          }
+        },
+      }
+    : {};
+
   useImperativeHandle(
     ref,
     () =>
@@ -127,23 +293,27 @@ export function PagerView({
         setPage: (page: number) => {
           lockScrollEvent(page);
           const pageWidth = getPageWidth();
-          scrollViewRef.current?.scrollTo({
+          scrollToX({
             x: getSafePageIndex(page) * pageWidth,
-            y: 0,
             animated: !disableAnimation,
           });
         },
         setPageWithoutAnimation: (page: number) => {
           lockScrollEvent(page);
           const pageWidth = getPageWidth();
-          scrollViewRef.current?.scrollTo({
+          scrollToX({
             x: getSafePageIndex(page) * pageWidth,
-            y: 0,
             animated: false,
           });
         },
       }) as PagerViewType,
-    [lockScrollEvent, getPageWidth, getSafePageIndex, disableAnimation],
+    [
+      lockScrollEvent,
+      getPageWidth,
+      getSafePageIndex,
+      disableAnimation,
+      scrollToX,
+    ],
   );
   return (
     <ScrollView
@@ -155,6 +325,7 @@ export function PagerView({
       showsHorizontalScrollIndicator={false}
       scrollEventThrottle={150}
       onScroll={handleScroll}
+      {...(mouseDragProps as any)}
       {...(props as any)}
     >
       {children}

@@ -5,7 +5,7 @@ import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
-import { Dialog, rootNavigationRef } from '@onekeyhq/components';
+import { Dialog, resetToRoute, rootNavigationRef } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -15,11 +15,11 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { closeModalPages } from '../../../hooks/usePageNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
@@ -136,8 +136,7 @@ export function useFirmwareUpdateActions() {
 
   const restartOnboarding = useCallback(
     async ({ deviceType }: { deviceType: EDeviceType | undefined }) => {
-      await closeModalPages();
-      rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
+      resetToRoute(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
         params: {
           screen: EOnboardingPagesV2.ConnectYourDevice,
