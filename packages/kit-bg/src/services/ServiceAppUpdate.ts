@@ -1022,9 +1022,14 @@ class ServiceAppUpdate extends ServiceBase {
               (error as Error)?.message || 'unknown'
             }`,
           );
-          // Transition to failed state so startFailedRecoveryTimer can retry
+          // Transition to failed state so startFailedRecoveryTimer can retry.
+          // Persist releaseInfo + updateAt so the atom is not stale when the
+          // recovery timer fires and isNeedSyncAppUpdateInfo re-evaluates.
           await appUpdatePersistAtom.set((prev) => ({
             ...prev,
+            ...releaseInfo,
+            latestVersion: releaseInfo.version || prev.latestVersion,
+            updateAt: Date.now(),
             status: EAppUpdateStatus.failed,
             errorText: undefined,
           }));

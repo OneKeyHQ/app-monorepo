@@ -1193,10 +1193,14 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
       },
     });
 
-    // Call executeBundleSwitchTask directly via prototype
+    // Call executeBundleSwitchTask directly via prototype.
+    // It throws BUILTIN_FALLBACK_RELAUNCH after clearing the task and
+    // triggering relaunch, so the caller's success path is skipped.
     const pendingService = service.backgroundApi.servicePendingInstallTask;
     const proto = Object.getPrototypeOf(pendingService);
-    await proto.executeBundleSwitchTask.call(pendingService, rollbackTask);
+    await expect(
+      proto.executeBundleSwitchTask.call(pendingService, rollbackTask),
+    ).rejects.toThrow('BUILTIN_FALLBACK_RELAUNCH');
 
     expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalled();
     expect(BundleUpdate.switchBundle).toHaveBeenCalledWith({
