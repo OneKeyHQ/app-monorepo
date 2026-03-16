@@ -557,6 +557,9 @@ class ServicePendingInstallTask {
       stage,
     });
 
+    // jsBundleRollbackToBuiltin is handled by fetchAppUpdateInfo directly
+    // (no download needed — just reset and relaunch).
+
     if (
       decision.decision !== 'appShellUpdate' &&
       decision.decision !== 'jsBundleUpgrade' &&
@@ -907,6 +910,27 @@ class ServicePendingInstallTask {
       bundleVersion,
     );
     if (!bundleExists) {
+      // The target bundle is not extracted locally.  If this is a rollback
+      // (target < current), fall back to the builtin bundle instead of
+      // retrying the download — the builtin bundle is always available.
+      const currentBundle = Number(platformEnv.bundleVersion || '0');
+      const targetBundle = Number(bundleVersion || '0');
+      if (
+        Number.isFinite(currentBundle) &&
+        Number.isFinite(targetBundle) &&
+        targetBundle < currentBundle
+      ) {
+        defaultLogger.app.appUpdate.log(
+          `executeBundleSwitchTask: rollback target ${bundleVersion} not found locally, falling back to builtin`,
+        );
+        await BundleUpdate.resetToBuiltInBundle();
+        await BundleUpdate.switchBundle({
+          appVersion: '',
+          bundleVersion: '',
+          signature: '',
+        });
+        return;
+      }
       throw new OneKeyLocalError(RETRY_TRIGGER_BUNDLE_MISSING);
     }
 

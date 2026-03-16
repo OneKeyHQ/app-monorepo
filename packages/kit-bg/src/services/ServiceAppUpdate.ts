@@ -172,10 +172,12 @@ class ServiceAppUpdate extends ServiceBase {
     if (
       decision.decision === 'appShellUpdate' ||
       decision.decision === 'jsBundleUpgrade' ||
-      decision.decision === 'jsBundleRollback'
+      decision.decision === 'jsBundleRollback' ||
+      decision.decision === 'jsBundleRollbackToBuiltin'
     ) {
       const targetBundleVersion =
-        decision.decision === 'appShellUpdate'
+        decision.decision === 'appShellUpdate' ||
+        decision.decision === 'jsBundleRollbackToBuiltin'
           ? appInfo.jsBundleVersion || String(platformEnv.bundleVersion || '')
           : appInfo.jsBundleVersion;
       // For jsBundleUpgrade/jsBundleRollback, jsBundleVersion must be present
@@ -190,18 +192,23 @@ class ServiceAppUpdate extends ServiceBase {
     return null;
   }
 
-  private shouldUpdateFromReleaseInfo(releaseInfo: IResponseAppUpdateInfo) {
+  private shouldUpdateFromReleaseInfo(
+    releaseInfo: IResponseAppUpdateInfo,
+    hasActiveCustomBundle = false,
+  ) {
     const resolved = resolveUpdateDecision({
       currentAppVersion: platformEnv.version,
       currentBundleVersion: platformEnv.bundleVersion,
       remoteAppVersion: releaseInfo.version,
       remoteBundleVersion: releaseInfo.jsBundleVersion,
       allowRollback: true,
+      hasActiveCustomBundle,
     });
     return (
       resolved.decision === 'appShellUpdate' ||
       resolved.decision === 'jsBundleUpgrade' ||
-      resolved.decision === 'jsBundleRollback'
+      resolved.decision === 'jsBundleRollback' ||
+      resolved.decision === 'jsBundleRollbackToBuiltin'
     );
   }
 
@@ -942,12 +949,20 @@ class ServiceAppUpdate extends ServiceBase {
       releaseInfo ? 'info' : 'warn',
     );
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
+      let hasActiveCustomBundle = false;
+      try {
+        const jsBundlePath = await BundleUpdate.getJsBundlePath();
+        hasActiveCustomBundle = !!jsBundlePath;
+      } catch {
+        // ignore — default to false
+      }
       const decision = resolveUpdateDecision({
         currentAppVersion: platformEnv.version,
         currentBundleVersion: platformEnv.bundleVersion,
         remoteAppVersion: releaseInfo.version,
         remoteBundleVersion: releaseInfo.jsBundleVersion,
         allowRollback: true,
+        hasActiveCustomBundle,
       });
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
@@ -965,10 +980,42 @@ class ServiceAppUpdate extends ServiceBase {
         decision.isValid ? 'info' : 'warn',
       );
 
-      let shouldUpdate = this.shouldUpdateFromReleaseInfo(releaseInfo);
+      // Rollback to builtin: no download needed, just clear bundle data and
+      // relaunch.  The app will load from its embedded resources on restart.
+      if (decision.decision === 'jsBundleRollbackToBuiltin') {
+        defaultLogger.app.appUpdate.log(
+          'fetchAppUpdateInfo: jsBundleRollbackToBuiltin — resetting to builtin bundle',
+        );
+        try {
+          // Clear stored bundle data so next launch uses builtin resources.
+          await BundleUpdate.resetToBuiltInBundle();
+          // Trigger app relaunch (switchBundle with empty values will destroy
+          // the window, relaunch, and exit — getBundleIndexHtmlPath returns
+          // undefined for empty appVersion/bundleVersion).
+          await BundleUpdate.switchBundle({
+            appVersion: '',
+            bundleVersion: '',
+            signature: '',
+          });
+        } catch (error) {
+          defaultLogger.app.appUpdate.log(
+            `rollbackToBuiltin failed: ${
+              (error as Error)?.message || 'unknown'
+            }`,
+          );
+        }
+        const latest = await appUpdatePersistAtom.get();
+        return latest;
+      }
+
+      let shouldUpdate = this.shouldUpdateFromReleaseInfo(
+        releaseInfo,
+        hasActiveCustomBundle,
+      );
       if (
         (decision.decision === 'jsBundleUpgrade' ||
           decision.decision === 'jsBundleRollback' ||
+          decision.decision === 'jsBundleRollbackToBuiltin' ||
           decision.decision === 'appShellUpdate') &&
         releaseInfo.version &&
         (releaseInfo.jsBundleVersion || decision.decision === 'appShellUpdate')
@@ -1096,6 +1143,22 @@ class ServiceAppUpdate extends ServiceBase {
             : prev.previousAppVersion,
         };
       });
+
+      // Auto-trigger silent download for rollback decisions so the user does
+      // not need to manually initiate the update.  The download flow will
+      // eventually call readyToInstall → syncPendingInstallTask → relaunch.
+      if (
+        decision.decision === 'jsBundleRollback' &&
+        (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
+      ) {
+        defaultLogger.app.appUpdate.log(
+          'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+        );
+        // Use setTimeout to avoid blocking the current fetch flow
+        setTimeout(() => {
+          void this.downloadPackage();
+        }, 0);
+      }
     } else {
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {

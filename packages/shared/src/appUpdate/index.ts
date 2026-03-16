@@ -36,6 +36,8 @@ export interface IResolveUpdateDecisionParams {
   remoteAppVersion?: string;
   remoteBundleVersion?: string;
   allowRollback?: boolean;
+  /** Whether the app is currently running a downloaded JS bundle (not the builtin one). */
+  hasActiveCustomBundle?: boolean;
 }
 
 function parseBundleVersion(version?: string): number | undefined {
@@ -58,6 +60,7 @@ export function resolveUpdateDecision({
   remoteAppVersion,
   remoteBundleVersion,
   allowRollback = true,
+  hasActiveCustomBundle = false,
 }: IResolveUpdateDecisionParams): IResolvedUpdateDecision {
   const currentValid = semver.valid(currentAppVersion || '');
   if (!currentValid) {
@@ -109,6 +112,15 @@ export function resolveUpdateDecision({
     };
   }
   if (remoteBundle === undefined) {
+    // Server did not provide a bundle version.  If we are currently running
+    // a downloaded custom bundle, this means "go back to the builtin bundle".
+    if (hasActiveCustomBundle && allowRollback) {
+      return {
+        decision: 'jsBundleRollbackToBuiltin',
+        isValid: true,
+        reason: 'remote_bundle_not_available_rollback_to_builtin',
+      };
+    }
     return {
       decision: 'none',
       isValid: true,
@@ -154,7 +166,8 @@ export const getUpdateFileType: (
   });
   if (
     decision.decision === 'jsBundleUpgrade' ||
-    decision.decision === 'jsBundleRollback'
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin'
   ) {
     return EUpdateFileType.jsBundle;
   }
@@ -172,7 +185,8 @@ export const gtVersion = (appVersion?: string, bundleVersion?: string) => {
   return (
     decision.decision === 'appShellUpdate' ||
     decision.decision === 'jsBundleUpgrade' ||
-    decision.decision === 'jsBundleRollback'
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin'
   );
 };
 
@@ -190,14 +204,17 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   });
   const fileType =
     decision.decision === 'jsBundleUpgrade' ||
-    decision.decision === 'jsBundleRollback'
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin'
       ? EUpdateFileType.jsBundle
       : EUpdateFileType.appShell;
   const shouldUpdate =
     status !== EAppUpdateStatus.done &&
     (decision.decision === 'appShellUpdate' ||
       decision.decision === 'jsBundleUpgrade');
-  const isRollback = decision.decision === 'jsBundleRollback';
+  const isRollback =
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin';
   return {
     shouldUpdate,
     fileType,

@@ -22,6 +22,7 @@ export type IUpdateDecision =
   | 'appShellUpdate'
   | 'jsBundleUpgrade'
   | 'jsBundleRollback'
+  | 'jsBundleRollbackToBuiltin'
   | 'staleRemote'
   | 'invalidLocal'
   | 'invalidRemote';
