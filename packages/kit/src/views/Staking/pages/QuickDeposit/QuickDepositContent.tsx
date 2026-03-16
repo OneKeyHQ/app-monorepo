@@ -209,7 +209,7 @@ function ProtocolSwitcher({
 
   const renderContent = useCallback(
     () => (
-      <YStack p="$1">
+      <YStack pb="$5" px="$3" $gtMd={{ p: '$1' }}>
         <XStack px="$2" py="$1.5" gap="$2">
           <SizableText
             size="$bodySmMedium"
@@ -376,7 +376,7 @@ function ProtocolInfoCard({
       <YStack flex={1} gap="$0.5">
         <SizableText size="$bodyLgMedium">{providerName}</SizableText>
         {subtitle ? (
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1} $gtMd={{ size: '$bodyMd' }}>
             {subtitle}
           </SizableText>
         ) : null}
