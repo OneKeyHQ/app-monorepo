@@ -237,6 +237,7 @@ function BaseSortableListView<T>(
     // page for lists that are simply non-scrollable (e.g. overflow:hidden pinned tabs).
     const container = findScrollableAncestor(listContainerRef.current);
     if (!container) return;
+    autoScrollRef.current.mouseY = -1; // Reset stale position from previous session
     autoScrollRef.current.scrollContainer = container;
 
     const onMouseMove = (e: MouseEvent) => {
