@@ -47,7 +47,6 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsDepositTokensAtom,
-  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
@@ -101,6 +100,9 @@ interface IDepositWithdrawContentProps {
   onClose?: () => void;
   isMobile?: boolean;
 }
+
+// Perps is USD-denominated; always show dollar sign regardless of system fiat setting
+const PERPS_CURRENCY_SYMBOL = '$';
 
 function usePerpsAccountResult(selectedAccount: IPerpsActiveAccountAtom) {
   const { serviceAccount } = backgroundApiProxy;
@@ -348,7 +350,6 @@ function DepositWithdrawContent({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
-  const [settingsPersistAtom] = useSettingsPersistAtom();
   const unrealizedPnl = accountSummary?.totalUnrealizedPnl ?? '0';
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(unrealizedPnl || '0');
@@ -501,6 +502,7 @@ function DepositWithdrawContent({
                         .join(',') || '',
                     accountAddress: accountAddressInfo.addressDetail.address,
                     accountId: accountAddressInfo.id ?? '',
+                    currency: 'usd',
                   }),
                   backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
                     networkId,
@@ -1361,7 +1363,7 @@ function DepositWithdrawContent({
         }
         renderContent={
           <SelectTokenPopoverContent
-            symbol={settingsPersistAtom.currencyInfo?.symbol}
+            symbol={PERPS_CURRENCY_SYMBOL}
             depositTokensWithPrice={depositTokensWithPrice}
             handleSwitchToTradePress={handleSwitchToTradePress}
             handleMaxPress={handleMaxPress}
@@ -1380,7 +1382,6 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.symbol,
     currentPerpsDepositSelectedToken?.logoURI,
     currentPerpsDepositSelectedToken?.networkLogoURI,
-    settingsPersistAtom.currencyInfo?.symbol,
     depositTokensWithPrice,
     checkAccountSupport,
     allBalancesZero,
