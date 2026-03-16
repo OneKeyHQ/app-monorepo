@@ -108,6 +108,11 @@ module.exports = {
         '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/dri',
         '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/dri',
       ].join(':'),
+      // EGL vendor ICD discovery for GLVND (gpu-2404 content snap).
+      // desktop-common.sh only sets this if /var/lib/snapd/lib/glvnd exists,
+      // which is empty on most systems. Without this, libEGL cannot find
+      // libEGL_mesa.so.0 and EGL initialization fails.
+      '__EGL_VENDOR_LIBRARY_DIRS': '$SNAP/gpu-2404/usr/share/glvnd/egl_vendor.d',
       // GIO modules (libgiolibproxy, etc.) from gnome-platform content snap.
       // List both arch triplets since $SNAP_LAUNCHER_ARCH_TRIPLET is not
       // available without the gnome extension; GLib checks each path.
