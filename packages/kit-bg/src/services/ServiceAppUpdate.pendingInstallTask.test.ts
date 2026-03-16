@@ -36,6 +36,13 @@ jest.mock('../states/jotai/atoms', () => ({
   appUpdatePersistAtom,
 }));
 
+jest.mock('../states/jotai/atoms/devSettings', () => ({
+  devSettingsPersistAtom: {
+    get: jest.fn(async () => ({ enabled: false, settings: {} })),
+    set: jest.fn(),
+  },
+}));
+
 const appStorageMock = {
   syncStorage: {
     getObject: jest.fn(async () => pendingTaskValue),

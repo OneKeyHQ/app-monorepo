@@ -31,6 +31,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 import { PLACEHOLDER_SIGNATURE } from './servicePendingInstallTask';
@@ -908,6 +909,20 @@ class ServiceAppUpdate extends ServiceBase {
       revision: null,
       action: null,
     });
+
+    // Dev mode: skip all server bundle update checks when the toggle is on.
+    // This prevents auto-rollback from interfering with QA/dev bundle testing.
+    try {
+      const devSettings = await devSettingsPersistAtom.get();
+      if (devSettings.settings?.ignoreServerBundleUpdate) {
+        defaultLogger.app.appUpdate.log(
+          'fetchAppUpdateInfo: skipped — ignoreServerBundleUpdate is enabled',
+        );
+        return appUpdatePersistAtom.get();
+      }
+    } catch {
+      // ignore — proceed with normal flow
+    }
 
     await this.cleanupUpdateControlState();
     // NOTE: refreshUpdateStatus() was previously called here, but it resets
