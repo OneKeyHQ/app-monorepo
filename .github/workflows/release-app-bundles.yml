@@ -2,12 +2,6 @@ name: release-app-bundles
 
 on:
   workflow_dispatch:
-    inputs:
-      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-        description: "Allow skipping GPG verification for bundle updates (default: false)"
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
