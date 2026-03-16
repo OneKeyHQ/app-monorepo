@@ -889,11 +889,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         ...buildSoftwareUpdateParams(fileType, appUpdateInfo),
         status: 'success',
       });
+      const whatsNewAlreadyShown = isWhatsNewShown();
+      markWhatsNewShown();
       if (
         appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless &&
-        !isWhatsNewShown()
+        !whatsNewAlreadyShown
       ) {
-        markWhatsNewShown();
         onViewReleaseInfo();
       }
       setTimeout(async () => {
