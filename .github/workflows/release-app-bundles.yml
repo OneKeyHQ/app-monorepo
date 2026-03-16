@@ -13,7 +13,9 @@ jobs:
     outputs:
       build_number: ${{ steps.params.outputs.build_number }}
       build_bundle_version: ${{ steps.params.outputs.build_bundle_version }}
-      notify_slack: ${{ steps.params.outputs.notify_slack }}
+      build_source: ${{ steps.params.outputs.build_source }}
+      branch: ${{ steps.params.outputs.branch }}
+      commit: ${{ steps.params.outputs.commit }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -23,14 +25,14 @@ jobs:
         run: |
           # Read BUILD_NUMBER from .env.version
           BUILD_NUMBER=""
-          NOTIFY_SLACK="false"
+          BUILD_SOURCE="bundle-dev"
           if [ -f .env.version ]; then
             BUILD_NUMBER=$(grep -E '^BUILD_NUMBER=' .env.version | cut -d '=' -f 2 || true)
           fi
 
           if [ -n "$BUILD_NUMBER" ]; then
             echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
-            NOTIFY_SLACK="true"
+            BUILD_SOURCE="bundle-release"
           else
             # Fallback: daily-build-dev format 1000MMDD{run_number % 100}
             DATE=$(date -u "+%m%d")
@@ -47,12 +49,14 @@ jobs:
 
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
-          echo "notify_slack=$NOTIFY_SLACK" >> $GITHUB_OUTPUT
+          echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "commit=${{ github.sha }}" >> $GITHUB_OUTPUT
 
           echo "Summary:"
           echo "  BUILD_NUMBER=$BUILD_NUMBER"
           echo "  BUILD_BUNDLE_VERSION=$BUILD_BUNDLE_VERSION"
-          echo "  NOTIFY_SLACK=$NOTIFY_SLACK"
+          echo "  BUILD_SOURCE=$BUILD_SOURCE"
 
   desktop-bundle:
     needs: prepare-params
@@ -60,8 +64,9 @@ jobs:
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
       build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
-      notify_slack: ${{ needs.prepare-params.outputs.notify_slack == 'true' }}
-      build_source: 'bundle-release'
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit
 
   native-bundle:
@@ -70,6 +75,7 @@ jobs:
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
       build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
-      notify_slack: ${{ needs.prepare-params.outputs.notify_slack == 'true' }}
-      build_source: 'bundle-release'
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit
