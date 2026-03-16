@@ -1,5 +1,6 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+
 import type { EPerpPageEnterSource } from '../type';
 
 export class CommonScene extends BaseScene {
