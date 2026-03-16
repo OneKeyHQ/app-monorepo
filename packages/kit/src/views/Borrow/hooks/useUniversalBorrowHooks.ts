@@ -45,6 +45,11 @@ type ITxConfirmResult =
       status: 'cancel';
     };
 
+// React Navigation modal transitions take about 300ms on mobile. Waiting for
+// that animation to settle avoids racing the second repay confirm with the
+// closing setup modal.
+const SIGNATURE_MODAL_SETTLE_WAIT_MS = 300;
+
 const waitForTxFinalStatus = async ({
   accountId,
   networkId,
@@ -180,6 +185,61 @@ const buildBorrowUnsignedTxs = async ({
   }
 
   return unsignedTxs;
+};
+
+const buildRepayWithCollateralTxWithRetry = async ({
+  accountId,
+  networkId,
+  provider,
+  marketAddress,
+  reserveAddress,
+  collateralReserveAddress,
+  amount,
+  repayAll,
+  slippageBps,
+  routeKey,
+  needsSetupLut,
+}: {
+  accountId: string;
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+  collateralReserveAddress: string;
+  amount: string;
+  repayAll?: boolean;
+  slippageBps?: number;
+  routeKey?: string;
+  needsSetupLut?: boolean;
+}) => {
+  const maxAttempts = needsSetupLut ? 5 : 1;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      return await backgroundApiProxy.serviceStaking.borrowBuildRepayWithCollateralTransaction(
+        {
+          networkId,
+          accountId,
+          provider,
+          marketAddress,
+          reserveAddress,
+          collateralReserveAddress,
+          amount,
+          repayAll,
+          slippageBps,
+          routeKey,
+        },
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts - 1) {
+        await timerUtils.wait(1500);
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 };
 
 type IBorrowBuildTxParams = {
@@ -573,32 +633,31 @@ export function useUniversalBorrowRepayWithCollateral({
               txId: setupTxIds[setupTxIds.length - 1],
               status: EDecodedTxStatus.Confirmed,
             });
-
-            // Let the setup confirm modal finish closing before opening repay confirm.
-            await timerUtils.wait(150);
           }
         }
 
-        const resp =
-          await backgroundApiProxy.serviceStaking.borrowBuildRepayWithCollateralTransaction(
-            {
-              networkId,
-              accountId,
-              provider,
-              marketAddress,
-              reserveAddress,
-              collateralReserveAddress,
-              amount,
-              repayAll,
-              slippageBps,
-              routeKey,
-            },
-          );
+        const resp = await buildRepayWithCollateralTxWithRetry({
+          networkId,
+          accountId,
+          provider,
+          marketAddress,
+          reserveAddress,
+          collateralReserveAddress,
+          amount,
+          repayAll,
+          slippageBps,
+          routeKey,
+          needsSetupLut,
+        });
 
         const stakingInfoWithOrderId = attachBorrowOrderId({
           stakingInfo,
           orderId: resp.orderId,
         });
+
+        if (needsSetupLut) {
+          await timerUtils.wait(SIGNATURE_MODAL_SETTLE_WAIT_MS);
+        }
 
         const repayConfirmResult = await waitForTxConfirmResult({
           encodedTx: parseBorrowEncodedTx(resp.tx),
@@ -616,6 +675,14 @@ export function useUniversalBorrowRepayWithCollateral({
           onSuccess,
         });
       } catch (error) {
+        Toast.error({
+          title:
+            error instanceof Error && error.message
+              ? error.message
+              : intl.formatMessage({
+                  id: ETranslations.global_failed,
+                }),
+        });
         onFail?.(error as Error);
         throw error;
       }
