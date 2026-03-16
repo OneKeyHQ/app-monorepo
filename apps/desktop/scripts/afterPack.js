@@ -60,6 +60,7 @@ exports.default = async function fileOperation(context) {
     const knownPlatforms = ['android', 'darwin', 'linux', 'win32'];
     let removedCount = 0;
 
+    // cspell:ignore prebuilds
     const findPrebuildsRecursive = (dir) => {
       let entries;
       try {
@@ -68,53 +69,66 @@ exports.default = async function fileOperation(context) {
         return;
       }
       for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const fullPath = path.join(dir, entry.name);
-        if (entry.name === 'prebuilds') {
-          let prebuildEntries;
-          try {
-            prebuildEntries = fs.readdirSync(fullPath, {
-              withFileTypes: true,
-            });
-          } catch {
-            continue;
+        if (entry.isDirectory()) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.name === 'prebuilds') {
+            processPrebuildsDir(fullPath);
+          } else if (entry.name !== '.cache' && entry.name !== '.git') {
+            findPrebuildsRecursive(fullPath);
           }
-          const pkgRelative = path.relative(unpackedDir, fullPath);
-          console.log(`[prebuilds] Scanning: ${pkgRelative}`);
-          for (const prebuild of prebuildEntries) {
-            if (!prebuild.isDirectory()) continue;
-            const prebuildName = prebuild.name;
-            // Only process dirs with known OS prefix (e.g., "linux-x64")
-            // Skip non-standard names like "node", "apple" to be safe
-            const isKnownPlatform = knownPlatforms.some(
-              (p) => prebuildName === p || prebuildName.startsWith(`${p}-`),
-            );
-            if (!isKnownPlatform) {
-              console.log(`[prebuilds]   Skipped (non-standard): ${prebuildName}`);
-              continue;
-            }
-            if (
-              prebuildName === platformPrefix ||
-              prebuildName.startsWith(`${platformPrefix}-`)
-            ) {
-              console.log(`[prebuilds]   Kept: ${prebuildName}`);
-              continue;
-            }
-            try {
-              fs.rmSync(path.join(fullPath, prebuildName), { recursive: true });
-              console.log(`[prebuilds]   Removed: ${prebuildName}`);
-              removedCount += 1;
-            } catch (err) {
-              console.warn(`[prebuilds]   Failed to remove ${prebuildName}: ${err.message}`);
-            }
-          }
-        } else if (entry.name !== '.cache' && entry.name !== '.git') {
-          findPrebuildsRecursive(fullPath);
         }
       }
     };
 
-    console.log(`[prebuilds] Cleaning cross-OS prebuilds (keeping: ${platformPrefix}-*)`);
+    const processPrebuildsDir = (fullPath) => {
+      let prebuildEntries;
+      try {
+        prebuildEntries = fs.readdirSync(fullPath, {
+          withFileTypes: true,
+        });
+      } catch {
+        return;
+      }
+      const pkgRelative = path.relative(unpackedDir, fullPath);
+      console.log(`[prebuilds] Scanning: ${pkgRelative}`);
+      for (const prebuild of prebuildEntries) {
+        if (prebuild.isDirectory()) {
+          processPrebuildEntry(fullPath, prebuild.name);
+        }
+      }
+    };
+
+    const processPrebuildEntry = (parentDir, prebuildName) => {
+      // Only process dirs with known OS prefix (e.g., "linux-x64")
+      // Skip non-standard names like "node", "apple" to be safe
+      const isKnownPlatform = knownPlatforms.some(
+        (p) => prebuildName === p || prebuildName.startsWith(`${p}-`),
+      );
+      if (!isKnownPlatform) {
+        console.log(`[prebuilds]   Skipped (non-standard): ${prebuildName}`);
+        return;
+      }
+      if (
+        prebuildName === platformPrefix ||
+        prebuildName.startsWith(`${platformPrefix}-`)
+      ) {
+        console.log(`[prebuilds]   Kept: ${prebuildName}`);
+        return;
+      }
+      try {
+        fs.rmSync(path.join(parentDir, prebuildName), { recursive: true });
+        console.log(`[prebuilds]   Removed: ${prebuildName}`);
+        removedCount += 1;
+      } catch (err) {
+        console.warn(
+          `[prebuilds]   Failed to remove ${prebuildName}: ${err.message}`,
+        );
+      }
+    };
+
+    console.log(
+      `[prebuilds] Cleaning cross-OS prebuilds (keeping: ${platformPrefix}-*)`,
+    );
     findPrebuildsRecursive(unpackedDir);
     console.log(`[prebuilds] Done. Removed ${removedCount} directories.`);
   }
