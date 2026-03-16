@@ -118,7 +118,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     [address],
   );
 
-  const shouldShowVolume = showVolume && volume !== undefined;
+  const shouldShowVolume = showVolume && !!volume;
   const shouldShowAddress = !showVolume && Boolean(address);
   const shouldShowCopyButton = showCopyButton && Boolean(address);
   const shouldShowSecondRow = shouldShowVolume || shouldShowAddress;

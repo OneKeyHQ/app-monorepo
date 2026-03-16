@@ -46,12 +46,14 @@ export function usePerpsTradingViewMessageHandler({
   webRef,
   onChartLinesReady,
   onOrderCancel,
+  onTouchScroll,
 }: {
   symbol: string;
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
+  onTouchScroll?: (deltaY: number) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
@@ -326,6 +328,14 @@ export function usePerpsTradingViewMessageHandler({
           // User clicked cancel button on order line in TradingView chart
           onOrderCancel?.(messageData.data as ITVOrderCancelPayload);
           break;
+        case 'tradingview_touchScroll': {
+          const touchData = messageData.data as { deltaY?: number } | undefined;
+          const deltaY = Number(touchData?.deltaY ?? 0);
+          if (Number.isFinite(deltaY) && deltaY !== 0) {
+            onTouchScroll?.(deltaY);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -335,6 +345,7 @@ export function usePerpsTradingViewMessageHandler({
       handleGetHyperliquidPriceScale,
       onChartLinesReady,
       onOrderCancel,
+      onTouchScroll,
     ],
   );
 

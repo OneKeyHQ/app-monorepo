@@ -158,6 +158,7 @@ function BasicDialogHeader({
             color: '$iconSubdued',
           }}
           size="small"
+          hotKey
           onPress={onClose}
         />
       ) : null}

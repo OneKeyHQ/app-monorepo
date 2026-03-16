@@ -79,7 +79,8 @@ function DeFiListBlock({
     updateDeFiListState,
   } = useDeFiListActions().current;
 
-  const { updateAccountDeFiOverview } = useAccountOverviewActions().current;
+  const { updateAccountDeFiOverview, updateOverviewDeFiDataState } =
+    useAccountOverviewActions().current;
 
   const { isFocused, isHeaderRefreshing } = useTabIsRefreshingFocused();
 
@@ -188,6 +189,9 @@ function DeFiListBlock({
         updateAccountDeFiOverview({
           overview: emptyData.overview,
           currency: settings.currencyInfo.id,
+          accountId: account.id,
+          networkId: network.id,
+          isReady: true,
         });
         updateDeFiListProtocols({
           protocols: emptyData.protocols,
@@ -225,12 +229,15 @@ function DeFiListBlock({
           });
         updateAccountDeFiOverview({
           currency: settings.currencyInfo.id,
+          accountId: account.id,
+          networkId: network.id,
           overview: {
             totalValue: resp.overview.totalValue ?? 0,
             totalDebt: resp.overview.totalDebt ?? 0,
             totalReward: resp.overview.totalReward ?? 0,
             netWorth: resp.overview.netWorth ?? 0,
           },
+          isReady: true,
         });
         updateDeFiListProtocols({
           protocols: resp.protocols,
@@ -289,8 +296,11 @@ function DeFiListBlock({
   const updateAllNetworkData = useThrottledCallback(() => {
     updateAccountDeFiOverview({
       currency: settings.currencyInfo.id,
+      accountId: account?.id,
+      networkId: network?.id,
       overview: deFiDataRef.current.overview,
       merge: true,
+      isReady: true,
     });
     updateDeFiListProtocols({
       protocols: deFiDataRef.current.protocols,
@@ -384,6 +394,8 @@ function DeFiListBlock({
   const handleClearAllNetworkData = useCallback(() => {
     updateAccountDeFiOverview({
       currency: settings.currencyInfo.id,
+      accountId: account?.id,
+      networkId: network?.id,
       overview: {
         totalValue: 0,
         totalDebt: 0,
@@ -401,6 +413,8 @@ function DeFiListBlock({
       protocolMap: {},
     });
   }, [
+    account?.id,
+    network?.id,
     settings.currencyInfo.id,
     updateAccountDeFiOverview,
     updateDeFiListProtocols,
@@ -428,8 +442,13 @@ function DeFiListBlock({
         accountId: accountId ?? '',
         networkId: networkId ?? '',
       });
+      updateOverviewDeFiDataState({
+        accountId: account?.id,
+        networkId: network?.id,
+        isReady: undefined,
+      });
     },
-    [refreshCacheOnly],
+    [account?.id, network?.id, refreshCacheOnly, updateOverviewDeFiDataState],
   );
 
   const handleAllNetworkCacheRequests = useCallback(
@@ -530,10 +549,18 @@ function DeFiListBlock({
       }
       updateAccountDeFiOverview({
         currency: settings.currencyInfo.id,
+        accountId: account?.id,
+        networkId: network?.id,
         overview: tempOverview,
+        isReady: true,
       });
     },
-    [settings.currencyInfo.id, updateAccountDeFiOverview],
+    [
+      account?.id,
+      network?.id,
+      settings.currencyInfo.id,
+      updateAccountDeFiOverview,
+    ],
   );
 
   const handleAllNetworkRequestsFinished = useCallback(
@@ -560,6 +587,25 @@ function DeFiListBlock({
     [refreshCacheOnly],
   );
 
+  const handleAllNetworkCacheChecked = useCallback(
+    ({
+      accountId,
+      networkId,
+      hasCache,
+    }: {
+      accountId?: string;
+      networkId?: string;
+      hasCache: boolean;
+    }) => {
+      updateOverviewDeFiDataState({
+        accountId,
+        networkId,
+        isReady: hasCache,
+      });
+    },
+    [updateOverviewDeFiDataState],
+  );
+
   const {
     run: runAllNetworkRequests,
     result: allNetworksResult,
@@ -577,6 +623,7 @@ function DeFiListBlock({
     isAllNetworks: network?.isAllNetworks,
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
+    onCacheChecked: handleAllNetworkCacheChecked,
     allNetworkCacheRequests: handleAllNetworkCacheRequests,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
@@ -597,6 +644,8 @@ function DeFiListBlock({
       });
       updateAccountDeFiOverview({
         currency: settings.currencyInfo.id,
+        accountId: account?.id,
+        networkId: network?.id,
         overview: {
           totalValue: 0,
           totalDebt: 0,
@@ -606,6 +655,7 @@ function DeFiListBlock({
           protocolCount: 0,
           positionCount: 0,
         },
+        isReady: true,
       });
       updateDeFiListProtocols({
         protocols: [],
@@ -615,6 +665,8 @@ function DeFiListBlock({
       });
     }
   }, [
+    account?.id,
+    network?.id,
     isEmptyAccount,
     network?.isAllNetworks,
     updateDeFiListState,
@@ -641,6 +693,11 @@ function DeFiListBlock({
       accountId: string;
       networkId: string;
     }) => {
+      updateOverviewDeFiDataState({
+        accountId,
+        networkId,
+        isReady: undefined,
+      });
       void backgroundApiProxy.serviceDeFi.updateCurrentAccount({
         networkId,
         accountId,
@@ -691,26 +748,35 @@ function DeFiListBlock({
           }
           updateAccountDeFiOverview({
             currency: settings.currencyInfo.id,
+            accountId,
+            networkId,
             overview: convertedOverview,
+            isReady: true,
           });
         } else {
           updateAccountDeFiOverview({
+            accountId,
+            networkId,
             overview: {
               totalValue: 0,
               totalDebt: 0,
               totalReward: 0,
               netWorth: 0,
             },
+            isReady: false,
           });
         }
       } else {
         updateAccountDeFiOverview({
+          accountId,
+          networkId,
           overview: {
             totalValue: 0,
             totalDebt: 0,
             totalReward: 0,
             netWorth: 0,
           },
+          isReady: false,
         });
       }
     };
@@ -725,6 +791,7 @@ function DeFiListBlock({
     network?.id,
     account?.address,
     updateAccountDeFiOverview,
+    updateOverviewDeFiDataState,
     settings.currencyInfo.id,
     currencyMap,
   ]);
@@ -802,7 +869,10 @@ function DeFiListBlock({
       }
       updateAccountDeFiOverview({
         currency: settings.currencyInfo.id,
+        accountId: account?.id,
+        networkId: network?.id,
         overview: tempOverview,
+        isReady: true,
       });
       updateDeFiListProtocols({
         protocols: tempProtocols,
@@ -816,6 +886,8 @@ function DeFiListBlock({
       });
     }
   }, [
+    account?.id,
+    network?.id,
     allNetworksResult,
     updateAccountDeFiOverview,
     updateDeFiListProtocols,

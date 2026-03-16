@@ -670,7 +670,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    console.log('eth_signTypedData_v1', messages, request);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('eth_signTypedData_v1', messages, request);
+    }
     return this.eth_signTypedData(request, ...messages);
   }
 
@@ -683,7 +685,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    console.log('eth_signTypedData_v3', messages, request);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('eth_signTypedData_v3', messages, request);
+    }
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {
@@ -716,12 +720,14 @@ class ProviderApiEthereum extends ProviderApiBase {
           hyperLiquidApproveAgentTypedData?.primaryType ===
             'HyperliquidTransaction:ApproveAgent';
 
-        console.log(
-          'hyperliquid——eth_signTypedData_v4',
-          messages?.[0],
-          hyperLiquidApproveAgentTypedData,
-          isHyperLiquidApproveAgentMessage,
-        );
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(
+            'hyperliquid——eth_signTypedData_v4',
+            messages?.[0],
+            hyperLiquidApproveAgentTypedData,
+            isHyperLiquidApproveAgentMessage,
+          );
+        }
       }
     } catch (_e) {
       // eslint-disable-next-line no-empty
@@ -731,7 +737,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
-    console.log('eth_signTypedData_v4', messages, request);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('eth_signTypedData_v4', messages, request);
+    }
     const result = await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
       unsignedMessage: {

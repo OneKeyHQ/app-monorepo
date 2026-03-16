@@ -78,34 +78,40 @@ export type ITokenSelectorListItem = {
   assetId?: number;
 };
 
-function TabItem({
-  name,
-  isFocused,
-  onPress,
-}: {
-  name: string;
-  isFocused: boolean;
-  onPress: (name: string) => void;
-}) {
-  return (
-    <XStack
-      py="$3"
-      ml="$4"
-      mr="$2"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
-      onPress={() => onPress(name)}
-      cursor="default"
-    >
-      <SizableText
-        size="$headingXs"
-        color={isFocused ? '$text' : '$textSubdued'}
+const TabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        py="$3"
+        ml="$4"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={handlePress}
+        cursor="default"
       >
-        {name}
-      </SizableText>
-    </XStack>
-  );
-}
+        <SizableText
+          size="$headingXs"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+TabItem.displayName = 'TabItem';
 
 function TokenListHeader() {
   const intl = useIntl();
@@ -437,7 +443,7 @@ function BasePerpTokenSelectorContent({
     ({ item: mockedToken }: { item: ITokenSelectorListItem }) => (
       <PerpTokenSelectorRow
         mockedToken={mockedToken}
-        onPress={(name) => handleSelectToken(name)}
+        onPress={handleSelectToken}
         skipMarkRequired
       />
     ),
@@ -493,21 +499,24 @@ function BasePerpTokenSelectorContent({
           px="$0"
         >
           <TabItem
+            id="favorites"
             name={tabNames.favorites}
             isFocused={activeTab === 'favorites'}
-            onPress={() => setActiveTab('favorites')}
+            onPress={setActiveTab}
           />
           <TabItem
+            id="all"
             name={tabNames.all}
             isFocused={activeTab === 'all'}
-            onPress={() => setActiveTab('all')}
+            onPress={setActiveTab}
           />
           {visibleDynamicTabs.map((tab: IPerpDynamicTab) => (
             <TabItem
               key={tab.tabId}
+              id={tab.tabId}
               name={tab.name}
               isFocused={activeTab === tab.tabId}
-              onPress={() => setActiveTab(tab.tabId)}
+              onPress={setActiveTab}
             />
           ))}
         </XStack>
@@ -522,6 +531,7 @@ function BasePerpTokenSelectorContent({
                 ref={listRef}
                 keyExtractor={keyExtractor}
                 estimatedItemSize={40}
+                windowSize={3}
                 initialNumToRender={10}
                 data={activeTabData}
                 renderItem={renderItem}

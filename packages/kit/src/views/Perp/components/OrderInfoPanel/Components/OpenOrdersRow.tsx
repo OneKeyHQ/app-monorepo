@@ -301,6 +301,20 @@ const OpenOrdersRow = memo(
           >
             <SizableText size="$bodySm">
               {intl.formatMessage({
+                id: ETranslations.perps_reduce_only,
+              })}
+            </SizableText>
+            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+              {reduceOnly ? 'Yes' : 'No'}
+            </SizableText>
+          </XStack>
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
                 id: ETranslations.perp_open_orders_trigger_condition,
               })}
             </SizableText>
@@ -471,10 +485,24 @@ const OpenOrdersRow = memo(
                   : orderBaseInfo.executePriceLimitFormatted}
               </SizableText>
             </XStack>
-            {/* Trigger Condition */}
+            {/* Reduce Only */}
             <XStack
               {...getColumnStyle(columnConfigs[7])}
               justifyContent={calcCellAlign(columnConfigs[7].align)}
+              alignItems="center"
+            >
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+              >
+                {reduceOnly ? 'Yes' : 'No'}
+              </SizableText>
+            </XStack>
+            {/* Trigger Condition */}
+            <XStack
+              {...getColumnStyle(columnConfigs[8])}
+              justifyContent={calcCellAlign(columnConfigs[8].align)}
               alignItems="center"
             >
               <SizableText
@@ -487,8 +515,8 @@ const OpenOrdersRow = memo(
             </XStack>
             {/* TPSL */}
             <XStack
-              {...getColumnStyle(columnConfigs[8])}
-              justifyContent={calcCellAlign(columnConfigs[8].align)}
+              {...getColumnStyle(columnConfigs[9])}
+              justifyContent={calcCellAlign(columnConfigs[9].align)}
               alignItems="center"
             >
               <SizableText
@@ -505,8 +533,8 @@ const OpenOrdersRow = memo(
         {/* Cancel All */}
         {shouldRenderRight ? (
           <XStack
-            {...getColumnStyle(columnConfigs[9])}
-            justifyContent={calcCellAlign(columnConfigs[9].align)}
+            {...getColumnStyle(columnConfigs[10])}
+            justifyContent={calcCellAlign(columnConfigs[10].align)}
             alignItems="center"
             cursor="default"
           >

@@ -18,6 +18,7 @@ import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends
 import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -191,7 +192,7 @@ function InvitedByFriendActions({
 
       const address = accounts?.[0];
       if (!address) {
-        throw new Error('No account returned from extension');
+        throw new OneKeyLocalError('No account returned from extension');
       }
 
       const networkId = getNetworkIdsMap().eth;
@@ -243,21 +244,6 @@ function InvitedByFriendActions({
   }, [referralCode, intl, navigation]);
 
   const handleJoin = useCallback(() => {
-    if (activeAccount?.wallet) {
-      defaultLogger.referral.page.acceptReferralInvitation({
-        referralCode,
-        acceptMethod: 'local_app',
-      });
-      bindWalletInviteCode({
-        wallet: activeAccount.wallet,
-        defaultReferralCode: referralCode,
-        onSuccess: () => {
-          navigation.pop();
-        },
-      });
-      return;
-    }
-
     if (platformEnv.isWeb) {
       // Extension installed → bind directly
       if (getOneKeyExtensionProvider()) {
@@ -278,6 +264,7 @@ function InvitedByFriendActions({
       acceptMethod: 'local_app',
     });
     bindWalletInviteCode({
+      wallet: activeAccount?.wallet,
       defaultReferralCode: referralCode,
       onSuccess: () => {
         navigation.pop();

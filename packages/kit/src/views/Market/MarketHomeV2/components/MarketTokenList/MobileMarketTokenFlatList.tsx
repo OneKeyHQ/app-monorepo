@@ -119,17 +119,6 @@ function MobileMarketTokenFlatListBase({
     );
   }, [showSkeleton, intl]);
 
-  // Note: getItemLayout is disabled because dynamic item heights are more accurate
-  // If re-enabling, measure actual rendered item height and uncomment below:
-  const getItemLayout = useCallback(
-    (_: ArrayLike<IMarketToken> | null | undefined, index: number) => ({
-      length: 73,
-      offset: 73 * index,
-      index,
-    }),
-    [],
-  );
-
   const tabBarHeight = useScrollContentTabBarOffset();
   return (
     <Tabs.FlatList<IMarketToken>
@@ -138,7 +127,6 @@ function MobileMarketTokenFlatListBase({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       onEndReached={handleEndReached}
-      getItemLayout={getItemLayout}
       onEndReachedThreshold={0.2}
       // Performance optimizations to improve page switching speed
       initialNumToRender={10}

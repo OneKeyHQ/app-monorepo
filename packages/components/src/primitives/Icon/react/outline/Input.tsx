@@ -7,12 +7,7 @@ const SvgInput = (props: SvgProps) => (
     accessibilityRole="image"
     {...props}
   >
-    <Path d="M17 16h-2V8h2z" />
-    <Path
-      fillRule="evenodd"
-      d="M8 10.75a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1m4-.75a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m0 .75a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1"
-      clipRule="evenodd"
-    />
+    <Path d="M17 16h-2V8h2zm-9-5.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5m4 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5" />
     <Path
       fillRule="evenodd"
       d="M21 21H3V3h18zM5 19h14V5H5z"

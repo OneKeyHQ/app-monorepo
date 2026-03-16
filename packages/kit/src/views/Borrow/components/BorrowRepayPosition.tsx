@@ -93,6 +93,7 @@ type IBorrowRepayPositionProps = Omit<
 type IRepayMode = 'wallet' | 'collateral';
 
 const ARROW_OVERLAY_OFFSET = -13;
+const ENABLE_COLLATERAL_REPAY_ENTRY = false;
 
 function CollateralSelectContent({
   assets,
@@ -1097,11 +1098,12 @@ export function BorrowRepayPosition({
     },
   ];
 
-  // Show collateral repay when debt exists AND collateral data is either
-  // still loading (optimistic) or confirmed available. Falls back to
-  // wallet-only if the second API returns empty or fails.
+  // Hide the entry for this release while keeping the collateral repay flow
+  // implemented behind the flag.
   const isCollateralRepayEnabled =
-    !!debtBalance && (!!collateralLoading || collateralAssets.length > 0);
+    ENABLE_COLLATERAL_REPAY_ENTRY &&
+    !!debtBalance &&
+    (!!collateralLoading || collateralAssets.length > 0);
 
   if (!isCollateralRepayEnabled) {
     return (

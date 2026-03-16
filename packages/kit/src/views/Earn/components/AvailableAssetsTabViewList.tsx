@@ -31,13 +31,13 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
-import { showEarnAssetSearchDialog } from './EarnAssetSearchPopover';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
 export function AvailableAssetsTabViewList() {
@@ -440,13 +440,16 @@ export function AvailableAssetsTabViewList() {
           }
         }
 
-        showEarnAssetSearchDialog({
-          availableAssetsByType: completeData,
-          initialCategoryType:
-            tabData[selectedTabIndex]?.type ??
-            EAvailableAssetsTypeEnum.SimpleEarn,
-          onAssetSelect: (asset, categoryType) => {
-            void navigateToAsset(asset, categoryType);
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.EarnAssetSearch,
+          params: {
+            availableAssetsByType: completeData,
+            initialCategoryType:
+              tabData[selectedTabIndex]?.type ??
+              EAvailableAssetsTypeEnum.SimpleEarn,
+            onAssetSelect: (asset, categoryType) => {
+              void navigateToAsset(asset, categoryType);
+            },
           },
         });
       } finally {
@@ -457,6 +460,7 @@ export function AvailableAssetsTabViewList() {
     availableAssetsByType,
     actions,
     navigateToAsset,
+    navigation,
     selectedTabIndex,
     tabData,
   ]);

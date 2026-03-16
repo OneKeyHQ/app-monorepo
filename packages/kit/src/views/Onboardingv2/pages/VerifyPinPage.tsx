@@ -5,7 +5,7 @@ import { intervalToDuration } from 'date-fns';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { JUICEBOX_ALLOWED_GUESSES } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IIncorrectPinErrorInfo } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -61,6 +61,8 @@ function VerifyPinPage() {
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCancelTimeRef = useRef<number>(0);
+  const [dangerousRetryByFixedProvider, setDangerousRetryByFixedProvider] =
+    useState(false);
 
   const isInputDisabled =
     (cooldownSeconds > 0 || isCheckingRateLimit) && !isManuallyEnabled;
@@ -238,13 +240,30 @@ function VerifyPinPage() {
   const handleEnableInput = useCallback(() => {
     setIsManuallyEnabled(true);
   }, []);
+  const onTitleMultipleClick = useCallback(() => {
+    if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore) {
+      Dialog.confirm({
+        title: 'Continue with provider fixed?',
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue_anyway,
+        }),
+        onConfirm: () => {
+          setDangerousRetryByFixedProvider(true);
+        },
+      });
+    }
+  }, [intl, mode]);
 
   const isSubmitSuccessRef = useRef(false);
   const handleVerify = useCallback(async () => {
     try {
       isSubmitSuccessRef.current = false;
       setIsLoading(true);
-      await verifyKeylessOnboardingPin({ pin, mode });
+      await verifyKeylessOnboardingPin({
+        pin,
+        mode,
+        dangerousRetryByFixedProvider,
+      });
       isSubmitSuccessRef.current = true;
     } catch (e) {
       // checking limit
@@ -292,6 +311,7 @@ function VerifyPinPage() {
     intl,
     pin,
     mode,
+    dangerousRetryByFixedProvider,
     pinInputRef,
     verifyKeylessOnboardingPin,
     handleForgotPin,
@@ -364,7 +384,11 @@ function VerifyPinPage() {
     setPin(debugPin);
     try {
       setIsLoading(true);
-      await verifyKeylessOnboardingPin({ pin: debugPin, mode });
+      await verifyKeylessOnboardingPin({
+        pin: debugPin,
+        mode,
+        dangerousRetryByFixedProvider,
+      });
     } catch (e) {
       void checkRateLimitStatus({ isFirstCheck: false });
       if (
@@ -386,7 +410,13 @@ function VerifyPinPage() {
       setIsLoading(false);
       setPin('');
     }
-  }, [mode, verifyKeylessOnboardingPin, checkRateLimitStatus, handleForgotPin]);
+  }, [
+    mode,
+    verifyKeylessOnboardingPin,
+    checkRateLimitStatus,
+    handleForgotPin,
+    dangerousRetryByFixedProvider,
+  ]);
 
   return (
     <PinInputLayout
@@ -416,6 +446,7 @@ function VerifyPinPage() {
       isSubmitDisabled={pin.length !== 4 || isInputDisabled}
       isInputDisabled={isInputDisabled}
       onEnableInput={handleEnableInput}
+      onTitleMultipleClick={onTitleMultipleClick}
       errorMessage={displayErrorMessage}
       isVerifyPinPage
       onAutoInputPin={handleAutoInputPin}

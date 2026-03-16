@@ -22,20 +22,28 @@ export type IAccountSelectorDeFiItem =
     }
   | undefined;
 
+export type IAccountSelectorValuesMap = Partial<
+  Record<number, Record<string, IAccountSelectorValueItem>>
+>;
+export type IAccountSelectorDeFiMap = Partial<
+  Record<number, Record<string, IAccountSelectorDeFiItem>>
+>;
+
 // Outer key is selector instance `num`, inner key is accountId.
-// This scoping prevents concurrent selectors from overwriting each other.
+// Use plain objects here because extension BG<->UI bridge only accepts
+// JSON-serializable payloads.
 export const {
   target: accountSelectorValuesMapAtom,
   use: useAccountSelectorValuesMapAtom,
-} = globalAtom<Map<number, Map<string, IAccountSelectorValueItem>>>({
+} = globalAtom<IAccountSelectorValuesMap>({
   name: EAtomNames.accountSelectorValuesMapAtom,
-  initialValue: new Map(),
+  initialValue: {},
 });
 
 export const {
   target: accountSelectorDeFiMapAtom,
   use: useAccountSelectorDeFiMapAtom,
-} = globalAtom<Map<number, Map<string, IAccountSelectorDeFiItem>>>({
+} = globalAtom<IAccountSelectorDeFiMap>({
   name: EAtomNames.accountSelectorDeFiMapAtom,
-  initialValue: new Map(),
+  initialValue: {},
 });

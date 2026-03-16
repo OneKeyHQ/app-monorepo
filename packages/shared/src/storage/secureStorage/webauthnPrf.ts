@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Buffer } from 'buffer';
 
-import platformEnv from '../../platformEnv';
 import { BIOLOGY_AUTH_CANCEL_ERROR } from '../../../types/password';
+import platformEnv from '../../platformEnv';
 
 // Storage keys
 const PRF_CREDENTIAL_ID_KEY = '$secure_prf_credential_id$';

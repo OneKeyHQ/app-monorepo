@@ -18,6 +18,7 @@ if (process.env.NODE_ENV !== 'production') {
 
   process.env.BUILD_NUMBER =
     process.env.BUILD_NUMBER || `${dateFns.format(Date.now(), 'MMddHHmm')}-dev`;
+  process.env.BUNDLE_VERSION = process.env.BUNDLE_VERSION || '1000000';
 }
 
 process.env.BUILD_TIME = Date.now();

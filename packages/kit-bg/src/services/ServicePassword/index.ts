@@ -25,6 +25,10 @@ import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -972,6 +976,7 @@ export default class ServicePassword extends ServiceBase {
       }));
     }
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
+    appEventBus.emit(EAppEventBusNames.LockApp, undefined);
   }
 
   @backgroundMethod()

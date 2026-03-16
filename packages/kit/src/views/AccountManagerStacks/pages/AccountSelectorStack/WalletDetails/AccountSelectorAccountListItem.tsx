@@ -108,8 +108,8 @@ export function AccountSelectorAccountListItem({
   const [addressCreationState] = useIndexedAccountAddressCreationStateAtom();
   const [valuesMapAll] = useAccountSelectorValuesMapAtom();
   const [deFiMapAll] = useAccountSelectorDeFiMapAtom();
-  const valuesMap = useMemo(() => valuesMapAll.get(num), [valuesMapAll, num]);
-  const deFiMap = useMemo(() => deFiMapAll.get(num), [deFiMapAll, num]);
+  const valuesMap = useMemo(() => valuesMapAll[num], [valuesMapAll, num]);
+  const deFiMap = useMemo(() => deFiMapAll[num], [deFiMapAll, num]);
 
   const account = useMemo(
     () => (isOthersUniversal ? (item as IDBAccount) : undefined),
@@ -191,12 +191,12 @@ export function AccountSelectorAccountListItem({
   const subTitleInfo = useMemo(() => buildSubTitleInfo(), [buildSubTitleInfo]);
 
   const accountValue = useMemo(
-    () => valuesMap?.get(item.id),
+    () => valuesMap?.[item.id],
     [valuesMap, item.id],
   );
 
   const accountDeFiOverview = useMemo(
-    () => deFiMap?.get(item.id),
+    () => deFiMap?.[item.id],
     [deFiMap, item.id],
   );
 

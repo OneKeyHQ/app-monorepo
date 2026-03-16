@@ -38,6 +38,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -287,6 +291,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
+              setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
               navigation.switchTab(ETabRoutes.Perp);
             });
             break;

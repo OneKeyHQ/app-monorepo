@@ -1,6 +1,9 @@
+import { BigNumber } from 'bignumber.js';
+
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
 import {
   computeMaxTradeSize,
+  getTriggerEffectivePrice,
   resolveTradingSizeBN,
   sanitizeManualSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -11,7 +14,10 @@ import type {
   IConnectionState,
   IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
-import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSizeInputMode,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 const {
   Provider: ProviderJotaiContextHyperliquid,
@@ -110,6 +116,13 @@ export interface ITradingFormData {
   tpValue?: string;
   slType?: 'price' | 'percentage';
   slValue?: string;
+
+  // ── Standalone Trigger Order Fields ──
+  orderMode: 'standard' | 'trigger';
+  triggerOrderType?: ETriggerOrderType;
+  triggerPrice?: string;
+  executionPrice?: string;
+  triggerReduceOnly?: boolean;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -131,6 +144,12 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     tpValue: '',
     slType: 'price',
     slValue: '',
+    // Standalone trigger defaults
+    orderMode: 'standard',
+    triggerOrderType: ETriggerOrderType.STOP_MARKET,
+    triggerPrice: '',
+    executionPrice: '',
+    triggerReduceOnly: true,
   });
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
@@ -266,13 +285,47 @@ export const {
   const mode = form.sizeInputMode ?? EPerpsSizeInputMode.MANUAL;
   const percent = form.sizePercent ?? 0;
 
-  const price = form.type === 'limit' ? form.price : '';
+  // In trigger mode, use trigger effective price for size/margin computations
+  let price: string;
+  if (form.orderMode === 'trigger' && form.triggerOrderType) {
+    const triggerEffective = getTriggerEffectivePrice({
+      triggerOrderType: form.triggerOrderType,
+      triggerPrice: form.triggerPrice,
+      executionPrice: form.executionPrice,
+      midPrice: env.markPrice,
+    });
+    price = triggerEffective.gt(0) ? triggerEffective.toFixed() : '';
+  } else {
+    price = form.type === 'limit' ? form.price : '';
+  }
+
+  // Trigger orders don't lock margin at placement, so slider max = balance × leverage / price
+  let effectiveMaxTradeSzs = env.maxTradeSzs;
+  if (form.orderMode === 'trigger') {
+    const effectivePrice = price
+      ? new BigNumber(price)
+      : new BigNumber(env.markPrice ?? 0);
+    const leverageBN = new BigNumber(
+      env.leverageValue ?? env.fallbackLeverage ?? 1,
+    );
+    const availableIdx = form.side === 'long' ? 0 : 1;
+    const balanceBN = new BigNumber(env.availableToTrade?.[availableIdx] ?? 0);
+    if (effectivePrice.gt(0) && leverageBN.gt(0) && balanceBN.gt(0)) {
+      const triggerMaxTokens = balanceBN
+        .multipliedBy(leverageBN)
+        .dividedBy(effectivePrice);
+      effectiveMaxTradeSzs = [
+        form.side === 'long' ? triggerMaxTokens.toFixed() : '0',
+        form.side === 'short' ? triggerMaxTokens.toFixed() : '0',
+      ];
+    }
+  }
 
   const maxSizeBN = computeMaxTradeSize({
     side: form.side,
     price,
     markPrice: env.markPrice,
-    maxTradeSzs: env.maxTradeSzs,
+    maxTradeSzs: effectiveMaxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,
     szDecimals: env.szDecimals,
@@ -285,7 +338,7 @@ export const {
     side: form.side,
     price,
     markPrice: env.markPrice,
-    maxTradeSzs: env.maxTradeSzs,
+    maxTradeSzs: effectiveMaxTradeSzs,
     leverageValue: env.leverageValue,
     fallbackLeverage: env.fallbackLeverage,
     szDecimals: env.szDecimals,

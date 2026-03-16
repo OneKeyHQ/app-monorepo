@@ -60,6 +60,7 @@ const WithdrawPage = () => {
       withdrawAll,
       signature,
       message,
+      effectiveApy,
       useEthenaCooldown,
       resumeEthenaCooldownUnstake,
       onStepChange,
@@ -70,6 +71,7 @@ const WithdrawPage = () => {
       // Stakefish: signature and message for withdraw all
       signature?: string;
       message?: string;
+      effectiveApy?: string | number;
       useEthenaCooldown?: boolean;
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
@@ -98,6 +100,7 @@ const WithdrawPage = () => {
           tags: [actionTag],
         },
         withdrawAll,
+        effectiveApy,
         // Signature and message for withdraw all
         withdrawSignature: signature,
         withdrawMessage: message,

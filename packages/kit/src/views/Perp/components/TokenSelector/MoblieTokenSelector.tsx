@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, startTransition, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -27,7 +27,6 @@ import {
   usePerpTokenSelectorTabsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
@@ -56,41 +55,45 @@ import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 import type { ITokenSelectorListItem } from './PerpTokenSelector';
 import type { LayoutChangeEvent } from 'react-native';
 
-function TabItem({
-  id,
-  name,
-  isFocused,
-  onPress,
-}: {
-  id: string;
-  name: string;
-  isFocused: boolean;
-  onPress: () => void;
-}) {
-  const { handleItemLayout } = useScrollableFilterBar();
-  return (
-    <XStack
-      alignItems="center"
-      justifyContent="center"
-      px="$2.5"
-      py="$1.5"
-      borderRadius="$full"
-      userSelect="none"
-      cursor="default"
-      backgroundColor={isFocused ? '$bgActive' : '$transparent'}
-      onPress={onPress}
-      onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
-    >
-      <SizableText
-        numberOfLines={1}
-        size="$bodyMdMedium"
-        color={isFocused ? '$text' : '$textSubdued'}
+const TabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const { handleItemLayout } = useScrollableFilterBar();
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        alignItems="center"
+        justifyContent="center"
+        px="$2.5"
+        py="$1.5"
+        borderRadius="$full"
+        userSelect="none"
+        cursor="default"
+        backgroundColor={isFocused ? '$bgActive' : '$transparent'}
+        onPress={handlePress}
+        onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
       >
-        {name}
-      </SizableText>
-    </XStack>
-  );
-}
+        <SizableText
+          numberOfLines={1}
+          size="$bodyMdMedium"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+TabItem.displayName = 'TabItem';
 
 function MobileTokenSelectorModal({
   onLoadingChange,
@@ -136,11 +139,13 @@ function MobileTokenSelectorModal({
   );
   const setActiveTab = useCallback(
     (tab: string) => {
-      setSelectorConfig((prev) => ({
-        field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
-        direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-        activeTab: tab,
-      }));
+      startTransition(() => {
+        setSelectorConfig((prev) => ({
+          field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+          direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+          activeTab: tab,
+        }));
+      });
       listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSelectorConfig],
@@ -312,9 +317,20 @@ function MobileTokenSelectorModal({
   const keyExtractor = useCallback(
     (item: { dexIndex: number; assetId?: number; index: number }) => {
       const assetId = item.assetId ?? item.index;
-      return `${activeTab}-${item.dexIndex}-${assetId}`;
+      return `${item.dexIndex}-${assetId}`;
     },
-    [activeTab],
+    [],
+  );
+
+  const renderItem = useCallback(
+    ({ item: mockedToken }: { item: ITokenSelectorListItem }) => (
+      <PerpTokenSelectorRow
+        isOnModal
+        mockedToken={mockedToken}
+        onPress={handleSelectToken}
+      />
+    ),
+    [handleSelectToken],
   );
 
   const handleSortPress = useCallback(
@@ -387,7 +403,7 @@ function MobileTokenSelectorModal({
               id={tabKey}
               name={tabLabels[tabKey]}
               isFocused={activeTab === tabKey}
-              onPress={() => setActiveTab(tabKey)}
+              onPress={setActiveTab}
             />
           ))}
           {visibleDynamicTabs.map((tab) => (
@@ -396,7 +412,7 @@ function MobileTokenSelectorModal({
               id={tab.tabId}
               name={tab.name}
               isFocused={activeTab === tab.tabId}
-              onPress={() => setActiveTab(tab.tabId)}
+              onPress={setActiveTab}
             />
           ))}
         </ScrollableFilterBar>
@@ -471,19 +487,11 @@ function MobileTokenSelectorModal({
       <Page.Body>
         <YStack flex={1} mt="$2">
           <ListView
-            // Force FlashList recreation on native to fix recycling pool bug
-            key={
-              platformEnv.isNative
-                ? `${activeTab}-${selectorConfig?.field ?? ''}-${
-                    selectorConfig?.direction ?? ''
-                  }-${mockedListData.length}`
-                : undefined
-            }
             useFlashList
             ref={listRef}
             keyExtractor={keyExtractor}
             estimatedItemSize={44}
-            windowSize={5}
+            windowSize={3}
             initialNumToRender={15}
             decelerationRate="normal"
             showsVerticalScrollIndicator
@@ -491,13 +499,7 @@ function MobileTokenSelectorModal({
               paddingBottom: 10,
             }}
             data={mockedListData}
-            renderItem={({ item: mockedToken }) => (
-              <PerpTokenSelectorRow
-                isOnModal
-                mockedToken={mockedToken}
-                onPress={(name) => handleSelectToken(name)}
-              />
-            )}
+            renderItem={renderItem}
             ListEmptyComponent={
               activeTab === 'favorites' && !searchQuery ? (
                 <FavoritesEmptyState isMobile />

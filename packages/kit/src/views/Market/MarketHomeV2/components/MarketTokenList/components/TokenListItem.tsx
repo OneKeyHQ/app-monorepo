@@ -2,32 +2,70 @@ import type { FC } from 'react';
 import { memo } from 'react';
 
 import { NumberSizeableText, XStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PriceChangeBadge } from '../../PriceChangeBadge';
 
 import { TokenIdentityItem } from './TokenIdentityItem';
 
 import type { IMarketToken } from '../MarketTokenData';
+import type { GestureResponderEvent } from 'react-native';
 
 interface ITokenListItemProps {
   item: IMarketToken;
   onPress: () => void;
-  onLongPress?: () => void;
+  onLongPress?: (event: GestureResponderEvent) => void;
+  onPressIn?: (event: GestureResponderEvent) => void;
+  onTouchMove?: (event: GestureResponderEvent) => void;
+  onPressOut?: (event: GestureResponderEvent) => void;
+  isDragging?: boolean;
+}
+
+const IOS_DRAGGING_SHADOW_STYLE = {
+  shadowColor: '#000',
+  shadowOpacity: 0.2,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 4 },
+} as const;
+
+const ANDROID_DRAGGING_ELEVATION_STYLE = {
+  elevation: 8,
+} as const;
+
+let DRAGGING_STYLE:
+  | typeof IOS_DRAGGING_SHADOW_STYLE
+  | typeof ANDROID_DRAGGING_ELEVATION_STYLE
+  | undefined;
+
+if (platformEnv.isNativeIOS) {
+  DRAGGING_STYLE = IOS_DRAGGING_SHADOW_STYLE;
+} else if (platformEnv.isNativeAndroid) {
+  DRAGGING_STYLE = ANDROID_DRAGGING_ELEVATION_STYLE;
 }
 
 const BasicTokenListItem: FC<ITokenListItemProps> = ({
   item,
   onPress,
   onLongPress,
+  onPressIn,
+  onTouchMove,
+  onPressOut,
+  isDragging,
 }) => {
   return (
     <XStack
       pressStyle={{ opacity: 0.8 }}
       onPress={onPress}
       onLongPress={onLongPress}
+      onPressIn={onPressIn}
+      onTouchMove={onTouchMove}
+      onPressOut={onPressOut}
       px="$5"
       py="$3"
       alignItems="center"
+      borderRadius="$3"
+      bg={isDragging ? '$bgActive' : '$bgApp'}
+      style={isDragging ? DRAGGING_STYLE : undefined}
     >
       <XStack flex={1} alignItems="center" minWidth={0}>
         <TokenIdentityItem

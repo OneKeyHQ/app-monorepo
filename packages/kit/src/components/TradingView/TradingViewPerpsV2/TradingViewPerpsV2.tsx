@@ -29,6 +29,7 @@ interface IBaseTradingViewPerpsV2Props {
   webviewKey?: string;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
+  onTouchScroll?: (deltaY: number) => void;
 }
 
 export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
@@ -122,6 +123,7 @@ export function TradingViewPerpsV2(
     userAddress,
     onLoadEnd,
     onTradeUpdate,
+    onTouchScroll,
     webviewKey,
     ...stackStyle
   } = props;
@@ -242,6 +244,7 @@ export function TradingViewPerpsV2(
     webRef,
     onChartLinesReady,
     onOrderCancel,
+    onTouchScroll,
   });
 
   // Chart lines management (liquidation, position, orders)
