@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
         type: boolean
         default: false
@@ -20,7 +20,6 @@ env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
-  
   release-desktop-snap:
     strategy:
       matrix:
@@ -28,10 +27,10 @@ jobs:
         arch: [amd64, arm64]
         include:
           - arch: amd64
-            runs-on: ubuntu-24.04
+            runs-on: ubuntu-22.04
             build-flag: --x64
           - arch: arm64
-            runs-on: ubuntu-24.04-arm
+            runs-on: ubuntu-22.04-arm
             build-flag: --arm64
     runs-on: ${{ matrix.runs-on }}
 
@@ -48,11 +47,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev 
-      - name: Run Shared Env Setup  
+          sudo apt-get install -y libudev-dev
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
-          env_file_name: ".env"
+          env_file_name: '.env'
           sentry_project: 'desktop-snap'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -69,12 +68,16 @@ jobs:
         run: |
           echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
-
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v2
 
-      - name: Configure Snapcraft destructive mode for arm64
-        if: ${{ matrix.arch == 'arm64' }}
+      - name: Install snap dependencies for snapcraft build
+        run: |
+          sudo snap install core22
+          sudo snap install gnome-42-2204
+          sudo snap install gtk-common-themes
+
+      - name: Configure Snapcraft destructive mode
         run: |
           echo "SNAP_DESTRUCTIVE_MODE=true" >> $GITHUB_ENV
 
@@ -86,7 +89,6 @@ jobs:
 
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-
 
       - name: Setup Node
         uses: actions/setup-node@v6
