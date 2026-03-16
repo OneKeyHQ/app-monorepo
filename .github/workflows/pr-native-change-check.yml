@@ -26,7 +26,6 @@ jobs:
 
           if [ -z "$CHANGED_FILES" ]; then
             echo "has_native=false" >> "$GITHUB_OUTPUT"
-            echo "report=No changes detected." >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -82,7 +81,7 @@ jobs:
             REPORT="${REPORT}$(echo "$CONFIGS" | sed 's/^/- `/' | sed 's/$/`/')\n\n"
           fi
 
-          # Native source files outside apps/
+          # Native source files
           NATIVE_SRC=$(echo "$CHANGED_FILES" | grep -E '\.(java|kt|swift|m|mm|h|c|cpp)$' || true)
           if [ -n "$NATIVE_SRC" ]; then
             HAS_NATIVE=true
@@ -117,54 +116,97 @@ jobs:
             REPORT="${REPORT}\n> ⚠️ DB changes prevent bundle rollback — old bundles cannot read new schemas\n\n"
           fi
 
+          # App version changes
+          VERSION_FILES=$(echo "$CHANGED_FILES" | grep -E '^apps/(mobile|desktop|ext|web)/package\.json$' || true)
+          if [ -n "$VERSION_FILES" ]; then
+            VER_REPORT=""
+            while IFS= read -r vfile; do
+              OLD_VER=$(git show "$BASE_REF":"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
+              NEW_VER=$(cat "$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
+              if [ -n "$OLD_VER" ] && [ -n "$NEW_VER" ] && [ "$OLD_VER" != "$NEW_VER" ]; then
+                VER_REPORT="${VER_REPORT}- \`${vfile}\`: ${OLD_VER} → ${NEW_VER}\n"
+              fi
+            done <<< "$VERSION_FILES"
+            if [ -n "$VER_REPORT" ]; then
+              HAS_NATIVE=true
+              REPORT="${REPORT}### App Version Changed\n${VER_REPORT}\n"
+            fi
+          fi
+
+          # yarn.lock native package changes
+          YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
+          if [ -n "$YARN_LOCK_CHANGED" ]; then
+            NATIVE_PKG_PATTERNS='react-native-|@react-native/|@onekeyfe/react-native-|expo-|@react-navigation/|react-native$'
+            LOCK_NATIVE_HITS=$(git diff "$BASE_REF"...HEAD -- yarn.lock 2>/dev/null | grep -E "^[+-]\"($NATIVE_PKG_PATTERNS)" | head -20 || true)
+            if [ -n "$LOCK_NATIVE_HITS" ]; then
+              HAS_NATIVE=true
+              REPORT="${REPORT}### yarn.lock Native Package Changes\n"
+              REPORT="${REPORT}$(echo "$LOCK_NATIVE_HITS" | head -10 | sed 's/^/- `/' | sed 's/$/`/')\n"
+              LOCK_COUNT=$(echo "$LOCK_NATIVE_HITS" | wc -l | tr -d ' ')
+              if [ "$LOCK_COUNT" -gt 10 ]; then REPORT="${REPORT}- ... and more\n"; fi
+              REPORT="${REPORT}\n"
+            fi
+          fi
+
           echo "has_native=$HAS_NATIVE" >> "$GITHUB_OUTPUT"
 
           # Write report to file to handle multiline
           echo -e "$REPORT" > /tmp/native-report.md
 
-      - name: Comment on PR
-        if: steps.detect.outputs.has_native == 'true'
+      - name: Comment or cleanup PR comment
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const report = fs.readFileSync('/tmp/native-report.md', 'utf8');
             const marker = '<!-- native-change-check -->';
+            const hasNative = '${{ steps.detect.outputs.has_native }}' === 'true';
 
-            const body = `${marker}
-            ## ⚠️ Native Changes Detected
-
-            This PR contains changes that **cannot be shipped via bundle update** and requires a full App Shell release.
-
-            ${report}
-
-            **Action required:**
-            - Add the \`no-release\` label if this PR should not be included in bundle releases
-            - Coordinate with the release team for App Shell release scheduling
-
-            > _Auto-detected by native change check_`;
-
-            // Find and update existing comment, or create new one
+            // Find existing marker comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-
             const existing = comments.find(c => c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
+
+            if (hasNative) {
+              const report = fs.readFileSync('/tmp/native-report.md', 'utf8');
+              const body = [
+                marker,
+                '## ⚠️ Native Changes Detected',
+                '',
+                'This PR contains changes that **cannot be shipped via bundle update** and requires a full App Shell release.',
+                '',
+                report,
+                '',
+                '**Action required:**',
+                '- Add the `no-release` label if this PR should not be included in bundle releases',
+                '- Coordinate with the release team for App Shell release scheduling',
+                '',
+                '> _Auto-detected by native change check_',
+              ].join('\n');
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body,
+                });
+              }
+            } else if (existing) {
+              // Native changes were removed — delete stale warning
+              await github.rest.issues.deleteComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
               });
             }
 
@@ -180,7 +222,6 @@ jobs:
               issue_number: context.issue.number,
             });
 
-            const hasNoRelease = labels.some(l => l.name === 'no-release');
             const hasBundleTesting = labels.some(l => l.name === 'bundle-testing');
             const hasReleaseReady = labels.some(l => l.name === 'release-ready');
 

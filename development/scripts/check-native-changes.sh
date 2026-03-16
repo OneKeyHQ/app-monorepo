@@ -131,7 +131,16 @@ if [ -n "$NATIVE_PATCHES" ]; then
   NATIVE_PATCH_HITS=""
   while IFS= read -r patch_file; do
     # Extract package name from patch filename
-    pkg_name=$(echo "$patch_file" | sed 's|^patches/||' | sed 's|+.*||')
+    # patch-package uses + as separator: @scope+pkg+1.2.3.patch → @scope/pkg
+    # unscoped: pkg+1.2.3.patch → pkg
+    raw_name=$(echo "$patch_file" | sed 's|^patches/||' | sed 's|\.patch$||')
+    if echo "$raw_name" | grep -q '^@'; then
+      # Scoped: @scope+pkg+version → replace first + with / then drop +version
+      pkg_name=$(echo "$raw_name" | sed 's|+|/|' | sed 's|+.*||')
+    else
+      # Unscoped: pkg+version → drop +version
+      pkg_name=$(echo "$raw_name" | sed 's|+.*||')
+    fi
     # Check if this package has native code (ios/ android/ *.podspec)
     pkg_dir="node_modules/$pkg_name"
     if [ -d "$pkg_dir" ]; then
