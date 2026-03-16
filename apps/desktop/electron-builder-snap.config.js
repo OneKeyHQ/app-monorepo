@@ -95,10 +95,11 @@ module.exports = {
       // libEGL_mesa.so.0 and EGL initialization fails.
       '__EGL_VENDOR_LIBRARY_DIRS':
         '$SNAP/gpu-2404/usr/share/glvnd/egl_vendor.d',
-      // GIO modules (libgiolibproxy, etc.) from gnome-platform content snap. // cspell:disable-line
-      // List both arch triplets since $SNAP_LAUNCHER_ARCH_TRIPLET is not
-      // available without the gnome extension; GLib checks each path.
-      'GIO_MODULE_DIR': [
+      // GIO extra modules (libgiolibproxy, etc.) from gnome-platform content snap. // cspell:disable-line
+      // Use GIO_EXTRA_MODULES (not GIO_MODULE_DIR) because the latter only
+      // accepts a single directory. Both arch triplets are listed since only
+      // the matching one will exist at runtime; GLib ignores missing dirs.
+      'GIO_EXTRA_MODULES': [
         '$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu/gio/modules',
         '$SNAP/gnome-platform/usr/lib/aarch64-linux-gnu/gio/modules',
       ].join(':'),
