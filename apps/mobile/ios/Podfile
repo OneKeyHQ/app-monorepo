@@ -252,6 +252,17 @@ target 'OneKeyWallet' do
       else
         Pod::UI.puts "TOCropView rotation fix already applied or source changed"
       end
+
+      # Force Xcode to recompile TOCropViewController when EAS build cache
+      # restores stale .o files. Touch all source files so their mtime is
+      # guaranteed to be newer than any cached object file.
+      tocrop_dir = File.join(__dir__, 'Pods', 'TOCropViewController')
+      if Dir.exist?(tocrop_dir)
+        Dir.glob(File.join(tocrop_dir, '**', '*.{m,h}')).each do |f|
+          FileUtils.touch(f)
+        end
+        Pod::UI.puts "Touched TOCropViewController sources to invalidate build cache"
+      end
     end
 
     # This is necessary for Xcode 14, because it signs resource bundles by default
