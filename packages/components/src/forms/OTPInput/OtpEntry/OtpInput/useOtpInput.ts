@@ -85,8 +85,9 @@ export const useOtpInput = ({
     // interactions). When relatedTarget is null it means no other element
     // is receiving focus, so we auto-refocus to keep the input active.
     if (!platformEnv.isNative) {
-      const relatedTarget = (e as { nativeEvent?: { relatedTarget?: EventTarget | null } })
-        ?.nativeEvent?.relatedTarget;
+      const relatedTarget = (
+        e as { nativeEvent?: { relatedTarget?: EventTarget | null } }
+      )?.nativeEvent?.relatedTarget;
       if (e && !relatedTarget) {
         setTimeout(() => {
           inputRef.current?.focus();

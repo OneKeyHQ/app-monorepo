@@ -141,19 +141,15 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
           onChangeText={handleTextChange}
           maxLength={numberOfDigits}
           inputMode={type === 'numeric' ? type : 'text'}
-          textContentType={
-            platformEnv.isDesktop ? undefined : 'oneTimeCode'
-          }
+          textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
           ref={inputRef}
           autoFocus={autoFocus}
           secureTextEntry={secureTextEntry}
-          autoComplete={
-            platformEnv.isDesktop
-              ? 'off'
-              : Platform.OS === 'android'
-                ? 'sms-otp'
-                : 'one-time-code'
-          }
+          autoComplete={(() => {
+            if (platformEnv.isDesktop) return 'off';
+            if (Platform.OS === 'android') return 'sms-otp';
+            return 'one-time-code';
+          })()}
           aria-disabled={disabled}
           editable={!disabled}
           testID="otp-input-hidden"
