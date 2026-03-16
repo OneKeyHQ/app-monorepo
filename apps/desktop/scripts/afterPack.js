@@ -39,12 +39,12 @@ exports.default = async function fileOperation(context) {
     console.log('remove file finish..');
   }
 
-  // Remove unused @serialport/bindings-cpp prebuilds for other platforms.
+  // Remove unused @serialport/bindings-cpp prebuilds for other OS platforms.
   // The package bundles prebuilds for all platforms (android, linux, darwin,
-  // win32) but each build only needs the matching one. Removing the rest
+  // win32) but each build only needs its own OS. Removing cross-OS prebuilds
   // reduces package size and eliminates snap linter warnings.
-  // Arch enum: ia32=0, x64=1, armv7l=2, arm64=3, universal=4
-  const { arch } = context;
+  // Keep all arch variants for the same OS to avoid breaking fallbacks
+  // (e.g., Windows ARM64 runs x64 binaries via WoW64 emulation).
   const prebuildsBase = path.join(
     appOutDir,
     electronPlatformName === 'darwin' || electronPlatformName === 'mas'
@@ -53,40 +53,12 @@ exports.default = async function fileOperation(context) {
     'app.asar.unpacked/node_modules/@serialport/bindings-cpp/prebuilds',
   );
   if (fs.existsSync(prebuildsBase)) {
-    // Map (platform, arch) to the exact prebuild dir names to keep.
-    // darwin-x64+arm64 is a universal binary, always kept for darwin/mas.
-    // For universal builds, keep all dirs matching the platform.
-    const archSuffix = { 0: 'ia32', 1: 'x64', 2: 'armv7l', 3: 'arm64' };
-    const platformName =
-      electronPlatformName === 'mas' ? 'darwin' : electronPlatformName;
-    const isUniversal = arch === 4;
-    const currentArch = archSuffix[arch];
-
-    // Windows ARM64 has no native prebuild; it runs x64 via WoW64 emulation.
-    // Keep win32-x64 as fallback.
-    const fallbackArch =
-      electronPlatformName === 'win32' && currentArch === 'arm64'
-        ? 'x64'
-        : null;
-
+    const platformPrefix =
+      electronPlatformName === 'mas' ? 'darwin-' : `${electronPlatformName}-`;
     for (const dir of fs.readdirSync(prebuildsBase)) {
-      if (!dir.startsWith(`${platformName}-`)) {
-        // Wrong platform, always remove
+      if (!dir.startsWith(platformPrefix)) {
         fs.rmSync(path.join(prebuildsBase, dir), { recursive: true });
         console.log(`Removed unused prebuild: ${dir}`);
-      } else if (!isUniversal && currentArch) {
-        // Right platform but check arch (skip for universal builds)
-        const dirArch = dir.slice(`${platformName}-`.length);
-        // Keep if: matches current arch, contains '+' (universal binary),
-        // or matches fallback arch (e.g., win32-x64 for win arm64)
-        const shouldKeep =
-          dirArch.includes(currentArch) ||
-          dirArch.includes('+') ||
-          (fallbackArch && dirArch.includes(fallbackArch));
-        if (!shouldKeep) {
-          fs.rmSync(path.join(prebuildsBase, dir), { recursive: true });
-          console.log(`Removed unused prebuild: ${dir}`);
-        }
       }
     }
   }
