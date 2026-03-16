@@ -107,11 +107,6 @@ const RecommendedItem = memo(
                       provider: 'aave',
                       vault: 'aave-v3-usdc',
                     },
-                    {
-                      ...token.protocols[0],
-                      provider: 'compound',
-                      vault: 'compound-v3-usdc',
-                    },
                   ]
                 : token.protocols,
           },
