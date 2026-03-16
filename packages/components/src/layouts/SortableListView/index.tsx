@@ -220,7 +220,7 @@ function BaseSortableListView<T>(
     mouseY: number;
     scrollContainer: HTMLElement | null;
     cleanup?: () => void;
-  }>({ rafId: 0, mouseY: 0, scrollContainer: null });
+  }>({ rafId: 0, mouseY: -1, scrollContainer: null });
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   const stopAutoScroll = useCallback(() => {
@@ -247,7 +247,11 @@ function BaseSortableListView<T>(
 
     const tick = () => {
       const { mouseY, scrollContainer } = autoScrollRef.current;
-      if (!scrollContainer) return;
+      // Skip until we have a real mouse position from the mousemove listener
+      if (!scrollContainer || mouseY < 0) {
+        autoScrollRef.current.rafId = requestAnimationFrame(tick);
+        return;
+      }
 
       const rect = scrollContainer.getBoundingClientRect();
       const distToTop = mouseY - rect.top;
@@ -548,6 +552,7 @@ function BaseSortableListView<T>(
                 keyExtractor={keyExtractor}
                 stickyHeaderIndices={stickyHeaderIndices}
                 ListHeaderComponent={ListHeaderComponent}
+                scrollEnabled={scrollEnabled}
                 {...(restProps as any)}
               />
             );
