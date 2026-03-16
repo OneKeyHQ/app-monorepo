@@ -55,10 +55,13 @@ public class AppDelegate: ExpoAppDelegate {
     defaults.synchronize()
 
     if newCount >= 3 {
+      // Call super first to ensure ExpoAppDelegate lifecycle setup completes,
+      // then override the window with our recovery UI
+      let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
       window = UIWindow(frame: UIScreen.main.bounds)
       window?.rootViewController = RecoveryViewController()
       window?.makeKeyAndVisible()
-      return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+      return result
     }
 
     let store = NitroModuleBridge.launchOptionsStore()

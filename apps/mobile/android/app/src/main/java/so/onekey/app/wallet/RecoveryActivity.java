@@ -152,8 +152,10 @@ public class RecoveryActivity extends AppCompatActivity {
     private void tryAgain() {
         try {
             SharedPreferences prefs = getSharedPreferences("onekey_recovery", MODE_PRIVATE);
-            prefs.edit().putInt("consecutive_boot_fail_count", 0).commit();
-            prefs.edit().putString("recovery_action", "try_again").commit();
+            prefs.edit()
+                .putInt("consecutive_boot_fail_count", 0)
+                .putString("recovery_action", "try_again")
+                .commit();
             restartApp();
         } catch (Exception e) {
             showError((isChinese ? "\u91CD\u8BD5\u5931\u8D25: " : "Try again failed: ") + e.getMessage());
@@ -178,10 +180,12 @@ public class RecoveryActivity extends AppCompatActivity {
             // Clear app cache
             clearAppCache();
 
-            // Reset counter and set recovery action
+            // Reset counter and set recovery action (single atomic write)
             SharedPreferences prefs = getSharedPreferences("onekey_recovery", MODE_PRIVATE);
-            prefs.edit().putInt("consecutive_boot_fail_count", 0).commit();
-            prefs.edit().putString("recovery_action", "auto_repair").commit();
+            prefs.edit()
+                .putInt("consecutive_boot_fail_count", 0)
+                .putString("recovery_action", "auto_repair")
+                .commit();
 
             restartApp();
         } catch (Exception e) {

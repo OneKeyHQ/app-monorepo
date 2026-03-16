@@ -840,8 +840,8 @@ const BaseDevSettingsSection = () => {
                 onPress={async () => {
                   if (platformEnv.isNative) {
                     const {
-                      default: ReactNativeDeviceUtils,
-                    } = require('react-native-device-utils');
+                      ReactNativeDeviceUtils,
+                    } = require('@onekeyfe/react-native-device-utils');
                     ReactNativeDeviceUtils.setConsecutiveBootFailCount(3);
                   }
                   if (platformEnv.isDesktop) {

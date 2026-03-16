@@ -88,6 +88,7 @@ type IDesktopAPILegacy = {
       total: string;
     };
   }>;
+  appVersion: string;
   // Boot Recovery
   markBootSuccess: () => void;
   setConsecutiveBootFailCount: (count: number) => void;
@@ -325,6 +326,7 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
   getMemoryUsage: () =>
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),
+  appVersion: process.env.VERSION || '',
   // Boot Recovery
   markBootSuccess: () =>
     ipcRenderer.send(ipcMessageKeys.MARK_BOOT_SUCCESS),

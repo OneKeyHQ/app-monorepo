@@ -124,7 +124,7 @@
 
     // Version display
     try {
-      const ver = window.desktopApi?.getVersion?.() || '';
+      const ver = window.desktopApi?.appVersion || '';
       if (ver) {
         document.getElementById('version').textContent = i18n.version + ' ' + ver;
       }

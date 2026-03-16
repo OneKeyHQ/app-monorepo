@@ -768,8 +768,8 @@ export function Bootstrap() {
       try {
         if (platformEnv.isNative) {
           const {
-            default: ReactNativeDeviceUtils,
-          } = require('react-native-device-utils');
+            ReactNativeDeviceUtils,
+          } = require('@onekeyfe/react-native-device-utils');
           ReactNativeDeviceUtils.markBootSuccess();
         }
         if (platformEnv.isDesktop) {
