@@ -50,7 +50,12 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
 
     const markPriceBN = new BigNumber(activeAssetData?.markPx ?? 0);
 
-    if (!effectivePrice.gt(0) || !leverageBN.gt(0) || !balanceBN.gt(0) || !markPriceBN.gt(0)) {
+    if (
+      !effectivePrice.gt(0) ||
+      !leverageBN.gt(0) ||
+      !balanceBN.gt(0) ||
+      !markPriceBN.gt(0)
+    ) {
       return activeAssetData?.maxTradeSzs;
     }
 
