@@ -1847,7 +1847,10 @@ class ServiceKeylessWallet extends ServiceBase {
     this.fixedKeylessProviderMap = {};
 
     // 1. Get ownerId from token
-    const socialProvider = this.buildKeylessProviderFromSocialToken({ token });
+    const socialProvider = this.buildKeylessProviderFromSocialToken({
+      token,
+      skipFixedProvider: true,
+    });
     const targetOwnerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
