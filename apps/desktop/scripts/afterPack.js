@@ -112,9 +112,7 @@ exports.default = async function fileOperation(context) {
           (p) => prebuildName === p || prebuildName.startsWith(`${p}-`),
         );
         if (!isKnownPlatform) {
-          console.log(
-            `[prebuilds]   Skipped (non-standard): ${prebuildName}`,
-          );
+          console.log(`[prebuilds]   Skipped (non-standard): ${prebuildName}`);
           return;
         }
         if (
