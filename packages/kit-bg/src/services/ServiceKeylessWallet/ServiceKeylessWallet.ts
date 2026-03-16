@@ -1271,6 +1271,22 @@ class ServiceKeylessWallet extends ServiceBase {
     return bufferUtils.bytesToHex(hashBytes);
   }
 
+  private getKeylessInitProviderFromAppMetadata(params: {
+    token: string;
+  }): EOAuthSocialLoginProvider | undefined {
+    const { token } = params;
+    const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+    const provider = decodedToken?.app_metadata
+      ?.provider as EOAuthSocialLoginProvider;
+    if (
+      provider === EOAuthSocialLoginProvider.Google ||
+      provider === EOAuthSocialLoginProvider.Apple
+    ) {
+      return provider;
+    }
+    return undefined;
+  }
+
   private getAlternativeKeylessProvider(
     provider: EOAuthSocialLoginProvider,
   ): EOAuthSocialLoginProvider {
@@ -1312,6 +1328,46 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     throw new OneKeyLocalError(`Unsupported OAuth provider: ${issuer}`);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiGetKeylessSameEmailAccountStatus(params: {
+    token: string;
+  }): Promise<{
+    isSameEmailAccountAtOldVersion: boolean;
+    currentProvider: EOAuthSocialLoginProvider;
+    retryProvider?: EOAuthSocialLoginProvider;
+  }> {
+    const { token } = params;
+
+    // TODO: Mock server response: a stale app_metadata.provider implies the user is
+    // in the Apple/Google same-email state and should retry with the other provider.
+    const isSameEmailAccountAtOldVersion = true;
+
+    const actualProvider = this.buildKeylessProviderFromSocialToken({
+      token,
+      skipFixedProvider: true,
+    });
+    const initProvider = this.getKeylessInitProviderFromAppMetadata({ token });
+
+    let currentProvider = actualProvider;
+
+    if (
+      initProvider &&
+      actualProvider !== initProvider &&
+      isSameEmailAccountAtOldVersion
+    ) {
+      currentProvider = initProvider;
+    }
+
+    return {
+      isSameEmailAccountAtOldVersion,
+      currentProvider,
+      retryProvider: isSameEmailAccountAtOldVersion
+        ? this.getAlternativeKeylessProvider(currentProvider)
+        : undefined,
+    };
   }
 
   private async apiGetKeylessBackendShare(params: { token: string }): Promise<{
@@ -1566,17 +1622,24 @@ class ServiceKeylessWallet extends ServiceBase {
     refreshToken?: string;
     mode?: EOnboardingV2OneKeyIDLoginMode;
     dangerousRetryByFixedProvider: boolean;
+    providerOverride?: EOAuthSocialLoginProvider;
   }): Promise<void> {
     const { token, pin, refreshToken, mode, dangerousRetryByFixedProvider } =
       params;
+    let providerOverride = params.providerOverride;
+    if (dangerousRetryByFixedProvider) {
+      providerOverride = undefined;
+    }
     const { hashId } = await this.apiGetKeylessBackendShare({
       token,
     });
     defaultLogger.wallet.keyless.verifyKeylessBackendShareRetrieved();
+    const currentSocialProvider = this.buildKeylessProviderFromSocialToken({
+      token,
+      skipFixedProvider: !!providerOverride,
+    });
     let socialProvider: EOAuthSocialLoginProvider =
-      this.buildKeylessProviderFromSocialToken({
-        token,
-      });
+      providerOverride ?? this.buildKeylessProviderFromSocialToken({ token });
     let ownerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
@@ -1586,12 +1649,13 @@ class ServiceKeylessWallet extends ServiceBase {
       token,
     });
     if (
+      !providerOverride &&
       dangerousRetryByFixedProvider &&
       !this.fixedKeylessProviderMap[socialUserId]
     ) {
-      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
-      const providerOnCreate = decodedToken?.app_metadata
-        ?.provider as EOAuthSocialLoginProvider;
+      const providerOnCreate = this.getKeylessInitProviderFromAppMetadata({
+        token,
+      });
       if (providerOnCreate) {
         const alternativeProvider =
           this.getAlternativeKeylessProvider(providerOnCreate);
@@ -1630,6 +1694,13 @@ class ServiceKeylessWallet extends ServiceBase {
         pin,
       });
       if (
+        providerOverride &&
+        socialProvider !== currentSocialProvider &&
+        !this.fixedKeylessProviderMap[socialUserId]
+      ) {
+        this.fixedKeylessProviderMap[socialUserId] = socialProvider;
+      }
+      if (
         dangerousRetryByFixedProvider &&
         !this.fixedKeylessProviderMap[socialUserId]
       ) {
@@ -1643,6 +1714,7 @@ class ServiceKeylessWallet extends ServiceBase {
       });
       const isPinError = isPinErrorByInstance || isPinErrorByClassName;
       if (
+        !providerOverride &&
         isPinError &&
         dangerousRetryByFixedProvider &&
         !this.fixedKeylessProviderMap[socialUserId]
@@ -1906,6 +1978,51 @@ class ServiceKeylessWallet extends ServiceBase {
 
     this.fixedKeylessProviderMap = {};
     return { success: true };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiMarkKeylessSameEmailResetPinSuccess(params: {
+    token: string;
+  }): Promise<{ success: true }> {
+    const { token } = params;
+    if (!token) {
+      throw new OneKeyLocalError('social login token is required');
+    }
+
+    // TODO: replace this mock with the real server API.
+    return { success: true };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(params: {
+    token: string;
+    refreshToken?: string;
+    pin: string;
+  }): Promise<{ success: boolean; skipped: boolean }> {
+    const { token, refreshToken, pin } = params;
+    const { isSameEmailAccountAtOldVersion: isSameEmailAccount } =
+      await this.apiGetKeylessSameEmailAccountStatus({ token });
+
+    if (!isSameEmailAccount) {
+      return {
+        success: false,
+        skipped: true,
+      };
+    }
+
+    await this.resetKeylessWalletPin({
+      token,
+      refreshToken,
+      newPin: pin,
+    });
+    await this.apiMarkKeylessSameEmailResetPinSuccess({ token });
+
+    return {
+      success: true,
+      skipped: false,
+    };
   }
 
   @backgroundMethod()

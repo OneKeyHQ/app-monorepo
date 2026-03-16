@@ -46,6 +46,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import {
+  getKeylessOnboardingPin,
+  getKeylessOnboardingRefreshToken,
+  getKeylessOnboardingToken,
+} from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
@@ -137,6 +142,8 @@ function FinalizeWalletSetupPage({
   const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const isKeylessWallet = route?.params?.isKeylessWallet;
   const keylessDetailsInfo = route?.params?.keylessDetailsInfo;
+  const shouldAutoResetKeylessPinAfterRestore =
+    route?.params?.shouldAutoResetKeylessPinAfterRestore;
 
   const initialStep = EFinalizeWalletSetupSteps.CreatingWallet;
 
@@ -262,12 +269,45 @@ function FinalizeWalletSetupPage({
               goNextStep(EFinalizeWalletSetupSteps.Ready);
               return;
             }
+            const shouldRunAutoReset =
+              !!isKeylessWallet && !!shouldAutoResetKeylessPinAfterRestore;
             await actions.current.createHDWallet({
               mnemonic,
               isWalletBackedUp,
               isKeylessWallet,
               keylessDetailsInfo,
             });
+            if (shouldRunAutoReset) {
+              void (async () => {
+                try {
+                  const [token, refreshToken, pin] = await Promise.all([
+                    getKeylessOnboardingToken(),
+                    getKeylessOnboardingRefreshToken(),
+                    getKeylessOnboardingPin(),
+                  ]);
+
+                  if (!token || !pin) {
+                    console.error(
+                      'Skip keyless auto reset pin: missing onboarding token or pin.',
+                    );
+                    return;
+                  }
+
+                  await backgroundApiProxy.serviceKeylessWallet.autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(
+                    {
+                      token,
+                      refreshToken: refreshToken || undefined,
+                      pin,
+                    },
+                  );
+                } catch (autoResetError) {
+                  console.error(
+                    'autoResetKeylessWalletPinAfterRestoreForSameEmailAccount error:',
+                    autoResetError,
+                  );
+                }
+              })();
+            }
             // Track keyless wallet creation success
             if (isKeylessWallet && keylessDetailsInfo) {
               defaultLogger.account.wallet.walletAdded({
@@ -325,6 +365,7 @@ function FinalizeWalletSetupPage({
     isWalletBackedUp,
     isKeylessWallet,
     keylessDetailsInfo,
+    shouldAutoResetKeylessPinAfterRestore,
     goNextStep,
     connectDevice,
     createHWWallet,
