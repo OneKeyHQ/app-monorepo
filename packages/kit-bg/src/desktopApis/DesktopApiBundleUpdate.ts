@@ -849,6 +849,13 @@ class DesktopApiAppBundleUpdate {
     });
   }
 
+  async resetToBuiltInBundle() {
+    store.clearUpdateBundleData();
+    logger.info(
+      'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
+    );
+  }
+
   async clearAllJSBundleData() {
     await this.clearDownload();
     await this.clearBundleExtract();

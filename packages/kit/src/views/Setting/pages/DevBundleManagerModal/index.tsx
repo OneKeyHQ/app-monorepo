@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import SkipGPGVerificationToggle from '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/SkipGPGVerificationToggle';
+import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
 import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
@@ -301,6 +302,10 @@ export default function DevBundleManagerModal() {
                 <InfoRow label="Build Number" value={currentBuildNumber} />
                 <InfoRow label="Commit Hash" value={currentCommitHash} />
                 <InfoRow label="Bundle Version" value={currentBundleVersion} />
+                <InfoRow
+                  label="Bundle Hash"
+                  value={encodeBundleVersionForDisplay(currentBundleVersion)}
+                />
                 {nativeAppVersion ? (
                   <InfoRow
                     label="Native Version"
@@ -356,6 +361,32 @@ export default function DevBundleManagerModal() {
                     navigation.push(
                       EModalSettingRoutes.SettingDevLocalBundleList,
                     );
+                  }}
+                />
+                <XStack mx="$4">
+                  <Divider />
+                </XStack>
+                <ActionRow
+                  icon="UndoOutline"
+                  title="Reset to Built-in Bundle"
+                  subtitle="Use app's original bundle, keep downloads"
+                  destructive
+                  onPress={() => {
+                    Dialog.show({
+                      title: 'Reset to Built-in Bundle',
+                      description:
+                        'This will reset the app to use the built-in JS bundle. Downloaded bundles will be preserved. The app will restart.',
+                      confirmButtonProps: {
+                        variant: 'destructive',
+                      },
+                      onConfirm: async () => {
+                        try {
+                          await BundleUpdate.resetToBuiltInBundle();
+                        } catch (error) {
+                          showTestError(error);
+                        }
+                      },
+                    });
                   }}
                 />
               </SectionCard>

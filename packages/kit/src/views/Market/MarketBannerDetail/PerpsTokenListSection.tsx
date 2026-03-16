@@ -6,6 +6,7 @@ import { SizableText, Stack, Table, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -21,7 +22,9 @@ export function PerpsTokenListSection({
 }: {
   tokenListId: string;
 }) {
-  const { navigateToPerps } = usePerpsNavigation();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.MarketBanner,
+  );
   const perpsColumns = usePerpsColumns();
   const { md } = useMedia();
   const intl = useIntl();

@@ -39,7 +39,13 @@ function FooterTickerSettingsContent({
   return (
     <YStack py="$1">
       {FOOTER_MODES.map(({ mode, labelId }) => (
-        <ListItem key={mode} onPress={() => handleSelect(mode)} py="$2" px="$3">
+        <ListItem
+          key={mode}
+          onPress={() => handleSelect(mode)}
+          py="$2"
+          px="$3"
+          tabIndex={-1}
+        >
           <SizableText size="$bodyMd" flex={1}>
             {intl.formatMessage({ id: labelId })}
           </SizableText>

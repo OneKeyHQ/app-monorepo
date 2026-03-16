@@ -862,11 +862,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       tpValue: '',
       slType: 'price',
       slValue: '',
-      // Keep orderMode and triggerOrderType (tab stays unchanged after submit)
-      // Only clear trigger values
       triggerPrice: '',
       executionPrice: '',
-      triggerReduceOnly: true,
     });
   });
 
