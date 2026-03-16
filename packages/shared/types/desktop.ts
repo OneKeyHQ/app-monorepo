@@ -49,9 +49,6 @@ export enum EDesktopStoreKeys {
   // GPU Crash Statistics - for monitoring
   GPUCrashCount = 'gpuCrashCount',
   LastGPUCrashTime = 'lastGPUCrashTime',
-  // Tracks whether the app started successfully (rendered first frame)
-  // Used to detect GPU-related crash loops on startup
-  AppStartedSuccessfully = 'appStartedSuccessfully',
 }
 
 export type IDesktopStoreUpdateSettings = {
@@ -85,5 +82,4 @@ export type IDesktopStoreMap = {
   // GPU Crash Statistics
   [EDesktopStoreKeys.GPUCrashCount]: number;
   [EDesktopStoreKeys.LastGPUCrashTime]: number;
-  [EDesktopStoreKeys.AppStartedSuccessfully]: boolean;
 };

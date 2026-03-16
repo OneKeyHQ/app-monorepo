@@ -218,13 +218,3 @@ export const clearGPUCrashStats = () => {
   store.delete(EDesktopStoreKeys.LastGPUCrashTime);
   logger.info('GPU crash statistics cleared');
 };
-
-// ==================== App Startup Tracking ====================
-// Detects crash-on-startup loops (e.g. GPU init failure causes immediate exit)
-
-export const getAppStartedSuccessfully = () =>
-  store.get(EDesktopStoreKeys.AppStartedSuccessfully, true);
-
-export const setAppStartedSuccessfully = (value: boolean) => {
-  store.set(EDesktopStoreKeys.AppStartedSuccessfully, value);
-};

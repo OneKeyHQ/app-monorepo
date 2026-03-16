@@ -667,8 +667,6 @@ async function createMainWindow() {
 
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
-    // Mark startup as successful - GPU rendering is working
-    store.setAppStartedSuccessfully(true);
     // fix white flicker on Windows & Linux
     if (!isMac) {
       showMainWindow();
@@ -1283,60 +1281,8 @@ app.on('gpu-info-update', () => {
   logger.info('GPU info updated');
 });
 
-// 4. Auto-disable GPU if previous launches had GPU crashes or startup failures
-// Must be called before app 'ready' event
+// 4. Log GPU protection status
 const gpuStats = store.getGPUCrashStats();
-const prevStartedOk = store.getAppStartedSuccessfully();
-const GPU_CRASH_THRESHOLD = 1;
-const GPU_RECOVERY_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-const timeSinceLastCrash = gpuStats.lastCrashTime
-  ? Date.now() - gpuStats.lastCrashTime
-  : Infinity;
-
-let gpuDisabled = false;
-
-// Case 1: Previous launch crashed before completing startup (crash loop detection)
-// This catches GPU init failures where the app exits before child-process-gone fires
-if (!prevStartedOk) {
-  logger.warn(
-    'Previous launch did not start successfully, disabling hardware acceleration',
-  );
-  store.recordGPUCrash();
-  gpuDisabled = true;
-}
-
-// Case 2: GPU process crashed during previous sessions
-if (
-  !gpuDisabled &&
-  gpuStats.count >= GPU_CRASH_THRESHOLD &&
-  timeSinceLastCrash < GPU_RECOVERY_PERIOD_MS
-) {
-  logger.warn(
-    `GPU crashed ${gpuStats.count} time(s) previously, disabling hardware acceleration`,
-  );
-  gpuDisabled = true;
-}
-
-// Case 3: Recovery period passed, clear stats and retry GPU
-if (
-  !gpuDisabled &&
-  gpuStats.count > 0 &&
-  timeSinceLastCrash >= GPU_RECOVERY_PERIOD_MS
-) {
-  logger.info(
-    'GPU recovery period passed, clearing crash stats and retrying GPU',
-  );
-  store.clearGPUCrashStats();
-}
-
-if (gpuDisabled) {
-  app.disableHardwareAcceleration();
-}
-
-// Mark startup as NOT successful; will be set to true once the window renders
-store.setAppStartedSuccessfully(false);
-
 logger.info('GPU Protection System initialized', {
   platform: process.platform,
   cpuModel: os.cpus()[0]?.model || 'unknown',
@@ -1344,8 +1290,6 @@ logger.info('GPU Protection System initialized', {
   lastCrashTime: gpuStats.lastCrashTime
     ? new Date(gpuStats.lastCrashTime).toISOString()
     : 'never',
-  hardwareAccelerationDisabled: gpuDisabled,
-  previousStartupSuccessful: prevStartedOk,
 });
 
 // ==================== End GPU Protection ====================
@@ -1605,35 +1549,6 @@ app.on('before-quit', () => {
 });
 
 // ==================== End Memory Protection ====================
-
-// ==================== Snap GPU Driver Path Fix ====================
-// In snap confinement, ensure Mesa can find DRI drivers from the content snaps.
-// core24 uses mesa-2404 (gpu-2404), core22 used gnome-platform for DRI drivers.
-if (process.env.SNAP) {
-  const archTriplets = ['aarch64-linux-gnu', 'x86_64-linux-gnu'];
-  // core24: mesa-2404 content snap mounted at $SNAP/gpu-2404
-  // core22 fallback: gnome-platform content snap
-  const basePaths = ['gpu-2404/usr/lib', 'gnome-platform/usr/lib'];
-  const driPaths = basePaths
-    .flatMap((base) =>
-      archTriplets.map((arch) =>
-        path.join(process.env.SNAP || '', base, arch, 'dri'),
-      ),
-    )
-    .filter((p) => {
-      try {
-        return fs.existsSync(p);
-      } catch {
-        return false;
-      }
-    });
-  if (driPaths.length > 0 && !process.env.LIBGL_DRIVERS_PATH) { // cspell:disable-line
-    process.env.LIBGL_DRIVERS_PATH = driPaths.join(':'); // cspell:disable-line
-    logger.info(
-      `[Snap] Set LIBGL_DRIVERS_PATH=${process.env.LIBGL_DRIVERS_PATH}`, // cspell:disable-line
-    );
-  }
-}
 
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
