@@ -162,9 +162,16 @@ function sanitizeAndTruncateData(data: any[]): string[] {
     let str: string;
     if (typeof item === 'string') {
       str = item;
+    } else if (item instanceof Error) {
+      // Error properties (message, stack) are non-enumerable,
+      // so JSON.stringify returns '{}'. Use stack instead.
+      str = item.stack || `${item.name}: ${item.message}`;
+    } else if (item === undefined || typeof item === 'function') {
+      str = String(item);
     } else {
       try {
-        str = JSON.stringify(item);
+        const json = JSON.stringify(item);
+        str = json ?? String(item);
       } catch {
         str = String(item);
       }
