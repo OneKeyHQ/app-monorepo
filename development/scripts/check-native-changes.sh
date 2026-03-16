@@ -180,7 +180,7 @@ if [ -n "$VERSION_FILES" ]; then
   VERSION_CHANGED=0
   while IFS= read -r vfile; do
     OLD_VER=$(git show "$BASE_REF":"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
-    NEW_VER=$(cat "$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
+    NEW_VER=$(git show HEAD:"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
     if [ -n "$OLD_VER" ] && [ -n "$NEW_VER" ] && [ "$OLD_VER" != "$NEW_VER" ]; then
       VERSION_CHANGED=1
       echo -e "${RED}[BLOCKED] App Version Changed: ${vfile}${NC}"
