@@ -241,3 +241,6 @@ logger.transports.file.format = (params: {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return [`[${ts}] [${params.level}]`, ...filtered];
 };
+
+// Startup marker matching native: OneKeyLog.info("App", "OneKey started")
+logger.info('[App] OneKey started');
