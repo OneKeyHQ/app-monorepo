@@ -3,7 +3,7 @@
 # check-native-changes.sh
 #
 # Detect whether a branch/PR contains changes that CANNOT be shipped
-# via bundle update (hot update) and require a full App Shell release.
+# via bundle update and require a full App Shell release.
 #
 # Usage:
 #   ./development/scripts/check-native-changes.sh [base_ref]
@@ -282,7 +282,7 @@ if [ "$HAS_NATIVE_CHANGES" -eq 1 ]; then
   exit 1
 else
   echo -e "${GREEN}${BOLD}RESULT: NO NATIVE CHANGES${NC}"
-  echo -e "${GREEN}This branch is safe for bundle update (hot update).${NC}"
+  echo -e "${GREEN}This branch is safe for bundle update.${NC}"
   echo ""
   echo -e "Recommended action:"
   echo -e "  - Add the ${BOLD}bundle-testing${NC} label for QA verification"
