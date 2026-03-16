@@ -59,9 +59,10 @@ jobs:
 
       - name: Detect native changes
         id: detect
+        env:
+          BASE_REF: ${{ steps.refs.outputs.base }}
+          HEAD_REF: ${{ steps.refs.outputs.head }}
         run: |
-          BASE_REF="${{ steps.refs.outputs.base }}"
-          HEAD_REF="${{ steps.refs.outputs.head }}"
 
           # Resolve to commit SHAs for reliable comparison
           BASE_SHA=$(git rev-parse "$BASE_REF" 2>/dev/null || git rev-parse "origin/$BASE_REF" 2>/dev/null) || { echo "::error::Cannot resolve base ref: $BASE_REF"; exit 1; }
@@ -215,12 +216,13 @@ jobs:
           echo -e "$REPORT" > /tmp/native-report.md
 
       - name: Write Job Summary
+        env:
+          HAS_NATIVE: ${{ steps.detect.outputs.has_native }}
+          BASE_REF: ${{ steps.refs.outputs.base }}
+          HEAD_REF: ${{ steps.refs.outputs.head }}
+          BASE_SHA: ${{ steps.detect.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.detect.outputs.head_sha }}
         run: |
-          HAS_NATIVE="${{ steps.detect.outputs.has_native }}"
-          BASE_REF="${{ steps.refs.outputs.base }}"
-          HEAD_REF="${{ steps.refs.outputs.head }}"
-          BASE_SHA="${{ steps.detect.outputs.base_sha }}"
-          HEAD_SHA="${{ steps.detect.outputs.head_sha }}"
 
           {
             echo "## Native Change Check"
@@ -257,11 +259,12 @@ jobs:
             const marker = '<!-- native-change-check -->';
             const hasNative = '${{ steps.detect.outputs.has_native }}' === 'true';
 
-            // Find existing marker comment
-            const { data: comments } = await github.rest.issues.listComments({
+            // Find existing marker comment (paginate to handle PRs with many comments)
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
+              per_page: 100,
             });
             const existing = comments.find(c => c.body.includes(marker));
 
