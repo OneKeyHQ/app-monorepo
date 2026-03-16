@@ -7,6 +7,7 @@ import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   getTokenValue,
+  useThemeName,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -67,6 +68,8 @@ function TableRow<T>({
   scrollAtRef?: RefObject<number>;
 }) {
   const { md } = useMedia();
+  const themeName = useThemeName();
+  const isDarkMode = themeName?.includes('dark');
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
@@ -136,7 +139,7 @@ function TableRow<T>({
   return (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
-      bg={isDragging ? '$bgActive' : '$bgApp'}
+      bg={isDragging && isDarkMode ? '$bgActive' : '$bgApp'}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
@@ -357,22 +360,32 @@ function BasicTable<T>({
   }, [estimatedItemSize]);
 
   const renderSortableItem = useCallback(
-    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
-      <TableRow
-        pressStyle={!showSkeleton}
-        isActive={isActive}
-        draggable={draggable}
-        dataSet={dragProps}
-        showSkeleton={showSkeleton}
-        drag={drag}
-        scrollAtRef={scrollAtRef}
-        item={item}
-        index={index}
-        columns={columns}
-        onRow={showSkeleton ? undefined : onRow}
-        rowProps={rowProps}
-      />
-    ),
+    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => {
+      const row = (
+        <TableRow
+          pressStyle={!showSkeleton}
+          isActive={isActive}
+          draggable={draggable}
+          dataSet={dragProps}
+          showSkeleton={showSkeleton}
+          drag={drag}
+          scrollAtRef={scrollAtRef}
+          item={item}
+          index={index}
+          columns={columns}
+          onRow={showSkeleton ? undefined : onRow}
+          rowProps={rowProps}
+        />
+      );
+      if (platformEnv.isNative) {
+        return (
+          <SortableListView.ShadowDecorator>
+            {row}
+          </SortableListView.ShadowDecorator>
+        );
+      }
+      return row;
+    },
     [columns, draggable, onRow, rowProps, showSkeleton],
   );
   // On native, when tabIntegrated the header row MUST be inside the list

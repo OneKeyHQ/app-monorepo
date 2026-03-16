@@ -79,6 +79,7 @@ export type IOnboardingParamListV2 = {
     mnemonicType?: EMnemonicType;
     isWalletBackedUp?: boolean;
     isKeylessWallet?: boolean;
+    shouldAutoResetKeylessPinAfterRestore?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
     keylessPackSetId?: string;
