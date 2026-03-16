@@ -39,6 +39,86 @@ exports.default = async function fileOperation(context) {
     console.log('remove file finish..');
   }
 
+  // Remove unused native prebuilds for other OS platforms.
+  // Many packages (serialport, noble, usb, bufferutil, etc.) bundle prebuilds
+  // for all platforms but each build only needs its own OS. Removing cross-OS
+  // prebuilds reduces package size and eliminates snap linter warnings.
+  // Keep all arch variants for the same OS to avoid breaking fallbacks
+  // (e.g., Windows ARM64 runs x64 binaries via WoW64 emulation).
+  // Only process standard "os-arch" named directories (e.g., "linux-x64",
+  // "darwin-x64+arm64"); skip non-standard names (e.g., "node", "apple").
+  const resourcesDir = path.join(
+    appOutDir,
+    electronPlatformName === 'darwin' || electronPlatformName === 'mas'
+      ? `${appName}.app/Contents/Resources`
+      : 'resources',
+  );
+  const unpackedDir = path.join(resourcesDir, 'app.asar.unpacked');
+  if (fs.existsSync(unpackedDir)) {
+    const platformPrefix =
+      electronPlatformName === 'mas' ? 'darwin' : electronPlatformName;
+    const knownPlatforms = ['android', 'darwin', 'linux', 'win32'];
+    let removedCount = 0;
+
+    const findPrebuildsRecursive = (dir) => {
+      let entries;
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.name === 'prebuilds') {
+          let prebuildEntries;
+          try {
+            prebuildEntries = fs.readdirSync(fullPath, {
+              withFileTypes: true,
+            });
+          } catch {
+            continue;
+          }
+          const pkgRelative = path.relative(unpackedDir, fullPath);
+          console.log(`[prebuilds] Scanning: ${pkgRelative}`);
+          for (const prebuild of prebuildEntries) {
+            if (!prebuild.isDirectory()) continue;
+            const prebuildName = prebuild.name;
+            // Only process dirs with known OS prefix (e.g., "linux-x64")
+            // Skip non-standard names like "node", "apple" to be safe
+            const isKnownPlatform = knownPlatforms.some(
+              (p) => prebuildName === p || prebuildName.startsWith(`${p}-`),
+            );
+            if (!isKnownPlatform) {
+              console.log(`[prebuilds]   Skipped (non-standard): ${prebuildName}`);
+              continue;
+            }
+            if (
+              prebuildName === platformPrefix ||
+              prebuildName.startsWith(`${platformPrefix}-`)
+            ) {
+              console.log(`[prebuilds]   Kept: ${prebuildName}`);
+              continue;
+            }
+            try {
+              fs.rmSync(path.join(fullPath, prebuildName), { recursive: true });
+              console.log(`[prebuilds]   Removed: ${prebuildName}`);
+              removedCount += 1;
+            } catch (err) {
+              console.warn(`[prebuilds]   Failed to remove ${prebuildName}: ${err.message}`);
+            }
+          }
+        } else if (entry.name !== '.cache' && entry.name !== '.git') {
+          findPrebuildsRecursive(fullPath);
+        }
+      }
+    };
+
+    console.log(`[prebuilds] Cleaning cross-OS prebuilds (keeping: ${platformPrefix}-*)`);
+    findPrebuildsRecursive(unpackedDir);
+    console.log(`[prebuilds] Done. Removed ${removedCount} directories.`);
+  }
+
   if (electronPlatformName === 'darwin' || electronPlatformName === 'win32') {
     await context.packager.addElectronFuses(context, {
       version: FuseVersion.V1,
