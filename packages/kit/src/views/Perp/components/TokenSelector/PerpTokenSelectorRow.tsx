@@ -98,25 +98,34 @@ function TokenSelectorRowProvider({
   );
 }
 
-const FavoriteButton = memo(
-  ({ coin, isMobile }: { coin: string; isMobile?: boolean }) => {
+export const FavoriteButton = memo(
+  ({
+    coin,
+    isMobile,
+    iconSize,
+  }: {
+    coin: string;
+    isMobile?: boolean;
+    iconSize?: string;
+  }) => {
     const [favorites, setFavorites] = usePerpTokenFavoritesPersistAtom();
     const isFavorite = favorites.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
-      const action = isFavorite ? 'remove' : 'add';
-      setFavorites((prev) => ({
-        ...prev,
-        favorites: isFavorite
-          ? prev.favorites.filter((f) => f !== coin)
-          : [...prev.favorites, coin],
-      }));
-      // Sync to Market watchlist
-      void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
-        coin,
-        action,
+      setFavorites((prev) => {
+        const alreadyFavorite = prev.favorites.includes(coin);
+        void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
+          coin,
+          action: alreadyFavorite ? 'remove' : 'add',
+        });
+        return {
+          ...prev,
+          favorites: alreadyFavorite
+            ? prev.favorites.filter((f) => f !== coin)
+            : [...prev.favorites, coin],
+        };
       });
-    }, [coin, isFavorite, setFavorites]);
+    }, [coin, setFavorites]);
 
     return (
       <IconButton
@@ -125,7 +134,7 @@ const FavoriteButton = memo(
         size="small"
         iconProps={{
           color: isFavorite ? '$icon' : '$iconSubdued',
-          size: isMobile ? '$5' : '$3',
+          size: iconSize ?? (isMobile ? '$5' : '$3'),
         }}
         onPress={handleToggle}
         stopPropagation

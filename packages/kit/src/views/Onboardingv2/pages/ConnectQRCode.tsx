@@ -11,16 +11,18 @@ import {
   SizableText,
   Video,
   XStack,
+  resetToRoute,
 } from '@onekeyhq/components';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EOnboardingPagesV2, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
@@ -33,7 +35,6 @@ function ConnectQRCodePage() {
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const themeVariant = useThemeVariant();
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const STEPS = [
     intl.formatMessage({ id: ETranslations.select_connect_app_on_home }),
     intl.formatMessage({ id: ETranslations.tap_more_button_on_top_right }),
@@ -58,8 +59,14 @@ function ConnectQRCodePage() {
         isOnboarding: true,
         isOnboardingV2: true,
         onFinalizeWalletSetupError: () => {
-          // only pop when finalizeWalletSetup pushed
-          navigation.pop();
+          // resetToRoute was used to navigate to FinalizeWalletSetup,
+          // so navigation.pop() won't work. Reset back to this page.
+          resetToRoute(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
+              screen: EOnboardingPagesV2.ConnectQRCode,
+            },
+          });
         },
       });
 
@@ -81,7 +88,7 @@ function ConnectQRCodePage() {
       });
       throw error;
     }
-  }, [createQrWallet, isSoftwareWalletOnlyUser, navigation]);
+  }, [createQrWallet, isSoftwareWalletOnlyUser]);
 
   return (
     <Page>

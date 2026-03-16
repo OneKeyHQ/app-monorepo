@@ -292,7 +292,6 @@ function FavoritesBar() {
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
       >
-        <Icon name="StarSolid" size="$3" color="$icon" />
         <DisplayModeToggle
           displayMode={displayMode}
           onToggle={toggleDisplayMode}

@@ -199,25 +199,37 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             <InformationPanel />
           </YStack>
         </HeaderScrollGestureWrapper>
-        <HeaderScrollGestureWrapper
-          panActiveOffsetY={[-4, 4]}
-          panFailOffsetX={[-40, 40]}
-          excludeRightEdgeRatio={0.1}
-          scrollScale={1}
-          onHorizontalSwipe={handleHeaderHorizontalSwipe}
-          horizontalSwipeThreshold={24}
-          horizontalSwipeVelocityThreshold={900}
-          simultaneousWithNativeGesture
-          cancelChildTouches={false}
-        >
-          <Stack h={tradingViewHeight} overflow="hidden">
-            {(() => {
-              if (!networkId || !tokenSymbol) {
-                return null;
-              }
-              if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
+        <Stack position="relative">
+          <HeaderScrollGestureWrapper
+            panActiveOffsetY={[-4, 4]}
+            panFailOffsetX={[-40, 40]}
+            excludeRightEdgeRatio={0.1}
+            scrollScale={1}
+            onHorizontalSwipe={handleHeaderHorizontalSwipe}
+            horizontalSwipeThreshold={24}
+            horizontalSwipeVelocityThreshold={900}
+            simultaneousWithNativeGesture
+            cancelChildTouches={false}
+          >
+            <Stack h={tradingViewHeight} overflow="hidden">
+              {(() => {
+                if (!networkId || !tokenSymbol) {
+                  return null;
+                }
+                if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
+                  return (
+                    <MobileTradingViewTouchBridge
+                      tokenAddress={tokenAddress}
+                      networkId={networkId}
+                      tokenSymbol={tokenSymbol}
+                      dataSource={
+                        websocketConfig?.kline ? 'websocket' : 'polling'
+                      }
+                    />
+                  );
+                }
                 return (
-                  <MobileTradingViewTouchBridge
+                  <MarketTradingView
                     tokenAddress={tokenAddress}
                     networkId={networkId}
                     tokenSymbol={tokenSymbol}
@@ -226,18 +238,22 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                     }
                   />
                 );
-              }
-              return (
-                <MarketTradingView
-                  tokenAddress={tokenAddress}
-                  networkId={networkId}
-                  tokenSymbol={tokenSymbol}
-                  dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-                />
-              );
-            })()}
-          </Stack>
-        </HeaderScrollGestureWrapper>
+              })()}
+            </Stack>
+          </HeaderScrollGestureWrapper>
+          {platformEnv.isNativeIOS ? (
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 50,
+                bottom: 0,
+                width: 20,
+                zIndex: 9999,
+              }}
+            />
+          ) : null}
+        </Stack>
       </YStack>
     );
   }, [

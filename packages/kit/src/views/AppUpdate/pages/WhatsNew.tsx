@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Markdown, Page, ScrollView } from '@onekeyhq/components';
-import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -14,7 +13,6 @@ import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 function WhatsNew() {
   const intl = useIntl();
-  const [appUpdateInfo] = useAppUpdatePersistAtom();
   const changeLog = useAppChangeLog();
   const navigation = useAppNavigation();
   const handleClose = useCallback(() => {
@@ -28,7 +26,7 @@ function WhatsNew() {
         title={intl.formatMessage(
           { id: ETranslations.update_changelog_updated_title },
           {
-            ver: displayWhatsNewVersion(appUpdateInfo),
+            ver: displayWhatsNewVersion(),
           },
         )}
       />
