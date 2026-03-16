@@ -78,16 +78,16 @@ export const useOtpInput = ({
     onFocus?.();
   };
 
-  const handleBlur = (
-    e?: { nativeEvent?: { relatedTarget?: EventTarget | null } },
-  ) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleBlur = (e?: any) => {
     // On desktop/web, the hidden OTP input can lose focus unexpectedly
     // (e.g. due to FocusScope trap in Dialog, browser quirks, or cursor
     // interactions). When relatedTarget is null it means no other element
     // is receiving focus, so we auto-refocus to keep the input active.
     if (!platformEnv.isNative) {
-      const nativeEvent = e?.nativeEvent;
-      if (nativeEvent && !nativeEvent.relatedTarget) {
+      const relatedTarget = (e as { nativeEvent?: { relatedTarget?: EventTarget | null } })
+        ?.nativeEvent?.relatedTarget;
+      if (e && !relatedTarget) {
         setTimeout(() => {
           inputRef.current?.focus();
         }, 0);
