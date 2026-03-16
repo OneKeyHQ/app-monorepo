@@ -168,6 +168,13 @@ function BundleItem({
   const handleInstall = useCallback(async () => {
     const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
     setStatus('installing');
+    // Enable ignore toggle so auto-rollback doesn't undo the dev switch
+    await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+      'ignoreServerBundleUpdate',
+      true,
+    );
+    await backgroundApiProxy.serviceAppUpdate.reset();
+    await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
     defaultLogger.app.jsBundleDev.installBundle({
       version,
       bundleVersion: bundle.ciBundleVersion,
