@@ -396,20 +396,20 @@ function UnifiedNetworkSelector() {
 
   // Portfolio tab done handler
   const handlePortfolioDone = useCallback(async () => {
-    if (!isOthersWallet) {
-      // 1. Find networks missing addresses
-      const networksWithoutAccount = await findNetworksWithoutAccount({
-        accountId: accountId ?? '',
-        indexedAccountId,
-        enabledNetworks,
-      });
+    setIsCreatingEnabledAddresses(true);
+    try {
+      if (!isOthersWallet) {
+        // 1. Find networks missing addresses
+        const networksWithoutAccount = await findNetworksWithoutAccount({
+          accountId: accountId ?? '',
+          indexedAccountId,
+          enabledNetworks,
+        });
 
-      setEnabledNetworksWithoutAccount(networksWithoutAccount);
+        setEnabledNetworksWithoutAccount(networksWithoutAccount);
 
-      // 2. Create missing addresses if any
-      if (networksWithoutAccount.length > 0) {
-        setIsCreatingEnabledAddresses(true);
-        try {
+        // 2. Create missing addresses if any
+        if (networksWithoutAccount.length > 0) {
           await createAddress({
             num: 0,
             account: {
@@ -420,42 +420,39 @@ function UnifiedNetworkSelector() {
             },
             customNetworks: networksWithoutAccount,
           });
-        } catch (error) {
-          setIsCreatingEnabledAddresses(false);
-          throw error;
         }
+      } else {
+        setEnabledNetworksWithoutAccount([]);
       }
-    } else {
-      setEnabledNetworksWithoutAccount([]);
+
+      // 3. Save network state only when selection changed
+      if (!isSameEnabledNetworks) {
+        await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+          enabledNetworks: networksState.enabledNetworks,
+          disabledNetworks: networksState.disabledNetworks,
+        });
+
+        appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
+      }
+
+      // 4. Switch to All Networks if not already on it
+      if (!networkUtils.isAllNetwork({ networkId })) {
+        void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
+          networkId: getNetworkIdsMap().onekeyall,
+        });
+
+        void actions.current.updateSelectedAccountNetwork({
+          num,
+          networkId: getNetworkIdsMap().onekeyall,
+        });
+      }
+
+      navigation.pop();
+
+      void onNetworksChanged?.();
+    } finally {
+      setIsCreatingEnabledAddresses(false);
     }
-
-    // 3. Save network state only when selection changed
-    if (!isSameEnabledNetworks) {
-      await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-        enabledNetworks: networksState.enabledNetworks,
-        disabledNetworks: networksState.disabledNetworks,
-      });
-
-      appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
-    }
-
-    // 4. Switch to All Networks if not already on it
-    if (!networkUtils.isAllNetwork({ networkId })) {
-      void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
-        networkId: getNetworkIdsMap().onekeyall,
-      });
-
-      void actions.current.updateSelectedAccountNetwork({
-        num,
-        networkId: getNetworkIdsMap().onekeyall,
-      });
-    }
-
-    navigation.pop();
-
-    void onNetworksChanged?.();
-
-    setIsCreatingEnabledAddresses(false);
   }, [
     accountId,
     actions,

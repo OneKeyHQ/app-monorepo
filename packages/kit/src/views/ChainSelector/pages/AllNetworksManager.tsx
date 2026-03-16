@@ -205,20 +205,20 @@ function AllNetworksManager() {
   }, [intl]);
 
   const handleEnableAllNetworks = useCallback(async () => {
-    if (!accountUtils.isOthersWallet({ walletId })) {
-      // 1. Find networks missing addresses
-      const networksWithoutAccount = await findNetworksWithoutAccount({
-        accountId: accountId ?? '',
-        indexedAccountId,
-        enabledNetworks,
-      });
+    setIsCreatingEnabledAddresses(true);
+    try {
+      if (!accountUtils.isOthersWallet({ walletId })) {
+        // 1. Find networks missing addresses
+        const networksWithoutAccount = await findNetworksWithoutAccount({
+          accountId: accountId ?? '',
+          indexedAccountId,
+          enabledNetworks,
+        });
 
-      setEnabledNetworksWithoutAccount(networksWithoutAccount);
+        setEnabledNetworksWithoutAccount(networksWithoutAccount);
 
-      // 2. Create missing addresses if any
-      if (networksWithoutAccount.length > 0) {
-        setIsCreatingEnabledAddresses(true);
-        try {
+        // 2. Create missing addresses if any
+        if (networksWithoutAccount.length > 0) {
           await createAddress({
             num: 0,
             account: {
@@ -229,27 +229,24 @@ function AllNetworksManager() {
             },
             customNetworks: networksWithoutAccount,
           });
-        } catch (error) {
-          setIsCreatingEnabledAddresses(false);
-          throw error;
         }
+      } else {
+        setEnabledNetworksWithoutAccount([]);
       }
-    } else {
-      setEnabledNetworksWithoutAccount([]);
+
+      await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+        enabledNetworks: networksState.enabledNetworks,
+        disabledNetworks: networksState.disabledNetworks,
+      });
+
+      appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
+
+      navigation.pop();
+
+      void onNetworksChanged?.();
+    } finally {
+      setIsCreatingEnabledAddresses(false);
     }
-
-    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-      enabledNetworks: networksState.enabledNetworks,
-      disabledNetworks: networksState.disabledNetworks,
-    });
-
-    appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
-
-    navigation.pop();
-
-    void onNetworksChanged?.();
-
-    setIsCreatingEnabledAddresses(false);
   }, [
     accountId,
     createAddress,
