@@ -27,7 +27,6 @@ import Animated from 'react-native-reanimated';
 
 import {
   useStyle,
-  useThemeName,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 import {
@@ -210,9 +209,6 @@ function BaseSortableListView<T>(
   }: ISortableListViewProps<T>,
   ref: ForwardedRef<ISortableListViewRef<T>> | undefined,
 ) {
-  const themeName = useThemeName();
-  const isDarkMode = themeName?.includes('dark');
-
   // Custom auto-scroll for when the list's own scroll is disabled
   // (e.g. inside Tabs.Container on web where outer container scrolls)
   const autoScrollRef = useRef<{
