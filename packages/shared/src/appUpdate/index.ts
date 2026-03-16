@@ -288,7 +288,9 @@ export const markWhatsNewShown = (): void => {
     });
     return;
   }
-  const versions = data.bundleVersions.map(String);
+  const versions = Array.isArray(data.bundleVersions)
+    ? data.bundleVersions.map(String)
+    : [];
   if (!versions.includes(bundleVersion)) {
     versions.push(bundleVersion);
     syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
