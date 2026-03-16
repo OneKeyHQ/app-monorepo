@@ -1194,8 +1194,7 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
     });
 
     // Call executeBundleSwitchTask directly via prototype
-    const pendingService =
-      service.backgroundApi.servicePendingInstallTask as any;
+    const pendingService = service.backgroundApi.servicePendingInstallTask;
     const proto = Object.getPrototypeOf(pendingService);
     await proto.executeBundleSwitchTask.call(pendingService, rollbackTask);
 
@@ -1227,8 +1226,7 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
       },
     });
 
-    const pendingService =
-      service.backgroundApi.servicePendingInstallTask as any;
+    const pendingService = service.backgroundApi.servicePendingInstallTask;
     const proto = Object.getPrototypeOf(pendingService);
     await expect(
       proto.executeBundleSwitchTask.call(pendingService, upgradeTask),

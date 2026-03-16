@@ -475,9 +475,7 @@ export default function DevBundleManagerModal() {
                             ? undefined
                             : () => {
                                 void enableIgnoreServerBundleUpdate()
-                                  .then(() =>
-                                    BundleUpdate.switchBundle(bundle),
-                                  )
+                                  .then(() => BundleUpdate.switchBundle(bundle))
                                   .catch((e) => {
                                     showTestError(e);
                                   });
