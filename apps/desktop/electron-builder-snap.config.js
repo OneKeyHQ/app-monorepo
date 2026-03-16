@@ -52,11 +52,13 @@ module.exports = {
     // is a virtual package that may resolve to the oss4-salsa shim instead
     // of real ALSA, causing missing symbols (snd_device_name_get_hint) and // cspell:disable-line
     // libOSSlib.so errors. libasound2t64 is always the real ALSA library. // cspell:disable-line
+    // NOTE: Do NOT stage libgbm1 here — gpu-2404 provides a properly-pathed
+    // libgbm.so.1 that knows where to find GBM backends inside the snap.
+    // The staged (apt) version hardcodes /usr/lib/... host paths.
     'stagePackages': [
       'default',
       'libdbus-1-3',
       'libgtk-3-0',
-      'libgbm1',
       'libasound2t64',
     ],
     // Override default stage exclusions from electron-builder template.
@@ -78,17 +80,26 @@ module.exports = {
     'environment': {
       'LD_LIBRARY_PATH': [
         '$SNAP_LIBRARY_PATH',
-        '$SNAP/lib:$SNAP/usr/lib',
-        '$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu',
-        '$SNAP/lib/aarch64-linux-gnu:$SNAP/usr/lib/aarch64-linux-gnu',
-        '$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu',
-        '$SNAP/gnome-platform/usr/lib/aarch64-linux-gnu',
+        // gpu-2404 MUST come before staged libs so its libgbm.so.1
+        // is loaded instead of the staged one (which hardcodes host paths).
         '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu',
         '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/gbm',
         '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu',
         '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/gbm',
+        '$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu',
+        '$SNAP/gnome-platform/usr/lib/aarch64-linux-gnu',
+        '$SNAP/lib:$SNAP/usr/lib',
+        '$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu',
+        '$SNAP/lib/aarch64-linux-gnu:$SNAP/usr/lib/aarch64-linux-gnu',
         '$LD_LIBRARY_PATH',
       ].join(':'),
+      // Mesa DRI driver search path (gpu-2404 content snap).
+      'LIBGL_DRIVERS_PATH': [
+        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/dri',
+        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/dri',
+      ].join(':'),
+      // GIO modules (libgiolibproxy, etc.) from gnome-platform content snap.
+      'GIO_MODULE_DIR': '$SNAP/gnome-platform/usr/lib/$SNAP_LAUNCHER_ARCH_TRIPLET/gio/modules',
     },
   },
 };
