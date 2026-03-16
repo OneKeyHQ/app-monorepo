@@ -914,7 +914,7 @@ class ServiceAppUpdate extends ServiceBase {
     // This prevents auto-rollback from interfering with QA/dev bundle testing.
     try {
       const devSettings = await devSettingsPersistAtom.get();
-      if (devSettings.settings?.ignoreServerBundleUpdate) {
+      if (devSettings.enabled && devSettings.settings?.ignoreServerBundleUpdate) {
         defaultLogger.app.appUpdate.log(
           'fetchAppUpdateInfo: skipped — ignoreServerBundleUpdate is enabled',
         );
@@ -1030,7 +1030,6 @@ class ServiceAppUpdate extends ServiceBase {
       if (
         (decision.decision === 'jsBundleUpgrade' ||
           decision.decision === 'jsBundleRollback' ||
-          decision.decision === 'jsBundleRollbackToBuiltin' ||
           decision.decision === 'appShellUpdate') &&
         releaseInfo.version &&
         (releaseInfo.jsBundleVersion || decision.decision === 'appShellUpdate')
