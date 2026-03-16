@@ -99,7 +99,12 @@ module.exports = {
         '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/dri',
       ].join(':'),
       // GIO modules (libgiolibproxy, etc.) from gnome-platform content snap.
-      'GIO_MODULE_DIR': '$SNAP/gnome-platform/usr/lib/$SNAP_LAUNCHER_ARCH_TRIPLET/gio/modules',
+      // List both arch triplets since $SNAP_LAUNCHER_ARCH_TRIPLET is not
+      // available without the gnome extension; GLib checks each path.
+      'GIO_MODULE_DIR': [
+        '$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu/gio/modules',
+        '$SNAP/gnome-platform/usr/lib/aarch64-linux-gnu/gio/modules',
+      ].join(':'),
     },
   },
 };
