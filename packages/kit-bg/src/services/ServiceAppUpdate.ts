@@ -812,6 +812,7 @@ class ServiceAppUpdate extends ServiceBase {
       status: EAppUpdateStatus.done,
       jsBundle: undefined,
       previousAppVersion: undefined,
+      isRollbackTarget: undefined,
       downloadedEvent: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
@@ -1021,6 +1022,13 @@ class ServiceAppUpdate extends ServiceBase {
               (error as Error)?.message || 'unknown'
             }`,
           );
+          // Transition to failed state so startFailedRecoveryTimer can retry
+          await appUpdatePersistAtom.set((prev) => ({
+            ...prev,
+            status: EAppUpdateStatus.failed,
+            errorText: undefined,
+          }));
+          this.startFailedRecoveryTimer();
         }
         const latest = await appUpdatePersistAtom.get();
         return latest;
@@ -1155,6 +1163,9 @@ class ServiceAppUpdate extends ServiceBase {
             ? undefined
             : prev.downloadedEvent,
           status: nextStatus,
+          isRollbackTarget: shouldTransitionToNotify
+            ? decision.decision === 'jsBundleRollback'
+            : prev.isRollbackTarget,
           previousAppVersion: shouldTransitionToNotify
             ? platformEnv.version
             : prev.previousAppVersion,

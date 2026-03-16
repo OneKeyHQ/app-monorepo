@@ -540,7 +540,7 @@ describe('isFirstLaunchAfterUpdated', () => {
     expect(isFirstLaunchAfterUpdated(info)).toBe(false);
   });
 
-  test('returns false when local bundle is HIGHER than target (rollback not yet applied)', () => {
+  test('returns false when local bundle is HIGHER than rollback target (rollback not yet applied)', () => {
     const { isFirstLaunchAfterUpdated } = loadAppUpdate('1.0.0', '5');
     const info: IAppUpdateInfo = {
       latestVersion: '1.0.0',
@@ -548,8 +548,36 @@ describe('isFirstLaunchAfterUpdated', () => {
       updateAt: Date.now(),
       status: EAppUpdateStatus.notify,
       updateStrategy: EUpdateStrategy.manual,
+      isRollbackTarget: true,
     };
     expect(isFirstLaunchAfterUpdated(info)).toBe(false);
+  });
+
+  test('returns true when local bundle is HIGHER than upgrade target (upgrade overshoot)', () => {
+    // User got bundle 7 via store update, but atom target was 5 (upgrade)
+    const { isFirstLaunchAfterUpdated } = loadAppUpdate('1.0.0', '7');
+    const info: IAppUpdateInfo = {
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+      updateAt: Date.now(),
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      isRollbackTarget: false,
+    };
+    expect(isFirstLaunchAfterUpdated(info)).toBe(true);
+  });
+
+  test('returns true when rollback successfully applied (exact match)', () => {
+    const { isFirstLaunchAfterUpdated } = loadAppUpdate('1.0.0', '3');
+    const info: IAppUpdateInfo = {
+      latestVersion: '1.0.0',
+      jsBundleVersion: '3',
+      updateAt: Date.now(),
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.manual,
+      isRollbackTarget: true,
+    };
+    expect(isFirstLaunchAfterUpdated(info)).toBe(true);
   });
 });
 

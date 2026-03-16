@@ -112,9 +112,14 @@ export function resolveUpdateDecision({
     };
   }
   if (remoteBundle === undefined) {
-    // Server did not provide a bundle version.  If we are currently running
-    // a downloaded custom bundle, this means "go back to the builtin bundle".
-    if (hasActiveCustomBundle && allowRollback) {
+    // Distinguish "server omitted jsBundleVersion" from "server sent a
+    // malformed value like 'abc'".  Only trigger rollback-to-builtin when
+    // the field was genuinely absent or empty — not on parse failures.
+    const remoteWasAbsent =
+      remoteBundleVersion === undefined ||
+      remoteBundleVersion === null ||
+      remoteBundleVersion === '';
+    if (remoteWasAbsent && hasActiveCustomBundle && allowRollback) {
       return {
         decision: 'jsBundleRollbackToBuiltin',
         isValid: true,
@@ -307,10 +312,16 @@ export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
     appUpdateInfo.latestVersion &&
     semver.gte(APP_VERSION, appUpdateInfo.latestVersion)
   ) {
-    return (
-      appUpdateInfo.status !== EAppUpdateStatus.done &&
-      Number(APP_BUNDLE_VERSION) === Number(appUpdateInfo.jsBundleVersion)
-    );
+    const currentBundle = Number(APP_BUNDLE_VERSION);
+    const targetBundle = Number(appUpdateInfo.jsBundleVersion);
+    // For rollback targets, use exact match — being higher than the target
+    // means the rollback hasn't been applied yet.
+    // For upgrades, use >= — the user may have overshot the target version
+    // (e.g., via a store update that includes a newer bundle).
+    const bundleMatches = appUpdateInfo.isRollbackTarget
+      ? currentBundle === targetBundle
+      : currentBundle >= targetBundle;
+    return appUpdateInfo.status !== EAppUpdateStatus.done && bundleMatches;
   }
   return (
     appUpdateInfo.status !== EAppUpdateStatus.done &&
