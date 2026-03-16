@@ -923,6 +923,10 @@ class ServicePendingInstallTask {
         defaultLogger.app.appUpdate.log(
           `executeBundleSwitchTask: rollback target ${bundleVersion} not found locally, falling back to builtin`,
         );
+        // Clear the pending task before relaunch — the task targets the
+        // missing bundle version, not builtin.  Without clearing, post-
+        // relaunch verification would fail against the stale target.
+        await clearPendingInstallTask();
         await BundleUpdate.resetToBuiltInBundle();
         await BundleUpdate.switchBundle({
           appVersion: '',
