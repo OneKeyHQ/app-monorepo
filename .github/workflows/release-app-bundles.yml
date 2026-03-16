@@ -9,6 +9,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   prepare-params:
     runs-on: ubuntu-24.04
