@@ -36,6 +36,10 @@ interface IUseChartLinesReturn {
   sendLinesClear: () => void;
 }
 
+function normalizeAddress(address: string | undefined | null): string | null {
+  return address?.toLowerCase() || null;
+}
+
 function hasLineChanged(prev: ITVLine, current: ITVLine): boolean {
   return (
     prev.price !== current.price ||
@@ -124,9 +128,15 @@ export function useChartLines({
   webRef,
   isReady,
 }: IUseChartLinesParams): IUseChartLinesReturn {
-  const [{ activePositions }] = usePerpsActivePositionAtom();
-  const [{ openOrdersByCoin }] = usePerpsActiveOpenOrdersAtom();
+  const [{ activePositions, accountAddress: positionsAccountAddress }] =
+    usePerpsActivePositionAtom();
+  const [{ openOrdersByCoin, accountAddress: ordersAccountAddress }] =
+    usePerpsActiveOpenOrdersAtom();
   const [{ showChartLines }] = usePerpsCustomSettingsAtom();
+  const normalizedUserAddress = useMemo(
+    () => normalizeAddress(userAddress),
+    [userAddress],
+  );
 
   // Store previous lines for diff calculation
   const prevLinesRef = useRef<Map<string, ITVLine>>(new Map());
@@ -158,29 +168,46 @@ export function useChartLines({
     pendingPnlPatchRef.current = null;
   }, []);
 
+  const currentPositions = useMemo(() => {
+    if (
+      !normalizedUserAddress ||
+      normalizeAddress(positionsAccountAddress) !== normalizedUserAddress
+    ) {
+      return [];
+    }
+
+    return activePositions;
+  }, [activePositions, normalizedUserAddress, positionsAccountAddress]);
+
   // Get orders for current symbol
-  const currentOrders = useMemo(
-    () => openOrdersByCoin[symbol] || [],
-    [openOrdersByCoin, symbol],
-  );
+  const currentOrders = useMemo(() => {
+    if (
+      !normalizedUserAddress ||
+      normalizeAddress(ordersAccountAddress) !== normalizedUserAddress
+    ) {
+      return [];
+    }
+
+    return openOrdersByCoin[symbol] || [];
+  }, [normalizedUserAddress, openOrdersByCoin, ordersAccountAddress, symbol]);
 
   // Build current lines (returns empty if showChartLines is disabled)
   const currentLines = useMemo(() => {
-    if (!userAddress || showChartLines === false) {
+    if (!normalizedUserAddress || showChartLines === false) {
       return [];
     }
     return buildAllLinesForSymbol(
-      activePositions,
+      currentPositions,
       currentOrders,
       symbol,
       szDecimals,
     );
   }, [
-    activePositions,
+    currentPositions,
     currentOrders,
+    normalizedUserAddress,
     symbol,
     szDecimals,
-    userAddress,
     showChartLines,
   ]);
 
