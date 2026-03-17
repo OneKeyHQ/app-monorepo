@@ -48,6 +48,8 @@ import type {
   TextInputSelectionChangeEventData,
 } from 'react-native';
 
+const LOG_TAG = '[PrivateKeyInput]';
+
 function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState(value);
@@ -59,24 +61,36 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   privateKeyRef.current = privateKey;
   const selectionRef = useRef({ start: 0, end: 0 });
 
+  console.log(LOG_TAG, 'render', {
+    propValue: value,
+    internalPrivateKeyLength: privateKey.length,
+    encrypted,
+  });
+
   const handleSelectionChange = useCallback(
     (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
       const selection = e.nativeEvent.selection;
-      console.log('handleSelectionChange', selection);
+      console.log(LOG_TAG, 'handleSelectionChange', selection);
       selectionRef.current = selection;
     },
     [],
   );
 
   const formattedValue = useMemo(() => {
-    if (encrypted) {
-      return '•'.repeat(privateKey.length);
-    }
-    return privateKey;
+    const result = encrypted ? '•'.repeat(privateKey.length) : privateKey;
+    console.log(LOG_TAG, 'formattedValue', {
+      encrypted,
+      privateKeyLength: privateKey.length,
+      formattedValueLength: result.length,
+    });
+    return result;
   }, [encrypted, privateKey]);
 
   const updatePrivateKey = useCallback(
     (text: string) => {
+      console.log(LOG_TAG, 'updatePrivateKey', {
+        newLength: text.length,
+      });
       setPrivateKey(text);
       onChangeText?.(text);
     },
@@ -85,6 +99,13 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   const handleChangeText = useCallback(
     (text: string) => {
+      console.log(LOG_TAG, 'handleChangeText called', {
+        textLength: text.length,
+        textPreview: text.slice(0, 20),
+        encrypted,
+        selectionRef: selectionRef.current,
+        privateKeyRefLength: privateKeyRef.current.length,
+      });
       if (encrypted) {
         // Find non-asterisk characters in text and merge with actual privateKey
         const selection = selectionRef.current;
@@ -96,6 +117,14 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
         const selectionRange = selection.end - selection.start;
 
+        console.log(LOG_TAG, 'encrypted branch', {
+          oldLength,
+          newLength,
+          selectionRange,
+          selectionStart: selection.start,
+          selectionEnd: selection.end,
+        });
+
         if (selectionRange > 0) {
           // Text was selected and replaced - replace selected characters with new text
           const selectedText = text
@@ -105,6 +134,10 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
             privateKeyRef.current.slice(0, selection.start) +
             selectedText +
             privateKeyRef.current.slice(selection.end);
+          console.log(LOG_TAG, 'branch: selectionRange > 0', {
+            selectedText,
+            newPrivateKeyLength: newPrivateKey.length,
+          });
         } else if (newLength > oldLength) {
           // Text was added - insert new characters at selection position
           const addedText = text.slice(
@@ -115,6 +148,10 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
             privateKeyRef.current.slice(0, selection.start) +
             addedText +
             privateKeyRef.current.slice(selection.start);
+          console.log(LOG_TAG, 'branch: text added', {
+            addedText,
+            newPrivateKeyLength: newPrivateKey.length,
+          });
         } else if (newLength < oldLength) {
           // Text was removed - remove characters from selection position
           const removedCount = oldLength - newLength;
@@ -122,6 +159,11 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
           newPrivateKey =
             privateKeyRef.current.slice(0, selectionStart) +
             privateKeyRef.current.slice(selectionStart + removedCount);
+          console.log(LOG_TAG, 'branch: text removed', {
+            removedCount,
+            selectionStart,
+            newPrivateKeyLength: newPrivateKey.length,
+          });
         } else {
           // Text was replaced - replace characters at selection position
           const replacedText = text.slice(selection.start, selection.end);
@@ -129,10 +171,15 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
             privateKeyRef.current.slice(0, selection.start) +
             replacedText +
             privateKeyRef.current.slice(selection.end);
+          console.log(LOG_TAG, 'branch: text replaced (same length)', {
+            replacedText,
+            newPrivateKeyLength: newPrivateKey.length,
+          });
         }
 
         updatePrivateKey(newPrivateKey);
       } else {
+        console.log(LOG_TAG, 'non-encrypted branch, passing text directly');
         updatePrivateKey(text);
       }
     },
@@ -148,7 +195,10 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
       allowSecureTextEye // TextAreaInput not support allowSecureTextEye
       onSelectionChange={handleSelectionChange}
       clearClipboardOnPaste
-      onSecureTextEntryChange={setEncrypted}
+      onSecureTextEntryChange={(v: boolean) => {
+        console.log(LOG_TAG, 'onSecureTextEntryChange', { encrypted: v });
+        setEncrypted(v);
+      }}
       startScanQrCode={startScanQrCode}
       size="large"
       numberOfLines={5}
@@ -182,6 +232,13 @@ export default function ImportPhraseOrPrivateKey() {
   const [isConfirming, setIsConfirming] = useState(false);
   const intl = useIntl();
   const [privateKey, setPrivateKey] = useState('');
+
+  const handlePrivateKeyChange = useCallback((text: string) => {
+    console.log(LOG_TAG, 'parent handlePrivateKeyChange', {
+      newLength: text.length,
+    });
+    setPrivateKey(text);
+  }, []);
 
   const handleConfirm = async () => {
     if (selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase) {
@@ -352,7 +409,7 @@ export default function ImportPhraseOrPrivateKey() {
                 >
                   <PrivateKeyInput
                     value={privateKey}
-                    onChangeText={setPrivateKey}
+                    onChangeText={handlePrivateKeyChange}
                   />
                 </YStack>
               )}
