@@ -320,7 +320,11 @@ export function PagerView({
       style={style}
       horizontal
       pagingEnabled
-      keyboardDismissMode={keyboardDismissMode as any}
+      // On web, keyboardDismissMode="on-drag" causes react-native-web's
+      // dismissKeyboard() to blur the globally-tracked focused input on every
+      // scroll event — even for inputs on other (background) tabs. Since web
+      // has no virtual keyboard to dismiss, always use "none" here.
+      keyboardDismissMode="none"
       ref={scrollViewRef}
       showsHorizontalScrollIndicator={false}
       scrollEventThrottle={150}

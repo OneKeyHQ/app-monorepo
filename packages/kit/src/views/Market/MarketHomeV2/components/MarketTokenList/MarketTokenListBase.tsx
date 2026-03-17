@@ -345,13 +345,25 @@ function MarketTokenListBase({
       );
     }
 
-    // Show end indicator when no more data to load
-    if (showEndReachedIndicator && !canLoadMore && data.length > 0) {
+    // End indicator is rendered outside the Table when draggable,
+    // so it doesn't participate in absolute positioning during drag.
+    if (
+      !draggable &&
+      showEndReachedIndicator &&
+      !canLoadMore &&
+      data.length > 0
+    ) {
       return <ListEndIndicator />;
     }
 
     return null;
-  }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
+  }, [
+    isLoadingMore,
+    showEndReachedIndicator,
+    canLoadMore,
+    data.length,
+    draggable,
+  ]);
   const tabBarHeight = useScrollContentTabBarOffset();
 
   // On web with tabIntegrated, disable FlatList's own scroll so the outer
@@ -423,6 +435,12 @@ function MarketTokenListBase({
         style={{
           paddingTop: 4,
           overflowX: 'auto',
+          // Explicitly set overflowY to prevent browsers from implicitly
+          // changing it to 'auto' (CSS spec: setting one overflow axis to
+          // non-visible forces the other to auto). Without this, drag
+          // auto-scroll would bind to this horizontal wrapper instead of
+          // the real vertical scroll container (Tabs.Container).
+          overflowY: 'hidden',
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
@@ -478,6 +496,14 @@ function MarketTokenListBase({
           )}
           {webTabIntegrated ? (
             <div ref={endSentinelRef} style={{ height: 1 }} />
+          ) : null}
+          {/* Render end indicator outside the Table for draggable lists
+              so it doesn't participate in absolute positioning during drag. */}
+          {draggable &&
+          showEndReachedIndicator &&
+          !canLoadMore &&
+          data.length > 0 ? (
+            <ListEndIndicator />
           ) : null}
         </Stack>
       </Stack>
