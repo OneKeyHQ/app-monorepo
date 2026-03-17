@@ -54,7 +54,7 @@ build({
     ),
     'react-native-mmkv': path.join(
       __dirname,
-      '../../desktop/app/libs/react-native-mmkv-mock',
+      '../../desktop/app/libs/react-native-mmkv-desktop-main',
     ),
     '@sentry/react-native': path.join(
       __dirname,

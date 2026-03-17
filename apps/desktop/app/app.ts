@@ -944,8 +944,14 @@ async function createMainWindow() {
     } catch (e: any) {
       errors.push(`deleteBundleDownloadDir: ${e?.message}`);
     }
-    // No need to clear pendingInstallTask here — desktop MMKV is an in-memory
-    // mock (react-native-mmkv-mock.ts), so it is automatically lost on restart.
+    // Clear pendingInstallTask from MMKV persistent store (electron-store backed)
+    try {
+      const ElectronStore = require('electron-store');
+      const mmkvStore = new ElectronStore({ name: 'mmkv-onekey-app-setting' });
+      mmkvStore.delete('onekey_pending_install_task');
+    } catch (e: any) {
+      errors.push(`clearPendingInstallTask: ${e?.message}`);
+    }
     store.resetConsecutiveBootFailCount();
     if (errors.length > 0) {
       logger.error('Recovery auto repair partial errors:', errors);

@@ -341,3 +341,12 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
 globalThis.desktopApiProxy = desktopApiProxy;
+
+// Expose synchronous MMKV IPC bridge for renderer-side syncStorage.
+// The main process registers the handler in react-native-mmkv-desktop-main.ts.
+globalThis.$mmkvSync = (args: {
+  method: string;
+  id: string;
+  key?: string;
+  value?: unknown;
+}) => ipcRenderer.sendSync('mmkv:sync', args);
