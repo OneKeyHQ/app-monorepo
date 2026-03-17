@@ -944,13 +944,16 @@ async function createMainWindow() {
     } catch (e: any) {
       errors.push(`deleteBundleDownloadDir: ${e?.message}`);
     }
-    // Clear pendingInstallTask from MMKV persistent store (electron-store backed)
+    // Clear recovery-related keys from MMKV persistent store (electron-store backed)
     try {
       const ElectronStore = require('electron-store');
       const mmkvStore = new ElectronStore({ name: 'mmkv-onekey-app-setting' });
       mmkvStore.delete('onekey_pending_install_task');
+      mmkvStore.delete('onekey_whats_new_shown');
+      mmkvStore.delete('last_valid_server_time');
+      mmkvStore.delete('last_valid_local_time');
     } catch (e: any) {
-      errors.push(`clearPendingInstallTask: ${e?.message}`);
+      errors.push(`clearMmkvKeys: ${e?.message}`);
     }
     store.resetConsecutiveBootFailCount();
     if (errors.length > 0) {

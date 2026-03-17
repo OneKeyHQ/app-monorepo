@@ -251,8 +251,8 @@ public class RecoveryActivity extends AppCompatActivity {
             File bundleDownloadDir = new File(getFilesDir(), "onekey-bundle-download");
             deleteRecursive(bundleDownloadDir);
 
-            // Clear pending install task from MMKV
-            clearPendingInstallTask();
+            // Clear recovery-related keys from MMKV
+            clearMmkvRecoveryKeys();
 
             // Clear app cache
             clearAppCache();
@@ -291,12 +291,15 @@ public class RecoveryActivity extends AppCompatActivity {
         fileOrDirectory.delete();
     }
 
-    private void clearPendingInstallTask() {
+    private void clearMmkvRecoveryKeys() {
         try {
             MMKV.initialize(this);
             MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
             if (mmkv != null) {
                 mmkv.removeValueForKey("onekey_pending_install_task");
+                mmkv.removeValueForKey("onekey_whats_new_shown");
+                mmkv.removeValueForKey("last_valid_server_time");
+                mmkv.removeValueForKey("last_valid_local_time");
             }
         } catch (Exception e) {
             // Ignore — MMKV may not be available in recovery mode

@@ -197,11 +197,14 @@ private enum RecoveryNitroModuleBridge {
     return cls.perform(NSSelectorFromString("downloadBundleDir"))?.takeUnretainedValue() as? String
   }
 
-  /// Clears the pending install task from MMKV storage
-  static func clearPendingInstallTask() {
+  /// Clears recovery-related keys from MMKV storage
+  static func clearMmkvRecoveryKeys() {
     MMKV.initialize(rootDir: nil)
     guard let mmkv = MMKV(mmapID: "onekey-app-setting") else { return }
     mmkv.removeValue(forKey: "onekey_pending_install_task")
+    mmkv.removeValue(forKey: "onekey_whats_new_shown")
+    mmkv.removeValue(forKey: "last_valid_server_time")
+    mmkv.removeValue(forKey: "last_valid_local_time")
   }
 }
 
@@ -448,8 +451,8 @@ final class RecoveryViewController: UIViewController {
       }
     }
 
-    // 3. Clear pending install task from MMKV
-    RecoveryNitroModuleBridge.clearPendingInstallTask()
+    // 3. Clear recovery-related keys from MMKV
+    RecoveryNitroModuleBridge.clearMmkvRecoveryKeys()
 
     // 4. Reset boot fail counter
     let defaults = UserDefaults.standard
