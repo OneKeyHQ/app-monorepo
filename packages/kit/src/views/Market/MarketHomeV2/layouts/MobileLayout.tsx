@@ -266,7 +266,7 @@ function MobileLayoutComponent({
         renderTabBar={renderTabBar}
         initialTabName={initialTabName}
         onTabChange={onTabChangeHandler}
-        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid && !nestedPager}
         pagerProps={
           nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
         }
