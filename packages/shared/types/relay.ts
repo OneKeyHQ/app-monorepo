@@ -21,10 +21,13 @@ export interface IRelayQuoteRequest {
   originCurrency: string;
   destinationCurrency: string;
   recipient: string;
-  tradeType: 'EXACT_INPUT' | 'EXACT_OUTPUT';
+  tradeType: 'EXACT_INPUT' | 'EXACT_OUTPUT' | 'EXPECTED_OUTPUT';
   amount: string;
   useDepositAddress: boolean;
-  refundTo: string;
+  refundTo?: string;
+  referrer?: string;
+  topupGas?: boolean;
+  explicitDeposit?: boolean;
 }
 
 export interface IRelayQuoteStep {
@@ -106,6 +109,7 @@ export interface IRelayDepositInfo {
   receiveSymbol: string;
   totalFeeUsd: string;
   timeEstimate: number;
+  maxReceiveAmount?: string;
 }
 
 export interface IRelayChainsResponse {
