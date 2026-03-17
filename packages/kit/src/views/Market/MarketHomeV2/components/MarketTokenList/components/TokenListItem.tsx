@@ -9,7 +9,7 @@ import { PriceChangeBadge } from '../../PriceChangeBadge';
 import { TokenIdentityItem } from './TokenIdentityItem';
 
 import type { IMarketToken } from '../MarketTokenData';
-import type { GestureResponderEvent } from 'react-native';
+import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 
 interface ITokenListItemProps {
   item: IMarketToken;
@@ -17,7 +17,10 @@ interface ITokenListItemProps {
   onLongPress?: (event: GestureResponderEvent) => void;
   onPressIn?: (event: GestureResponderEvent) => void;
   onTouchMove?: (event: GestureResponderEvent) => void;
+  onTouchEnd?: (event: GestureResponderEvent) => void;
   onPressOut?: (event: GestureResponderEvent) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  isPrimed?: boolean;
   isDragging?: boolean;
 }
 
@@ -49,11 +52,15 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
   onLongPress,
   onPressIn,
   onTouchMove,
+  onTouchEnd,
   onPressOut,
+  onLayout,
+  isPrimed,
   isDragging,
 }) => {
   const themeName = useThemeName();
   const isDarkMode = themeName?.includes('dark');
+  const isHighlighted = Boolean(isPrimed || (isDragging && isDarkMode));
   return (
     <XStack
       pressStyle={{ opacity: 0.8 }}
@@ -61,12 +68,14 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
       onLongPress={onLongPress}
       onPressIn={onPressIn}
       onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       onPressOut={onPressOut}
+      onLayout={onLayout}
       px="$5"
       py="$3"
       alignItems="center"
       borderRadius="$3"
-      bg={isDragging && isDarkMode ? '$bgActive' : '$bgApp'}
+      bg={isHighlighted ? '$bgActive' : '$bgApp'}
       style={isDragging ? DRAGGING_STYLE : undefined}
     >
       <XStack flex={1} alignItems="center" minWidth={0}>
