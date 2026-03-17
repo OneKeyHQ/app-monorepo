@@ -2,8 +2,6 @@ import {
   EAddressEncodings,
   ECoreApiExportedSecretKeyType,
 } from '@onekeyhq/core/src/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EMPTY_NATIVE_TOKEN_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINNAME_BTC,
   COINTYPE_BTC,
@@ -11,7 +9,6 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -130,27 +127,6 @@ const settings: IVaultSettings = {
 
   preCheckDappTxFeeInfoRequired: true,
   isNativeTokenContractAddressEmpty: true,
-
-  stakingConfig: {
-    [getNetworkIdsMap().btc]: {
-      providers: {
-        [EEarnProviderEnum.Babylon]: {
-          supportedSymbols: ['BTC'],
-          configs: {
-            'BTC': {
-              enabled: true,
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: false,
-              withdrawWithTx: true,
-              claimWithTx: true,
-              usePublicKey: true,
-              withdrawSignOnly: true,
-            },
-          },
-        },
-      },
-    },
-  },
   stakingResultPollingInterval: 60,
   createAllDeriveTypeAccountsByDefault: true,
   enabledInternalSignAndVerify: true,

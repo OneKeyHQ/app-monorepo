@@ -24,9 +24,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
-  EEarnProviderEnum,
   IEarnAvailableAssetV2,
-  ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -104,9 +102,12 @@ import { EApproveType } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
+import {
+  findProtocolSymbolByTokenAddress,
+  getProtocolFlowConfig,
+} from '../protocols/config/protocolFlowConfig';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
-import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -1414,37 +1415,11 @@ class ServiceStaking extends ServiceBase {
     if (!providerKey) {
       return null;
     }
-
-    const vaultSettings =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-    const allStakingConfig = vaultSettings.stakingConfig;
-    if (!allStakingConfig) {
-      return null;
-    }
-
-    const stakingConfig = allStakingConfig[networkId];
-    if (!stakingConfig) {
-      return null;
-    }
-
-    const providerConfig = stakingConfig.providers[providerKey];
-    if (!providerConfig) {
-      return null;
-    }
-
-    // Pendle is vault-based with a backend-driven symbol set.
-    // All Pendle symbols share the same flow config, no per-token lookup needed.
-    if (earnUtils.isPendleProvider({ providerName: provider })) {
-      return pendleFlowConfig;
-    }
-
-    const tokenSymbol = symbol as ISupportedSymbol;
-    const isProviderSupportedSymbol =
-      providerConfig.supportedSymbols.includes(tokenSymbol);
-    const configuredFlow = isProviderSupportedSymbol
-      ? providerConfig.configs[tokenSymbol]
-      : undefined;
-    return configuredFlow ?? null;
+    return getProtocolFlowConfig({
+      networkId,
+      provider: providerKey,
+      symbol,
+    });
   }
 
   @backgroundMethod()
@@ -1455,43 +1430,10 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    const vaultSettings =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-
-    const allStakingConfig = vaultSettings.stakingConfig;
-    if (!allStakingConfig) {
-      return null;
-    }
-
-    const stakingConfig = allStakingConfig[networkId];
-    if (!stakingConfig) {
-      return null;
-    }
-
-    const normalizedTokenAddress = tokenAddress.toLowerCase();
-
-    const providerEntries = Object.entries(stakingConfig.providers).filter(
-      ([, providerConfig]) => providerConfig !== undefined,
-    );
-
-    for (const [provider, providerConfig] of providerEntries) {
-      const symbolEntry = Object.entries(providerConfig.configs).find(
-        ([, config]) =>
-          config &&
-          config.tokenAddress.toLowerCase() === normalizedTokenAddress &&
-          config.enabled,
-      );
-
-      if (symbolEntry) {
-        const [symbol] = symbolEntry;
-        return {
-          symbol: symbol as ISupportedSymbol,
-          provider: provider as EEarnProviderEnum,
-        };
-      }
-    }
-
-    return null;
+    return findProtocolSymbolByTokenAddress({
+      networkId,
+      tokenAddress,
+    });
   }
 
   @backgroundMethod()
@@ -1890,7 +1832,10 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async updateEarnOrderStatusToServer({ order }: { order: IEarnOrderItem }) {
     const maxRetries = 3;
-    let lastError;
+    let lastError: unknown;
+    const rethrowError = (error: Error): never => {
+      throw error;
+    };
 
     for (let i = 0; i < maxRetries; i += 1) {
       try {
@@ -1908,7 +1853,17 @@ class ServiceStaking extends ServiceBase {
       }
     }
 
-    throw lastError instanceof Error ? lastError : new Error(String(lastError)); // Throw last error after all retries fail
+    if (lastError instanceof OneKeyLocalError) {
+      rethrowError(lastError);
+    }
+
+    if (lastError instanceof Error) {
+      const wrappedError = new OneKeyLocalError(lastError.message);
+      wrappedError.stack = lastError.stack;
+      throw wrappedError;
+    }
+
+    throw new OneKeyLocalError(String(lastError));
   }
 
   @backgroundMethod()

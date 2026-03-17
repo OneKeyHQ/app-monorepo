@@ -1,16 +1,13 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { APTOS_NATIVE_COIN } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_APTOS,
   IMPL_APTOS,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
-
-import { APTOS_NATIVE_COIN } from './utils';
 
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
@@ -63,23 +60,6 @@ const settings: IVaultSettings = {
       curve: 'ed25519',
       addressPrefix: '',
       nativeTokenAddress: APTOS_NATIVE_COIN,
-    },
-  },
-
-  stakingConfig: {
-    [getNetworkIdsMap().apt]: {
-      providers: {
-        [EEarnProviderEnum.Everstake]: {
-          supportedSymbols: ['APT'],
-          configs: {
-            'APT': {
-              enabled: true,
-              tokenAddress: APTOS_NATIVE_COIN,
-              displayProfit: true,
-            },
-          },
-        },
-      },
     },
   },
   stakingResultPollingInterval: 5,

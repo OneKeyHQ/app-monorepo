@@ -1,12 +1,10 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_COSMOS,
   IMPL_COSMOS,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -134,37 +132,6 @@ const settings: IVaultSettings = {
       addressPrefix: 'noble',
       curve: 'secp256k1',
       nativeTokenAddress: 'uusdc',
-    },
-  },
-
-  stakingConfig: {
-    [getNetworkIdsMap().cosmoshub]: {
-      providers: {
-        [EEarnProviderEnum.Everstake]: {
-          supportedSymbols: ['ATOM'],
-          configs: {
-            'ATOM': {
-              enabled: true,
-              tokenAddress: 'uatom',
-              displayProfit: true,
-              usePublicKey: true,
-              claimWithAmount: true,
-            },
-          },
-        },
-        [EEarnProviderEnum.Stakefish]: {
-          supportedSymbols: ['ATOM'],
-          configs: {
-            'ATOM': {
-              enabled: true,
-              tokenAddress: 'uatom',
-              displayProfit: true,
-              usePublicKey: true,
-              claimWithAmount: true,
-            },
-          },
-        },
-      },
     },
   },
   stakingResultPollingInterval: 5,

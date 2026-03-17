@@ -48,6 +48,7 @@ export const MorphoBaseBundlerContract =
 export const PangolinsBaseUSDCVaultAddress =
   '0x1401d1271C47648AC70cBcdfA3776D4A87CE006B';
 export const SolanaUSDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+export const APTOS_NATIVE_COIN = '0x1::aptos_coin::AptosCoin';
 
 export const ALL_NETWORK_ACCOUNT_MOCK_ADDRESS = 'AllNetworkMockAddress';
 export const EMPTY_NATIVE_TOKEN_ADDRESS = '';

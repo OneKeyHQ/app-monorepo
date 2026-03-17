@@ -1,9 +1,4 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  EMPTY_NATIVE_TOKEN_ADDRESS,
-  SolanaUSDC,
-} from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_SOL,
   IMPL_SOL,
@@ -11,7 +6,6 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -86,48 +80,6 @@ const settings: IVaultSettings = {
   customRpcEnabled: true,
 
   sendZeroWithZeroTokenBalanceDisabled: true,
-
-  stakingConfig: {
-    [getNetworkIdsMap().sol]: {
-      providers: {
-        [EEarnProviderEnum.Everstake]: {
-          supportedSymbols: ['SOL'],
-          configs: {
-            'SOL': {
-              enabled: true,
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: true,
-              withdrawWithTx: true,
-              claimWithTx: true,
-            },
-          },
-        },
-        [EEarnProviderEnum.Stakefish]: {
-          supportedSymbols: ['SOL'],
-          configs: {
-            'SOL': {
-              enabled: true,
-              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
-              displayProfit: true,
-              withdrawWithTx: true,
-              claimWithTx: true,
-            },
-          },
-        },
-        [EEarnProviderEnum.Kamino]: {
-          supportedSymbols: ['USDC'],
-          configs: {
-            'USDC': {
-              enabled: true,
-              tokenAddress: SolanaUSDC,
-              displayProfit: true,
-              claimWithTx: true,
-            },
-          },
-        },
-      },
-    },
-  },
   stakingResultPollingInterval: 5,
   maxRetryBroadcastTxCount: 5,
   minRetryBroadcastTxInterval: timerUtils.getTimeDurationMs({ seconds: 1 }),

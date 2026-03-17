@@ -27,6 +27,7 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { APTOS_NATIVE_COIN } from '@onekeyhq/shared/src/consts/addresses';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
@@ -44,6 +45,8 @@ import type {
   TransactionResponse,
   TypeTag,
 } from '@aptos-labs/ts-sdk';
+
+export { APTOS_NATIVE_COIN };
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 
@@ -72,7 +75,6 @@ export const APTOS_NFT_CREATE = '0x3::token::create_token_script';
 export const APTOS_COLLECTION_CREATE = '0x3::token::create_collection_script';
 export const APTOS_NFT_CLAIM = '0x3::token_transfers::claim_script';
 
-export const APTOS_NATIVE_COIN = '0x1::aptos_coin::AptosCoin';
 export const DEFAULT_GAS_LIMIT_NATIVE_TRANSFER = '2000';
 export const DEFAULT_GAS_LIMIT_TRANSFER = '20000';
 
