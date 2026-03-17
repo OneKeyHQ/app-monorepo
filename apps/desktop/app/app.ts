@@ -1142,6 +1142,12 @@ async function createMainWindow() {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
+        // recovery.html lives in dist/ (same as app.js), not in build/
+        if (request.url.includes('/dist/recovery.html')) {
+          callback(path.join(__dirname, 'recovery.html'));
+          return;
+        }
+
         const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
         const isIFrameHtml =
           request.url.indexOf('/static/js-sdk/iframe.html') > -1;
