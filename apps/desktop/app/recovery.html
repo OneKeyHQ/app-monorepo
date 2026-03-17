@@ -119,15 +119,7 @@
         exportError: '导出日志失败', repairError: '修复失败',
         noLogs: '未找到日志文件',
       },
-      'zh-HK': {
-        title: '應用啟動失敗',
-        subtitle: '應用已多次啟動失敗。您可以嘗試以下選項來解決問題。',
-        exportLogs: '匯出日誌', tryAgain: '重試', autoRepair: '自動修復',
-        repairComplete: '修復完成', error: '錯誤', ok: '確定',
-        exportError: '匯出日誌失敗', repairError: '修復失敗',
-        noLogs: '未找到日誌檔案',
-      },
-      'zh-TW': {
+      'zh-Hant': {
         title: '應用程式啟動失敗',
         subtitle: '應用程式已多次啟動失敗。您可以嘗試以下選項來解決問題。',
         exportLogs: '匯出日誌', tryAgain: '重試', autoRepair: '自動修復',
@@ -260,14 +252,17 @@
     // Script-to-region mapping for CJK script subtags.
     // iOS/Android use BCP 47 script subtags (Hans/Hant) for Chinese variants,
     // while our i18n keys use region codes (CN/TW/HK).
-    //   - zh-Hans (iOS) / zh-Hans-CN (Android) → zh-CN
-    //   - zh-Hant (iOS) / zh-Hant-TW (Android) → zh-TW
-    const scriptMap = { 'Hans': 'zh-CN', 'Hant': 'zh-TW' };
+    //   - zh-Hans (iOS) / zh-Hans-CN (Android) → zh-CN (Simplified)
+    //   - zh-Hant (iOS) / zh-Hant-TW (Android) → zh-Hant (Traditional, shared by TW/HK)
+    // zh-TW / zh-HK share the same Traditional Chinese translations
+    i18nMap['zh-TW'] = i18nMap['zh-Hant'];
+    i18nMap['zh-HK'] = i18nMap['zh-Hant'];
+    const scriptMap = { 'Hans': 'zh-CN', 'Hant': 'zh-Hant' };
 
     // Locale matching priority:
     //   1. Exact match (e.g. "zh-CN", "ja-JP", "de")
-    //   2. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW")
-    //   3. First-last parts (e.g. "zh-Hans-CN" → "zh-CN", "zh-Hant-HK" → "zh-HK")
+    //   2. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-Hant")
+    //   3. First-last parts (e.g. "zh-Hans-CN" → "zh-CN")
     //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
     //   5. Fallback to "en"
     //

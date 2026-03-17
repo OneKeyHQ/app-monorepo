@@ -34,8 +34,8 @@ public class RecoveryActivity extends AppCompatActivity {
         // Order: title, subtitle, exportLogs, tryAgain, autoRepair, repairComplete, error, ok, exportError, repairError, noLogs
         LOCALE_MAP.put("en", new String[]{"App Failed to Start", "The app has failed to start multiple times. You can try the following options to resolve the issue.", "Export Logs", "Try Again", "Auto Repair", "Repair Complete", "Error", "OK", "Failed to export logs", "Repair failed", "No log files found"});
         LOCALE_MAP.put("zh-CN", new String[]{"应用启动失败", "应用已多次启动失败。您可以尝试以下选项来解决问题。", "导出日志", "重试", "自动修复", "修复完成", "错误", "确定", "导出日志失败", "修复失败", "未找到日志文件"});
-        LOCALE_MAP.put("zh-HK", new String[]{"應用啟動失敗", "應用已多次啟動失敗。您可以嘗試以下選項來解決問題。", "匯出日誌", "重試", "自動修復", "修復完成", "錯誤", "確定", "匯出日誌失敗", "修復失敗", "未找到日誌檔案"});
-        LOCALE_MAP.put("zh-TW", new String[]{"應用程式啟動失敗", "應用程式已多次啟動失敗。您可以嘗試以下選項來解決問題。", "匯出日誌", "重試", "自動修復", "修復完成", "錯誤", "確定", "匯出日誌失敗", "修復失敗", "未找到日誌檔案"});
+        // Traditional Chinese — shared by zh-TW, zh-HK, zh-Hant
+        LOCALE_MAP.put("zh-Hant", new String[]{"應用程式啟動失敗", "應用程式已多次啟動失敗。您可以嘗試以下選項來解決問題。", "匯出日誌", "重試", "自動修復", "修復完成", "錯誤", "確定", "匯出日誌失敗", "修復失敗", "未找到日誌檔案"});
         LOCALE_MAP.put("ja-JP", new String[]{"アプリの起動に失敗しました", "アプリが複数回起動に失敗しました。以下のオプションをお試しください。", "ログを書き出す", "再試行", "自動修復", "修復完了", "エラー", "OK", "ログの書き出しに失敗しました", "修復に失敗しました", "ログファイルが見つかりません"});
         LOCALE_MAP.put("ko-KR", new String[]{"앱 시작 실패", "앱이 여러 번 시작에 실패했습니다. 아래 옵션을 시도해 보세요.", "로그 내보내기", "다시 시도", "자동 복구", "복구 완료", "오류", "확인", "로그 내보내기 실패", "복구 실패", "로그 파일을 찾을 수 없습니다"});
         LOCALE_MAP.put("de", new String[]{"App konnte nicht gestartet werden", "Die App konnte mehrfach nicht gestartet werden. Bitte versuchen Sie die folgenden Optionen.", "Protokolle exportieren", "Erneut versuchen", "Automatische Reparatur", "Reparatur abgeschlossen", "Fehler", "OK", "Protokollexport fehlgeschlagen", "Reparatur fehlgeschlagen", "Keine Protokolldateien gefunden"});
@@ -59,22 +59,36 @@ public class RecoveryActivity extends AppCompatActivity {
     //   - Traditional Chinese (TW) → "zh-Hant-TW" or "zh-TW"
     //   - Traditional Chinese (HK) → "zh-Hant-HK" or "zh-HK"
     // Our i18n keys use region codes (zh-CN, zh-TW, zh-HK), so we map:
-    //   Hans → zh-CN, Hant → zh-TW (as default for Traditional Chinese)
+    //   Hans → zh-CN, Hant → zh-Hant (Traditional Chinese, shared by TW/HK)
     private static final java.util.Map<String, String> SCRIPT_MAP = new java.util.HashMap<>();
     static {
         SCRIPT_MAP.put("Hans", "zh-CN");
-        SCRIPT_MAP.put("Hant", "zh-TW");
+        SCRIPT_MAP.put("Hant", "zh-Hant");
+    }
+
+    // Aliases: zh-TW and zh-HK both map to zh-Hant
+    private static final java.util.Map<String, String> ALIAS_MAP = new java.util.HashMap<>();
+    static {
+        ALIAS_MAP.put("zh-TW", "zh-Hant");
+        ALIAS_MAP.put("zh-HK", "zh-Hant");
     }
 
     // Locale matching priority:
     //   1. Exact match (e.g. "ja-JP", "de")
-    //   2. Script subtag mapping (e.g. "zh-Hans-CN" → Hans → "zh-CN")
-    //   3. First-last parts (e.g. "zh-Hant-HK" → "zh-HK")
+    //   2. Alias mapping (e.g. "zh-TW" → "zh-Hant", "zh-HK" → "zh-Hant")
+    //   3. Script subtag mapping (e.g. "zh-Hans-CN" → Hans → "zh-CN")
+    //   4. First-last parts (e.g. "zh-Hans-CN" → "zh-CN")
     //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
     //   5. Fallback to "en"
     private void resolveLocale() {
         String lang = Locale.getDefault().toLanguageTag(); // e.g. "zh-Hans-CN", "ja-JP", "en-US"
         String[] strings = LOCALE_MAP.get(lang);
+        // Alias mapping: "zh-TW" → "zh-Hant", "zh-HK" → "zh-Hant"
+        if (strings == null) {
+            String aliased = ALIAS_MAP.get(lang);
+            if (aliased != null) strings = LOCALE_MAP.get(aliased);
+        }
+        // Script subtag mapping
         if (strings == null) {
             String[] parts = lang.split("-");
             for (String part : parts) {

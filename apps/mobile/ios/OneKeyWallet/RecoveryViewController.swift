@@ -30,13 +30,8 @@ private enum RecoveryStrings {
       exportLogs: "导出日志", tryAgain: "重试", autoRepair: "自动修复",
       repairComplete: "修复完成", error: "错误", ok: "确定",
       exportError: "导出日志失败", repairError: "修复失败", noLogs: "未找到日志文件"),
-    "zh-HK": RecoveryLocale(
-      title: "應用啟動失敗",
-      subtitle: "應用已多次啟動失敗。\n請嘗試以下選項來解決問題。",
-      exportLogs: "匯出日誌", tryAgain: "重試", autoRepair: "自動修復",
-      repairComplete: "修復完成", error: "錯誤", ok: "確定",
-      exportError: "匯出日誌失敗", repairError: "修復失敗", noLogs: "未找到日誌檔案"),
-    "zh-TW": RecoveryLocale(
+    // Traditional Chinese — shared by zh-TW, zh-HK, zh-Hant
+    "zh-Hant": RecoveryLocale(
       title: "應用程式啟動失敗",
       subtitle: "應用程式已多次啟動失敗。\n請嘗試以下選項來解決問題。",
       exportLogs: "匯出日誌", tryAgain: "重試", autoRepair: "自動修復",
@@ -140,19 +135,25 @@ private enum RecoveryStrings {
   //   - Traditional Chinese (TW) → "zh-Hant" or "zh-Hant-TW"
   //   - Traditional Chinese (HK) → "zh-Hant-HK"
   // Our i18n keys use region codes (zh-CN, zh-TW, zh-HK), so we map:
-  //   Hans → zh-CN, Hant → zh-TW (as default for Traditional Chinese)
-  private static let scriptMap: [String: String] = ["Hans": "zh-CN", "Hant": "zh-TW"]
+  //   Hans → zh-CN, Hant → zh-Hant (Traditional Chinese, shared by TW/HK)
+  private static let scriptMap: [String: String] = ["Hans": "zh-CN", "Hant": "zh-Hant"]
+
+  // Aliases: zh-TW and zh-HK both map to zh-Hant (Traditional Chinese)
+  private static let aliasMap: [String: String] = ["zh-TW": "zh-Hant", "zh-HK": "zh-Hant"]
 
   // Locale matching priority:
   //   1. Exact match (e.g. "ja-JP", "de")
-  //   2. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW")
-  //   3. First-last parts (e.g. "zh-Hant-HK" → "zh-HK", "zh-Hans-CN" → "zh-CN")
+  //   2. Alias mapping (e.g. "zh-TW" → "zh-Hant", "zh-HK" → "zh-Hant")
+  //   3. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-Hant")
+  //   4. First-last parts (e.g. "zh-Hans-CN" → "zh-CN")
   //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
   //   5. Fallback to "en"
   static var current: RecoveryLocale {
     guard let lang = Locale.preferredLanguages.first else { return localeMap["en"]! }
-    // Exact match (e.g. "ja-JP", "de")
+    // Exact match (e.g. "ja-JP", "de", "zh-Hant")
     if let exact = localeMap[lang] { return exact }
+    // Alias match (e.g. "zh-TW" → "zh-Hant", "zh-HK" → "zh-Hant")
+    if let aliased = aliasMap[lang], let match = localeMap[aliased] { return match }
     let parts = lang.split(separator: "-").map(String.init)
     // Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW")
     if parts.count >= 2 {
