@@ -53,18 +53,36 @@ public class RecoveryActivity extends AppCompatActivity {
         LOCALE_MAP.put("vi", new String[]{"Ứng dụng không khởi động được", "Ứng dụng đã không khởi động được nhiều lần. Vui lòng thử các tùy chọn sau.", "Xuất nhật ký", "Thử lại", "Tự động sửa chữa", "Sửa chữa hoàn tất", "Lỗi", "OK", "Xuất nhật ký thất bại", "Sửa chữa thất bại", "Không tìm thấy tệp nhật ký"});
     }
 
+    // Script-to-region mapping for CJK script subtags
+    private static final java.util.Map<String, String> SCRIPT_MAP = new java.util.HashMap<>();
+    static {
+        SCRIPT_MAP.put("Hans", "zh-CN");
+        SCRIPT_MAP.put("Hant", "zh-TW");
+    }
+
     private void resolveLocale() {
         String lang = Locale.getDefault().toLanguageTag(); // e.g. "zh-Hans-CN", "ja-JP", "en-US"
         String[] strings = LOCALE_MAP.get(lang);
+        // Script subtag mapping: "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW"
         if (strings == null) {
-            // Try first-last parts: "zh-Hans-CN" → "zh-CN"
+            String[] parts = lang.split("-");
+            for (String part : parts) {
+                String mapped = SCRIPT_MAP.get(part);
+                if (mapped != null) {
+                    strings = LOCALE_MAP.get(mapped);
+                    break;
+                }
+            }
+        }
+        // First-last parts: "zh-Hans-CN" → "zh-CN", "zh-Hant-HK" → "zh-HK"
+        if (strings == null) {
             String[] parts = lang.split("-");
             if (parts.length >= 2) {
                 strings = LOCALE_MAP.get(parts[0] + "-" + parts[parts.length - 1]);
             }
         }
+        // Prefix match: "fr" → "fr-FR"
         if (strings == null) {
-            // Prefix match: "fr" → "fr-FR"
             String code = lang.split("-")[0];
             strings = LOCALE_MAP.get(code);
             if (strings == null) {

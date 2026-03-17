@@ -134,19 +134,29 @@ private enum RecoveryStrings {
       exportError: "Xuất nhật ký thất bại", repairError: "Sửa chữa thất bại", noLogs: "Không tìm thấy tệp nhật ký"),
   ]
 
+  // Script-to-region mapping for CJK script subtags
+  private static let scriptMap: [String: String] = ["Hans": "zh-CN", "Hant": "zh-TW"]
+
   // Resolve system locale to best matching key
+  // iOS returns: zh-Hans, zh-Hans-CN, zh-Hant, zh-Hant-TW, zh-Hant-HK, ja-JP, ko-KR, etc.
   static var current: RecoveryLocale {
     guard let lang = Locale.preferredLanguages.first else { return localeMap["en"]! }
-    // Exact match (e.g. "zh-Hans-CN" won't match, but "ja-JP" will)
+    // Exact match (e.g. "ja-JP", "de")
     if let exact = localeMap[lang] { return exact }
-    // Two-part key: first-last (e.g. "zh-Hans-CN" → "zh-CN")
-    let parts = lang.split(separator: "-")
+    let parts = lang.split(separator: "-").map(String.init)
+    // Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW")
+    if parts.count >= 2 {
+      for (script, mapped) in scriptMap {
+        if parts.contains(script), let match = localeMap[mapped] { return match }
+      }
+    }
+    // First-last parts (e.g. "zh-Hant-HK" → "zh-HK", "zh-Hans-CN" → "zh-CN")
     if parts.count >= 2 {
       let twoPartKey = "\(parts[0])-\(parts[parts.count - 1])"
       if let match = localeMap[twoPartKey] { return match }
     }
     // Prefix match (e.g. "fr" → "fr-FR")
-    let code = String(lang.split(separator: "-")[0])
+    let code = parts[0]
     if let match = localeMap[code] { return match }
     if let prefixMatch = localeMap.first(where: { $0.key.hasPrefix("\(code)-") })?.value { return prefixMatch }
     return localeMap["en"]!
