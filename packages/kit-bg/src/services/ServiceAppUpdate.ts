@@ -869,6 +869,7 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     await AppUpdate.clearPackage();
     await BundleUpdate.clearBundle();
+    await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
     await this.reset();
   }
 
