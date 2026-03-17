@@ -890,7 +890,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         status: 'success',
       });
       const whatsNewAlreadyShown = isWhatsNewShown();
-      markWhatsNewShown();
+      markWhatsNewShown(fileType === EUpdateFileType.jsBundle);
       if (
         appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless &&
         !whatsNewAlreadyShown

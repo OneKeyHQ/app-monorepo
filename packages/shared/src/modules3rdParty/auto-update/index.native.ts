@@ -317,7 +317,8 @@ export const BundleUpdate: IBundleUpdate = {
   },
   getNativeAppVersion: () => ReactNativeBundleUpdate.getNativeAppVersion(),
   getNativeBuildNumber: () => ReactNativeBundleUpdate.getNativeBuildNumber(),
-  getBuiltinBundleVersion: () => ReactNativeBundleUpdate.getBuiltinBundleVersion(),
+  getBuiltinBundleVersion: () =>
+    ReactNativeBundleUpdate.getBuiltinBundleVersion(),
   getJsBundlePath: () => ReactNativeBundleUpdate.getJsBundlePathAsync(),
   getSha256FromFilePath: (filePath) =>
     ReactNativeBundleUpdate.getSha256FromFilePath(filePath),

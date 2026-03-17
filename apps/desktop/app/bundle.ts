@@ -139,7 +139,11 @@ export const getBundleIndexHtmlPath = ({
     clearUpdateBundleData();
     return undefined;
   }
-  if (currentBuildNumber && prevBuildNumber && currentBuildNumber !== prevBuildNumber) {
+  if (
+    currentBuildNumber &&
+    prevBuildNumber &&
+    currentBuildNumber !== prevBuildNumber
+  ) {
     logger.info(
       'getBundleIndexHtmlPath: buildNumber changed, clearing bundle data',
       currentBuildNumber,
