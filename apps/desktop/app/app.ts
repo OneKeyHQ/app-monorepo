@@ -922,7 +922,7 @@ async function createMainWindow() {
       errors.push(`clearASCFile: ${e?.message}`);
     }
     try {
-      const bundleDir = getBundleDirName();
+      const bundleDir = path.join(app.getPath('userData'), 'onekey-bundle');
       if (fs.existsSync(bundleDir)) {
         fs.rmSync(bundleDir, { recursive: true, force: true });
       }
