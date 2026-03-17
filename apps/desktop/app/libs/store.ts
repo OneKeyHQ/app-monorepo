@@ -268,9 +268,9 @@ export const clearMmkvRecoveryKeys = () => {
  */
 export const processPreLaunchPendingTask = (): boolean => {
   try {
-    const taskJson = mmkvAppSettingStore.get(
-      'onekey_pending_install_task',
-    ) as string | undefined;
+    const taskJson = mmkvAppSettingStore.get('onekey_pending_install_task') as
+      | string
+      | undefined;
     if (!taskJson || typeof taskJson !== 'string') return false;
 
     const task = JSON.parse(taskJson);
@@ -296,7 +296,10 @@ export const processPreLaunchPendingTask = (): boolean => {
 
     // Verify bundle directory exists
     const bundleDirName = path.join(app.getPath('userData'), 'onekey-bundle');
-    const extractDir = path.join(bundleDirName, `${appVersion}-${bundleVersion}`);
+    const extractDir = path.join(
+      bundleDirName,
+      `${appVersion}-${bundleVersion}`,
+    );
     if (!fs.existsSync(extractDir)) return false;
 
     // Apply: set new bundle data
