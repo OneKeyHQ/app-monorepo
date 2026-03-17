@@ -3,6 +3,7 @@ import path from 'path';
 import { format as formatUrl } from 'url';
 
 import { BrowserWindow, app, ipcMain, session } from 'electron';
+import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from './config';
@@ -56,6 +57,10 @@ export function createRecoveryWindow(): BrowserWindow {
     slashes: true,
   });
   void browserWindow.loadURL(recoveryUrl);
+
+  if (isDev) {
+    browserWindow.webContents.openDevTools();
+  }
 
   // === IPC Handlers ===
 
