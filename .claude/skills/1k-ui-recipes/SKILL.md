@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-recipes
-description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, keyboard avoidance for input fields, and iOS overlay navigation freeze prevention (resetAboveMainRoute).
+description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, keyboard avoidance for input fields, iOS overlay navigation freeze prevention (resetAboveMainRoute), and web keyboardDismissMode cross-tab input blur prevention.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -18,6 +18,7 @@ Bite-sized solutions for common UI issues.
 | Android Bottom Tab Touch Interception | [android-bottom-tab-touch-intercept.md](references/rules/android-bottom-tab-touch-intercept.md) | **Temporary** — `GestureDetector` + `Gesture.Tap()` in `.android.tsx` to bypass native tab bar touch stealing |
 | Keyboard Avoidance for Input Fields | [keyboard-avoidance.md](references/rules/keyboard-avoidance.md) | `KeyboardAwareScrollView` auto-scroll, Footer animated padding, `useKeyboardHeight` / `useKeyboardEvent` hooks |
 | iOS Overlay Navigation Freeze | [ios-overlay-navigation-freeze.md](references/rules/ios-overlay-navigation-freeze.md) | Use `resetAboveMainRoute()` instead of sequential `goBack()` to close overlays before navigating |
+| Web keyboardDismissMode Cross-Tab Blur | — | Never use `on-drag` on web; it globally blurs inputs via `TextInputState` |
 
 ## Critical Rules Summary
 
@@ -145,6 +146,36 @@ rootNavigationRef.current?.navigate(targetRoute);
 
 > **Key file**: `packages/components/src/layouts/Navigation/Navigator/NavigationContainer.tsx`
 > **Reference**: commit `2cabd040` (OK-50182) — same fix applied to scan QR code navigation.
+
+### 7. Web: ScrollView `keyboardDismissMode="on-drag"` Causes Cross-Tab Input Blur
+
+On web, `react-native-web`'s `keyboardDismissMode="on-drag"` calls `dismissKeyboard()` on every scroll event. `dismissKeyboard()` uses `TextInputState` — a **global singleton** that tracks the currently focused input across the entire app, not scoped to individual tabs. This means a ScrollView scrolling on a **background tab** (e.g. Home) will blur an input on the **active tab** (e.g. Perps).
+
+**Symptom**: Input fields lose focus periodically (~every 5 seconds) without user interaction.
+
+**Root cause chain**:
+1. Carousel on Home tab has `autoPlayInterval={5000}` → triggers scroll every 5s
+2. Web PagerView uses `<ScrollView keyboardDismissMode="on-drag">` → `dismissKeyboard()` on scroll
+3. `dismissKeyboard()` → `TextInputState.blurTextInput(currentlyFocusedField())` → blurs Perps input
+
+**Fix (two layers)**:
+- `Carousel/pager.tsx` (web-only): Force `keyboardDismissMode="none"` — web has no virtual keyboard, so dismiss is pure side-effect
+- `Carousel/index.tsx`: Pause auto-play via `IntersectionObserver` when the Carousel is not visible in viewport
+
+**Rules**:
+- **NEVER** use `keyboardDismissMode="on-drag"` on web ScrollViews that may run in background tabs. On web, it globally blurs the focused input via `TextInputState`.
+- For Carousel/PagerView, the web `pager.tsx` already forces `"none"`. For standalone ScrollViews, wrap with `platformEnv.isNative` if `on-drag` is needed only on mobile.
+- Background Carousel auto-play should be paused when not visible (`IntersectionObserver`).
+
+```typescript
+// ❌ WRONG: Will blur inputs on other tabs when this ScrollView scrolls
+<ScrollView keyboardDismissMode="on-drag" />
+
+// ✅ CORRECT: Only use on-drag on native
+<ScrollView keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'} />
+```
+
+> **Key files**: `packages/components/src/composite/Carousel/pager.tsx`, `packages/components/src/composite/Carousel/index.tsx`
 
 ---
 

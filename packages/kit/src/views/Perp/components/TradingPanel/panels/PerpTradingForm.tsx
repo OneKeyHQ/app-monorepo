@@ -872,7 +872,7 @@ function PerpTradingForm({
                         applyPrimaryOrderType(option.value);
                       }
                     }}
-                    cursor="default"
+                    cursor="pointer"
                   >
                     <SizableText
                       size="$bodyMdMedium"
@@ -909,6 +909,7 @@ function PerpTradingForm({
                     alignItems="center"
                     position="relative"
                     gap="$1"
+                    cursor="pointer"
                     onPress={(e) => {
                       if (disabledTrigger) return;
                       if (!isTriggerMode) {

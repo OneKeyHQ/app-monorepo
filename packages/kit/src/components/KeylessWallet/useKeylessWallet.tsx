@@ -21,6 +21,7 @@ import { devSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
+  IncorrectPinError,
   OneKeyLocalError,
   PrimeSendEmailOTPCancelError,
 } from '@onekeyhq/shared/src/errors';
@@ -63,6 +64,12 @@ import {
   showAppleIDMismatchDialog,
   showGoogleDriveMismatchDialog,
 } from './AccountMismatchDialog';
+
+type IKeylessSameEmailAccountStatus = {
+  isSameEmailAccountAtOldVersion: boolean;
+  retryProvider?: EOAuthSocialLoginProvider;
+  currentProvider?: EOAuthSocialLoginProvider;
+};
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
   return true;
@@ -361,9 +368,42 @@ async function cacheKeylessOnboardingPin({ pin }: { pin: string }) {
   await keylessOnboardingCacheSet('onboardingPin', pin);
 }
 
-async function getKeylessOnboardingPin() {
+export async function getKeylessOnboardingPin() {
   const pin = keylessOnboardingCacheGet('onboardingPin');
   return pin;
+}
+
+async function cacheKeylessOnboardingSameEmailAccountStatus({
+  status,
+}: {
+  status: IKeylessSameEmailAccountStatus;
+}) {
+  await keylessOnboardingCacheSet(
+    'sameEmailAccountStatus',
+    JSON.stringify(status),
+  );
+}
+
+export async function getKeylessOnboardingSameEmailAccountStatus(): Promise<IKeylessSameEmailAccountStatus> {
+  const raw = await keylessOnboardingCacheGet('sameEmailAccountStatus');
+  if (!raw) {
+    return {
+      isSameEmailAccountAtOldVersion: false,
+    };
+  }
+
+  try {
+    const status = JSON.parse(raw) as IKeylessSameEmailAccountStatus;
+    return {
+      isSameEmailAccountAtOldVersion: !!status?.isSameEmailAccountAtOldVersion,
+      retryProvider: status?.retryProvider,
+      currentProvider: status?.currentProvider,
+    };
+  } catch {
+    return {
+      isSameEmailAccountAtOldVersion: false,
+    };
+  }
 }
 
 async function cacheKeylessOnboardingCustomMnemonic({
@@ -634,6 +674,11 @@ export function useKeylessWallet() {
         }
       };
       await checkLoginMatchedKeylessWallet();
+      await cacheKeylessOnboardingSameEmailAccountStatus({
+        status: {
+          isSameEmailAccountAtOldVersion: false,
+        },
+      });
 
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessResetPin) {
         navigation.navigate(ERootRoutes.Onboarding, {
@@ -669,6 +714,20 @@ export function useKeylessWallet() {
           },
         );
       if (isCreated) {
+        await cacheKeylessOnboardingSameEmailAccountStatus({
+          status: {
+            isSameEmailAccountAtOldVersion: false,
+          },
+        });
+        const sameEmailAccountStatus =
+          await backgroundApiProxy.serviceKeylessWallet.apiGetKeylessSameEmailAccountStatus(
+            {
+              token,
+            },
+          );
+        await cacheKeylessOnboardingSameEmailAccountStatus({
+          status: sameEmailAccountStatus,
+        });
         navigation.navigate(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -910,6 +969,11 @@ export function useKeylessWallet() {
             isKeylessWallet: true,
             keylessOwnerId: ownerId,
             keylessDetailsInfo,
+            shouldAutoResetKeylessPinAfterRestore:
+              action === EKeylessFinalizeAction.Restore
+                ? (await getKeylessOnboardingSameEmailAccountStatus())
+                    .isSameEmailAccountAtOldVersion
+                : false,
           },
         },
       });
@@ -959,15 +1023,54 @@ export function useKeylessWallet() {
         return;
       }
       const refreshToken = await getKeylessOnboardingRefreshToken();
-      await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
-        {
-          token,
-          pin,
-          refreshToken,
-          mode,
-          dangerousRetryByFixedProvider,
-        },
-      );
+      const sameEmailAccountStatus =
+        mode === EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore
+          ? await getKeylessOnboardingSameEmailAccountStatus()
+          : {
+              isSameEmailAccountAtOldVersion: false,
+            };
+
+      try {
+        await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+          {
+            token,
+            pin,
+            refreshToken,
+            mode,
+            dangerousRetryByFixedProvider,
+            providerOverride: dangerousRetryByFixedProvider
+              ? undefined
+              : sameEmailAccountStatus.currentProvider,
+          },
+        );
+      } catch (error) {
+        const isPinErrorByInstance = error instanceof IncorrectPinError;
+        const isPinErrorByClassName = errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.IncorrectPinError,
+        });
+        const isPinError = isPinErrorByInstance || isPinErrorByClassName;
+
+        if (
+          isPinError &&
+          sameEmailAccountStatus.isSameEmailAccountAtOldVersion &&
+          sameEmailAccountStatus.retryProvider &&
+          !dangerousRetryByFixedProvider
+        ) {
+          await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+            {
+              token,
+              pin,
+              refreshToken,
+              mode,
+              dangerousRetryByFixedProvider: false,
+              providerOverride: sameEmailAccountStatus.retryProvider,
+            },
+          );
+        } else {
+          throw error;
+        }
+      }
 
       // VerifyPinOnly: just verify, show success toast and close modal
       if (mode === EOnboardingV2OneKeyIDLoginMode.KeylessVerifyPinOnly) {

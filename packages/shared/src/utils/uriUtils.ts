@@ -233,6 +233,21 @@ export function isValidDeepLink(url: string) {
 }
 
 export const validateUrl = (url: string): string => {
+  // In development mode, allow HTTP localhost URLs
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const parsedUrl = new URL(url);
+      if (
+        parsedUrl.protocol === 'http:' &&
+        ['localhost', '127.0.0.1'].includes(parsedUrl.hostname)
+      ) {
+        return url;
+      }
+    } catch {
+      // Continue with normal validation
+    }
+  }
+
   // Extract host/path part from URL if it has a protocol
   let urlWithoutProtocol = url;
   if (url.includes('://')) {

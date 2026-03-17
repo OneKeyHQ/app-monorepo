@@ -1,6 +1,7 @@
 package so.onekey.app.wallet;
 
 import android.app.Application;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
 
@@ -28,6 +29,8 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
+
+  public static boolean shouldShowRecovery = false;
 
   private final ReactNativeHost mReactNativeHost =
     new ReactNativeHostWrapper(this, new CustomReactNativeHost(this) {
@@ -87,6 +90,24 @@ public class MainApplication extends Application implements ReactApplication {
 
   @Override
   public void onCreate() {
+    // Recovery check
+    SharedPreferences prefs = getSharedPreferences("onekey_recovery", MODE_PRIVATE);
+
+    // Version-aware counter reset
+    String currentVersion = BuildConfig.VERSION_NAME;
+    String storedVersion = prefs.getString("boot_fail_app_version", "");
+    if (!storedVersion.isEmpty() && !storedVersion.equals(currentVersion)) {
+        prefs.edit().putInt("consecutive_boot_fail_count", 0).commit();
+    }
+    prefs.edit().putString("boot_fail_app_version", currentVersion).commit();
+
+    // Increment FIRST, then check
+    int oldCount = prefs.getInt("consecutive_boot_fail_count", 0);
+    int newCount = oldCount + 1;
+    prefs.edit().putInt("consecutive_boot_fail_count", newCount).commit();
+
+    shouldShowRecovery = newCount >= 3;
+
     super.onCreate();
     
     long startupTime = System.currentTimeMillis();

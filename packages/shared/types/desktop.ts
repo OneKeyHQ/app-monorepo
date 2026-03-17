@@ -49,6 +49,9 @@ export enum EDesktopStoreKeys {
   // GPU Crash Statistics - for monitoring
   GPUCrashCount = 'gpuCrashCount',
   LastGPUCrashTime = 'lastGPUCrashTime',
+  // Boot Recovery
+  ConsecutiveBootFailCount = 'consecutiveBootFailCount',
+  BootFailAppVersion = 'bootFailAppVersion',
 }
 
 export type IDesktopStoreUpdateSettings = {
@@ -82,4 +85,7 @@ export type IDesktopStoreMap = {
   // GPU Crash Statistics
   [EDesktopStoreKeys.GPUCrashCount]: number;
   [EDesktopStoreKeys.LastGPUCrashTime]: number;
+  // Boot Recovery
+  [EDesktopStoreKeys.ConsecutiveBootFailCount]: number;
+  [EDesktopStoreKeys.BootFailAppVersion]: string;
 };
