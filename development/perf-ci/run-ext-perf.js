@@ -43,7 +43,7 @@ const {
   checkRegression,
   extractDerivedDebugMetrics,
 } = require('./lib/regression');
-const { postSessionAnalytics } = require('./lib/analytics');
+
 
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
@@ -390,16 +390,6 @@ async function main() {
         outPath,
       });
       derived.push({ sessionId, derivedPath: outPath, derived: dj });
-      // eslint-disable-next-line no-await-in-loop
-      await postSessionAnalytics({
-        sessionId,
-        derived: dj,
-        jobId,
-        sessionsDir,
-        platform: meta.targetKey,
-        analyticsUrl: process.env.PERF_ANALYTICS_URL || localConfig.analyticsUrl,
-        analyticsSecret: process.env.PERF_ANALYTICS_SECRET || localConfig.analyticsSecret,
-      }).catch(() => {});
     }
 
     const runResults = runs.map((r) => {
@@ -440,6 +430,13 @@ async function main() {
       outputRoot,
       slackWebhookUrl,
       localConfig,
+      derivedSessions: derived.map((d) => ({
+        sessionId: d.sessionId,
+        derived: d.derived,
+        jobId,
+        sessionsDir,
+        platform: meta.targetKey,
+      })),
     });
 
     writeJson(path.join(outputDir, 'job-result.json'), {

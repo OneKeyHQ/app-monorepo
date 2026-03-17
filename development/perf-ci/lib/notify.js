@@ -3,7 +3,7 @@ const path = require('path');
 const { fileExists, readJson, writeJson } = require('./fs');
 const { postSlackWebhook } = require('./slack');
 const { buildPerfAlertModel, buildSlackPayload } = require('./slackPayload');
-const { postJobAnalytics } = require('./analytics');
+const { postJobAnalytics, postSessionAnalytics } = require('./analytics');
 
 function trimTrailingSlash(value) {
   return String(value || '').replace(/\/+$/, '');
@@ -158,11 +158,31 @@ async function postModelToSlack({ slackWebhookUrl, model }) {
   await postSlackWebhook(slackWebhookUrl, payload);
 }
 
+async function postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret }) {
+  if (!analyticsUrl || !Array.isArray(derivedSessions)) return;
+  for (const s of derivedSessions) {
+    // eslint-disable-next-line no-await-in-loop
+    await postSessionAnalytics({
+      sessionId: s.sessionId,
+      derived: s.derived,
+      jobId: s.jobId,
+      sessionsDir: s.sessionsDir,
+      platform: s.platform,
+      analyticsUrl,
+      analyticsSecret,
+    }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[analytics] session ingest failed:', err?.message || err);
+    });
+  }
+}
+
 async function notifyPerfResult({
   report,
   outputRoot,
   slackWebhookUrl,
   localConfig,
+  derivedSessions,
 }) {
   const analyticsUrl = process.env.PERF_ANALYTICS_URL || localConfig?.analyticsUrl || null;
   const analyticsSecret = process.env.PERF_ANALYTICS_SECRET || localConfig?.analyticsSecret || null;
@@ -193,6 +213,7 @@ async function notifyPerfResult({
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
     await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
+    await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
     return model;
   }
 
@@ -217,6 +238,7 @@ async function notifyPerfResult({
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
     await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
+    await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
     return model;
   }
 
@@ -237,6 +259,7 @@ async function notifyPerfResult({
   });
   // Always post to analytics, even on healthy runs
   await postJobAnalytics({ report, notifyModel: null, analyticsUrl, analyticsSecret }).catch(() => {});
+  await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
   return null;
 }
 
