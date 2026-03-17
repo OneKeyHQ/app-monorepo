@@ -54,6 +54,8 @@ import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+// Side-effect import: registers synchronous IPC handler for renderer MMKV access
+import './libs/react-native-mmkv-desktop-main';
 import { getBackgroundColor } from './libs/utils';
 import initProcess from './process';
 import {
