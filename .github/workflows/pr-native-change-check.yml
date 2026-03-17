@@ -169,7 +169,7 @@ jobs:
           PATCH_FILES=$(echo "$CHANGED_FILES" | grep -E '^patches/' || true)
           if [ -n "$PATCH_FILES" ]; then
             # Known native package prefixes in patch filenames
-            NATIVE_PATCH_HITS=$(echo "$PATCH_FILES" | grep -iE '(react-native|expo[-+]|@react-native|@onekeyfe.*react-native|hermes|realm)' || true)
+            NATIVE_PATCH_HITS=$(echo "$PATCH_FILES" | grep -iE '(react-native|expo[-+]|@react-native|@onekeyfe.*react-native|hermes|realm|burnt)' || true)
             if [ -n "$NATIVE_PATCH_HITS" ]; then
               HAS_NATIVE=true
               COUNT=$(echo "$NATIVE_PATCH_HITS" | wc -l | tr -d ' ')
@@ -198,7 +198,7 @@ jobs:
           # yarn.lock native package changes
           YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
           if [ -n "$YARN_LOCK_CHANGED" ]; then
-            NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|@sentry/react-native|@[^/]+/react-native[-@]|[a-z]+-react-native[-@]|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine|realm[-@]'
+            NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|@sentry/react-native|@[^/]+/react-native[-@]|[a-z]+-react-native[-@]|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine|realm[-@]|burnt[-@]'
             # Match both key lines ("pkg@...":) and resolution lines (resolution: "pkg@...")
             LOCK_NATIVE_HITS=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- yarn.lock 2>/dev/null | grep -E "^[+-].*(\"($NATIVE_PKG_PATTERNS))" | head -20 || true)
             if [ -n "$LOCK_NATIVE_HITS" ]; then

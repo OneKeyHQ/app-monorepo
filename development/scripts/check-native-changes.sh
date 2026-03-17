@@ -151,7 +151,7 @@ if [ -n "$NATIVE_PATCHES" ]; then
       fi
     else
       # Fallback: match known native package name patterns when node_modules is absent
-      if echo "$pkg_name" | grep -qiE '(react-native|expo[-+]|^expo$|@expo/|@react-native|@onekeyfe.*react-native|hermes|^realm$)'; then
+      if echo "$pkg_name" | grep -qiE '(react-native|expo[-+]|^expo$|@expo/|@react-native|@onekeyfe.*react-native|hermes|^realm$|^burnt$)'; then
         is_native=true
       fi
     fi
@@ -199,7 +199,7 @@ fi
 YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
 if [ -n "$YARN_LOCK_CHANGED" ]; then
   # Get the diff of yarn.lock and look for known native packages
-  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|@sentry/react-native|@[^/]+/react-native[-@]|[a-z]+-react-native[-@]|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine|realm[-@]'
+  NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|@sentry/react-native|@[^/]+/react-native[-@]|[a-z]+-react-native[-@]|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine|realm[-@]|burnt[-@]'
   # Match both key lines ("pkg@...":) and resolution lines (resolution: "pkg@...")
   LOCK_NATIVE_HITS=$(git diff "$BASE_REF"...HEAD -- yarn.lock 2>/dev/null | grep -E "^[+-].*(\"($NATIVE_PKG_PATTERNS))" | head -20 || true)
   if [ -n "$LOCK_NATIVE_HITS" ]; then
