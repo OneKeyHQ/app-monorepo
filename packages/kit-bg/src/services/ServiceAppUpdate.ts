@@ -1297,6 +1297,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   async devFetchBundlesForVersion(version: string): Promise<
     {
+      bundleVersion?: string;
       ciBundleVersion: string;
       downloadUrl: string;
       sha256: string;
@@ -1306,6 +1307,7 @@ class ServiceAppUpdate extends ServiceBase {
       branch?: string;
       prTitle?: string;
       changeLog?: string;
+      buildNumber?: string;
     }[]
   > {
     try {
@@ -1313,6 +1315,7 @@ class ServiceAppUpdate extends ServiceBase {
       const response = await client.get<{
         code: number;
         data: {
+          bundleVersion?: string;
           ciBundleVersion: string;
           downloadUrl: string;
           sha256: string;
@@ -1321,6 +1324,7 @@ class ServiceAppUpdate extends ServiceBase {
           commitHash?: string;
           branch?: string;
           prTitle?: string;
+          buildNumber?: string;
         }[];
       }>('/utility/v1/app-update/bundles', {
         params: { version },
@@ -1338,6 +1342,7 @@ class ServiceAppUpdate extends ServiceBase {
           })),
         });
         return data.map((item) => ({
+          bundleVersion: item.bundleVersion,
           ciBundleVersion: item.ciBundleVersion,
           downloadUrl: item.downloadUrl,
           sha256: item.sha256,
@@ -1349,6 +1354,7 @@ class ServiceAppUpdate extends ServiceBase {
           changeLog: item.commitHash
             ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
             : undefined,
+          buildNumber: item.buildNumber,
         }));
       }
       defaultLogger.app.jsBundleDev.fetchBundlesError({
