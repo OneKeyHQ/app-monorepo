@@ -12,6 +12,7 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EmptyNoWalletView } from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_TOKEN,
@@ -28,7 +29,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -213,11 +213,18 @@ function BaseBulkSendAddressesInput() {
     setSelectedIndexedAccountId,
   ]);
 
-  // Reset token details state when account/network/token changes
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+
+  // Reset token details state when account/network/token changes (OneToMany only)
   /* eslint-disable react-hooks/exhaustive-deps */
   /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
-    if (selectedAccountId && selectedNetworkId && selectedToken) {
+    if (
+      isOneToMany &&
+      selectedAccountId &&
+      selectedNetworkId &&
+      selectedToken
+    ) {
       setTokenDetailsState({
         initialized: false,
         isRefreshing: true,
@@ -225,6 +232,7 @@ function BaseBulkSendAddressesInput() {
       void form.trigger();
     }
   }, [
+    isOneToMany,
     selectedAccountId,
     selectedNetworkId,
     selectedToken,
@@ -233,8 +241,10 @@ function BaseBulkSendAddressesInput() {
   /* eslint-enable react-hooks/exhaustive-deps */
   /* oxlint-enable react/exhaustive-deps */
 
+  // Balance polling — only needed for OneToMany mode
   usePromiseResult(
     async () => {
+      if (!isOneToMany) return;
       if (
         selectedAccountId &&
         selectedNetworkId &&
@@ -285,6 +295,7 @@ function BaseBulkSendAddressesInput() {
       }
     },
     [
+      isOneToMany,
       availableWallets,
       selectedAccountId,
       selectedNetworkId,
@@ -294,7 +305,7 @@ function BaseBulkSendAddressesInput() {
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      pollingInterval: isOneToMany ? POLLING_INTERVAL_FOR_TOKEN : undefined,
     },
   );
 
@@ -327,44 +338,83 @@ function BaseBulkSendAddressesInput() {
   }, [selectedNetworkId, setSelectedDeriveType]);
 
   useEffect(() => {
-    if (selectedAccountId && selectedNetworkId) {
+    if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
     }
-  }, [fetchSelectedAccountAddress, selectedAccountId, selectedNetworkId]);
+  }, [
+    isOneToMany,
+    fetchSelectedAccountAddress,
+    selectedAccountId,
+    selectedNetworkId,
+  ]);
+
+  // Reset form when mode changes
+  /* eslint-disable react-hooks/exhaustive-deps */
+  /* oxlint-disable react/exhaustive-deps */
+  useEffect(() => {
+    form.setValue('senderAddresses', '');
+    form.setValue('receiverAddresses', '');
+    form.clearErrors();
+    if (isOneToMany && selectedAccountId && selectedNetworkId) {
+      void fetchSelectedAccountAddress();
+      setTokenDetailsState({ initialized: false, isRefreshing: true });
+    } else {
+      setTokenDetailsState({ initialized: true, isRefreshing: false });
+    }
+  }, [bulkSendMode]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+  /* oxlint-enable react/exhaustive-deps */
 
   const isSubmitDisabled = useMemo(() => {
-    const isTokenLoading =
-      !tokenDetailsState.initialized ||
-      (tokenDetailsState.isRefreshing && !selectedTokenDetail);
-    return (
-      !form.formState.isValid || form.formState.isValidating || isTokenLoading
-    );
+    const baseDisabled = !form.formState.isValid || form.formState.isValidating;
+    if (isOneToMany) {
+      const isTokenLoading =
+        !tokenDetailsState.initialized ||
+        (tokenDetailsState.isRefreshing && !selectedTokenDetail);
+      return baseDisabled || isTokenLoading;
+    }
+    return baseDisabled;
   }, [
     form.formState.isValid,
     form.formState.isValidating,
+    isOneToMany,
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
     selectedTokenDetail,
   ]);
 
   const handleSubmit = useCallback(async () => {
-    if (
-      !selectedNetworkId ||
-      !selectedAccountId ||
-      !selectedToken ||
-      !selectedTokenDetail
-    ) {
+    if (!selectedNetworkId || !selectedToken) {
+      return;
+    }
+
+    // For OneToMany, require selectedAccountId and selectedTokenDetail
+    if (isOneToMany && (!selectedAccountId || !selectedTokenDetail)) {
+      return;
+    }
+
+    // For non-OneToMany, selectedAccountId is not from single-line wallet lookup
+    if (!isOneToMany && !selectedAccountId) {
       return;
     }
 
     const formValues = form.getValues();
+
+    // Parse sender addresses — extract amounts for ManyToOne/ManyToMany
     const senders = formValues.senderAddresses
       .split('\n')
       .filter((line) => line.trim())
       .map((line) => {
-        const [address] = line.trim().split(',');
-        return { address: address.trim(), amount: undefined };
+        const [address, amount] = line.trim().split(',');
+        return {
+          address: address.trim(),
+          amount:
+            !isOneToMany && amount !== undefined
+              ? new BigNumber(amount.trim()).toFixed()
+              : undefined,
+        };
       });
+
     const receivers = formValues.receiverAddresses
       .split('\n')
       .filter((line) => line.trim())
@@ -378,29 +428,46 @@ function BaseBulkSendAddressesInput() {
         };
       });
 
+    // ManyToMany: defensive count check
+    if (
+      bulkSendMode === EBulkSendMode.ManyToMany &&
+      senders.length !== receivers.length
+    ) {
+      return;
+    }
+
+    // For non-OneToMany, construct minimal tokenDetails if not available
+    const effectiveTokenDetails =
+      selectedTokenDetail ??
+      ({
+        info: selectedToken,
+        balance: '0',
+        balanceParsed: '0',
+        price: 0,
+        price24h: 0,
+        value: '0',
+        value24h: '0',
+      } as { info: IToken } & ITokenFiat);
+
+    const navParams = {
+      networkId: selectedNetworkId,
+      accountId: selectedAccountId ?? '',
+      senders,
+      receivers,
+      tokenInfo: selectedToken,
+      tokenDetails: effectiveTokenDetails,
+      bulkSendMode,
+    };
+
     if (isInModal) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
-        networkId: selectedNetworkId,
-        accountId: selectedAccountId,
-        senders,
-        receivers,
-        tokenInfo: selectedToken,
-        tokenDetails: selectedTokenDetail,
-        bulkSendMode,
+        ...navParams,
         isInModal,
       });
     } else {
       navigation.switchTab(ETabRoutes.Home);
       await timerUtils.wait(50);
-      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, {
-        networkId: selectedNetworkId,
-        accountId: selectedAccountId,
-        senders,
-        receivers,
-        tokenInfo: selectedToken,
-        tokenDetails: selectedTokenDetail,
-        bulkSendMode,
-      });
+      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, navParams);
     }
   }, [
     form,
@@ -410,6 +477,7 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
     navigation,
     bulkSendMode,
+    isOneToMany,
     isInModal,
   ]);
 
@@ -515,16 +583,15 @@ function BulkSendAddressesInput() {
     ({ info: IToken } & ITokenFiat) | undefined
   >(undefined);
 
+  const initialMode = route.params?.bulkSendMode ?? EBulkSendMode.OneToMany;
   const [tokenDetailsState, setTokenDetailsState] = useState<{
     initialized: boolean;
     isRefreshing: boolean;
   }>({
-    initialized: false,
-    isRefreshing: false,
+    initialized: initialMode !== EBulkSendMode.OneToMany,
+    isRefreshing: initialMode === EBulkSendMode.OneToMany,
   });
-  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(
-    route.params?.bulkSendMode ?? EBulkSendMode.OneToMany,
-  );
+  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(initialMode);
   const [selectedDeriveType, setSelectedDeriveType] = useState<
     IAccountDeriveTypes | undefined
   >(undefined);
