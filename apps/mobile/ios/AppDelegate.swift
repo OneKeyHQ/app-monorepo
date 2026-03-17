@@ -68,6 +68,10 @@ public class AppDelegate: ExpoAppDelegate {
     let store = NitroModuleBridge.launchOptionsStore()
     store?.setValue(NSNumber(value: Date().timeIntervalSince1970), forKey: "startupTime")
     NitroModuleBridge.logInfo("App", "OneKey started")
+    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+    let builtinBundleVersion = Bundle.main.infoDictionary?["BUNDLE_VERSION"] as? String ?? ""
+    NitroModuleBridge.logInfo("App", "nativeAppVersion: \(appVersion), buildNumber: \(buildNumber), builtinBundleVersion: \(builtinBundleVersion)")
 
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)

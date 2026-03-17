@@ -11,7 +11,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { PUBLIC_KEY } from './constant/gpg';
 import { ElectronTranslations } from './i18n';
-import { clearUpdateBundleData, getNativeVersion } from './libs/store';
+import {
+  clearUpdateBundleData,
+  getNativeBuildNumber,
+  getNativeVersion,
+} from './libs/store';
 
 const readMetadataFileSha256 = async (signature: string) => {
   try {
@@ -121,12 +125,30 @@ export const getBundleIndexHtmlPath = ({
     return undefined;
   }
   const currentAppVersion = app.getVersion();
+  const currentBuildNumber = process.env.BUILD_NUMBER ?? '';
+  const prevBuildNumber = getNativeBuildNumber();
   logger.info(
     'getBundleIndexHtmlPath: check appVersion and prevNativeVersion',
     currentAppVersion,
     prevNativeVersion,
+    'buildNumber:',
+    currentBuildNumber,
+    prevBuildNumber,
   );
   if (!semver.eq(currentAppVersion, prevNativeVersion)) {
+    clearUpdateBundleData();
+    return undefined;
+  }
+  if (
+    currentBuildNumber &&
+    prevBuildNumber &&
+    currentBuildNumber !== prevBuildNumber
+  ) {
+    logger.info(
+      'getBundleIndexHtmlPath: buildNumber changed, clearing bundle data',
+      currentBuildNumber,
+      prevBuildNumber,
+    );
     clearUpdateBundleData();
     return undefined;
   }

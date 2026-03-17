@@ -156,6 +156,7 @@ android {
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
+            BUILTIN_BUNDLE_VERSION: defEnvStr(appEnvConfig, 'BUNDLE_VERSION'),
         ]
     }
     signingConfigs {

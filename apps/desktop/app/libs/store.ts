@@ -198,6 +198,13 @@ export const setNativeVersion = (nativeVersion: string) => {
 export const getNativeVersion = () =>
   store.get(EDesktopStoreKeys.NativeVersion, '');
 
+export const setNativeBuildNumber = (buildNumber: string) => {
+  store.set(EDesktopStoreKeys.NativeBuildNumber, buildNumber);
+};
+
+export const getNativeBuildNumber = () =>
+  store.get(EDesktopStoreKeys.NativeBuildNumber, '');
+
 // ==================== GPU Crash Statistics ====================
 // Functions for tracking GPU crash events
 export const recordGPUCrash = () => {

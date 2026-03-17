@@ -1,9 +1,6 @@
 name: Native Change Check
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [x, 'release/**']
   workflow_dispatch:
     inputs:
       base_ref:

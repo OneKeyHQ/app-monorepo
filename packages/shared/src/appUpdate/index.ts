@@ -13,7 +13,6 @@ export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
 const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
-const APP_BUILD_NUMBER = platformEnv.buildNumber;
 
 export function encodeBundleVersionForDisplay(version: string): string {
   // BUNDLE_VERSION is seconds since 2026-01-01T00:00:00Z epoch, base36 encode for short display
@@ -244,28 +243,32 @@ export const displayFullVersion = (
 };
 
 export const displayWhatsNewVersion = () =>
-  displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
+  displayFullVersion(
+    APP_VERSION,
+    undefined,
+    isLastUpdateJsBundle() ? APP_BUNDLE_VERSION : undefined,
+  );
 
 export const displayAppUpdateVersion = (
   appUpdateInfo: IAppUpdateInfo | undefined,
 ) => {
   if (!appUpdateInfo) {
-    return displayFullVersion(
-      APP_VERSION,
-      APP_BUILD_NUMBER,
-      APP_BUNDLE_VERSION,
-    );
+    return APP_VERSION;
   }
+  const fileType = getUpdateFileType(appUpdateInfo);
   return displayFullVersion(
     appUpdateInfo.latestVersion,
     undefined,
-    appUpdateInfo.jsBundleVersion,
+    fileType === EUpdateFileType.jsBundle
+      ? appUpdateInfo.jsBundleVersion
+      : undefined,
   );
 };
 
 interface IWhatsNewShownData {
   appVersion: string;
   bundleVersions: string[];
+  isJsBundleUpdate?: boolean;
 }
 
 export const isWhatsNewShown = (): boolean => {
@@ -281,7 +284,7 @@ export const isWhatsNewShown = (): boolean => {
   return data.bundleVersions.map(String).includes(String(APP_BUNDLE_VERSION));
 };
 
-export const markWhatsNewShown = (): void => {
+export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
   const bundleVersion = String(APP_BUNDLE_VERSION);
   const data = syncStorage.getObject<IWhatsNewShownData>(
     EAppSyncStorageKeys.onekey_whats_new_shown,
@@ -290,6 +293,7 @@ export const markWhatsNewShown = (): void => {
     syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
       appVersion: APP_VERSION,
       bundleVersions: [bundleVersion],
+      isJsBundleUpdate,
     });
     return;
   }
@@ -298,11 +302,19 @@ export const markWhatsNewShown = (): void => {
     : [];
   if (!versions.includes(bundleVersion)) {
     versions.push(bundleVersion);
-    syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
-      ...data,
-      bundleVersions: versions,
-    });
   }
+  syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
+    ...data,
+    bundleVersions: versions,
+    isJsBundleUpdate,
+  });
+};
+
+export const isLastUpdateJsBundle = (): boolean => {
+  const data = syncStorage.getObject<IWhatsNewShownData>(
+    EAppSyncStorageKeys.onekey_whats_new_shown,
+  );
+  return data?.isJsBundleUpdate === true;
 };
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
