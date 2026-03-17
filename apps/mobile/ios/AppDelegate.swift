@@ -37,6 +37,34 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // === Recovery Check ===
+    let defaults = UserDefaults.standard
+
+    // Version-aware counter reset
+    let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    let storedVersion = defaults.string(forKey: "onekey_boot_fail_app_version") ?? ""
+    if !storedVersion.isEmpty && storedVersion != currentVersion {
+      defaults.set(0, forKey: "onekey_consecutive_boot_fail_count")
+    }
+    defaults.set(currentVersion, forKey: "onekey_boot_fail_app_version")
+
+    // Increment FIRST, then check NEW value
+    let oldCount = defaults.integer(forKey: "onekey_consecutive_boot_fail_count")
+    let newCount = oldCount + 1
+    defaults.set(newCount, forKey: "onekey_consecutive_boot_fail_count")
+    defaults.synchronize()
+
+    if newCount >= 3 {
+      // Skip super.application() and React Native initialization entirely.
+      // Create our own window — this replaces the system launch storyboard.
+      // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
+      // and show the Expo splash screen overlay, which would cover recovery UI.
+      window = UIWindow(frame: UIScreen.main.bounds)
+      window?.rootViewController = RecoveryViewController()
+      window?.makeKeyAndVisible()
+      return true
+    }
+
     let store = NitroModuleBridge.launchOptionsStore()
     store?.setValue(NSNumber(value: Date().timeIntervalSince1970), forKey: "startupTime")
     NitroModuleBridge.logInfo("App", "OneKey started")

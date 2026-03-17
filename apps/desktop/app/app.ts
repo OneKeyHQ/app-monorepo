@@ -54,6 +54,8 @@ import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+// Side-effect import: registers synchronous IPC handler for renderer MMKV access
+import './libs/react-native-mmkv-desktop-main';
 import { getBackgroundColor } from './libs/utils';
 import initProcess from './process';
 import {
@@ -653,7 +655,40 @@ async function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  void browserWindow.loadURL(src);
+  // === Boot Recovery Check ===
+  // Version-aware counter reset
+  const currentAppVersion = app.getVersion();
+  const storedFailVersion = store.getBootFailAppVersion();
+  if (storedFailVersion && storedFailVersion !== currentAppVersion) {
+    store.resetConsecutiveBootFailCount();
+    logger.info(
+      'Boot fail counter reset due to version change',
+      storedFailVersion,
+      '→',
+      currentAppVersion,
+    );
+  }
+  store.setBootFailAppVersion(currentAppVersion);
+
+  // Increment FIRST, then check NEW value (avoids off-by-one)
+  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  logger.info('Boot fail count:', bootFailCount);
+
+  if (bootFailCount >= 3) {
+    logger.error('Recovery page triggered', {
+      crashCount: bootFailCount,
+      appVersion: currentAppVersion,
+    });
+
+    const recoveryUrl = formatUrl({
+      pathname: path.join(__dirname, 'recovery.html'),
+      protocol: PROTOCOL,
+      slashes: true,
+    });
+    void browserWindow.loadURL(recoveryUrl);
+  } else {
+    void browserWindow.loadURL(src);
+  }
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -810,6 +845,119 @@ async function createMainWindow() {
         blink: { allocated: '0', total: '0' },
       };
     }
+  });
+
+  // === Boot Recovery IPC Handlers ===
+  ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
+  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
+    store.resetConsecutiveBootFailCount();
+    logger.info('Boot success confirmed, crash counter reset');
+  });
+
+  ipcMain.removeAllListeners(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT);
+  ipcMain.on(
+    ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT,
+    (_event: unknown, count: number) => {
+      store.setConsecutiveBootFailCount(count);
+      logger.info('Consecutive boot fail count set to', count);
+    },
+  );
+
+  ipcMain.removeHandler(ipcMessageKeys.RECOVERY_EXPORT_LOGS);
+  ipcMain.handle(ipcMessageKeys.RECOVERY_EXPORT_LOGS, async () => {
+    try {
+      const { dialog } = await import('electron');
+      const logDir = path.dirname(logger.transports.file.getFile().path);
+      const logFiles = fs.readdirSync(logDir).filter((f) => f.endsWith('.log'));
+      if (logFiles.length === 0) {
+        return { error: 'No log files found' };
+      }
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const result = await dialog.showSaveDialog({
+        defaultPath: `onekey-logs-${timestamp}.zip`,
+        filters: [{ name: 'ZIP', extensions: ['zip'] }],
+      });
+      if (result.canceled || !result.filePath) {
+        return {};
+      }
+      const AdmZip = (await import('adm-zip')).default;
+      const zip = new AdmZip();
+      for (const file of logFiles) {
+        zip.addLocalFile(path.join(logDir, file));
+      }
+      zip.writeZip(result.filePath);
+      return {};
+    } catch (e: any) {
+      logger.error('Recovery export logs failed:', e);
+      return { error: e?.message || String(e) };
+    }
+  });
+
+  ipcMain.removeHandler(ipcMessageKeys.RECOVERY_TRY_AGAIN);
+  ipcMain.handle(ipcMessageKeys.RECOVERY_TRY_AGAIN, async () => {
+    store.resetConsecutiveBootFailCount();
+    if (process.mas) {
+      // MAS cannot relaunch programmatically, return signal for UI to show prompt
+      return { needsManualRestart: true };
+    }
+    app.relaunch();
+    app.exit(0);
+  });
+
+  ipcMain.removeHandler(ipcMessageKeys.RECOVERY_AUTO_REPAIR);
+  ipcMain.handle(ipcMessageKeys.RECOVERY_AUTO_REPAIR, async () => {
+    const errors: string[] = [];
+    try {
+      store.clearUpdateBundleData();
+    } catch (e: any) {
+      errors.push(`clearUpdateBundleData: ${e?.message}`);
+    }
+    try {
+      store.clearFallbackUpdateBundleData();
+    } catch (e: any) {
+      errors.push(`clearFallbackUpdateBundleData: ${e?.message}`);
+    }
+    try {
+      store.clearASCFile();
+    } catch (e: any) {
+      errors.push(`clearASCFile: ${e?.message}`);
+    }
+    try {
+      store.clearUpdateBuildNumber();
+    } catch (e: any) {
+      errors.push(`clearUpdateBuildNumber: ${e?.message}`);
+    }
+    try {
+      const bundleDir = path.join(app.getPath('userData'), 'onekey-bundle');
+      if (fs.existsSync(bundleDir)) {
+        fs.rmSync(bundleDir, { recursive: true, force: true });
+      }
+    } catch (e: any) {
+      errors.push(`deleteBundleDir: ${e?.message}`);
+    }
+    try {
+      const bundleDownloadDir = path.join(
+        app.getPath('userData'),
+        'onekey-bundle-download',
+      );
+      if (fs.existsSync(bundleDownloadDir)) {
+        fs.rmSync(bundleDownloadDir, { recursive: true, force: true });
+      }
+    } catch (e: any) {
+      errors.push(`deleteBundleDownloadDir: ${e?.message}`);
+    }
+    // Clear recovery-related keys from MMKV persistent store (electron-store backed)
+    try {
+      store.clearMmkvRecoveryKeys();
+    } catch (e: any) {
+      errors.push(`clearMmkvKeys: ${e?.message}`);
+    }
+    store.resetConsecutiveBootFailCount();
+    if (errors.length > 0) {
+      logger.error('Recovery auto repair partial errors:', errors);
+    }
+    // Don't relaunch here — return result to renderer, let user confirm before restart
+    return errors.length > 0 ? { error: errors.join('; ') } : {};
   });
 
   ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
