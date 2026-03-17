@@ -216,7 +216,7 @@ export const getMetadata = async ({
   appVersion: string;
   bundleVersion: string;
   signature: string;
-}) => {
+}): Promise<Record<string, string>> => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
   // Intentionally global in QA skip-gpg builds: startup metadata verification
   // follows build-time policy rather than per-request runtime toggles.
