@@ -110,13 +110,17 @@ public class MainApplication extends Application implements ReactApplication {
 
     super.onCreate();
 
-    // SoLoader must be initialized before the recovery early-return because
-    // MainActivity extends ReactActivity, and super.onCreate(null) triggers
-    // SoLoader.loadLibrary(). Without this, recovery mode itself crashes.
+    // SoLoader and new architecture entry point must be initialized before
+    // the recovery early-return because MainActivity extends ReactActivity,
+    // and super.onCreate(null) triggers SoLoader.loadLibrary() and Fabric/
+    // TurboModules initialization. Without these, recovery mode itself crashes.
     try {
         SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
     } catch (IOException e) {
         throw new RuntimeException(e);
+    }
+    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+      DefaultNewArchitectureEntryPoint.load();
     }
 
     if (shouldShowRecovery) {
@@ -146,10 +150,6 @@ public class MainApplication extends Application implements ReactApplication {
       e.printStackTrace();
     }
 
-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
-      DefaultNewArchitectureEntryPoint.load();
-    }
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     // }
