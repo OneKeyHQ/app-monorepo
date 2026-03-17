@@ -173,6 +173,15 @@
         const result = await window.desktopApi?.recoveryAutoRepair?.();
         if (result && result.error) {
           showError(i18n.repairError);
+          setButtonsDisabled(false);
+          return;
+        }
+        // Show success confirmation, restart on OK
+        const msg = isZh ? '修复完成，点击确定重启应用。' : 'Repair complete. Click OK to restart the app.';
+        if (confirm(msg)) {
+          await window.desktopApi?.recoveryTryAgain?.();
+        } else {
+          setButtonsDisabled(false);
         }
       } catch (e) {
         showError(i18n.repairError);

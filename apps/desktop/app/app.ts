@@ -929,8 +929,7 @@ async function createMainWindow() {
     if (errors.length > 0) {
       logger.error('Recovery auto repair partial errors:', errors);
     }
-    app.relaunch();
-    app.exit(0);
+    // Don't relaunch here — return result to renderer, let user confirm before restart
     return errors.length > 0 ? { error: errors.join('; ') } : {};
   });
 
