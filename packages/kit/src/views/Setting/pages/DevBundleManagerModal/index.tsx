@@ -357,20 +357,17 @@ export default function DevBundleManagerModal() {
             <SectionTitle icon="InfoCircleOutline" title="RUNTIME INFO" />
             <SectionCard>
               <YStack px="$4" py="$3" gap="$0.5">
-                <InfoRow label="App Version" value={currentAppVersion} />
-                <InfoRow label="Build Number" value={currentBuildNumber} />
-                <InfoRow label="Commit Hash" value={currentCommitHash} />
-                <InfoRow label="Bundle Version" value={currentBundleVersion} />
                 <InfoRow
-                  label="Bundle Hash"
-                  value={encodeBundleVersionForDisplay(currentBundleVersion)}
+                  label="App Version"
+                  value={`${currentAppVersion}${currentBuildNumber ? `-${currentBuildNumber}` : ''}(${currentBundleVersion})(${encodeBundleVersionForDisplay(currentBundleVersion)})`}
                 />
                 {nativeAppVersion ? (
                   <InfoRow
                     label="App Shell Version"
-                    value={`${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})` : ''}`}
+                    value={`${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})(${encodeBundleVersionForDisplay(String(builtinBundleVersion))})` : ''}`}
                   />
                 ) : null}
+                <InfoRow label="Commit Hash" value={currentCommitHash} />
                 {jsBundlePath ? (
                   <>
                     <Divider my="$1.5" />
