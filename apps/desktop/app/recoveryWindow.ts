@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-import { BrowserWindow, app, ipcMain } from 'electron';
+import { fileURLToPath, format as formatUrl } from 'url';
+
+import { BrowserWindow, app, ipcMain, session } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
@@ -56,7 +58,30 @@ export function createRecoveryWindow(): BrowserWindow {
     icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
   });
 
-  void browserWindow.loadFile(path.join(__dirname, 'recovery.html'));
+  // Chromium's default file:// handler cannot read files inside app.asar
+  // because the OS treats the .asar as a regular file, not a directory.
+  // Register interceptFileProtocol so Electron resolves paths through its
+  // asar-aware fs layer. The main window's interceptor (app.ts:1050) is
+  // registered inside did-finish-load — which never runs when the recovery
+  // path is taken — so there is no conflict.
+  const PROTOCOL = 'file';
+  session.defaultSession.protocol.interceptFileProtocol(
+    PROTOCOL,
+    (request, callback) => {
+      try {
+        callback(fileURLToPath(request.url));
+      } catch {
+        callback(request.url);
+      }
+    },
+  );
+
+  const src = formatUrl({
+    pathname: path.join(__dirname, 'recovery.html'),
+    protocol: PROTOCOL,
+    slashes: true,
+  });
+  void browserWindow.loadURL(src);
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
