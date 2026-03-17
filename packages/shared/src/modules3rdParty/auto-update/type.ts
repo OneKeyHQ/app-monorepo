@@ -146,5 +146,6 @@ export interface IBundleUpdate {
   getNativeAppVersion: () => Promise<string>;
   getSha256FromFilePath: (filePath: string) => Promise<string>;
   getNativeBuildNumber: () => Promise<string>;
+  getBuiltinBundleVersion: () => Promise<string>;
   getJsBundlePath: () => Promise<string>;
 }

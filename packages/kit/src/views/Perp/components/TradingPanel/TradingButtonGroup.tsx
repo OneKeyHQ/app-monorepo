@@ -258,7 +258,7 @@ function SideButtonInternal({
           if (!ep || new BigNumber(ep).lte(0)) {
             Toast.message({
               title: intl.formatMessage({
-                id: ETranslations.perps_pro_execution_price,
+                id: ETranslations.perp_trade_price_place_holder,
               }),
             });
             return;
@@ -322,7 +322,7 @@ function SideButtonInternal({
       ) {
         Toast.message({
           title: intl.formatMessage({
-            id: ETranslations.limit_enter_price,
+            id: ETranslations.perp_trade_price_place_holder,
           }),
         });
         return;
@@ -332,15 +332,11 @@ function SideButtonInternal({
       const hasSizeEmpty = isSliderMode
         ? !formData.sizePercent || formData.sizePercent <= 0
         : !formData.size || formData.size.trim() === '';
-      if (hasSizeEmpty || !computedSizeForSide.gt(0)) {
-        Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.perp_trade_amount_place_holder,
-          }),
-        });
-        return;
-      }
-      if (isMinimumOrderNotMetForSide) {
+      if (
+        hasSizeEmpty ||
+        !computedSizeForSide.gt(0) ||
+        isMinimumOrderNotMetForSide
+      ) {
         let minAmount = '$10';
         if (effectivePriceBN.gt(0)) {
           // minimum token size that satisfies orderValue >= $10

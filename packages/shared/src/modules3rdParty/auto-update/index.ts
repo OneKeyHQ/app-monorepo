@@ -68,6 +68,7 @@ export const BundleUpdate: IBundleUpdate = {
   getNativeAppVersion: () => Promise.resolve(''),
   getSha256FromFilePath: () => Promise.resolve(''),
   getNativeBuildNumber: () => Promise.resolve(''),
+  getBuiltinBundleVersion: () => Promise.resolve(''),
   getJsBundlePath: () => Promise.resolve(''),
 };
 

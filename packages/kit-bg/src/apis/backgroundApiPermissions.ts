@@ -72,16 +72,12 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_perpsReady',
   'tradingview_perpsOrderCancel',
   'tradingview_lineDragCommit',
-  'btc_requestAccount',
-  'btc_signTransaction',
 ];
 
 // white list method which can be called from any origin
 //      so these method should NOT return sensitive data
 export function isProviderApiPrivateAllowedMethod(method?: string) {
-  return (
-    method && PROVIDER_API_PRIVATE_WHITE_LIST_METHOD.includes(method || '')
-  );
+  return !!method && PROVIDER_API_PRIVATE_WHITE_LIST_METHOD.includes(method);
 }
 
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {
@@ -94,7 +90,7 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
 }
 
 export function isWebEmbedApiAllowedOrigin(origin?: string) {
-  return origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
+  return !!origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
 }
 
 export function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
