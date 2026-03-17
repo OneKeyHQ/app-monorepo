@@ -167,32 +167,37 @@ export function showRookieShareDialog(
 
   isDialogShowing = true;
 
-  const DialogInstance = dialog ?? Dialog;
+  try {
+    const DialogInstance = dialog ?? Dialog;
 
-  const dialogInstance = DialogInstance.show({
-    title: appLocale.intl.formatMessage({
-      id: ETranslations.explore_share,
-    }),
-    floatingPanelProps: platformEnv.isNative
-      ? undefined
-      : {
-          width: 'autoWidth',
-        },
+    const dialogInstance = DialogInstance.show({
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.explore_share,
+      }),
+      floatingPanelProps: platformEnv.isNative
+        ? undefined
+        : {
+            width: 'autoWidth',
+          },
 
-    renderContent: (
-      <ShareContent
-        data={data}
-        onClose={() => {
-          void dialogInstance.close();
-        }}
-        isMobile={platformEnv.isNative}
-      />
-    ),
-    showFooter: false,
-    onClose: () => {
-      isDialogShowing = false;
-    },
-  });
+      renderContent: (
+        <ShareContent
+          data={data}
+          onClose={() => {
+            void dialogInstance.close();
+          }}
+          isMobile={platformEnv.isNative}
+        />
+      ),
+      showFooter: false,
+      onClose: () => {
+        isDialogShowing = false;
+      },
+    });
 
-  return dialogInstance;
+    return dialogInstance;
+  } catch (error) {
+    isDialogShowing = false;
+    throw error;
+  }
 }

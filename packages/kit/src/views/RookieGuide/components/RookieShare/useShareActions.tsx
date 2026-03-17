@@ -157,12 +157,14 @@ export function useShareActions(referralUrl?: string) {
           'base64',
         );
 
-        await Sharing.shareAsync(`file://${filepath}`, {
-          mimeType: 'image/png',
-          dialogTitle: 'Share',
-        });
-
-        await RNFS.unlink(filepath);
+        try {
+          await Sharing.shareAsync(`file://${filepath}`, {
+            mimeType: 'image/png',
+            dialogTitle: 'Share',
+          });
+        } finally {
+          await RNFS.unlink(filepath).catch(() => {});
+        }
       } else {
         // Web: Use Web Share API if available
         const byteString = atob(base64Image.split(',')[1]);
