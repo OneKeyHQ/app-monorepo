@@ -226,40 +226,40 @@ const TokenInfoCellDesktop = memo(() => {
             flex={1}
             minWidth={0}
           >
-          <Token
-            size="xs"
-            borderRadius="$full"
-            tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
-            fallbackIcon="CryptoCoinOutline"
-          />
-          <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
-            {token.displayName}
-          </SizableText>
-          <XStack gap="$1" minWidth={0}>
-            <XStack
-              borderRadius="$1"
-              bg="$bgStrong"
-              justifyContent="center"
-              alignItems="center"
-              px="$1.5"
-            >
-              <SizableText
-                fontSize={10}
-                alignSelf="center"
-                color="$textSubdued"
-                lineHeight={16}
+            <Token
+              size="xs"
+              borderRadius="$full"
+              tokenImageUri={getHyperliquidTokenImageUrl(token.displayName)}
+              fallbackIcon="CryptoCoinOutline"
+            />
+            <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
+              {token.displayName}
+            </SizableText>
+            <XStack gap="$1" minWidth={0}>
+              <XStack
+                borderRadius="$1"
+                bg="$bgStrong"
+                justifyContent="center"
+                alignItems="center"
+                px="$1.5"
               >
-                {token.maxLeverage}x
-              </SizableText>
+                <SizableText
+                  fontSize={10}
+                  alignSelf="center"
+                  color="$textSubdued"
+                  lineHeight={16}
+                >
+                  {token.maxLeverage}x
+                </SizableText>
+              </XStack>
+              {token.subtitle && gtLg ? (
+                <SubtitleBadge
+                  subtitle={token.subtitle}
+                  maxWidth={DESKTOP_SUBTITLE_MAX_WIDTH}
+                  withTooltip
+                />
+              ) : null}
             </XStack>
-            {token.subtitle && gtLg ? (
-              <SubtitleBadge
-                subtitle={token.subtitle}
-                maxWidth={DESKTOP_SUBTITLE_MAX_WIDTH}
-                withTooltip
-              />
-            ) : null}
-          </XStack>
           </XStack>
         </XStack>
       </DebugRenderTracker>
