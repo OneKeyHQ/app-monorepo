@@ -13,7 +13,6 @@ export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
 const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
-const APP_BUILD_NUMBER = platformEnv.buildNumber;
 
 export function encodeBundleVersionForDisplay(version: string): string {
   // BUNDLE_VERSION is seconds since 2026-01-01T00:00:00Z epoch, base36 encode for short display
