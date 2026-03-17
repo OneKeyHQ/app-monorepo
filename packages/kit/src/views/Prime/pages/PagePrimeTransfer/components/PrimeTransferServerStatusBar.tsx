@@ -148,6 +148,7 @@ export function PrimeTransferServerStatusBar() {
           size="$bodyMd"
           color="$text"
           numberOfLines={3}
+          flexShrink={1}
           {...(statusInfo?.isCustomServer && {
             onPress: handleTextPress,
             hoverStyle: { opacity: 0.8, cursor: 'pointer' },

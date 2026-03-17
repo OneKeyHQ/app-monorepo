@@ -338,6 +338,7 @@ export interface IAppEventBusPayload {
     deviceId: string;
   };
   [EAppEventBusNames.UnlockApp]: undefined;
+  [EAppEventBusNames.LockApp]: undefined;
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;

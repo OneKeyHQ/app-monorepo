@@ -42,7 +42,6 @@ import {
   XStack,
   useForm,
   useKeyboardEvent,
-  useKeyboardState,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -571,8 +570,6 @@ export function PhaseInputArea({
     },
   }));
 
-  const { isVisible } = useKeyboardState?.() || { isVisible: true };
-
   const watched = useWatch({ control: form.control });
   const hasFilledPhrases = useMemo(
     () => compact(Object.values(watched)).length > 0,
@@ -670,9 +667,9 @@ export function PhaseInputArea({
         ) : null}
       </HeightTransition>
       {FooterComponent}
-      {isVisible ? (
+      {platformEnv.isNative ? (
         <Portal.Body container={Portal.Constant.SUGGESTION_LIST}>
-          {isVisible ? (
+          {suggestions.length > 0 ? (
             <SuggestionList
               suggestions={suggestions}
               onPressItem={updateInputValue}

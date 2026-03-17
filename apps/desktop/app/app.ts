@@ -26,7 +26,12 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
-import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+import {
+  getFiatPaySiteWhitelistDomainKeys,
+  getFiatPaySiteWhitelistOrigins,
+  getOriginDomainKey,
+  getTemplatePhishingUrls,
+} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -60,14 +65,29 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 
-logger.initialize();
-logger.transports.file.maxSize = 1024 * 1024 * 10;
+// Logger initialization (file rotation, sanitization, rate limiting)
+import './logger';
 
 initSentry();
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
+
+function isWhitelistedMediaOrigin(
+  origin: string,
+  whitelistOrigins: Set<string>,
+  whitelistDomainKeys: Set<string>,
+): boolean {
+  if (!origin) {
+    return false;
+  }
+  if (whitelistOrigins.has(origin)) {
+    return true;
+  }
+  const domainKey = getOriginDomainKey(origin);
+  return !!domainKey && whitelistDomainKeys.has(domainKey);
+}
 
 if (isPerfCiMode) {
   // Keep prepared state in a stable location on perf machines.
@@ -717,6 +737,11 @@ async function createMainWindow() {
     event.returnValue = isDevServer;
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
+  ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
+    event.returnValue = path.dirname(logger.transports.file.getFile().path);
+  });
+
   ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
@@ -887,6 +912,48 @@ async function createMainWindow() {
     }
     return false;
   });
+
+  // Permission handler for webview (partition: persist:onekey)
+  //
+  // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
+  // - notifications: already disabled at the webview tag level via
+  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
+  //   so the Notification API is completely unavailable and this handler
+  //   will never receive a 'notifications' permission request.
+  // - all other permissions: allowed to preserve default Electron behavior.
+  const webviewSession = session.fromPartition('persist:onekey');
+  webviewSession.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      const requestingUrl = details.requestingUrl || '';
+      const topLevelUrl = webContents.getURL();
+
+      if (permission === 'media') {
+        try {
+          const requestingOrigin = requestingUrl
+            ? new URL(requestingUrl).origin
+            : '';
+          const topLevelOrigin = topLevelUrl ? new URL(topLevelUrl).origin : '';
+          const origins = getFiatPaySiteWhitelistOrigins();
+          const domainKeys = getFiatPaySiteWhitelistDomainKeys();
+          const isWhitelisted =
+            isWhitelistedMediaOrigin(requestingOrigin, origins, domainKeys) ||
+            isWhitelistedMediaOrigin(topLevelOrigin, origins, domainKeys);
+          if (isWhitelisted) {
+            callback(true);
+            return;
+          }
+        } catch {
+          // Ignore malformed URLs and fall through to deny by default.
+        }
+        callback(false);
+        return;
+      }
+      // Allow all non-media permissions to preserve default Electron behavior.
+      // Note: 'notifications' is never requested here because it is disabled
+      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
+      callback(true);
+    },
+  );
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,

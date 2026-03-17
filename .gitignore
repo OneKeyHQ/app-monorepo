@@ -1,6 +1,7 @@
 node_modules
 __generated__
 .cursor/debug*.log
+*.swp
 .expo-shared
 .expo
 .DS_Store

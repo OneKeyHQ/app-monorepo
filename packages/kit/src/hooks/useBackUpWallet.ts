@@ -38,7 +38,7 @@ function useBackUpWallet({ walletId }: { walletId: string }) {
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
 
-    await navigateToBackupWalletReminderPage({
+    navigateToBackupWalletReminderPage({
       walletId: wallet?.id ?? '',
       isWalletBackedUp: wallet?.backuped ?? false,
       mnemonic,

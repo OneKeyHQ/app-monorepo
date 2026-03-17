@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { View } from 'react-native';
 
-import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  HeaderScrollGestureWrapper,
+  RefreshControl,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type ETabEarnRoutes,
   ETabRoutes,
@@ -346,6 +352,25 @@ function BasicEarnHome({
     [earnBanners, onBannerPress, isEarnTabFocused],
   );
 
+  const defaultModeRef = useRef(defaultMode);
+  defaultModeRef.current = defaultMode;
+
+  const handleHeaderHorizontalSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      const currentMode = defaultModeRef.current;
+      if (direction === 'left' && currentMode === 'earn') {
+        handleModeChange('borrow');
+      } else if (direction === 'right' && currentMode === 'borrow') {
+        handleModeChange('earn');
+      } else if (direction === 'right' && currentMode === 'earn') {
+        appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+          tab: ETranslations.global_market,
+        });
+      }
+    },
+    [handleModeChange],
+  );
+
   const mobileContainerProps = useMemo(
     () => ({
       contentContainerStyle: {
@@ -353,27 +378,23 @@ function BasicEarnHome({
       },
       allowHeaderOverscroll: true,
       renderHeader: () => (
-        <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
-          <YStack gap="$7.5">
-            <YStack px="$pagePadding">
-              <Overview
-                onRefresh={refreshEarnData}
-                isLoading={isLoading}
-                filteredTotalFiatValue={filteredTotalFiatValue}
-                filteredEarnings24h={filteredEarnings24h}
-              />
+        <HeaderScrollGestureWrapper
+          onHorizontalSwipe={handleHeaderHorizontalSwipe}
+        >
+          <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
+            <YStack gap="$7.5">
+              <YStack px="$pagePadding">
+                <Overview
+                  onRefresh={refreshEarnData}
+                  isLoading={isLoading}
+                  filteredTotalFiatValue={filteredTotalFiatValue}
+                  filteredEarnings24h={filteredEarnings24h}
+                />
+              </YStack>
+              {banners ? <YStack width="100%">{banners}</YStack> : null}
             </YStack>
-            {banners ? (
-              <View
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => e.stopPropagation()}
-              >
-                <YStack width="100%">{banners}</YStack>
-              </View>
-            ) : null}
           </YStack>
-        </YStack>
+        </HeaderScrollGestureWrapper>
       ),
     }),
     [
@@ -383,6 +404,7 @@ function BasicEarnHome({
       filteredTotalFiatValue,
       filteredEarnings24h,
       banners,
+      handleHeaderHorizontalSwipe,
     ],
   );
 

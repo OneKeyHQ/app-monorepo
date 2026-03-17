@@ -29,6 +29,7 @@ export type IDesktopIAPGetProductsResult = {
 
 export const ipcMessageKeys = {
   IS_DEV: 'IS_DEV',
+  LOG_DIRECTORY: 'LOG_DIRECTORY',
 
   // Updater
   UPDATE_AVAILABLE: 'update/available',

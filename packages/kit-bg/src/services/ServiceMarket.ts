@@ -91,7 +91,9 @@ class ServiceMarket extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<{
         data: IMarketSearchV2Token[];
-      }>('/utility/v2/market/trending');
+      }>('/utility/v2/market/trending', {
+        headers: { 'x-onekey-request-currency': 'usd' },
+      });
       return response.data.data ?? [];
     },
     {
@@ -240,9 +242,8 @@ class ServiceMarket extends ServiceBase {
     const response = await client.get<{
       data: IMarketSearchV2Token[];
     }>('/utility/v2/market/search', {
-      params: {
-        query,
-      },
+      params: { query },
+      headers: { 'x-onekey-request-currency': 'usd' },
     });
     const { data } = response.data;
     if (Array.isArray(data) && data.length) {

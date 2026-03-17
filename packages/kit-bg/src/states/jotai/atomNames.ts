@@ -44,6 +44,7 @@ export enum EAtomNames {
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
   settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
+  settingsFiatPaySiteWhitelistPersistAtom = 'settingsFiatPaySiteWhitelistPersistAtom',
 
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist

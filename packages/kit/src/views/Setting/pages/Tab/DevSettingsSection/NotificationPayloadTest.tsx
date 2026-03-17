@@ -49,7 +49,7 @@ const payloadExamples: Record<ENotificationPushMessageMode, string> = {
       params: {
         screen: 'SettingModal',
         params: {
-          screen: 'SettingPerpUserConfig',
+          screen: 'SettingListModal',
         },
       },
     },

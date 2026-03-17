@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -7,16 +7,20 @@ import {
   Button,
   Dialog,
   Divider,
+  ESwitchSize,
   Icon,
   Input,
   Page,
   SizableText,
   Stack,
+  Switch,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import SkipGPGVerificationToggle from '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/SkipGPGVerificationToggle';
+import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
 import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
@@ -236,6 +240,60 @@ function BundleTestsContent({
   );
 }
 
+async function enableIgnoreServerBundleUpdate() {
+  await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+    'ignoreServerBundleUpdate',
+    true,
+  );
+  // Clear both update atom and pending install task so any queued
+  // rollback/upgrade is fully discarded (they are stored separately).
+  await backgroundApiProxy.serviceAppUpdate.reset();
+  await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
+}
+
+function IgnoreServerBundleUpdateToggle() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceDevSetting.getDevSetting().then((dev) => {
+      setEnabled(!!dev.settings?.ignoreServerBundleUpdate);
+    });
+  }, []);
+
+  const handleChange = useCallback(async (value: boolean) => {
+    setEnabled(value);
+    await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+      'ignoreServerBundleUpdate',
+      value,
+    );
+    if (value) {
+      // Clear both update atom and pending install task so any queued
+      // rollback/upgrade is fully discarded.
+      await backgroundApiProxy.serviceAppUpdate.reset();
+      await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
+    }
+  }, []);
+
+  return (
+    <XStack alignItems="center" justifyContent="space-between">
+      <YStack flex={1} mr="$2">
+        <SizableText size="$bodyLgMedium" color="$textCaution">
+          Ignore Server Bundle Update
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          Prevent server-driven update or rollback when testing a manually
+          switched bundle
+        </SizableText>
+      </YStack>
+      <Switch
+        size={ESwitchSize.small}
+        value={enabled}
+        onChange={handleChange}
+      />
+    </XStack>
+  );
+}
+
 export default function DevBundleManagerModal() {
   const navigation = useAppNavigation();
 
@@ -301,6 +359,10 @@ export default function DevBundleManagerModal() {
                 <InfoRow label="Build Number" value={currentBuildNumber} />
                 <InfoRow label="Commit Hash" value={currentCommitHash} />
                 <InfoRow label="Bundle Version" value={currentBundleVersion} />
+                <InfoRow
+                  label="Bundle Hash"
+                  value={encodeBundleVersionForDisplay(currentBundleVersion)}
+                />
                 {nativeAppVersion ? (
                   <InfoRow
                     label="Native Version"
@@ -358,6 +420,32 @@ export default function DevBundleManagerModal() {
                     );
                   }}
                 />
+                <XStack mx="$4">
+                  <Divider />
+                </XStack>
+                <ActionRow
+                  icon="UndoOutline"
+                  title="Reset to Built-in Bundle"
+                  subtitle="Use app's original bundle, keep downloads"
+                  destructive
+                  onPress={() => {
+                    Dialog.show({
+                      title: 'Reset to Built-in Bundle',
+                      description:
+                        'This will reset the app to use the built-in JS bundle. Downloaded bundles will be preserved. The app will restart.',
+                      confirmButtonProps: {
+                        variant: 'destructive',
+                      },
+                      onConfirm: async () => {
+                        try {
+                          await BundleUpdate.resetToBuiltInBundle();
+                        } catch (error) {
+                          showTestError(error);
+                        }
+                      },
+                    });
+                  }}
+                />
               </SectionCard>
             </YStack>
           ) : null}
@@ -390,11 +478,11 @@ export default function DevBundleManagerModal() {
                           isCurrent
                             ? undefined
                             : () => {
-                                void BundleUpdate.switchBundle(bundle).catch(
-                                  (e) => {
+                                void enableIgnoreServerBundleUpdate()
+                                  .then(() => BundleUpdate.switchBundle(bundle))
+                                  .catch((e) => {
                                     showTestError(e);
-                                  },
-                                );
+                                  });
                               }
                         }
                       >
@@ -430,6 +518,12 @@ export default function DevBundleManagerModal() {
           <YStack gap="$1">
             <SectionTitle icon="SettingsOutline" title="SETTINGS" />
             <SectionCard>
+              <YStack px="$4" py="$3">
+                <IgnoreServerBundleUpdateToggle />
+              </YStack>
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
               <YStack px="$4" py="$3">
                 <SkipGPGVerificationToggle />
               </YStack>

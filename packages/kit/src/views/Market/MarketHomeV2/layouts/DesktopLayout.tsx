@@ -85,9 +85,19 @@ export function DesktopLayout({
     setPortalTarget(el);
   }, []);
 
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
+
+  // Ref so renderTabBar can update activeTabName immediately on press
+  // without recreating the callback (which would break collapsible tab memoisation).
+  const setActiveTabNameRef = useRef(setActiveTabName);
+  setActiveTabNameRef.current = setActiveTabName;
+
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
+        // Update immediately on press so the portal clears before the
+        // tab-switch animation completes (onTabChange fires after animation).
+        setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
       // Wrap TabBar + portal target in a single sticky container.
@@ -107,8 +117,6 @@ export function DesktopLayout({
     },
     [portalRefCallback],
   );
-
-  const [activeTabName, setActiveTabName] = useState(initialTabName);
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
