@@ -421,16 +421,6 @@ function BaseInput(
   }
 
   const shownValue = useFixAndroidInputValueDisplay(value);
-
-  if (allowSecureTextEye) {
-    console.log('[PrivateKeyInput] Input component render', {
-      valueLength: value?.length,
-      shownValueLength: shownValue?.length,
-      secureEntryState,
-      usedSecureTextEntry,
-    });
-  }
-
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
     (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
@@ -452,19 +442,6 @@ function BaseInput(
       onChangeText?.(text.replace(',', '.'));
     },
     [onChangeText],
-  );
-
-  const wrappedOnChangeText = useCallback(
-    (text: string) => {
-      if (allowSecureTextEye) {
-        console.log('[PrivateKeyInput] Input onChangeText from native', {
-          textLength: text.length,
-          textPreview: text.slice(0, 20),
-        });
-      }
-      onChangeText?.(text);
-    },
-    [allowSecureTextEye, onChangeText],
   );
 
   const isNumberKeyboardType = useMemo(
@@ -537,11 +514,7 @@ function BaseInput(
           {...props}
           onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
-            isNumberKeyboardType
-              ? onNumberPadChangeText
-              : allowSecureTextEye
-                ? wrappedOnChangeText
-                : onChangeText
+            isNumberKeyboardType ? onNumberPadChangeText : onChangeText
           }
           allowFontScaling={false}
         />
