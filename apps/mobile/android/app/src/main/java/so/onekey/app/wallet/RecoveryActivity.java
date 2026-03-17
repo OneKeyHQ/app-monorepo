@@ -94,29 +94,12 @@ public class RecoveryActivity extends AppCompatActivity {
     }
 
     private File findNativeLoggerDir() {
-        // Check common locations for NativeLogger directory
-        File filesDir = getFilesDir();
-        File nativeLoggerDir = new File(filesDir, "NativeLogger");
-        if (nativeLoggerDir.exists()) {
-            return nativeLoggerDir;
+        // OneKeyLog stores logs at ${cacheDir}/logs
+        // (see OneKeyLog.kt: "${context.cacheDir.absolutePath}/logs")
+        File logsDir = new File(getCacheDir(), "logs");
+        if (logsDir.exists() && logsDir.isDirectory()) {
+            return logsDir;
         }
-
-        // Check cache directory
-        File cacheDir = getCacheDir();
-        nativeLoggerDir = new File(cacheDir, "NativeLogger");
-        if (nativeLoggerDir.exists()) {
-            return nativeLoggerDir;
-        }
-
-        // Check external files directory
-        File externalFilesDir = getExternalFilesDir(null);
-        if (externalFilesDir != null) {
-            nativeLoggerDir = new File(externalFilesDir, "NativeLogger");
-            if (nativeLoggerDir.exists()) {
-                return nativeLoggerDir;
-            }
-        }
-
         return null;
     }
 
