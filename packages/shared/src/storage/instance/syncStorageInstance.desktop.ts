@@ -14,7 +14,7 @@ import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 const MMKV_ID = 'onekey-app-setting';
 
 function ipc(method: string, key?: string, value?: unknown): any {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
   return (globalThis as any).$mmkvSync({ method, id: MMKV_ID, key, value });
 }
 
@@ -23,10 +23,7 @@ const syncStorageDesktop: ISyncStorage = {
     resetUtils.checkNotInResetting();
     ipc('set', key, value);
   },
-  setObject<T extends Record<string, any>>(
-    key: EAppSyncStorageKeys,
-    value: T,
-  ) {
+  setObject<T extends Record<string, any>>(key: EAppSyncStorageKeys, value: T) {
     resetUtils.checkNotInResetting();
     if (!isPlainObject(value)) {
       throw new OneKeyLocalError('value must be a plain object');

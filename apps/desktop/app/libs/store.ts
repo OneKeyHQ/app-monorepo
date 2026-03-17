@@ -240,3 +240,13 @@ export const getBootFailAppVersion = () =>
 
 export const setBootFailAppVersion = (version: string) =>
   store.set(EDesktopStoreKeys.BootFailAppVersion, version);
+
+// ==================== MMKV Persistent Store ====================
+const mmkvAppSettingStore = new Store({ name: 'mmkv-onekey-app-setting' });
+
+export const clearMmkvRecoveryKeys = () => {
+  mmkvAppSettingStore.delete('onekey_pending_install_task');
+  mmkvAppSettingStore.delete('onekey_whats_new_shown');
+  mmkvAppSettingStore.delete('last_valid_server_time');
+  mmkvAppSettingStore.delete('last_valid_local_time');
+};

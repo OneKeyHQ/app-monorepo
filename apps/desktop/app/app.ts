@@ -948,12 +948,7 @@ async function createMainWindow() {
     }
     // Clear recovery-related keys from MMKV persistent store (electron-store backed)
     try {
-      const ElectronStore = require('electron-store');
-      const mmkvStore = new ElectronStore({ name: 'mmkv-onekey-app-setting' });
-      mmkvStore.delete('onekey_pending_install_task');
-      mmkvStore.delete('onekey_whats_new_shown');
-      mmkvStore.delete('last_valid_server_time');
-      mmkvStore.delete('last_valid_local_time');
+      store.clearMmkvRecoveryKeys();
     } catch (e: any) {
       errors.push(`clearMmkvKeys: ${e?.message}`);
     }
