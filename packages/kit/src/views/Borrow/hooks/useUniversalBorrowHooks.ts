@@ -10,6 +10,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -107,6 +108,81 @@ const handleBorrowSuccess = async ({
     });
   }
   onSuccess?.(data);
+};
+
+const waitForTxFinalStatus = async ({
+  accountId,
+  networkId,
+  txId,
+  maxAttempts = 24,
+  intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
+}: {
+  accountId: string;
+  networkId: string;
+  txId: string;
+  maxAttempts?: number;
+  intervalMs?: number;
+}) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const txDetailsResp =
+      await backgroundApiProxy.serviceHistory.fetchTxDetails({
+        accountId,
+        networkId,
+        txid: txId,
+      });
+    const txStatus = txDetailsResp?.data?.status;
+
+    if (
+      txStatus === EOnChainHistoryTxStatus.Success ||
+      txStatus === EOnChainHistoryTxStatus.Failed
+    ) {
+      return txStatus;
+    }
+
+    if (attempt < maxAttempts - 1) {
+      await timerUtils.wait(intervalMs);
+    }
+  }
+
+  return undefined;
+};
+
+const syncBorrowOrderFinalStatus = async ({
+  accountId,
+  networkId,
+  txId,
+}: {
+  accountId: string;
+  networkId: string;
+  txId: string;
+}) => {
+  const txStatus = await waitForTxFinalStatus({
+    accountId,
+    networkId,
+    txId,
+  });
+
+  let decodedStatus: EDecodedTxStatus | undefined;
+  if (txStatus === EOnChainHistoryTxStatus.Success) {
+    decodedStatus = EDecodedTxStatus.Confirmed;
+  } else if (txStatus === EOnChainHistoryTxStatus.Failed) {
+    decodedStatus = EDecodedTxStatus.Failed;
+  }
+
+  if (decodedStatus) {
+    await backgroundApiProxy.serviceStaking.updateEarnOrder({
+      txs: [
+        {
+          accountId,
+          networkId,
+          txId,
+          status: decodedStatus,
+        },
+      ],
+    });
+  }
+
+  return txStatus;
 };
 
 const buildRepayWithCollateralTxWithRetry = async ({
@@ -522,6 +598,20 @@ export function useUniversalBorrowRepayWithCollateral({
               setupConfirmResult.data[setupConfirmResult.data.length - 1]
                 ?.decodedTx.status ?? EDecodedTxStatus.Pending,
           });
+
+          const setupTxStatus = await syncBorrowOrderFinalStatus({
+            accountId,
+            networkId,
+            txId: latestSetupTxId,
+          });
+
+          if (setupTxStatus !== EOnChainHistoryTxStatus.Success) {
+            throw new OneKeyLocalError(
+              intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            );
+          }
         }
 
         const resp = await buildRepayWithCollateralTxWithRetry({
