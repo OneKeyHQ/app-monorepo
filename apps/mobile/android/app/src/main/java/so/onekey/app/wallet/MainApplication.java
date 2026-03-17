@@ -109,7 +109,14 @@ public class MainApplication extends Application implements ReactApplication {
     shouldShowRecovery = newCount >= 3;
 
     super.onCreate();
-    
+
+    if (shouldShowRecovery) {
+        // Skip all heavy initialization (SoLoader, React Native, Expo, JPush).
+        // RecoveryActivity is a plain Android Activity and doesn't need them.
+        // This prevents crashes in RN initialization from blocking recovery.
+        return;
+    }
+
     long startupTime = System.currentTimeMillis();
     ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);
     OneKeyLog.info("App", "OneKey started");

@@ -45,6 +45,7 @@ export enum EDesktopStoreKeys {
   UpdateBundleData = 'updateBundleData',
   FallbackUpdateBundleData = 'fallbackUpdateBundleData',
   NativeVersion = 'nativeVersion',
+  NativeBuildNumber = 'nativeBuildNumber',
   AppInstanceMetaBackup = INSTANCE_META_BACKUP_KEY,
   // GPU Crash Statistics - for monitoring
   GPUCrashCount = 'gpuCrashCount',
@@ -79,6 +80,7 @@ export type IDesktopStoreMap = {
   };
   [EDesktopStoreKeys.ASCFile]: string;
   [EDesktopStoreKeys.UpdateBuildNumber]: string;
+  [EDesktopStoreKeys.NativeBuildNumber]: string;
   [EDesktopStoreKeys.AppInstanceMetaBackup]: IInstanceMetaBackup;
   [EDesktopStoreKeys.UpdateBundleData]: IDesktopStoreUpdateBundleData;
   [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreFallbackUpdateBundleData;

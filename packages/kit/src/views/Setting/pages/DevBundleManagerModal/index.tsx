@@ -305,12 +305,14 @@ export default function DevBundleManagerModal() {
   const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
   const [nativeAppVersion, setNativeAppVersion] = useState('');
   const [nativeBuildNumber, setNativeBuildNumber] = useState('');
+  const [builtinBundleVersion, setBuiltinBundleVersion] = useState('');
 
   useEffect(() => {
     void getJsBundlePathAsync().then(setJsBundlePath);
     void BundleUpdate.getFallbackBundles().then(setFallbackBundles);
     void BundleUpdate.getNativeAppVersion().then(setNativeAppVersion);
     void BundleUpdate.getNativeBuildNumber().then(setNativeBuildNumber);
+    void BundleUpdate.getBuiltinBundleVersion().then(setBuiltinBundleVersion);
   }, []);
 
   const showTestResult = (
@@ -365,8 +367,8 @@ export default function DevBundleManagerModal() {
                 />
                 {nativeAppVersion ? (
                   <InfoRow
-                    label="Native Version"
-                    value={`${nativeAppVersion}${nativeBuildNumber ? ` (${nativeBuildNumber})` : ''}`}
+                    label="App Shell Version"
+                    value={`${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})` : ''}`}
                   />
                 ) : null}
                 {jsBundlePath ? (
