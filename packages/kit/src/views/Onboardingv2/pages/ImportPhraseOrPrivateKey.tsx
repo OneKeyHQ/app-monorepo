@@ -91,6 +91,13 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const handleChangeText = useCallback(
     (text: string) => {
       if (encrypted) {
+        // Bulk replacement (scan / paste via addon): the text contains no '•'
+        // characters, so it was injected programmatically rather than typed.
+        if (!text.includes('•')) {
+          updatePrivateKey(text);
+          return;
+        }
+
         // Find non-asterisk characters in text and merge with actual privateKey
         const selection = selectionRef.current;
         let newPrivateKey = privateKeyRef.current;
