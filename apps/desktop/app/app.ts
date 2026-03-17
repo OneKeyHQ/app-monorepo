@@ -895,6 +895,10 @@ async function createMainWindow() {
   ipcMain.removeHandler(ipcMessageKeys.RECOVERY_TRY_AGAIN);
   ipcMain.handle(ipcMessageKeys.RECOVERY_TRY_AGAIN, async () => {
     store.resetConsecutiveBootFailCount();
+    if (process.mas) {
+      // MAS cannot relaunch programmatically, return signal for UI to show prompt
+      return { needsManualRestart: true };
+    }
     app.relaunch();
     app.exit(0);
   });
