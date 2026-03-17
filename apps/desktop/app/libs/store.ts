@@ -295,13 +295,15 @@ export const processPreLaunchPendingTask = (): boolean => {
     const { appVersion, bundleVersion, signature } = task.payload || {};
     if (!appVersion || !bundleVersion || !signature) return false;
 
-    // Verify bundle directory exists
+    // Verify bundle directory and entry file exist
     const bundleDirName = path.join(app.getPath('userData'), 'onekey-bundle');
     const extractDir = path.join(
       bundleDirName,
       `${appVersion}-${bundleVersion}`,
     );
     if (!fs.existsSync(extractDir)) return false;
+    const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) return false;
 
     // Apply: set new bundle data
     setUpdateBundleData({ appVersion, bundleVersion, signature });
