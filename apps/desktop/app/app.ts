@@ -664,7 +664,7 @@ async function createMainWindow() {
   }
 
   /* eslint-disable no-nested-ternary */
-  const src = isPerfCiMode
+  let src = isPerfCiMode
     ? formatUrl({
         pathname: perfIndexHtmlPath,
         protocol: PROTOCOL,
@@ -1030,6 +1030,7 @@ async function createMainWindow() {
     let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
     let metadata: Record<string, string> = {};
+    let metadataFailed = false;
     if (bundleDirPath) {
       try {
         metadata = await getMetadata({
@@ -1043,6 +1044,7 @@ async function createMainWindow() {
         // so the interceptor falls back to the builtin bundle in the asar.
         logger.error('getMetadata failed, falling back to builtin bundle:', e);
         useJsBundle = false;
+        metadataFailed = true;
       }
     }
     session.defaultSession.protocol.interceptFileProtocol(
@@ -1110,6 +1112,17 @@ async function createMainWindow() {
         }
       },
     );
+    // When getMetadata failed, src still points to the bundle path which the
+    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
+    // now that the interceptor is registered and will serve builtin files.
+    if (metadataFailed) {
+      src = formatUrl({
+        pathname: 'index.html',
+        protocol: PROTOCOL,
+        slashes: true,
+      });
+      void browserWindow.loadURL(src);
+    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',

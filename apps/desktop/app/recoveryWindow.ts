@@ -11,6 +11,8 @@ import * as store from './libs/store';
 import { getAppStaticResourcesPath } from './resoucePath';
 
 const isMac = process.platform === 'darwin';
+const isWin = process.platform === 'win32';
+const isLinux = process.platform === 'linux';
 
 /**
  * Create a standalone recovery window with its own IPC handlers.
@@ -32,6 +34,14 @@ export function createRecoveryWindow(): BrowserWindow {
     show: true,
     title: 'OneKey',
     titleBarStyle: 'hidden',
+    titleBarOverlay:
+      isWin || isLinux
+        ? {
+            height: 52,
+            color: '#00000000',
+            symbolColor: '#ffffff',
+          }
+        : false,
     trafficLightPosition: { x: 20, y: 20 },
     autoHideMenuBar: true,
     frame: true,
