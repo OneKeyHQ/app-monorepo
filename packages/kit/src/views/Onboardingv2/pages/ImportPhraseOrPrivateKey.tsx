@@ -7,10 +7,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
-import type {
-  IInputRef,
-  ITextAreaInputProps,
-} from '@onekeyhq/components';
+import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   Button,
@@ -152,9 +149,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const eyeToggleAddOn = useMemo(
     () => [
       {
-        iconName: (encrypted
-          ? 'EyeOffOutline'
-          : 'EyeOutline') as IKeyOfIcons,
+        iconName: (encrypted ? 'EyeOffOutline' : 'EyeOutline') as IKeyOfIcons,
         onPress: () => setEncrypted((v) => !v),
       },
     ],
