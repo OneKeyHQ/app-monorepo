@@ -44,7 +44,6 @@ import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 import {
   checkFileHash,
   checkFileSha512,
-  getBundleDirName,
   getBundleDirPath,
   getBundleIndexHtmlPath,
   getDriveLetter,
