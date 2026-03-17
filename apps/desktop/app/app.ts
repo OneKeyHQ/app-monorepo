@@ -65,8 +65,8 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 
-logger.initialize();
-logger.transports.file.maxSize = 1024 * 1024 * 10;
+// Logger initialization (file rotation, sanitization, rate limiting)
+import './logger';
 
 initSentry();
 
@@ -735,6 +735,11 @@ async function createMainWindow() {
   ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDevServer;
+  });
+
+  ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
+  ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
+    event.returnValue = path.dirname(logger.transports.file.getFile().path);
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);

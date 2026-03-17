@@ -239,7 +239,9 @@ class ProviderApiNostr extends ProviderApiBase {
     const result = await this.decryptMutex.runExclusive(() =>
       this.decryptRequest(request),
     );
-    console.log('====>>>>>DECRYPT: ', result);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('====>>>>>DECRYPT: ', result);
+    }
     return result;
   }
 

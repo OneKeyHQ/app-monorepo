@@ -77,9 +77,7 @@ export function UniversalSearchMarketTokenItem({
       }}
     >
       <XStack>
-        <Currency sourceCurrency="usd" size="$bodyLgMedium">
-          {String(price)}
-        </Currency>
+        <Currency size="$bodyLgMedium">{String(price)}</Currency>
       </XStack>
     </ListItem>
   );

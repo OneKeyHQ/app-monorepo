@@ -140,7 +140,7 @@ export function TokenDetailHeaderLeft({
             {stock?.subtitle ? (
               <SubtitleBadge subtitle={stock.subtitle} />
             ) : null}
-            {stock ? <StockIsOpenBadge isOpen={stock.isOpen} /> : null}
+            {stock ? <StockIsOpenBadge stock={stock} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">
