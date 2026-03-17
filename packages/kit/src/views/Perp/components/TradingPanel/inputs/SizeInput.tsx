@@ -222,6 +222,11 @@ export const SizeInput = memo(
     useEffect(() => {
       if (isSliderMode) return;
 
+      if (!prevValueRef.current) {
+        prevPriceRef.current = referencePrice;
+        return;
+      }
+
       const priceChanged = prevPriceRef.current !== referencePrice;
       if (priceChanged) {
         prevPriceRef.current = referencePrice;
