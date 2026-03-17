@@ -328,17 +328,12 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),
   appVersion: process.env.VERSION || '',
   // Boot Recovery
-  markBootSuccess: () =>
-    ipcRenderer.send(ipcMessageKeys.MARK_BOOT_SUCCESS),
+  markBootSuccess: () => ipcRenderer.send(ipcMessageKeys.MARK_BOOT_SUCCESS),
   setConsecutiveBootFailCount: (count: number) =>
-    ipcRenderer.send(
-      ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT,
-      count,
-    ),
+    ipcRenderer.send(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT, count),
   recoveryExportLogs: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_EXPORT_LOGS),
-  recoveryTryAgain: () =>
-    ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
+  recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
 });

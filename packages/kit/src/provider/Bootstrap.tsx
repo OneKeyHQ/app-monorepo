@@ -771,7 +771,7 @@ export function Bootstrap() {
       } catch {
         // Silently fail — don't let recovery mechanism crash the app
       }
-    }, 5_000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, []);
 

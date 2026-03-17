@@ -839,9 +839,7 @@ const BaseDevSettingsSection = () => {
                 subtitle="Sets crash counter to 3, triggering recovery page on restart"
                 onPress={async () => {
                   const BootRecovery = (
-                    await import(
-                      '@onekeyhq/shared/src/modules/BootRecovery'
-                    )
+                    await import('@onekeyhq/shared/src/modules/BootRecovery')
                   ).default;
                   BootRecovery.setConsecutiveBootFailCount(3);
                   Toast.success({
