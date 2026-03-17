@@ -673,7 +673,7 @@ async function createMainWindow() {
   const bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount);
 
-  if (bootFailCount >= 3 && !isDev) {
+  if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
       appVersion: currentAppVersion,
