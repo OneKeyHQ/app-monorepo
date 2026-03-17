@@ -110,8 +110,17 @@ public class MainApplication extends Application implements ReactApplication {
 
     super.onCreate();
 
+    // SoLoader must be initialized before the recovery early-return because
+    // MainActivity extends ReactActivity, and super.onCreate(null) triggers
+    // SoLoader.loadLibrary(). Without this, recovery mode itself crashes.
+    try {
+        SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }
+
     if (shouldShowRecovery) {
-        // Skip all heavy initialization (SoLoader, React Native, Expo, JPush).
+        // Skip heavy initialization (React Native, Expo, JPush).
         // RecoveryActivity is a plain Android Activity and doesn't need them.
         // This prevents crashes in RN initialization from blocking recovery.
         return;
@@ -137,16 +146,7 @@ public class MainApplication extends Application implements ReactApplication {
       e.printStackTrace();
     }
 
-    // SoLoader.init(this, /* native exopackage */ false);
-    // if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
-    //   ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;
-    // }
-      try {
-          SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
-      } catch (IOException e) {
-          throw new RuntimeException(e);
-      }
-      if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
       DefaultNewArchitectureEntryPoint.load();
     }
