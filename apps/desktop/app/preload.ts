@@ -33,6 +33,7 @@ type IDesktopAPILegacy = {
   arch: string;
   platform: string;
   systemVersion: string;
+  logDirectory: string;
   deskChannel: string;
   isMas: boolean;
   isDev: boolean;
@@ -181,6 +182,7 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   },
   arch: process.arch,
   platform: process.platform,
+  logDirectory: ipcRenderer.sendSync(ipcMessageKeys.LOG_DIRECTORY),
   deskChannel: process.env.DESK_CHANNEL || '',
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,

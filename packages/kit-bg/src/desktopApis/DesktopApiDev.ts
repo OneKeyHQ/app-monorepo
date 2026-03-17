@@ -2,9 +2,10 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 
 import AdmZip from 'adm-zip';
-import { app, shell } from 'electron';
+import { shell } from 'electron';
 import logger from 'electron-log/main';
 import fetch from 'node-fetch';
 
@@ -41,6 +42,20 @@ class DesktopApiDev {
     await shell.openPath(path.dirname(logger.transports.file.getFile().path));
   }
 
+  async exportLoggerZip(params: {
+    fileBaseName: string;
+  }): Promise<{ filePath: string }> {
+    const digest = await this.collectLoggerDigest(params);
+    const mainWindow = this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      throw new OneKeyLocalError('No active window for download');
+    }
+    // Use pathToFileURL to properly handle Windows backslashes, spaces, and special chars
+    const fileUrl = pathToFileURL(digest.filePath).href;
+    mainWindow.webContents.downloadURL(fileUrl);
+    return { filePath: digest.filePath };
+  }
+
   async collectLoggerDigest(params: { fileBaseName: string }): Promise<{
     filePath: string;
     fileName: string;
@@ -57,9 +72,32 @@ class DesktopApiDev {
     const logFiles = await fsPromises.readdir(logDir);
 
     const zipName = `${baseName}.zip`;
-    const tempDir = path.join(app.getPath('temp'), '@onekeyhq-desktop-logs');
-    await fsPromises.mkdir(tempDir, { recursive: true });
-    const zipPath = path.join(tempDir, zipName);
+    // Store zips in logs_zip/ next to log directory, matching native behavior
+    const zipDir = path.join(path.dirname(logDir), 'logs_zip');
+    await fsPromises.mkdir(zipDir, { recursive: true });
+
+    const zipPath = path.join(zipDir, zipName);
+
+    // Clean up stale zip files (older than 1 hour) to avoid removing
+    // archives that a concurrent upload/download flow may still be using
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    try {
+      const existingZips = await fsPromises.readdir(zipDir);
+      for (const oldZip of existingZips) {
+        if (oldZip.endsWith('.zip') && oldZip !== zipName) {
+          try {
+            const stat = await fsPromises.stat(path.join(zipDir, oldZip));
+            if (Date.now() - stat.mtimeMs > ONE_HOUR_MS) {
+              await fsPromises.unlink(path.join(zipDir, oldZip));
+            }
+          } catch {
+            // ignore individual cleanup errors
+          }
+        }
+      }
+    } catch {
+      // ignore cleanup errors
+    }
 
     const zip = new AdmZip();
     logFiles
@@ -213,6 +251,39 @@ class DesktopApiDev {
         message: error instanceof Error ? error.message : String(error),
       });
       throw error;
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // NativeLogger-compatible methods (aligned with react-native-native-logger)
+  // -----------------------------------------------------------------------
+
+  getLogDirectory(): string {
+    return path.dirname(logger.transports.file.getFile().path);
+  }
+
+  async getLogFilePaths(): Promise<string[]> {
+    const logDir = this.getLogDirectory();
+    const files = await fsPromises.readdir(logDir);
+    return files.filter((f) => f.endsWith('.log')).toSorted();
+  }
+
+  async deleteLogFiles(): Promise<void> {
+    const logDir = this.getLogDirectory();
+    const files = await fsPromises.readdir(logDir);
+    const logFiles = files.filter((f) => f.endsWith('.log'));
+    for (const file of logFiles) {
+      const filePath = path.join(logDir, file);
+      try {
+        if (file === 'app-latest.log') {
+          // Truncate active log file instead of deleting (matches native behavior)
+          await fsPromises.writeFile(filePath, '');
+        } else {
+          await fsPromises.unlink(filePath);
+        }
+      } catch {
+        // ignore individual file errors
+      }
     }
   }
 
