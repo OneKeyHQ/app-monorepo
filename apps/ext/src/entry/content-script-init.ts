@@ -11,6 +11,16 @@ import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 // import type { IOneKeyWalletInfo } from '@onekeyhq/kit-bg/src/providers/ProviderApiPrivate';
+import {
+  type IKeylessWebOpenSidePanelMessage,
+  type IKeylessWebOpenSidePanelPayload,
+  KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT,
+  KEYLESS_WEB_OPEN_SIDE_PANEL_MESSAGE_TYPE,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
+import {
+  isKeylessWebAutoConnectOriginAllowed,
+  isKeylessWebConnectAlertMessage,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -60,6 +70,42 @@ if (shouldInject()) {
 }
 
 bridgeSetup.contentScript.setupMessagePort();
+
+globalThis.addEventListener(
+  KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT,
+  (event: Event) => {
+    if (globalThis.top !== globalThis.self) {
+      return;
+    }
+    if (!isKeylessWebAutoConnectOriginAllowed(globalThis.location.href)) {
+      return;
+    }
+
+    const customEvent = event as CustomEvent<IKeylessWebOpenSidePanelPayload>;
+    const message: IKeylessWebOpenSidePanelMessage = {
+      type: KEYLESS_WEB_OPEN_SIDE_PANEL_MESSAGE_TYPE,
+      payload: customEvent?.detail,
+    };
+    void chrome.runtime
+      ?.sendMessage?.(message)
+      .catch((error: unknown) =>
+        console.error('keyless_open_side_panel_send_message', error),
+      );
+  },
+);
+
+chrome.runtime?.onMessage.addListener((message) => {
+  if (!isKeylessWebConnectAlertMessage(message)) {
+    return undefined;
+  }
+  if (globalThis.top !== globalThis.self) {
+    return undefined;
+  }
+
+  const targetOrigin = globalThis.location?.origin || '*';
+  globalThis.postMessage(message, targetOrigin);
+  return undefined;
+});
 
 export interface IOneKeyWalletInfo {
   enableExtContentScriptReloadButton?: boolean;

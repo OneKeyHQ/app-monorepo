@@ -15,6 +15,7 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
 import { setupExtUIEvent } from '../background/extUI';
 import { setupKeepAlive } from '../background/keepAlive';
+import extKeylessForWebBridge from '../background/extKeylessForWebBridge';
 import serviceWorker from '../background/serviceWorker';
 import { setupSidePanelPortInBg } from '../background/sidePanel';
 
@@ -25,7 +26,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 function initBackground() {
   // TODO use backgroundApiInit
   const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
     require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
 
   const bridge = bridgeSetup.background.createHostBridge({
@@ -44,6 +45,7 @@ if (platformEnv.isExtensionBackgroundServiceWorker) {
   // axios.defaults.adapter = axiosAdapter;
   setupKeepAlive();
   setupSidePanelPortInBg();
+  extKeylessForWebBridge.setupKeylessWebBridgeInBackground();
   setupExtUIEvent();
   serviceWorker.disableCacheInBackground();
 }

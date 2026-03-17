@@ -117,7 +117,7 @@ const jsRules = {
   // 'no-console': [isDev ? 'warn' : 'off'],
   'radix': 'error',
   'unicorn/numeric-separators-style': 'error',
-  'unicorn/prefer-global-this': 'error',
+  'unicorn/prefer-global-this': 'off',
 };
 const restrictedImportsPatterns = [
   {
@@ -174,6 +174,7 @@ const tsRules = {
   '@typescript-eslint/lines-between-class-members': 'off',
   '@typescript-eslint/no-throw-literal': 'off',
   '@typescript-eslint/no-require-imports': 'off',
+  '@typescript-eslint/no-duplicate-type-constituents': 'off',
   '@typescript-eslint/no-restricted-imports': [
     'error',
     {

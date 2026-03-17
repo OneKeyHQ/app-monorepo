@@ -23,6 +23,7 @@ timestamps
 Autopurge
 keyless
 shamir
+Scju
 0xxxxxxx
 Provideri
 dialogs

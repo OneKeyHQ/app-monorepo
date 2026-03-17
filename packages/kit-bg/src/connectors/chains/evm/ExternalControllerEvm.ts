@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { IConnectToWalletOptions } from '@onekeyhq/kit/src/hooks/useWebDapp/useConnectExternalWallet';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -272,13 +273,22 @@ export class ExternalControllerEvm extends ExternalControllerBase {
 
   override async connectWallet({
     connector,
+    connectToWalletOptions,
   }: {
     connector: IExternalConnectorEvm;
+    connectToWalletOptions?: IConnectToWalletOptions;
   }): Promise<IExternalConnectWalletResult> {
     const { connectionInfo } = connector;
     checkIsDefined(connectionInfo);
-    // const { connector } = await this.createConnector({ connectionInfo });
-    const result = (await connector.connect()) as IExternalConnectResultEvm;
+    const result = (await connector.connect({
+      requestOneKeyKeylessAccount:
+        connectToWalletOptions?.webKeylessPendingLogin?.provider,
+    } as any)) as IExternalConnectResultEvm;
+
+    if (!result?.accounts?.length) {
+      throw new OneKeyLocalError('No authorized external wallet accounts');
+    }
+
     const { impl, createAtNetwork, addressMap, notSupportedNetworkIds } =
       await this.buildEvmConnectedAddressMap(result);
     let name = '';

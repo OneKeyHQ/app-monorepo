@@ -259,7 +259,12 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+  async eth_requestAccounts(
+    request: IJsBridgeMessagePayload,
+    params?: Record<string, unknown>,
+  ) {
+    const _requestOneKeyKeylessAccount = params?.requestOneKeyKeylessAccount;
+
     return this.semaphore.runExclusive(async () => {
       const accounts = await this.eth_accounts(request);
       if (accounts && accounts.length) {
@@ -301,9 +306,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     _permissions: Record<string, unknown>,
   ) {
+    const _requestOneKeyKeylessAccount =
+      _permissions?.requestOneKeyKeylessAccount;
+
     defaultLogger.discovery.dapp.dappRequest({ request });
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    const accounts = await this.eth_accounts(request);
+    let accounts = await this.eth_accounts(request);
+    if (!accounts.length) {
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      accounts = await this.eth_accounts(request);
+    }
     const chainId = await this.eth_chainId(request);
 
     const id = request.id?.toString() ?? generateUUID();

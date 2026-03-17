@@ -8,7 +8,6 @@ import { v4storeNameSupportCreatedAt } from '../v4localDBConsts';
 
 import { v4realmDBSchemasMap } from './schemas';
 
-import type { V4RealmObjectBase } from './base/V4RealmObjectBase';
 import type { IV4LocalDBAgent } from '../IV4LocalDBAgent';
 import type { EV4LocalDBStoreNames } from '../v4localDBStoreNames';
 import type {
@@ -33,6 +32,7 @@ import type {
   IV4LocalDBWithTransactionTask,
   IV4RealmDBSchemaMap,
 } from '../v4localDBTypes';
+import type { V4RealmObjectBase } from './base/V4RealmObjectBase';
 import type Realm from 'realm';
 
 export class V4RealmDBAgent

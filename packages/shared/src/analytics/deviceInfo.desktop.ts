@@ -9,11 +9,13 @@ const deviceInfo = {
   arch: globalThis.desktopApi?.arch || 'unknown',
   os: globalThis.desktopApi?.platform,
   osVersion: globalThis.desktopApi?.systemVersion,
-  screenHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
-  screenWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
+  screenHeight:
+    typeof globalThis !== 'undefined' ? window.innerHeight : undefined,
+  screenWidth:
+    typeof globalThis !== 'undefined' ? window.innerWidth : undefined,
 } as IDeviceInfo;
 
-if (typeof window !== 'undefined' && window.addEventListener) {
+if (typeof globalThis !== 'undefined' && window.addEventListener) {
   window.addEventListener('resize', () => {
     deviceInfo.screenHeight = window.innerHeight;
     deviceInfo.screenWidth = window.innerWidth;
