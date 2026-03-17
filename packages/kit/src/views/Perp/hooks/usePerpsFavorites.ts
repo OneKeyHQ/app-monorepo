@@ -13,7 +13,10 @@ export type IFavoriteItem = {
   dexIndex: number;
 };
 
-export function usePerpsFavorites(): { favoriteItems: IFavoriteItem[] } {
+export function usePerpsFavorites(): {
+  favoriteItems: IFavoriteItem[];
+  isReady: boolean;
+} {
   const [favorites] = usePerpTokenFavoritesPersistAtom();
 
   // Fetch the full universe independently — must not read from the
@@ -66,5 +69,5 @@ export function usePerpsFavorites(): { favoriteItems: IFavoriteItem[] } {
     return items;
   }, [universe, favorites.favorites]);
 
-  return { favoriteItems };
+  return { favoriteItems, isReady: universe !== undefined };
 }
