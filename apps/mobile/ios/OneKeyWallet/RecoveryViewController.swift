@@ -208,19 +208,23 @@ final class RecoveryViewController: UIViewController {
 
   // MARK: - UI Elements
 
-  private let logoContainerView: UIView = {
-    let view = UIView()
-    view.backgroundColor = UIColor(red: 0x44/255.0, green: 0xD6/255.0, blue: 0x2C/255.0, alpha: 1.0)
-    view.translatesAutoresizingMaskIntoConstraints = false
-    return view
-  }()
-
-  private let keyImageView: UIImageView = {
-    let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .medium)
-    let image = UIImage(systemName: "key.fill", withConfiguration: config)
-    let iv = UIImageView(image: image)
-    iv.tintColor = .black
+  private let logoImageView: UIImageView = {
+    let iv = UIImageView()
+    // Use the app icon from the asset catalog
+    if let appIcon = UIImage(named: "AppIcon") {
+      iv.image = appIcon
+    } else {
+      // Fallback: try to load from bundle info
+      if let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+         let primary = icons["CFBundlePrimaryIcon"] as? [String: Any],
+         let files = primary["CFBundleIconFiles"] as? [String],
+         let lastIcon = files.last {
+        iv.image = UIImage(named: lastIcon)
+      }
+    }
     iv.contentMode = .scaleAspectFit
+    iv.layer.cornerRadius = 16
+    iv.clipsToBounds = true
     iv.translatesAutoresizingMaskIntoConstraints = false
     return iv
   }()
@@ -298,11 +302,8 @@ final class RecoveryViewController: UIViewController {
 
   private func setupLayout() {
     let logoSize: CGFloat = 64
-    logoContainerView.layer.cornerRadius = logoSize / 2
-    logoContainerView.clipsToBounds = true
 
-    view.addSubview(logoContainerView)
-    logoContainerView.addSubview(keyImageView)
+    view.addSubview(logoImageView)
     view.addSubview(titleLabel)
     view.addSubview(subtitleLabel)
     view.addSubview(exportLogsButton)
@@ -314,14 +315,11 @@ final class RecoveryViewController: UIViewController {
     let buttonWidth = min(screenWidth * 0.8, 320)
 
     NSLayoutConstraint.activate([
-      // Logo
-      logoContainerView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-      logoContainerView.widthAnchor.constraint(equalToConstant: logoSize),
-      logoContainerView.heightAnchor.constraint(equalToConstant: logoSize),
-      logoContainerView.bottomAnchor.constraint(equalTo: titleLabel.topAnchor, constant: -24),
-
-      keyImageView.centerXAnchor.constraint(equalTo: logoContainerView.centerXAnchor),
-      keyImageView.centerYAnchor.constraint(equalTo: logoContainerView.centerYAnchor),
+      // Logo (App Icon)
+      logoImageView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      logoImageView.widthAnchor.constraint(equalToConstant: logoSize),
+      logoImageView.heightAnchor.constraint(equalToConstant: logoSize),
+      logoImageView.bottomAnchor.constraint(equalTo: titleLabel.topAnchor, constant: -24),
 
       // Title
       titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
