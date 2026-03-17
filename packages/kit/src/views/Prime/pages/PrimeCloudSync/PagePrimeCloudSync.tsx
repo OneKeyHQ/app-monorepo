@@ -128,8 +128,6 @@ function CloudSyncHeader({ onLearnMore }: { onLearnMore: () => void }) {
 }
 
 function AppDataSection() {
-  const forceReloadServerUserInfo = useRef(false);
-
   const [config] = usePrimeCloudSyncPersistAtom();
   const isSubmittingRef = useRef(false);
   const manualSyncingRef = useRef(false);
@@ -202,8 +200,10 @@ function AppDataSection() {
   }, []);
 
   useEffect(() => {
-    void reloadServerUserInfo();
-  }, [reloadServerUserInfo]);
+    if (isActiveIdUser) {
+      void reloadServerUserInfo();
+    }
+  }, [isActiveIdUser, reloadServerUserInfo]);
 
   // --- Handlers ---
 
@@ -251,16 +251,24 @@ function AppDataSection() {
         callerName: 'Migration: ID sync before switch',
         noDebounceUpload: true,
       });
-      // Then disable ID and enable KW (re-encrypts data)
-      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-        enabled: false,
-      });
+      // Enable KW first, then disable ID — safer order to avoid stuck middle state
       await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
         enabled: true,
+      });
+      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+        enabled: false,
       });
       await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
         syncMode: ECloudSyncMode.Keyless,
       });
+    } catch (error) {
+      void backgroundApiProxy.serviceApp.showToast({
+        method: 'error',
+        title: intl.formatMessage({
+          id: ETranslations.global_sync_error,
+        }),
+      });
+      throw error;
     } finally {
       await timerUtils.wait(1000);
       await backgroundApiProxy.serviceApp.hideDialogLoading();
@@ -319,6 +327,27 @@ function AppDataSection() {
       if (isSubmittingRef.current) return;
       try {
         isSubmittingRef.current = true;
+        if (value && shouldChangePasswordAutoLock) {
+          await new Promise<void>((resolve, reject) => {
+            Dialog.show({
+              isAsync: true,
+              disableDrag: true,
+              dismissOnOverlayPress: true,
+              title: intl.formatMessage({
+                id: ETranslations.settings_auto_lock,
+              }),
+              contentContainerProps: { px: 0 },
+              onClose: () => reject(new Error('User cancelled')),
+              onCancel: () => reject(new Error('User cancelled')),
+              renderContent: (
+                <AutoLockUpdateDialogContent
+                  onContinue={() => resolve()}
+                  onError={(error) => reject(error)}
+                />
+              ),
+            });
+          });
+        }
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
           enabled: value,
         });
@@ -337,7 +366,7 @@ function AppDataSection() {
         isSubmittingRef.current = false;
       }
     },
-    [keylessWallet, intl],
+    [keylessWallet, intl, shouldChangePasswordAutoLock],
   );
 
   // Manual sync ID (Scenario 4)
@@ -376,9 +405,11 @@ function AppDataSection() {
   const handleSyncNowKwRemoved = useCallback(() => {
     void backgroundApiProxy.serviceApp.showToast({
       method: 'error',
-      title: 'Your keyless wallet was removed. Restore it to resume syncing.',
+      title: intl.formatMessage({
+        id: ETranslations.keyless_wallet_removed__desc,
+      }),
     });
-  }, []);
+  }, [intl]);
 
   // Manual sync Keyless (Scenario 3)
   const handleManualSyncKeyless = useCallback(async () => {
@@ -603,7 +634,6 @@ function AppDataSection() {
               try {
                 await backgroundApiProxy.serviceMasterPassword.startChangePassword();
               } finally {
-                forceReloadServerUserInfo.current = true;
                 await reloadServerUserInfo();
               }
             }}
