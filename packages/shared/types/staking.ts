@@ -2473,7 +2473,6 @@ export interface IBorrowTransactionConfirmation {
 
 export interface IBorrowUnsignedTransaction {
   tx: string;
-  txs?: string[];
   orderId?: string;
 }
 

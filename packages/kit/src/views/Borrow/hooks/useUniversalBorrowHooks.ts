@@ -3,14 +3,13 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -50,51 +49,6 @@ type ITxConfirmResult =
 // closing setup modal.
 const SIGNATURE_MODAL_SETTLE_WAIT_MS = 300;
 
-const waitForTxFinalStatus = async ({
-  accountId,
-  networkId,
-  txid,
-  signal,
-  maxAttempts = 24,
-  intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
-}: {
-  accountId: string;
-  networkId: string;
-  txid: string;
-  signal?: AbortSignal;
-  maxAttempts?: number;
-  intervalMs?: number;
-}) => {
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (signal?.aborted) {
-      return undefined;
-    }
-
-    const txDetailsResp =
-      await backgroundApiProxy.serviceHistory.fetchTxDetails({
-        accountId,
-        networkId,
-        txid,
-      });
-    const txStatus = txDetailsResp?.data?.status;
-
-    if (
-      txStatus === EOnChainHistoryTxStatus.Success ||
-      txStatus === EOnChainHistoryTxStatus.Failed
-    ) {
-      return txStatus;
-    }
-
-    if (attempt < maxAttempts - 1) {
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, intervalMs);
-      });
-    }
-  }
-
-  return undefined;
-};
-
 const getLatestTxId = (data: ISendTxOnSuccessData[]) => {
   for (let index = data.length - 1; index >= 0; index -= 1) {
     const item = data[index];
@@ -106,11 +60,6 @@ const getLatestTxId = (data: ISendTxOnSuccessData[]) => {
 
   return undefined;
 };
-
-const getTxIds = (data: ISendTxOnSuccessData[]) =>
-  data
-    .map((item) => item?.signedTx?.txid ?? item?.decodedTx?.txid)
-    .filter((txId): txId is string => Boolean(txId));
 
 const syncBorrowOrder = async ({
   orderId,
@@ -158,33 +107,6 @@ const handleBorrowSuccess = async ({
     });
   }
   onSuccess?.(data);
-};
-
-const buildBorrowUnsignedTxs = async ({
-  accountId,
-  networkId,
-  txs,
-}: {
-  accountId: string;
-  networkId: string;
-  txs: string[];
-}) => {
-  const unsignedTxs: IUnsignedTxPro[] = [];
-  let prevNonce: number | undefined;
-
-  for (const tx of txs) {
-    const unsignedTx =
-      await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-        networkId,
-        accountId,
-        encodedTx: parseBorrowEncodedTx(tx),
-        prevNonce,
-      });
-    prevNonce = unsignedTx.nonce;
-    unsignedTxs.push(unsignedTx);
-  }
-
-  return unsignedTxs;
 };
 
 const buildRepayWithCollateralTxWithRetry = async ({
@@ -497,14 +419,10 @@ export function useUniversalBorrowRepayWithCollateral({
   const waitForTxConfirmResult = useCallback(
     async ({
       encodedTx,
-      unsignedTxs,
       stakingInfo,
-      returnAllMultiTxResults,
     }: {
       encodedTx?: IEncodedTx;
-      unsignedTxs?: IUnsignedTxPro[];
       stakingInfo?: IStakingInfo;
-      returnAllMultiTxResults?: boolean;
     }): Promise<ITxConfirmResult> =>
       new Promise((resolve, reject) => {
         let settled = false;
@@ -527,9 +445,7 @@ export function useUniversalBorrowRepayWithCollateral({
 
         void navigationToTxConfirm({
           encodedTx,
-          unsignedTxs,
           stakingInfo,
-          returnAllMultiTxResults,
           onSuccess: (data) => resolveOnce({ status: 'success', data }),
           onFail: (error) => rejectOnce(error),
           onCancel: () => resolveOnce({ status: 'cancel' }),
@@ -571,69 +487,41 @@ export function useUniversalBorrowRepayWithCollateral({
               },
             );
 
-          const setupTxs: string[] = [];
-          if (setupResp.txs?.length) {
-            setupTxs.push(...setupResp.txs);
-          } else if (setupResp.tx) {
-            setupTxs.push(setupResp.tx);
+          if (!setupResp.tx) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+            return;
           }
 
-          if (setupTxs.length > 0) {
-            const setupUnsignedTxs = await buildBorrowUnsignedTxs({
-              networkId,
-              accountId,
-              txs: setupTxs,
-            });
+          const setupConfirmResult = await waitForTxConfirmResult({
+            encodedTx: parseBorrowEncodedTx(setupResp.tx),
+          });
 
-            const setupConfirmResult = await waitForTxConfirmResult({
-              unsignedTxs: setupUnsignedTxs,
-              returnAllMultiTxResults: true,
-            });
-
-            if (setupConfirmResult.status === 'cancel') {
-              return;
-            }
-
-            const setupTxIds = getTxIds(setupConfirmResult.data);
-            if (setupTxIds.length !== setupTxs.length) {
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_failed,
-                }),
-              });
-              return;
-            }
-
-            for (const setupTxId of setupTxIds) {
-              const setupStatus = await waitForTxFinalStatus({
-                accountId,
-                networkId,
-                txid: setupTxId,
-              });
-
-              if (setupStatus !== EOnChainHistoryTxStatus.Success) {
-                await syncBorrowOrder({
-                  orderId: setupResp.orderId,
-                  networkId,
-                  txId: setupTxId,
-                  status: EDecodedTxStatus.Failed,
-                });
-                Toast.error({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_failed,
-                  }),
-                });
-                return;
-              }
-            }
-
-            await syncBorrowOrder({
-              orderId: setupResp.orderId,
-              networkId,
-              txId: setupTxIds[setupTxIds.length - 1],
-              status: EDecodedTxStatus.Confirmed,
-            });
+          if (setupConfirmResult.status === 'cancel') {
+            return;
           }
+
+          const latestSetupTxId = getLatestTxId(setupConfirmResult.data);
+          if (!latestSetupTxId) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_failed,
+              }),
+            });
+            return;
+          }
+
+          await syncBorrowOrder({
+            orderId: setupResp.orderId,
+            networkId,
+            txId: latestSetupTxId,
+            status:
+              setupConfirmResult.data[setupConfirmResult.data.length - 1]
+                ?.decodedTx.status ?? EDecodedTxStatus.Pending,
+          });
         }
 
         const resp = await buildRepayWithCollateralTxWithRetry({

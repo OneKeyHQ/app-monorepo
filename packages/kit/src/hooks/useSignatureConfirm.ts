@@ -52,7 +52,6 @@ type IBuildUnsignedTxParams = {
   sameModal?: boolean;
   transferPayload?: ITransferPayload;
   signOnly?: boolean;
-  returnAllMultiTxResults?: boolean;
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   feeInfo?: IFeeInfoUnit;
@@ -112,7 +111,6 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onCancel,
         transferPayload: transferPayloadBase,
         signOnly,
-        returnAllMultiTxResults,
         useFeeInTx,
         feeInfoEditable,
         approvesInfo,
@@ -203,7 +201,6 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
             onCancel,
             transferPayload,
             signOnly,
-            returnAllMultiTxResults,
             useFeeInTx,
             feeInfoEditable,
           });
@@ -219,7 +216,6 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               onCancel,
               transferPayload,
               signOnly,
-              returnAllMultiTxResults,
               useFeeInTx,
               feeInfoEditable,
             },

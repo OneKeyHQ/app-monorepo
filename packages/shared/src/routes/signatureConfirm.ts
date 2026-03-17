@@ -74,7 +74,6 @@ export type IModalSignatureConfirmParamList = {
     accountId: string;
     indexedAccountId?: string;
     unsignedTxs: IUnsignedTxPro[];
-    returnAllMultiTxResults?: boolean;
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;
     useFeeInTx?: boolean;
@@ -105,7 +104,6 @@ export type IModalSignatureConfirmParamList = {
     networkId: string;
     accountId: string;
     unsignedTxs: IUnsignedTxPro[];
-    returnAllMultiTxResults?: boolean;
     sourceInfo?: IDappSourceInfo;
     signOnly?: boolean;
     useFeeInTx?: boolean;

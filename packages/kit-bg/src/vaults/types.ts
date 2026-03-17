@@ -679,7 +679,6 @@ export interface IBatchSignTransactionParamsBase {
   feeInfos?: ISendSelectedFeeInfo[];
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
-  returnAllMultiTxResults?: boolean;
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;

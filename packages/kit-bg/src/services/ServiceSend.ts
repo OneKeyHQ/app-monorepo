@@ -446,7 +446,6 @@ class ServiceSend extends ServiceBase {
       accountId,
       unsignedTxs,
       signOnly,
-      returnAllMultiTxResults,
       sourceInfo,
       feeInfos: sendSelectedFeeInfos,
       replaceTxInfo,
@@ -501,7 +500,6 @@ class ServiceSend extends ServiceBase {
         // only fill swap(staking) tx info for batch approve&swap(staking) callback
         if (
           !isMultiTxs ||
-          returnAllMultiTxResults ||
           (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
         ) {
           result.push(data);
