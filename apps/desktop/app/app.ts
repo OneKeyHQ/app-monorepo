@@ -1027,16 +1027,24 @@ async function createMainWindow() {
     logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
-    const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
+    let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
-    const metadata = bundleDirPath
-      ? await getMetadata({
+    let metadata: Record<string, string> = {};
+    if (bundleDirPath) {
+      try {
+        metadata = await getMetadata({
           bundleDir: bundleDirPath,
           appVersion: bundleData.appVersion,
           bundleVersion: bundleData.bundleVersion,
           signature: bundleData.signature,
-        })
-      : {};
+        });
+      } catch (e) {
+        // GPG verification failed or metadata unreadable — disable JS bundle
+        // so the interceptor falls back to the builtin bundle in the asar.
+        logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        useJsBundle = false;
+      }
+    }
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
