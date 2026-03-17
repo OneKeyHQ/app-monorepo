@@ -208,19 +208,18 @@ function OuterTabPagerViewComponent({
     (e: PagerViewOnPageSelectedEvent) => {
       const position = e.nativeEvent.position;
       const tab = INDEX_TO_TAB[position];
-      currentOuterIndexRef.current = position;
-      setActivePageIndex(position);
 
-      // Mark page as visited (lazy mount) — only in onPageSelected,
-      // not during render, to prevent offscreenPageLimit pre-renders
-      // from defeating lazy loading.
-      markPagesVisited([position]);
-
-      // Persist tab only for user-gesture swipes.
-      // iOS may emit synthetic onPageSelected during freeze/unfreeze.
+      // Only update state for user-gesture swipes.
+      // iOS may emit synthetic onPageSelected during freeze/unfreeze,
+      // which would override activePageIndex and cancel the deferred
+      // setPage() rAF for programmatic tab switches.
       if (!wasUserDragRef.current) {
         return;
       }
+
+      currentOuterIndexRef.current = position;
+      setActivePageIndex(position);
+      markPagesVisited([position]);
 
       // Update atom only if tab actually changed
       if (tab && tab !== selectedHeaderTabRef.current) {
