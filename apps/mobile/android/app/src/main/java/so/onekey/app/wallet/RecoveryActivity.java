@@ -290,7 +290,12 @@ public class RecoveryActivity extends AppCompatActivity {
     private void clearAppCache() {
         try {
             File cacheDir = getCacheDir();
-            deleteRecursive(cacheDir);
+            File[] children = cacheDir.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursive(child);
+                }
+            }
         } catch (Exception e) {
             // Ignore cache clearing failures
         }
