@@ -729,6 +729,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           isOthersUniversal={isOthersUniversal}
           focusedWalletInfo={focusedWalletInfo}
           editable={editable}
+          currentNetworkId={linkedNetworkId}
         />
       ) : null}
 
