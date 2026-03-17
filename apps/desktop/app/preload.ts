@@ -344,7 +344,7 @@ globalThis.desktopApiProxy = desktopApiProxy;
 
 // Expose synchronous MMKV IPC bridge for renderer-side syncStorage.
 // The main process registers the handler in react-native-mmkv-desktop-main.ts.
-globalThis.$mmkvSync = (args: {
+(globalThis as any).$mmkvSync = (args: {
   method: string;
   id: string;
   key?: string;
