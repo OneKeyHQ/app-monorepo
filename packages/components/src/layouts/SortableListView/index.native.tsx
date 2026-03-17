@@ -122,6 +122,7 @@ function BaseSortableListView<T>(
       renderItem={renderItem as RenderItem<T>}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
+      animationConfig={{ damping: 25, stiffness: 400, mass: 0.4 }}
       {...restProps}
     />
   );

@@ -310,10 +310,17 @@ export const {
     );
     const availableIdx = form.side === 'long' ? 0 : 1;
     const balanceBN = new BigNumber(env.availableToTrade?.[availableIdx] ?? 0);
-    if (effectivePrice.gt(0) && leverageBN.gt(0) && balanceBN.gt(0)) {
+    const markPxBN = new BigNumber(env.markPrice ?? 0);
+    if (
+      effectivePrice.gt(0) &&
+      leverageBN.gt(0) &&
+      balanceBN.gt(0) &&
+      markPxBN.gt(0)
+    ) {
+      // Produce tokens-at-markPrice so computeMaxTradeSize converts correctly
       const triggerMaxTokens = balanceBN
         .multipliedBy(leverageBN)
-        .dividedBy(effectivePrice);
+        .dividedBy(markPxBN);
       effectiveMaxTradeSzs = [
         form.side === 'long' ? triggerMaxTokens.toFixed() : '0',
         form.side === 'short' ? triggerMaxTokens.toFixed() : '0',

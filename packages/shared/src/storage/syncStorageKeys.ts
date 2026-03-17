@@ -13,6 +13,7 @@ export enum EAppSyncStorageKeys {
   onekey_pending_install_task = 'onekey_pending_install_task',
   last_onekey_id_login_email = 'last_onekey_id_login_email',
   last_scan_qr_code_text = 'last_scan_qr_code_text',
+  onekey_whats_new_shown = 'onekey_whats_new_shown',
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
 }

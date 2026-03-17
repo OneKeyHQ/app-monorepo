@@ -2,8 +2,14 @@ import { useMemo, useRef, useState } from 'react';
 
 import { Keyboard } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { IOtpInputProps } from './OtpInput.types';
-import type { TextInput } from 'react-native';
+import type {
+  NativeSyntheticEvent,
+  TargetedEvent,
+  TextInput,
+} from 'react-native';
 
 const regexMap = {
   alpha: /[^a-zA-Z]/,
@@ -17,7 +23,6 @@ export const useOtpInput = ({
   numberOfDigits = 6,
   disabled,
   autoFocus = true,
-  blurOnFilled,
   type,
   onFocus,
   onBlur,
@@ -55,9 +60,6 @@ export const useOtpInput = ({
     onTextChange?.(v);
     if (v.length === numberOfDigits) {
       onFilled?.(v);
-      if (blurOnFilled) {
-        inputRef.current?.blur();
-      }
     }
   };
 
@@ -80,7 +82,22 @@ export const useOtpInput = ({
     onFocus?.();
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e?: NativeSyntheticEvent<TargetedEvent>) => {
+    // On desktop/web, the hidden OTP input can lose focus unexpectedly
+    // (e.g. due to FocusScope trap in Dialog, browser quirks, or cursor
+    // interactions). When relatedTarget is null it means no other element
+    // is receiving focus, so we auto-refocus to keep the input active.
+    if (!platformEnv.isNative) {
+      const relatedTarget = (
+        e?.nativeEvent as { relatedTarget?: EventTarget | null } | undefined
+      )?.relatedTarget;
+      if (e && !relatedTarget) {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 0);
+        return;
+      }
+    }
     setIsFocused(false);
     onBlur?.();
   };
