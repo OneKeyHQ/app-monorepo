@@ -358,12 +358,12 @@ export default function DevBundleManagerModal() {
             <SectionCard>
               <YStack px="$4" py="$3" gap="$0.5">
                 <InfoRow
-                  label="App Version"
+                  label="Version"
                   value={`${currentAppVersion}${currentBuildNumber ? `-${currentBuildNumber}` : ''}(${currentBundleVersion})(${encodeBundleVersionForDisplay(currentBundleVersion)})`}
                 />
                 {nativeAppVersion ? (
                   <InfoRow
-                    label="App Shell Version"
+                    label="Native App Version"
                     value={`${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})(${encodeBundleVersionForDisplay(String(builtinBundleVersion))})` : ''}`}
                   />
                 ) : null}
