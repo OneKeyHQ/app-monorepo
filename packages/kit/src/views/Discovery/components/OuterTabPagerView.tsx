@@ -71,6 +71,7 @@ function OuterTabPagerViewComponent({
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
   const wasUserDragRef = useRef(false);
+  const isProgrammaticSwitchRef = useRef(false);
   const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
     useState(false);
   const isOuterPageTransitioningRef = useRef(false);
@@ -140,6 +141,7 @@ function OuterTabPagerViewComponent({
     }
     if (index !== undefined && index !== currentOuterIndexRef.current) {
       const previousIndex = currentOuterIndexRef.current;
+      isProgrammaticSwitchRef.current = true;
       setTransitioning(true);
       setVisiblePair([previousIndex, index]);
       // Update current index immediately to prevent redundant setPage calls
@@ -268,7 +270,8 @@ function OuterTabPagerViewComponent({
     const rafId = requestAnimationFrame(() => {
       // Only scroll PagerView for programmatic switches (header tab taps).
       // For user-gesture swipes, PagerView already handles scrolling natively.
-      if (!wasUserDragRef.current) {
+      if (isProgrammaticSwitchRef.current) {
+        isProgrammaticSwitchRef.current = false;
         outerPagerRef.current?.setPage(activePageIndex);
       }
 
