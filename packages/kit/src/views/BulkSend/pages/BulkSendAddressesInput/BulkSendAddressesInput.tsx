@@ -443,6 +443,7 @@ function BaseBulkSendAddressesInput() {
         info: selectedToken,
         balance: '0',
         balanceParsed: '0',
+        fiatValue: '0',
         price: 0,
         price24h: 0,
         value: '0',

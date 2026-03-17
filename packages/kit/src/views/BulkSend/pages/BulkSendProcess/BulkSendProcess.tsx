@@ -1,5 +1,3 @@
-import { useIntl } from 'react-intl';
-
 import { Page, SizableText, YStack } from '@onekeyhq/components';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import type {
@@ -8,12 +6,10 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 function BulkSendProcess() {
-  const route = useAppRoute<
+  const _route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendProcess
   >();
-
-  const { networkId, accountId } = route.params ?? {};
 
   return (
     <Page>
