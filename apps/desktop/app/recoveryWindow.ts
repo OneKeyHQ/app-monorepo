@@ -1,8 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { format as formatUrl } from 'url';
 
-import { BrowserWindow, app, ipcMain, session } from 'electron';
+import { BrowserWindow, app, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
@@ -25,10 +24,6 @@ export function createRecoveryWindow(): BrowserWindow {
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const appStaticResourcesPath = getAppStaticResourcesPath();
-
-  // Clear any previously registered file protocol interceptor so
-  // recovery.html loads via the default file:// handler from the asar.
-  session.defaultSession.protocol.uninterceptProtocol('file');
 
   const browserWindow = new BrowserWindow({
     show: true,
@@ -61,12 +56,7 @@ export function createRecoveryWindow(): BrowserWindow {
     icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
   });
 
-  const recoveryUrl = formatUrl({
-    pathname: path.join(__dirname, 'recovery.html'),
-    protocol: 'file',
-    slashes: true,
-  });
-  void browserWindow.loadURL(recoveryUrl);
+  void browserWindow.loadFile(path.join(__dirname, 'recovery.html'));
 
   if (isDev) {
     browserWindow.webContents.openDevTools();
