@@ -37,6 +37,7 @@ import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
+import { useBulkSendModeDialog } from '../../hooks/useBulkSendModeDialog';
 
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
@@ -71,11 +72,25 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
     tokenDetailsState,
     bulkSendMode,
+    setBulkSendMode,
     setSelectedDeriveType,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
-  const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
+  const showBulkSendModeDialog = useBulkSendModeDialog();
+
+  const handleChangeBulkSendMode = useCallback(() => {
+    showBulkSendModeDialog({
+      onSelect: (mode) => {
+        setBulkSendMode(mode);
+      },
+    });
+  }, [showBulkSendModeDialog, setBulkSendMode]);
+
+  const { headerTitle, headerRight } = useBulkSendMobileHeader({
+    bulkSendMode,
+    onChangeBulkSendMode: handleChangeBulkSendMode,
+  });
 
   const { result: availableWallets } = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
@@ -401,7 +416,9 @@ function BaseBulkSendAddressesInput() {
   if (availableWallets && availableWallets.length === 0) {
     return (
       <Page>
-        {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
+        {media.gtMd ? null : (
+          <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+        )}
         <Page.Body>
           <EmptyNoWalletView />
         </Page.Body>
@@ -411,11 +428,16 @@ function BaseBulkSendAddressesInput() {
 
   return (
     <Page scrollEnabled>
-      {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
+      {media.gtMd ? null : (
+        <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+      )}
       <BulkSendBar />
       <Page.Body>
         <BulkSendContentWrapper>
-          <BulkSendHeader bulkSendMode={bulkSendMode} />
+          <BulkSendHeader
+            bulkSendMode={bulkSendMode}
+            onChangeBulkSendMode={handleChangeBulkSendMode}
+          />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
             <AssetSelectorTrigger />
             <AccountSelectorProviderMirror
@@ -471,6 +493,11 @@ function BaseBulkSendAddressesInput() {
 }
 
 function BulkSendAddressesInput() {
+  const route = useAppRoute<
+    IModalBulkSendParamList,
+    EModalBulkSendRoutes.BulkSendAddressesInput
+  >();
+
   const [selectedAccountId, setSelectedAccountId] = useState<
     string | undefined
   >(undefined);
@@ -496,7 +523,7 @@ function BulkSendAddressesInput() {
     isRefreshing: false,
   });
   const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(
-    EBulkSendMode.OneToMany,
+    route.params?.bulkSendMode ?? EBulkSendMode.OneToMany,
   );
   const [selectedDeriveType, setSelectedDeriveType] = useState<
     IAccountDeriveTypes | undefined
