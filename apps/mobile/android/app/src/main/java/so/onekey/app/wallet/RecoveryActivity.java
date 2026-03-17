@@ -25,15 +25,69 @@ import java.util.zip.ZipOutputStream;
 
 public class RecoveryActivity extends AppCompatActivity {
 
-    private boolean isChinese;
+    // i18n locale strings
+    private String sTitle, sSubtitle, sExportLogs, sTryAgain, sAutoRepair;
+    private String sRepairComplete, sError, sOk, sExportError, sRepairError, sNoLogs;
+
+    private static final java.util.Map<String, String[]> LOCALE_MAP = new java.util.LinkedHashMap<>();
+    static {
+        // Order: title, subtitle, exportLogs, tryAgain, autoRepair, repairComplete, error, ok, exportError, repairError, noLogs
+        LOCALE_MAP.put("en", new String[]{"App Failed to Start", "The app has failed to start multiple times. You can try the following options to resolve the issue.", "Export Logs", "Try Again", "Auto Repair", "Repair Complete", "Error", "OK", "Failed to export logs", "Repair failed", "No log files found"});
+        LOCALE_MAP.put("zh-CN", new String[]{"应用启动失败", "应用已多次启动失败。您可以尝试以下选项来解决问题。", "导出日志", "重试", "自动修复", "修复完成", "错误", "确定", "导出日志失败", "修复失败", "未找到日志文件"});
+        LOCALE_MAP.put("zh-HK", new String[]{"應用啟動失敗", "應用已多次啟動失敗。您可以嘗試以下選項來解決問題。", "匯出日誌", "重試", "自動修復", "修復完成", "錯誤", "確定", "匯出日誌失敗", "修復失敗", "未找到日誌檔案"});
+        LOCALE_MAP.put("zh-TW", new String[]{"應用程式啟動失敗", "應用程式已多次啟動失敗。您可以嘗試以下選項來解決問題。", "匯出日誌", "重試", "自動修復", "修復完成", "錯誤", "確定", "匯出日誌失敗", "修復失敗", "未找到日誌檔案"});
+        LOCALE_MAP.put("ja-JP", new String[]{"アプリの起動に失敗しました", "アプリが複数回起動に失敗しました。以下のオプションをお試しください。", "ログを書き出す", "再試行", "自動修復", "修復完了", "エラー", "OK", "ログの書き出しに失敗しました", "修復に失敗しました", "ログファイルが見つかりません"});
+        LOCALE_MAP.put("ko-KR", new String[]{"앱 시작 실패", "앱이 여러 번 시작에 실패했습니다. 아래 옵션을 시도해 보세요.", "로그 내보내기", "다시 시도", "자동 복구", "복구 완료", "오류", "확인", "로그 내보내기 실패", "복구 실패", "로그 파일을 찾을 수 없습니다"});
+        LOCALE_MAP.put("de", new String[]{"App konnte nicht gestartet werden", "Die App konnte mehrfach nicht gestartet werden. Bitte versuchen Sie die folgenden Optionen.", "Protokolle exportieren", "Erneut versuchen", "Automatische Reparatur", "Reparatur abgeschlossen", "Fehler", "OK", "Protokollexport fehlgeschlagen", "Reparatur fehlgeschlagen", "Keine Protokolldateien gefunden"});
+        LOCALE_MAP.put("es", new String[]{"La aplicación no pudo iniciarse", "La aplicación no pudo iniciarse varias veces. Puede intentar las siguientes opciones.", "Exportar registros", "Reintentar", "Reparación automática", "Reparación completada", "Error", "OK", "Error al exportar registros", "Reparación fallida", "No se encontraron archivos de registro"});
+        LOCALE_MAP.put("fr-FR", new String[]{"Échec du lancement de l'application", "L'application n'a pas pu démarrer plusieurs fois. Veuillez essayer les options suivantes.", "Exporter les journaux", "Réessayer", "Réparation automatique", "Réparation terminée", "Erreur", "OK", "Échec de l'exportation des journaux", "Échec de la réparation", "Aucun fichier journal trouvé"});
+        LOCALE_MAP.put("it-IT", new String[]{"Avvio dell'app non riuscito", "L'app non è riuscita ad avviarsi più volte. Prova le seguenti opzioni.", "Esporta log", "Riprova", "Riparazione automatica", "Riparazione completata", "Errore", "OK", "Esportazione log non riuscita", "Riparazione non riuscita", "Nessun file di log trovato"});
+        LOCALE_MAP.put("pt", new String[]{"Falha ao iniciar a aplicação", "A aplicação falhou ao iniciar várias vezes. Tente as seguintes opções.", "Exportar registos", "Tentar novamente", "Reparação automática", "Reparação concluída", "Erro", "OK", "Falha ao exportar registos", "Falha na reparação", "Nenhum ficheiro de registo encontrado"});
+        LOCALE_MAP.put("pt-BR", new String[]{"Falha ao iniciar o aplicativo", "O aplicativo falhou ao iniciar várias vezes. Tente as seguintes opções.", "Exportar logs", "Tentar novamente", "Reparo automático", "Reparo concluído", "Erro", "OK", "Falha ao exportar logs", "Falha no reparo", "Nenhum arquivo de log encontrado"});
+        LOCALE_MAP.put("ru", new String[]{"Не удалось запустить приложение", "Приложение не удалось запустить несколько раз. Попробуйте следующие варианты.", "Экспорт журналов", "Повторить", "Автовосстановление", "Восстановление завершено", "Ошибка", "OK", "Не удалось экспортировать журналы", "Не удалось выполнить восстановление", "Файлы журналов не найдены"});
+        LOCALE_MAP.put("bn", new String[]{"অ্যাপ চালু করতে ব্যর্থ", "অ্যাপটি একাধিকবার চালু করতে ব্যর্থ হয়েছে। অনুগ্রহ করে নিম্নলিখিত বিকল্পগুলি চেষ্টা করুন।", "লগ রপ্তানি", "পুনরায় চেষ্টা", "স্বয়ংক্রিয় মেরামত", "মেরামত সম্পন্ন", "ত্রুটি", "ঠিক আছে", "লগ রপ্তানি ব্যর্থ", "মেরামত ব্যর্থ", "কোনো লগ ফাইল পাওয়া যায়নি"});
+        LOCALE_MAP.put("hi-IN", new String[]{"ऐप प्रारंभ करने में विफल", "ऐप कई बार प्रारंभ होने में विफल रहा है। कृपया निम्नलिखित विकल्प आज़माएँ।", "लॉग निर्यात करें", "पुनः प्रयास करें", "स्वतः मरम्मत", "मरम्मत पूर्ण", "त्रुटि", "ठीक है", "लॉग निर्यात विफल", "मरम्मत विफल", "कोई लॉग फ़ाइल नहीं मिली"});
+        LOCALE_MAP.put("id", new String[]{"Aplikasi gagal dimulai", "Aplikasi gagal dimulai beberapa kali. Silakan coba opsi berikut.", "Ekspor log", "Coba lagi", "Perbaikan otomatis", "Perbaikan selesai", "Kesalahan", "OK", "Gagal mengekspor log", "Perbaikan gagal", "File log tidak ditemukan"});
+        LOCALE_MAP.put("th-TH", new String[]{"แอปเริ่มต้นไม่สำเร็จ", "แอปเริ่มต้นไม่สำเร็จหลายครั้ง กรุณาลองตัวเลือกต่อไปนี้", "ส่งออกบันทึก", "ลองอีกครั้ง", "ซ่อมแซมอัตโนมัติ", "ซ่อมแซมเสร็จสิ้น", "ข้อผิดพลาด", "ตกลง", "ส่งออกบันทึกไม่สำเร็จ", "ซ่อมแซมไม่สำเร็จ", "ไม่พบไฟล์บันทึก"});
+        LOCALE_MAP.put("uk-UA", new String[]{"Не вдалося запустити додаток", "Додаток не вдалося запустити кілька разів. Спробуйте наступні варіанти.", "Експорт журналів", "Спробувати знову", "Автовідновлення", "Відновлення завершено", "Помилка", "OK", "Не вдалося експортувати журнали", "Не вдалося виконати відновлення", "Файли журналів не знайдено"});
+        LOCALE_MAP.put("vi", new String[]{"Ứng dụng không khởi động được", "Ứng dụng đã không khởi động được nhiều lần. Vui lòng thử các tùy chọn sau.", "Xuất nhật ký", "Thử lại", "Tự động sửa chữa", "Sửa chữa hoàn tất", "Lỗi", "OK", "Xuất nhật ký thất bại", "Sửa chữa thất bại", "Không tìm thấy tệp nhật ký"});
+    }
+
+    private void resolveLocale() {
+        String lang = Locale.getDefault().toLanguageTag(); // e.g. "zh-Hans-CN", "ja-JP", "en-US"
+        String[] strings = LOCALE_MAP.get(lang);
+        if (strings == null) {
+            // Try first-last parts: "zh-Hans-CN" → "zh-CN"
+            String[] parts = lang.split("-");
+            if (parts.length >= 2) {
+                strings = LOCALE_MAP.get(parts[0] + "-" + parts[parts.length - 1]);
+            }
+        }
+        if (strings == null) {
+            // Prefix match: "fr" → "fr-FR"
+            String code = lang.split("-")[0];
+            strings = LOCALE_MAP.get(code);
+            if (strings == null) {
+                for (java.util.Map.Entry<String, String[]> e : LOCALE_MAP.entrySet()) {
+                    if (e.getKey().startsWith(code + "-")) {
+                        strings = e.getValue();
+                        break;
+                    }
+                }
+            }
+        }
+        if (strings == null) strings = LOCALE_MAP.get("en");
+        sTitle = strings[0]; sSubtitle = strings[1]; sExportLogs = strings[2];
+        sTryAgain = strings[3]; sAutoRepair = strings[4]; sRepairComplete = strings[5];
+        sError = strings[6]; sOk = strings[7]; sExportError = strings[8];
+        sRepairError = strings[9]; sNoLogs = strings[10];
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_recovery);
-
-        isChinese = "zh".equals(Locale.getDefault().getLanguage());
-
+        resolveLocale();
         setupUI();
     }
 
@@ -45,19 +99,11 @@ public class RecoveryActivity extends AppCompatActivity {
         Button btnAutoRepair = findViewById(R.id.btn_auto_repair);
         TextView versionLabel = findViewById(R.id.version_label);
 
-        if (isChinese) {
-            title.setText("应用启动失败");
-            subtitle.setText("应用已多次启动失败。您可以尝试以下选项来解决问题。");
-            btnExportLogs.setText("导出日志");
-            btnTryAgain.setText("重试");
-            btnAutoRepair.setText("自动修复");
-        } else {
-            title.setText("App Failed to Start");
-            subtitle.setText("The app has failed to start multiple times. You can try the following options to resolve the issue.");
-            btnExportLogs.setText("Export Logs");
-            btnTryAgain.setText("Try Again");
-            btnAutoRepair.setText("Auto Repair");
-        }
+        title.setText(sTitle);
+        subtitle.setText(sSubtitle);
+        btnExportLogs.setText(sExportLogs);
+        btnTryAgain.setText(sTryAgain);
+        btnAutoRepair.setText(sAutoRepair);
 
         versionLabel.setText("v" + BuildConfig.VERSION_NAME);
 
@@ -70,13 +116,13 @@ public class RecoveryActivity extends AppCompatActivity {
         try {
             File logDir = findNativeLoggerDir();
             if (logDir == null || !logDir.exists() || !logDir.isDirectory()) {
-                showError(isChinese ? "未找到日志文件" : "No log files found");
+                showError(sNoLogs);
                 return;
             }
 
             File[] logFiles = logDir.listFiles();
             if (logFiles == null || logFiles.length == 0) {
-                showError(isChinese ? "日志文件为空" : "Log files are empty");
+                showError(sNoLogs);
                 return;
             }
 
@@ -88,9 +134,9 @@ public class RecoveryActivity extends AppCompatActivity {
             shareIntent.setType("application/zip");
             shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
             shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(shareIntent, isChinese ? "导出日志" : "Export Logs"));
+            startActivity(Intent.createChooser(shareIntent, sExportLogs));
         } catch (Exception e) {
-            showError((isChinese ? "导出日志失败: " : "Failed to export logs: ") + e.getMessage());
+            showError(sExportError + ": " + e.getMessage());
         }
     }
 
@@ -144,7 +190,7 @@ public class RecoveryActivity extends AppCompatActivity {
                 .commit();
             restartApp();
         } catch (Exception e) {
-            showError((isChinese ? "重试失败: " : "Try again failed: ") + e.getMessage());
+            showError(sError + ": " + e.getMessage());
         }
     }
 
@@ -175,13 +221,13 @@ public class RecoveryActivity extends AppCompatActivity {
 
             // Show success dialog, restart on confirm
             new AlertDialog.Builder(this)
-                .setTitle(isChinese ? "修复完成" : "Repair Complete")
+                .setTitle(sRepairComplete)
                 .setMessage(null)
                 .setCancelable(false)
-                .setPositiveButton(isChinese ? "确定" : "OK", (dialog, which) -> restartApp())
+                .setPositiveButton(sOk, (dialog, which) -> restartApp())
                 .show();
         } catch (Exception e) {
-            showError((isChinese ? "自动修复失败: " : "Auto repair failed: ") + e.getMessage());
+            showError(sRepairError + ": " + e.getMessage());
         }
     }
 
@@ -221,9 +267,9 @@ public class RecoveryActivity extends AppCompatActivity {
 
     private void showError(String message) {
         new AlertDialog.Builder(this)
-                .setTitle(isChinese ? "错误" : "Error")
+                .setTitle(sError)
                 .setMessage(message)
-                .setPositiveButton(isChinese ? "确定" : "OK", null)
+                .setPositiveButton(sOk, null)
                 .show();
     }
 }

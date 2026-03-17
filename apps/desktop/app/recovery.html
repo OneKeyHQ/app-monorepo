@@ -101,20 +101,182 @@
   </div>
 
   <script>
-    // i18n
-    const isZh = (navigator.language || '').startsWith('zh');
-    const i18n = {
-      title: isZh ? '应用启动失败' : 'Something went wrong',
-      subtitle: isZh
-        ? '应用启动失败。您可以导出日志用于排查问题，重试启动，或尝试自动修复。'
-        : 'The app failed to start. You can export logs for troubleshooting, try again, or auto repair to fix the issue.',
-      exportLogs: isZh ? '导出日志' : 'Export Logs',
-      tryAgain: isZh ? '重试' : 'Try Again',
-      autoRepair: isZh ? '自动修复' : 'Auto Repair',
-      version: isZh ? '版本' : 'Version',
-      exportError: isZh ? '导出日志失败' : 'Failed to export logs',
-      repairError: isZh ? '部分清理步骤失败，应用将尝试重启' : 'Some cleanup steps failed. The app will try to restart.',
+    // i18n - full locale map matching app's supported languages
+    const i18nMap = {
+      'en': {
+        title: 'App Failed to Start',
+        subtitle: 'The app has failed to start multiple times. You can try the following options to resolve the issue.',
+        exportLogs: 'Export Logs', tryAgain: 'Try Again', autoRepair: 'Auto Repair',
+        repairComplete: 'Repair Complete', error: 'Error', ok: 'OK',
+        exportError: 'Failed to export logs', repairError: 'Repair failed',
+        noLogs: 'No log files found',
+      },
+      'zh-CN': {
+        title: '应用启动失败',
+        subtitle: '应用已多次启动失败。您可以尝试以下选项来解决问题。',
+        exportLogs: '导出日志', tryAgain: '重试', autoRepair: '自动修复',
+        repairComplete: '修复完成', error: '错误', ok: '确定',
+        exportError: '导出日志失败', repairError: '修复失败',
+        noLogs: '未找到日志文件',
+      },
+      'zh-HK': {
+        title: '應用啟動失敗',
+        subtitle: '應用已多次啟動失敗。您可以嘗試以下選項來解決問題。',
+        exportLogs: '匯出日誌', tryAgain: '重試', autoRepair: '自動修復',
+        repairComplete: '修復完成', error: '錯誤', ok: '確定',
+        exportError: '匯出日誌失敗', repairError: '修復失敗',
+        noLogs: '未找到日誌檔案',
+      },
+      'zh-TW': {
+        title: '應用程式啟動失敗',
+        subtitle: '應用程式已多次啟動失敗。您可以嘗試以下選項來解決問題。',
+        exportLogs: '匯出日誌', tryAgain: '重試', autoRepair: '自動修復',
+        repairComplete: '修復完成', error: '錯誤', ok: '確定',
+        exportError: '匯出日誌失敗', repairError: '修復失敗',
+        noLogs: '未找到日誌檔案',
+      },
+      'ja-JP': {
+        title: 'アプリの起動に失敗しました',
+        subtitle: 'アプリが複数回起動に失敗しました。以下のオプションをお試しください。',
+        exportLogs: 'ログを書き出す', tryAgain: '再試行', autoRepair: '自動修復',
+        repairComplete: '修復完了', error: 'エラー', ok: 'OK',
+        exportError: 'ログの書き出しに失敗しました', repairError: '修復に失敗しました',
+        noLogs: 'ログファイルが見つかりません',
+      },
+      'ko-KR': {
+        title: '앱 시작 실패',
+        subtitle: '앱이 여러 번 시작에 실패했습니다. 아래 옵션을 시도해 보세요.',
+        exportLogs: '로그 내보내기', tryAgain: '다시 시도', autoRepair: '자동 복구',
+        repairComplete: '복구 완료', error: '오류', ok: '확인',
+        exportError: '로그 내보내기 실패', repairError: '복구 실패',
+        noLogs: '로그 파일을 찾을 수 없습니다',
+      },
+      'de': {
+        title: 'App konnte nicht gestartet werden',
+        subtitle: 'Die App konnte mehrfach nicht gestartet werden. Bitte versuchen Sie die folgenden Optionen.',
+        exportLogs: 'Protokolle exportieren', tryAgain: 'Erneut versuchen', autoRepair: 'Automatische Reparatur',
+        repairComplete: 'Reparatur abgeschlossen', error: 'Fehler', ok: 'OK',
+        exportError: 'Protokollexport fehlgeschlagen', repairError: 'Reparatur fehlgeschlagen',
+        noLogs: 'Keine Protokolldateien gefunden',
+      },
+      'es': {
+        title: 'La aplicación no pudo iniciarse',
+        subtitle: 'La aplicación no pudo iniciarse varias veces. Puede intentar las siguientes opciones.',
+        exportLogs: 'Exportar registros', tryAgain: 'Reintentar', autoRepair: 'Reparación automática',
+        repairComplete: 'Reparación completada', error: 'Error', ok: 'OK',
+        exportError: 'Error al exportar registros', repairError: 'Reparación fallida',
+        noLogs: 'No se encontraron archivos de registro',
+      },
+      'fr-FR': {
+        title: "Échec du lancement de l'application",
+        subtitle: "L'application n'a pas pu démarrer plusieurs fois. Veuillez essayer les options suivantes.",
+        exportLogs: 'Exporter les journaux', tryAgain: 'Réessayer', autoRepair: 'Réparation automatique',
+        repairComplete: 'Réparation terminée', error: 'Erreur', ok: 'OK',
+        exportError: "Échec de l'exportation des journaux", repairError: 'Échec de la réparation',
+        noLogs: 'Aucun fichier journal trouvé',
+      },
+      'it-IT': {
+        title: "Avvio dell'app non riuscito",
+        subtitle: "L'app non è riuscita ad avviarsi più volte. Prova le seguenti opzioni.",
+        exportLogs: 'Esporta log', tryAgain: 'Riprova', autoRepair: 'Riparazione automatica',
+        repairComplete: 'Riparazione completata', error: 'Errore', ok: 'OK',
+        exportError: 'Esportazione log non riuscita', repairError: 'Riparazione non riuscita',
+        noLogs: 'Nessun file di log trovato',
+      },
+      'pt': {
+        title: 'Falha ao iniciar a aplicação',
+        subtitle: 'A aplicação falhou ao iniciar várias vezes. Tente as seguintes opções.',
+        exportLogs: 'Exportar registos', tryAgain: 'Tentar novamente', autoRepair: 'Reparação automática',
+        repairComplete: 'Reparação concluída', error: 'Erro', ok: 'OK',
+        exportError: 'Falha ao exportar registos', repairError: 'Falha na reparação',
+        noLogs: 'Nenhum ficheiro de registo encontrado',
+      },
+      'pt-BR': {
+        title: 'Falha ao iniciar o aplicativo',
+        subtitle: 'O aplicativo falhou ao iniciar várias vezes. Tente as seguintes opções.',
+        exportLogs: 'Exportar logs', tryAgain: 'Tentar novamente', autoRepair: 'Reparo automático',
+        repairComplete: 'Reparo concluído', error: 'Erro', ok: 'OK',
+        exportError: 'Falha ao exportar logs', repairError: 'Falha no reparo',
+        noLogs: 'Nenhum arquivo de log encontrado',
+      },
+      'ru': {
+        title: 'Не удалось запустить приложение',
+        subtitle: 'Приложение не удалось запустить несколько раз. Попробуйте следующие варианты.',
+        exportLogs: 'Экспорт журналов', tryAgain: 'Повторить', autoRepair: 'Автовосстановление',
+        repairComplete: 'Восстановление завершено', error: 'Ошибка', ok: 'OK',
+        exportError: 'Не удалось экспортировать журналы', repairError: 'Не удалось выполнить восстановление',
+        noLogs: 'Файлы журналов не найдены',
+      },
+      'bn': {
+        title: 'অ্যাপ চালু করতে ব্যর্থ',
+        subtitle: 'অ্যাপটি একাধিকবার চালু করতে ব্যর্থ হয়েছে। অনুগ্রহ করে নিম্নলিখিত বিকল্পগুলি চেষ্টা করুন।',
+        exportLogs: 'লগ রপ্তানি', tryAgain: 'পুনরায় চেষ্টা', autoRepair: 'স্বয়ংক্রিয় মেরামত',
+        repairComplete: 'মেরামত সম্পন্ন', error: 'ত্রুটি', ok: 'ঠিক আছে',
+        exportError: 'লগ রপ্তানি ব্যর্থ', repairError: 'মেরামত ব্যর্থ',
+        noLogs: 'কোনো লগ ফাইল পাওয়া যায়নি',
+      },
+      'hi-IN': {
+        title: 'ऐप प्रारंभ करने में विफल',
+        subtitle: 'ऐप कई बार प्रारंभ होने में विफल रहा है। कृपया निम्नलिखित विकल्प आज़माएँ।',
+        exportLogs: 'लॉग निर्यात करें', tryAgain: 'पुनः प्रयास करें', autoRepair: 'स्वतः मरम्मत',
+        repairComplete: 'मरम्मत पूर्ण', error: 'त्रुटि', ok: 'ठीक है',
+        exportError: 'लॉग निर्यात विफल', repairError: 'मरम्मत विफल',
+        noLogs: 'कोई लॉग फ़ाइल नहीं मिली',
+      },
+      'id': {
+        title: 'Aplikasi gagal dimulai',
+        subtitle: 'Aplikasi gagal dimulai beberapa kali. Silakan coba opsi berikut.',
+        exportLogs: 'Ekspor log', tryAgain: 'Coba lagi', autoRepair: 'Perbaikan otomatis',
+        repairComplete: 'Perbaikan selesai', error: 'Kesalahan', ok: 'OK',
+        exportError: 'Gagal mengekspor log', repairError: 'Perbaikan gagal',
+        noLogs: 'File log tidak ditemukan',
+      },
+      'th-TH': {
+        title: 'แอปเริ่มต้นไม่สำเร็จ',
+        subtitle: 'แอปเริ่มต้นไม่สำเร็จหลายครั้ง กรุณาลองตัวเลือกต่อไปนี้',
+        exportLogs: 'ส่งออกบันทึก', tryAgain: 'ลองอีกครั้ง', autoRepair: 'ซ่อมแซมอัตโนมัติ',
+        repairComplete: 'ซ่อมแซมเสร็จสิ้น', error: 'ข้อผิดพลาด', ok: 'ตกลง',
+        exportError: 'ส่งออกบันทึกไม่สำเร็จ', repairError: 'ซ่อมแซมไม่สำเร็จ',
+        noLogs: 'ไม่พบไฟล์บันทึก',
+      },
+      'uk-UA': {
+        title: 'Не вдалося запустити додаток',
+        subtitle: 'Додаток не вдалося запустити кілька разів. Спробуйте наступні варіанти.',
+        exportLogs: 'Експорт журналів', tryAgain: 'Спробувати знову', autoRepair: 'Автовідновлення',
+        repairComplete: 'Відновлення завершено', error: 'Помилка', ok: 'OK',
+        exportError: 'Не вдалося експортувати журнали', repairError: 'Не вдалося виконати відновлення',
+        noLogs: 'Файли журналів не знайдено',
+      },
+      'vi': {
+        title: 'Ứng dụng không khởi động được',
+        subtitle: 'Ứng dụng đã không khởi động được nhiều lần. Vui lòng thử các tùy chọn sau.',
+        exportLogs: 'Xuất nhật ký', tryAgain: 'Thử lại', autoRepair: 'Tự động sửa chữa',
+        repairComplete: 'Sửa chữa hoàn tất', error: 'Lỗi', ok: 'OK',
+        exportError: 'Xuất nhật ký thất bại', repairError: 'Sửa chữa thất bại',
+        noLogs: 'Không tìm thấy tệp nhật ký',
+      },
     };
+
+    // Locale matching: exact → prefix → fallback to 'en'
+    function getLocale() {
+      const lang = navigator.language || 'en';
+      if (i18nMap[lang]) return lang;
+      // Try with region variants (e.g. zh-Hans-CN → zh-CN)
+      const parts = lang.split('-');
+      if (parts.length >= 2) {
+        const twoPartKey = parts[0] + '-' + parts[parts.length - 1];
+        if (i18nMap[twoPartKey]) return twoPartKey;
+      }
+      // Prefix match (e.g. fr → fr-FR, pt → pt)
+      const code = parts[0];
+      if (i18nMap[code]) return code;
+      const prefixMatch = Object.keys(i18nMap).find(k => k.startsWith(code + '-'));
+      if (prefixMatch) return prefixMatch;
+      return 'en';
+    }
+
+    const locale = getLocale();
+    const i18n = i18nMap[locale] || i18nMap['en'];
 
     document.getElementById('title').textContent = i18n.title;
     document.getElementById('subtitle').textContent = i18n.subtitle;
@@ -126,7 +288,7 @@
     try {
       const ver = window.desktopApi?.appVersion || '';
       if (ver) {
-        document.getElementById('version').textContent = i18n.version + ' ' + ver;
+        document.getElementById('version').textContent = 'v' + ver;
       }
     } catch (_) {}
 
@@ -177,8 +339,7 @@
           return;
         }
         // Show success confirmation, restart on OK
-        const msg = isZh ? '修复完成' : 'Repair Complete';
-        if (confirm(msg)) {
+        if (confirm(i18n.repairComplete)) {
           await window.desktopApi?.recoveryTryAgain?.();
         } else {
           setButtonsDisabled(false);
