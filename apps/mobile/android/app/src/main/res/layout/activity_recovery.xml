@@ -7,11 +7,9 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingTop="120dp"
-        android:paddingBottom="40dp"
+        android:gravity="center_horizontal|center_vertical"
         android:paddingStart="40dp"
         android:paddingEnd="40dp">
 
@@ -46,17 +44,12 @@
             android:gravity="center"
             android:lineSpacingExtra="4dp" />
 
-        <!-- Spacer -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
         <!-- Export Logs Button -->
         <Button
             android:id="@+id/btn_export_logs"
             android:layout_width="match_parent"
             android:layout_height="48dp"
+            android:layout_marginTop="32dp"
             android:background="@drawable/recovery_button_dark"
             android:text="Export Logs"
             android:textColor="#FFFFFF"
