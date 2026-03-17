@@ -32,6 +32,7 @@ import { UIScope } from './scopes/ui';
 import { UniversalSearchScope } from './scopes/universalSearch';
 import { UpdateScope } from './scopes/update';
 import { WalletScope } from './scopes/wallet';
+import { RookieGuideScope } from './scopes/rookieGuide';
 
 export class DefaultLogger {
   account = new AccountScope();
@@ -97,6 +98,8 @@ export class DefaultLogger {
   onboarding = new OnboardingScope();
 
   universalSearch = new UniversalSearchScope();
+
+  rookieGuide = new RookieGuideScope();
 }
 
 const defaultLogger = new DefaultLogger();
