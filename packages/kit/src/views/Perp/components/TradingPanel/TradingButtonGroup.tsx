@@ -332,7 +332,11 @@ function SideButtonInternal({
       const hasSizeEmpty = isSliderMode
         ? !formData.sizePercent || formData.sizePercent <= 0
         : !formData.size || formData.size.trim() === '';
-      if (hasSizeEmpty || !computedSizeForSide.gt(0) || isMinimumOrderNotMetForSide) {
+      if (
+        hasSizeEmpty ||
+        !computedSizeForSide.gt(0) ||
+        isMinimumOrderNotMetForSide
+      ) {
         let minAmount = '$10';
         if (effectivePriceBN.gt(0)) {
           // minimum token size that satisfies orderValue >= $10
