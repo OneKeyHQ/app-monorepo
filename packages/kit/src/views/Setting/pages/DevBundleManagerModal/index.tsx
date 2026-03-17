@@ -305,12 +305,14 @@ export default function DevBundleManagerModal() {
   const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
   const [nativeAppVersion, setNativeAppVersion] = useState('');
   const [nativeBuildNumber, setNativeBuildNumber] = useState('');
+  const [builtinBundleVersion, setBuiltinBundleVersion] = useState('');
 
   useEffect(() => {
     void getJsBundlePathAsync().then(setJsBundlePath);
     void BundleUpdate.getFallbackBundles().then(setFallbackBundles);
     void BundleUpdate.getNativeAppVersion().then(setNativeAppVersion);
     void BundleUpdate.getNativeBuildNumber().then(setNativeBuildNumber);
+    void BundleUpdate.getBuiltinBundleVersion().then(setBuiltinBundleVersion);
   }, []);
 
   const showTestResult = (
@@ -355,20 +357,17 @@ export default function DevBundleManagerModal() {
             <SectionTitle icon="InfoCircleOutline" title="RUNTIME INFO" />
             <SectionCard>
               <YStack px="$4" py="$3" gap="$0.5">
-                <InfoRow label="App Version" value={currentAppVersion} />
-                <InfoRow label="Build Number" value={currentBuildNumber} />
-                <InfoRow label="Commit Hash" value={currentCommitHash} />
-                <InfoRow label="Bundle Version" value={currentBundleVersion} />
                 <InfoRow
-                  label="Bundle Hash"
-                  value={encodeBundleVersionForDisplay(currentBundleVersion)}
+                  label="Version"
+                  value={`${currentAppVersion}${currentBuildNumber ? `-${currentBuildNumber}` : ''}(${currentBundleVersion})(${encodeBundleVersionForDisplay(currentBundleVersion)})`}
                 />
                 {nativeAppVersion ? (
                   <InfoRow
-                    label="Native Version"
-                    value={`${nativeAppVersion}${nativeBuildNumber ? ` (${nativeBuildNumber})` : ''}`}
+                    label="Native App Version"
+                    value={`${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})(${encodeBundleVersionForDisplay(String(builtinBundleVersion))})` : ''}`}
                   />
                 ) : null}
+                <InfoRow label="Commit Hash" value={currentCommitHash} />
                 {jsBundlePath ? (
                   <>
                     <Divider my="$1.5" />

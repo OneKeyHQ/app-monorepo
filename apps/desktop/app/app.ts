@@ -1298,6 +1298,9 @@ if (!singleInstance && !process.mas) {
 
   app.on('ready', async (_, launchInfo) => {
     logger.info('launchInfo >>>> ', launchInfo);
+    logger.info(
+      `nativeAppVersion: ${app.getVersion()}, buildNumber: ${process.env.BUILD_NUMBER ?? ''}, builtinBundleVersion: ${process.env.BUNDLE_VERSION ?? ''}`,
+    );
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
     startServices();

@@ -109,10 +109,38 @@ public class MainApplication extends Application implements ReactApplication {
     shouldShowRecovery = newCount >= 3;
 
     super.onCreate();
-    
+
+    // SoLoader and new architecture entry point must be initialized before
+    // the recovery early-return because MainActivity extends ReactActivity,
+    // and super.onCreate(null) triggers SoLoader.loadLibrary() and Fabric/
+    // TurboModules initialization. Without these, recovery mode itself crashes.
+    try {
+        SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }
+    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+      DefaultNewArchitectureEntryPoint.load();
+    }
+
+    if (shouldShowRecovery) {
+        // Skip heavy initialization (React Native, Expo, JPush).
+        // RecoveryActivity is a plain Android Activity and doesn't need them.
+        // This prevents crashes in RN initialization from blocking recovery.
+        return;
+    }
+
     long startupTime = System.currentTimeMillis();
     ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);
     OneKeyLog.info("App", "OneKey started");
+    String builtinBundleVersion = "";
+    try {
+      android.content.pm.ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), android.content.pm.PackageManager.GET_META_DATA);
+      if (ai.metaData != null) {
+        builtinBundleVersion = ai.metaData.getString("BUNDLE_VERSION", "");
+      }
+    } catch (Exception ignored) {}
+    OneKeyLog.info("App", "nativeAppVersion: " + BuildConfig.VERSION_NAME + ", buildNumber: " + BuildConfig.VERSION_CODE + ", builtinBundleVersion: " + builtinBundleVersion);
 
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
@@ -122,19 +150,6 @@ public class MainApplication extends Application implements ReactApplication {
       e.printStackTrace();
     }
 
-    // SoLoader.init(this, /* native exopackage */ false);
-    // if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
-    //   ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;
-    // }
-      try {
-          SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
-      } catch (IOException e) {
-          throw new RuntimeException(e);
-      }
-      if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
-      DefaultNewArchitectureEntryPoint.load();
-    }
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     // }
