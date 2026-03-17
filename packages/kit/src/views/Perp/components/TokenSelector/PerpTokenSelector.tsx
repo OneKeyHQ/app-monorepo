@@ -213,7 +213,6 @@ function BasePerpTokenSelectorContent({
             }) as any,
         );
       });
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSelectorConfig],
   );
@@ -235,7 +234,7 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
-  const { favoriteItems } = usePerpsFavorites();
+  const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
 
   // Freeze sort order while popover is open; refreshed on sort change or first data arrival.
   const ctxSnapshotRef = useRef(assetCtxsByDex);
@@ -451,7 +450,10 @@ function BasePerpTokenSelectorContent({
   );
 
   const showFavoritesEmpty =
-    activeTab === 'favorites' && activeTabData.length === 0 && !searchQuery;
+    activeTab === 'favorites' &&
+    activeTabData.length === 0 &&
+    !searchQuery &&
+    isFavoritesReady;
 
   const listEmptyComponent = useMemo(
     () =>
@@ -527,6 +529,7 @@ function BasePerpTokenSelectorContent({
               <FavoritesEmptyState />
             ) : (
               <ListView
+                key={activeTab}
                 useFlashList
                 ref={listRef}
                 keyExtractor={keyExtractor}
