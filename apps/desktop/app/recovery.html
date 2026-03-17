@@ -257,26 +257,35 @@
       },
     };
 
-    // Script-to-region mapping for CJK script subtags
+    // Script-to-region mapping for CJK script subtags.
+    // iOS/Android use BCP 47 script subtags (Hans/Hant) for Chinese variants,
+    // while our i18n keys use region codes (CN/TW/HK).
+    //   - zh-Hans (iOS) / zh-Hans-CN (Android) → zh-CN
+    //   - zh-Hant (iOS) / zh-Hant-TW (Android) → zh-TW
     const scriptMap = { 'Hans': 'zh-CN', 'Hant': 'zh-TW' };
 
-    // Locale matching: exact → script mapping → first-last → prefix → fallback 'en'
+    // Locale matching priority:
+    //   1. Exact match (e.g. "zh-CN", "ja-JP", "de")
+    //   2. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW")
+    //   3. First-last parts (e.g. "zh-Hans-CN" → "zh-CN", "zh-Hant-HK" → "zh-HK")
+    //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
+    //   5. Fallback to "en"
+    //
+    // Electron: navigator.language returns BCP 47 tags like "zh-CN", "ja", "fr-FR".
+    // Chinese typically returns "zh-CN"/"zh-TW" directly without script subtag.
     function getLocale() {
       const lang = navigator.language || 'en';
       if (i18nMap[lang]) return lang;
       const parts = lang.split('-');
-      // Script subtag mapping (e.g. zh-Hans → zh-CN, zh-Hant → zh-TW)
       if (parts.length >= 2) {
         for (const [script, mapped] of Object.entries(scriptMap)) {
           if (parts.includes(script) && i18nMap[mapped]) return mapped;
         }
       }
-      // First-last parts (e.g. zh-Hans-CN → zh-CN, zh-Hant-HK → zh-HK)
       if (parts.length >= 2) {
         const twoPartKey = parts[0] + '-' + parts[parts.length - 1];
         if (i18nMap[twoPartKey]) return twoPartKey;
       }
-      // Prefix match (e.g. fr → fr-FR, pt → pt)
       const code = parts[0];
       if (i18nMap[code]) return code;
       const prefixMatch = Object.keys(i18nMap).find(k => k.startsWith(code + '-'));

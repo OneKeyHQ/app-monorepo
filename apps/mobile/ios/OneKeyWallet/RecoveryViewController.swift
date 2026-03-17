@@ -134,11 +134,21 @@ private enum RecoveryStrings {
       exportError: "Xuất nhật ký thất bại", repairError: "Sửa chữa thất bại", noLogs: "Không tìm thấy tệp nhật ký"),
   ]
 
-  // Script-to-region mapping for CJK script subtags
+  // Script-to-region mapping for CJK script subtags.
+  // iOS uses BCP 47 script subtags for Chinese variants in Locale.preferredLanguages:
+  //   - Simplified Chinese → "zh-Hans" or "zh-Hans-CN"
+  //   - Traditional Chinese (TW) → "zh-Hant" or "zh-Hant-TW"
+  //   - Traditional Chinese (HK) → "zh-Hant-HK"
+  // Our i18n keys use region codes (zh-CN, zh-TW, zh-HK), so we map:
+  //   Hans → zh-CN, Hant → zh-TW (as default for Traditional Chinese)
   private static let scriptMap: [String: String] = ["Hans": "zh-CN", "Hant": "zh-TW"]
 
-  // Resolve system locale to best matching key
-  // iOS returns: zh-Hans, zh-Hans-CN, zh-Hant, zh-Hant-TW, zh-Hant-HK, ja-JP, ko-KR, etc.
+  // Locale matching priority:
+  //   1. Exact match (e.g. "ja-JP", "de")
+  //   2. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW")
+  //   3. First-last parts (e.g. "zh-Hant-HK" → "zh-HK", "zh-Hans-CN" → "zh-CN")
+  //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
+  //   5. Fallback to "en"
   static var current: RecoveryLocale {
     guard let lang = Locale.preferredLanguages.first else { return localeMap["en"]! }
     // Exact match (e.g. "ja-JP", "de")

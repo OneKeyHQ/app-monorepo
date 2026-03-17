@@ -53,17 +53,28 @@ public class RecoveryActivity extends AppCompatActivity {
         LOCALE_MAP.put("vi", new String[]{"Ứng dụng không khởi động được", "Ứng dụng đã không khởi động được nhiều lần. Vui lòng thử các tùy chọn sau.", "Xuất nhật ký", "Thử lại", "Tự động sửa chữa", "Sửa chữa hoàn tất", "Lỗi", "OK", "Xuất nhật ký thất bại", "Sửa chữa thất bại", "Không tìm thấy tệp nhật ký"});
     }
 
-    // Script-to-region mapping for CJK script subtags
+    // Script-to-region mapping for CJK script subtags.
+    // Android uses BCP 47 script subtags for Chinese variants in Locale.toLanguageTag():
+    //   - Simplified Chinese → "zh-Hans-CN" or "zh-Hans"
+    //   - Traditional Chinese (TW) → "zh-Hant-TW" or "zh-TW"
+    //   - Traditional Chinese (HK) → "zh-Hant-HK" or "zh-HK"
+    // Our i18n keys use region codes (zh-CN, zh-TW, zh-HK), so we map:
+    //   Hans → zh-CN, Hant → zh-TW (as default for Traditional Chinese)
     private static final java.util.Map<String, String> SCRIPT_MAP = new java.util.HashMap<>();
     static {
         SCRIPT_MAP.put("Hans", "zh-CN");
         SCRIPT_MAP.put("Hant", "zh-TW");
     }
 
+    // Locale matching priority:
+    //   1. Exact match (e.g. "ja-JP", "de")
+    //   2. Script subtag mapping (e.g. "zh-Hans-CN" → Hans → "zh-CN")
+    //   3. First-last parts (e.g. "zh-Hant-HK" → "zh-HK")
+    //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
+    //   5. Fallback to "en"
     private void resolveLocale() {
         String lang = Locale.getDefault().toLanguageTag(); // e.g. "zh-Hans-CN", "ja-JP", "en-US"
         String[] strings = LOCALE_MAP.get(lang);
-        // Script subtag mapping: "zh-Hans" → "zh-CN", "zh-Hant" → "zh-TW"
         if (strings == null) {
             String[] parts = lang.split("-");
             for (String part : parts) {
