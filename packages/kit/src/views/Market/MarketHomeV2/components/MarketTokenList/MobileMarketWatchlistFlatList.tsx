@@ -865,6 +865,18 @@ function MobileMarketWatchlistFlatListImpl({
   const { data, isLoading } = watchlistResult;
   const showSkeleton = Boolean(isLoading) && data.length === 0;
 
+  useEffect(() => {
+    if (!primedItemId) {
+      return;
+    }
+    const hasPrimedItem = filteredData.some(
+      (token) => getStableItemKey(token) === primedItemId,
+    );
+    if (!hasPrimedItem) {
+      resetGestureSession();
+    }
+  }, [filteredData, getStableItemKey, primedItemId, resetGestureSession]);
+
   const ListEmptyComponent = useMemo(() => {
     if (showSkeleton) {
       return <TokenListSkeleton count={10} />;
