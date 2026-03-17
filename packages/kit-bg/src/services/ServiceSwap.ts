@@ -541,12 +541,14 @@ export default class ServiceSwap extends ServiceBase {
         {
           params,
           signal: fetchSignal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId,
               },
-            ),
+            )),
+            ...(currency ? { 'x-onekey-request-currency': currency } : {}),
+          },
         },
       );
       return data?.data;
