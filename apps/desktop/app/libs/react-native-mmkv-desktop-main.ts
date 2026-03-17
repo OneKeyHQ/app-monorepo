@@ -101,23 +101,17 @@ class MMKV {
   }
 
   getString(key: string): string | undefined {
-    const value = this.store
-      ? this.store.get(key)
-      : this.memoryStore.get(key);
+    const value = this.store ? this.store.get(key) : this.memoryStore.get(key);
     return typeof value === 'string' ? value : undefined;
   }
 
   getNumber(key: string): number | undefined {
-    const value = this.store
-      ? this.store.get(key)
-      : this.memoryStore.get(key);
+    const value = this.store ? this.store.get(key) : this.memoryStore.get(key);
     return typeof value === 'number' ? value : undefined;
   }
 
   getBoolean(key: string): boolean | undefined {
-    const value = this.store
-      ? this.store.get(key)
-      : this.memoryStore.get(key);
+    const value = this.store ? this.store.get(key) : this.memoryStore.get(key);
     return typeof value === 'boolean' ? value : undefined;
   }
 
