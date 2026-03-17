@@ -46,11 +46,11 @@ public class RecoveryActivity extends AppCompatActivity {
         TextView versionLabel = findViewById(R.id.version_label);
 
         if (isChinese) {
-            title.setText("\u5E94\u7528\u542F\u52A8\u5931\u8D25");
-            subtitle.setText("\u5E94\u7528\u5DF2\u591A\u6B21\u542F\u52A8\u5931\u8D25\u3002\u60A8\u53EF\u4EE5\u5C1D\u8BD5\u4EE5\u4E0B\u9009\u9879\u6765\u89E3\u51B3\u95EE\u9898\u3002");
-            btnExportLogs.setText("\u5BFC\u51FA\u65E5\u5FD7");
-            btnTryAgain.setText("\u91CD\u8BD5");
-            btnAutoRepair.setText("\u81EA\u52A8\u4FEE\u590D");
+            title.setText("应用启动失败");
+            subtitle.setText("应用已多次启动失败。您可以尝试以下选项来解决问题。");
+            btnExportLogs.setText("导出日志");
+            btnTryAgain.setText("重试");
+            btnAutoRepair.setText("自动修复");
         } else {
             title.setText("App Failed to Start");
             subtitle.setText("The app has failed to start multiple times. You can try the following options to resolve the issue.");
@@ -70,13 +70,13 @@ public class RecoveryActivity extends AppCompatActivity {
         try {
             File logDir = findNativeLoggerDir();
             if (logDir == null || !logDir.exists() || !logDir.isDirectory()) {
-                showError(isChinese ? "\u672A\u627E\u5230\u65E5\u5FD7\u6587\u4EF6" : "No log files found");
+                showError(isChinese ? "未找到日志文件" : "No log files found");
                 return;
             }
 
             File[] logFiles = logDir.listFiles();
             if (logFiles == null || logFiles.length == 0) {
-                showError(isChinese ? "\u65E5\u5FD7\u6587\u4EF6\u4E3A\u7A7A" : "Log files are empty");
+                showError(isChinese ? "日志文件为空" : "Log files are empty");
                 return;
             }
 
@@ -88,9 +88,9 @@ public class RecoveryActivity extends AppCompatActivity {
             shareIntent.setType("application/zip");
             shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
             shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(shareIntent, isChinese ? "\u5BFC\u51FA\u65E5\u5FD7" : "Export Logs"));
+            startActivity(Intent.createChooser(shareIntent, isChinese ? "导出日志" : "Export Logs"));
         } catch (Exception e) {
-            showError((isChinese ? "\u5BFC\u51FA\u65E5\u5FD7\u5931\u8D25: " : "Failed to export logs: ") + e.getMessage());
+            showError((isChinese ? "导出日志失败: " : "Failed to export logs: ") + e.getMessage());
         }
     }
 
@@ -144,7 +144,7 @@ public class RecoveryActivity extends AppCompatActivity {
                 .commit();
             restartApp();
         } catch (Exception e) {
-            showError((isChinese ? "\u91CD\u8BD5\u5931\u8D25: " : "Try again failed: ") + e.getMessage());
+            showError((isChinese ? "重试失败: " : "Try again failed: ") + e.getMessage());
         }
     }
 
@@ -175,13 +175,13 @@ public class RecoveryActivity extends AppCompatActivity {
 
             // Show success dialog, restart on confirm
             new AlertDialog.Builder(this)
-                .setTitle(isChinese ? "\u4FEE\u590D\u6210\u529F" : "Repair Successful")
+                .setTitle(isChinese ? "修复完成" : "Repair Complete")
                 .setMessage(null)
                 .setCancelable(false)
-                .setPositiveButton(isChinese ? "\u786E\u5B9A" : "OK", (dialog, which) -> restartApp())
+                .setPositiveButton(isChinese ? "确定" : "OK", (dialog, which) -> restartApp())
                 .show();
         } catch (Exception e) {
-            showError((isChinese ? "\u81EA\u52A8\u4FEE\u590D\u5931\u8D25: " : "Auto repair failed: ") + e.getMessage());
+            showError((isChinese ? "自动修复失败: " : "Auto repair failed: ") + e.getMessage());
         }
     }
 
@@ -221,9 +221,9 @@ public class RecoveryActivity extends AppCompatActivity {
 
     private void showError(String message) {
         new AlertDialog.Builder(this)
-                .setTitle(isChinese ? "\u9519\u8BEF" : "Error")
+                .setTitle(isChinese ? "错误" : "Error")
                 .setMessage(message)
-                .setPositiveButton(isChinese ? "\u786E\u5B9A" : "OK", null)
+                .setPositiveButton(isChinese ? "确定" : "OK", null)
                 .show();
     }
 }

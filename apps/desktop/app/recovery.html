@@ -177,7 +177,7 @@
           return;
         }
         // Show success confirmation, restart on OK
-        const msg = isZh ? '修复成功' : 'Repair Successful';
+        const msg = isZh ? '修复完成' : 'Repair Complete';
         if (confirm(msg)) {
           await window.desktopApi?.recoveryTryAgain?.();
         } else {
