@@ -921,6 +921,11 @@ async function createMainWindow() {
       errors.push(`clearASCFile: ${e?.message}`);
     }
     try {
+      store.clearUpdateBuildNumber();
+    } catch (e: any) {
+      errors.push(`clearUpdateBuildNumber: ${e?.message}`);
+    }
+    try {
       const bundleDir = path.join(app.getPath('userData'), 'onekey-bundle');
       if (fs.existsSync(bundleDir)) {
         fs.rmSync(bundleDir, { recursive: true, force: true });
@@ -928,6 +933,19 @@ async function createMainWindow() {
     } catch (e: any) {
       errors.push(`deleteBundleDir: ${e?.message}`);
     }
+    try {
+      const bundleDownloadDir = path.join(
+        app.getPath('userData'),
+        'onekey-bundle-download',
+      );
+      if (fs.existsSync(bundleDownloadDir)) {
+        fs.rmSync(bundleDownloadDir, { recursive: true, force: true });
+      }
+    } catch (e: any) {
+      errors.push(`deleteBundleDownloadDir: ${e?.message}`);
+    }
+    // No need to clear pendingInstallTask here — desktop MMKV is an in-memory
+    // mock (react-native-mmkv-mock.ts), so it is automatically lost on restart.
     store.resetConsecutiveBootFailCount();
     if (errors.length > 0) {
       logger.error('Recovery auto repair partial errors:', errors);

@@ -13,6 +13,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
+import com.tencent.mmkv.MMKV;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -250,6 +251,9 @@ public class RecoveryActivity extends AppCompatActivity {
             File bundleDownloadDir = new File(getFilesDir(), "onekey-bundle-download");
             deleteRecursive(bundleDownloadDir);
 
+            // Clear pending install task from MMKV
+            clearPendingInstallTask();
+
             // Clear app cache
             clearAppCache();
 
@@ -285,6 +289,18 @@ public class RecoveryActivity extends AppCompatActivity {
             }
         }
         fileOrDirectory.delete();
+    }
+
+    private void clearPendingInstallTask() {
+        try {
+            MMKV.initialize(this);
+            MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
+            if (mmkv != null) {
+                mmkv.removeValueForKey("onekey_pending_install_task");
+            }
+        } catch (Exception e) {
+            // Ignore — MMKV may not be available in recovery mode
+        }
     }
 
     private void clearAppCache() {
