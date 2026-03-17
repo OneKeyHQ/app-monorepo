@@ -353,12 +353,12 @@
           setButtonsDisabled(false);
           return;
         }
-        // Show success, then restart (or prompt for MAS)
-        const tryResult = await window.desktopApi?.recoveryTryAgain?.();
-        if (tryResult && tryResult.needsManualRestart) {
-          alert(i18n.repairComplete + '\n' + i18n.pleaseRestart);
-          setButtonsDisabled(false);
-        }
+        // Show success prompt first, then restart on confirm
+        alert(i18n.repairComplete);
+        await window.desktopApi?.recoveryTryAgain?.();
+        // If MAS (can't relaunch), show manual restart hint
+        alert(i18n.pleaseRestart);
+        setButtonsDisabled(false);
       } catch (e) {
         showError(i18n.repairError);
         setButtonsDisabled(false);
