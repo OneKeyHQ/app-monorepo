@@ -129,7 +129,7 @@
       android:name="JPUSH_APPKEY"
       android:value="${JPUSH_APPKEY}" />
     <meta-data
-      android:name="BUILTIN_BUNDLE_VERSION"
+      android:name="BUNDLE_VERSION"
       android:value="${BUILTIN_BUNDLE_VERSION}" />
 
       <!-- overwrite -->

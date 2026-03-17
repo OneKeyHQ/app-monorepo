@@ -120,6 +120,14 @@ public class MainApplication extends Application implements ReactApplication {
     long startupTime = System.currentTimeMillis();
     ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);
     OneKeyLog.info("App", "OneKey started");
+    String builtinBundleVersion = "";
+    try {
+      android.content.pm.ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), android.content.pm.PackageManager.GET_META_DATA);
+      if (ai.metaData != null) {
+        builtinBundleVersion = ai.metaData.getString("BUNDLE_VERSION", "");
+      }
+    } catch (Exception ignored) {}
+    OneKeyLog.info("App", "nativeAppVersion: " + BuildConfig.VERSION_NAME + ", buildNumber: " + BuildConfig.VERSION_CODE + ", builtinBundleVersion: " + builtinBundleVersion);
 
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
