@@ -175,8 +175,8 @@ public class RecoveryActivity extends AppCompatActivity {
 
             // Show success dialog, restart on confirm
             new AlertDialog.Builder(this)
-                .setTitle(isChinese ? "\u4FEE\u590D\u5B8C\u6210" : "Repair Complete")
-                .setMessage(isChinese ? "\u4FEE\u590D\u5B8C\u6210\uFF0C\u70B9\u51FB\u786E\u5B9A\u91CD\u542F\u5E94\u7528\u3002" : "Repair complete. Tap OK to restart the app.")
+                .setTitle(isChinese ? "\u4FEE\u590D\u6210\u529F" : "Repair Successful")
+                .setMessage(null)
                 .setCancelable(false)
                 .setPositiveButton(isChinese ? "\u786E\u5B9A" : "OK", (dialog, which) -> restartApp())
                 .show();

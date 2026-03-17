@@ -177,7 +177,7 @@
           return;
         }
         // Show success confirmation, restart on OK
-        const msg = isZh ? '修复完成，点击确定重启应用。' : 'Repair complete. Click OK to restart the app.';
+        const msg = isZh ? '修复成功' : 'Repair Successful';
         if (confirm(msg)) {
           await window.desktopApi?.recoveryTryAgain?.();
         } else {

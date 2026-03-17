@@ -19,8 +19,8 @@ private enum RecoveryStrings {
   static var autoRepair: String { isChinese ? "自动修复" : "Auto Repair" }
   static var tryAgainAlertTitle: String { isChinese ? "已重置" : "Reset Complete" }
   static var tryAgainAlertMessage: String { isChinese ? "请重新打开应用。" : "Please reopen the app." }
-  static var autoRepairAlertTitle: String { isChinese ? "修复完成" : "Repair Complete" }
-  static var autoRepairAlertMessage: String { isChinese ? "修复完成，请重新打开应用。" : "Repair complete. Please reopen the app." }
+  static var autoRepairAlertTitle: String { isChinese ? "修复成功" : "Repair Successful" }
+  static var autoRepairAlertMessage: String { "" }
   static var errorTitle: String { isChinese ? "操作失败" : "Operation Failed" }
   static var ok: String { isChinese ? "好的" : "OK" }
   static var noLogsFound: String { isChinese ? "未找到日志文件" : "No log files found" }
