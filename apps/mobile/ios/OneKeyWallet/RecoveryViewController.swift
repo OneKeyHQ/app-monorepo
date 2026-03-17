@@ -46,6 +46,12 @@ private enum RecoveryNitroModuleBridge {
     guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
     return cls.perform(NSSelectorFromString("downloadBundleDir"))?.takeUnretainedValue() as? String
   }
+
+  /// Returns the log directory path from OneKeyLog
+  static func logsDirectory() -> String? {
+    guard let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type else { return nil }
+    return cls.value(forKeyPath: "logsDirectory") as? String
+  }
 }
 
 // MARK: - RecoveryViewController
@@ -310,6 +316,11 @@ final class RecoveryViewController: UIViewController {
   // MARK: - Helpers
 
   private func logDirectory() -> String {
+    // Use OneKeyLog API via NitroModuleBridge to get the actual log directory
+    if let logDir = RecoveryNitroModuleBridge.logsDirectory(), !logDir.isEmpty {
+      return logDir
+    }
+    // Fallback: match OneKeyLog.logsDirectory default (Caches/logs)
     let cacheDir = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true).first ?? NSTemporaryDirectory()
     return (cacheDir as NSString).appendingPathComponent("logs")
   }

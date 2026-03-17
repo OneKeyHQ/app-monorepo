@@ -12,6 +12,7 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 
 import java.io.File;
@@ -94,11 +95,13 @@ public class RecoveryActivity extends AppCompatActivity {
     }
 
     private File findNativeLoggerDir() {
-        // OneKeyLog stores logs at ${cacheDir}/logs
-        // (see OneKeyLog.kt: "${context.cacheDir.absolutePath}/logs")
-        File logsDir = new File(getCacheDir(), "logs");
-        if (logsDir.exists() && logsDir.isDirectory()) {
-            return logsDir;
+        // Use OneKeyLog API to get the actual log directory
+        String logPath = OneKeyLog.INSTANCE.getLogsDirectory();
+        if (logPath != null && !logPath.isEmpty()) {
+            File logsDir = new File(logPath);
+            if (logsDir.exists() && logsDir.isDirectory()) {
+                return logsDir;
+            }
         }
         return null;
     }
