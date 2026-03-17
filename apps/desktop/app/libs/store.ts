@@ -218,3 +218,35 @@ export const clearGPUCrashStats = () => {
   store.delete(EDesktopStoreKeys.LastGPUCrashTime);
   logger.info('GPU crash statistics cleared');
 };
+
+// ==================== Boot Recovery ====================
+export const getConsecutiveBootFailCount = () =>
+  store.get(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+
+export const incrementConsecutiveBootFailCount = () => {
+  const newCount = getConsecutiveBootFailCount() + 1;
+  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, newCount);
+  return newCount;
+};
+
+export const resetConsecutiveBootFailCount = () =>
+  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, 0);
+
+export const setConsecutiveBootFailCount = (count: number) =>
+  store.set(EDesktopStoreKeys.ConsecutiveBootFailCount, count);
+
+export const getBootFailAppVersion = () =>
+  store.get(EDesktopStoreKeys.BootFailAppVersion, '');
+
+export const setBootFailAppVersion = (version: string) =>
+  store.set(EDesktopStoreKeys.BootFailAppVersion, version);
+
+// ==================== MMKV Persistent Store ====================
+const mmkvAppSettingStore = new Store({ name: 'mmkv-onekey-app-setting' });
+
+export const clearMmkvRecoveryKeys = () => {
+  mmkvAppSettingStore.delete('onekey_pending_install_task');
+  mmkvAppSettingStore.delete('onekey_whats_new_shown');
+  mmkvAppSettingStore.delete('last_valid_server_time');
+  mmkvAppSettingStore.delete('last_valid_local_time');
+};
