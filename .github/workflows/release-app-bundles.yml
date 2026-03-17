@@ -34,11 +34,11 @@ jobs:
             echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
             BUILD_SOURCE="bundle-release"
           else
-            # Fallback: daily-build-dev format 1000MMDD{run_number % 100}
-            DATE=$(date -u "+%m%d")
+            # Fallback: bundle-dev format 10YYMMDD{run_number % 100}
+            DATE=$(date -u "+%y%m%d")
             RUN_MOD=$(( $GITHUB_RUN_NUMBER % 100 ))
             RUN_MOD=$(printf "%02d" $RUN_MOD)
-            BUILD_NUMBER="1000${DATE}${RUN_MOD}"
+            BUILD_NUMBER="10${DATE}${RUN_MOD}"
             echo "Generated BUILD_NUMBER: $BUILD_NUMBER"
           fi
 
