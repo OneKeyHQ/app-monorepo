@@ -209,6 +209,7 @@ export const BundleUpdate: IBundleUpdate = {
   listLocalBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.listLocalBundles(),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
+  clearDownload: () => globalThis.desktopApiProxy.bundleUpdate.clearDownload(),
   resetToBuiltInBundle: () =>
     globalThis.desktopApiProxy.bundleUpdate.resetToBuiltInBundle(),
   clearAllJSBundleData: () =>
