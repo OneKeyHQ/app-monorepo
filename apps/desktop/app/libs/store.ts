@@ -279,7 +279,7 @@ export const processPreLaunchPendingTask = (): boolean => {
     if (task.type !== 'jsbundle-switch') return false;
 
     const now = Date.now();
-    if (task.expiresAt <= now) return false;
+    if (typeof task.expiresAt !== 'number' || task.expiresAt <= now) return false;
     if (task.nextRetryAt && task.nextRetryAt > now) return false;
 
     // Verify scheduledEnv matches current state
@@ -287,7 +287,8 @@ export const processPreLaunchPendingTask = (): boolean => {
     if (task.scheduledEnvAppVersion !== currentAppVersion) return false;
 
     const currentBundleData = getUpdateBundleData();
-    const currentBundleVersion = currentBundleData?.bundleVersion || '';
+    const currentBundleVersion =
+      currentBundleData?.bundleVersion || process.env.BUNDLE_VERSION || '';
     if (task.scheduledEnvBundleVersion !== currentBundleVersion) return false;
 
     // Extract payload
