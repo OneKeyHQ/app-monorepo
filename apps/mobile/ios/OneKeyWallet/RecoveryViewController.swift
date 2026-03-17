@@ -23,20 +23,20 @@ private enum RecoveryStrings {
       title: "App Failed to Start",
       subtitle: "The app has failed to start multiple times.\nPlease try the options below to recover.",
       exportLogs: "Export Logs", tryAgain: "Try Again", autoRepair: "Auto Repair",
-      repairComplete: "Repair Complete", pleaseRestart: "Please reopen the app.", error: "Error", ok: "OK",
+      repairComplete: "Repair Complete", pleaseRestart: "Please reopen the app", error: "Error", ok: "OK",
       exportError: "Failed to export logs", repairError: "Repair failed", noLogs: "No log files found"),
     "zh-CN": RecoveryLocale(
       title: "应用启动失败",
       subtitle: "应用已多次启动失败。\n请尝试以下选项来解决问题。",
       exportLogs: "导出日志", tryAgain: "重试", autoRepair: "自动修复",
-      repairComplete: "修复完成", pleaseRestart: "请手动重新打开应用。", error: "错误", ok: "确定",
+      repairComplete: "修复完成", pleaseRestart: "请重新打开应用", error: "错误", ok: "确定",
       exportError: "导出日志失败", repairError: "修复失败", noLogs: "未找到日志文件"),
     // Traditional Chinese — shared by zh-TW, zh-HK, zh-Hant
     "zh-Hant": RecoveryLocale(
       title: "應用程式啟動失敗",
       subtitle: "應用程式已多次啟動失敗。\n請嘗試以下選項來解決問題。",
       exportLogs: "匯出日誌", tryAgain: "重試", autoRepair: "自動修復",
-      repairComplete: "修復完成", pleaseRestart: "請手動重新打開應用程式。", error: "錯誤", ok: "確定",
+      repairComplete: "修復完成", pleaseRestart: "請重新打開應用程式", error: "錯誤", ok: "確定",
       exportError: "匯出日誌失敗", repairError: "修復失敗", noLogs: "未找到日誌檔案"),
     "ja-JP": RecoveryLocale(
       title: "アプリの起動に失敗しました",
