@@ -279,7 +279,8 @@ export const processPreLaunchPendingTask = (): boolean => {
     if (task.type !== 'jsbundle-switch') return false;
 
     const now = Date.now();
-    if (typeof task.expiresAt !== 'number' || task.expiresAt <= now) return false;
+    if (typeof task.expiresAt !== 'number' || task.expiresAt <= now)
+      return false;
     if (task.nextRetryAt && task.nextRetryAt > now) return false;
 
     // Verify scheduledEnv matches current state
