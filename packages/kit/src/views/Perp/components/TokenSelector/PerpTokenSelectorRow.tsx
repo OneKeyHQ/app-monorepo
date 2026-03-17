@@ -215,11 +215,17 @@ const TokenInfoCellDesktop = memo(() => {
           justifyContent="flex-start"
           gap="$1.5"
           alignItems="center"
-          pr="$1"
-          overflow="hidden"
           minWidth={0}
         >
           <FavoriteButton coin={token.name} />
+          <XStack
+            gap="$1.5"
+            alignItems="center"
+            overflow="hidden"
+            pr="$1"
+            flex={1}
+            minWidth={0}
+          >
           <Token
             size="xs"
             borderRadius="$full"
@@ -253,6 +259,7 @@ const TokenInfoCellDesktop = memo(() => {
                 withTooltip
               />
             ) : null}
+          </XStack>
           </XStack>
         </XStack>
       </DebugRenderTracker>
