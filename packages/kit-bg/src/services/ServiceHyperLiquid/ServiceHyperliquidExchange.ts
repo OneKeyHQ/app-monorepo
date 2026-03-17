@@ -62,6 +62,7 @@ import type {
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 
 import {
   perpsActiveAccountAtom,
@@ -598,6 +599,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           extra,
         },
       });
+      // Record PERPS task completion for rookie guide
+      void this.backgroundApi.serviceRookieGuide.recordTaskCompleted(
+        ERookieTaskType.PERPS,
+      );
       return response;
     } catch (error) {
       dispatchHyperLiquidOrderLog({
