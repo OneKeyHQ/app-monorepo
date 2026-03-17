@@ -1206,7 +1206,10 @@ if (!singleInstance && !process.mas) {
       mainWindow = await createMainWindow();
     }
 
-    // In recovery mode, skip normal app initialization.
+    // Menu is needed in both normal and recovery mode
+    initMenu();
+
+    // In recovery mode, skip heavy app initialization.
     // createMainWindow() increments bootFailCount; if >= 3 it returned
     // a standalone recovery window that doesn't need these services.
     if (store.getConsecutiveBootFailCount() >= 3) {
@@ -1214,7 +1217,6 @@ if (!singleInstance && !process.mas) {
     }
 
     startServices();
-    initMenu();
     void initChildProcess();
   });
 }
