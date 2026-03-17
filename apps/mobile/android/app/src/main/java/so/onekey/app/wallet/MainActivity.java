@@ -2,6 +2,7 @@ package so.onekey.app.wallet;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -61,6 +62,13 @@ public class MainActivity extends ReactActivity {
       }
     }
     super.onCreate(null);
+
+    if (MainApplication.shouldShowRecovery) {
+        startActivity(new Intent(this, RecoveryActivity.class));
+        finish();
+        return;
+    }
+
     setTheme(R.style.AppTheme);
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         SplashScreenBridge.show(this);
