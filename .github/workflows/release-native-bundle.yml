@@ -102,6 +102,8 @@ jobs:
           fi
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "COMMIT=$COMMIT" >> $GITHUB_ENV
+          COMMIT_MESSAGE=$(git log -1 --pretty=%s "$COMMIT" 2>/dev/null || echo "")
+          echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -157,7 +159,7 @@ jobs:
           bundle-dir: ./apps/mobile/out-dir-bundle-zip
           commit-hash: ${{ env.COMMIT }}
           branch: ${{ env.BRANCH }}
-          pr-title: ${{ github.event.pull_request.title || github.event.workflow_run.name || '' }}
+          pr-title: ${{ env.COMMIT_MESSAGE }}
 
       - name: 'Notify to Slack'
         uses: originalix/actions/slack-notify-webhook@feat/bundle-release-notification
