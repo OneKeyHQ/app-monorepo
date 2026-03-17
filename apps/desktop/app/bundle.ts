@@ -216,20 +216,27 @@ export const getMetadata = async ({
   appVersion: string;
   bundleVersion: string;
   signature: string;
-}) => {
+}): Promise<Record<string, string>> => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
   // Intentionally global in QA skip-gpg builds: startup metadata verification
   // follows build-time policy rather than per-request runtime toggles.
   const allowSkipGPG =
     String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true';
-  if (!allowSkipGPG) {
-    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+  try {
+    if (!allowSkipGPG) {
+      await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    }
+    const metadata = JSON.parse(
+      fs.readFileSync(metadataPath, 'utf8'),
+    ) as Record<string, string>;
+    return metadata;
+  } catch (e) {
+    // GPG verification failed or metadata file unreadable — fall back to
+    // the builtin bundle by returning empty metadata. This prevents the
+    // app from crashing on startup with an invalid/corrupt JS bundle.
+    logger.error('getMetadata failed, falling back to builtin bundle:', e);
+    return {};
   }
-  const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
-    string,
-    string
-  >;
-  return metadata;
 };
 
 const TEST_SIGNATURE = `
