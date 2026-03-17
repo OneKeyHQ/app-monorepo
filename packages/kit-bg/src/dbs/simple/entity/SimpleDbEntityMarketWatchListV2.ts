@@ -15,23 +15,28 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
 
   private _invalidItemsCleaned = false;
 
+  private _isValidItem(item: IMarketWatchListItemV2): boolean {
+    return !!(item.perpsCoin || item.chainId?.trim());
+  }
+
   async getMarketWatchListV2() {
     const result = await this.getRawData();
     const data = result?.data ?? [];
 
-    // One-time cleanup of invalid items on first read after app launch
+    // Filter out invalid items (non-perps with empty chainId) on every read
+    const cleanData = data.filter((item) => this._isValidItem(item));
+
+    // Persist cleanup once per app session if invalid items were found
     if (!this._invalidItemsCleaned) {
       this._invalidItemsCleaned = true;
-      const cleanData = data.filter(
-        (item) => item.perpsCoin || item.chainId?.trim(),
-      );
       if (cleanData.length !== data.length) {
-        void this.setRawData(() => ({ data: cleanData }));
-        return { data: cleanData };
+        void this.setRawData((rawData) => ({
+          data: (rawData?.data ?? []).filter((item) => this._isValidItem(item)),
+        }));
       }
     }
 
-    return { data };
+    return { data: cleanData };
   }
 
   async getMarketWatchListItemV2({
