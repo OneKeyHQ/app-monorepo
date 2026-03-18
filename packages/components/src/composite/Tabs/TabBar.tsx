@@ -15,6 +15,7 @@ import { Divider } from '../../content';
 import { ListView, ScrollView } from '../../layouts';
 import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
 import { useTheme } from '../../shared/tamagui';
+import { fs } from '../../utils/scale';
 
 import type { IListViewRef } from '../../layouts';
 import type { ISizableTextProps, IYStackProps } from '../../primitives';
@@ -117,9 +118,9 @@ export function TabBarItem({
 
 const animatedTextStyles = StyleSheet.create({
   text: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '500',
-    lineHeight: 24,
+    lineHeight: fs(24),
     fontFamily: 'Roobert-Medium',
   },
 });

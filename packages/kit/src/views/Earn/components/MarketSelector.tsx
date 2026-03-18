@@ -15,6 +15,7 @@ import {
   Stack,
   XStack,
   YStack,
+  fs,
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
@@ -159,10 +160,10 @@ const animatedStyles = StyleSheet.create({
     gap: 8,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: fs(16),
     fontWeight: '600',
     fontFamily: 'Roobert-SemiBold',
-    lineHeight: 24,
+    lineHeight: fs(24),
     textAlign: 'center',
   },
   underline: {

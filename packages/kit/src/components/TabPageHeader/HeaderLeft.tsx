@@ -15,6 +15,7 @@ import {
   XStack,
   rootNavigationRef,
   useMedia,
+  fs,
   useTheme,
 } from '@onekeyhq/components';
 import {
@@ -56,9 +57,9 @@ const discoveryTabs = platformEnv.isNative
 // Static styles for animated text to match $headingXl token
 const animatedTextStyles = StyleSheet.create({
   text: {
-    fontSize: 20,
+    fontSize: fs(20),
     fontWeight: '600',
-    lineHeight: 28,
+    lineHeight: fs(28),
     fontFamily: 'Roobert-SemiBold',
   },
 });
