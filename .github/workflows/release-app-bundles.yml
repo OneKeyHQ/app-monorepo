@@ -22,6 +22,19 @@ jobs:
       branch: ${{ steps.params.outputs.branch }}
       commit: ${{ steps.params.outputs.commit }}
     steps:
+      - name: Set run name
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR="${{ inputs.pr_number }}"
+          if [ -n "$PR" ]; then
+            NAME="Bundle PR #$PR"
+          else
+            NAME="Bundle ${{ github.ref_name }}"
+          fi
+          gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }} \
+            -X PATCH -f name="$NAME"
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
         if: ${{ !inputs.pr_number }}
