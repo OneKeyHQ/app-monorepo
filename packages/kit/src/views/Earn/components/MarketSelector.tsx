@@ -213,7 +213,7 @@ const AnimatedTabBar = ({
   const [containerWidth, setContainerWidth] = useState(0);
 
   const activeColor = theme.text.val;
-  const inactiveColor = theme.text.val;
+  const inactiveColor = theme.textSubdued.val;
   const underlineColor = theme.text.val;
 
   const handlePressEarn = useCallback(() => {

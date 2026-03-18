@@ -496,9 +496,14 @@ export function TabBar({
   const itemsLayoutRef = useRef<Map<number, IItemLayout>>(new Map());
 
   const useAnimatedDefault =
-    !!indexDecimal && variant === 'default' && !scrollable && !renderItem;
+    !!indexDecimal &&
+    variant === 'default' &&
+    !scrollable &&
+    !renderItem &&
+    !textSize;
 
-  const useAnimatedPill = !!indexDecimal && variant === 'pill' && !scrollable;
+  const useAnimatedPill =
+    !!indexDecimal && variant === 'pill' && !scrollable && !textSize;
 
   const handleItemLayout = useCallback(
     (index: number, layout: IItemLayout) => {
