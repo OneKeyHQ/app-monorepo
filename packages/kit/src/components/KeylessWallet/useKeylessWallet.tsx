@@ -423,6 +423,57 @@ async function promoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
   });
 }
 
+async function shouldPromoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+  token,
+  error,
+}: {
+  token: string;
+  error: unknown;
+}) {
+  if (!isKeylessSameEmailAutoRetryRateLimitError(error)) {
+    return false;
+  }
+
+  try {
+    const result =
+      await backgroundApiProxy.serviceKeylessWallet.apiCheckRateLimitStatus({
+        token,
+      });
+
+    return result.isRateLimited && result.retryAfterSeconds > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function syncKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+  token,
+  error,
+  status,
+}: {
+  token: string;
+  error: unknown;
+  status: IKeylessSameEmailAccountStatus;
+}) {
+  try {
+    if (
+      await shouldPromoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+        token,
+        error,
+      })
+    ) {
+      await promoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+        status,
+      });
+    }
+  } catch (syncError) {
+    console.error(
+      'Failed to sync keyless same-email retry provider after rate limit:',
+      syncError,
+    );
+  }
+}
+
 async function cacheKeylessOnboardingCustomMnemonic({
   customMnemonic,
 }: {
@@ -1086,13 +1137,11 @@ export function useKeylessWallet() {
               },
             );
           } catch (retryError) {
-            if (isKeylessSameEmailAutoRetryRateLimitError(retryError)) {
-              await promoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit(
-                {
-                  status: sameEmailAccountStatus,
-                },
-              );
-            }
+            void syncKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+              token,
+              error: retryError,
+              status: sameEmailAccountStatus,
+            });
             throw retryError;
           }
         } else {
