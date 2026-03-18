@@ -982,7 +982,7 @@ class ServiceAppUpdate extends ServiceBase {
         defaultLogger.app.appUpdate.log(
           'fetchAppUpdateInfo: skipped — ignoreServerBundleUpdate is enabled',
         );
-        return appUpdatePersistAtom.get();
+        return await appUpdatePersistAtom.get();
       }
     } catch {
       // ignore — proceed with normal flow

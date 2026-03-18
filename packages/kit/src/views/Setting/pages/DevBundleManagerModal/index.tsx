@@ -17,8 +17,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import SkipGPGVerificationToggle from '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/SkipGPGVerificationToggle';
 import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
 import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';

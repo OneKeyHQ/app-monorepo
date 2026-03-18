@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-
 import { fileURLToPath, format as formatUrl } from 'url';
 
 import { BrowserWindow, app, ipcMain, session } from 'electron';

@@ -1,11 +1,10 @@
-import type { EHardwareTransportType } from '@onekeyhq/shared/types';
-
 import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
-import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { BaseScene } from '@onekeyhq/shared/src/logger/base/baseScene';
 import { LogToLocal } from '@onekeyhq/shared/src/logger/base/decorators';
 import utils from '@onekeyhq/shared/src/logger/utils';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 export class DeviceScene extends BaseScene {
   @LogToLocal({ level: 'info' })
