@@ -1,4 +1,5 @@
 name: release-app-bundles
+run-name: ${{ inputs.pr_number && format('Bundle PR #{0}', inputs.pr_number) || format('Bundle {0}', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -89,6 +90,7 @@ jobs:
       build_source: ${{ needs.prepare-params.outputs.build_source }}
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit
 
   native-bundle:
@@ -100,4 +102,5 @@ jobs:
       build_source: ${{ needs.prepare-params.outputs.build_source }}
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit
