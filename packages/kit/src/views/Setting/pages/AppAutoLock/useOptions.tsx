@@ -17,16 +17,8 @@ export function useOptions({
   const [primeConfig] = usePrimeCloudSyncPersistAtom();
 
   const shouldDisableCloudSyncDisallowedOptions = useMemo(() => {
-    return (
-      disableCloudSyncDisallowedOptions ||
-      primeConfig.isCloudSyncEnabled ||
-      primeConfig.isCloudSyncEnabledKeyless
-    );
-  }, [
-    disableCloudSyncDisallowedOptions,
-    primeConfig.isCloudSyncEnabled,
-    primeConfig.isCloudSyncEnabledKeyless,
-  ]);
+    return disableCloudSyncDisallowedOptions || primeConfig.isCloudSyncEnabled;
+  }, [disableCloudSyncDisallowedOptions, primeConfig.isCloudSyncEnabled]);
 
   return useMemo<IListItemSelectOption<ELockDuration>[]>(
     () => [

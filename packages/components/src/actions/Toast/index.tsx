@@ -24,7 +24,7 @@ import {
 import { Spinner } from '../../primitives/Spinner/Spinner';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
-import { showMessage } from './showMessage';
+import { dismissToast, showMessage } from './showMessage';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
@@ -243,6 +243,7 @@ function toastMessage({
   toastId,
   title,
   message,
+  icon,
   duration = 5000,
   haptic,
   preset = 'custom',
@@ -253,6 +254,21 @@ function toastMessage({
 }: IToastBaseProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
+  const hapticColorMap: Record<string, string> = {
+    success: '$iconSuccess',
+    error: '$iconCritical',
+    warning: '$iconCaution',
+    info: '$iconInfo',
+  };
+  const iconElement = icon ? (
+    <Icon
+      name={icon}
+      color={(hapticColorMap[haptic ?? ''] ?? '$iconCritical') as any}
+      size="$5"
+    />
+  ) : (
+    iconMap[haptic as keyof typeof iconMap]
+  );
   return showMessage({
     renderContent: (props) => (
       <ToastContent
@@ -260,11 +276,12 @@ function toastMessage({
         title={title}
         maxWidth={props?.width}
         message={message}
-        icon={iconMap[haptic as keyof typeof iconMap]}
+        icon={iconElement}
         actions={actions}
         actionsAlign={actionsAlign}
       />
     ),
+    toastId,
     duration,
     haptic,
     preset,
@@ -458,6 +475,7 @@ export const Toast = {
     return r;
   },
   Close: ShowToasterClose,
+  dismiss: dismissToast,
 };
 export type IToast = typeof Toast;
 

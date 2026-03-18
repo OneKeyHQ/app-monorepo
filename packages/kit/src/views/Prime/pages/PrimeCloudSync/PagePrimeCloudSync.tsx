@@ -19,7 +19,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -99,6 +98,82 @@ function AutoLockUpdateDialogContent({
             throw error;
           }
         }}
+      />
+    </Stack>
+  );
+}
+
+function CloudSyncIllustration() {
+  return (
+    <Stack w={160} h={80} justifyContent="flex-end">
+      {/* Central cloud icon */}
+      <Icon
+        name="CloudSyncSolid"
+        size="$12"
+        color="$brand10"
+        alignSelf="center"
+      />
+
+      {/* Wallet icon — top left */}
+      <Stack position="absolute" bottom={16} left="10%" rotate="-12deg">
+        <Icon name="WalletSolid" size="$5" color="$brand7" />
+      </Stack>
+
+      {/* Contact/AddressBook icon — top right */}
+      <Stack position="absolute" top={8} right="40%" rotate="10deg">
+        <Icon name="PeopleSolid" size="$4" color="$brand6" />
+      </Stack>
+
+      {/* Crypto/Coin icon — bottom right */}
+      <Stack position="absolute" bottom={16} right="10%" rotate="8deg">
+        <Icon name="EthereumSolid" size="$5" color="$brand7" />
+      </Stack>
+
+      {/* Decorative dots */}
+      <Stack
+        position="absolute"
+        top={2}
+        left={56}
+        w="$2"
+        h="$2"
+        borderRadius="$full"
+        bg="$brand4"
+      />
+      <Stack
+        position="absolute"
+        top={24}
+        right={40}
+        w="$1.5"
+        h="$1.5"
+        borderRadius="$full"
+        bg="$brand3"
+      />
+      <Stack
+        position="absolute"
+        bottom={40}
+        left={48}
+        w="$2.5"
+        h="$2.5"
+        borderRadius="$full"
+        bg="$brand4"
+      />
+      <Stack
+        position="absolute"
+        top={16}
+        left={32}
+        w="$1.5"
+        h="$1.5"
+        borderRadius="$full"
+        bg="$brand3"
+      />
+      <Stack
+        position="absolute"
+        top={40}
+        right={56}
+        w="$1"
+        h="$1"
+        borderRadius="$full"
+        bg="$brand5"
       />
     </Stack>
   );
@@ -224,15 +299,17 @@ function AppDataSection() {
   const handleMigrateToKeyless = useCallback(async () => {
     if (!kwExists) {
       Dialog.show({
+        icon: 'CloudOutline',
+        tone: 'success',
         title: intl.formatMessage({
-          id: ETranslations.create_keyless_wallet_first__title,
+          id: ETranslations.create_keyless_wallet_and_switch_syncing__title,
         }),
         description: intl.formatMessage({
           id: ETranslations.create_keyless_wallet_first__desc,
         }),
         showCancelButton: false,
         onConfirmText: intl.formatMessage({
-          id: ETranslations.create_keyless_wallet,
+          id: ETranslations.create_and_switch__action,
         }),
         onConfirm: () => handleCreateKeylessWallet(),
       });
@@ -273,12 +350,6 @@ function AppDataSection() {
       await timerUtils.wait(1000);
       await backgroundApiProxy.serviceApp.hideDialogLoading();
     }
-    void backgroundApiProxy.serviceApp.showToast({
-      method: 'success',
-      title: intl.formatMessage({
-        id: ETranslations.now_syncing_with_keyless_wallet__msg,
-      }),
-    });
   }, [kwExists, intl, handleCreateKeylessWallet]);
 
   // Toggle ID sync (Scenario 4)
@@ -322,52 +393,17 @@ function AppDataSection() {
   );
 
   // Toggle Keyless sync (Scenario 2 → 3 or 3 → 2)
-  const handleToggleKeylessSync = useCallback(
-    async (value: boolean) => {
-      if (isSubmittingRef.current) return;
-      try {
-        isSubmittingRef.current = true;
-        if (value && shouldChangePasswordAutoLock) {
-          await new Promise<void>((resolve, reject) => {
-            Dialog.show({
-              isAsync: true,
-              disableDrag: true,
-              dismissOnOverlayPress: true,
-              title: intl.formatMessage({
-                id: ETranslations.settings_auto_lock,
-              }),
-              contentContainerProps: { px: 0 },
-              onClose: () => reject(new Error('User cancelled')),
-              onCancel: () => reject(new Error('User cancelled')),
-              renderContent: (
-                <AutoLockUpdateDialogContent
-                  onContinue={() => resolve()}
-                  onError={(error) => reject(error)}
-                />
-              ),
-            });
-          });
-        }
-        await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
-          enabled: value,
-        });
-        if (value && keylessWallet) {
-          const walletLabel =
-            `${keylessWallet.avatarInfo?.emoji ?? ''} ${keylessWallet.name}`.trim();
-          void backgroundApiProxy.serviceApp.showToast({
-            method: 'success',
-            title: intl.formatMessage(
-              { id: ETranslations.syncing_with_wallet__msg },
-              { walletLabel },
-            ),
-          });
-        }
-      } finally {
-        isSubmittingRef.current = false;
-      }
-    },
-    [keylessWallet, intl, shouldChangePasswordAutoLock],
-  );
+  const handleToggleKeylessSync = useCallback(async (value: boolean) => {
+    if (isSubmittingRef.current) return;
+    try {
+      isSubmittingRef.current = true;
+      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
+        enabled: value,
+      });
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  }, []);
 
   // Manual sync ID (Scenario 4)
   const handleManualSyncOneKeyId = useCallback(async () => {
@@ -451,15 +487,15 @@ function AppDataSection() {
 
       {/* Scenario 1: No KW, sync off */}
       {isSyncOffNoKw ? (
-        <Stack px="$5" gap="$4" pt="$5">
-          <Stack
-            p="$2"
-            borderRadius="$full"
-            bg="$brand3"
-            alignSelf="flex-start"
-          >
-            <Icon name="CloudOutline" size="$10" color="$brand9" />
-          </Stack>
+        <Stack
+          px="$5"
+          pb="$16"
+          gap="$4"
+          flex={1}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <CloudSyncIllustration />
           <Stack gap="$2">
             <SizableText size="$headingLg">
               {intl.formatMessage({
@@ -472,8 +508,14 @@ function AppDataSection() {
               })}
             </SizableText>
           </Stack>
-          <Button variant="primary" onPress={handleCreateKeylessWallet}>
-            {intl.formatMessage({ id: ETranslations.create_keyless_wallet })}
+          <Button
+            size="large"
+            variant="primary"
+            onPress={handleCreateKeylessWallet}
+          >
+            {intl.formatMessage({
+              id: ETranslations.create_and_enable_syncing,
+            })}
           </Button>
         </Stack>
       ) : null}
@@ -509,20 +551,30 @@ function AppDataSection() {
               id: ETranslations.prime_last_update,
             })} : ${keylessLastUpdateTime}`}
           >
-            {keylessWallet ? (
-              <Stack flexDirection="row" alignItems="center" gap="$1.5">
-                <WalletAvatar wallet={keylessWallet} size="$5" />
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {keylessWallet.name}
-                </SizableText>
-              </Stack>
-            ) : null}
             <Switch
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={!!config.isCloudSyncEnabledKeyless}
             />
           </ListItem>
+          {keylessWallet ? (
+            <ListItem
+              icon="Wallet4Outline"
+              title={intl.formatMessage({
+                id: ETranslations.keyless_wallet,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.syncing_with_wallet__msg,
+              })}
+            >
+              <Stack flexDirection="row" alignItems="center" gap="$1.5">
+                <WalletAvatar wallet={keylessWallet} size="$5" />
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {keylessWallet.name}
+                </SizableText>
+              </Stack>
+            </ListItem>
+          ) : null}
           <Divider mx="$5" my="$2" />
           <ListItem
             title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
@@ -652,21 +704,24 @@ export default function PagePrimeCloudSync() {
   }, []);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
         })}
+        headerRight={() => (
+          <Button
+            variant="tertiary"
+            onPress={() => {
+              navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+            }}
+          >
+            Debug
+          </Button>
+        )}
       />
       <Page.Body>
         <AppDataSection />
-        <MultipleClickStack
-          onPress={() => {
-            navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-          }}
-        >
-          <Stack h="$32" />
-        </MultipleClickStack>
       </Page.Body>
     </Page>
   );

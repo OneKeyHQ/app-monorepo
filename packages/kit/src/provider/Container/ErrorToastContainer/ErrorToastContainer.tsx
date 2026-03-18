@@ -61,6 +61,7 @@ export function ErrorToastContainer() {
       Toast[p.method]({
         title: p.title,
         message: p.message,
+        icon: p.icon as any,
         toastId,
         actions,
         duration: p.duration,
