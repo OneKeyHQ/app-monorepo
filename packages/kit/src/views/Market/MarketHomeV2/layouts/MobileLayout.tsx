@@ -9,7 +9,13 @@ import {
 } from 'react';
 import type { RefObject } from 'react';
 
-import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
+import {
+  IconButton,
+  Tabs,
+  XStack,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
@@ -26,7 +32,6 @@ import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
-import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
@@ -56,6 +61,7 @@ interface ITabBarDynamicContext {
   watchlistFilter: IWatchlistFilterType;
   onSelectWatchlistFilter: (filter: IWatchlistFilterType) => void;
   isWatchlistEmpty: boolean;
+  onEditWatchlist: () => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -92,15 +98,25 @@ function MarketHomeTabBar({
       <Tabs.TabBar {...tabBarProps} />
       {focusedTab === watchlistTabName && !ctx.isWatchlistEmpty ? (
         <>
-          <MarketWatchlistCategorySelector
-            selectedFilter={ctx.watchlistFilter}
-            onSelectFilter={ctx.onSelectWatchlistFilter}
-            containerStyle={{
-              px: '$5',
-              pt: '$3',
-              pb: '$2',
-            }}
-          />
+          <XStack alignItems="center" pr="$3">
+            <XStack flex={1}>
+              <MarketWatchlistCategorySelector
+                selectedFilter={ctx.watchlistFilter}
+                onSelectFilter={ctx.onSelectWatchlistFilter}
+                containerStyle={{
+                  px: '$5',
+                  pt: '$3',
+                  pb: '$2',
+                }}
+              />
+            </XStack>
+            <IconButton
+              icon="PencilOutline"
+              size="small"
+              variant="tertiary"
+              onPress={ctx.onEditWatchlist}
+            />
+          </XStack>
           <YStack
             onLayout={(event: {
               nativeEvent: { layout: { y: number; height: number } };
@@ -261,6 +277,7 @@ function MobileLayoutComponent({
       watchlistFilter,
       onSelectWatchlistFilter: setWatchlistFilter,
       isWatchlistEmpty,
+      onEditWatchlist: openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -269,6 +286,7 @@ function MobileLayoutComponent({
       filterBarProps,
       watchlistFilter,
       isWatchlistEmpty,
+      openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
     ],
@@ -290,25 +308,11 @@ function MobileLayoutComponent({
         {...containerProps}
       >
         <Tabs.Tab name={watchlistTabName}>
-          {platformEnv.isNativeAndroid ? (
-            <MarketWatchlistTokenList
-              selectedFilter={watchlistFilter}
-              onSelectFilter={setWatchlistFilter}
-              toolbar={null}
-              draggable={false}
-              showTableHeader={false}
-              tabIntegrated
-              tabName={watchlistTabName}
-              listContainerProps={listContainerProps}
-              onItemLongPress={openMarketWatchlistEditDialog}
-            />
-          ) : (
-            <MobileMarketWatchlistFlatList
-              selectedFilter={watchlistFilter}
-              listContainerProps={listContainerProps}
-              topAutoScrollTriggerOffset={watchlistColumnHeaderOffsetY}
-            />
-          )}
+          <MobileMarketWatchlistFlatList
+            selectedFilter={watchlistFilter}
+            listContainerProps={listContainerProps}
+            topAutoScrollTriggerOffset={watchlistColumnHeaderOffsetY}
+          />
         </Tabs.Tab>
         <Tabs.Tab name={spotTabName}>
           <MobileMarketTokenFlatList
