@@ -8,7 +8,6 @@ import type {
   IRenderPaginationParams,
 } from '@onekeyhq/components';
 import {
-  Button,
   Divider,
   Image,
   Page,
@@ -17,7 +16,6 @@ import {
   Stack,
   Swiper,
   Theme,
-  Toast,
   XStack,
   YStack,
   useMedia,
@@ -127,13 +125,6 @@ export default function PagePrimeFeatures() {
   // const [primePersistData] = usePrimePersistAtom();
   // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
-  const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
-
-  const { result: isServerMasterPasswordSet } = usePromiseResult(() => {
-    return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet({
-      serverUserInfo,
-    });
-  }, [serverUserInfo]);
 
   useEffect(() => {
     if (selectedFeature && !showAllFeatures) {
