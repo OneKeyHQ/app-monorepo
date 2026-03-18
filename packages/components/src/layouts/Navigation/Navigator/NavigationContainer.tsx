@@ -266,10 +266,11 @@ export function resetAboveMainRoute() {
 }
 
 /**
- * Atomically remove only the ScanQrCodeModal route from the navigation state
- * via CommonActions.reset, preserving all other routes (e.g. onboarding).
- * This avoids the goBack() animated dismiss that causes RNSScreenStack
- * window=NIL and blocks Fabric commits on the underlying page.
+ * Atomically remove ScanQrCodeModal and ActionCenter (FullScreenPush) routes
+ * from the navigation state via CommonActions.reset, preserving all other
+ * routes (e.g. onboarding). This avoids the goBack() animated dismiss that
+ * causes RNSScreenStack window=NIL and blocks Fabric commits on the
+ * underlying page.
  */
 export function resetScanModalRoute() {
   const state = rootNavigationRef.current?.getRootState();
@@ -277,13 +278,18 @@ export function resetScanModalRoute() {
     return;
   }
   const filteredRoutes = state.routes.filter((route) => {
-    if (route.name !== ERootRoutes.Modal) {
-      return true;
+    // Remove ActionCenter (FullScreenPush) routes
+    if (route.name === ERootRoutes.FullScreenPush) {
+      return false;
     }
-    const screenName =
-      (route.params as { screen?: string })?.screen ||
-      route.state?.routes?.[route.state?.index || 0]?.name;
-    return screenName !== EModalRoutes.ScanQrCodeModal;
+    // Remove ScanQrCodeModal routes
+    if (route.name === ERootRoutes.Modal) {
+      const screenName =
+        (route.params as { screen?: string })?.screen ||
+        route.state?.routes?.[route.state?.index || 0]?.name;
+      return screenName !== EModalRoutes.ScanQrCodeModal;
+    }
+    return true;
   });
   if (filteredRoutes.length === state.routes.length) {
     return;
