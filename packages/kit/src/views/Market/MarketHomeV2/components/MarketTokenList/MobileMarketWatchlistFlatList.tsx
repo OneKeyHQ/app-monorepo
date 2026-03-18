@@ -862,7 +862,6 @@ function MobileMarketWatchlistFlatListImpl({
               scheduleDragEndFallback();
               return;
             }
-            gestureRef.current.consumeNextPress = false;
             clearDragTimer();
             clearMenuTimer();
             stopManualAutoScroll();
