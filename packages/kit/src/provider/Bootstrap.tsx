@@ -481,6 +481,15 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
   }
 };
 
+const useLogVersionInfo = () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void defaultLogger.setting.device.logFullVersionInfo();
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, []);
+};
+
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
 
@@ -774,6 +783,8 @@ export function Bootstrap() {
     }, 5000);
     return () => clearTimeout(timer);
   }, []);
+
+  useLogVersionInfo();
 
   // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
   useEffect(() => {
