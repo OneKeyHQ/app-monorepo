@@ -35,7 +35,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 
-type IBundleInfo = {
+export type IBundleInfo = {
   bundleVersion?: string;
   ciBundleVersion: string;
   downloadUrl: string;
@@ -49,7 +49,7 @@ type IBundleInfo = {
   buildNumber?: string;
 };
 
-function normalizeCommitHash(commitHash?: string) {
+export function normalizeCommitHash(commitHash?: string) {
   return String(commitHash || '')
     .trim()
     .toLowerCase();
@@ -61,7 +61,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function BundleItem({
+export function BundleItem({
   bundle,
   version,
   isCurrentBundle,

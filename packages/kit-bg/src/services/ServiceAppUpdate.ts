@@ -1371,6 +1371,40 @@ class ServiceAppUpdate extends ServiceBase {
       return [];
     }
   }
+
+  @backgroundMethod()
+  async devSearchBundleByCommit(commitHash: string): Promise<
+    {
+      version: string;
+      bundle: {
+        bundleVersion?: string;
+        ciBundleVersion: string;
+        downloadUrl: string;
+        sha256: string;
+        signature?: string;
+        fileSize: number;
+        commitHash?: string;
+        branch?: string;
+        prTitle?: string;
+        changeLog?: string;
+        buildNumber?: string;
+      };
+    }[]
+  > {
+    const needle = commitHash.trim().toLowerCase();
+    if (!needle) return [];
+    const versions = await this.devFetchBundleVersions();
+    const results = await Promise.all(
+      versions.map(async (v) => {
+        const bundles = await this.devFetchBundlesForVersion(v.version);
+        const match = bundles.find((b) =>
+          (b.commitHash || '').toLowerCase().startsWith(needle),
+        );
+        return match ? { version: v.version, bundle: match } : null;
+      }),
+    );
+    return results.filter((r): r is NonNullable<typeof r> => r !== null);
+  }
 }
 
 export default ServiceAppUpdate;
