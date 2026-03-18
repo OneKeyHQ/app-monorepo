@@ -1101,7 +1101,7 @@ class ServiceAppUpdate extends ServiceBase {
 
       // Rollback to builtin: no download needed — schedule a pending task
       // with targetBundleVersion="0" so the reset happens on next cold start,
-      // consistent with jsBundleRollback behaviour.
+      // consistent with jsBundleRollback behavior.
       //
       // On cold start, executeBundleSwitchTask will:
       //   1. isBundleExists("X.Y.Z", "0") → false
