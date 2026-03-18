@@ -21,13 +21,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -118,7 +115,6 @@ export default function PagePrimeFeatures() {
   const selectedFeature = route.params?.selectedFeature;
   const showAllFeatures = route.params?.showAllFeatures;
   const selectedSubscriptionPeriod = route.params?.selectedSubscriptionPeriod;
-  const serverUserInfo = route.params?.serverUserInfo;
   const intl = useIntl();
   const { gtMd } = useMedia();
 
