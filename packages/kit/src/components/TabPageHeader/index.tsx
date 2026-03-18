@@ -147,6 +147,7 @@ export function TabPageHeader({
   hideSearch = false,
   hideHeaderLeft = false,
   headerPx,
+  pageScrollPosition,
 }: ITabPageHeaderProp) {
   const media = useMedia();
 
@@ -177,6 +178,7 @@ export function TabPageHeader({
         customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
+        pageScrollPosition={pageScrollPosition}
       />
     );
   }

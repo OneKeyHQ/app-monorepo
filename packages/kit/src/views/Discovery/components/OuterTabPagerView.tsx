@@ -15,6 +15,7 @@ import type {
   PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view';
+import type { SharedValue } from 'react-native-reanimated';
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
@@ -52,6 +53,7 @@ interface IOuterTabPagerViewProps {
   marketTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
+  pageScrollPosition?: SharedValue<number>;
 }
 
 // --- Component ---
@@ -65,6 +67,7 @@ function OuterTabPagerViewComponent({
   marketTabsRef,
   earnTabsRef,
   earnBorrowPagerRef,
+  pageScrollPosition,
 }: IOuterTabPagerViewProps) {
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
   const outerPagerRef = useRef<PagerView>(null);
@@ -183,10 +186,16 @@ function OuterTabPagerViewComponent({
   // to [0,1], freezing the target page mid-animation → white flash.
   const handleOuterPageScroll = useCallback(
     (e: PagerViewOnPageScrollEvent) => {
+      const { position, offset } = e.nativeEvent;
+
+      // Always update the shared scroll position for smooth header animation
+      if (pageScrollPosition) {
+        pageScrollPosition.value = position + offset;
+      }
+
       if (!wasUserDragRef.current) {
         return;
       }
-      const { position, offset } = e.nativeEvent;
       if (offset <= 0) {
         return;
       }
@@ -202,7 +211,7 @@ function OuterTabPagerViewComponent({
       setVisiblePair([position, nextPosition]);
       markPagesVisited([position, nextPosition]);
     },
-    [markPagesVisited, setVisiblePair],
+    [markPagesVisited, pageScrollPosition, setVisiblePair],
   );
 
   // --- PagerView -> Atom sync (gesture swiping) ---
