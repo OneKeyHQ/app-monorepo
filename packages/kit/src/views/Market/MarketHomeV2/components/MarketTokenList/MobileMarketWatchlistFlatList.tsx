@@ -706,7 +706,8 @@ function MobileMarketWatchlistFlatListImpl({
                 const { width } = Dimensions.get('window');
                 handleShowContextMenu(item, latestIndex, {
                   x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
-                  y: (latest.lastPageY || pageY) -
+                  y:
+                    (latest.lastPageY || pageY) -
                     SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
                 });
                 resetGestureSession();
@@ -772,6 +773,14 @@ function MobileMarketWatchlistFlatListImpl({
             const movedDistance = Math.max(deltaX, deltaY);
             if (movedDistance > PRESS_STATIONARY_THRESHOLD_PX) {
               current.hasMoved = true;
+            }
+
+            // Android: no drag/primed state, only track position and hasMoved
+            if (platformEnv.isNativeAndroid) {
+              if (movedDistance > DRAG_MOVE_THRESHOLD_PX) {
+                clearMenuTimer();
+              }
+              return;
             }
 
             if (!current.firstLevelTriggered) {
