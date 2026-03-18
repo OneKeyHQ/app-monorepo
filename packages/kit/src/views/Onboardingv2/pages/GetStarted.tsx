@@ -49,6 +49,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
@@ -390,34 +391,12 @@ function GetStarted() {
     }
   }, [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider]);
 
-  const autoTriggeredProviderRef = useRef<
-    EOAuthSocialLoginProvider | undefined
-  >(undefined);
-
-  useEffect(() => {
-    if (
-      !isKeylessWalletEnabled ||
-      enableKeylessWalletLoading ||
-      !autoLoginKeylessProvider ||
-      autoTriggeredProviderRef.current === autoLoginKeylessProvider
-    ) {
-      return;
-    }
-    autoTriggeredProviderRef.current = autoLoginKeylessProvider;
-    if (autoLoginKeylessProvider === EOAuthSocialLoginProvider.Google) {
-      void handleGoogleLogin();
-      return;
-    }
-    if (autoLoginKeylessProvider === EOAuthSocialLoginProvider.Apple) {
-      void handleAppleLogin();
-    }
-  }, [
-    autoLoginKeylessProvider,
-    enableKeylessWalletLoading,
-    handleAppleLogin,
-    handleGoogleLogin,
-    isKeylessWalletEnabled,
-  ]);
+  useAutoStartKeylessProvider({
+    autoStartProvider: autoLoginKeylessProvider,
+    enabled: isKeylessWalletEnabled && !enableKeylessWalletLoading,
+    onGoogleLogin: handleGoogleLogin,
+    onAppleLogin: handleAppleLogin,
+  });
 
   // Cache theme values to avoid multiple useThemeValue calls during render
   const theme = useTheme();

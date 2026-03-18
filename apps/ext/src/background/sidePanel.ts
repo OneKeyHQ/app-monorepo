@@ -1,5 +1,6 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { ONBOARDING_FROM_EXT_PARAM } from '@onekeyhq/shared/src/consts/onboardingConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -10,18 +11,19 @@ import {
   isKeylessWebAutoConnectOriginAllowed,
   isKeylessWebOpenSidePanelMessage,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EOnboardingV2Routes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
-  EOnboardingV2OneKeyIDLoginMode,
+  type IOnboardingAutoConnectOrigin,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 const SIDE_PANEL_PORT_NAME = 'ONEKEY_SIDE_PANEL';
 
-let pendingKeylessProviderForOpenSidePanel:
-  | EOAuthSocialLoginProvider
+let pendingKeylessGetStartedParams:
+  | ReturnType<typeof buildKeylessGetStartedParams>
   | undefined;
 
 type IBackgroundApiProxy =
@@ -36,35 +38,76 @@ function getBackgroundApiProxy(): IBackgroundApiProxy {
   return backgroundApiProxyModule.default;
 }
 
-function pushKeylessLoginModalToSidePanel(provider: EOAuthSocialLoginProvider) {
-  appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
+function buildKeylessGetStartedParams({
+  senderUrl,
+  provider,
+  nonce,
+}: {
+  senderUrl: string | undefined;
+  provider: EOAuthSocialLoginProvider;
+  nonce?: string;
+}) {
+  let autoConnectOrigin: IOnboardingAutoConnectOrigin | undefined;
+
+  if (senderUrl) {
+    try {
+      autoConnectOrigin = new URL(senderUrl).origin;
+    } catch {
+      autoConnectOrigin = undefined;
+    }
+  }
+
+  return {
+    ...ONBOARDING_FROM_EXT_PARAM,
+    autoConnectOrigin,
+    autoLoginKeylessProvider: provider,
+    autoConnectNonce: nonce,
+  } as const;
+}
+
+function buildKeylessGetStartedModalMessage(
+  params: ReturnType<typeof buildKeylessGetStartedParams>,
+) {
+  return {
     type: 'pushModal',
     payload: {
       modalParams: {
-        screen: EModalRoutes.OnboardingModal,
+        screen: ERootRoutes.Onboarding,
         params: {
-          screen: EOnboardingPagesV2.OneKeyIDLogin,
+          screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
-            provider,
+            screen: EOnboardingPagesV2.GetStarted,
+            params,
           },
         },
       },
     },
-  });
+  } as const;
+}
+
+function pushKeylessGetStartedToSidePanel(
+  params: ReturnType<typeof buildKeylessGetStartedParams>,
+) {
+  appEventBus.emit(
+    EAppEventBusNames.SidePanel_BgToUI,
+    buildKeylessGetStartedModalMessage(params),
+  );
 }
 
 async function openKeylessSidePanelByUserGesture({
   sender,
-  provider,
+  payload,
 }: {
   sender: chrome.runtime.MessageSender;
-  provider?: EOAuthSocialLoginProvider;
+  payload?: {
+    provider?: EOAuthSocialLoginProvider;
+    nonce?: string;
+  };
 }) {
   if (!chrome.sidePanel?.open) {
     throw new OneKeyLocalError('side panel api is unavailable');
   }
-  if (!provider) {
+  if (!payload?.provider) {
     throw new OneKeyLocalError('provider is required');
   }
   if (!isKeylessWebAutoConnectOriginAllowed(sender.url)) {
@@ -77,8 +120,14 @@ async function openKeylessSidePanelByUserGesture({
     throw new OneKeyLocalError('sender tab info is invalid');
   }
 
+  const getStartedParams = buildKeylessGetStartedParams({
+    senderUrl: sender.url,
+    provider: payload.provider,
+    nonce: payload.nonce,
+  });
+
   if (sidePanelState.isOpen) {
-    pushKeylessLoginModalToSidePanel(provider);
+    pushKeylessGetStartedToSidePanel(getStartedParams);
     return {
       success: true,
       tabId,
@@ -87,7 +136,7 @@ async function openKeylessSidePanelByUserGesture({
     };
   }
 
-  pendingKeylessProviderForOpenSidePanel = provider;
+  pendingKeylessGetStartedParams = getStartedParams;
   try {
     const sidePanelPath = chrome.runtime.getURL('/ui-side-panel.html');
     await chrome.sidePanel.setOptions({
@@ -99,7 +148,7 @@ async function openKeylessSidePanelByUserGesture({
       windowId,
     });
   } catch (error) {
-    pendingKeylessProviderForOpenSidePanel = undefined;
+    pendingKeylessGetStartedParams = undefined;
     throw error;
   }
   return {
@@ -112,10 +161,13 @@ async function openKeylessSidePanelByUserGesture({
 
 async function tryImmediateOpenSidePanelOnMessage({
   sender,
-  provider,
+  payload,
 }: {
   sender: chrome.runtime.MessageSender;
-  provider?: EOAuthSocialLoginProvider;
+  payload?: {
+    provider?: EOAuthSocialLoginProvider;
+    nonce?: string;
+  };
 }): Promise<
   | {
       success: true;
@@ -129,10 +181,11 @@ async function tryImmediateOpenSidePanelOnMessage({
   const windowId = sender.tab?.windowId;
 
   if (
+    sidePanelState.isOpen ||
     !chrome.sidePanel?.open ||
     typeof tabId !== 'number' ||
     typeof windowId !== 'number' ||
-    !provider
+    !payload?.provider
   ) {
     return undefined;
   }
@@ -141,7 +194,13 @@ async function tryImmediateOpenSidePanelOnMessage({
     return undefined;
   }
 
-  pendingKeylessProviderForOpenSidePanel = provider;
+  const getStartedParams = buildKeylessGetStartedParams({
+    senderUrl: sender.url,
+    provider: payload.provider,
+    nonce: payload.nonce,
+  });
+
+  pendingKeylessGetStartedParams = getStartedParams;
 
   const attemptList: Array<
     | { mode: 'windowId'; payload: { windowId: number } }
@@ -181,7 +240,7 @@ async function tryImmediateOpenSidePanelOnMessage({
     }
   }
 
-  pendingKeylessProviderForOpenSidePanel = undefined;
+  pendingKeylessGetStartedParams = undefined;
   return undefined;
 }
 
@@ -196,23 +255,11 @@ export const setupSidePanelPortInBg = () => {
       }, 6000);
 
       sidePanelState.isOpen = true;
-      if (pendingKeylessProviderForOpenSidePanel) {
-        port.postMessage({
-          type: 'pushModal',
-          payload: {
-            modalParams: {
-              screen: EModalRoutes.OnboardingModal,
-              params: {
-                screen: EOnboardingPagesV2.OneKeyIDLogin,
-                params: {
-                  mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
-                  provider: pendingKeylessProviderForOpenSidePanel,
-                },
-              },
-            },
-          },
-        });
-        pendingKeylessProviderForOpenSidePanel = undefined;
+      if (pendingKeylessGetStartedParams) {
+        port.postMessage(
+          buildKeylessGetStartedModalMessage(pendingKeylessGetStartedParams),
+        );
+        pendingKeylessGetStartedParams = undefined;
       }
 
       let dappRejectId: string | number | undefined;
@@ -263,14 +310,14 @@ export const setupSidePanelPortInBg = () => {
       void (async () => {
         const immediateResult = await tryImmediateOpenSidePanelOnMessage({
           sender,
-          provider: message.payload?.provider,
+          payload: message.payload,
         });
         if (immediateResult) {
           return immediateResult;
         }
         return openKeylessSidePanelByUserGesture({
           sender,
-          provider: message.payload?.provider,
+          payload: message.payload,
         });
       })()
         .then((result) => sendResponse(result))
@@ -299,7 +346,23 @@ export const setupSidePanelPortInUI = () => {
         case 'pushModal':
           {
             const { screen, params } = payload.modalParams;
-            appGlobals.$navigationRef.current?.navigate(screen, params);
+            void (async () => {
+              await waitForDataLoaded({
+                data: () => appGlobals.$rootAppNavigation,
+                logName: 'side_panel_wait_root_app_navigation',
+                wait: 100,
+                timeout: 10_000,
+              });
+
+              if (screen === ERootRoutes.Onboarding) {
+                appGlobals.$rootAppNavigation?.navigate(screen, params);
+                return;
+              }
+
+              appGlobals.$rootAppNavigation?.pushModal(screen, params);
+            })().catch(() => {
+              appGlobals.$navigationRef.current?.navigate(screen, params);
+            });
           }
           break;
         default:
