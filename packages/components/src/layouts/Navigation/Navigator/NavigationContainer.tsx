@@ -236,19 +236,38 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
   }
 };
 
-export const popToMainRoute = async (maxRetryTimes = 99) => {
-  if (maxRetryTimes <= 0) {
+/**
+ * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
+ * using CommonActions.reset. No transition animation, but avoids the native
+ * UITabBarController window-nil race condition where RNSScreenStack retries
+ * exhaust when goBack() is called on a stack inside a detached tab view.
+ *
+ * Prefer this over sequential goBack() calls when you need to dismiss multiple
+ * overlay routes and the intermediate animation is not important.
+ */
+export function resetAboveMainRoute() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
     return;
   }
-  const rootState = rootNavigationRef.current?.getRootState();
-  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
     return;
   }
-  if (rootNavigationRef.current?.canGoBack()) {
-    rootNavigationRef.current?.goBack?.();
-  }
-  await timerUtils.wait(150);
-  await popToMainRoute(maxRetryTimes - 1);
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+}
+
+export const popToMainRoute = async () => {
+  resetAboveMainRoute();
+  await timerUtils.wait(100);
 };
 
 function isScanModalCurrentRoute(): boolean {
@@ -330,15 +349,17 @@ export const popActionCenterPages = async (maxRetryTimes = 99) => {
 };
 
 /**
- * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
- * using CommonActions.reset. No transition animation, but avoids the native
- * UITabBarController window-nil race condition where RNSScreenStack retries
- * exhaust when goBack() is called on a stack inside a detached tab view.
+ * Atomically replace all overlay routes with a target route in a single
+ * CommonActions.reset dispatch. This avoids the race condition where
+ * resetAboveMainRoute() triggers a native modal dismiss animation, and a
+ * subsequent navigate() gets popped when the dismiss completes.
  *
- * Prefer this over sequential goBack() calls when you need to dismiss multiple
- * overlay routes and the intermediate animation is not important.
+ * State transition: [Main, Modal, ...] → [Main, targetRoute]
  */
-export const resetAboveMainRoute = () => {
+export const resetToRoute = (
+  routeName: string,
+  params?: Record<string, unknown>,
+) => {
   const state = rootNavigationRef.current?.getRootState();
   if (!state) {
     return;
@@ -346,14 +367,15 @@ export const resetAboveMainRoute = () => {
   const mainRoutes = state.routes.filter(
     (route) => route.name === ERootRoutes.Main,
   );
-  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
+  if (mainRoutes.length === 0) {
     return;
   }
+  const targetRoute = { name: routeName, params };
   rootNavigationRef.current?.dispatch(
     CommonActions.reset({
       ...state,
-      routes: mainRoutes,
-      index: mainRoutes.length - 1,
+      routes: [...mainRoutes, targetRoute],
+      index: mainRoutes.length,
     }),
   );
 };

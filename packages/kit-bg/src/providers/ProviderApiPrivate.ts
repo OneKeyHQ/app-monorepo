@@ -22,7 +22,10 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
-import type { IRookieGuideInfo } from '@onekeyhq/shared/types/rookieGuide';
+import type {
+  IRookieGuideInfo,
+  IRookieShareData,
+} from '@onekeyhq/shared/types/rookieGuide';
 
 import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
@@ -599,6 +602,36 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async wallet_resetRookieGuideProgress(): Promise<{ success: boolean }> {
     await this.backgroundApi.serviceRookieGuide.resetProgress();
+    return { success: true };
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_showRookieShare',
+      params: {
+        data: {
+          imageUrl: 'https://example.com/badge.png',
+          title: 'How to deposit? Your first step on-chain',
+          subtitle: 'Every step brings you closer to Web3',
+          footerText: 'Open source and easy to use from day one.',
+          referralCode: 'ABC123',
+          referralUrl: 'https://web.onekey.so/learning?ref=ABC123',
+        }
+      }
+    });
+  */
+  @providerApiMethod()
+  async wallet_showRookieShare(
+    request: IJsBridgeMessagePayload,
+    params: { data: IRookieShareData },
+  ): Promise<{ success: boolean }> {
+    const data = params?.data;
+    if (!data?.imageUrl || !data?.title) {
+      throw new OneKeyLocalError(
+        'Invalid share data: imageUrl and title are required',
+      );
+    }
+    appEventBus.emit(EAppEventBusNames.ShowRookieShare, { data });
     return { success: true };
   }
 }

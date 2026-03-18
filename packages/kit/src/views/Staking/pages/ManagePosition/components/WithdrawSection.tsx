@@ -479,6 +479,7 @@ export const WithdrawSection = ({
     async ({
       amount,
       withdrawAll,
+      effectiveApy,
       useEthenaCooldown,
       resumeEthenaCooldownUnstake,
       onStepChange,
@@ -486,6 +487,7 @@ export const WithdrawSection = ({
     }: {
       amount: string;
       withdrawAll: boolean;
+      effectiveApy?: string | number;
       useEthenaCooldown?: boolean;
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
@@ -514,6 +516,7 @@ export const WithdrawSection = ({
           : (tokenInfo?.token?.address ?? ''),
         outputTokenAddress: selectedReceiveTokenAddress,
         slippage: pendleSlippage,
+        effectiveApy,
         useEthenaCooldown,
         resumeEthenaCooldownUnstake,
         onStepChange,

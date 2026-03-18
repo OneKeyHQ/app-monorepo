@@ -5,6 +5,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { navigateToNotificationDetailByLocalParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
@@ -129,6 +133,10 @@ function BaseNotificationHandlerContainer() {
       const isPerpNavigation =
         payloadObj.screen === 'main' &&
         payloadObj.params?.screen === ETabRoutes.Perp;
+
+      if (isPerpNavigation) {
+        setPerpPageEnterSource(EPerpPageEnterSource.Notification);
+      }
 
       const perpToken = isPerpNavigation
         ? (payloadObj.params?.params as { token?: string } | undefined)

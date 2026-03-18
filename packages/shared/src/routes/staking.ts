@@ -1,6 +1,10 @@
 import type { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
 
 import type {
+  EAvailableAssetsTypeEnum,
+  IEarnAvailableAsset,
+} from '../../types/earn';
+import type {
   IBorrowAsset,
   IEarnAlert,
   IEarnTokenInfo,
@@ -29,6 +33,7 @@ export enum EModalStakingRoutes {
   BorrowHistoryList = 'BorrowHistoryList',
   EarnTokenSelect = 'EarnTokenSelect',
   QuickDeposit = 'QuickDeposit',
+  EarnAssetSearch = 'EarnAssetSearch',
 }
 
 type IBaseRouteParams = {
@@ -165,5 +170,15 @@ export type IModalStakingParamList = {
     vault?: string;
     tokenImageUri?: string;
     protocols: Array<{ networkId: string; provider: string; vault: string }>;
+  };
+  [EModalStakingRoutes.EarnAssetSearch]: {
+    availableAssetsByType: Partial<
+      Record<EAvailableAssetsTypeEnum, IEarnAvailableAsset[]>
+    >;
+    initialCategoryType?: EAvailableAssetsTypeEnum;
+    onAssetSelect?: (
+      asset: IEarnAvailableAsset,
+      categoryType: EAvailableAssetsTypeEnum,
+    ) => void;
   };
 };

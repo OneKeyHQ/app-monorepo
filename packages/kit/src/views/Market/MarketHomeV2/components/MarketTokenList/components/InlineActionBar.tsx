@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 import { Icon, Stack, XStack } from '@onekeyhq/components';
 
@@ -12,13 +12,25 @@ type IInlineActionBarProps = {
   onMoveToTop: () => void;
   onToggleWatchlist: () => void;
   onDismiss: () => void;
+  anchor?: {
+    x: number;
+    y: number;
+  };
 };
+
+const ACTION_BAR_WIDTH = 94;
+const ACTION_BAR_HEIGHT = 44;
+const ACTION_BAR_SAFE_MARGIN = 16;
+const ACTION_BAR_ANCHOR_GAP = 8;
+const ACTION_BAR_BG = '#6B6C6F';
+const ACTION_BAR_DIVIDER = 'rgba(255,255,255,0.18)';
 
 function InlineActionBar({
   isFirstItem,
   onMoveToTop,
   onToggleWatchlist,
   onDismiss,
+  anchor,
 }: IInlineActionBarProps) {
   // Delay showing the action bar so it doesn't appear while the finger
   // is still on screen after a long-press / drag gesture
@@ -54,6 +66,25 @@ function InlineActionBar({
     onToggleWatchlist();
   }, [onToggleWatchlist]);
 
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  // Place action bar above anchor point (anchor as bottom-center)
+  const top = Math.max(
+    ACTION_BAR_SAFE_MARGIN,
+    Math.min(
+      (anchor?.y ?? screenHeight * 0.45) -
+        ACTION_BAR_HEIGHT -
+        ACTION_BAR_ANCHOR_GAP,
+      screenHeight - ACTION_BAR_SAFE_MARGIN - ACTION_BAR_HEIGHT,
+    ),
+  );
+  const left = Math.max(
+    ACTION_BAR_SAFE_MARGIN,
+    Math.min(
+      (anchor?.x ?? screenWidth / 2) - ACTION_BAR_WIDTH / 2,
+      screenWidth - ACTION_BAR_SAFE_MARGIN - ACTION_BAR_WIDTH,
+    ),
+  );
+
   return (
     <Stack
       position="absolute"
@@ -64,23 +95,23 @@ function InlineActionBar({
       zIndex={9999}
       onPress={handleBackdropPress}
     >
-      {/* Centered action bar */}
+      {/* Floating action bar */}
       <XStack
         position="absolute"
-        alignSelf="center"
-        top="45%"
-        width={84}
-        height={42}
-        borderRadius="$2"
+        top={top}
+        left={left}
+        width={ACTION_BAR_WIDTH}
+        height={ACTION_BAR_HEIGHT}
+        borderRadius={12}
         alignItems="center"
         justifyContent="center"
         opacity={isVisible ? 1 : 0}
-        style={{ backgroundColor: 'rgba(0,0,0,0.27)' }}
+        style={{ backgroundColor: ACTION_BAR_BG }}
       >
         {/* Move to top button */}
         <Stack
-          width={42}
-          height={42}
+          width={46}
+          height={44}
           alignItems="center"
           justifyContent="center"
           opacity={isFirstItem ? 0.3 : 1}
@@ -94,17 +125,17 @@ function InlineActionBar({
 
         {/* Divider */}
         <Stack
-          height={20}
+          height={24}
           style={{
             width: StyleSheet.hairlineWidth,
-            backgroundColor: 'rgba(255,255,255,0.3)',
+            backgroundColor: ACTION_BAR_DIVIDER,
           }}
         />
 
         {/* Toggle watchlist button */}
         <Stack
-          width={42}
-          height={42}
+          width={46}
+          height={44}
           alignItems="center"
           justifyContent="center"
           onPress={(e) => {
@@ -112,7 +143,12 @@ function InlineActionBar({
             handleToggleWatchlist();
           }}
         >
-          <Icon name="StarSolid" size="$5" color="$iconCaution" />
+          <Icon
+            name="StarSolid"
+            size="$5"
+            color="$yellow9"
+            style={{ color: '#F8E71C' }}
+          />
         </Stack>
       </XStack>
     </Stack>

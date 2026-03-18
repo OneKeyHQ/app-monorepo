@@ -136,7 +136,10 @@ export type IDBWalletNextIdKeys =
 export type IDBWalletNextIds = Partial<Record<IDBWalletNextIdKeys, number>>;
 export type IKeylessWalletDetailsInfo = {
   keylessOwnerId: string;
+  // Because there was a bug in the earlier version of the program, if a user logged in with the same email address using both Google and Apple, the Keyless Providers field would become permanently fixed to the first provider used.
+  // This means that for some of our older users, this specific field might be inaccurate, as it never updated during subsequent logins.
   keylessProvider: EOAuthSocialLoginProvider;
+  avatarProvider?: EOAuthSocialLoginProvider;
   socialUserIdHash: string;
 };
 export type IDBWallet = IDBBaseObjectWithName & {

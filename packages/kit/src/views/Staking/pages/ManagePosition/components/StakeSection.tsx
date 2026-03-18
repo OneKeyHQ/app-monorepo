@@ -413,6 +413,7 @@ export const StakeSection = ({
       permitSignature,
       unsignedMessage,
       message,
+      effectiveApy,
       validatorPubkey,
     }: IApproveConfirmFnParams) => {
       if (!hasRequiredData) return;
@@ -432,6 +433,7 @@ export const StakeSection = ({
         inputTokenAddress: selectedStakeTokenAddress,
         outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
         slippage: pendleSlippage,
+        effectiveApy,
         stakingInfo: {
           label: isPendleProvider ? EEarnLabels.Buy : EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({

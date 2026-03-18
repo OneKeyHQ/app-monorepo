@@ -78,37 +78,40 @@ export type ITokenSelectorListItem = {
   assetId?: number;
 };
 
-const TabItem = memo(function TabItem({
-  id,
-  name,
-  isFocused,
-  onPress,
-}: {
-  id: string;
-  name: string;
-  isFocused: boolean;
-  onPress: (id: string) => void;
-}) {
-  const handlePress = useCallback(() => onPress(id), [id, onPress]);
-  return (
-    <XStack
-      py="$3"
-      ml="$4"
-      mr="$2"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
-      onPress={handlePress}
-      cursor="default"
-    >
-      <SizableText
-        size="$headingXs"
-        color={isFocused ? '$text' : '$textSubdued'}
+const TabItem = memo(
+  ({
+    id,
+    name,
+    isFocused,
+    onPress,
+  }: {
+    id: string;
+    name: string;
+    isFocused: boolean;
+    onPress: (id: string) => void;
+  }) => {
+    const handlePress = useCallback(() => onPress(id), [id, onPress]);
+    return (
+      <XStack
+        py="$3"
+        ml="$4"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={handlePress}
+        cursor="default"
       >
-        {name}
-      </SizableText>
-    </XStack>
-  );
-});
+        <SizableText
+          size="$headingXs"
+          color={isFocused ? '$text' : '$textSubdued'}
+        >
+          {name}
+        </SizableText>
+      </XStack>
+    );
+  },
+);
+TabItem.displayName = 'TabItem';
 
 function TokenListHeader() {
   const intl = useIntl();
@@ -210,7 +213,6 @@ function BasePerpTokenSelectorContent({
             }) as any,
         );
       });
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     },
     [setSelectorConfig],
   );
@@ -232,7 +234,7 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
-  const { favoriteItems } = usePerpsFavorites();
+  const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
 
   // Freeze sort order while popover is open; refreshed on sort change or first data arrival.
   const ctxSnapshotRef = useRef(assetCtxsByDex);
@@ -448,7 +450,10 @@ function BasePerpTokenSelectorContent({
   );
 
   const showFavoritesEmpty =
-    activeTab === 'favorites' && activeTabData.length === 0 && !searchQuery;
+    activeTab === 'favorites' &&
+    activeTabData.length === 0 &&
+    !searchQuery &&
+    isFavoritesReady;
 
   const listEmptyComponent = useMemo(
     () =>
@@ -524,6 +529,7 @@ function BasePerpTokenSelectorContent({
               <FavoritesEmptyState />
             ) : (
               <ListView
+                key={activeTab}
                 useFlashList
                 ref={listRef}
                 keyExtractor={keyExtractor}

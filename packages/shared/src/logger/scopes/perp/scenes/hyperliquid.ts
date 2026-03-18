@@ -35,6 +35,15 @@ export interface IHyperLiquidLogParams<
   extra?: Record<string, unknown>;
 }
 
+function stripSensitiveFields<TRequest, TResponse>(
+  params: IHyperLiquidLogParams<TRequest, TResponse>,
+) {
+  const { accountAddress, exchangeAccountAddress, ...rest } = params;
+  void accountAddress;
+  void exchangeAccountAddress;
+  return rest;
+}
+
 export interface IHyperLiquidOrderRequestPayload {
   orders: IOrderParams[];
   grouping: IOrderRequest['grouping'];
@@ -52,7 +61,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -62,7 +71,7 @@ export class HyperLiquidScene extends BaseScene {
       { success: true } | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -72,7 +81,7 @@ export class HyperLiquidScene extends BaseScene {
       ISuccessResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -82,7 +91,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -92,7 +101,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -102,7 +111,7 @@ export class HyperLiquidScene extends BaseScene {
       IApiRequestResult | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -112,7 +121,7 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -122,7 +131,7 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -132,7 +141,7 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -142,7 +151,7 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -152,7 +161,7 @@ export class HyperLiquidScene extends BaseScene {
       IOrderResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -172,7 +181,7 @@ export class HyperLiquidScene extends BaseScene {
       ICancelResponse | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   @LogToServer()
@@ -182,7 +191,7 @@ export class HyperLiquidScene extends BaseScene {
       { success: true } | IApiErrorResponse
     >,
   ) {
-    return params;
+    return stripSensitiveFields(params);
   }
 
   // ============ Referral Binding Flow Logs ============
@@ -197,7 +206,9 @@ export class HyperLiquidScene extends BaseScene {
     isChecked: boolean;
     action: 'shown' | 'checked' | 'unchecked';
   }) {
-    return params;
+    const { userAddress, ...rest } = params;
+    void userAddress;
+    return rest;
   }
 
   /**
@@ -229,7 +240,9 @@ export class HyperLiquidScene extends BaseScene {
     referralCode: string;
     errorMessage?: string;
   }) {
-    return params;
+    const { userAddress, ...rest } = params;
+    void userAddress;
+    return rest;
   }
 
   /**

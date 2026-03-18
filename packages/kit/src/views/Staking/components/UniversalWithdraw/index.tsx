@@ -44,7 +44,6 @@ import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
   IEarnText,
-  IEarnTextTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -68,6 +67,7 @@ import {
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
@@ -120,6 +120,7 @@ type IUniversalWithdrawProps = {
     withdrawAll,
     signature,
     message,
+    effectiveApy,
     useEthenaCooldown,
     resumeEthenaCooldownUnstake,
     onStepChange,
@@ -130,6 +131,7 @@ type IUniversalWithdrawProps = {
     // Stakefish: signature and message for withdraw all
     signature?: string;
     message?: string;
+    effectiveApy?: string | number;
     // Pendle: Ethena cooldown path vs instant swap
     useEthenaCooldown?: boolean;
     resumeEthenaCooldownUnstake?: boolean;
@@ -684,6 +686,7 @@ export function UniversalWithdraw({
         withdrawAll: withdrawAllRef.current,
         signature: withdrawSignatureRef.current,
         message: withdrawMessageRef.current,
+        effectiveApy: transactionConfirmation?.effectiveApy,
         useEthenaCooldown: shouldUseEthenaCooldown ? true : undefined,
         resumeEthenaCooldownUnstake: shouldResumeEthenaCooldownUnstake
           ? true
@@ -737,6 +740,7 @@ export function UniversalWithdraw({
     symbol,
     price,
     receiveInputConfig,
+    transactionConfirmation?.effectiveApy,
     transactionConfirmation?.receive,
     pendingEthenaCooldownUnstake,
   ]);
@@ -1363,30 +1367,9 @@ export function UniversalWithdraw({
                   size="$bodyMd"
                 />
                 {transactionConfirmation?.tooltip ? (
-                  <Popover
-                    placement="top"
-                    title={transactionConfirmation?.title?.text ?? ''}
-                    renderTrigger={
-                      <IconButton
-                        iconColor="$iconSubdued"
-                        size="small"
-                        icon="InfoCircleOutline"
-                        variant="tertiary"
-                      />
-                    }
-                    renderContent={
-                      <Stack p="$5">
-                        <EarnText
-                          text={
-                            transactionConfirmation?.tooltip?.type === 'text'
-                              ? transactionConfirmation.tooltip?.data
-                                  ?.description
-                              : undefined
-                          }
-                          size="$bodyMd"
-                        />
-                      </Stack>
-                    }
+                  <EarnTooltip
+                    title={transactionConfirmation?.title?.text}
+                    tooltip={transactionConfirmation?.tooltip}
                   />
                 ) : null}
               </XStack>
@@ -1420,14 +1403,9 @@ export function UniversalWithdraw({
                           flexShrink={1}
                         />
                         {hasTooltip ? (
-                          <Popover.Tooltip
-                            iconSize="$5"
+                          <EarnTooltip
                             title={reward.title.text}
-                            tooltip={
-                              (reward.tooltip as IEarnTextTooltip)?.data
-                                ?.description?.text
-                            }
-                            placement="top"
+                            tooltip={reward.tooltip}
                           />
                         ) : null}
                       </XStack>

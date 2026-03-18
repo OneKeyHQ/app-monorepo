@@ -5,9 +5,10 @@ import { useRoute } from '@react-navigation/core';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import type { IInputRef, ITextAreaInputProps } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   Button,
   HeightTransition,
@@ -16,11 +17,14 @@ import {
   Portal,
   SegmentControl,
   SizableText,
+  Stack,
   TextAreaInput,
   XStack,
   YStack,
+  useKeyboardEvent,
   useMedia,
   useReanimatedKeyboardAnimation,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -58,9 +62,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   const handleSelectionChange = useCallback(
     (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
-      const selection = e.nativeEvent.selection;
-      console.log('handleSelectionChange', selection);
-      selectionRef.current = selection;
+      selectionRef.current = e.nativeEvent.selection;
     },
     [],
   );
@@ -74,6 +76,9 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   const updatePrivateKey = useCallback(
     (text: string) => {
+      // Update ref immediately so subsequent onChangeText calls
+      // (before re-render) see the latest value
+      privateKeyRef.current = text;
       setPrivateKey(text);
       onChangeText?.(text);
     },
@@ -83,6 +88,13 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const handleChangeText = useCallback(
     (text: string) => {
       if (encrypted) {
+        // Bulk replacement (scan / paste via addon): the text contains no '•'
+        // characters, so it was injected programmatically rather than typed.
+        if (!text.includes('•')) {
+          updatePrivateKey(text);
+          return;
+        }
+
         // Find non-asterisk characters in text and merge with actual privateKey
         const selection = selectionRef.current;
         let newPrivateKey = privateKeyRef.current;
@@ -120,12 +132,8 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
             privateKeyRef.current.slice(0, selectionStart) +
             privateKeyRef.current.slice(selectionStart + removedCount);
         } else {
-          // Text was replaced - replace characters at selection position
-          const replacedText = text.slice(selection.start, selection.end);
-          newPrivateKey =
-            privateKeyRef.current.slice(0, selection.start) +
-            replacedText +
-            privateKeyRef.current.slice(selection.end);
+          // Same length - no change needed
+          return;
         }
 
         updatePrivateKey(newPrivateKey);
@@ -136,16 +144,26 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
     [encrypted, updatePrivateKey],
   );
 
+  // Custom eye toggle addon - avoids native secureTextEntry which conflicts
+  // with manual '•' masking on multiline TextArea inputs
+  const eyeToggleAddOn = useMemo(
+    () => [
+      {
+        iconName: (encrypted ? 'EyeOffOutline' : 'EyeOutline') as IKeyOfIcons,
+        onPress: () => setEncrypted((v) => !v),
+      },
+    ],
+    [encrypted],
+  );
+
   return (
     <TextAreaInput
       ref={inputRef as RefObject<TextInput>}
       allowPaste
-      // allowClear
       allowScan
-      allowSecureTextEye // TextAreaInput not support allowSecureTextEye
+      addOns={eyeToggleAddOn}
       onSelectionChange={handleSelectionChange}
       clearClipboardOnPaste
-      onSecureTextEntryChange={setEncrypted}
       startScanQrCode={startScanQrCode}
       size="large"
       numberOfLines={5}
@@ -223,6 +241,26 @@ export default function ImportPhraseOrPrivateKey() {
   };
 
   const { height } = useReanimatedKeyboardAnimation();
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(
+    selected === EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
+  );
+  useKeyboardEvent({
+    keyboardWillShow: () => setIsKeyboardVisible(true),
+    keyboardWillHide: () => setIsKeyboardVisible(false),
+  });
+
+  // The root layout adds pb: safeAreaBottom + 10 which creates a gap below
+  // the footer when keyboard is up. Compensate by translating down half that
+  // distance so the footer content is vertically centered.
+  const rootBottomPadding = safeAreaBottom + 10;
+  const footerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: height.value < 0 ? height.value + rootBottomPadding / 2 : 0,
+      },
+    ],
+  }));
 
   const renderHardwarePhrasesWarningTag = useCallback(
     (chunks: ReactNode[]) => (
@@ -255,7 +293,7 @@ export default function ImportPhraseOrPrivateKey() {
             id: ETranslations.import_phrase_or_private_key,
           })}
         />
-        <OnboardingLayout.Body constrained={false} bottomOffset={150}>
+        <OnboardingLayout.Body constrained={false} bottomOffset={200}>
           <OnboardingLayout.ConstrainedContent gap="$5">
             <SegmentControl
               value={selected}
@@ -343,39 +381,64 @@ export default function ImportPhraseOrPrivateKey() {
         </OnboardingLayout.Body>
         {!gtMd ? (
           <OnboardingLayout.Footer>
-            <YStack>
-              <Animated.View style={{ transform: [{ translateY: height }] }}>
-                <YStack>
-                  <XStack
-                    bg="$bgApp"
-                    alignItems="center"
-                    justifyContent="center"
-                    pt="$5"
-                  >
-                    <YStack w="100%">
-                      {platformEnv.isNative ? (
-                        <XStack onPress={noop}>
-                          <Portal.Container
-                            name={Portal.Constant.SUGGESTION_LIST}
-                          />
-                        </XStack>
-                      ) : null}
-                      <Button
-                        size="large"
-                        variant="primary"
-                        onPress={handleConfirm}
-                        loading={isConfirming}
-                        w="100%"
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_confirm,
-                        })}
-                      </Button>
-                    </YStack>
-                  </XStack>
-                </YStack>
-              </Animated.View>
-            </YStack>
+            {platformEnv.isNative ? (
+              <YStack>
+                <Animated.View style={footerAnimatedStyle}>
+                  <YStack>
+                    {isKeyboardVisible ? (
+                      <Stack
+                        mx="$-5"
+                        borderTopWidth={StyleSheet.hairlineWidth}
+                        borderColor="$borderSubdued"
+                      />
+                    ) : null}
+                    <XStack
+                      bg="$bgApp"
+                      alignItems="center"
+                      justifyContent="center"
+                      pt="$3"
+                      pb={500}
+                      mb={-500}
+                    >
+                      <YStack w="100%" gap="$3">
+                        <HeightTransition>
+                          <XStack onPress={noop}>
+                            <Portal.Container
+                              name={Portal.Constant.SUGGESTION_LIST}
+                            />
+                          </XStack>
+                        </HeightTransition>
+                        <Button
+                          size="large"
+                          variant="primary"
+                          onPress={handleConfirm}
+                          loading={isConfirming}
+                          w="100%"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.global_confirm,
+                          })}
+                        </Button>
+                      </YStack>
+                    </XStack>
+                  </YStack>
+                </Animated.View>
+              </YStack>
+            ) : (
+              <YStack w="100%" pb="$5">
+                <Button
+                  size="large"
+                  variant="primary"
+                  onPress={handleConfirm}
+                  loading={isConfirming}
+                  w="100%"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_confirm,
+                  })}
+                </Button>
+              </YStack>
+            )}
           </OnboardingLayout.Footer>
         ) : null}
       </OnboardingLayout>

@@ -22,11 +22,11 @@ import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
-import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
+import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 
 import { useMarketTabsLogic } from './hooks';
@@ -65,12 +65,14 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
   spotTabName: string;
   perpsTabName: string;
+  onWatchlistColumnHeaderLayout?: (offsetY: number) => void;
 }
 
 function MarketHomeTabBar({
   watchlistTabName,
   spotTabName,
   perpsTabName,
+  onWatchlistColumnHeaderLayout,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
   const focusedTab = useFocusedTab();
@@ -97,7 +99,17 @@ function MarketHomeTabBar({
               pb: '$2',
             }}
           />
-          <MarketListColumnHeader />
+          <YStack
+            onLayout={(event: {
+              nativeEvent: { layout: { y: number; height: number } };
+            }) => {
+              onWatchlistColumnHeaderLayout?.(
+                event.nativeEvent.layout.y + event.nativeEvent.layout.height,
+              );
+            }}
+          >
+            <MarketListColumnHeader />
+          </YStack>
         </>
       ) : null}
       <YStack
@@ -152,6 +164,8 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
+  const [watchlistColumnHeaderOffsetY, setWatchlistColumnHeaderOffsetY] =
+    useState(0);
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -187,8 +201,14 @@ function MobileLayoutComponent({
   const containerProps = useMemo(
     () => ({
       allowHeaderOverscroll: true,
+      // NOTE: renderHeader must never return a 0-height tree after it had
+      // a positive height, because react-native-collapsible-tab-view's
+      // useLayoutHeight guard ignores 0-height re-layouts once a positive
+      // height has been measured. Wrapping in a YStack with minHeight={1}
+      // ensures the layout callback always fires with height >= 1 so the
+      // library re-measures correctly when the banner disappears.
       renderHeader: () => (
-        <YStack bg="$bgApp" pointerEvents="box-none">
+        <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
           <MarketBannerList />
         </YStack>
       ),
@@ -220,6 +240,7 @@ function MobileLayoutComponent({
         watchlistTabName={watchlistTabName}
         spotTabName={spotTabName}
         perpsTabName={perpsTabName}
+        onWatchlistColumnHeaderLayout={setWatchlistColumnHeaderOffsetY}
       />
     ),
     [watchlistTabName, spotTabName, perpsTabName],
@@ -260,7 +281,7 @@ function MobileLayoutComponent({
         renderTabBar={renderTabBar}
         initialTabName={initialTabName}
         onTabChange={onTabChangeHandler}
-        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid && !nestedPager}
         pagerProps={
           nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
         }
@@ -270,6 +291,7 @@ function MobileLayoutComponent({
           <MobileMarketWatchlistFlatList
             selectedFilter={watchlistFilter}
             listContainerProps={listContainerProps}
+            topAutoScrollTriggerOffset={watchlistColumnHeaderOffsetY}
           />
         </Tabs.Tab>
         <Tabs.Tab name={spotTabName}>

@@ -744,24 +744,6 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const currentUpdateBundleData = store.getUpdateBundleData();
-    // Security: Prevent version downgrade attacks (skip in dev mode)
-    if (!allowSkipGPG && currentUpdateBundleData?.bundleVersion) {
-      const currentVersion = Number(currentUpdateBundleData.bundleVersion);
-      const newVersion = Number(bundleVersion);
-      if (
-        !Number.isNaN(currentVersion) &&
-        !Number.isNaN(newVersion) &&
-        newVersion < currentVersion
-      ) {
-        logger.error(
-          'bundle-install',
-          `Version downgrade rejected: ${bundleVersion} < ${currentUpdateBundleData.bundleVersion}`,
-        );
-        throw new OneKeyLocalError(
-          `Bundle version downgrade rejected: ${bundleVersion} < ${currentUpdateBundleData.bundleVersion}`,
-        );
-      }
-    }
 
     // Security: Verify bundle directory exists before updating store
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
@@ -786,8 +768,11 @@ class DesktopApiAppBundleUpdate {
       signature,
     });
     store.setNativeVersion(app.getVersion());
+    const buildNumber = process.env.BUILD_NUMBER ?? '';
+    store.setNativeBuildNumber(buildNumber);
     logger.info('installBundle setNativeVersion', {
       nativeVersion: app.getVersion(),
+      buildNumber,
     });
     const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
     if (
@@ -860,11 +845,19 @@ class DesktopApiAppBundleUpdate {
 
   async clearBundle() {
     await this.clearDownload();
+    await this.clearBundleExtract();
     return new Promise<void>((resolve) => {
       setTimeout(() => {
         resolve();
       }, 300);
     });
+  }
+
+  async resetToBuiltInBundle() {
+    store.clearUpdateBundleData();
+    logger.info(
+      'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
+    );
   }
 
   async clearAllJSBundleData() {
@@ -1065,6 +1058,11 @@ class DesktopApiAppBundleUpdate {
   async getNativeBuildNumber(): Promise<string> {
     const buildNumber = process.env.BUILD_NUMBER;
     return typeof buildNumber === 'string' ? buildNumber : '';
+  }
+
+  async getBuiltinBundleVersion(): Promise<string> {
+    const bundleVersion = process.env.BUNDLE_VERSION;
+    return typeof bundleVersion === 'string' ? bundleVersion : '';
   }
 
   async getJsBundlePath() {

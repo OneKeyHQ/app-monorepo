@@ -5,12 +5,20 @@ import platformEnv from '../../platformEnv';
 import type { IUtilsType } from './types';
 
 logger.transports.console.level = false;
+
+// Use 'app' scope so the main process format function can identify
+// renderer-originated messages and apply filtering there.
+const appLogger = logger.scope('app');
+
 const consoleFunc = (msg: string) => {
   if (platformEnv.isDev) {
     // eslint-disable-next-line no-console
     console.log(msg);
   }
-  logger.info(msg);
+  // Send raw message to main process; sanitization, truncation,
+  // and rate limiting are handled in the main process format function
+  // to avoid blocking the renderer JS thread.
+  appLogger.info(msg);
 };
 
 const getLogFilePath = () => Promise.resolve('');

@@ -531,6 +531,22 @@ export function UniversalSearch({
     [],
   );
 
+  const renderRecommendSectionHeader = useCallback(
+    ({ section }: { section: IUniversalSection }) => {
+      return (
+        <YStack bg="$bgApp">
+          <XStack h="$9" ai="center">
+            <SizableText px="$5" size="$headingSm" color="$textSubdued">
+              {section.title}
+            </SizableText>
+          </XStack>
+          {isMarketSection(section.tabIndex) ? <MarketTableHeader /> : null}
+        </YStack>
+      );
+    },
+    [],
+  );
+
   const renderSectionFooter = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       if (!isInAllTab) {
@@ -591,7 +607,9 @@ export function UniversalSearch({
         case EUniversalSearchType.V2MarketToken:
           return (
             <>
-              {index === 0 && isMarketSection(section.tabIndex) ? (
+              {index === 0 &&
+              isMarketSection(section.tabIndex) &&
+              searchStatus !== ESearchStatus.init ? (
                 <MarketTableHeader />
               ) : null}
               <UniversalSearchV2MarketTokenItem
@@ -698,7 +716,8 @@ export function UniversalSearch({
       case ESearchStatus.init:
         return (
           <SectionList
-            renderSectionHeader={renderSectionHeader}
+            stickySectionHeadersEnabled
+            renderSectionHeader={renderRecommendSectionHeader}
             sections={recommendSections}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
@@ -767,6 +786,7 @@ export function UniversalSearch({
   }, [
     searchStatus,
     renderSectionHeader,
+    renderRecommendSectionHeader,
     recommendSections,
     renderItem,
     keyExtractor,

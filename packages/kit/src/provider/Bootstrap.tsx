@@ -38,9 +38,14 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
+import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -287,6 +292,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
+              setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
               navigation.switchTab(ETabRoutes.Perp);
             });
             break;
@@ -755,6 +761,37 @@ export function Bootstrap() {
       performance.stop();
     };
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+
+  // === Boot Recovery: mark boot success after 5s stability window ===
+  useEffect(() => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) return;
+    const timer = setTimeout(() => {
+      try {
+        BootRecovery.markBootSuccess();
+      } catch {
+        // Silently fail — don't let recovery mechanism crash the app
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    const checkRecoveryFlag = async () => {
+      try {
+        const action = await BootRecovery.getAndClearRecoveryAction();
+        if (action) {
+          defaultLogger.app.error.log(
+            `recovery_page_shown: action=${action}, platform=${platformEnv.isNativeIOS ? 'ios' : 'android'}`,
+          );
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    void checkRecoveryFlag();
+  }, []);
 
   useFetchCurrencyList();
   useFetchMarketBasicConfig();

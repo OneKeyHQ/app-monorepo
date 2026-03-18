@@ -771,6 +771,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
+  async updateKeylessWalletDetailsInfo(params: {
+    walletId: IDBWalletId;
+    keylessDetailsInfo: IKeylessWalletDetailsInfo;
+  }): Promise<void> {
+    const { walletId, keylessDetailsInfo } = params;
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater: (record) => {
+          record.keylessDetails = JSON.stringify(keylessDetailsInfo);
+          return record;
+        },
+      });
+    });
+  }
+
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
@@ -3909,7 +3927,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
         }
         const resultSorted = [...result].toSorted((a, b) => a.order - b.order);
-        console.log('getAccountNameFromAddress', { resultSorted, result });
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('getAccountNameFromAddress', { resultSorted, result });
+        }
         return resultSorted;
       }
       return [];
