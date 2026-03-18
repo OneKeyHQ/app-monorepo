@@ -89,6 +89,7 @@ jobs:
       build_source: ${{ needs.prepare-params.outputs.build_source }}
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit
 
   native-bundle:
@@ -100,4 +101,5 @@ jobs:
       build_source: ${{ needs.prepare-params.outputs.build_source }}
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit

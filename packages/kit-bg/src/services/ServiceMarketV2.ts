@@ -588,7 +588,10 @@ class ServiceMarketV2 extends ServiceBase {
     }
 
     // Filter out perps items — they don't have chainId/contractAddress for batch lookup
-    const spotItems = watchlistData.data.filter((item) => !item.perpsCoin);
+    // Also filter out items with empty chainId to avoid server validation errors
+    const spotItems = watchlistData.data.filter(
+      (item) => !item.perpsCoin && item.chainId?.trim(),
+    );
     const tokenAddressList = spotItems.map((item) => ({
       chainId: item.chainId,
       contractAddress: item.contractAddress,
@@ -626,10 +629,8 @@ class ServiceMarketV2 extends ServiceBase {
 
     // Only filter out symbol-less tokens when batch succeeded;
     // if batch failed, return all entries to avoid wiping server-side watchlist.
-    // Always filter out tokens with empty networkId to avoid server validation errors.
-    return batchSucceeded
-      ? tokens.filter((t) => t.symbol && t.networkId)
-      : tokens.filter((t) => t.networkId);
+    // Note: empty networkId is already filtered out at the spotItems stage above.
+    return batchSucceeded ? tokens.filter((t) => t.symbol) : tokens;
   }
 
   private _fetchMarketTokenSecurityCached = memoizee(

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -42,10 +42,15 @@ export function HeaderScrollGestureWrapper({
   const targetScrollY = useSharedValue(0);
   const containerWidth = useSharedValue(0);
   const isGestureEnabled = useSharedValue(true);
+  const [measuredWidth, setMeasuredWidth] = useState(0);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      containerWidth.value = event.nativeEvent.layout.width;
+      const layoutWidth = event.nativeEvent.layout.width;
+      containerWidth.value = layoutWidth;
+      setMeasuredWidth((currentWidth) =>
+        currentWidth === layoutWidth ? currentWidth : layoutWidth,
+      );
     },
     [containerWidth],
   );
@@ -67,6 +72,16 @@ export function HeaderScrollGestureWrapper({
       0,
       Math.min(1, excludeRightEdgeRatio),
     );
+    const excludedRightEdgeWidth =
+      safeExcludeRightEdgeRatio > 0 && measuredWidth > 0
+        ? measuredWidth * safeExcludeRightEdgeRatio
+        : 0;
+    const gestureHitSlop =
+      excludedRightEdgeWidth > 0
+        ? {
+            right: -excludedRightEdgeWidth,
+          }
+        : undefined;
     const shouldIgnoreByStartX = (x: number) => {
       'worklet';
 
@@ -78,9 +93,15 @@ export function HeaderScrollGestureWrapper({
       return x >= excludedStartX;
     };
 
-    const verticalPanGesture = Gesture.Pan()
+    let verticalPanGesture = Gesture.Pan()
       .activeOffsetY(panActiveOffsetY)
-      .failOffsetX(panFailOffsetX)
+      .failOffsetX(panFailOffsetX);
+
+    if (gestureHitSlop) {
+      verticalPanGesture = verticalPanGesture.hitSlop(gestureHitSlop);
+    }
+
+    verticalPanGesture = verticalPanGesture
       .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
@@ -129,9 +150,15 @@ export function HeaderScrollGestureWrapper({
       return Gesture.Simultaneous(Gesture.Native(), verticalPanGesture);
     }
 
-    const horizontalPanGesture = Gesture.Pan()
+    let horizontalPanGesture = Gesture.Pan()
       .activeOffsetX([-10, 10])
-      .failOffsetY([-10, 10])
+      .failOffsetY([-10, 10]);
+
+    if (gestureHitSlop) {
+      horizontalPanGesture = horizontalPanGesture.hitSlop(gestureHitSlop);
+    }
+
+    horizontalPanGesture = horizontalPanGesture
       .cancelsTouchesInView(cancelChildTouches)
       .onStart((e) => {
         'worklet';
@@ -185,6 +212,7 @@ export function HeaderScrollGestureWrapper({
     simultaneousWithNativeGesture,
     cancelChildTouches,
     containerWidth,
+    measuredWidth,
     isGestureEnabled,
   ]);
 

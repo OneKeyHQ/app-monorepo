@@ -32,25 +32,25 @@ public class RecoveryActivity extends AppCompatActivity {
     private static final java.util.Map<String, String[]> LOCALE_MAP = new java.util.LinkedHashMap<>();
     static {
         // Order: title, subtitle, exportLogs, tryAgain, autoRepair, repairComplete, error, ok, exportError, repairError, noLogs
-        LOCALE_MAP.put("en", new String[]{"App Failed to Start", "The app has failed to start multiple times. You can try the following options to resolve the issue.", "Export Logs", "Try Again", "Auto Repair", "Repair Complete", "Error", "OK", "Failed to export logs", "Repair failed", "No log files found"});
-        LOCALE_MAP.put("zh-CN", new String[]{"应用启动失败", "应用已多次启动失败。您可以尝试以下选项来解决问题。", "导出日志", "重试", "自动修复", "修复完成", "错误", "确定", "导出日志失败", "修复失败", "未找到日志文件"});
+        LOCALE_MAP.put("en", new String[]{"We hit a snag", "It looks like the app had trouble starting. A quick fix should get things back to normal.", "Export Logs", "Not Now", "Quick Fix", "Repair Complete", "Error", "OK", "Failed to export logs", "Repair failed", "No log files found"});
+        LOCALE_MAP.put("zh-CN", new String[]{"遇到了一点问题", "应用似乎未能正常启动，快速修复一下试试？", "导出日志", "暂不修复", "快速修复", "修复完成", "错误", "确定", "导出日志失败", "修复失败", "未找到日志文件"});
         // Traditional Chinese — shared by zh-TW, zh-HK, zh-Hant
-        LOCALE_MAP.put("zh-Hant", new String[]{"應用程式啟動失敗", "應用程式已多次啟動失敗。您可以嘗試以下選項來解決問題。", "匯出日誌", "重試", "自動修復", "修復完成", "錯誤", "確定", "匯出日誌失敗", "修復失敗", "未找到日誌檔案"});
-        LOCALE_MAP.put("ja-JP", new String[]{"アプリの起動に失敗しました", "アプリが複数回起動に失敗しました。以下のオプションをお試しください。", "ログを書き出す", "再試行", "自動修復", "修復完了", "エラー", "OK", "ログの書き出しに失敗しました", "修復に失敗しました", "ログファイルが見つかりません"});
-        LOCALE_MAP.put("ko-KR", new String[]{"앱 시작 실패", "앱이 여러 번 시작에 실패했습니다. 아래 옵션을 시도해 보세요.", "로그 내보내기", "다시 시도", "자동 복구", "복구 완료", "오류", "확인", "로그 내보내기 실패", "복구 실패", "로그 파일을 찾을 수 없습니다"});
-        LOCALE_MAP.put("de", new String[]{"App konnte nicht gestartet werden", "Die App konnte mehrfach nicht gestartet werden. Bitte versuchen Sie die folgenden Optionen.", "Protokolle exportieren", "Erneut versuchen", "Automatische Reparatur", "Reparatur abgeschlossen", "Fehler", "OK", "Protokollexport fehlgeschlagen", "Reparatur fehlgeschlagen", "Keine Protokolldateien gefunden"});
-        LOCALE_MAP.put("es", new String[]{"La aplicación no pudo iniciarse", "La aplicación no pudo iniciarse varias veces. Puede intentar las siguientes opciones.", "Exportar registros", "Reintentar", "Reparación automática", "Reparación completada", "Error", "OK", "Error al exportar registros", "Reparación fallida", "No se encontraron archivos de registro"});
-        LOCALE_MAP.put("fr-FR", new String[]{"Échec du lancement de l'application", "L'application n'a pas pu démarrer plusieurs fois. Veuillez essayer les options suivantes.", "Exporter les journaux", "Réessayer", "Réparation automatique", "Réparation terminée", "Erreur", "OK", "Échec de l'exportation des journaux", "Échec de la réparation", "Aucun fichier journal trouvé"});
-        LOCALE_MAP.put("it-IT", new String[]{"Avvio dell'app non riuscito", "L'app non è riuscita ad avviarsi più volte. Prova le seguenti opzioni.", "Esporta log", "Riprova", "Riparazione automatica", "Riparazione completata", "Errore", "OK", "Esportazione log non riuscita", "Riparazione non riuscita", "Nessun file di log trovato"});
-        LOCALE_MAP.put("pt", new String[]{"Falha ao iniciar a aplicação", "A aplicação falhou ao iniciar várias vezes. Tente as seguintes opções.", "Exportar registos", "Tentar novamente", "Reparação automática", "Reparação concluída", "Erro", "OK", "Falha ao exportar registos", "Falha na reparação", "Nenhum ficheiro de registo encontrado"});
-        LOCALE_MAP.put("pt-BR", new String[]{"Falha ao iniciar o aplicativo", "O aplicativo falhou ao iniciar várias vezes. Tente as seguintes opções.", "Exportar logs", "Tentar novamente", "Reparo automático", "Reparo concluído", "Erro", "OK", "Falha ao exportar logs", "Falha no reparo", "Nenhum arquivo de log encontrado"});
-        LOCALE_MAP.put("ru", new String[]{"Не удалось запустить приложение", "Приложение не удалось запустить несколько раз. Попробуйте следующие варианты.", "Экспорт журналов", "Повторить", "Автовосстановление", "Восстановление завершено", "Ошибка", "OK", "Не удалось экспортировать журналы", "Не удалось выполнить восстановление", "Файлы журналов не найдены"});
-        LOCALE_MAP.put("bn", new String[]{"অ্যাপ চালু করতে ব্যর্থ", "অ্যাপটি একাধিকবার চালু করতে ব্যর্থ হয়েছে। অনুগ্রহ করে নিম্নলিখিত বিকল্পগুলি চেষ্টা করুন।", "লগ রপ্তানি", "পুনরায় চেষ্টা", "স্বয়ংক্রিয় মেরামত", "মেরামত সম্পন্ন", "ত্রুটি", "ঠিক আছে", "লগ রপ্তানি ব্যর্থ", "মেরামত ব্যর্থ", "কোনো লগ ফাইল পাওয়া যায়নি"});
-        LOCALE_MAP.put("hi-IN", new String[]{"ऐप प्रारंभ करने में विफल", "ऐप कई बार प्रारंभ होने में विफल रहा है। कृपया निम्नलिखित विकल्प आज़माएँ।", "लॉग निर्यात करें", "पुनः प्रयास करें", "स्वतः मरम्मत", "मरम्मत पूर्ण", "त्रुटि", "ठीक है", "लॉग निर्यात विफल", "मरम्मत विफल", "कोई लॉग फ़ाइल नहीं मिली"});
-        LOCALE_MAP.put("id", new String[]{"Aplikasi gagal dimulai", "Aplikasi gagal dimulai beberapa kali. Silakan coba opsi berikut.", "Ekspor log", "Coba lagi", "Perbaikan otomatis", "Perbaikan selesai", "Kesalahan", "OK", "Gagal mengekspor log", "Perbaikan gagal", "File log tidak ditemukan"});
-        LOCALE_MAP.put("th-TH", new String[]{"แอปเริ่มต้นไม่สำเร็จ", "แอปเริ่มต้นไม่สำเร็จหลายครั้ง กรุณาลองตัวเลือกต่อไปนี้", "ส่งออกบันทึก", "ลองอีกครั้ง", "ซ่อมแซมอัตโนมัติ", "ซ่อมแซมเสร็จสิ้น", "ข้อผิดพลาด", "ตกลง", "ส่งออกบันทึกไม่สำเร็จ", "ซ่อมแซมไม่สำเร็จ", "ไม่พบไฟล์บันทึก"});
-        LOCALE_MAP.put("uk-UA", new String[]{"Не вдалося запустити додаток", "Додаток не вдалося запустити кілька разів. Спробуйте наступні варіанти.", "Експорт журналів", "Спробувати знову", "Автовідновлення", "Відновлення завершено", "Помилка", "OK", "Не вдалося експортувати журнали", "Не вдалося виконати відновлення", "Файли журналів не знайдено"});
-        LOCALE_MAP.put("vi", new String[]{"Ứng dụng không khởi động được", "Ứng dụng đã không khởi động được nhiều lần. Vui lòng thử các tùy chọn sau.", "Xuất nhật ký", "Thử lại", "Tự động sửa chữa", "Sửa chữa hoàn tất", "Lỗi", "OK", "Xuất nhật ký thất bại", "Sửa chữa thất bại", "Không tìm thấy tệp nhật ký"});
+        LOCALE_MAP.put("zh-Hant", new String[]{"遇到了一點問題", "應用程式似乎未能正常啟動，快速修復一下試試？", "匯出日誌", "暫不修復", "快速修復", "修復完成", "錯誤", "確定", "匯出日誌失敗", "修復失敗", "未找到日誌檔案"});
+        LOCALE_MAP.put("ja-JP", new String[]{"問題が発生しました", "アプリの起動がうまくいかなかったようです。クイック修復をお試しください。", "ログを書き出す", "今はしない", "クイック修復", "修復完了", "エラー", "OK", "ログの書き出しに失敗しました", "修復に失敗しました", "ログファイルが見つかりません"});
+        LOCALE_MAP.put("ko-KR", new String[]{"문제가 발생했어요", "앱이 정상적으로 시작되지 않은 것 같아요. 빠른 수리를 시도해 보세요.", "로그 내보내기", "나중에", "빠른 수리", "복구 완료", "오류", "확인", "로그 내보내기 실패", "복구 실패", "로그 파일을 찾을 수 없습니다"});
+        LOCALE_MAP.put("de", new String[]{"Ein kleines Problem", "Die App scheint nicht richtig gestartet zu sein. Eine Schnellreparatur sollte helfen.", "Protokolle exportieren", "Nicht jetzt", "Schnellreparatur", "Reparatur abgeschlossen", "Fehler", "OK", "Protokollexport fehlgeschlagen", "Reparatur fehlgeschlagen", "Keine Protokolldateien gefunden"});
+        LOCALE_MAP.put("es", new String[]{"Algo no salió bien", "Parece que la aplicación tuvo problemas al iniciarse. Una reparación rápida debería solucionarlo.", "Exportar registros", "Ahora no", "Reparación rápida", "Reparación completada", "Error", "OK", "Error al exportar registros", "Reparación fallida", "No se encontraron archivos de registro"});
+        LOCALE_MAP.put("fr-FR", new String[]{"Un petit souci", "L'application semble avoir eu du mal à démarrer. Une réparation rapide devrait arranger les choses.", "Exporter les journaux", "Pas maintenant", "Réparation rapide", "Réparation terminée", "Erreur", "OK", "Échec de l'exportation des journaux", "Échec de la réparation", "Aucun fichier journal trouvé"});
+        LOCALE_MAP.put("it-IT", new String[]{"Un piccolo problema", "Sembra che l'app abbia avuto difficoltà ad avviarsi. Una riparazione rapida dovrebbe risolvere.", "Esporta log", "Non ora", "Riparazione rapida", "Riparazione completata", "Errore", "OK", "Esportazione log non riuscita", "Riparazione non riuscita", "Nessun file di log trovato"});
+        LOCALE_MAP.put("pt", new String[]{"Um pequeno problema", "A aplicação parece ter tido dificuldades ao iniciar. Uma reparação rápida deverá resolver.", "Exportar registos", "Agora não", "Reparação rápida", "Reparação concluída", "Erro", "OK", "Falha ao exportar registos", "Falha na reparação", "Nenhum ficheiro de registo encontrado"});
+        LOCALE_MAP.put("pt-BR", new String[]{"Um pequeno problema", "O aplicativo parece ter tido dificuldades ao iniciar. Uma correção rápida deve resolver.", "Exportar logs", "Agora não", "Correção rápida", "Reparo concluído", "Erro", "OK", "Falha ao exportar logs", "Falha no reparo", "Nenhum arquivo de log encontrado"});
+        LOCALE_MAP.put("ru", new String[]{"Небольшая проблема", "Похоже, приложение не смогло нормально запуститься. Быстрое исправление должно помочь.", "Экспорт журналов", "Не сейчас", "Быстрое исправление", "Восстановление завершено", "Ошибка", "OK", "Не удалось экспортировать журналы", "Не удалось выполнить восстановление", "Файлы журналов не найдены"});
+        LOCALE_MAP.put("bn", new String[]{"একটু সমস্যা হয়েছে", "অ্যাপটি সঠিকভাবে চালু হতে পারেনি বলে মনে হচ্ছে। দ্রুত মেরামত করে দেখুন।", "লগ রপ্তানি", "এখন নয়", "দ্রুত মেরামত", "মেরামত সম্পন্ন", "ত্রুটি", "ঠিক আছে", "লগ রপ্তানি ব্যর্থ", "মেরামত ব্যর্থ", "কোনো লগ ফাইল পাওয়া যায়নি"});
+        LOCALE_MAP.put("hi-IN", new String[]{"एक छोटी सी समस्या", "ऐप सही से शुरू नहीं हो पाया लगता है। त्वरित मरम्मत से ठीक हो जाना चाहिए।", "लॉग निर्यात करें", "अभी नहीं", "त्वरित मरम्मत", "मरम्मत पूर्ण", "त्रुटि", "ठीक है", "लॉग निर्यात विफल", "मरम्मत विफल", "कोई लॉग फ़ाइल नहीं मिली"});
+        LOCALE_MAP.put("id", new String[]{"Ada sedikit masalah", "Sepertinya aplikasi mengalami kendala saat memulai. Perbaikan cepat seharusnya bisa mengatasinya.", "Ekspor log", "Nanti saja", "Perbaikan cepat", "Perbaikan selesai", "Kesalahan", "OK", "Gagal mengekspor log", "Perbaikan gagal", "File log tidak ditemukan"});
+        LOCALE_MAP.put("th-TH", new String[]{"พบปัญหาเล็กน้อย", "ดูเหมือนแอปเริ่มต้นไม่สำเร็จ การซ่อมแซมด่วนน่าจะช่วยได้", "ส่งออกบันทึก", "ไว้ทีหลัง", "ซ่อมแซมด่วน", "ซ่อมแซมเสร็จสิ้น", "ข้อผิดพลาด", "ตกลง", "ส่งออกบันทึกไม่สำเร็จ", "ซ่อมแซมไม่สำเร็จ", "ไม่พบไฟล์บันทึก"});
+        LOCALE_MAP.put("uk-UA", new String[]{"Невелика проблема", "Схоже, додаток не зміг нормально запуститися. Швидке виправлення має допомогти.", "Експорт журналів", "Не зараз", "Швидке виправлення", "Відновлення завершено", "Помилка", "OK", "Не вдалося експортувати журнали", "Не вдалося виконати відновлення", "Файли журналів не знайдено"});
+        LOCALE_MAP.put("vi", new String[]{"Gặp chút trục trặc", "Có vẻ ứng dụng gặp khó khăn khi khởi động. Sửa nhanh sẽ giúp mọi thứ trở lại bình thường.", "Xuất nhật ký", "Để sau", "Sửa nhanh", "Sửa chữa hoàn tất", "Lỗi", "OK", "Xuất nhật ký thất bại", "Sửa chữa thất bại", "Không tìm thấy tệp nhật ký"});
     }
 
     // Script-to-region mapping for CJK script subtags.
@@ -137,14 +137,14 @@ public class RecoveryActivity extends AppCompatActivity {
     private void setupUI() {
         TextView title = findViewById(R.id.title);
         TextView subtitle = findViewById(R.id.subtitle);
-        Button btnExportLogs = findViewById(R.id.btn_export_logs);
+        TextView btnExportLogs = findViewById(R.id.btn_export_logs);
         Button btnTryAgain = findViewById(R.id.btn_try_again);
         Button btnAutoRepair = findViewById(R.id.btn_auto_repair);
         TextView versionLabel = findViewById(R.id.version_label);
 
         title.setText(sTitle);
         subtitle.setText(sSubtitle);
-        btnExportLogs.setText(sExportLogs);
+        btnExportLogs.setText(sExportLogs + " \u203A");
         btnTryAgain.setText(sTryAgain);
         btnAutoRepair.setText(sAutoRepair);
 
