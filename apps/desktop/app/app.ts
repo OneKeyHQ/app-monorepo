@@ -54,8 +54,11 @@ import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
+// Side-effect import: registers synchronous IPC handler for renderer MMKV access
+import './libs/react-native-mmkv-desktop-main';
 import { getBackgroundColor } from './libs/utils';
 import initProcess from './process';
+import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
   getResourcesPath,
@@ -493,6 +496,33 @@ const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
 async function createMainWindow() {
+  // === Boot Recovery Check (must be first) ===
+  const currentAppVersion = app.getVersion();
+  const storedFailVersion = store.getBootFailAppVersion();
+  if (storedFailVersion && storedFailVersion !== currentAppVersion) {
+    store.resetConsecutiveBootFailCount();
+    logger.info(
+      'Boot fail counter reset due to version change',
+      storedFailVersion,
+      '→',
+      currentAppVersion,
+    );
+  }
+  store.setBootFailAppVersion(currentAppVersion);
+  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  logger.info('Boot fail count:', bootFailCount);
+  if (bootFailCount >= 3) {
+    logger.error('Recovery page triggered', {
+      crashCount: bootFailCount,
+      appVersion: currentAppVersion,
+    });
+    const recoveryWin = createRecoveryWindow();
+    recoveryWin.on('closed', () => {
+      mainWindow = null;
+    });
+    return recoveryWin;
+  }
+
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -562,6 +592,7 @@ async function createMainWindow() {
     return undefined;
   };
 
+  store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
   const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
@@ -634,7 +665,7 @@ async function createMainWindow() {
   }
 
   /* eslint-disable no-nested-ternary */
-  const src = isPerfCiMode
+  let src = isPerfCiMode
     ? formatUrl({
         pathname: perfIndexHtmlPath,
         protocol: PROTOCOL,
@@ -812,6 +843,22 @@ async function createMainWindow() {
     }
   });
 
+  // === Boot Recovery IPC Handlers ===
+  ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
+  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
+    store.resetConsecutiveBootFailCount();
+    logger.info('Boot success confirmed, crash counter reset');
+  });
+
+  ipcMain.removeAllListeners(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT);
+  ipcMain.on(
+    ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT,
+    (_event: unknown, count: number) => {
+      store.setConsecutiveBootFailCount(count);
+      logger.info('Consecutive boot fail count set to', count);
+    },
+  );
+
   ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
 
@@ -981,16 +1028,26 @@ async function createMainWindow() {
     logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
-    const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
+    let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
-    const metadata = bundleDirPath
-      ? await getMetadata({
+    let metadata: Record<string, string> = {};
+    let metadataFailed = false;
+    if (bundleDirPath) {
+      try {
+        metadata = await getMetadata({
           bundleDir: bundleDirPath,
           appVersion: bundleData.appVersion,
           bundleVersion: bundleData.bundleVersion,
           signature: bundleData.signature,
-        })
-      : {};
+        });
+      } catch (e) {
+        // GPG verification failed or metadata unreadable — disable JS bundle
+        // so the interceptor falls back to the builtin bundle in the asar.
+        logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        useJsBundle = false;
+        metadataFailed = true;
+      }
+    }
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -1056,6 +1113,17 @@ async function createMainWindow() {
         }
       },
     );
+    // When getMetadata failed, src still points to the bundle path which the
+    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
+    // now that the interceptor is registered and will serve builtin files.
+    if (metadataFailed) {
+      src = formatUrl({
+        pathname: 'index.html',
+        protocol: PROTOCOL,
+        slashes: true,
+      });
+      void browserWindow.loadURL(src);
+    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
@@ -1150,14 +1218,27 @@ if (!singleInstance && !process.mas) {
 
   app.on('ready', async (_, launchInfo) => {
     logger.info('launchInfo >>>> ', launchInfo);
+    logger.info(
+      `nativeAppVersion: ${app.getVersion()}, buildNumber: ${process.env.BUILD_NUMBER ?? ''}, builtinBundleVersion: ${process.env.BUNDLE_VERSION ?? ''}`,
+    );
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
-    startServices();
 
     if (!mainWindow) {
       mainWindow = await createMainWindow();
-      initMenu();
     }
+
+    // Menu is needed in both normal and recovery mode
+    initMenu();
+
+    // In recovery mode, skip heavy app initialization.
+    // createMainWindow() increments bootFailCount; if >= 3 it returned
+    // a standalone recovery window that doesn't need these services.
+    if (store.getConsecutiveBootFailCount() >= 3) {
+      return;
+    }
+
+    startServices();
     void initChildProcess();
   });
 }

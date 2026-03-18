@@ -100,6 +100,10 @@ jobs:
           projectName: ServiceExtension
           dir: ./apps/mobile
 
+      - name: Set BUNDLE_VERSION in Info.plist
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :BUNDLE_VERSION ${{ env.BUILD_BUNDLE_VERSION }}" ./apps/mobile/ios/OneKeyWallet/Info.plist
+
       - name: Write .env.version
         run: |
           # pass BUILD_NUMBER as env variable to expo server

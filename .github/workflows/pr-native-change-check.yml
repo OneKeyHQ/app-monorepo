@@ -1,0 +1,332 @@
+name: Native Change Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: 'Base ref (branch, tag, or commit SHA)'
+        required: true
+        default: 'x'
+      head_ref:
+        description: 'Head ref (branch, tag, or commit SHA)'
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-native-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve refs
+        id: refs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_BASE: ${{ inputs.base_ref }}
+          INPUT_HEAD: ${{ inputs.head_ref }}
+          PR_BASE: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # Validate inputs: only allow alphanumeric, dots, dashes, slashes, underscores
+            if ! printf '%s' "$INPUT_BASE" | grep -qE '^[a-zA-Z0-9._/@^~-]+$'; then
+              echo "::error::Invalid base_ref: $INPUT_BASE"
+              exit 1
+            fi
+            if ! printf '%s' "$INPUT_HEAD" | grep -qE '^[a-zA-Z0-9._/@^~-]+$'; then
+              echo "::error::Invalid head_ref: $INPUT_HEAD"
+              exit 1
+            fi
+            echo "base=$INPUT_BASE" >> "$GITHUB_OUTPUT"
+            echo "head=$INPUT_HEAD" >> "$GITHUB_OUTPUT"
+            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+            # Fetch refs that may not exist locally
+            git fetch origin "$INPUT_BASE" --no-tags 2>/dev/null || true
+            git fetch origin "$INPUT_HEAD" --no-tags 2>/dev/null || true
+          else
+            echo "base=origin/$PR_BASE" >> "$GITHUB_OUTPUT"
+            echo "head=HEAD" >> "$GITHUB_OUTPUT"
+            echo "is_pr=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect native changes
+        id: detect
+        env:
+          BASE_REF: ${{ steps.refs.outputs.base }}
+          HEAD_REF: ${{ steps.refs.outputs.head }}
+        run: |
+
+          # Resolve to commit SHAs for reliable comparison
+          BASE_SHA=$(git rev-parse "$BASE_REF" 2>/dev/null || git rev-parse "origin/$BASE_REF" 2>/dev/null) || { echo "::error::Cannot resolve base ref: $BASE_REF"; exit 1; }
+          HEAD_SHA=$(git rev-parse "$HEAD_REF" 2>/dev/null || git rev-parse "origin/$HEAD_REF" 2>/dev/null) || { echo "::error::Cannot resolve head ref: $HEAD_REF"; exit 1; }
+
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "Comparing: $BASE_REF ($BASE_SHA) ... $HEAD_REF ($HEAD_SHA)"
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA" 2>/dev/null || git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "has_native=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          HAS_NATIVE=false
+          REPORT=""
+
+          # iOS native code
+          IOS=$(echo "$CHANGED_FILES" | grep -E '^apps/mobile/ios/' | grep -vE '\.(ts|tsx|js|jsx|json|md)$' || true)
+          if [ -n "$IOS" ]; then
+            HAS_NATIVE=true
+            COUNT=$(echo "$IOS" | wc -l | tr -d ' ')
+            REPORT="${REPORT}### iOS Native Code ($COUNT files)\n"
+            REPORT="${REPORT}$(echo "$IOS" | head -5 | sed 's/^/- `/' | sed 's/$/`/')\n"
+            if [ "$COUNT" -gt 5 ]; then REPORT="${REPORT}- ... and $((COUNT-5)) more\n"; fi
+            REPORT="${REPORT}\n"
+          fi
+
+          # Android native code
+          ANDROID=$(echo "$CHANGED_FILES" | grep -E '^apps/mobile/android/' | grep -vE '\.(ts|tsx|js|jsx|json|md)$' || true)
+          if [ -n "$ANDROID" ]; then
+            HAS_NATIVE=true
+            COUNT=$(echo "$ANDROID" | wc -l | tr -d ' ')
+            REPORT="${REPORT}### Android Native Code ($COUNT files)\n"
+            REPORT="${REPORT}$(echo "$ANDROID" | head -5 | sed 's/^/- `/' | sed 's/$/`/')\n"
+            if [ "$COUNT" -gt 5 ]; then REPORT="${REPORT}- ... and $((COUNT-5)) more\n"; fi
+            REPORT="${REPORT}\n"
+          fi
+
+          # Electron main process
+          ELECTRON=$(echo "$CHANGED_FILES" | grep -E '^apps/desktop/app/' || true)
+          if [ -n "$ELECTRON" ]; then
+            HAS_NATIVE=true
+            COUNT=$(echo "$ELECTRON" | wc -l | tr -d ' ')
+            REPORT="${REPORT}### Electron Main Process ($COUNT files)\n"
+            REPORT="${REPORT}$(echo "$ELECTRON" | head -5 | sed 's/^/- `/' | sed 's/$/`/')\n"
+            if [ "$COUNT" -gt 5 ]; then REPORT="${REPORT}- ... and $((COUNT-5)) more\n"; fi
+            REPORT="${REPORT}\n"
+          fi
+
+          # Extension manifest
+          EXT=$(echo "$CHANGED_FILES" | grep -E '^apps/ext/.*manifest' || true)
+          if [ -n "$EXT" ]; then
+            HAS_NATIVE=true
+            REPORT="${REPORT}### Extension Manifest\n"
+            REPORT="${REPORT}$(echo "$EXT" | sed 's/^/- `/' | sed 's/$/`/')\n\n"
+          fi
+
+          # Native config files
+          CONFIGS=$(echo "$CHANGED_FILES" | grep -iE '(Podfile|\.podspec|build\.gradle|settings\.gradle|gradle\.properties|\.pbxproj|Info\.plist|AndroidManifest\.xml|Entitlements)' || true)
+          if [ -n "$CONFIGS" ]; then
+            HAS_NATIVE=true
+            REPORT="${REPORT}### Native Config Files\n"
+            REPORT="${REPORT}$(echo "$CONFIGS" | sed 's/^/- `/' | sed 's/$/`/')\n\n"
+          fi
+
+          # Native source files
+          NATIVE_SRC=$(echo "$CHANGED_FILES" | grep -E '\.(java|kt|swift|m|mm|h|c|cpp)$' || true)
+          if [ -n "$NATIVE_SRC" ]; then
+            HAS_NATIVE=true
+            COUNT=$(echo "$NATIVE_SRC" | wc -l | tr -d ' ')
+            REPORT="${REPORT}### Native Source Files ($COUNT files)\n"
+            REPORT="${REPORT}$(echo "$NATIVE_SRC" | head -5 | sed 's/^/- `/' | sed 's/$/`/')\n"
+            if [ "$COUNT" -gt 5 ]; then REPORT="${REPORT}- ... and $((COUNT-5)) more\n"; fi
+            REPORT="${REPORT}\n"
+          fi
+
+          # Electron build config
+          ELECTRON_CFG=$(echo "$CHANGED_FILES" | grep -E '^apps/desktop/(electron-builder|forge\.config)' || true)
+          if [ -n "$ELECTRON_CFG" ]; then
+            HAS_NATIVE=true
+            REPORT="${REPORT}### Electron Build Config\n"
+            REPORT="${REPORT}$(echo "$ELECTRON_CFG" | sed 's/^/- `/' | sed 's/$/`/')\n\n"
+          fi
+
+          # Database schema / version / migration changes
+          DB_HITS=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/(consts\.ts|localDBStoreNames\.ts|types\.ts)$' || true)
+          DB_REALM=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/realm/schemas/' || true)
+          DB_MIGRATION=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/migrations/' || true)
+          DB_INDEXED=$(echo "$CHANGED_FILES" | grep -E '^packages/kit-bg/src/dbs/local/indexed/(LocalDbIndexedBase|indexedDBUtils)\.ts$' || true)
+          DB_ALL=$(printf '%s\n%s\n%s\n%s' "$DB_HITS" "$DB_REALM" "$DB_MIGRATION" "$DB_INDEXED" | grep -v '^$' || true)
+          if [ -n "$DB_ALL" ]; then
+            HAS_NATIVE=true
+            COUNT=$(echo "$DB_ALL" | wc -l | tr -d ' ')
+            REPORT="${REPORT}### Database Schema / Migration ($COUNT files)\n"
+            REPORT="${REPORT}$(echo "$DB_ALL" | head -5 | sed 's/^/- `/' | sed 's/$/`/')\n"
+            if [ "$COUNT" -gt 5 ]; then REPORT="${REPORT}- ... and $((COUNT-5)) more\n"; fi
+            REPORT="${REPORT}\n> ⚠️ DB changes prevent bundle rollback — old bundles cannot read new schemas\n\n"
+          fi
+
+          # Patch files targeting native packages
+          PATCH_FILES=$(echo "$CHANGED_FILES" | grep -E '^patches/' || true)
+          if [ -n "$PATCH_FILES" ]; then
+            # Known native package prefixes in patch filenames
+            NATIVE_PATCH_HITS=$(echo "$PATCH_FILES" | grep -iE '(react-native|expo[-+]|@react-native|@onekeyfe.*react-native|hermes|realm|burnt)' || true)
+            if [ -n "$NATIVE_PATCH_HITS" ]; then
+              HAS_NATIVE=true
+              COUNT=$(echo "$NATIVE_PATCH_HITS" | wc -l | tr -d ' ')
+              REPORT="${REPORT}### Patches Targeting Native Packages ($COUNT files)\n"
+              REPORT="${REPORT}$(echo "$NATIVE_PATCH_HITS" | sed 's/^/- `/' | sed 's/$/`/')\n\n"
+            fi
+          fi
+
+          # App version changes
+          VERSION_FILES=$(echo "$CHANGED_FILES" | grep -E '^apps/(mobile|desktop|ext|web)/package\.json$' || true)
+          if [ -n "$VERSION_FILES" ]; then
+            VER_REPORT=""
+            while IFS= read -r vfile; do
+              OLD_VER=$(git show "$BASE_SHA":"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
+              NEW_VER=$(git show "$HEAD_SHA":"$vfile" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version".*"\(.*\)".*/\1/' || echo "")
+              if [ -n "$OLD_VER" ] && [ -n "$NEW_VER" ] && [ "$OLD_VER" != "$NEW_VER" ]; then
+                VER_REPORT="${VER_REPORT}- \`${vfile}\`: ${OLD_VER} → ${NEW_VER}\n"
+              fi
+            done <<< "$VERSION_FILES"
+            if [ -n "$VER_REPORT" ]; then
+              HAS_NATIVE=true
+              REPORT="${REPORT}### App Version Changed\n${VER_REPORT}\n"
+            fi
+          fi
+
+          # yarn.lock native package changes
+          YARN_LOCK_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^yarn\.lock$' || true)
+          if [ -n "$YARN_LOCK_CHANGED" ]; then
+            NATIVE_PKG_PATTERNS='react-native[-@]|@react-native/|@react-native-|@react-native-community/|@onekeyfe/react-native-|@sentry/react-native|@[^/]+/react-native[-@]|[a-z]+-react-native[-@]|expo[-@]|@react-navigation/|lottie-react-native|hermes-engine|realm[-@]|burnt[-@]'
+            # Match both key lines ("pkg@...":) and resolution lines (resolution: "pkg@...")
+            LOCK_NATIVE_HITS=$(git diff "$BASE_SHA"..."$HEAD_SHA" -- yarn.lock 2>/dev/null | grep -E "^[+-].*(\"($NATIVE_PKG_PATTERNS))" | head -20 || true)
+            if [ -n "$LOCK_NATIVE_HITS" ]; then
+              HAS_NATIVE=true
+              REPORT="${REPORT}### yarn.lock Native Package Changes\n"
+              REPORT="${REPORT}$(echo "$LOCK_NATIVE_HITS" | head -10 | sed 's/^/- `/' | sed 's/$/`/')\n"
+              LOCK_COUNT=$(echo "$LOCK_NATIVE_HITS" | wc -l | tr -d ' ')
+              if [ "$LOCK_COUNT" -gt 10 ]; then REPORT="${REPORT}- ... and more\n"; fi
+              REPORT="${REPORT}\n"
+            fi
+          fi
+
+          echo "has_native=$HAS_NATIVE" >> "$GITHUB_OUTPUT"
+
+          # Write report to file to handle multiline
+          echo -e "$REPORT" > /tmp/native-report.md
+
+      - name: Write Job Summary
+        env:
+          HAS_NATIVE: ${{ steps.detect.outputs.has_native }}
+          BASE_REF: ${{ steps.refs.outputs.base }}
+          HEAD_REF: ${{ steps.refs.outputs.head }}
+          BASE_SHA: ${{ steps.detect.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.detect.outputs.head_sha }}
+        run: |
+
+          {
+            echo "## Native Change Check"
+            echo ""
+            echo "| | Ref | SHA |"
+            echo "|---|---|---|"
+            echo "| **Base** | \`${BASE_REF}\` | \`${BASE_SHA:0:10}\` |"
+            echo "| **Head** | \`${HEAD_REF}\` | \`${HEAD_SHA:0:10}\` |"
+            echo ""
+
+            if [ "$HAS_NATIVE" = "true" ]; then
+              echo "### ⚠️ Native Changes Detected"
+              echo ""
+              echo "This range contains changes that **cannot be shipped via bundle update** and requires a full App Shell release."
+              echo ""
+              cat /tmp/native-report.md
+              echo ""
+              echo "**Action required:**"
+              echo "- Add the \`no-release\` label if this should not be included in bundle releases"
+              echo "- Coordinate with the release team for App Shell release scheduling"
+            else
+              echo "### ✅ No Native Changes"
+              echo ""
+              echo "This range is safe for bundle update."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment or cleanup PR comment
+        if: steps.refs.outputs.is_pr == 'true'
+        continue-on-error: true # Fork PRs have read-only tokens; don't fail the job
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- native-change-check -->';
+            const hasNative = '${{ steps.detect.outputs.has_native }}' === 'true';
+
+            // Find existing marker comment (paginate to handle PRs with many comments)
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find(c => c.body?.includes(marker));
+
+            if (hasNative) {
+              const report = fs.readFileSync('/tmp/native-report.md', 'utf8');
+              const body = [
+                marker,
+                '## ⚠️ Native Changes Detected',
+                '',
+                'This PR contains changes that **cannot be shipped via bundle update** and requires a full App Shell release.',
+                '',
+                report,
+                '',
+                '**Action required:**',
+                '- Add the `no-release` label if this PR should not be included in bundle releases',
+                '- Coordinate with the release team for App Shell release scheduling',
+                '',
+                '> _Auto-detected by native change check_',
+              ].join('\n');
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body,
+                });
+              }
+            } else if (existing) {
+              // Native changes were removed — delete stale warning
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+              });
+            }
+
+      - name: Add no-release label suggestion
+        if: steps.refs.outputs.is_pr == 'true' && steps.detect.outputs.has_native == 'true'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const hasBundleTesting = labels.some(l => l.name === 'bundle-testing');
+            const hasReleaseReady = labels.some(l => l.name === 'release-ready');
+
+            // Warn if bundle-related labels are on a native-change PR
+            if (hasBundleTesting || hasReleaseReady) {
+              core.warning(
+                'This PR has bundle release labels but contains native changes. ' +
+                'Consider replacing with "no-release" label.'
+              );
+            }
