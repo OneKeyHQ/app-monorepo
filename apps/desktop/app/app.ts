@@ -592,6 +592,7 @@ async function createMainWindow() {
     return undefined;
   };
 
+  store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
   const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);

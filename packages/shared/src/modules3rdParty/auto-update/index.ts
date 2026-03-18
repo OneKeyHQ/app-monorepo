@@ -46,6 +46,7 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: () => Promise.resolve(),
   installBundle: () => Promise.resolve(),
   clearBundle: () => Promise.resolve(),
+  clearDownload: () => Promise.resolve(),
   resetToBuiltInBundle: () => Promise.resolve(),
   isSkipGpgVerificationAllowed: () => Promise.resolve(false),
   clearAllJSBundleData: () =>

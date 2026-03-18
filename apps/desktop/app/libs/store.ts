@@ -1,4 +1,7 @@
-import { safeStorage } from 'electron';
+import fs from 'fs';
+import path from 'path';
+
+import { app, safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
 
@@ -256,4 +259,79 @@ export const clearMmkvRecoveryKeys = () => {
   mmkvAppSettingStore.delete('onekey_whats_new_shown');
   mmkvAppSettingStore.delete('last_valid_server_time');
   mmkvAppSettingStore.delete('last_valid_local_time');
+};
+
+/**
+ * Checks MMKV for a pending bundle-switch task and applies it before JS bundle loads.
+ * Only handles the happy path (status=pending, bundle exists, env matches).
+ * All complex logic (retry, download, error handling) remains in JS layer.
+ */
+export const processPreLaunchPendingTask = (): boolean => {
+  try {
+    const taskJson = mmkvAppSettingStore.get('onekey_pending_install_task') as
+      | string
+      | undefined;
+    if (!taskJson || typeof taskJson !== 'string') return false;
+
+    const task = JSON.parse(taskJson);
+    if (task.status !== 'pending') return false;
+    if (task.action !== 'switch-bundle') return false;
+    if (task.type !== 'jsbundle-switch') return false;
+
+    const now = Date.now();
+    if (typeof task.expiresAt !== 'number' || task.expiresAt <= now)
+      return false;
+    if (task.nextRetryAt && task.nextRetryAt > now) return false;
+
+    // Verify scheduledEnv matches current state
+    const currentAppVersion = app.getVersion();
+    if (task.scheduledEnvAppVersion !== currentAppVersion) return false;
+
+    const currentBundleData = getUpdateBundleData();
+    const currentBundleVersion =
+      currentBundleData?.bundleVersion || process.env.BUNDLE_VERSION || '';
+    if (task.scheduledEnvBundleVersion !== currentBundleVersion) return false;
+
+    // Extract payload
+    const { appVersion, bundleVersion, signature } = task.payload || {};
+    if (!appVersion || !bundleVersion || !signature) return false;
+
+    // Verify bundle directory and entry file exist
+    const bundleDirName = path.join(app.getPath('userData'), 'onekey-bundle');
+    const extractDir = path.join(
+      bundleDirName,
+      `${appVersion}-${bundleVersion}`,
+    );
+    if (!fs.existsSync(extractDir)) return false;
+    const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) return false;
+
+    // Apply: set new bundle data
+    setUpdateBundleData({ appVersion, bundleVersion, signature });
+    setNativeVersion(currentAppVersion);
+    const currentBuildNumber = process.env.BUILD_NUMBER ?? '';
+    if (currentBuildNumber) {
+      setNativeBuildNumber(currentBuildNumber);
+    }
+
+    // Update MMKV task status → applied_waiting_verify
+    // Do NOT set runningStartedAt — a falsy value lets JS skip the
+    // 10-minute grace period and verify alignment immediately on boot.
+    task.status = 'applied_waiting_verify';
+    delete task.runningStartedAt;
+    mmkvAppSettingStore.set(
+      'onekey_pending_install_task',
+      JSON.stringify(task),
+    );
+
+    logger.info(
+      'processPreLaunchPendingTask: switched to',
+      appVersion,
+      bundleVersion,
+    );
+    return true;
+  } catch (e) {
+    logger.error('processPreLaunchPendingTask failed:', e);
+    return false;
+  }
 };
