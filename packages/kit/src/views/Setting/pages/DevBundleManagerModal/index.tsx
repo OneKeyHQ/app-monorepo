@@ -9,6 +9,7 @@ import {
   Divider,
   ESwitchSize,
   Icon,
+  IconButton,
   Input,
   Page,
   SizableText,
@@ -16,6 +17,7 @@ import {
   Switch,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -293,6 +295,7 @@ function IgnoreServerBundleUpdateToggle() {
 export default function DevBundleManagerModal() {
   const navigation = useAppNavigation();
 
+  const { copyText } = useClipboard();
   const currentAppVersion = String(platformEnv.version);
   const currentBuildNumber = String(platformEnv.buildNumber);
   const currentCommitHash = String(platformEnv.githubSHA || '-');
@@ -350,7 +353,37 @@ export default function DevBundleManagerModal() {
         <YStack px="$5" py="$4" gap="$5">
           {/* Runtime Info */}
           <YStack gap="$1">
-            <SectionTitle icon="InfoCircleOutline" title="RUNTIME INFO" />
+            <XStack alignItems="center" gap="$2" mb="$2">
+              <Icon
+                name="InfoCircleOutline"
+                size="$4.5"
+                color="$iconSubdued"
+              />
+              <SizableText size="$headingXs" color="$textSubdued">
+                RUNTIME INFO
+              </SizableText>
+              <IconButton
+                icon="Copy1Outline"
+                size="small"
+                variant="tertiary"
+                onPress={() => {
+                  const versionStr = `${currentAppVersion}${currentBuildNumber ? `-${currentBuildNumber}` : ''}(${currentBundleVersion})(${encodeBundleVersionForDisplay(currentBundleVersion)})`;
+                  const nativeStr = nativeAppVersion
+                    ? `${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})(${encodeBundleVersionForDisplay(String(builtinBundleVersion))})` : ''}`
+                    : '';
+                  const lines = [
+                    `Version: ${versionStr}`,
+                    nativeStr
+                      ? `Native App Version: ${nativeStr}`
+                      : '',
+                    `Commit Hash: ${currentCommitHash}`,
+                  ]
+                    .filter(Boolean)
+                    .join('\n');
+                  copyText(lines);
+                }}
+              />
+            </XStack>
             <SectionCard>
               <YStack px="$4" py="$3" gap="$0.5">
                 <InfoRow
