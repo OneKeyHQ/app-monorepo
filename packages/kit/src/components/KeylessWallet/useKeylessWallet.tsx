@@ -53,6 +53,7 @@ import {
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -1223,7 +1224,28 @@ export function useVerifyKeylessPinChecking() {
       if (isPinReminderDialogShowing) {
         return;
       }
-      const activeWallet = options.wallet;
+
+      const getCurrentActiveWallet = async () => {
+        try {
+          const selectedAccount =
+            await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount(
+              {
+                sceneName: EAccountSelectorSceneName.home,
+                num: 0,
+              },
+            );
+          if (!selectedAccount?.walletId) {
+            return undefined;
+          }
+          return backgroundApiProxy.serviceAccount.getWallet({
+            walletId: selectedAccount.walletId,
+          });
+        } catch {
+          return undefined;
+        }
+      };
+
+      const activeWallet = (await getCurrentActiveWallet()) ?? options.wallet;
       if (activeWallet?.isKeyless) {
         const ownerId = activeWallet?.keylessDetailsInfo?.keylessOwnerId;
         if (!ownerId) {
