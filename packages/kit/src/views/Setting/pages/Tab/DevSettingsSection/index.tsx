@@ -197,6 +197,9 @@ const BaseDevSettingsSection = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
+  const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
+    ? 'http://10.0.2.2:5173/'
+    : 'http://localhost:5173/';
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -1154,7 +1157,7 @@ const BaseDevSettingsSection = () => {
                 title="使用本地 TradingView URL"
                 subtitle={
                   devSettings.settings?.useLocalTradingViewUrl
-                    ? 'http://localhost:5173/'
+                    ? localTradingViewUrlSubtitle
                     : 'https://tradingview.onekeytest.com/'
                 }
               >
