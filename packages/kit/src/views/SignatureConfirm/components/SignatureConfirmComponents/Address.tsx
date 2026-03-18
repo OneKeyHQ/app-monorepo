@@ -19,6 +19,7 @@ type IProps = {
   networkId?: string;
   component: IDisplayComponentAddress;
   showAddressLocalTags?: boolean;
+  hideRiskTags?: boolean;
 };
 
 function formatTagValue(value: string | string[]) {
@@ -39,6 +40,7 @@ function Address(props: IProps) {
     networkId: currentNetworkId,
     component,
     showAddressLocalTags,
+    hideRiskTags,
   } = props;
 
   const networkId = component.networkId || currentNetworkId;
@@ -124,6 +126,13 @@ function Address(props: IProps) {
           {component.tags?.map((tag) => {
             const value = formatTagValue(tag.value);
             if (value === '') {
+              return null;
+            }
+            // Risk tags (critical/warning) are moved to RiskDetectionCard
+            if (
+              hideRiskTags &&
+              (tag.displayType === 'critical' || tag.displayType === 'warning')
+            ) {
               return null;
             }
             return tag.icon ? (
