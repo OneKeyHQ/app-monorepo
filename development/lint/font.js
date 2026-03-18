@@ -59,7 +59,7 @@ function getPostScriptName(ttfPath) {
 
   // Find 'name' table
   let nameTableOffset = 0;
-  for (let i = 0; i < numTables; i++) {
+  for (let i = 0; i < numTables; i += 1) {
     const tag = buf.toString('ascii', 12 + i * 16, 12 + i * 16 + 4);
     if (tag === 'name') {
       nameTableOffset = buf.readUInt32BE(12 + i * 16 + 8);
@@ -71,7 +71,7 @@ function getPostScriptName(ttfPath) {
   const count = buf.readUInt16BE(nameTableOffset + 2);
   const stringOffset = buf.readUInt16BE(nameTableOffset + 4);
 
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < count; i += 1) {
     const recordOffset = nameTableOffset + 6 + i * 12;
     const platformID = buf.readUInt16BE(recordOffset);
     const encodingID = buf.readUInt16BE(recordOffset + 2);
@@ -95,7 +95,7 @@ function getPostScriptName(ttfPath) {
   }
 
   // Fallback: try platformID 1 (Macintosh)
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < count; i += 1) {
     const recordOffset = nameTableOffset + 6 + i * 12;
     const platformID = buf.readUInt16BE(recordOffset);
     const nameID = buf.readUInt16BE(recordOffset + 6);
@@ -143,19 +143,19 @@ for (const { jsKey, fileName } of fontEntries) {
     error(
       `${fileName} registered in useLoadCustomFonts.ts but file is MISSING`,
     );
-    continue;
-  }
-  ok(`${fileName} exists`);
-
-  const psName = getPostScriptName(filePath);
-  if (!psName) {
-    error(`${fileName} could not read PostScript name from font file`);
-  } else if (psName !== jsKey) {
-    error(
-      `${fileName} PostScript name "${psName}" does NOT match JS key "${jsKey}" — iOS UIAppFonts will register as "${psName}" but expo-font uses "${jsKey}"`,
-    );
   } else {
-    ok(`${fileName} PostScript name "${psName}" matches JS key`);
+    ok(`${fileName} exists`);
+
+    const psName = getPostScriptName(filePath);
+    if (!psName) {
+      error(`${fileName} could not read PostScript name from font file`);
+    } else if (psName !== jsKey) {
+      error(
+        `${fileName} PostScript name "${psName}" does NOT match JS key "${jsKey}" — iOS UIAppFonts will register as "${psName}" but expo-font uses "${jsKey}"`,
+      );
+    } else {
+      ok(`${fileName} PostScript name "${psName}" matches JS key`);
+    }
   }
 }
 
