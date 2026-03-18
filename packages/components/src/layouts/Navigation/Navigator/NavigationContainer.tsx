@@ -278,10 +278,6 @@ export function resetScanModalRoute() {
     return;
   }
   const filteredRoutes = state.routes.filter((route) => {
-    // Remove ActionCenter (FullScreenPush) routes
-    if (route.name === ERootRoutes.FullScreenPush) {
-      return false;
-    }
     // Remove ScanQrCodeModal routes
     if (route.name === ERootRoutes.Modal) {
       const screenName =
