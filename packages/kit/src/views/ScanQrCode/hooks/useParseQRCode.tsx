@@ -9,11 +9,10 @@ import {
   Toast,
   ToastContent,
   popActionCenterPages,
-  popScanModalPages,
   resetAboveMainRoute,
+  resetScanModalRoute,
   resetToRoute,
   useClipboard,
-  waitForScanModalClosed,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -174,11 +173,13 @@ const useParseQRCode = () => {
             resetAboveMainRoute();
             await timerUtils.wait(100);
           } else {
-            // Preserve caller route for manual scan flows (e.g. onboarding
-            // import): only dismiss scan/action-center overlays.
-            await popScanModalPages();
+            // Atomically remove only the ScanQrCodeModal route, preserving
+            // caller routes (e.g. onboarding). This avoids goBack() animated
+            // dismiss which causes RNSScreenStack window=NIL and blocks
+            // Fabric commits on the underlying page.
+            resetScanModalRoute();
             await popActionCenterPages();
-            await waitForScanModalClosed();
+            await timerUtils.wait(100);
           }
         }
       };
