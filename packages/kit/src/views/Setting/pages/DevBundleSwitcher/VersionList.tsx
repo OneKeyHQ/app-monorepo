@@ -151,7 +151,7 @@ export default function SettingDevBundleVersionList() {
                 r.bundle.ciBundleVersion,
               );
               if (exists) {
-                downloaded.add(r.bundle.ciBundleVersion);
+                downloaded.add(`${r.version}:${r.bundle.ciBundleVersion}`);
               }
             } catch {
               // ignore
@@ -260,7 +260,7 @@ export default function SettingDevBundleVersionList() {
                               );
                             })()}
                             alreadyDownloaded={downloadedSet.has(
-                              result.bundle.ciBundleVersion,
+                              `${result.version}:${result.bundle.ciBundleVersion}`,
                             )}
                             isDownloading={isDownloading}
                             onDownloadStart={handleDownloadStart}
