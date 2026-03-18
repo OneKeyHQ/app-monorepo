@@ -119,6 +119,8 @@ export class RequestLimitExceededError extends OneKeyAppError {
       }),
     );
   }
+
+  override className = EOneKeyErrorClassNames.RequestLimitExceededError;
 }
 
 export class SystemDiskFullError extends OneKeyAppError {
