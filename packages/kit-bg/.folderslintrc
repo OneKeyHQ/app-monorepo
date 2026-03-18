@@ -9,6 +9,7 @@
     "offscreens/**",
     "desktopApis/**",
     "webembeds/**",
+    "protocols/**",
     "services/*",
     "services/**",
     "connectors/**",
