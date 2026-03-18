@@ -69,26 +69,36 @@ function MarketWatchlistEditDialogContent({
     pageSize: 999,
   });
   const [dataSource, setDataSource] = useState<IMarketToken[]>([]);
+  const removedKeysRef = useRef(new Set<string>());
 
   useEffect(() => {
-    setDataSource(watchlistResult.data);
+    setDataSource(
+      watchlistResult.data.filter(
+        (item) => !removedKeysRef.current.has(getWatchlistTokenKey(item)),
+      ),
+    );
   }, [watchlistResult.data]);
 
   const handleRemove = useCallback(
     async (item: IMarketToken) => {
+      const itemKey = getWatchlistTokenKey(item);
+      removedKeysRef.current.add(itemKey);
       setDataSource((prev) =>
         prev.filter(
-          (currentItem) =>
-            getWatchlistTokenKey(currentItem) !== getWatchlistTokenKey(item),
+          (currentItem) => getWatchlistTokenKey(currentItem) !== itemKey,
         ),
       );
-      await onRemove(item);
-
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.market_remove_from_watchlist,
-        }),
-      });
+      try {
+        await onRemove(item);
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.market_remove_from_watchlist,
+          }),
+        });
+      } catch {
+        removedKeysRef.current.delete(itemKey);
+        setDataSource((prev) => [...prev, item]);
+      }
     },
     [intl, onRemove],
   );

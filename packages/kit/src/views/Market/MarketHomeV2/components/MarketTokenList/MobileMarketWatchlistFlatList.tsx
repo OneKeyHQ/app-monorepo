@@ -699,6 +699,13 @@ function MobileMarketWatchlistFlatListImpl({
                 if (latest.activeItemId !== itemKey || latest.hasMoved) {
                   return;
                 }
+                const latestPageY = latest.lastPageY || pageY;
+                const stillInsideRow =
+                  latestPageY >= latest.rowTop &&
+                  latestPageY <= latest.rowBottom;
+                if (!stillInsideRow) {
+                  return;
+                }
                 latest.consumeNextPress = true;
                 clearMenuTimer();
                 const latestIndex = getLatestIndex();
