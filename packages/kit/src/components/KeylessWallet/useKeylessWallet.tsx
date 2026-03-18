@@ -64,12 +64,12 @@ import {
   showAppleIDMismatchDialog,
   showGoogleDriveMismatchDialog,
 } from './AccountMismatchDialog';
+import {
+  getPromotedSameEmailAccountStatusAfterAutoRetryRateLimit,
+  isKeylessSameEmailAutoRetryRateLimitError,
+} from './sameEmailAccountStatusUtils';
 
-type IKeylessSameEmailAccountStatus = {
-  isSameEmailAccountAtOldVersion: boolean;
-  retryProvider?: EOAuthSocialLoginProvider;
-  currentProvider?: EOAuthSocialLoginProvider;
-};
+import type { IKeylessSameEmailAccountStatus } from './sameEmailAccountStatusUtils';
 
 export function useKeylessWalletFeatureIsEnabled(): boolean {
   return true;
@@ -318,7 +318,7 @@ export function useKeylessWalletMethods() {
 
 export const keylessOnboardingCache = new cacheUtils.LRUCache<string, string>({
   max: 1000,
-  ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
+  ttl: timerUtils.getTimeDurationMs({ minute: 8 }),
   ttlAutopurge: true,
 });
 
@@ -404,6 +404,23 @@ export async function getKeylessOnboardingSameEmailAccountStatus(): Promise<IKey
       isSameEmailAccountAtOldVersion: false,
     };
   }
+}
+
+async function promoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
+  status,
+}: {
+  status: IKeylessSameEmailAccountStatus;
+}) {
+  const nextStatus =
+    getPromotedSameEmailAccountStatusAfterAutoRetryRateLimit(status);
+
+  if (!nextStatus) {
+    return;
+  }
+
+  await cacheKeylessOnboardingSameEmailAccountStatus({
+    status: nextStatus,
+  });
 }
 
 async function cacheKeylessOnboardingCustomMnemonic({
@@ -1057,16 +1074,27 @@ export function useKeylessWallet() {
           sameEmailAccountStatus.retryProvider &&
           !dangerousRetryByFixedProvider
         ) {
-          await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
-            {
-              token,
-              pin,
-              refreshToken,
-              mode,
-              dangerousRetryByFixedProvider: false,
-              providerOverride: sameEmailAccountStatus.retryProvider,
-            },
-          );
+          try {
+            await backgroundApiProxy.serviceKeylessWallet.apiVerifyKeylessJuiceboxPin(
+              {
+                token,
+                pin,
+                refreshToken,
+                mode,
+                dangerousRetryByFixedProvider: false,
+                providerOverride: sameEmailAccountStatus.retryProvider,
+              },
+            );
+          } catch (retryError) {
+            if (isKeylessSameEmailAutoRetryRateLimitError(retryError)) {
+              await promoteKeylessOnboardingSameEmailRetryProviderAfterRateLimit(
+                {
+                  status: sameEmailAccountStatus,
+                },
+              );
+            }
+            throw retryError;
+          }
         } else {
           throw error;
         }
