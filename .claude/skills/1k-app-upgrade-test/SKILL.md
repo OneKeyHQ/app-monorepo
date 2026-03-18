@@ -62,7 +62,6 @@ Update these files in order:
 
 1. **`.env.version`**
    - Set VERSION to test version
-   - Set BUILD_NUMBER to calculated value
 
 2. **`.github/actions/shared-env/action.yml`**
    - Update version in outputs section
