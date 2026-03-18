@@ -133,6 +133,19 @@ async function savePendingWebTabStorage(data: IStoredPendingWebTab) {
   );
 }
 
+async function savePendingWebTab(data: IStoredPendingWebTab) {
+  if (
+    typeof data.tabId !== 'number' ||
+    !Number.isFinite(data.tabId) ||
+    !data.autoConnectParams.nonce ||
+    !data.autoConnectParams.autoConnectOrigin
+  ) {
+    return;
+  }
+
+  await savePendingWebTabStorage(data);
+}
+
 async function clearPendingWebTabStorage() {
   await appStorage.removeItem(KEYLESS_WEB_PENDING_TAB_STORAGE_KEY);
 }
@@ -398,5 +411,6 @@ function setupKeylessWebBridgeInBackground() {
 export default {
   clearTabWebHashAndReload,
   notifyKeylessWebConnectSuccess,
+  savePendingWebTab,
   setupKeylessWebBridgeInBackground,
 };

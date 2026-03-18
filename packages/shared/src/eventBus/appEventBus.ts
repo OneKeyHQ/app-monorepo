@@ -269,6 +269,12 @@ export interface IAppEventBusPayload {
     payload: {
       rejectId: number | string;
     };
+  } | {
+    type: 'rejectDappRequest';
+    payload: {
+      rejectId: number | string;
+      errorMessage?: string;
+    };
   };
   [EAppEventBusNames.SwapQuoteEvent]: {
     type: 'message' | 'done' | 'error' | 'close' | 'open';

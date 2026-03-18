@@ -4,29 +4,33 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 
 export function useAutoStartKeylessProvider({
   autoStartProvider,
+  autoStartTriggerKey,
   enabled = true,
   onGoogleLogin,
   onAppleLogin,
 }: {
   autoStartProvider?: EOAuthSocialLoginProvider;
+  autoStartTriggerKey?: string;
   enabled?: boolean;
   onGoogleLogin: () => Promise<void> | void;
   onAppleLogin: () => Promise<void> | void;
 }) {
-  const autoTriggeredProviderRef = useRef<
-    EOAuthSocialLoginProvider | undefined
-  >(undefined);
+  const autoTriggeredKeyRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
+    const autoStartKey = autoStartProvider
+      ? `${autoStartProvider}:${autoStartTriggerKey ?? ''}`
+      : undefined;
+
     if (
       !enabled ||
       !autoStartProvider ||
-      autoTriggeredProviderRef.current === autoStartProvider
+      autoTriggeredKeyRef.current === autoStartKey
     ) {
       return;
     }
 
-    autoTriggeredProviderRef.current = autoStartProvider;
+    autoTriggeredKeyRef.current = autoStartKey;
 
     if (autoStartProvider === EOAuthSocialLoginProvider.Google) {
       void onGoogleLogin();
@@ -36,5 +40,11 @@ export function useAutoStartKeylessProvider({
     if (autoStartProvider === EOAuthSocialLoginProvider.Apple) {
       void onAppleLogin();
     }
-  }, [autoStartProvider, enabled, onAppleLogin, onGoogleLogin]);
+  }, [
+    autoStartProvider,
+    autoStartTriggerKey,
+    enabled,
+    onAppleLogin,
+    onGoogleLogin,
+  ]);
 }

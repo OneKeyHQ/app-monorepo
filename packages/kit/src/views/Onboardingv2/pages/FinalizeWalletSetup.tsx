@@ -24,6 +24,10 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -260,6 +264,13 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
     try {
+      let hdWalletCreatedResult:
+        | {
+            wallet: IDBWallet;
+            indexedAccount: IDBIndexedAccount | undefined;
+            isOverrideWallet: boolean | undefined;
+          }
+        | undefined;
       // **** hd wallet case
       if (mnemonic && !created.current) {
         await withPromptPasswordVerify({
@@ -278,7 +289,7 @@ function FinalizeWalletSetupPage({
             }
             const shouldRunAutoReset =
               !!isKeylessWallet && !!shouldAutoResetKeylessPinAfterRestore;
-            await actions.current.createHDWallet({
+            hdWalletCreatedResult = await actions.current.createHDWallet({
               mnemonic,
               isWalletBackedUp,
               isKeylessWallet,
@@ -330,13 +341,14 @@ function FinalizeWalletSetupPage({
                 }
               })();
             }
-            const { wallet: createdWallet } =
-              await actions.current.createHDWallet({
-                mnemonic,
-                isWalletBackedUp,
-                isKeylessWallet,
-                keylessDetailsInfo,
-              });
+
+            // const { wallet: createdWallet } =
+            //   await actions.current.createHDWallet({
+            //     mnemonic,
+            //     isWalletBackedUp,
+            //     isKeylessWallet,
+            //     keylessDetailsInfo,
+            //   });
             // Track keyless wallet creation success
             if (isKeylessWallet && keylessDetailsInfo) {
               defaultLogger.account.wallet.walletAdded({
@@ -354,9 +366,13 @@ function FinalizeWalletSetupPage({
 
               if (
                 platformEnv.isExtension &&
-                accountUtils.isKeylessWallet({ walletId: createdWallet.id })
+                accountUtils.isKeylessWallet({
+                  walletId: hdWalletCreatedResult?.wallet.id,
+                })
               ) {
-                setPendingKeylessAutoConnectWalletId(createdWallet.id);
+                setPendingKeylessAutoConnectWalletId(
+                  hdWalletCreatedResult?.wallet.id,
+                );
               }
             }
           },

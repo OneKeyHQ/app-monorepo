@@ -1,3 +1,5 @@
+import { StackActions } from '@react-navigation/native';
+
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ONBOARDING_FROM_EXT_PARAM } from '@onekeyhq/shared/src/consts/onboardingConsts';
@@ -20,7 +22,10 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
+import extKeylessForWebBridge from './extKeylessForWebBridge';
+
 const SIDE_PANEL_PORT_NAME = 'ONEKEY_SIDE_PANEL';
+const SIDE_PANEL_DAPP_MOUNT_ACK_TIMEOUT_MS = 3_000;
 
 let pendingKeylessGetStartedParams:
   | ReturnType<typeof buildKeylessGetStartedParams>
@@ -94,6 +99,137 @@ function pushKeylessGetStartedToSidePanel(
   );
 }
 
+function extractQueryFromModalParams(
+  modalParams: unknown,
+): string | undefined {
+  if (!modalParams || typeof modalParams !== 'object') {
+    return undefined;
+  }
+
+  const params = modalParams as {
+    query?: unknown;
+    params?: unknown;
+  };
+
+  if (typeof params.query === 'string') {
+    return params.query;
+  }
+
+  return extractQueryFromModalParams(params.params);
+}
+
+function extractDappRejectIdFromModalParams(
+  modalParams: unknown,
+): number | string | undefined {
+  const query = extractQueryFromModalParams(modalParams);
+  if (!query) {
+    return undefined;
+  }
+
+  try {
+    const queryInfo = JSON.parse(query) as {
+      $sourceInfo?: {
+        id?: number | string;
+      };
+    };
+
+    if (
+      typeof queryInfo.$sourceInfo?.id === 'number' ||
+      typeof queryInfo.$sourceInfo?.id === 'string'
+    ) {
+      return queryInfo.$sourceInfo.id;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function emitSidePanelDappMountFailed(params: {
+  rejectId: number | string;
+  errorMessage?: string;
+}) {
+  appEventBus.emit(EAppEventBusNames.SidePanel_UIToBg, {
+    type: 'rejectDappRequest',
+    payload: params,
+  });
+}
+
+function waitForSidePanelDappRejectIdAck({
+  rejectId,
+  timeoutMs = SIDE_PANEL_DAPP_MOUNT_ACK_TIMEOUT_MS,
+}: {
+  rejectId: number | string;
+  timeoutMs?: number;
+}) {
+  return new Promise<boolean>((resolve) => {
+    let finished = false;
+
+    const finish = (acked: boolean) => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      clearTimeout(timer);
+      appEventBus.off(EAppEventBusNames.SidePanel_UIToBg, onAck);
+      resolve(acked);
+    };
+
+    const onAck = (
+      params: IAppEventBusPayload[EAppEventBusNames.SidePanel_UIToBg],
+    ) => {
+      if (params.type !== 'dappRejectId') {
+        return;
+      }
+      if (params.payload.rejectId !== rejectId) {
+        return;
+      }
+
+      finish(true);
+    };
+
+    const timer = setTimeout(() => {
+      finish(false);
+    }, timeoutMs);
+
+    appEventBus.on(EAppEventBusNames.SidePanel_UIToBg, onAck);
+  });
+}
+
+async function syncPendingKeylessWebTabForAutoConnect({
+  tabId,
+  getStartedParams,
+}: {
+  tabId: number;
+  getStartedParams: ReturnType<typeof buildKeylessGetStartedParams>;
+}) {
+  const autoConnectOrigin = getStartedParams.autoConnectOrigin;
+  const nonce = getStartedParams.autoConnectNonce;
+
+  if (!autoConnectOrigin || !nonce) {
+    return;
+  }
+
+  await extKeylessForWebBridge.savePendingWebTab({
+    tabId,
+    autoConnectParams: {
+      nonce,
+      autoConnectOrigin,
+      autoLoginKeylessProvider: getStartedParams.autoLoginKeylessProvider,
+    },
+  });
+}
+
+function persistPendingKeylessWebTabForAutoConnect(params: {
+  tabId: number;
+  getStartedParams: ReturnType<typeof buildKeylessGetStartedParams>;
+}) {
+  void syncPendingKeylessWebTabForAutoConnect(params).catch((error) => {
+    console.error('persistPendingKeylessWebTabForAutoConnect', error);
+  });
+}
+
 async function openKeylessSidePanelByUserGesture({
   sender,
   payload,
@@ -127,6 +263,10 @@ async function openKeylessSidePanelByUserGesture({
   });
 
   if (sidePanelState.isOpen) {
+    persistPendingKeylessWebTabForAutoConnect({
+      tabId,
+      getStartedParams,
+    });
     pushKeylessGetStartedToSidePanel(getStartedParams);
     return {
       success: true,
@@ -146,6 +286,10 @@ async function openKeylessSidePanelByUserGesture({
     });
     await chrome.sidePanel.open({
       windowId,
+    });
+    persistPendingKeylessWebTabForAutoConnect({
+      tabId,
+      getStartedParams,
     });
   } catch (error) {
     pendingKeylessGetStartedParams = undefined;
@@ -219,6 +363,10 @@ async function tryImmediateOpenSidePanelOnMessage({
   for (const attempt of attemptList) {
     try {
       await chrome.sidePanel.open(attempt.payload);
+      persistPendingKeylessWebTabForAutoConnect({
+        tabId,
+        getStartedParams,
+      });
 
       // Keep tab-specific path stable after immediate open.
       void chrome.sidePanel
@@ -286,6 +434,20 @@ export const setupSidePanelPortInBg = () => {
               dappRejectId = payload.rejectId;
               break;
             }
+            case 'rejectDappRequest': {
+              if (dappRejectId === payload.rejectId) {
+                dappRejectId = undefined;
+              }
+              const backgroundApiProxy = getBackgroundApiProxy();
+              void backgroundApiProxy.servicePromise.rejectCallback({
+                id: payload.rejectId,
+                error: new Error(
+                  payload.errorMessage ||
+                    'Dapp authorization rejected because side panel modal failed to mount.',
+                ),
+              });
+              break;
+            }
             default:
               break;
           }
@@ -346,22 +508,80 @@ export const setupSidePanelPortInUI = () => {
         case 'pushModal':
           {
             const { screen, params } = payload.modalParams;
-            void (async () => {
-              await waitForDataLoaded({
-                data: () => appGlobals.$rootAppNavigation,
-                logName: 'side_panel_wait_root_app_navigation',
-                wait: 100,
-                timeout: 10_000,
-              });
+            const rejectId = extractDappRejectIdFromModalParams(
+              payload.modalParams,
+            );
+            const mountAckPromise = rejectId
+              ? waitForSidePanelDappRejectIdAck({
+                  rejectId,
+                })
+              : undefined;
 
-              if (screen === ERootRoutes.Onboarding) {
-                appGlobals.$rootAppNavigation?.navigate(screen, params);
+            void (async () => {
+              const rejectMountFailure = (error: unknown) => {
+                if (!rejectId) {
+                  return;
+                }
+                const errorMessage =
+                  error instanceof Error ? error.message : String(error);
+                emitSidePanelDappMountFailed({
+                  rejectId,
+                  errorMessage,
+                });
+              };
+
+              const navigateToRoute = async () => {
+                await waitForDataLoaded({
+                  data: () => appGlobals.$rootAppNavigation,
+                  logName: 'side_panel_wait_root_app_navigation',
+                  wait: 100,
+                  timeout: 10_000,
+                });
+
+                if (screen === ERootRoutes.Onboarding) {
+                  appGlobals.$rootAppNavigation?.navigate(screen, params);
+                  return;
+                }
+
+                appGlobals.$navigationRef.current?.dispatch(
+                  StackActions.push(screen, params),
+                );
+              };
+
+              try {
+                await navigateToRoute();
+              } catch (error) {
+                try {
+                  appGlobals.$navigationRef.current?.navigate(screen, params);
+                } catch (fallbackError) {
+                  rejectMountFailure(fallbackError);
+                  return;
+                }
+              }
+
+              if (!mountAckPromise || !rejectId) {
                 return;
               }
 
-              appGlobals.$rootAppNavigation?.pushModal(screen, params);
-            })().catch(() => {
-              appGlobals.$navigationRef.current?.navigate(screen, params);
+              const acked = await mountAckPromise;
+              if (!acked) {
+                emitSidePanelDappMountFailed({
+                  rejectId,
+                  errorMessage: `Side panel failed to mount DApp modal for route: ${String(
+                    screen,
+                  )}`,
+                });
+              }
+            })().catch((error) => {
+              if (!rejectId) {
+                return;
+              }
+              const errorMessage =
+                error instanceof Error ? error.message : String(error);
+              emitSidePanelDappMountFailed({
+                rejectId,
+                errorMessage,
+              });
             });
           }
           break;

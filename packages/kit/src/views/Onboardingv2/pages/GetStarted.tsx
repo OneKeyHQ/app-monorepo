@@ -337,6 +337,7 @@ function GetStarted() {
   };
 
   const autoLoginKeylessProvider = route?.params?.autoLoginKeylessProvider;
+  const autoConnectNonce = route?.params?.autoConnectNonce;
   const loadingDialogRef = useRef<IDialogInstance | null>(null);
 
   const handleGoogleLogin = useCallback(async () => {
@@ -393,6 +394,7 @@ function GetStarted() {
 
   useAutoStartKeylessProvider({
     autoStartProvider: autoLoginKeylessProvider,
+    autoStartTriggerKey: autoConnectNonce,
     enabled: isKeylessWalletEnabled && !enableKeylessWalletLoading,
     onGoogleLogin: handleGoogleLogin,
     onAppleLogin: handleAppleLogin,

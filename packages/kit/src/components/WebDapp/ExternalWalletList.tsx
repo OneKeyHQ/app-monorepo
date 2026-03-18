@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -36,11 +36,13 @@ import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExter
 import { useKeylessWebFlow } from '../../hooks/useWebDapp/useKeylessWebFlow';
 import { useOneKeyWalletDetection } from '../../hooks/useWebDapp/useOneKeyWalletDetection';
 import { useWalletConnection } from '../../hooks/useWebDapp/useWalletConnection';
+import { FormatHyperlinkText } from '../HyperlinkText';
 
 import { useFallbackWallets } from './hooks/useFallbackWallets';
 
 const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
 const KEYLESS_STORE_URL_TARGET = 'onekey-extension-install-store-target';
+const KEYLESS_PROVIDER_LOADING_DURATION_MS = 2000;
 let keylessStoreWindowRef: Window | null = null;
 
 type IOneKeyPrivateProvider = {
@@ -259,14 +261,78 @@ function KeylessProviderButtons() {
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
   const { connectToWalletForKeylessSilently } = useConnectExternalWallet();
-
+  const [loadingProvider, setLoadingProvider] =
+    useState<EOAuthSocialLoginProvider | null>(null);
+  const loadingProviderRef = useRef<EOAuthSocialLoginProvider | null>(null);
+  const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const { startKeylessWebFlow } = useKeylessWebFlow();
+
+  const clearProviderLoading = useCallback(
+    (provider?: EOAuthSocialLoginProvider) => {
+      if (provider && loadingProviderRef.current !== provider) {
+        return;
+      }
+      loadingProviderRef.current = null;
+      setLoadingProvider(null);
+    },
+    [],
+  );
+
+  const startProviderLoading = useCallback(
+    (provider: EOAuthSocialLoginProvider) => {
+      if (loadingProviderRef.current) {
+        return false;
+      }
+      loadingProviderRef.current = provider;
+      setLoadingProvider(provider);
+      clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = setTimeout(() => {
+        clearProviderLoading(provider);
+      }, KEYLESS_PROVIDER_LOADING_DURATION_MS);
+      return true;
+    },
+    [clearProviderLoading],
+  );
+
+  useEffect(
+    () => () => {
+      clearTimeout(loadingTimerRef.current);
+      loadingProviderRef.current = null;
+    },
+    [],
+  );
 
   const handleKeylessProviderPress = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
+      if (!startProviderLoading(provider)) {
+        return;
+      }
+
       if (!isOneKeyInstalled) {
         Dialog.show({
           title: '安装 OneKey 插件后继续',
+          description: (
+            <FormatHyperlinkText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign="center"
+              actionTextProps={{
+                color: '$textInfo',
+              }}
+              underlineTextProps={{
+                color: '$textInfo',
+              }}
+              onAction={() => {
+                globalThis.location.reload();
+              }}
+            >
+              {
+                '如果你已经安装插件，请<action>reload<underline>点击此处</underline></action>刷新页面'
+              }
+            </FormatHyperlinkText>
+          ),
           onConfirmText: intl.formatMessage({
             id: ETranslations.global_install,
           }),
@@ -330,6 +396,7 @@ function KeylessProviderButtons() {
       getOneKeyConnectionInfo,
       intl,
       isOneKeyInstalled,
+      startProviderLoading,
       startKeylessWebFlow,
     ],
   );
@@ -348,13 +415,26 @@ function KeylessProviderButtons() {
           size="large"
           alignSelf="stretch"
           childrenAsText={false}
-          cursor="pointer"
-          onPress={() => {
-            void handleKeylessProviderPress(EOAuthSocialLoginProvider.Google);
-          }}
+          cursor={loadingProvider ? 'not-allowed' : 'pointer'}
+          disabled={!!loadingProvider}
+          onPress={
+            loadingProvider
+              ? undefined
+              : () => {
+                  void handleKeylessProviderPress(
+                    EOAuthSocialLoginProvider.Google,
+                  );
+                }
+          }
         >
           <XStack gap="$2" alignItems="center">
-            <Icon name="GoogleIllus" size="$5" />
+            <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+              {loadingProvider === EOAuthSocialLoginProvider.Google ? (
+                <Spinner size="small" />
+              ) : (
+                <Icon name="GoogleIllus" size="$5" />
+              )}
+            </Stack>
             <SizableText size="$bodyLgMedium">
               {intl.formatMessage({
                 id: ETranslations.wallet_keyless_web_continue_with_google,
@@ -369,39 +449,32 @@ function KeylessProviderButtons() {
           size="large"
           alignSelf="stretch"
           childrenAsText={false}
-          cursor="pointer"
-          onPress={() => {
-            void handleKeylessProviderPress(EOAuthSocialLoginProvider.Apple);
-          }}
+          cursor={loadingProvider ? 'not-allowed' : 'pointer'}
+          disabled={!!loadingProvider}
+          onPress={
+            loadingProvider
+              ? undefined
+              : () => {
+                  void handleKeylessProviderPress(
+                    EOAuthSocialLoginProvider.Apple,
+                  );
+                }
+          }
         >
           <XStack gap="$2" alignItems="center">
-            <Icon name="AppleBrand" size="$5" />
+            <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+              {loadingProvider === EOAuthSocialLoginProvider.Apple ? (
+                <Spinner size="small" />
+              ) : (
+                <Icon name="AppleBrand" size="$5" />
+              )}
+            </Stack>
             <SizableText size="$bodyLgMedium">
               {intl.formatMessage({
                 id: ETranslations.wallet_keyless_web_continue_with_apple,
               })}
             </SizableText>
           </XStack>
-        </Button>
-        <Button
-          mt="$2"
-          bg="$gray2"
-          hoverStyle={{ bg: '$gray3' }}
-          pressStyle={{ bg: '$gray4' }}
-          size="small"
-          alignSelf="center"
-          w={280}
-          cursor="pointer"
-          onPress={() => {
-            const pendingLogin =
-              keylessWebPendingLoginCache.readKeylessPendingLogin();
-            notifyOpenKeylessSidePanelInContentScript({
-              provider: EOAuthSocialLoginProvider.Google,
-              nonce: pendingLogin?.nonce,
-            });
-          }}
-        >
-          <SizableText size="$bodyMd">Test Open Side Panel</SizableText>
         </Button>
       </YStack>
     </Stack>
