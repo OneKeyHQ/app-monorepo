@@ -503,7 +503,11 @@ export function TabBar({
     !textSize;
 
   const useAnimatedPill =
-    !!indexDecimal && variant === 'pill' && !scrollable && !textSize;
+    !!indexDecimal &&
+    variant === 'pill' &&
+    !scrollable &&
+    !renderItem &&
+    !textSize;
 
   const handleItemLayout = useCallback(
     (index: number, layout: IItemLayout) => {
