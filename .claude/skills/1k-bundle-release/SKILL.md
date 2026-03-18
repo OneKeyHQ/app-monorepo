@@ -43,7 +43,7 @@ Parse the argument passed to this skill:
 /1k-bundle-release publish       ← Record release in tracking file
 ```
 
-These three steps are designed to run in sequence, but each can also run independently (e.g., re-running diff-check after fixing an issue).
+These steps are designed to run in sequence, but each can also run independently (e.g., re-running diff-check after fixing an issue).
 
 ## Label Convention
 
