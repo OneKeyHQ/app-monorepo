@@ -27,6 +27,22 @@ export function createRecoveryWindow(): BrowserWindow {
   const dimensions = display.workAreaSize;
   const appStaticResourcesPath = getAppStaticResourcesPath();
 
+  // Register sync IPC handlers that preload.js calls at module load time.
+  // Without these, ipcRenderer.sendSync() blocks forever and the page
+  // never renders.
+  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
+  ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
+    event.returnValue = isDev;
+  });
+  ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
+  ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
+    event.returnValue = path.dirname(logger.transports.file.getFile().path);
+  });
+  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
+  ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
+    event.returnValue = false;
+  });
+
   const browserWindow = new BrowserWindow({
     show: true,
     title: 'OneKey',
