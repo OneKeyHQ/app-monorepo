@@ -1403,9 +1403,7 @@ class ServiceAppUpdate extends ServiceBase {
         return match ? { version: v.version, bundle: match } : null;
       }),
     );
-    return results.filter(
-      (r): r is NonNullable<typeof r> => r !== null,
-    );
+    return results.filter((r): r is NonNullable<typeof r> => r !== null);
   }
 }
 

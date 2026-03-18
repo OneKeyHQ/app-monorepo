@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -16,9 +16,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  BundleUpdate,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -99,6 +97,7 @@ export default function SettingDevBundleVersionList() {
   const [skipGpgVerificationAllowed, setSkipGpgVerificationAllowed] =
     useState(false);
   const [downloadedSet, setDownloadedSet] = useState<Set<string>>(new Set());
+  const searchIdRef = useRef(0);
 
   const currentAppVersion = String(platformEnv.version);
   const currentBundleVersion = String(platformEnv.bundleVersion);
@@ -125,10 +124,13 @@ export default function SettingDevBundleVersionList() {
     setSearchText(text);
     const trimmed = text.trim();
     if (!trimmed) {
+      searchIdRef.current += 1;
       setSearchResults([]);
       setSearching(false);
       return;
     }
+    searchIdRef.current += 1;
+    const currentSearchId = searchIdRef.current;
     setSearching(true);
     void (async () => {
       try {
@@ -136,6 +138,7 @@ export default function SettingDevBundleVersionList() {
           await backgroundApiProxy.serviceAppUpdate.devSearchBundleByCommit(
             trimmed,
           );
+        if (currentSearchId !== searchIdRef.current) return;
         setSearchResults(results);
 
         // Check which bundles are already downloaded
@@ -155,9 +158,12 @@ export default function SettingDevBundleVersionList() {
             }
           }),
         );
+        if (currentSearchId !== searchIdRef.current) return;
         setDownloadedSet(downloaded);
       } finally {
-        setSearching(false);
+        if (currentSearchId === searchIdRef.current) {
+          setSearching(false);
+        }
       }
     })();
   }, []);
@@ -208,7 +214,8 @@ export default function SettingDevBundleVersionList() {
                   <Stack py="$10" justifyContent="center" alignItems="center">
                     <Spinner size="large" />
                   </Stack>
-                ) : searchResults.length > 0 ? (
+                ) : null}
+                {!searching && searchResults.length > 0 ? (
                   <>
                     <SizableText size="$bodyXs" color="$textSubdued" px="$1">
                       {`${searchResults.length} RESULT${searchResults.length !== 1 ? 'S' : ''}`}
@@ -267,7 +274,8 @@ export default function SettingDevBundleVersionList() {
                       </YStack>
                     ))}
                   </>
-                ) : (
+                ) : null}
+                {!searching && searchResults.length === 0 ? (
                   <YStack py="$10" alignItems="center" gap="$2">
                     <Icon
                       name="SearchOutline"
@@ -278,7 +286,7 @@ export default function SettingDevBundleVersionList() {
                       No bundles found
                     </SizableText>
                   </YStack>
-                )}
+                ) : null}
               </YStack>
             ) : (
               <>
