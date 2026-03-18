@@ -206,11 +206,17 @@ class ServiceRelay extends ServiceBase {
     originCurrency: string;
     recipient: string;
     amount: string;
+    tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
+    decimals?: number;
   }): IRelayQuoteRequest {
     const { originChainId, originCurrency, recipient, amount } = params;
-    const USDC_DECIMALS = 8;
+    const DESTINATION_DECIMALS = 8;
+    const amountDecimals =
+      params.tradeType === 'EXACT_INPUT'
+        ? (params.decimals ?? 18)
+        : DESTINATION_DECIMALS;
     const amountInSmallestUnit = BigInt(
-      Math.floor(parseFloat(amount) * 10 ** USDC_DECIMALS),
+      Math.floor(parseFloat(amount) * 10 ** amountDecimals),
     ).toString();
 
     const isNonEvm =
@@ -245,7 +251,7 @@ class ServiceRelay extends ServiceBase {
       originCurrency,
       destinationCurrency: '0x00000000000000000000000000000000',
       recipient,
-      tradeType: 'EXACT_OUTPUT',
+      tradeType: params.tradeType || 'EXACT_OUTPUT',
       amount: amountInSmallestUnit,
       useDepositAddress: true,
       refundTo: recipient,
@@ -330,6 +336,7 @@ class ServiceRelay extends ServiceBase {
       receiveAmount: data.details?.currencyOut?.amountFormatted ?? '0',
       receiveSymbol: data.details?.currencyOut?.currency?.symbol ?? 'USDC',
       totalFeeUsd,
+      totalFeePercent: data.details?.totalImpact?.percent,
       timeEstimate: data.details?.timeEstimate ?? 0,
     };
   }
@@ -339,17 +346,32 @@ class ServiceRelay extends ServiceBase {
     originChainId: number;
     originCurrency: string;
     recipient: string;
+    amount?: string;
+    tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
+    decimals?: number;
   }): Promise<IRelayDepositInfo> {
-    const DEFAULT_AMOUNT = '100';
+    const quoteAmount = params.amount || '100';
     const PROBE_AMOUNT = '10000000'; // 10M USD probe to find max liquidity
 
-    // Parallel: small quote for deposit address + large probe for max amount
+    // Parallel: quote for deposit address + fees, large probe for max amount
     const [quoteResult, probeResult] = await Promise.allSettled([
       this._fetchQuote(
-        this._buildQuoteRequest({ ...params, amount: DEFAULT_AMOUNT }),
+        this._buildQuoteRequest({
+          originChainId: params.originChainId,
+          originCurrency: params.originCurrency,
+          recipient: params.recipient,
+          amount: quoteAmount,
+          tradeType: params.tradeType,
+          decimals: params.decimals,
+        }),
       ),
       this._fetchQuote(
-        this._buildQuoteRequest({ ...params, amount: PROBE_AMOUNT }),
+        this._buildQuoteRequest({
+          originChainId: params.originChainId,
+          originCurrency: params.originCurrency,
+          recipient: params.recipient,
+          amount: PROBE_AMOUNT,
+        }),
       ),
     ]);
 
@@ -391,11 +413,12 @@ class ServiceRelay extends ServiceBase {
 
     return {
       depositAddress,
-      sendAmount: data.details?.currencyIn?.amountFormatted ?? DEFAULT_AMOUNT,
+      sendAmount: data.details?.currencyIn?.amountFormatted ?? quoteAmount,
       sendSymbol: data.details?.currencyIn?.currency?.symbol ?? '',
       receiveAmount: data.details?.currencyOut?.amountFormatted ?? '0',
       receiveSymbol: data.details?.currencyOut?.currency?.symbol ?? 'USDC',
       totalFeeUsd,
+      totalFeePercent: data.details?.totalImpact?.percent,
       timeEstimate: data.details?.timeEstimate ?? 0,
       maxReceiveAmount,
     };

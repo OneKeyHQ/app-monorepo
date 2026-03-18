@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Text, TextInput } from 'react-native';
 
 import {
   Divider,
@@ -15,16 +16,38 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IRelayChain,
   IRelayCurrency,
   IRelayDepositInfo,
 } from '@onekeyhq/shared/types/relay';
+
+// Pure utility — format raw numeric string with thousands commas, preserving decimals
+function formatWithCommas(raw: string): string {
+  if (!raw) return raw;
+  const [integer, decimal] = raw.split('.');
+  const formattedInt = (integer ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return decimal !== undefined ? `${formattedInt}.${decimal}` : formattedInt;
+}
+
+// Extract human-readable message from raw API error (may be JSON)
+function parseErrorMessage(raw: string): string {
+  try {
+    const jsonStart = raw.indexOf('{');
+    if (jsonStart !== -1) {
+      const parsed = JSON.parse(raw.slice(jsonStart)) as { message?: string };
+      return parsed.message ?? raw;
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return raw;
+}
 
 interface IRelayDepositContentProps {
   selectedAccount: IPerpsActiveAccountAtom;
@@ -33,6 +56,7 @@ interface IRelayDepositContentProps {
 function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const theme = useTheme();
 
   const [chains, setChains] = useState<IRelayChain[]>([]);
   const [currencies, setCurrencies] = useState<
@@ -44,11 +68,14 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
   const [quoteResult, setQuoteResult] = useState<IRelayDepositInfo | null>(
     null,
   );
+  const [sendAmount, setSendAmount] = useState('');
+  const [receiveAmount, setReceiveAmount] = useState('100');
   const [loading, setLoading] = useState(false);
   const [chainsLoading, setChainsLoading] = useState(true);
   const [error, setError] = useState('');
 
   const recipientAddress = selectedAccount.accountAddress ?? '';
+  const lastEditedRef = useRef<'send' | 'receive'>('receive');
 
   const currentCurrencies = useMemo(
     () => currencies[selectedChainId] ?? [],
@@ -84,10 +111,16 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
     [currentCurrencies],
   );
 
-  // --- Fetch max quote logic ---
+  // --- Fetch quote logic ---
   const fetchIdRef = useRef(0);
-  const fetchMaxQuote = useCallback(
-    async (params: { chainId: number; currencyAddress: string }) => {
+  const fetchQuote = useCallback(
+    async (params: {
+      chainId: number;
+      currencyAddress: string;
+      amount: string;
+      tradeType?: 'EXACT_INPUT' | 'EXACT_OUTPUT';
+      decimals?: number;
+    }) => {
       if (!recipientAddress) return;
 
       fetchIdRef.current += 1;
@@ -100,16 +133,23 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
           originChainId: params.chainId,
           originCurrency: params.currencyAddress,
           recipient: recipientAddress,
+          amount: params.amount,
+          tradeType: params.tradeType,
+          decimals: params.decimals,
         });
         if (id === fetchIdRef.current) {
           setQuoteResult(result);
+          if (params.tradeType === 'EXACT_INPUT') {
+            setReceiveAmount(result.receiveAmount);
+          } else {
+            setSendAmount(result.sendAmount);
+          }
         }
       } catch (e: unknown) {
         if (id === fetchIdRef.current) {
-          const errorMessage =
-            e instanceof Error ? e.message : 'Failed to get quote';
-          setError(errorMessage);
-          setQuoteResult(null);
+          const raw = e instanceof Error ? e.message : 'Failed to get quote';
+          setError(parseErrorMessage(raw));
+          // Keep previous quoteResult so QR code stays visible
         }
       } finally {
         if (id === fetchIdRef.current) {
@@ -118,6 +158,60 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       }
     },
     [recipientAddress],
+  );
+
+  // Debounce amount changes
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    },
+    [],
+  );
+
+  const handleSendAmountChange = useCallback(
+    (text: string) => {
+      const raw = text.replace(/,/g, '');
+      setSendAmount(raw);
+      lastEditedRef.current = 'send';
+
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        const parsed = parseFloat(raw);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          void fetchQuote({
+            chainId: selectedChainId,
+            currencyAddress: selectedCurrencyAddress,
+            amount: raw,
+            tradeType: 'EXACT_INPUT',
+            decimals: selectedCurrency?.decimals,
+          });
+        }
+      }, 1_500);
+    },
+    [fetchQuote, selectedChainId, selectedCurrencyAddress, selectedCurrency],
+  );
+
+  const handleReceiveAmountChange = useCallback(
+    (text: string) => {
+      const raw = text.replace(/,/g, '');
+      setReceiveAmount(raw);
+      lastEditedRef.current = 'receive';
+
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        const parsed = parseFloat(raw);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          void fetchQuote({
+            chainId: selectedChainId,
+            currencyAddress: selectedCurrencyAddress,
+            amount: raw,
+          });
+        }
+      }, 1_500);
+    },
+    [fetchQuote, selectedChainId, selectedCurrencyAddress],
   );
 
   // Load chains on mount, then auto-fetch first quote
@@ -155,11 +249,12 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
         setSelectedCurrencyAddress(defaultCurrencyAddr);
         setChainsLoading(false);
 
-        // Auto-fetch max quote with defaults
+        // Auto-fetch quote with defaults (EXACT_OUTPUT, receive 100 USDC)
         if (defaultCurrencyAddr) {
-          void fetchMaxQuote({
+          void fetchQuote({
             chainId: defaultChainId,
             currencyAddress: defaultCurrencyAddr,
+            amount: '100',
           });
         }
       } catch (e) {
@@ -182,13 +277,24 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       const picked = usdc ?? chainCurrencies?.[0];
       if (picked) {
         setSelectedCurrencyAddress(picked.address);
-        void fetchMaxQuote({
-          chainId,
-          currencyAddress: picked.address,
-        });
+        if (lastEditedRef.current === 'send' && sendAmount) {
+          void fetchQuote({
+            chainId,
+            currencyAddress: picked.address,
+            amount: sendAmount,
+            tradeType: 'EXACT_INPUT',
+            decimals: picked.decimals,
+          });
+        } else {
+          void fetchQuote({
+            chainId,
+            currencyAddress: picked.address,
+            amount: receiveAmount || '100',
+          });
+        }
       }
     },
-    [currencies, fetchMaxQuote],
+    [currencies, fetchQuote, receiveAmount, sendAmount],
   );
 
   const handleCurrencyChange = useCallback(
@@ -198,13 +304,24 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       setError('');
       const currency = currentCurrencies.find((c) => c.address === address);
       if (currency) {
-        void fetchMaxQuote({
-          chainId: selectedChainId,
-          currencyAddress: currency.address,
-        });
+        if (lastEditedRef.current === 'send' && sendAmount) {
+          void fetchQuote({
+            chainId: selectedChainId,
+            currencyAddress: currency.address,
+            amount: sendAmount,
+            tradeType: 'EXACT_INPUT',
+            decimals: currency.decimals,
+          });
+        } else {
+          void fetchQuote({
+            chainId: selectedChainId,
+            currencyAddress: currency.address,
+            amount: receiveAmount || '100',
+          });
+        }
       }
     },
-    [currentCurrencies, selectedChainId, fetchMaxQuote],
+    [currentCurrencies, selectedChainId, fetchQuote, receiveAmount, sendAmount],
   );
 
   const handleCopyAddress = useCallback(() => {
@@ -220,6 +337,22 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
     const minutes = Math.round(seconds / 60);
     return `~${minutes}m`;
   }, [quoteResult?.timeEstimate]);
+
+  const hintText = useMemo(() => {
+    const max = quoteResult?.maxReceiveAmount
+      ? parseFloat(quoteResult.maxReceiveAmount)
+      : null;
+    if (max && max > 0) {
+      const formatted =
+        max >= 1_000_000
+          ? `$${(max / 1_000_000).toFixed(1)}M`
+          : max >= 1_000
+            ? `$${Math.round(max / 1_000)}K`
+            : `$${Math.round(max)}`;
+      return `Edit amounts to estimate fees. You can receive up to ${formatted} USDC.`;
+    }
+    return 'Edit amounts to estimate fees. You can deposit any amount.';
+  }, [quoteResult?.maxReceiveAmount]);
 
   if (chainsLoading) {
     return (
@@ -362,64 +495,157 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
               />
             </XStack>
           </YStack>
+
           <Divider />
 
-          {/* Fee details */}
-          <YStack gap="$2.5" width="100%">
-            {selectedCurrency?.address ? (
-              <XStack
-                justifyContent="space-between"
-                alignItems="center"
-                gap="$2"
-              >
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Token
-                </SizableText>
-                <XStack
-                  alignItems="center"
-                  gap="$1"
-                  cursor="pointer"
-                  onPress={() => copyText(selectedCurrency.address)}
-                  hoverStyle={{ opacity: 0.6 }}
-                >
-                  <SizableText size="$bodySm" color="$text">
-                    {`${selectedCurrency.address.slice(0, 6)}...${selectedCurrency.address.slice(-4)}`}
-                  </SizableText>
-                  <Icon name="Copy1Outline" size="$3" color="$iconSubdued" />
-                </XStack>
-              </XStack>
-            ) : null}
-            {quoteResult.maxReceiveAmount ? (
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Max Received
-                </SizableText>
-                <SizableText size="$bodySm" color="$text">
-                  {numberFormat(quoteResult.maxReceiveAmount, {
-                    formatter: 'balance',
-                  })}{' '}
-                  USDC
-                </SizableText>
-              </XStack>
-            ) : null}
+          {/* Send & Receive rows */}
+          <YStack gap="$2">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                Fees
+                {`Fees: $${quoteResult.totalFeeUsd}`}
               </SizableText>
-              <SizableText size="$bodySm" color="$text">
-                ${quoteResult.totalFeeUsd}
-              </SizableText>
+              {timeEstimateText ? (
+                <XStack alignItems="center" gap="$1">
+                  <Icon
+                    name="ClockTimeHistoryOutline"
+                    size="$3.5"
+                    color="$iconSubdued"
+                  />
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {timeEstimateText}
+                  </SizableText>
+                </XStack>
+              ) : null}
             </XStack>
-            {timeEstimateText ? (
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Est. Time
-                </SizableText>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Send
+              </SizableText>
+              <XStack alignItems="center" gap="$1.5">
+                <YStack
+                  position="relative"
+                  borderRadius="$2"
+                  px="$1.5"
+                  py="$0.5"
+                  hoverStyle={{ bg: '$bgHover' }}
+                >
+                  {/* Hidden sizer — same fontSize as TextInput for exact metric match */}
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      opacity: 0,
+                      minWidth: 30,
+                      color: 'transparent',
+                    }}
+                    pointerEvents="none"
+                  >
+                    {formatWithCommas(sendAmount) || '0'}
+                  </Text>
+                  <TextInput
+                    value={formatWithCommas(sendAmount)}
+                    onChangeText={handleSendAmountChange}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={theme.textDisabled.val}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 6,
+                      right: 6,
+                      bottom: 0,
+                      color: theme.text.val,
+                      fontSize: 12,
+                      textAlign: 'right',
+                      padding: 0,
+                    }}
+                  />
+                </YStack>
+                {selectedCurrency?.logoURI ? (
+                  <Image
+                    src={selectedCurrency.logoURI}
+                    size="$4"
+                    borderRadius="$full"
+                  />
+                ) : null}
                 <SizableText size="$bodySm" color="$text">
-                  {timeEstimateText}
+                  {selectedCurrency?.symbol ?? ''}
                 </SizableText>
               </XStack>
-            ) : null}
+            </XStack>
+
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodySm" color="$textSubdued">
+                Receive
+              </SizableText>
+              <XStack alignItems="center" gap="$1.5">
+                <YStack
+                  position="relative"
+                  borderRadius="$2"
+                  px="$1.5"
+                  py="$0.5"
+                  hoverStyle={{ bg: '$bgHover' }}
+                >
+                  {/* Hidden sizer — same fontSize as TextInput for exact metric match */}
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      opacity: 0,
+                      minWidth: 30,
+                      color: 'transparent',
+                    }}
+                    pointerEvents="none"
+                  >
+                    {formatWithCommas(receiveAmount) || '100'}
+                  </Text>
+                  <TextInput
+                    value={formatWithCommas(receiveAmount)}
+                    onChangeText={handleReceiveAmountChange}
+                    keyboardType="numeric"
+                    placeholder="100"
+                    placeholderTextColor={theme.textDisabled.val}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 6,
+                      right: 6,
+                      bottom: 0,
+                      color: theme.textSuccess.val,
+                      fontSize: 12,
+                      textAlign: 'right',
+                      padding: 0,
+                    }}
+                  />
+                </YStack>
+                <Image
+                  src="https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png"
+                  size="$4"
+                  borderRadius="$full"
+                />
+                <SizableText size="$bodySm" color="$textSuccess">
+                  USDC (Perps)
+                </SizableText>
+              </XStack>
+            </XStack>
+          </YStack>
+
+          {/* Hint bubble */}
+          <YStack mt="$-3.5">
+            {/* Arrow pointing up at the numbers */}
+            <XStack justifyContent="center" pl={110} overflow="hidden" h={6}>
+              <YStack
+                width={10}
+                height={10}
+                bg="$bgInfoSubdued"
+                mt={1}
+                transform={[{ rotate: '45deg' }]}
+              />
+            </XStack>
+            {/* Bubble */}
+            <YStack bg="$bgInfoSubdued" borderRadius="$2" px="$3" py="$2">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {hintText}
+              </SizableText>
+            </YStack>
           </YStack>
         </YStack>
       ) : null}

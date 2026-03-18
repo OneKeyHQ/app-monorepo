@@ -98,6 +98,10 @@ export interface IRelayQuoteResponse {
     };
     rate: string;
     timeEstimate: number;
+    totalImpact?: {
+      usd: string;
+      percent: string;
+    };
   };
 }
 
@@ -108,6 +112,7 @@ export interface IRelayDepositInfo {
   receiveAmount: string;
   receiveSymbol: string;
   totalFeeUsd: string;
+  totalFeePercent?: string;
   timeEstimate: number;
   maxReceiveAmount?: string;
 }
