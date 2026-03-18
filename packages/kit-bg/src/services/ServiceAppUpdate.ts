@@ -139,8 +139,7 @@ class ServiceAppUpdate extends ServiceBase {
     if (
       existingTask &&
       (existingTask.status === EPendingInstallTaskStatus.running ||
-        existingTask.status ===
-          EPendingInstallTaskStatus.appliedWaitingVerify)
+        existingTask.status === EPendingInstallTaskStatus.appliedWaitingVerify)
     ) {
       defaultLogger.app.appUpdate.log(
         `fetchAppUpdateInfo: ${reason} rollback skipped — existing task in progress`,
