@@ -604,7 +604,7 @@ function AppDataSection() {
             description={intl.formatMessage({
               id: ETranslations.keyless_wallet_removed__desc,
             })}
-            $sm={{ actionLayout: 'vertical' }}
+            actionLayout="vertical"
             action={{
               primary: intl.formatMessage({
                 id: ETranslations.restore_keyless_wallet__action,
@@ -651,7 +651,7 @@ function AppDataSection() {
             description={intl.formatMessage({
               id: ETranslations.switch_to_keyless_wallet_sync__desc,
             })}
-            $sm={{ actionLayout: 'vertical' }}
+            actionLayout="vertical"
             action={{
               primary: intl.formatMessage({
                 id: ETranslations.switch_now__action,

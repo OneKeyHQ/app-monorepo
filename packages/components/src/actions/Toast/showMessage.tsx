@@ -18,6 +18,6 @@ export function showMessage({
   };
 }
 
-export function dismissToast(id: string | number) {
+export function dismissToast(id: string) {
   toast.dismiss(id);
 }

@@ -4,7 +4,7 @@ import { View, XStack } from '../../primitives';
 
 import type { IToastMessageOptions } from './type';
 
-export function dismissToast(id: string | number) {
+export function dismissToast(id: string) {
   toast.dismiss(id);
 }
 
