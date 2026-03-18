@@ -189,9 +189,8 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     const chartAreaHorizontalSwipeHandler = platformEnv.isNativeAndroid
       ? undefined
       : handleHeaderHorizontalSwipe;
-    const chartAreaPanFailOffsetX: [number, number] = platformEnv.isNativeAndroid
-      ? [-12, 12]
-      : [-40, 40];
+    const chartAreaPanFailOffsetX: [number, number] =
+      platformEnv.isNativeAndroid ? [-12, 12] : [-40, 40];
     const chartAreaExcludeRightEdgeRatio = platformEnv.isNativeAndroid
       ? 0.16
       : 0.1;
