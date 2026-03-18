@@ -890,7 +890,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         status: 'success',
       });
       const whatsNewAlreadyShown = isWhatsNewShown();
-      markWhatsNewShown();
+      // Don't use fileType here — getUpdateFileType compares against the
+      // already-updated running version (current == target), so it always
+      // returns appShell for completed updates. Determine the type directly
+      // from appUpdateInfo instead.
+      markWhatsNewShown(Boolean(appUpdateInfo.jsBundleVersion));
       if (
         appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless &&
         !whatsNewAlreadyShown

@@ -19,9 +19,18 @@ const defaultAlignVertical: TextAreaProps['verticalAlign'] =
   platformEnv.isNative ? 'top' : undefined;
 
 function BaseTextArea(
-  { size, verticalAlign, ...props }: ITextAreaInputProps,
+  { size, verticalAlign, allowSecureTextEye, ...props }: ITextAreaInputProps,
   forwardedRef: Ref<TextInput>,
 ) {
+  // On native, multiline TextInput does not support secureTextEntry properly.
+  // In RN 0.81+ (Fabric), setting secureTextEntry on a controlled multiline
+  // input causes repeated onChangeText callbacks when the JS-side value
+  // ('•' masked) differs from the native-side text, leading to an infinite
+  // loop that corrupts the input. Disable allowSecureTextEye on native;
+  // callers that need an eye toggle should use the `addOns` prop instead.
+  const effectiveAllowSecureTextEye = platformEnv.isNative
+    ? false
+    : allowSecureTextEye;
   const ref = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
   useAutoScrollToTop(ref);
@@ -59,6 +68,7 @@ function BaseTextArea(
         h: undefined,
       }}
       verticalAlign={verticalAlign || defaultAlignVertical}
+      allowSecureTextEye={effectiveAllowSecureTextEye}
       {...props}
     />
   );

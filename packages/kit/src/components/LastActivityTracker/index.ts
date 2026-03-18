@@ -53,6 +53,12 @@ const LastActivityTracker = () => {
       }
     }, 0);
     defaultLogger.app.page.appStart();
+    defaultLogger.app.page.jsVersion({
+      appVersion: platformEnv.version ?? '',
+      buildNumber: platformEnv.buildNumber ?? '',
+      bundleVersion: platformEnv.bundleVersion ?? '',
+      githubSHA: platformEnv.githubSHA ?? '',
+    });
   }, []);
 
   const refresh = useCallback(() => {
