@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F0F0F"
-    android:fillViewport="true">
+    android:background="#0F0F0F">
 
+    <!-- Main content centered -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -68,40 +68,42 @@
             android:textSize="16sp"
             android:textAllCaps="false" />
 
-        <!-- Bottom bar: Export Logs · version -->
-        <LinearLayout
+    </LinearLayout>
+
+    <!-- Bottom bar pinned to bottom -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="24dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/version_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:textColor="#666666"
+            android:textSize="12sp" />
 
-            <TextView
-                android:id="@+id/version_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#666666"
-                android:textSize="12sp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
+            android:text="\u00B7"
+            android:textColor="#444444"
+            android:textSize="12sp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
-                android:text="\u00B7"
-                android:textColor="#444444"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/btn_export_logs"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#666666"
-                android:textSize="12sp"
-                android:clickable="true"
-                android:focusable="true" />
-
-        </LinearLayout>
+        <TextView
+            android:id="@+id/btn_export_logs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#666666"
+            android:textSize="12sp"
+            android:clickable="true"
+            android:focusable="true" />
 
     </LinearLayout>
-</ScrollView>
+
+</FrameLayout>
