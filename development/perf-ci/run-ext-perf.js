@@ -302,6 +302,12 @@ async function main() {
     if (rb.code === 0) meta.git.branch = String(rb.stdout).trim();
   }
 
+  // Read app version from package.json
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'apps', 'ext', 'package.json'), 'utf8'));
+    if (pkg.version) meta.appVersion = pkg.version;
+  } catch (_) {}
+
   const jobState = { meta, status: 'running' };
   writeJson(path.join(outputDir, 'job-meta.json'), jobState);
 

@@ -212,7 +212,10 @@ async function notifyPerfResult({
     };
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
-    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
+    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[analytics] job ingest failed (regression):', err?.message || err);
+    });
     await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
     return model;
   }
@@ -237,7 +240,10 @@ async function notifyPerfResult({
     };
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
-    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch(() => {});
+    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[analytics] job ingest failed (recovered):', err?.message || err);
+    });
     await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
     return model;
   }
@@ -258,7 +264,10 @@ async function notifyPerfResult({
     updatedAt: new Date().toISOString(),
   });
   // Always post to analytics, even on healthy runs
-  await postJobAnalytics({ report, notifyModel: null, analyticsUrl, analyticsSecret }).catch(() => {});
+  await postJobAnalytics({ report, notifyModel: null, analyticsUrl, analyticsSecret }).catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[analytics] job ingest failed (ok):', err?.message || err);
+  });
   await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
   return null;
 }
