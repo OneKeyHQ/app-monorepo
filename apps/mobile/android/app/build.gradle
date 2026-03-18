@@ -151,6 +151,13 @@ android {
         buildConfigField("boolean", "NO_FLIPPER", 'true')
         buildConfigField("String", "ANDROID_CHANNEL", "\"" + (System.getenv('ANDROID_CHANNEL') ?: 'direct') + "\"")
         def appEnvConfig = readRootEnvFile()
+        // CI writes BUNDLE_VERSION to .env.expo, merge it into appEnvConfig
+        def expoEnvConfig = readRootEnvFile('.env.expo')
+        expoEnvConfig.each { key, value ->
+            if (value && !value.toString().isEmpty()) {
+                appEnvConfig.setProperty(key.toString(), value.toString())
+            }
+        }
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
         missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [

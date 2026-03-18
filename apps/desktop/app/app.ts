@@ -1255,6 +1255,10 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  // Reset crash counter on graceful shutdown so normal close
+  // is not mistaken for a crash on next boot
+  store.resetConsecutiveBootFailCount();
+
   if (systemIdleInterval) {
     clearInterval(systemIdleInterval);
   }
