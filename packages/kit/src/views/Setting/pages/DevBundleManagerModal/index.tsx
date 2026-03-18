@@ -354,11 +354,7 @@ export default function DevBundleManagerModal() {
           {/* Runtime Info */}
           <YStack gap="$1">
             <XStack alignItems="center" gap="$2" mb="$2">
-              <Icon
-                name="InfoCircleOutline"
-                size="$4.5"
-                color="$iconSubdued"
-              />
+              <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
               <SizableText size="$headingXs" color="$textSubdued">
                 RUNTIME INFO
               </SizableText>
@@ -373,9 +369,7 @@ export default function DevBundleManagerModal() {
                     : '';
                   const lines = [
                     `Version: ${versionStr}`,
-                    nativeStr
-                      ? `Native App Version: ${nativeStr}`
-                      : '',
+                    nativeStr ? `Native App Version: ${nativeStr}` : '',
                     `Commit Hash: ${currentCommitHash}`,
                   ]
                     .filter(Boolean)
