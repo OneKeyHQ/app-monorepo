@@ -167,7 +167,7 @@ export function useMessageRiskChecks({
           buildCheckItem(
             ERiskCheckCategory.SiteSecurity,
             intl.formatMessage({
-              id: ETranslations.dapp_connect_site_security,
+              id: ETranslations.dapp_connect_site_security__title,
             }),
             [],
           ),
@@ -177,7 +177,7 @@ export function useMessageRiskChecks({
         buildCheckItem(
           ERiskCheckCategory.TransactionAnalysis,
           intl.formatMessage({
-            id: ETranslations.dapp_connect_transaction_analysis,
+            id: ETranslations.dapp_connect_transaction_analysis__title,
           }),
           [],
         ),
@@ -186,7 +186,9 @@ export function useMessageRiskChecks({
         checks.push(
           buildCheckItem(
             ERiskCheckCategory.AddressRisk,
-            intl.formatMessage({ id: ETranslations.dapp_connect_address_risk }),
+            intl.formatMessage({
+              id: ETranslations.dapp_connect_address_risk__title,
+            }),
             [],
           ),
         );
@@ -202,7 +204,9 @@ export function useMessageRiskChecks({
       checks.push(
         buildCheckItem(
           ERiskCheckCategory.SiteSecurity,
-          intl.formatMessage({ id: ETranslations.dapp_connect_site_security }),
+          intl.formatMessage({
+            id: ETranslations.dapp_connect_site_security__title,
+          }),
           siteSignals,
         ),
       );
@@ -260,7 +264,7 @@ export function useMessageRiskChecks({
 
       const alertSignals = collectMessageAlertSignals(
         messageDisplay.alerts,
-        isDangerous,
+        isDangerous ?? false,
       );
       const existingTitles = new Set(signatureSignals.map((s) => s.title));
       for (const s of alertSignals) {
@@ -273,7 +277,7 @@ export function useMessageRiskChecks({
         buildCheckItem(
           ERiskCheckCategory.TransactionAnalysis,
           intl.formatMessage({
-            id: ETranslations.dapp_connect_transaction_analysis,
+            id: ETranslations.dapp_connect_transaction_analysis__title,
           }),
           signatureSignals,
         ),
@@ -288,7 +292,9 @@ export function useMessageRiskChecks({
       checks.push(
         buildCheckItem(
           ERiskCheckCategory.AddressRisk,
-          intl.formatMessage({ id: ETranslations.dapp_connect_address_risk }),
+          intl.formatMessage({
+            id: ETranslations.dapp_connect_address_risk__title,
+          }),
           addressSignals,
         ),
       );
@@ -333,7 +339,9 @@ export function useTxRiskChecks({
       checks.push(
         buildCheckItem(
           ERiskCheckCategory.SiteSecurity,
-          intl.formatMessage({ id: ETranslations.dapp_connect_site_security }),
+          intl.formatMessage({
+            id: ETranslations.dapp_connect_site_security__title,
+          }),
           siteSignals,
         ),
       );
@@ -345,7 +353,7 @@ export function useTxRiskChecks({
         buildCheckItem(
           ERiskCheckCategory.TransactionSimulation,
           intl.formatMessage({
-            id: ETranslations.dapp_connect_transaction_simulation,
+            id: ETranslations.dapp_connect_transaction_simulation__title,
           }),
           [],
         ),
@@ -365,7 +373,7 @@ export function useTxRiskChecks({
       buildCheckItem(
         ERiskCheckCategory.TransactionAnalysis,
         intl.formatMessage({
-          id: ETranslations.dapp_connect_transaction_analysis,
+          id: ETranslations.dapp_connect_transaction_analysis__title,
         }),
         txSignals,
       ),
@@ -377,7 +385,9 @@ export function useTxRiskChecks({
       checks.push(
         buildCheckItem(
           ERiskCheckCategory.AddressRisk,
-          intl.formatMessage({ id: ETranslations.dapp_connect_address_risk }),
+          intl.formatMessage({
+            id: ETranslations.dapp_connect_address_risk__title,
+          }),
           addressSignals,
         ),
       );

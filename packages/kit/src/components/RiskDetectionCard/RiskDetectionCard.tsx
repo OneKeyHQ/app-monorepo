@@ -189,7 +189,7 @@ function CheckRow({
                       bg={tagColor.bg}
                       px="$2"
                       py="$0.5"
-                      borderRadius="$1.5"
+                      borderRadius="$1"
                     >
                       <SizableText size="$bodySm" color={tagColor.text}>
                         {signal.title}
@@ -269,7 +269,7 @@ function RiskDetectionCard({ checks }: IRiskDetectionCardProps) {
         />
         <SizableText size="$bodyMdMedium" color={theme.headerText} flex={1}>
           {intl.formatMessage({
-            id: ETranslations.dapp_connect_security_checks,
+            id: ETranslations.dapp_connect_security_checks__title,
           })}
         </SizableText>
         {allPassed ? (
