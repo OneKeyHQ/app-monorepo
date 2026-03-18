@@ -713,9 +713,7 @@ function MobileMarketWatchlistFlatListImpl({
                 const { width } = Dimensions.get('window');
                 handleShowContextMenu(item, latestIndex, {
                   x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
-                  y:
-                    (latest.lastPageY || pageY) -
-                    SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
+                  y: latestPageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
                 });
                 resetGestureSession();
               }, FIRST_LEVEL_LONG_PRESS_DELAY_MS);

@@ -98,37 +98,30 @@ function MarketHomeTabBar({
       <Tabs.TabBar {...tabBarProps} />
       {focusedTab === watchlistTabName && !ctx.isWatchlistEmpty ? (
         <>
-          {platformEnv.isNativeAndroid ? (
-            <XStack alignItems="center" pr="$3">
-              <XStack flex={1}>
-                <MarketWatchlistCategorySelector
-                  selectedFilter={ctx.watchlistFilter}
-                  onSelectFilter={ctx.onSelectWatchlistFilter}
-                  containerStyle={{
-                    px: '$5',
-                    pt: '$3',
-                    pb: '$2',
-                  }}
-                />
-              </XStack>
+          <XStack
+            alignItems="center"
+            pr={platformEnv.isNativeAndroid ? '$3' : undefined}
+          >
+            <XStack flex={1}>
+              <MarketWatchlistCategorySelector
+                selectedFilter={ctx.watchlistFilter}
+                onSelectFilter={ctx.onSelectWatchlistFilter}
+                containerStyle={{
+                  px: '$5',
+                  pt: '$3',
+                  pb: '$2',
+                }}
+              />
+            </XStack>
+            {platformEnv.isNativeAndroid ? (
               <IconButton
                 icon="PencilOutline"
                 size="small"
                 variant="tertiary"
                 onPress={ctx.onEditWatchlist}
               />
-            </XStack>
-          ) : (
-            <MarketWatchlistCategorySelector
-              selectedFilter={ctx.watchlistFilter}
-              onSelectFilter={ctx.onSelectWatchlistFilter}
-              containerStyle={{
-                px: '$5',
-                pt: '$3',
-                pb: '$2',
-              }}
-            />
-          )}
+            ) : null}
+          </XStack>
           <YStack
             onLayout={(event: {
               nativeEvent: { layout: { y: number; height: number } };
