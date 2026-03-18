@@ -15,6 +15,7 @@ import {
   Stack,
   Switch,
   startViewTransition,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
@@ -210,6 +211,7 @@ function AppDataSection() {
 
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const media = useMedia();
   const isKeylessWalletEnabled = useKeylessWalletFeatureIsEnabled();
 
   // Fetch keyless wallet existence + info in one call to avoid loading flash
@@ -604,7 +606,7 @@ function AppDataSection() {
             description={intl.formatMessage({
               id: ETranslations.keyless_wallet_removed__desc,
             })}
-            actionLayout="vertical"
+            actionLayout={media.sm ? 'vertical' : undefined}
             action={{
               primary: intl.formatMessage({
                 id: ETranslations.restore_keyless_wallet__action,
@@ -651,7 +653,7 @@ function AppDataSection() {
             description={intl.formatMessage({
               id: ETranslations.switch_to_keyless_wallet_sync__desc,
             })}
-            actionLayout="vertical"
+            actionLayout={media.sm ? 'vertical' : undefined}
             action={{
               primary: intl.formatMessage({
                 id: ETranslations.switch_now__action,
