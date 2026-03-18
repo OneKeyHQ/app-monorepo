@@ -9,12 +9,10 @@ import {
   Toast,
   ToastContent,
   popActionCenterPages,
-  popScanModalPages,
   resetAboveMainRoute,
   resetScanModalRoute,
   resetToRoute,
   useClipboard,
-  waitForScanModalClosed,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
