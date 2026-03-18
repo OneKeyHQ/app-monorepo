@@ -613,7 +613,8 @@ export function DesktopLeftSideBar({
                   options={descriptors[deviceRoute.key].options}
                   onPress={() => {
                     handleTabPress(deviceRoute, isDeviceActive);
-                    const { trackId } = descriptors[deviceRoute.key].options as {
+                    const { trackId } = descriptors[deviceRoute.key]
+                      .options as {
                       trackId?: string;
                     };
                     if (trackId) {
