@@ -43,6 +43,7 @@ export function createRecoveryWindow(): BrowserWindow {
     event.returnValue = false;
   });
 
+
   const browserWindow = new BrowserWindow({
     show: true,
     title: 'OneKey',
