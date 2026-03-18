@@ -88,4 +88,11 @@ export const ipcMessageKeys = {
   // System Resources
   SYSTEM_GET_CPU_USAGE: 'system/getCpuUsage',
   SYSTEM_GET_MEMORY_USAGE: 'system/getMemoryUsage',
+
+  // Boot Recovery
+  MARK_BOOT_SUCCESS: 'recovery/markBootSuccess',
+  SET_CONSECUTIVE_BOOT_FAIL_COUNT: 'recovery/setConsecutiveBootFailCount',
+  RECOVERY_EXPORT_LOGS: 'recovery/exportLogs',
+  RECOVERY_TRY_AGAIN: 'recovery/tryAgain',
+  RECOVERY_AUTO_REPAIR: 'recovery/autoRepair',
 };

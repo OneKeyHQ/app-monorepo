@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
+  <title>OneKey Recovery</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #0F0F0F;
+      color: #FFFFFF;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 360px;
+      width: 100%;
+      -webkit-app-region: no-drag;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 32px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #8C8C8C;
+      text-align: center;
+      line-height: 1.5;
+      margin-bottom: 32px;
+    }
+    .btn {
+      width: 100%;
+      height: 48px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 12px;
+      color: #FFFFFF;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { opacity: 0.7; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background-color: #2C2C2C; }
+    .btn-primary { background-color: #44D62C; color: #000000; }
+    .version {
+      font-size: 12px;
+      color: #666666;
+      margin-top: 20px;
+    }
+    .error-msg {
+      font-size: 12px;
+      color: #FF6B6B;
+      margin-top: 8px;
+      text-align: center;
+      min-height: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- OneKey App Icon -->
+    <img class="logo" src="../build/static/images/icons/512x512.png" alt="OneKey" onerror="this.style.display='none'" />
+
+    <h1 class="title" id="title">Something went wrong</h1>
+    <p class="subtitle" id="subtitle">The app failed to start. You can export logs for troubleshooting, try again, or auto repair to fix the issue.</p>
+
+    <button class="btn btn-secondary" id="exportLogsBtn" onclick="handleExportLogs()">Export Logs</button>
+    <button class="btn btn-secondary" id="tryAgainBtn" onclick="handleTryAgain()">Try Again</button>
+    <button class="btn btn-primary" id="autoRepairBtn" onclick="handleAutoRepair()">Auto Repair</button>
+
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="version" id="version"></div>
+  </div>
+
+  <script>
+    // i18n - full locale map matching app's supported languages
+    const i18nMap = {
+      'en': {
+        title: 'App Failed to Start',
+        subtitle: 'The app has failed to start multiple times. You can try the following options to resolve the issue.',
+        exportLogs: 'Export Logs', tryAgain: 'Try Again', autoRepair: 'Auto Repair',
+        repairComplete: 'Repair Complete', pleaseRestart: 'Please reopen the app', error: 'Error', ok: 'OK',
+        exportError: 'Failed to export logs', repairError: 'Repair failed',
+        noLogs: 'No log files found',
+      },
+      'zh-CN': {
+        title: '应用启动失败',
+        subtitle: '应用已多次启动失败。您可以尝试以下选项来解决问题。',
+        exportLogs: '导出日志', tryAgain: '重试', autoRepair: '自动修复',
+        repairComplete: '修复完成', pleaseRestart: '请重新打开应用', error: '错误', ok: '确定',
+        exportError: '导出日志失败', repairError: '修复失败',
+        noLogs: '未找到日志文件',
+      },
+      'zh-Hant': {
+        title: '應用程式啟動失敗',
+        subtitle: '應用程式已多次啟動失敗。您可以嘗試以下選項來解決問題。',
+        exportLogs: '匯出日誌', tryAgain: '重試', autoRepair: '自動修復',
+        repairComplete: '修復完成', pleaseRestart: '請重新打開應用程式', error: '錯誤', ok: '確定',
+        exportError: '匯出日誌失敗', repairError: '修復失敗',
+        noLogs: '未找到日誌檔案',
+      },
+      'ja-JP': {
+        title: 'アプリの起動に失敗しました',
+        subtitle: 'アプリが複数回起動に失敗しました。以下のオプションをお試しください。',
+        exportLogs: 'ログを書き出す', tryAgain: '再試行', autoRepair: '自動修復',
+        repairComplete: '修復完了', pleaseRestart: 'アプリを再起動してください', error: 'エラー', ok: 'OK',
+        exportError: 'ログの書き出しに失敗しました', repairError: '修復に失敗しました',
+        noLogs: 'ログファイルが見つかりません',
+      },
+      'ko-KR': {
+        title: '앱 시작 실패',
+        subtitle: '앱이 여러 번 시작에 실패했습니다. 아래 옵션을 시도해 보세요.',
+        exportLogs: '로그 내보내기', tryAgain: '다시 시도', autoRepair: '자동 복구',
+        repairComplete: '복구 완료', pleaseRestart: '앱을 다시 열어주세요', error: '오류', ok: '확인',
+        exportError: '로그 내보내기 실패', repairError: '복구 실패',
+        noLogs: '로그 파일을 찾을 수 없습니다',
+      },
+      'de': {
+        title: 'App konnte nicht gestartet werden',
+        subtitle: 'Die App konnte mehrfach nicht gestartet werden. Bitte versuchen Sie die folgenden Optionen.',
+        exportLogs: 'Protokolle exportieren', tryAgain: 'Erneut versuchen', autoRepair: 'Automatische Reparatur',
+        repairComplete: 'Reparatur abgeschlossen', pleaseRestart: 'Bitte starten Sie die App neu', error: 'Fehler', ok: 'OK',
+        exportError: 'Protokollexport fehlgeschlagen', repairError: 'Reparatur fehlgeschlagen',
+        noLogs: 'Keine Protokolldateien gefunden',
+      },
+      'es': {
+        title: 'La aplicación no pudo iniciarse',
+        subtitle: 'La aplicación no pudo iniciarse varias veces. Puede intentar las siguientes opciones.',
+        exportLogs: 'Exportar registros', tryAgain: 'Reintentar', autoRepair: 'Reparación automática',
+        repairComplete: 'Reparación completada', pleaseRestart: 'Por favor, vuelva a abrir la aplicación', error: 'Error', ok: 'OK',
+        exportError: 'Error al exportar registros', repairError: 'Reparación fallida',
+        noLogs: 'No se encontraron archivos de registro',
+      },
+      'fr-FR': {
+        title: "Échec du lancement de l'application",
+        subtitle: "L'application n'a pas pu démarrer plusieurs fois. Veuillez essayer les options suivantes.",
+        exportLogs: 'Exporter les journaux', tryAgain: 'Réessayer', autoRepair: 'Réparation automatique',
+        repairComplete: 'Réparation terminée', pleaseRestart: "Veuillez rouvrir l'application", error: 'Erreur', ok: 'OK',
+        exportError: "Échec de l'exportation des journaux", repairError: 'Échec de la réparation',
+        noLogs: 'Aucun fichier journal trouvé',
+      },
+      'it-IT': {
+        title: "Avvio dell'app non riuscito",
+        subtitle: "L'app non è riuscita ad avviarsi più volte. Prova le seguenti opzioni.",
+        exportLogs: 'Esporta log', tryAgain: 'Riprova', autoRepair: 'Riparazione automatica',
+        repairComplete: 'Riparazione completata', pleaseRestart: "Si prega di riaprire l'app", error: 'Errore', ok: 'OK',
+        exportError: 'Esportazione log non riuscita', repairError: 'Riparazione non riuscita',
+        noLogs: 'Nessun file di log trovato',
+      },
+      'pt': {
+        title: 'Falha ao iniciar a aplicação',
+        subtitle: 'A aplicação falhou ao iniciar várias vezes. Tente as seguintes opções.',
+        exportLogs: 'Exportar registos', tryAgain: 'Tentar novamente', autoRepair: 'Reparação automática',
+        repairComplete: 'Reparação concluída', pleaseRestart: 'Por favor, reabra a aplicação', error: 'Erro', ok: 'OK',
+        exportError: 'Falha ao exportar registos', repairError: 'Falha na reparação',
+        noLogs: 'Nenhum ficheiro de registo encontrado',
+      },
+      'pt-BR': {
+        title: 'Falha ao iniciar o aplicativo',
+        subtitle: 'O aplicativo falhou ao iniciar várias vezes. Tente as seguintes opções.',
+        exportLogs: 'Exportar logs', tryAgain: 'Tentar novamente', autoRepair: 'Reparo automático',
+        repairComplete: 'Reparo concluído', pleaseRestart: 'Por favor, reabra o aplicativo', error: 'Erro', ok: 'OK',
+        exportError: 'Falha ao exportar logs', repairError: 'Falha no reparo',
+        noLogs: 'Nenhum arquivo de log encontrado',
+      },
+      'ru': {
+        title: 'Не удалось запустить приложение',
+        subtitle: 'Приложение не удалось запустить несколько раз. Попробуйте следующие варианты.',
+        exportLogs: 'Экспорт журналов', tryAgain: 'Повторить', autoRepair: 'Автовосстановление',
+        repairComplete: 'Восстановление завершено', pleaseRestart: 'Пожалуйста, откройте приложение заново', error: 'Ошибка', ok: 'OK',
+        exportError: 'Не удалось экспортировать журналы', repairError: 'Не удалось выполнить восстановление',
+        noLogs: 'Файлы журналов не найдены',
+      },
+      'bn': {
+        title: 'অ্যাপ চালু করতে ব্যর্থ',
+        subtitle: 'অ্যাপটি একাধিকবার চালু করতে ব্যর্থ হয়েছে। অনুগ্রহ করে নিম্নলিখিত বিকল্পগুলি চেষ্টা করুন।',
+        exportLogs: 'লগ রপ্তানি', tryAgain: 'পুনরায় চেষ্টা', autoRepair: 'স্বয়ংক্রিয় মেরামত',
+        repairComplete: 'মেরামত সম্পন্ন', pleaseRestart: 'অনুগ্রহ করে অ্যাপটি পুনরায় খুলুন', error: 'ত্রুটি', ok: 'ঠিক আছে',
+        exportError: 'লগ রপ্তানি ব্যর্থ', repairError: 'মেরামত ব্যর্থ',
+        noLogs: 'কোনো লগ ফাইল পাওয়া যায়নি',
+      },
+      'hi-IN': {
+        title: 'ऐप प्रारंभ करने में विफल',
+        subtitle: 'ऐप कई बार प्रारंभ होने में विफल रहा है। कृपया निम्नलिखित विकल्प आज़माएँ।',
+        exportLogs: 'लॉग निर्यात करें', tryAgain: 'पुनः प्रयास करें', autoRepair: 'स्वतः मरम्मत',
+        repairComplete: 'मरम्मत पूर्ण', pleaseRestart: 'कृपया ऐप को पुनः खोलें', error: 'त्रुटि', ok: 'ठीक है',
+        exportError: 'लॉग निर्यात विफल', repairError: 'मरम्मत विफल',
+        noLogs: 'कोई लॉग फ़ाइल नहीं मिली',
+      },
+      'id': {
+        title: 'Aplikasi gagal dimulai',
+        subtitle: 'Aplikasi gagal dimulai beberapa kali. Silakan coba opsi berikut.',
+        exportLogs: 'Ekspor log', tryAgain: 'Coba lagi', autoRepair: 'Perbaikan otomatis',
+        repairComplete: 'Perbaikan selesai', pleaseRestart: 'Silakan buka ulang aplikasi', error: 'Kesalahan', ok: 'OK',
+        exportError: 'Gagal mengekspor log', repairError: 'Perbaikan gagal',
+        noLogs: 'File log tidak ditemukan',
+      },
+      'th-TH': {
+        title: 'แอปเริ่มต้นไม่สำเร็จ',
+        subtitle: 'แอปเริ่มต้นไม่สำเร็จหลายครั้ง กรุณาลองตัวเลือกต่อไปนี้',
+        exportLogs: 'ส่งออกบันทึก', tryAgain: 'ลองอีกครั้ง', autoRepair: 'ซ่อมแซมอัตโนมัติ',
+        repairComplete: 'ซ่อมแซมเสร็จสิ้น', pleaseRestart: 'กรุณาเปิดแอปใหม่', error: 'ข้อผิดพลาด', ok: 'ตกลง',
+        exportError: 'ส่งออกบันทึกไม่สำเร็จ', repairError: 'ซ่อมแซมไม่สำเร็จ',
+        noLogs: 'ไม่พบไฟล์บันทึก',
+      },
+      'uk-UA': {
+        title: 'Не вдалося запустити додаток',
+        subtitle: 'Додаток не вдалося запустити кілька разів. Спробуйте наступні варіанти.',
+        exportLogs: 'Експорт журналів', tryAgain: 'Спробувати знову', autoRepair: 'Автовідновлення',
+        repairComplete: 'Відновлення завершено', pleaseRestart: 'Будь ласка, відкрийте додаток заново', error: 'Помилка', ok: 'OK',
+        exportError: 'Не вдалося експортувати журнали', repairError: 'Не вдалося виконати відновлення',
+        noLogs: 'Файли журналів не знайдено',
+      },
+      'vi': {
+        title: 'Ứng dụng không khởi động được',
+        subtitle: 'Ứng dụng đã không khởi động được nhiều lần. Vui lòng thử các tùy chọn sau.',
+        exportLogs: 'Xuất nhật ký', tryAgain: 'Thử lại', autoRepair: 'Tự động sửa chữa',
+        repairComplete: 'Sửa chữa hoàn tất', pleaseRestart: 'Vui lòng mở lại ứng dụng', error: 'Lỗi', ok: 'OK',
+        exportError: 'Xuất nhật ký thất bại', repairError: 'Sửa chữa thất bại',
+        noLogs: 'Không tìm thấy tệp nhật ký',
+      },
+    };
+
+    // Script-to-region mapping for CJK script subtags.
+    // iOS/Android use BCP 47 script subtags (Hans/Hant) for Chinese variants,
+    // while our i18n keys use region codes (CN/TW/HK).
+    //   - zh-Hans (iOS) / zh-Hans-CN (Android) → zh-CN (Simplified)
+    //   - zh-Hant (iOS) / zh-Hant-TW (Android) → zh-Hant (Traditional, shared by TW/HK)
+    // zh-TW / zh-HK share the same Traditional Chinese translations
+    i18nMap['zh-TW'] = i18nMap['zh-Hant'];
+    i18nMap['zh-HK'] = i18nMap['zh-Hant'];
+    const scriptMap = { 'Hans': 'zh-CN', 'Hant': 'zh-Hant' };
+
+    // Locale matching priority:
+    //   1. Exact match (e.g. "zh-CN", "ja-JP", "de")
+    //   2. Script subtag mapping (e.g. "zh-Hans" → "zh-CN", "zh-Hant" → "zh-Hant")
+    //   3. First-last parts (e.g. "zh-Hans-CN" → "zh-CN")
+    //   4. Prefix match (e.g. "fr" → "fr-FR", "ja" → "ja-JP")
+    //   5. Fallback to "en"
+    //
+    // Electron: navigator.language returns BCP 47 tags like "zh-CN", "ja", "fr-FR".
+    // Chinese typically returns "zh-CN"/"zh-TW" directly without script subtag.
+    function getLocale() {
+      const lang = navigator.language || 'en';
+      if (i18nMap[lang]) return lang;
+      const parts = lang.split('-');
+      if (parts.length >= 2) {
+        for (const [script, mapped] of Object.entries(scriptMap)) {
+          if (parts.includes(script) && i18nMap[mapped]) return mapped;
+        }
+      }
+      if (parts.length >= 2) {
+        const twoPartKey = parts[0] + '-' + parts[parts.length - 1];
+        if (i18nMap[twoPartKey]) return twoPartKey;
+      }
+      const code = parts[0];
+      if (i18nMap[code]) return code;
+      const prefixMatch = Object.keys(i18nMap).find(k => k.startsWith(code + '-'));
+      if (prefixMatch) return prefixMatch;
+      return 'en';
+    }
+
+    const locale = getLocale();
+    const i18n = i18nMap[locale] || i18nMap['en'];
+
+    document.getElementById('title').textContent = i18n.title;
+    document.getElementById('subtitle').textContent = i18n.subtitle;
+    document.getElementById('exportLogsBtn').textContent = i18n.exportLogs;
+    document.getElementById('tryAgainBtn').textContent = i18n.tryAgain;
+    document.getElementById('autoRepairBtn').textContent = i18n.autoRepair;
+
+    // Version display
+    try {
+      const ver = window.desktopApi?.appVersion || '';
+      if (ver) {
+        document.getElementById('version').textContent = 'v' + ver;
+      }
+    } catch (_) {}
+
+    function showError(msg) {
+      document.getElementById('errorMsg').textContent = msg;
+    }
+
+    function setButtonsDisabled(disabled) {
+      document.getElementById('exportLogsBtn').disabled = disabled;
+      document.getElementById('tryAgainBtn').disabled = disabled;
+      document.getElementById('autoRepairBtn').disabled = disabled;
+    }
+
+    async function handleExportLogs() {
+      showError('');
+      setButtonsDisabled(true);
+      try {
+        const result = await window.desktopApi?.recoveryExportLogs?.();
+        if (result && result.error) {
+          showError(i18n.exportError + ': ' + result.error);
+        }
+      } catch (e) {
+        showError(i18n.exportError + ': ' + (e.message || e));
+      } finally {
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function handleTryAgain() {
+      showError('');
+      setButtonsDisabled(true);
+      try {
+        const result = await window.desktopApi?.recoveryTryAgain?.();
+        if (result && result.needsManualRestart) {
+          // MAS cannot relaunch — prompt user
+          alert(i18n.pleaseRestart || 'Please reopen the app');
+          setButtonsDisabled(false);
+        }
+        // Non-MAS: app.relaunch() already called, process will exit
+      } catch (e) {
+        showError(e.message || e);
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function handleAutoRepair() {
+      showError('');
+      setButtonsDisabled(true);
+      try {
+        const result = await window.desktopApi?.recoveryAutoRepair?.();
+        if (result && result.error) {
+          showError(i18n.repairError);
+          setButtonsDisabled(false);
+          return;
+        }
+        // Show success prompt first, then restart on confirm
+        alert(i18n.repairComplete);
+        await window.desktopApi?.recoveryTryAgain?.();
+        // If MAS (can't relaunch), show manual restart hint
+        alert(i18n.pleaseRestart);
+        setButtonsDisabled(false);
+      } catch (e) {
+        showError(i18n.repairError);
+        setButtonsDisabled(false);
+      }
+    }
+  </script>
+</body>
+</html>

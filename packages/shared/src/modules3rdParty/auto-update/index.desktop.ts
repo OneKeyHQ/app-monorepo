@@ -209,6 +209,7 @@ export const BundleUpdate: IBundleUpdate = {
   listLocalBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.listLocalBundles(),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
+  clearDownload: () => globalThis.desktopApiProxy.bundleUpdate.clearDownload(),
   resetToBuiltInBundle: () =>
     globalThis.desktopApiProxy.bundleUpdate.resetToBuiltInBundle(),
   clearAllJSBundleData: () =>
@@ -241,6 +242,8 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.getNativeAppVersion(),
   getNativeBuildNumber: () =>
     globalThis.desktopApiProxy.bundleUpdate.getNativeBuildNumber(),
+  getBuiltinBundleVersion: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getBuiltinBundleVersion(),
   getJsBundlePath: () =>
     globalThis.desktopApiProxy.bundleUpdate.getJsBundlePath(),
   getSha256FromFilePath: (filePath) =>
