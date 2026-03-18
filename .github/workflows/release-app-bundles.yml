@@ -1,5 +1,4 @@
 name: release-app-bundles
-run-name: ${{ inputs.pr_number && format('Bundle PR #{0}', inputs.pr_number) || format('Bundle {0}', github.ref_name) }}
 
 on:
   workflow_dispatch:
