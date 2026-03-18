@@ -38,6 +38,11 @@ type IMarketWatchlistTokenListProps = {
   watchlist?: IMarketWatchListItemV2[];
   toolbar?: ReactNode;
   hideNativeToken?: boolean;
+  draggable?: boolean;
+  selectedFilter?: IWatchlistFilterType;
+  onSelectFilter?: (filter: IWatchlistFilterType) => void;
+  showTableHeader?: boolean;
+  onItemLongPress?: (item: IMarketToken, index: number) => void;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -51,6 +56,11 @@ function MarketWatchlistTokenList({
   watchlist: externalWatchlist,
   toolbar,
   hideNativeToken,
+  draggable = true,
+  selectedFilter: selectedFilterProp,
+  onSelectFilter: onSelectFilterProp,
+  showTableHeader = true,
+  onItemLongPress: onItemLongPressProp,
   tabIntegrated,
   tabName,
   listContainerProps,
@@ -65,11 +75,17 @@ function MarketWatchlistTokenList({
   const actions = useWatchListV2Actions();
 
   // Watchlist category filter: all / spot / perps
-  const [selectedFilter, setSelectedFilter] =
+  const [internalSelectedFilter, setInternalSelectedFilter] =
     useState<IWatchlistFilterType>('all');
+  const selectedFilter = selectedFilterProp ?? internalSelectedFilter;
   const handleSelectFilter = useCallback(
-    (filter: IWatchlistFilterType) => setSelectedFilter(filter),
-    [],
+    (filter: IWatchlistFilterType) => {
+      if (selectedFilterProp === undefined) {
+        setInternalSelectedFilter(filter);
+      }
+      onSelectFilterProp?.(filter);
+    },
+    [onSelectFilterProp, selectedFilterProp],
   );
 
   // State for mobile inline action bar
@@ -290,6 +306,14 @@ function MarketWatchlistTokenList({
     ),
     [selectedFilter, handleSelectFilter],
   );
+  let resolvedToolbar = toolbar;
+  if (resolvedToolbar === undefined && !hidePerps) {
+    resolvedToolbar = categorySelector;
+  }
+  const resolvedLongPressHandler =
+    platformEnv.isNative && onItemLongPressProp
+      ? onItemLongPressProp
+      : handleShowContextMenu;
 
   // Wait for data to be loaded before rendering anything
   // This prevents flashing the recommend list while data is still loading
@@ -319,16 +343,17 @@ function MarketWatchlistTokenList({
   return (
     <MarketTokenListBase
       onItemPress={onItemPress}
-      toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
+      toolbar={resolvedToolbar}
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
-      draggable
+      draggable={draggable}
+      showTableHeader={showTableHeader}
       tabIntegrated={tabIntegrated}
       tabName={tabName}
       listContainerProps={listContainerProps}
-      onDragEnd={handleDragEnd}
-      onItemLongPress={handleShowContextMenu}
+      onDragEnd={draggable ? handleDragEnd : undefined}
+      onItemLongPress={resolvedLongPressHandler}
       onItemContextMenu={handleShowContextMenu}
       onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
     />

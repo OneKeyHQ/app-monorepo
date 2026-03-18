@@ -26,8 +26,10 @@ import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
+import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
+import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
 
 import { useMarketTabsLogic } from './hooks';
 
@@ -144,6 +146,7 @@ function MobileLayoutComponent({
   tabsRef,
   nestedPager = false,
 }: IMobileLayoutProps) {
+  const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const {
     watchlistTabName,
     spotTabName,
@@ -252,7 +255,6 @@ function MobileLayoutComponent({
     },
     [handleTabChange],
   );
-
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
       filterBarProps,
@@ -288,11 +290,25 @@ function MobileLayoutComponent({
         {...containerProps}
       >
         <Tabs.Tab name={watchlistTabName}>
-          <MobileMarketWatchlistFlatList
-            selectedFilter={watchlistFilter}
-            listContainerProps={listContainerProps}
-            topAutoScrollTriggerOffset={watchlistColumnHeaderOffsetY}
-          />
+          {platformEnv.isNativeAndroid ? (
+            <MarketWatchlistTokenList
+              selectedFilter={watchlistFilter}
+              onSelectFilter={setWatchlistFilter}
+              toolbar={null}
+              draggable={false}
+              showTableHeader={false}
+              tabIntegrated
+              tabName={watchlistTabName}
+              listContainerProps={listContainerProps}
+              onItemLongPress={openMarketWatchlistEditDialog}
+            />
+          ) : (
+            <MobileMarketWatchlistFlatList
+              selectedFilter={watchlistFilter}
+              listContainerProps={listContainerProps}
+              topAutoScrollTriggerOffset={watchlistColumnHeaderOffsetY}
+            />
+          )}
         </Tabs.Tab>
         <Tabs.Tab name={spotTabName}>
           <MobileMarketTokenFlatList
