@@ -366,6 +366,7 @@ class ServiceAppUpdate extends ServiceBase {
         summary: normalizeOptionalString(data.summary),
         jsBundleVersion: normalizeOptionalString(data.jsBundleVersion),
         fileSize: normalizeOptionalNumber(data.fileSize),
+        jsBundleCount: normalizeOptionalNumber(data.jsBundleCount),
         jsBundle: data.jsBundle
           ? {
               downloadUrl: normalizeOptionalString(data.jsBundle.downloadUrl),
