@@ -611,7 +611,15 @@ export function DesktopLeftSideBar({
                   route={deviceRoute}
                   isActive={isDeviceActive}
                   options={descriptors[deviceRoute.key].options}
-                  onPress={() => handleTabPress(deviceRoute, isDeviceActive)}
+                  onPress={() => {
+                    handleTabPress(deviceRoute, isDeviceActive);
+                    const { trackId } = descriptors[deviceRoute.key].options as {
+                      trackId?: string;
+                    };
+                    if (trackId) {
+                      defaultLogger.app.page.tabBarClick(trackId);
+                    }
+                  }}
                 />
               </YStack>
             ) : null}
