@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Tooltip } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
@@ -203,6 +204,53 @@ function useTabAction(navigation: BottomTabBarProps['navigation']) {
       options?.callback?.();
     },
     [navigation],
+  );
+}
+
+function SidebarBottomItem({
+  route,
+  isActive,
+  options,
+  onPress,
+}: {
+  route: NavigationState['routes'][0];
+  isActive: boolean;
+  options: BottomTabNavigationOptions & {
+    collapseTabBarLabel?: string;
+  };
+  onPress: () => void;
+}) {
+  // @ts-expect-error tabBarIcon returns icon name string, not ReactNode
+  const iconName = options?.tabBarIcon?.(isActive) as IKeyOfIcons;
+  const label =
+    options.collapseTabBarLabel ??
+    (typeof options.tabBarLabel === 'string'
+      ? options.tabBarLabel
+      : undefined) ??
+    route.name;
+
+  return (
+    <Tooltip
+      placement="right"
+      renderTrigger={
+        <YStack
+          p="$2"
+          borderRadius="$2"
+          bg={isActive ? '$bgActive' : undefined}
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          cursor="default"
+          onPress={onPress}
+        >
+          <Icon
+            name={iconName}
+            size="$6"
+            color={isActive ? '$iconActive' : '$iconSubdued'}
+          />
+        </YStack>
+      }
+      renderContent={label}
+    />
   );
 }
 
@@ -430,7 +478,8 @@ export function DesktopLeftSideBar({
     setMaxVisibleCount((prev) => (prev === count ? prev : count));
   }, []);
 
-  const { visibleRoutes, overflowRoutes } = useMemo(() => {
+  const { visibleRoutes, overflowRoutes, deviceRoute } = useMemo(() => {
+    let deviceRoute: (typeof routes)[0] | undefined;
     const validRoutes = routes.filter((route) => {
       const { options } = descriptors[route.key] as {
         options: {
@@ -439,6 +488,10 @@ export function DesktopLeftSideBar({
         };
       };
       if (options.hiddenIcon || options.hideOnTabBar) {
+        return false;
+      }
+      if (route.name === ETabRoutes.DeviceManagement) {
+        deviceRoute = route;
         return false;
       }
       if (isShowWebTabBar && route.name === extraConfig?.name) {
@@ -451,12 +504,14 @@ export function DesktopLeftSideBar({
       return {
         visibleRoutes: validRoutes,
         overflowRoutes: [] as typeof validRoutes,
+        deviceRoute,
       };
     }
     const visibleCount = Math.max(0, maxVisibleCount - 1);
     return {
       visibleRoutes: validRoutes.slice(0, visibleCount),
       overflowRoutes: validRoutes.slice(visibleCount),
+      deviceRoute,
     };
   }, [
     routes,
@@ -471,6 +526,10 @@ export function DesktopLeftSideBar({
       isRouteActive(route, focusedRouteName, extraConfig?.name),
     );
   }, [overflowRoutes, focusedRouteName, extraConfig?.name]);
+
+  const isDeviceActive = deviceRoute
+    ? isRouteActive(deviceRoute, focusedRouteName, extraConfig?.name)
+    : false;
 
   return (
     <XStack
@@ -546,6 +605,25 @@ export function DesktopLeftSideBar({
                 />
               ) : null}
             </YStack>
+            {deviceRoute ? (
+              <YStack px="$3" pb="$2" alignItems="center">
+                <SidebarBottomItem
+                  route={deviceRoute}
+                  isActive={isDeviceActive}
+                  options={descriptors[deviceRoute.key].options}
+                  onPress={() => {
+                    handleTabPress(deviceRoute, isDeviceActive);
+                    const { trackId } = descriptors[deviceRoute.key]
+                      .options as {
+                      trackId?: string;
+                    };
+                    if (trackId) {
+                      defaultLogger.app.page.tabBarClick(trackId);
+                    }
+                  }}
+                />
+              </YStack>
+            ) : null}
             {bottomMenu}
           </YStack>
         </YStack>
