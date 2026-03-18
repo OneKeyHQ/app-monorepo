@@ -1063,6 +1063,10 @@ class ServiceAppUpdate extends ServiceBase {
           requestSeq,
           appVersion: platformEnv.version || '',
         });
+        await appUpdatePersistAtom.set((prev) => ({
+          ...prev,
+          updateAt: Date.now(),
+        }));
         const latest = await appUpdatePersistAtom.get();
         return latest;
       }
@@ -1115,6 +1119,10 @@ class ServiceAppUpdate extends ServiceBase {
           requestSeq,
           appVersion: releaseInfo.version || platformEnv.version || '',
         });
+        await appUpdatePersistAtom.set((prev) => ({
+          ...prev,
+          updateAt: Date.now(),
+        }));
         const latest = await appUpdatePersistAtom.get();
         return latest;
       }
