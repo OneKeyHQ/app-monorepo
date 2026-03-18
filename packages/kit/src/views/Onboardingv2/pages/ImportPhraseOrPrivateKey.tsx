@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/components';
 import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
@@ -74,6 +75,11 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
           const displayText = encryptedRef.current
             ? '•'.repeat(result.raw.length)
             : result.raw;
+          defaultLogger.scanQrCode.readQrCode.setNativePropsAttempt({
+            displayTextLength: displayText.length,
+            encrypted: encryptedRef.current,
+            hasSetNativeProps: !!inputRef.current?.setNativeProps,
+          });
           inputRef.current?.setNativeProps?.({ text: displayText });
         });
       }
@@ -90,14 +96,20 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   );
 
   const formattedValue = useMemo(() => {
-    if (encrypted) {
-      return '•'.repeat(privateKey.length);
-    }
-    return privateKey;
+    const result = encrypted
+      ? '•'.repeat(privateKey.length)
+      : privateKey;
+    defaultLogger.scanQrCode.readQrCode.formattedValueComputed({
+      encrypted,
+      privateKeyLength: privateKey.length,
+      formattedValueLength: result.length,
+    });
+    return result;
   }, [encrypted, privateKey]);
 
   const updatePrivateKey = useCallback(
     (text: string) => {
+      defaultLogger.scanQrCode.readQrCode.updatePrivateKeyCalled({ textLength: text.length });
       // Update ref immediately so subsequent onChangeText calls
       // (before re-render) see the latest value
       privateKeyRef.current = text;
@@ -109,6 +121,11 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   const handleChangeText = useCallback(
     (text: string) => {
+      defaultLogger.scanQrCode.readQrCode.handleChangeTextCalled({
+        textLength: text.length,
+        encrypted,
+        hasDot: text.includes('•'),
+      });
       if (encrypted) {
         // Bulk replacement (scan / paste via addon): the text contains no '•'
         // characters, so it was injected programmatically rather than typed.
@@ -177,6 +194,8 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
     ],
     [encrypted],
   );
+
+  defaultLogger.scanQrCode.readQrCode.renderWithValue({ formattedValueLength: formattedValue.length });
 
   return (
     <TextAreaInput

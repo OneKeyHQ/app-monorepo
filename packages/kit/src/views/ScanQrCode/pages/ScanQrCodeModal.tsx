@@ -210,6 +210,7 @@ export default function ScanQrCodeModal() {
 
   const callback = useCallback(
     async (value: string) => {
+      defaultLogger.scanQrCode.readQrCode.scanCallbackFired({ valueLength: value?.length ?? 0 });
       if (process.env.NODE_ENV !== 'production') {
         if (value) {
           appStorage.syncStorage.set(

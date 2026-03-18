@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { Haptics, ImpactFeedbackStyle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -47,6 +48,7 @@ export default function useScanQrCode() {
               qrWalletScene,
               showProTutorial,
               callback: async ({ value, popNavigation }) => {
+                defaultLogger.scanQrCode.readQrCode.scanPromiseResolvedInModal({ rawLength: value?.length ?? 0, type: 'useScanQrCode.callback' });
                 if (value?.length > 0) {
                   const parseValue = await parseQRCode.parse(value, {
                     autoExecuteParsedAction,
@@ -67,6 +69,7 @@ export default function useScanQrCode() {
                       progress: animationValue.progress,
                     };
                   }
+                  defaultLogger.scanQrCode.readQrCode.scanPromiseResolved({ rawLength: parseValue.raw?.length ?? 0, type: String(parseValue.type) });
                   resolve(parseValue);
                   return {};
                 }

@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -332,6 +333,7 @@ function BaseInput(
           });
           form.setValue('input', result.raw);
           */
+          defaultLogger.scanQrCode.readQrCode.scanButtonPressed();
           if (!startScanQrCode) {
             throw new OneKeyLocalError('props startScanQrCode is required');
           }
@@ -340,6 +342,7 @@ function BaseInput(
             autoExecuteParsedAction: false,
           });
           if (result?.raw) {
+            defaultLogger.scanQrCode.readQrCode.inputOnChangeTextCalled({ rawLength: result.raw.length });
             onChangeText?.(result.raw || '');
           }
         },
@@ -349,6 +352,7 @@ function BaseInput(
       allAddOns.push({
         iconName: 'ClipboardOutline' as IKeyOfIcons,
         onPress: async () => {
+          defaultLogger.scanQrCode.readQrCode.pasteButtonPressed();
           const text = await getClipboard();
           if (text) {
             onChangeText?.(text || '');
@@ -363,6 +367,7 @@ function BaseInput(
       allAddOns.push({
         iconName: secureEntryState ? 'EyeOffOutline' : 'EyeOutline',
         onPress: () => {
+          defaultLogger.scanQrCode.readQrCode.eyeTogglePressed({ encrypted: !secureEntryState });
           onSecureTextEntryChange?.(!secureEntryState);
           setSecureEntryState(!secureEntryState);
         },

@@ -29,6 +29,7 @@ import type {
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
@@ -183,10 +184,12 @@ const useParseQRCode = () => {
         }
       };
 
+      defaultLogger.scanQrCode.readQrCode.parseQrCodeStart({ valueLength: value?.length ?? 0 });
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
         value,
         options,
       );
+      defaultLogger.scanQrCode.readQrCode.parseQrCodeResult({ type: String(result.type), rawLength: result.raw?.length ?? 0 });
 
       // Manual mode: close scanner overlays and return parsed data to caller.
       if (!options?.autoExecuteParsedAction) {
@@ -195,7 +198,9 @@ const useParseQRCode = () => {
           (result.type === EQRCodeHandlerType.ANIMATION_CODE &&
             (result.data as IAnimationValue).progress === 1)
         ) {
+          defaultLogger.scanQrCode.readQrCode.closeScanPageStart({ autoExecute: false });
           await closeScanPage();
+          defaultLogger.scanQrCode.readQrCode.closeScanPageDone();
         }
         return result;
       }
