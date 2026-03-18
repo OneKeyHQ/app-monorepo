@@ -1256,8 +1256,12 @@ app.on('activate', async () => {
 
 app.on('before-quit', () => {
   // Reset crash counter on graceful shutdown so normal close
-  // is not mistaken for a crash on next boot
-  store.resetConsecutiveBootFailCount();
+  // is not mistaken for a crash on next boot.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still
+  // offered if the user closes the recovery window without resolving.
+  if (store.getConsecutiveBootFailCount() < 3) {
+    store.resetConsecutiveBootFailCount();
+  }
 
   if (systemIdleInterval) {
     clearInterval(systemIdleInterval);
