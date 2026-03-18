@@ -226,7 +226,7 @@
 				39B7886775EDB292CDA71277 /* GeistMono-Medium.ttf */,
 			);
 			name = Fonts;
-			path = Fonts;
+			path = OneKeyWallet/Fonts;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
