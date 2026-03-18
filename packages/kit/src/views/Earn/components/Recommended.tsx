@@ -232,11 +232,7 @@ const RecommendedListItem = memo(
           secondary={
             !noWalletConnected ? (
               <XStack gap="$1" ai="center">
-                <Icon
-                  name="WalletOutline"
-                  size="$3.5"
-                  color="$iconSubdued"
-                />
+                <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
                 <SizableText
                   size="$bodySm"
                   color="$textSubdued"
