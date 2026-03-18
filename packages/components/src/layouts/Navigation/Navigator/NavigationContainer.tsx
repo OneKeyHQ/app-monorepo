@@ -265,6 +265,38 @@ export function resetAboveMainRoute() {
   );
 }
 
+/**
+ * Atomically remove only the ScanQrCodeModal route from the navigation state
+ * via CommonActions.reset, preserving all other routes (e.g. onboarding).
+ * This avoids the goBack() animated dismiss that causes RNSScreenStack
+ * window=NIL and blocks Fabric commits on the underlying page.
+ */
+export function resetScanModalRoute() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
+  }
+  const filteredRoutes = state.routes.filter((route) => {
+    if (route.name !== ERootRoutes.Modal) {
+      return true;
+    }
+    const screenName =
+      (route.params as { screen?: string })?.screen ||
+      route.state?.routes?.[route.state?.index || 0]?.name;
+    return screenName !== EModalRoutes.ScanQrCodeModal;
+  });
+  if (filteredRoutes.length === state.routes.length) {
+    return;
+  }
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: filteredRoutes,
+      index: filteredRoutes.length - 1,
+    }),
+  );
+}
+
 export const popToMainRoute = async () => {
   resetAboveMainRoute();
   await timerUtils.wait(100);
