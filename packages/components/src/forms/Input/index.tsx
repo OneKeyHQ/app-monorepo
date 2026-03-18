@@ -93,6 +93,7 @@ export type IInputProps = {
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
   onSecureTextEntryChange?: (secureTextEntry: boolean) => void;
+  enableThousandsSeparator?: boolean;
 } & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste' | 'readOnly'> & {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
@@ -273,6 +274,7 @@ function BaseInput(
     autoScrollTopDelayMs,
     secureTextEntry,
     onSecureTextEntryChange,
+    enableThousandsSeparator,
     ...props
   } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -420,7 +422,14 @@ function BaseInput(
     valueRef.current = value;
   }
 
-  const shownValue = useFixAndroidInputValueDisplay(value);
+  const formattedValue = useMemo(() => {
+    if (!enableThousandsSeparator || !value) return value;
+    const parts = value.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+  }, [enableThousandsSeparator, value]);
+
+  const shownValue = useFixAndroidInputValueDisplay(formattedValue);
   // workaround for selectTextOnFocus={true} not working on Native App
   const handleFocus = useCallback(
     (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
@@ -439,9 +448,15 @@ function BaseInput(
 
   const onNumberPadChangeText = useCallback(
     (text: string) => {
-      onChangeText?.(text.replace(',', '.'));
+      if (enableThousandsSeparator) {
+        // When thousands separator is enabled, commas are our separators,
+        // not locale decimal separators. Strip them instead of converting.
+        onChangeText?.(text.replace(/,/g, ''));
+      } else {
+        onChangeText?.(text.replace(',', '.'));
+      }
     },
-    [onChangeText],
+    [onChangeText, enableThousandsSeparator],
   );
 
   const isNumberKeyboardType = useMemo(
@@ -514,7 +529,11 @@ function BaseInput(
           {...props}
           onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
-            isNumberKeyboardType ? onNumberPadChangeText : onChangeText
+            isNumberKeyboardType
+              ? onNumberPadChangeText
+              : enableThousandsSeparator
+                ? (text: string) => onChangeText?.(text.replace(/,/g, ''))
+                : onChangeText
           }
           allowFontScaling={false}
         />

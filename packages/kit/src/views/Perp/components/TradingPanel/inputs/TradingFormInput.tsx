@@ -179,6 +179,7 @@ export const TradingFormInput = memo(
             placeholder={placeholder}
             keyboardType={keyboardType}
             disabled={disabled}
+            enableThousandsSeparator
             bg="$bgSubdued"
             allowFontScaling={false}
             containerProps={{
@@ -255,6 +256,7 @@ export const TradingFormInput = memo(
             onFocus={onFocus}
             disabled={disabled}
             keyboardType={keyboardType}
+            enableThousandsSeparator
             size="small"
             containerProps={{
               bg: 'transparent',
