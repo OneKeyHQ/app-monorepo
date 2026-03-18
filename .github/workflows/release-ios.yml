@@ -102,7 +102,15 @@ jobs:
 
       - name: Set BUNDLE_VERSION in Info.plist
         run: |
-          /usr/libexec/PlistBuddy -c "Set :BUNDLE_VERSION ${{ env.BUILD_BUNDLE_VERSION }}" ./apps/mobile/ios/OneKeyWallet/Info.plist
+          python3 << 'PYEOF'
+          import plistlib
+          path = './apps/mobile/ios/OneKeyWallet/Info.plist'
+          with open(path, 'rb') as f:
+              plist = plistlib.load(f)
+          plist['BUNDLE_VERSION'] = '${{ env.BUILD_BUNDLE_VERSION }}'
+          with open(path, 'wb') as f:
+              plistlib.dump(plist, f)
+          PYEOF
 
       - name: Write .env.version
         run: |
