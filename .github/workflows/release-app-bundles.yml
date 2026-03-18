@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   prepare-params:
@@ -22,20 +21,6 @@ jobs:
       branch: ${{ steps.params.outputs.branch }}
       commit: ${{ steps.params.outputs.commit }}
     steps:
-      - name: Set run name
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ inputs.pr_number }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          if [ -n "$PR_NUMBER" ]; then
-            NAME="Bundle PR #$PR_NUMBER"
-          else
-            NAME="Bundle $REF_NAME"
-          fi
-          gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }} \
-            -X PATCH -f name="$NAME"
-
       - name: Checkout Source Code
         uses: actions/checkout@v4
         if: ${{ !inputs.pr_number }}
