@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -181,10 +181,8 @@ export function useOpenMarketWatchlistEditDialog() {
   const dialogRef = useRef<IDialogInstance | null>(null);
   const [watchlistState] = useMarketWatchListV2Atom();
   const actions = useWatchListV2Actions();
-  const watchlist = useMemo(
-    () => watchlistState.data || [],
-    [watchlistState.data],
-  );
+  const watchlistRef = useRef<IMarketWatchListItemV2[]>([]);
+  watchlistRef.current = watchlistState.data || [];
 
   const handleRemove = useCallback(
     async (item: IMarketToken) => {
@@ -235,7 +233,7 @@ export function useOpenMarketWatchlistEditDialog() {
       })}`,
       renderContent: (
         <MarketWatchlistEditDialogContent
-          watchlist={watchlist}
+          watchlist={watchlistRef.current}
           onRemove={handleRemove}
           onSort={handleSort}
         />
@@ -249,5 +247,5 @@ export function useOpenMarketWatchlistEditDialog() {
         dialogRef.current = null;
       },
     });
-  }, [handleRemove, handleSort, intl, watchlist]);
+  }, [handleRemove, handleSort, intl]);
 }
