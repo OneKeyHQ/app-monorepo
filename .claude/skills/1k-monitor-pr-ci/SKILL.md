@@ -218,7 +218,24 @@ After all threads are addressed in this iteration:
    - [list each fix made]"
    ```
 3. Push: `git push`
-4. Return to Step 1 (wait for CI to re-run)
+
+### 3f. Request re-review
+
+After pushing fixes, request re-review from the reviewers who left comments:
+
+1. Get reviewers who left the comments (collected from Step 1b thread data, `author.login` fields)
+2. Request re-review:
+   ```bash
+   gh pr edit <PR_NUMBER> --add-reviewer <reviewer1>,<reviewer2>
+   ```
+   Or via API if `--add-reviewer` doesn't trigger re-review:
+   ```bash
+   gh api --method POST \
+     repos/{owner}/{repo}/pulls/{pr_number}/requested_reviewers \
+     -f '{"reviewers":["reviewer1","reviewer2"]}'
+   ```
+
+3. Return to Step 1 (wait for CI to re-run)
 
 ## Step 4: Final Report
 
