@@ -503,6 +503,12 @@ export function TabBar({
   const handleItemLayout = useCallback(
     (index: number, layout: IItemLayout) => {
       itemsLayoutRef.current.set(index, layout);
+      // Clean stale entries from removed tabs
+      for (const key of itemsLayoutRef.current.keys()) {
+        if (key >= tabNames.length) {
+          itemsLayoutRef.current.delete(key);
+        }
+      }
       if (itemsLayoutRef.current.size === tabNames.length) {
         const layouts: IItemLayout[] = [];
         for (let i = 0; i < tabNames.length; i += 1) {
