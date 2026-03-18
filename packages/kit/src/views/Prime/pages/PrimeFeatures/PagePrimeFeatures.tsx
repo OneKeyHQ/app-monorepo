@@ -155,72 +155,7 @@ export default function PagePrimeFeatures() {
     index: number;
   }>(() => {
     const allFeatures: IFeatureItemInfo[] = [
-      {
-        id: EPrimeFeatures.OneKeyCloud,
-        banner: (
-          <Image
-            w="100%"
-            h={bannerHeight}
-            maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
-          />
-        ),
-        title: intl.formatMessage({
-          id: ETranslations.global_onekey_cloud,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.prime_onekey_cloud_desc,
-        }),
-        details: [
-          {
-            icon: 'LinkOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_one_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_one_desc,
-            }),
-          },
-          {
-            icon: 'ArchiveBoxOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_two_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_onekey_cloud_detail_two_desc,
-            }),
-          },
-        ],
-        children:
-          isServerMasterPasswordSet ||
-          primeCloudSyncPersistData?.isCloudSyncEnabled ||
-          isPrimeSubscriptionActive ? (
-            <Stack>
-              <Button
-                mt="$2"
-                variant="tertiary"
-                onPress={() => {
-                  if (platformEnv.isWebDappMode) {
-                    Toast.message({
-                      title: intl.formatMessage({
-                        id: ETranslations.global_web_feature_not_available_go_to_app,
-                      }),
-                    });
-                    return;
-                  }
-                  navigation.navigate(EPrimePages.PrimeCloudSync, {
-                    serverUserInfo,
-                  });
-                }}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.prime_manage_service,
-                })}
-              </Button>
-            </Stack>
-          ) : null,
-      },
-
+      /* OneKey Cloud removed — keyless sync is free, no longer a Prime benefit */
       {
         id: EPrimeFeatures.BulkCopyAddresses,
         banner: (
@@ -443,17 +378,7 @@ export default function PagePrimeFeatures() {
       data,
       index: safeIndex,
     };
-  }, [
-    bannerHeight,
-    intl,
-    isServerMasterPasswordSet,
-    primeCloudSyncPersistData?.isCloudSyncEnabled,
-    isPrimeSubscriptionActive,
-    showAllFeatures,
-    navigation,
-    serverUserInfo,
-    selectedFeature,
-  ]);
+  }, [bannerHeight, intl, showAllFeatures, selectedFeature]);
 
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
