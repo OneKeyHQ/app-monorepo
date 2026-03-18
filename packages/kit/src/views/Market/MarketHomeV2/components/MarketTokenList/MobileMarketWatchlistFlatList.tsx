@@ -692,50 +692,72 @@ function MobileMarketWatchlistFlatListImpl({
             current.movedBeyondThreshold = false;
             current.hasMoved = false;
             current.consumeNextPress = false;
-            current.dragTimer = setTimeout(() => {
-              if (gestureRef.current.activeItemId !== itemKey) {
-                return;
-              }
-              gestureRef.current.firstLevelTriggered = true;
-              gestureRef.current.primedPageX = gestureRef.current.lastPageX;
-              gestureRef.current.primedPageY = gestureRef.current.lastPageY;
-              setPrimedItemId(itemKey);
-            }, FIRST_LEVEL_LONG_PRESS_DELAY_MS);
-            current.menuTimer = setTimeout(() => {
-              const latest = gestureRef.current;
-              if (latest.activeItemId !== itemKey) {
-                return;
-              }
-              if (
-                isDragSessionActiveRef.current ||
-                latest.movedBeyondThreshold ||
-                !latest.firstLevelTriggered ||
-                latest.hasMoved
-              ) {
-                return;
-              }
+            if (platformEnv.isNativeAndroid) {
+              // Android: no drag, show context menu directly at first level
+              current.menuTimer = setTimeout(() => {
+                const latest = gestureRef.current;
+                if (latest.activeItemId !== itemKey || latest.hasMoved) {
+                  return;
+                }
+                latest.consumeNextPress = true;
+                clearMenuTimer();
+                const latestIndex = getLatestIndex();
+                Haptics.impact(ImpactFeedbackStyle.Medium);
+                const { width } = Dimensions.get('window');
+                handleShowContextMenu(item, latestIndex, {
+                  x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
+                  y: (latest.lastPageY || pageY) -
+                    SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
+                });
+                resetGestureSession();
+              }, FIRST_LEVEL_LONG_PRESS_DELAY_MS);
+            } else {
+              current.dragTimer = setTimeout(() => {
+                if (gestureRef.current.activeItemId !== itemKey) {
+                  return;
+                }
+                gestureRef.current.firstLevelTriggered = true;
+                gestureRef.current.primedPageX = gestureRef.current.lastPageX;
+                gestureRef.current.primedPageY = gestureRef.current.lastPageY;
+                setPrimedItemId(itemKey);
+              }, FIRST_LEVEL_LONG_PRESS_DELAY_MS);
+              current.menuTimer = setTimeout(() => {
+                const latest = gestureRef.current;
+                if (latest.activeItemId !== itemKey) {
+                  return;
+                }
+                if (
+                  isDragSessionActiveRef.current ||
+                  latest.movedBeyondThreshold ||
+                  !latest.firstLevelTriggered ||
+                  latest.hasMoved
+                ) {
+                  return;
+                }
 
-              const latestPageY = latest.lastPageY || pageY;
-              const stillInsideRow =
-                latestPageY >= latest.rowTop && latestPageY <= latest.rowBottom;
-              if (!stillInsideRow) {
-                return;
-              }
+                const latestPageY = latest.lastPageY || pageY;
+                const stillInsideRow =
+                  latestPageY >= latest.rowTop &&
+                  latestPageY <= latest.rowBottom;
+                if (!stillInsideRow) {
+                  return;
+                }
 
-              latest.consumeNextPress = true;
-              clearDragTimer();
-              clearMenuTimer();
-              stopManualAutoScroll();
-              setPrimedItemId(null);
-              const latestIndex = getLatestIndex();
-              Haptics.impact(ImpactFeedbackStyle.Medium);
-              const { width } = Dimensions.get('window');
-              handleShowContextMenu(item, latestIndex, {
-                x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
-                y: latestPageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
-              });
-              resetGestureSession();
-            }, SECOND_LEVEL_LONG_PRESS_DELAY_MS);
+                latest.consumeNextPress = true;
+                clearDragTimer();
+                clearMenuTimer();
+                stopManualAutoScroll();
+                setPrimedItemId(null);
+                const latestIndex = getLatestIndex();
+                Haptics.impact(ImpactFeedbackStyle.Medium);
+                const { width } = Dimensions.get('window');
+                handleShowContextMenu(item, latestIndex, {
+                  x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
+                  y: latestPageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
+                });
+                resetGestureSession();
+              }, SECOND_LEVEL_LONG_PRESS_DELAY_MS);
+            }
           }}
           onTouchMove={(event: GestureResponderEvent) => {
             const current = gestureRef.current;
