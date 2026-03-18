@@ -1,11 +1,11 @@
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { encodeBundleVersionForDisplay } from '../../../appUpdate';
-import { BundleUpdate } from '../../../modules3rdParty/auto-update';
-import platformEnv from '../../../platformEnv';
-import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
-import utils from '../../../utils';
+import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { BaseScene } from '@onekeyhq/shared/src/logger/base/baseScene';
+import { LogToLocal } from '@onekeyhq/shared/src/logger/base/decorators';
+import utils from '@onekeyhq/shared/src/logger/utils';
 
 export class DeviceScene extends BaseScene {
   @LogToLocal({ level: 'info' })
@@ -28,8 +28,7 @@ export class DeviceScene extends BaseScene {
     const appVersion = platformEnv.version ?? '';
     const buildNumber = platformEnv.buildNumber ?? '';
     const bundleVersion = platformEnv.bundleVersion ?? '';
-    const encodedBundleVersion =
-      encodeBundleVersionForDisplay(bundleVersion);
+    const encodedBundleVersion = encodeBundleVersionForDisplay(bundleVersion);
 
     const version = `${appVersion}${buildNumber ? `-${buildNumber}` : ''}(${bundleVersion})(${encodedBundleVersion})`;
 
@@ -37,8 +36,7 @@ export class DeviceScene extends BaseScene {
     try {
       const nativeVersion = await BundleUpdate.getNativeAppVersion();
       const nativeBuildNumber = await BundleUpdate.getNativeBuildNumber();
-      const builtinBundleVersion =
-        await BundleUpdate.getBuiltinBundleVersion();
+      const builtinBundleVersion = await BundleUpdate.getBuiltinBundleVersion();
 
       if (nativeVersion) {
         nativeAppVersion = `${nativeVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})(${encodeBundleVersionForDisplay(String(builtinBundleVersion))})` : ''}`;
