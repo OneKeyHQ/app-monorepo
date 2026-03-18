@@ -62,9 +62,9 @@ Each iteration (`[Check N/30]`):
 gh pr checks <PR_NUMBER>
 ```
 
-### 1b. Fetch unresolved review threads via GraphQL
+### 1b. Fetch unresolved review threads
 
-Use GraphQL to get full thread context including thread IDs (needed for resolving):
+**Primary: GraphQL** (provides thread IDs needed for resolving):
 
 ```bash
 gh api graphql -f query='
@@ -98,6 +98,15 @@ query($owner: String!, $repo: String!, $pr: Int!) {
   }
 }' -f owner="OWNER" -f repo="REPO" -F pr=PR_NUMBER
 ```
+
+**Fallback: REST API** (if GraphQL fails, e.g. token permission issues):
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
+  --jq '.[] | {id: .id, body: .body, path: .path, line: .original_line, user: .user.login, in_reply_to_id: .in_reply_to_id, created_at: .created_at}'
+```
+
+> **Note**: REST fallback can fetch comments and reply to them, but **cannot resolve threads** (GitHub only supports this via GraphQL). When using REST fallback, skip the resolve step (Step 3d) and log a warning that threads must be resolved manually.
 
 Filter to only **unresolved** threads (`isResolved: false`). Skip threads where the last comment is from the current `gh` user (already replied).
 
@@ -205,6 +214,8 @@ mutation($threadId: ID!) {
   }
 }' -f threadId="THREAD_NODE_ID"
 ```
+
+> **Note**: Resolve thread requires GraphQL — there is no REST API equivalent. If Step 1b fell back to REST, skip this step and log a warning: "Thread resolve skipped (GraphQL unavailable). Please resolve manually."
 
 ### 3e. Commit and push
 
