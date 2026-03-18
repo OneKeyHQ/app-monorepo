@@ -116,8 +116,7 @@ function getPostScriptName(ttfPath) {
 
 // 1. Extract registered fonts from useLoadCustomFonts.ts: { jsKey -> fileName }
 const useLoadContent = fs.readFileSync(useLoadCustomFontsPath, 'utf-8');
-const fontEntryPattern =
-  /'([^']+)':\s*require\('\.\.\/fonts\/([^']+\.ttf)'\)/g;
+const fontEntryPattern = /'([^']+)':\s*require\('\.\.\/fonts\/([^']+\.ttf)'\)/g;
 const fontEntries = []; // { jsKey, fileName }
 let match;
 while ((match = fontEntryPattern.exec(useLoadContent)) !== null) {
@@ -141,7 +140,9 @@ console.log('\nChecking font files and PostScript name consistency...');
 for (const { jsKey, fileName } of fontEntries) {
   const filePath = path.join(fontsSrcDir, fileName);
   if (!fs.existsSync(filePath)) {
-    error(`${fileName} registered in useLoadCustomFonts.ts but file is MISSING`);
+    error(
+      `${fileName} registered in useLoadCustomFonts.ts but file is MISSING`,
+    );
     continue;
   }
   ok(`${fileName} exists`);
@@ -229,11 +230,9 @@ if (hasError) {
   console.error(
     `[${getTimestamp()}] Font consistency check FAILED. (${duration}s)`,
   );
+  console.error('\nAll fonts in useLoadCustomFonts.ts must:');
   console.error(
-    '\nAll fonts in useLoadCustomFonts.ts must:',
-  );
-  console.error(
-    '  1. Have a JS key that matches the font file\'s PostScript name',
+    "  1. Have a JS key that matches the font file's PostScript name",
   );
   console.error('  2. Be declared in Info.plist UIAppFonts');
   console.error('  3. Be listed in Podfile font_files');
