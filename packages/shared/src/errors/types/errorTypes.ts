@@ -22,6 +22,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyServerApiError = 'OneKeyServerApiError',
   LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
   PrimeTransferImportCancelledError = 'PrimeTransferImportCancelledError',
+  RequestLimitExceededError = 'RequestLimitExceededError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',

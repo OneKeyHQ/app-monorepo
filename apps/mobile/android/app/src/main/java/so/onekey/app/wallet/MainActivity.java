@@ -87,6 +87,17 @@ public class MainActivity extends ReactActivity {
   }
 
   @Override
+  protected void onStop() {
+    super.onStop();
+    // Reset crash counter on graceful exit so normal close
+    // is not mistaken for a crash on next boot
+    getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE)
+        .edit()
+        .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+        .commit();
+  }
+
+  @Override
   protected void onSaveInstanceState(@NonNull Bundle outState) {
     ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
     ActivityManager.MemoryInfo memInfo = new ActivityManager.MemoryInfo();
