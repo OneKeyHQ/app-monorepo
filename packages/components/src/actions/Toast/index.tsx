@@ -475,7 +475,7 @@ export const Toast = {
     return r;
   },
   Close: ShowToasterClose,
-  dismiss: dismissToast,
+  dismiss: (id: string | number) => dismissToast(id),
 };
 export type IToast = typeof Toast;
 

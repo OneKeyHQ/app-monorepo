@@ -33,6 +33,7 @@ import {
   EOnboardingV2OneKeyIDLoginMode,
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
@@ -230,7 +231,8 @@ function AppDataSection() {
   const isActiveIdUser = !!config.isCloudSyncEnabled; // Scenario 4
   const isKwSyncEnabled = !!config.isCloudSyncEnabledKeyless && !isActiveIdUser;
   const isKwRemovedWhileSyncOn = !kwLoading && isKwSyncEnabled && !kwExists; // Scenario 5
-  const isActiveKwUser = isKwSyncEnabled && !isKwRemovedWhileSyncOn; // Scenario 3
+  const isActiveKwUser =
+    !kwLoading && isKwSyncEnabled && !isKwRemovedWhileSyncOn; // Scenario 3
   const isSyncOffWithKw =
     !kwLoading && !isActiveIdUser && !isKwSyncEnabled && kwExists; // Scenario 2
   const isSyncOffNoKw =
@@ -297,6 +299,7 @@ function AppDataSection() {
 
   // Migrate ID → Keyless (Scenario 4 "Switch Now")
   const handleMigrateToKeyless = useCallback(async () => {
+    if (isSubmittingRef.current) return;
     if (!kwExists) {
       Dialog.show({
         icon: 'CloudOutline',
@@ -316,39 +319,44 @@ function AppDataSection() {
       return;
     }
     // Has KW → proceed directly (no extra confirm — "Switch Now" is already explicit intent)
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    await backgroundApiProxy.serviceApp.showDialogLoading({
-      title: intl.formatMessage({
-        id: ETranslations.global_syncing,
-      }),
-    });
+    isSubmittingRef.current = true;
     try {
-      // Sync ID data first to ensure latest data is downloaded
-      await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
-        callerName: 'Migration: ID sync before switch',
-        noDebounceUpload: true,
-      });
-      // Enable KW first, then disable ID — safer order to avoid stuck middle state
-      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
-        enabled: true,
-      });
-      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-        enabled: false,
-      });
-      await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-        syncMode: ECloudSyncMode.Keyless,
-      });
-    } catch (error) {
-      void backgroundApiProxy.serviceApp.showToast({
-        method: 'error',
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
-          id: ETranslations.global_sync_error,
+          id: ETranslations.global_syncing,
         }),
       });
-      throw error;
+      try {
+        // Sync ID data first to ensure latest data is downloaded
+        await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+          callerName: 'Migration: ID sync before switch',
+          noDebounceUpload: true,
+        });
+        // Enable KW first, then disable ID — safer order to avoid stuck middle state
+        await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
+          enabled: true,
+        });
+        await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+          enabled: false,
+        });
+        await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
+          syncMode: ECloudSyncMode.Keyless,
+        });
+      } catch (error) {
+        void backgroundApiProxy.serviceApp.showToast({
+          method: 'error',
+          title: intl.formatMessage({
+            id: ETranslations.global_sync_error,
+          }),
+        });
+        throw error;
+      } finally {
+        await timerUtils.wait(1000);
+        await backgroundApiProxy.serviceApp.hideDialogLoading();
+      }
     } finally {
-      await timerUtils.wait(1000);
-      await backgroundApiProxy.serviceApp.hideDialogLoading();
+      isSubmittingRef.current = false;
     }
   }, [kwExists, intl, handleCreateKeylessWallet]);
 
@@ -709,16 +717,20 @@ export default function PagePrimeCloudSync() {
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
         })}
-        headerRight={() => (
-          <Button
-            variant="tertiary"
-            onPress={() => {
-              navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-            }}
-          >
-            Debug
-          </Button>
-        )}
+        headerRight={
+          platformEnv.isDev
+            ? () => (
+                <Button
+                  variant="tertiary"
+                  onPress={() => {
+                    navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+                  }}
+                >
+                  Debug
+                </Button>
+              )
+            : undefined
+        }
       />
       <Page.Body>
         <AppDataSection />
