@@ -9,7 +9,13 @@ import {
 } from 'react';
 import type { RefObject } from 'react';
 
-import { Tabs, YStack, useTabContainerWidth } from '@onekeyhq/components';
+import {
+  IconButton,
+  Tabs,
+  XStack,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
@@ -28,6 +34,7 @@ import {
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
+import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
 
 import { useMarketTabsLogic } from './hooks';
 
@@ -54,6 +61,7 @@ interface ITabBarDynamicContext {
   watchlistFilter: IWatchlistFilterType;
   onSelectWatchlistFilter: (filter: IWatchlistFilterType) => void;
   isWatchlistEmpty: boolean;
+  onEditWatchlist: () => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -65,12 +73,14 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
   spotTabName: string;
   perpsTabName: string;
+  onWatchlistColumnHeaderLayout?: (offsetY: number) => void;
 }
 
 function MarketHomeTabBar({
   watchlistTabName,
   spotTabName,
   perpsTabName,
+  onWatchlistColumnHeaderLayout,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
   const focusedTab = useFocusedTab();
@@ -88,16 +98,41 @@ function MarketHomeTabBar({
       <Tabs.TabBar {...tabBarProps} />
       {focusedTab === watchlistTabName && !ctx.isWatchlistEmpty ? (
         <>
-          <MarketWatchlistCategorySelector
-            selectedFilter={ctx.watchlistFilter}
-            onSelectFilter={ctx.onSelectWatchlistFilter}
-            containerStyle={{
-              px: '$5',
-              pt: '$3',
-              pb: '$2',
+          <XStack
+            alignItems="center"
+            pr={platformEnv.isNativeAndroid ? '$3' : undefined}
+          >
+            <XStack flex={1}>
+              <MarketWatchlistCategorySelector
+                selectedFilter={ctx.watchlistFilter}
+                onSelectFilter={ctx.onSelectWatchlistFilter}
+                containerStyle={{
+                  px: '$5',
+                  pt: '$3',
+                  pb: '$2',
+                }}
+              />
+            </XStack>
+            {platformEnv.isNativeAndroid ? (
+              <IconButton
+                icon="PencilOutline"
+                size="small"
+                variant="tertiary"
+                onPress={ctx.onEditWatchlist}
+              />
+            ) : null}
+          </XStack>
+          <YStack
+            onLayout={(event: {
+              nativeEvent: { layout: { y: number; height: number } };
+            }) => {
+              onWatchlistColumnHeaderLayout?.(
+                event.nativeEvent.layout.y + event.nativeEvent.layout.height,
+              );
             }}
-          />
-          <MarketListColumnHeader />
+          >
+            <MarketListColumnHeader />
+          </YStack>
         </>
       ) : null}
       <YStack
@@ -132,6 +167,7 @@ function MobileLayoutComponent({
   tabsRef,
   nestedPager = false,
 }: IMobileLayoutProps) {
+  const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const {
     watchlistTabName,
     spotTabName,
@@ -152,6 +188,8 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
+  const [watchlistColumnHeaderOffsetY, setWatchlistColumnHeaderOffsetY] =
+    useState(0);
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -226,6 +264,7 @@ function MobileLayoutComponent({
         watchlistTabName={watchlistTabName}
         spotTabName={spotTabName}
         perpsTabName={perpsTabName}
+        onWatchlistColumnHeaderLayout={setWatchlistColumnHeaderOffsetY}
       />
     ),
     [watchlistTabName, spotTabName, perpsTabName],
@@ -237,13 +276,13 @@ function MobileLayoutComponent({
     },
     [handleTabChange],
   );
-
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
       filterBarProps,
       watchlistFilter,
       onSelectWatchlistFilter: setWatchlistFilter,
       isWatchlistEmpty,
+      onEditWatchlist: openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -252,6 +291,7 @@ function MobileLayoutComponent({
       filterBarProps,
       watchlistFilter,
       isWatchlistEmpty,
+      openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
     ],
@@ -266,7 +306,7 @@ function MobileLayoutComponent({
         renderTabBar={renderTabBar}
         initialTabName={initialTabName}
         onTabChange={onTabChangeHandler}
-        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+        useNativeHeaderAnimation={platformEnv.isNativeAndroid && !nestedPager}
         pagerProps={
           nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
         }
@@ -276,6 +316,7 @@ function MobileLayoutComponent({
           <MobileMarketWatchlistFlatList
             selectedFilter={watchlistFilter}
             listContainerProps={listContainerProps}
+            topAutoScrollTriggerOffset={watchlistColumnHeaderOffsetY}
           />
         </Tabs.Tab>
         <Tabs.Tab name={spotTabName}>

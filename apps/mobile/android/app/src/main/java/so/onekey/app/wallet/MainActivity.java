@@ -2,6 +2,7 @@ package so.onekey.app.wallet;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -61,6 +62,13 @@ public class MainActivity extends ReactActivity {
       }
     }
     super.onCreate(null);
+
+    if (MainApplication.shouldShowRecovery) {
+        startActivity(new Intent(this, RecoveryActivity.class));
+        finish();
+        return;
+    }
+
     setTheme(R.style.AppTheme);
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         SplashScreenBridge.show(this);
@@ -76,6 +84,17 @@ public class MainActivity extends ReactActivity {
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
     EventBus.getDefault().register(this);
+  }
+
+  @Override
+  protected void onStop() {
+    super.onStop();
+    // Reset crash counter on graceful exit so normal close
+    // is not mistaken for a crash on next boot
+    getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE)
+        .edit()
+        .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+        .commit();
   }
 
   @Override

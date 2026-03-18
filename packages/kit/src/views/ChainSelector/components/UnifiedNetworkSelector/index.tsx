@@ -22,7 +22,6 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -43,6 +42,8 @@ import networkUtils, {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useFindNetworksWithoutAccount } from '../../hooks/useFindNetworksWithoutAccount';
+
 import { NetworkContent } from './NetworkContent';
 import PortfolioContent from './PortfolioContent';
 import { TabSwitcher } from './TabSwitcher';
@@ -59,6 +60,7 @@ function UnifiedNetworkSelector() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
+  const { findNetworksWithoutAccount } = useFindNetworksWithoutAccount();
   const actions = useAccountSelectorActions();
 
   const route =
@@ -86,6 +88,7 @@ function UnifiedNetworkSelector() {
   const accountId = account?.id;
   const indexedAccountId = indexedAccount?.id;
   const networkId = activeNetwork?.id;
+  const isOthersWallet = accountUtils.isOthersWallet({ walletId });
 
   // Determine if tab switcher should be shown
   const showTabSwitcher = useMemo(() => {
@@ -98,14 +101,14 @@ function UnifiedNetworkSelector() {
 
   // Determine initial tab
   const initialTab = useMemo((): ITabType => {
-    if (accountUtils.isOthersWallet({ walletId })) {
-      return 'network';
-    }
     if (networkUtils.isAllNetwork({ networkId })) {
       return 'portfolio';
     }
+    if (isOthersWallet) {
+      return 'network';
+    }
     return defaultTab ?? 'network';
-  }, [walletId, networkId, defaultTab]);
+  }, [defaultTab, isOthersWallet, networkId]);
 
   const [activeTab, setActiveTab] = useState<ITabType>(initialTab);
 
@@ -393,101 +396,69 @@ function UnifiedNetworkSelector() {
 
   // Portfolio tab done handler
   const handlePortfolioDone = useCallback(async () => {
-    // 1. Always check for missing addresses
-    const { accountsInfo } =
-      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId: accountId ?? '',
-        indexedAccountId,
-        networkId: getNetworkIdsMap().onekeyall,
-        deriveType: undefined,
-        excludeTestNetwork: true,
-      });
-
-    const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
-    for (let i = 0; i < accountsInfo.length; i += 1) {
-      const item = accountsInfo[i];
-      const { networkId: itemNetworkId, deriveType, dbAccount } = item;
-      if (dbAccount) {
-        networkAccountMap[`${itemNetworkId}_${deriveType ?? ''}`] = item;
-      }
-    }
-
-    const enabledNetworksWithoutAccountTemp: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[] = [];
-
-    for (let i = 0; i < enabledNetworks.length; i += 1) {
-      const network = enabledNetworks[i];
-
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: network.id,
+    setIsCreatingEnabledAddresses(true);
+    try {
+      if (!isOthersWallet) {
+        // 1. Find networks missing addresses
+        const networksWithoutAccount = await findNetworksWithoutAccount({
+          accountId: accountId ?? '',
+          indexedAccountId,
+          enabledNetworks,
         });
 
-      const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
-      if (!networkAccount) {
-        enabledNetworksWithoutAccountTemp.push({
-          networkId: network.id,
-          deriveType,
+        setEnabledNetworksWithoutAccount(networksWithoutAccount);
+
+        // 2. Create missing addresses if any
+        if (networksWithoutAccount.length > 0) {
+          await createAddress({
+            num: 0,
+            account: {
+              walletId,
+              networkId: getNetworkIdsMap().onekeyall,
+              indexedAccountId,
+              deriveType: 'default',
+            },
+            customNetworks: networksWithoutAccount,
+          });
+        }
+      } else {
+        setEnabledNetworksWithoutAccount([]);
+      }
+
+      // 3. Save network state only when selection changed
+      if (!isSameEnabledNetworks) {
+        await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+          enabledNetworks: networksState.enabledNetworks,
+          disabledNetworks: networksState.disabledNetworks,
+        });
+
+        appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
+      }
+
+      // 4. Switch to All Networks if not already on it
+      if (!networkUtils.isAllNetwork({ networkId })) {
+        void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
+          networkId: getNetworkIdsMap().onekeyall,
+        });
+
+        void actions.current.updateSelectedAccountNetwork({
+          num,
+          networkId: getNetworkIdsMap().onekeyall,
         });
       }
+
+      navigation.pop();
+
+      void onNetworksChanged?.();
+    } finally {
+      setIsCreatingEnabledAddresses(false);
     }
-
-    setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
-
-    // 2. Create missing addresses if any
-    if (enabledNetworksWithoutAccountTemp.length > 0) {
-      setIsCreatingEnabledAddresses(true);
-      try {
-        await createAddress({
-          num: 0,
-          account: {
-            walletId,
-            networkId: getNetworkIdsMap().onekeyall,
-            indexedAccountId,
-            deriveType: 'default',
-          },
-          customNetworks: enabledNetworksWithoutAccountTemp,
-        });
-      } catch (error) {
-        setIsCreatingEnabledAddresses(false);
-        throw error;
-      }
-    }
-
-    // 3. Save network state only when selection changed
-    if (!isSameEnabledNetworks) {
-      await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-        enabledNetworks: networksState.enabledNetworks,
-        disabledNetworks: networksState.disabledNetworks,
-      });
-
-      appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
-    }
-
-    // 4. Switch to All Networks if not already on it
-    if (!networkUtils.isAllNetwork({ networkId })) {
-      void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
-        networkId: getNetworkIdsMap().onekeyall,
-      });
-
-      void actions.current.updateSelectedAccountNetwork({
-        num,
-        networkId: getNetworkIdsMap().onekeyall,
-      });
-    }
-
-    navigation.pop();
-
-    void onNetworksChanged?.();
-
-    setIsCreatingEnabledAddresses(false);
   }, [
     accountId,
     actions,
     createAddress,
     enabledNetworks,
+    findNetworksWithoutAccount,
     indexedAccountId,
     navigation,
     networkId,
@@ -497,6 +468,7 @@ function UnifiedNetworkSelector() {
     onNetworksChanged,
     walletId,
     isSameEnabledNetworks,
+    isOthersWallet,
   ]);
 
   // Header title renderer

@@ -62,12 +62,15 @@ const MarketBannerListSkeleton = memo(MarketBannerListSkeletonComponent);
 function MarketBannerListComponent() {
   const toMarketBannerDetail = useToMarketBannerDetail();
   const { md } = useMedia();
-  const { bannerList, isLoading } = useMarketBannerList();
+  const { bannerList, isLoading, isFetched } = useMarketBannerList();
 
   // md = true when screen width <= 767px (small screen)
   const isSmallScreen = md;
 
-  if (isLoading) {
+  // Only show skeleton on initial load (before first fetch completes).
+  // Skip skeleton on re-fetch to avoid header height flicker when
+  // navigating back with no banners.
+  if (isLoading && !isFetched) {
     return <MarketBannerListSkeleton isSmallScreen={isSmallScreen} />;
   }
 

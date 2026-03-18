@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F0F0F"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal|center_vertical"
+        android:paddingStart="40dp"
+        android:paddingEnd="40dp">
+
+        <!-- OneKey Logo -->
+        <ImageView
+            android:id="@+id/logo"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@mipmap/ic_launcher_round"
+            android:contentDescription="OneKey Logo" />
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="App Failed to Start"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="The app has failed to start multiple times. You can try the following options to resolve the issue."
+            android:textColor="#8C8C8C"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:lineSpacingExtra="4dp" />
+
+        <!-- Export Logs Button -->
+        <Button
+            android:id="@+id/btn_export_logs"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="32dp"
+            android:background="@drawable/recovery_button_dark"
+            android:text="Export Logs"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textAllCaps="false" />
+
+        <!-- Try Again Button -->
+        <Button
+            android:id="@+id/btn_try_again"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/recovery_button_dark"
+            android:text="Try Again"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textAllCaps="false" />
+
+        <!-- Auto Repair Button -->
+        <Button
+            android:id="@+id/btn_auto_repair"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/recovery_button_green"
+            android:text="Auto Repair"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:textAllCaps="false" />
+
+        <!-- Version Label -->
+        <TextView
+            android:id="@+id/version_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:textColor="#666666"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+</ScrollView>

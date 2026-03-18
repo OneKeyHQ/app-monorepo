@@ -6,6 +6,7 @@ import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 export function useMarketBannerList(): {
   bannerList: IMarketBannerItem[];
   isLoading: boolean;
+  isFetched: boolean;
 } {
   const [devSettings] = useDevSettingsPersistAtom();
   const enableMockMarketBanner =
@@ -30,5 +31,6 @@ export function useMarketBannerList(): {
   return {
     bannerList: bannerList || [],
     isLoading: isLoading ?? false,
+    isFetched: bannerList !== undefined,
   };
 }

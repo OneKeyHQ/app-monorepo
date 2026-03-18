@@ -322,7 +322,9 @@ export function Carousel<T>({
             </Stack>
           ) : null}
         </XStack>
-        {showPagination && data.length > 1 ? (
+        {showPagination &&
+        data.length > 1 &&
+        (!!pageWidthProp || (layout.width > 0 && layout.height > 0)) ? (
           <XStack
             gap="$1"
             ai="center"

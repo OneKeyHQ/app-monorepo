@@ -35,7 +35,8 @@ import type { RouteProp } from '@react-navigation/core';
 
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 
-type IBundleInfo = {
+export type IBundleInfo = {
+  bundleVersion?: string;
   ciBundleVersion: string;
   downloadUrl: string;
   sha256: string;
@@ -45,9 +46,10 @@ type IBundleInfo = {
   branch?: string;
   prTitle?: string;
   changeLog?: string;
+  buildNumber?: string;
 };
 
-function normalizeCommitHash(commitHash?: string) {
+export function normalizeCommitHash(commitHash?: string) {
   return String(commitHash || '')
     .trim()
     .toLowerCase();
@@ -59,7 +61,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function BundleItem({
+export function BundleItem({
   bundle,
   version,
   isCurrentBundle,
@@ -253,20 +255,16 @@ function BundleItem({
 
   const downloadDisabled = isDownloading && status !== 'downloading';
 
-  const commitHashShort = bundle.commitHash
-    ? bundle.commitHash.slice(0, 8)
-    : undefined;
-
   return (
     <YStack px="$4" py="$3" gap="$2">
-      {/* Row 1: commitHash + badges + action button */}
+      {/* Row 1: bundleVersion + branch badge + status badges + action */}
       <XStack alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" gap="$2" flex={1}>
           {isCurrentBundle ? (
             <Icon name="CheckRadioSolid" size="$4.5" color="$iconSuccess" />
           ) : null}
           <SizableText size="$bodyMdMedium">
-            {commitHashShort || bundle.ciBundleVersion}
+            {`#${bundle.ciBundleVersion}`}
           </SizableText>
           <Badge badgeType="default" badgeSize="sm">
             <Badge.Text>{bundle.branch || '-'}</Badge.Text>
@@ -294,22 +292,30 @@ function BundleItem({
         ) : null}
       </XStack>
 
-      {/* Row 2: prTitle */}
-      {bundle.prTitle ? (
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={2}>
-          {bundle.prTitle}
+      {/* Row 2: buildNumber + ciBundleVersion (encoded) + fileSize */}
+      <SizableText size="$bodySm" color="$textSubdued">
+        {[
+          bundle.buildNumber,
+          encodeBundleVersionForDisplay(bundle.ciBundleVersion),
+          formatFileSize(bundle.fileSize),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </SizableText>
+
+      {/* Row 3: commitHash */}
+      {bundle.commitHash ? (
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {bundle.commitHash.slice(0, 8)}
         </SizableText>
       ) : null}
 
-      {/* Row 3: ciBundleVersion + fileSize */}
-      <XStack alignItems="center" gap="$2">
-        <SizableText size="$bodyXs" color="$textDisabled">
-          {`#${bundle.ciBundleVersion} (${encodeBundleVersionForDisplay(bundle.ciBundleVersion)})`}
+      {/* Row 4: prTitle (least prominent) */}
+      {bundle.prTitle ? (
+        <SizableText size="$bodyXs" color="$textDisabled" numberOfLines={1}>
+          {bundle.prTitle}
         </SizableText>
-        <SizableText size="$bodyXs" color="$textDisabled">
-          {formatFileSize(bundle.fileSize)}
-        </SizableText>
-      </XStack>
+      ) : null}
 
       {/* Status: downloading */}
       {status === 'downloading' ? (
