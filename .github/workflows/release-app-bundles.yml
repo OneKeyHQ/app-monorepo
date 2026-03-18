@@ -25,12 +25,13 @@ jobs:
       - name: Set run name
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          PR="${{ inputs.pr_number }}"
-          if [ -n "$PR" ]; then
-            NAME="Bundle PR #$PR"
+          if [ -n "$PR_NUMBER" ]; then
+            NAME="Bundle PR #$PR_NUMBER"
           else
-            NAME="Bundle ${{ github.ref_name }}"
+            NAME="Bundle $REF_NAME"
           fi
           gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }} \
             -X PATCH -f name="$NAME"
