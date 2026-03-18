@@ -175,7 +175,7 @@ export function BundleItem({
       'ignoreServerBundleUpdate',
       true,
     );
-    await backgroundApiProxy.serviceAppUpdate.reset();
+    // await backgroundApiProxy.serviceAppUpdate.reset();
     await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
     defaultLogger.app.jsBundleDev.installBundle({
       version,
