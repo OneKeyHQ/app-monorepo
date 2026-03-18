@@ -100,11 +100,16 @@ public class AppDelegate: ExpoAppDelegate {
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // Reset crash counter on graceful exit so normal close is not mistaken for a crash
+  // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still offered
+  // if the user force-kills from the app switcher while viewing the recovery screen.
   public override func applicationDidEnterBackground(_ application: UIApplication) {
     super.applicationDidEnterBackground(application)
-    UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
-    UserDefaults.standard.synchronize()
+    let count = UserDefaults.standard.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    if count < 3 {
+      UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+      UserDefaults.standard.synchronize()
+    }
   }
 
   // Linking API
