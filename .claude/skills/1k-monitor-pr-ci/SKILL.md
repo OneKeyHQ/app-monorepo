@@ -292,4 +292,7 @@ Status: Ready for re-review / Ready to merge
 - **Reply fails**: Log warning with thread path/line, continue to next thread. The code fix is still committed.
 - **Resolve fails**: Log warning, continue. The thread stays open but the fix is pushed.
 - **Re-review request fails**: Log warning, continue. The reviewer can still see the push notification.
-- **Blocking errors**: Only abort if `gh` CLI is not authenticated or the PR does not exist.
+- **Blocking errors**: Abort the loop if:
+  - `gh` CLI is not authenticated
+  - The PR does not exist
+  - The PR is already closed or merged (check via `gh pr view <PR_NUMBER> --json state --jq '.state'` each iteration — if `CLOSED` or `MERGED`, stop and inform the user)
