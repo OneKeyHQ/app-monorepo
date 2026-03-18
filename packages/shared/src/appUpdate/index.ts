@@ -1,6 +1,8 @@
 import semver from 'semver';
 
 import platformEnv from '../platformEnv';
+import { syncStorage } from '../storage/instance/syncStorageInstance';
+import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import { EAppUpdateStatus, EUpdateFileType } from './type';
 
@@ -11,7 +13,6 @@ export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
 const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
-const APP_BUILD_NUMBER = platformEnv.buildNumber;
 
 export function encodeBundleVersionForDisplay(version: string): string {
   // BUNDLE_VERSION is seconds since 2026-01-01T00:00:00Z epoch, base36 encode for short display
@@ -34,6 +35,8 @@ export interface IResolveUpdateDecisionParams {
   remoteAppVersion?: string;
   remoteBundleVersion?: string;
   allowRollback?: boolean;
+  /** Whether the app is currently running a downloaded JS bundle (not the builtin one). */
+  hasActiveCustomBundle?: boolean;
 }
 
 function parseBundleVersion(version?: string): number | undefined {
@@ -56,6 +59,7 @@ export function resolveUpdateDecision({
   remoteAppVersion,
   remoteBundleVersion,
   allowRollback = true,
+  hasActiveCustomBundle = false,
 }: IResolveUpdateDecisionParams): IResolvedUpdateDecision {
   const currentValid = semver.valid(currentAppVersion || '');
   if (!currentValid) {
@@ -107,6 +111,20 @@ export function resolveUpdateDecision({
     };
   }
   if (remoteBundle === undefined) {
+    // Distinguish "server omitted jsBundleVersion" from "server sent a
+    // malformed value like 'abc'".  Only trigger rollback-to-builtin when
+    // the field was genuinely absent or empty — not on parse failures.
+    const remoteWasAbsent =
+      remoteBundleVersion === undefined ||
+      remoteBundleVersion === null ||
+      remoteBundleVersion === '';
+    if (remoteWasAbsent && hasActiveCustomBundle && allowRollback) {
+      return {
+        decision: 'jsBundleRollbackToBuiltin',
+        isValid: true,
+        reason: 'remote_bundle_not_available_rollback_to_builtin',
+      };
+    }
     return {
       decision: 'none',
       isValid: true,
@@ -152,7 +170,8 @@ export const getUpdateFileType: (
   });
   if (
     decision.decision === 'jsBundleUpgrade' ||
-    decision.decision === 'jsBundleRollback'
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin'
   ) {
     return EUpdateFileType.jsBundle;
   }
@@ -170,7 +189,8 @@ export const gtVersion = (appVersion?: string, bundleVersion?: string) => {
   return (
     decision.decision === 'appShellUpdate' ||
     decision.decision === 'jsBundleUpgrade' ||
-    decision.decision === 'jsBundleRollback'
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin'
   );
 };
 
@@ -188,14 +208,17 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   });
   const fileType =
     decision.decision === 'jsBundleUpgrade' ||
-    decision.decision === 'jsBundleRollback'
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin'
       ? EUpdateFileType.jsBundle
       : EUpdateFileType.appShell;
   const shouldUpdate =
     status !== EAppUpdateStatus.done &&
     (decision.decision === 'appShellUpdate' ||
       decision.decision === 'jsBundleUpgrade');
-  const isRollback = decision.decision === 'jsBundleRollback';
+  const isRollback =
+    decision.decision === 'jsBundleRollback' ||
+    decision.decision === 'jsBundleRollbackToBuiltin';
   return {
     shouldUpdate,
     fileType,
@@ -220,23 +243,78 @@ export const displayFullVersion = (
 };
 
 export const displayWhatsNewVersion = () =>
-  displayFullVersion(APP_VERSION, APP_BUILD_NUMBER, APP_BUNDLE_VERSION);
+  displayFullVersion(
+    APP_VERSION,
+    undefined,
+    isLastUpdateJsBundle() ? APP_BUNDLE_VERSION : undefined,
+  );
 
 export const displayAppUpdateVersion = (
   appUpdateInfo: IAppUpdateInfo | undefined,
 ) => {
   if (!appUpdateInfo) {
-    return displayFullVersion(
-      APP_VERSION,
-      APP_BUILD_NUMBER,
-      APP_BUNDLE_VERSION,
-    );
+    return APP_VERSION;
   }
+  const fileType = getUpdateFileType(appUpdateInfo);
   return displayFullVersion(
     appUpdateInfo.latestVersion,
     undefined,
-    appUpdateInfo.jsBundleVersion,
+    fileType === EUpdateFileType.jsBundle
+      ? appUpdateInfo.jsBundleVersion
+      : undefined,
   );
+};
+
+interface IWhatsNewShownData {
+  appVersion: string;
+  bundleVersions: string[];
+  isJsBundleUpdate?: boolean;
+}
+
+export const isWhatsNewShown = (): boolean => {
+  const data = syncStorage.getObject<IWhatsNewShownData>(
+    EAppSyncStorageKeys.onekey_whats_new_shown,
+  );
+  if (!data || data.appVersion !== APP_VERSION) {
+    return false;
+  }
+  if (!Array.isArray(data.bundleVersions)) {
+    return false;
+  }
+  return data.bundleVersions.map(String).includes(String(APP_BUNDLE_VERSION));
+};
+
+export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
+  const bundleVersion = String(APP_BUNDLE_VERSION);
+  const data = syncStorage.getObject<IWhatsNewShownData>(
+    EAppSyncStorageKeys.onekey_whats_new_shown,
+  );
+  if (!data || data.appVersion !== APP_VERSION) {
+    syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
+      appVersion: APP_VERSION,
+      bundleVersions: [bundleVersion],
+      isJsBundleUpdate,
+    });
+    return;
+  }
+  const versions = Array.isArray(data.bundleVersions)
+    ? data.bundleVersions.map(String)
+    : [];
+  if (!versions.includes(bundleVersion)) {
+    versions.push(bundleVersion);
+  }
+  syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
+    ...data,
+    bundleVersions: versions,
+    isJsBundleUpdate,
+  });
+};
+
+export const isLastUpdateJsBundle = (): boolean => {
+  const data = syncStorage.getObject<IWhatsNewShownData>(
+    EAppSyncStorageKeys.onekey_whats_new_shown,
+  );
+  return data?.isJsBundleUpdate === true;
 };
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
@@ -246,10 +324,16 @@ export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
     appUpdateInfo.latestVersion &&
     semver.gte(APP_VERSION, appUpdateInfo.latestVersion)
   ) {
-    return (
-      appUpdateInfo.status !== EAppUpdateStatus.done &&
-      Number(APP_BUNDLE_VERSION) >= Number(appUpdateInfo.jsBundleVersion)
-    );
+    const currentBundle = Number(APP_BUNDLE_VERSION);
+    const targetBundle = Number(appUpdateInfo.jsBundleVersion);
+    // For rollback targets, use exact match — being higher than the target
+    // means the rollback hasn't been applied yet.
+    // For upgrades, use >= — the user may have overshot the target version
+    // (e.g., via a store update that includes a newer bundle).
+    const bundleMatches = appUpdateInfo.isRollbackTarget
+      ? currentBundle === targetBundle
+      : currentBundle >= targetBundle;
+    return appUpdateInfo.status !== EAppUpdateStatus.done && bundleMatches;
   }
   return (
     appUpdateInfo.status !== EAppUpdateStatus.done &&

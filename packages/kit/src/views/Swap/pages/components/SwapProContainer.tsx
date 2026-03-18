@@ -197,7 +197,7 @@ const SwapProContainer = ({
           configLoading={isLoading}
         />
         <IconButton
-          icon="TradeOutline"
+          icon="TradingViewCandlesOutline"
           variant="tertiary"
           flexShrink={0}
           onPress={onProMarketDetail}
