@@ -109,6 +109,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     downloadBundleASC: jest.fn(async () => undefined),
     installBundle: jest.fn(async () => undefined),
     clearBundle: jest.fn(async () => undefined),
+    clearDownload: jest.fn(async () => undefined),
     resetToBuiltInBundle: jest.fn(async () => undefined),
     clearAllJSBundleData: jest.fn(async () => ({
       success: true,
@@ -140,6 +141,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     getNativeAppVersion: jest.fn(async () => ''),
     getSha256FromFilePath: jest.fn(async () => ''),
     getNativeBuildNumber: jest.fn(async () => ''),
+    getBuiltinBundleVersion: jest.fn(async () => ''),
     getJsBundlePath: jest.fn(async () => ''),
     verifyExtractedBundle: jest.fn(async () => undefined),
   },
@@ -991,7 +993,7 @@ describe('ServiceAppUpdate state transitions', () => {
       await service.clearCache();
 
       expect(AppUpdate.clearPackage).toHaveBeenCalled();
-      expect(BundleUpdate.clearBundle).toHaveBeenCalled();
+      expect(BundleUpdate.clearDownload).toHaveBeenCalled();
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
     });
   });

@@ -42,4 +42,9 @@
   <style name="Theme.App.SplashScreen" parent="AppTheme">
     <item name="android:windowBackground">@drawable/splashscreen</item>
   </style>
+  <style name="Theme.Recovery" parent="Theme.AppCompat.NoActionBar">
+    <item name="android:windowBackground">#FF0F0F0F</item>
+    <item name="android:statusBarColor" tools:targetApi="21">#FF0F0F0F</item>
+    <item name="android:navigationBarColor" tools:targetApi="21">#FF0F0F0F</item>
+  </style>
 </resources>

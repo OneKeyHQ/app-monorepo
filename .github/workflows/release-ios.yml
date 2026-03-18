@@ -100,6 +100,18 @@ jobs:
           projectName: ServiceExtension
           dir: ./apps/mobile
 
+      - name: Set BUNDLE_VERSION in Info.plist
+        run: |
+          python3 << 'PYEOF'
+          import plistlib
+          path = './apps/mobile/ios/OneKeyWallet/Info.plist'
+          with open(path, 'rb') as f:
+              plist = plistlib.load(f)
+          plist['BUNDLE_VERSION'] = '${{ env.BUILD_BUNDLE_VERSION }}'
+          with open(path, 'wb') as f:
+              plistlib.dump(plist, f)
+          PYEOF
+
       - name: Write .env.version
         run: |
           # pass BUILD_NUMBER as env variable to expo server

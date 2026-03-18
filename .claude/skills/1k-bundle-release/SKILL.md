@@ -19,6 +19,7 @@ The core invariant: **every commit on the release branch must also exist on `x`*
 
 | Subcommand | When to use | Guide |
 |------------|-------------|-------|
+| `prepare` | First step — write BUILD_NUMBER to .env.version and push | [prepare.md](references/rules/prepare.md) |
 | `cherry-pick` | Ready to bring verified PRs into the next release | [cherry-pick.md](references/rules/cherry-pick.md) |
 | `diff-check` | After cherry-picks, before publishing — verify integrity | [diff-check.md](references/rules/diff-check.md) |
 | `publish` | Diff checks passed, ready to finalize the release | [publish.md](references/rules/publish.md) |
@@ -27,6 +28,7 @@ The core invariant: **every commit on the release branch must also exist on `x`*
 
 Parse the argument passed to this skill:
 
+- **`prepare`** → Read and follow [prepare.md](references/rules/prepare.md)
 - **`cherry-pick`** → Read and follow [cherry-pick.md](references/rules/cherry-pick.md)
 - **`diff-check`** → Read and follow [diff-check.md](references/rules/diff-check.md)
 - **`publish`** → Read and follow [publish.md](references/rules/publish.md)
@@ -35,12 +37,13 @@ Parse the argument passed to this skill:
 ## Typical Release Flow
 
 ```
+/1k-bundle-release prepare       ← Set BUILD_NUMBER in .env.version and push
 /1k-bundle-release cherry-pick   ← Collect and apply verified PRs
 /1k-bundle-release diff-check    ← Verify subset integrity + review changeset
 /1k-bundle-release publish       ← Record release in tracking file
 ```
 
-These three steps are designed to run in sequence, but each can also run independently (e.g., re-running diff-check after fixing an issue).
+These steps are designed to run in sequence, but each can also run independently (e.g., re-running diff-check after fixing an issue).
 
 ## Label Convention
 

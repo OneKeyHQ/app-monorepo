@@ -103,6 +103,7 @@ export type IInputProps = {
 export type IInputRef = {
   focus: () => void;
   blur: () => void;
+  setNativeProps?: (props: Record<string, unknown>) => void;
 };
 
 const SIZE_MAPPINGS = {
@@ -412,6 +413,10 @@ function BaseInput(
       ),
     measure: (callback: MeasureOnSuccessCallback) =>
       inputRef.current?.measure(callback),
+    // NOTE: setNativeProps is deprecated in Fabric and may be removed in
+    // future React Native versions.
+    setNativeProps: (props: Record<string, unknown>) =>
+      inputRef.current?.setNativeProps?.(props),
   }));
 
   const selectionColor = useSelectionColor();

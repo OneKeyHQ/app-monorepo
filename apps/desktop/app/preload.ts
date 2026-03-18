@@ -88,6 +88,13 @@ type IDesktopAPILegacy = {
       total: string;
     };
   }>;
+  appVersion: string;
+  // Boot Recovery
+  markBootSuccess: () => void;
+  setConsecutiveBootFailCount: (count: number) => void;
+  recoveryExportLogs: () => Promise<{ error?: string }>;
+  recoveryTryAgain: () => Promise<void>;
+  recoveryAutoRepair: () => Promise<{ error?: string }>;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -319,8 +326,27 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   getCpuUsage: () => ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_CPU_USAGE),
   getMemoryUsage: () =>
     ipcRenderer.invoke(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE),
+  appVersion: process.env.VERSION || '',
+  // Boot Recovery
+  markBootSuccess: () => ipcRenderer.send(ipcMessageKeys.MARK_BOOT_SUCCESS),
+  setConsecutiveBootFailCount: (count: number) =>
+    ipcRenderer.send(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT, count),
+  recoveryExportLogs: () =>
+    ipcRenderer.invoke(ipcMessageKeys.RECOVERY_EXPORT_LOGS),
+  recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
+  recoveryAutoRepair: () =>
+    ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
 });
 
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
 globalThis.desktopApiProxy = desktopApiProxy;
+
+// Expose synchronous MMKV IPC bridge for renderer-side syncStorage.
+// The main process registers the handler in react-native-mmkv-desktop-main.ts.
+(globalThis as any).$mmkvSync = (args: {
+  method: string;
+  id: string;
+  key?: string;
+  value?: unknown;
+}) => ipcRenderer.sendSync('mmkv:sync', args);

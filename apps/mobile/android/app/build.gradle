@@ -151,11 +151,19 @@ android {
         buildConfigField("boolean", "NO_FLIPPER", 'true')
         buildConfigField("String", "ANDROID_CHANNEL", "\"" + (System.getenv('ANDROID_CHANNEL') ?: 'direct') + "\"")
         def appEnvConfig = readRootEnvFile()
+        // CI writes BUNDLE_VERSION to .env.expo, merge it into appEnvConfig
+        def expoEnvConfig = readRootEnvFile('.env.expo')
+        expoEnvConfig.each { key, value ->
+            if (value && !value.toString().isEmpty()) {
+                appEnvConfig.setProperty(key.toString(), value.toString())
+            }
+        }
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
         missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',
+            BUILTIN_BUNDLE_VERSION: defEnvStr(appEnvConfig, 'BUNDLE_VERSION'),
         ]
     }
     signingConfigs {
@@ -244,6 +252,9 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+
+    // MMKV — used by RecoveryActivity to clear pending install tasks
+    implementation("io.github.zhongwuzw:mmkv:2.2.4")
 
     // AndroidX Core SplashScreen - fixes MIUI/HyperOS splash screen crashes
     implementation("androidx.core:core-splashscreen:1.2.0-alpha02")

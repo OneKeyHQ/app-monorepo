@@ -87,7 +87,34 @@ To:
 echo "BUILD_NUMBER=<calculated_build_number>" >> .env.version
 ```
 
-#### 4.4 Update `apps/mobile/android/app/build.gradle`
+#### 4.4 Update `.github/workflows/release-ios.yml`
+
+Same as release-android. In the "Write .env.version" step, change:
+
+```yaml
+echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+```
+
+To:
+
+```yaml
+echo "BUILD_NUMBER=<calculated_build_number>" >> .env.version
+```
+
+#### 4.5 Update `.github/workflows/daily-build.yml`
+
+In the "Setup ENV" step, replace the BUILD_NUMBER calculation logic with a hardcoded value:
+
+```yaml
+- name: 'Setup ENV'
+  run: |
+    echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "BUILD_NUMBER=<calculated_build_number>" >> $GITHUB_ENV
+```
+
+This ensures the entire CI pipeline from source to downstream workflows uses the same build number.
+
+#### 4.6 Update `apps/mobile/android/app/build.gradle`
 
 In the `defaultConfig` block, update:
 
@@ -117,6 +144,8 @@ git push -u origin <test_version>
 | `.env.version` | Update VERSION |
 | `.github/actions/shared-env/action.yml` | Hardcode BUILD_NUMBER, remove conditionals |
 | `.github/workflows/release-android.yml` | Hardcode BUILD_NUMBER in .env.version write |
+| `.github/workflows/release-ios.yml` | Hardcode BUILD_NUMBER in .env.version write |
+| `.github/workflows/daily-build.yml` | Hardcode BUILD_NUMBER in Setup ENV step |
 | `apps/mobile/android/app/build.gradle` | Update versionCode and versionName |
 
 ## Validation Checklist
@@ -126,5 +155,7 @@ Before pushing, verify:
 - [ ] `.env.version` VERSION field updated
 - [ ] Build number conditionals removed from shared-env
 - [ ] Build number hardcoded in release-android workflow
+- [ ] Build number hardcoded in release-ios workflow
+- [ ] Build number hardcoded in daily-build workflow
 - [ ] versionCode is numeric (build number)
 - [ ] versionName is quoted string (test version)
