@@ -42,16 +42,17 @@ public class AppDelegate: ExpoAppDelegate {
 
     // Version-aware counter reset
     let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-    let storedVersion = defaults.string(forKey: "onekey_boot_fail_app_version") ?? ""
+    let storedVersion = defaults.string(forKey: BootRecoveryKeys.bootFailAppVersion) ?? ""
     if !storedVersion.isEmpty && storedVersion != currentVersion {
-      defaults.set(0, forKey: "onekey_consecutive_boot_fail_count")
+      defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
     }
-    defaults.set(currentVersion, forKey: "onekey_boot_fail_app_version")
+    defaults.set(currentVersion, forKey: BootRecoveryKeys.bootFailAppVersion)
 
-    // Increment FIRST, then check NEW value
-    let oldCount = defaults.integer(forKey: "onekey_consecutive_boot_fail_count")
+    // Increment boot fail count; counter is reset in applicationDidEnterBackground
+    // on graceful exit, so only consecutive crashes accumulate
+    let oldCount = defaults.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
     let newCount = oldCount + 1
-    defaults.set(newCount, forKey: "onekey_consecutive_boot_fail_count")
+    defaults.set(newCount, forKey: BootRecoveryKeys.consecutiveBootFailCount)
     defaults.synchronize()
 
     if newCount >= 3 {
@@ -97,6 +98,18 @@ public class AppDelegate: ExpoAppDelegate {
     JPUSHService.setDebugMode()
     JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still offered
+  // if the user force-kills from the app switcher while viewing the recovery screen.
+  public override func applicationDidEnterBackground(_ application: UIApplication) {
+    super.applicationDidEnterBackground(application)
+    let count = UserDefaults.standard.integer(forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    if count < 3 {
+      UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+      UserDefaults.standard.synchronize()
+    }
   }
 
   // Linking API

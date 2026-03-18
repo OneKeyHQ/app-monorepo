@@ -91,7 +91,7 @@ import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
 
 const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   max: 100,
-  ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
+  ttl: timerUtils.getTimeDurationMs({ minute: 8 }),
   ttlAutopurge: true,
   dispose: (client) => {
     // Best-effort cleanup: clear any cached realm tokens when the client is evicted.

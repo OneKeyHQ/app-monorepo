@@ -91,20 +91,21 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     // Recovery check
-    SharedPreferences prefs = getSharedPreferences("onekey_recovery", MODE_PRIVATE);
+    SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
 
     // Version-aware counter reset
     String currentVersion = BuildConfig.VERSION_NAME;
-    String storedVersion = prefs.getString("boot_fail_app_version", "");
+    String storedVersion = prefs.getString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, "");
     if (!storedVersion.isEmpty() && !storedVersion.equals(currentVersion)) {
-        prefs.edit().putInt("consecutive_boot_fail_count", 0).commit();
+        prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0).commit();
     }
-    prefs.edit().putString("boot_fail_app_version", currentVersion).commit();
+    prefs.edit().putString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, currentVersion).commit();
 
-    // Increment FIRST, then check
-    int oldCount = prefs.getInt("consecutive_boot_fail_count", 0);
+    // Increment boot fail count; counter is reset in MainActivity.onStop()
+    // on graceful exit, so only consecutive crashes accumulate
+    int oldCount = prefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
     int newCount = oldCount + 1;
-    prefs.edit().putInt("consecutive_boot_fail_count", newCount).commit();
+    prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, newCount).commit();
 
     shouldShowRecovery = newCount >= 3;
 

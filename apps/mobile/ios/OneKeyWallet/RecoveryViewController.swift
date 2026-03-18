@@ -417,8 +417,8 @@ final class RecoveryViewController: UIViewController {
 
   @objc private func tryAgainTapped() {
     let defaults = UserDefaults.standard
-    defaults.set(0, forKey: "onekey_consecutive_boot_fail_count")
-    defaults.set("try_again", forKey: "onekey_recovery_action")
+    defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    defaults.set("try_again", forKey: BootRecoveryKeys.recoveryAction)
     defaults.synchronize()
     showAlert(title: RecoveryStrings.current.pleaseRestart, message: "")
   }
@@ -456,8 +456,8 @@ final class RecoveryViewController: UIViewController {
 
     // 4. Reset boot fail counter
     let defaults = UserDefaults.standard
-    defaults.set(0, forKey: "onekey_consecutive_boot_fail_count")
-    defaults.set("auto_repair", forKey: "onekey_recovery_action")
+    defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    defaults.set("auto_repair", forKey: BootRecoveryKeys.recoveryAction)
     defaults.synchronize()
 
     if errors.isEmpty {
