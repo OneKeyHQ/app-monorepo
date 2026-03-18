@@ -10,7 +10,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -110,135 +109,8 @@ const handleBorrowSuccess = async ({
   onSuccess?.(data);
 };
 
-const waitForTxFinalStatus = async ({
-  accountId,
-  networkId,
-  txId,
-  maxAttempts = 24,
-  intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
-}: {
-  accountId: string;
-  networkId: string;
-  txId: string;
-  maxAttempts?: number;
-  intervalMs?: number;
-}) => {
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const txDetailsResp =
-      await backgroundApiProxy.serviceHistory.fetchTxDetails({
-        accountId,
-        networkId,
-        txid: txId,
-      });
-    const txStatus = txDetailsResp?.data?.status;
-
-    if (
-      txStatus === EOnChainHistoryTxStatus.Success ||
-      txStatus === EOnChainHistoryTxStatus.Failed
-    ) {
-      return txStatus;
-    }
-
-    if (attempt < maxAttempts - 1) {
-      await timerUtils.wait(intervalMs);
-    }
-  }
-
-  return undefined;
-};
-
-const syncBorrowOrderFinalStatus = async ({
-  accountId,
-  networkId,
-  txId,
-}: {
-  accountId: string;
-  networkId: string;
-  txId: string;
-}) => {
-  const txStatus = await waitForTxFinalStatus({
-    accountId,
-    networkId,
-    txId,
-  });
-
-  let decodedStatus: EDecodedTxStatus | undefined;
-  if (txStatus === EOnChainHistoryTxStatus.Success) {
-    decodedStatus = EDecodedTxStatus.Confirmed;
-  } else if (txStatus === EOnChainHistoryTxStatus.Failed) {
-    decodedStatus = EDecodedTxStatus.Failed;
-  }
-
-  if (decodedStatus) {
-    await backgroundApiProxy.serviceStaking.updateEarnOrder({
-      txs: [
-        {
-          accountId,
-          networkId,
-          txId,
-          status: decodedStatus,
-        },
-      ],
-    });
-  }
-
-  return txStatus;
-};
-
-const buildRepayWithCollateralTxWithRetry = async ({
-  accountId,
-  networkId,
-  provider,
-  marketAddress,
-  reserveAddress,
-  collateralReserveAddress,
-  amount,
-  repayAll,
-  slippageBps,
-  routeKey,
-  needsSetupLut,
-}: {
-  accountId: string;
-  networkId: string;
-  provider: string;
-  marketAddress: string;
-  reserveAddress: string;
-  collateralReserveAddress: string;
-  amount: string;
-  repayAll?: boolean;
-  slippageBps?: number;
-  routeKey?: string;
-  needsSetupLut?: boolean;
-}) => {
-  const maxAttempts = needsSetupLut ? 5 : 1;
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    try {
-      return await backgroundApiProxy.serviceStaking.borrowBuildRepayWithCollateralTransaction(
-        {
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          collateralReserveAddress,
-          amount,
-          repayAll,
-          slippageBps,
-          routeKey,
-        },
-      );
-    } catch (error) {
-      lastError = error;
-      if (attempt < maxAttempts - 1) {
-        await timerUtils.wait(1500);
-      }
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
-};
+// Buffer after RPC finalization to allow all RPC nodes to sync the LUT state
+const LUT_PROPAGATION_BUFFER_MS = 5000;
 
 type IBorrowBuildTxParams = {
   amount: string;
@@ -599,34 +471,55 @@ export function useUniversalBorrowRepayWithCollateral({
                 ?.decodedTx.status ?? EDecodedTxStatus.Pending,
           });
 
-          const setupTxStatus = await syncBorrowOrderFinalStatus({
-            accountId,
-            networkId,
-            txId: latestSetupTxId,
+          // Poll RPC directly for finalized commitment (not indexer)
+          const finalizationResult =
+            await backgroundApiProxy.serviceStaking.waitForSolTxFinalized({
+              networkId,
+              txId: latestSetupTxId,
+            });
+
+          // Update order status based on finalization result
+          await backgroundApiProxy.serviceStaking.updateEarnOrder({
+            txs: [
+              {
+                accountId,
+                networkId,
+                txId: latestSetupTxId,
+                status:
+                  finalizationResult === 'finalized'
+                    ? EDecodedTxStatus.Confirmed
+                    : EDecodedTxStatus.Failed,
+              },
+            ],
           });
 
-          if (setupTxStatus !== EOnChainHistoryTxStatus.Success) {
+          if (finalizationResult !== 'finalized') {
             throw new OneKeyLocalError(
               intl.formatMessage({
                 id: ETranslations.global_failed,
               }),
             );
           }
+
+          // Wait for all RPC nodes to propagate the finalized LUT state
+          await timerUtils.wait(LUT_PROPAGATION_BUFFER_MS);
         }
 
-        const resp = await buildRepayWithCollateralTxWithRetry({
-          networkId,
-          accountId,
-          provider,
-          marketAddress,
-          reserveAddress,
-          collateralReserveAddress,
-          amount,
-          repayAll,
-          slippageBps,
-          routeKey,
-          needsSetupLut,
-        });
+        const resp =
+          await backgroundApiProxy.serviceStaking.borrowBuildRepayWithCollateralTransaction(
+            {
+              networkId,
+              accountId,
+              provider,
+              marketAddress,
+              reserveAddress,
+              collateralReserveAddress,
+              amount,
+              repayAll,
+              slippageBps,
+              routeKey,
+            },
+          );
 
         const stakingInfoWithOrderId = attachBorrowOrderId({
           stakingInfo,

@@ -2421,6 +2421,43 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async waitForSolTxFinalized(params: {
+    networkId: string;
+    txId: string;
+    maxAttempts?: number;
+    intervalMs?: number;
+  }): Promise<'finalized' | 'failed' | 'timeout'> {
+    const { networkId, txId, maxAttempts = 40, intervalMs = 3000 } = params;
+
+    const ClientSol = (
+      await import('@onekeyhq/kit-bg/src/vaults/impls/sol/sdkSol/ClientSol')
+    ).default;
+
+    const client = new ClientSol({
+      networkId,
+      backgroundApi: this.backgroundApi,
+    });
+
+    for (let i = 0; i < maxAttempts; i += 1) {
+      const statuses = await client.getSignatureStatuses([txId]);
+      const status = statuses?.[0];
+
+      if (status) {
+        if (status.err) {
+          return 'failed';
+        }
+        if (status.confirmationStatus === 'finalized') {
+          return 'finalized';
+        }
+      }
+
+      await timerUtils.wait(intervalMs);
+    }
+
+    return 'timeout';
+  }
+
+  @backgroundMethod()
   async borrowBuildClaimTransaction(params: {
     networkId: string;
     provider: string;
