@@ -26,6 +26,7 @@ import {
   useReanimatedKeyboardAnimation,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
@@ -55,10 +56,31 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const { start: startScanQrCode } = useScanQrCode();
   const [encrypted, setEncrypted] = useState(true);
   const inputRef = useRef<IInputRef>(null);
+  const encryptedRef = useRef(encrypted);
+  encryptedRef.current = encrypted;
 
   const privateKeyRef = useRef(privateKey);
   privateKeyRef.current = privateKey;
   const selectionRef = useRef({ start: 0, end: 0 });
+
+  // Wrap startScanQrCode to force native TextInput refresh after scan.
+  // On native, controlled TextInput may not visually update after modal
+  // dismiss. setNativeProps forces the native view to sync with React state.
+  const wrappedStartScanQrCode = useCallback(
+    async (params: IQRCodeHandlerParseOutsideOptions) => {
+      const result = await startScanQrCode(params);
+      if (result?.raw && platformEnv.isNative) {
+        requestAnimationFrame(() => {
+          const displayText = encryptedRef.current
+            ? '•'.repeat(result.raw.length)
+            : result.raw;
+          inputRef.current?.setNativeProps?.({ text: displayText });
+        });
+      }
+      return result;
+    },
+    [startScanQrCode],
+  );
 
   const handleSelectionChange = useCallback(
     (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
@@ -164,7 +186,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
       addOns={eyeToggleAddOn}
       onSelectionChange={handleSelectionChange}
       clearClipboardOnPaste
-      startScanQrCode={startScanQrCode}
+      startScanQrCode={wrappedStartScanQrCode}
       size="large"
       numberOfLines={5}
       value={formattedValue}
