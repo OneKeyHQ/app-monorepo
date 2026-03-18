@@ -290,7 +290,6 @@ function MarketWatchlistTokenList({
     ),
     [selectedFilter, handleSelectFilter],
   );
-
   // Wait for data to be loaded before rendering anything
   // This prevents flashing the recommend list while data is still loading
   if (!watchlistState.isMounted) {
