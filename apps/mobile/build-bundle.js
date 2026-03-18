@@ -17,6 +17,7 @@ const SENTRY_AUTH_TOKEN = process.env.SENTRY_TOKEN;
 
 const HERMES_PLATFORM_DIR =
   process.platform === 'linux' ? 'linux64-bin' : 'osx-bin';
+// cspell:ignore hermesc
 const HERMES_COMMAND = path.join(
   projectRootPath,
   `node_modules/react-native/sdks/hermesc/${HERMES_PLATFORM_DIR}/hermesc`,
