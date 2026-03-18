@@ -225,10 +225,10 @@ public class RecoveryActivity extends AppCompatActivity {
 
     private void tryAgain() {
         try {
-            SharedPreferences prefs = getSharedPreferences("onekey_recovery", MODE_PRIVATE);
+            SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
             prefs.edit()
-                .putInt("consecutive_boot_fail_count", 0)
-                .putString("recovery_action", "try_again")
+                .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+                .putString(BootRecoveryKeys.RECOVERY_ACTION, "try_again")
                 .commit();
             restartApp();
         } catch (Exception e) {
@@ -258,10 +258,10 @@ public class RecoveryActivity extends AppCompatActivity {
             clearAppCache();
 
             // Reset counter and set recovery action (single atomic write)
-            SharedPreferences prefs = getSharedPreferences("onekey_recovery", MODE_PRIVATE);
+            SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
             prefs.edit()
-                .putInt("consecutive_boot_fail_count", 0)
-                .putString("recovery_action", "auto_repair")
+                .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+                .putString(BootRecoveryKeys.RECOVERY_ACTION, "auto_repair")
                 .commit();
 
             // Show success dialog, restart on confirm
