@@ -159,13 +159,11 @@ function useProtocolList({
 }
 
 function ProtocolSwitcher({
-  selectedProtocol,
   protocols,
   protocolList,
   onSelectProtocol,
   aprDisplayText,
 }: {
-  selectedProtocol: IProtocol;
   protocols: IProtocol[];
   protocolList: IStakeProtocolListItem[];
   onSelectProtocol: (protocol: IProtocol) => void;
@@ -211,11 +209,7 @@ function ProtocolSwitcher({
     () => (
       <YStack pb="$5" px="$3" $gtMd={{ p: '$1' }}>
         <XStack px="$2" py="$1.5" gap="$2">
-          <SizableText
-            size="$bodySmMedium"
-            color="$textSubdued"
-            flex={1}
-          >
+          <SizableText size="$bodySmMedium" color="$textSubdued" flex={1}>
             Protocol
           </SizableText>
           <SizableText
@@ -234,9 +228,7 @@ function ProtocolSwitcher({
 
           const itemApr = item ? getAprDisplayText(item) : '--';
           // Strip unit suffix (APY/APR) for the popover list
-          const aprValueOnly = itemApr
-            .replace(/\s*(APY|APR)\s*$/i, '')
-            .trim();
+          const aprValueOnly = itemApr.replace(/\s*(APY|APR)\s*$/i, '').trim();
 
           return (
             <XStack
@@ -258,9 +250,7 @@ function ProtocolSwitcher({
               />
               <YStack flex={1} gap="$0.5">
                 <SizableText size="$bodyLgMedium">
-                  {capitalizeString(
-                    item?.provider.name || protocol.provider,
-                  )}
+                  {capitalizeString(item?.provider.name || protocol.provider)}
                 </SizableText>
                 {subtitle ? (
                   <SizableText
@@ -288,6 +278,7 @@ function ProtocolSwitcher({
       <XStack
         ai="center"
         gap="$1"
+        onPress={() => undefined}
         hoverStyle={{ opacity: 0.7 }}
         pressStyle={{ opacity: 0.5 }}
         role="button"
@@ -376,14 +367,18 @@ function ProtocolInfoCard({
       <YStack flex={1} gap="$0.5">
         <SizableText size="$bodyLgMedium">{providerName}</SizableText>
         {subtitle ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1} $gtMd={{ size: '$bodyMd' }}>
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            numberOfLines={1}
+            $gtMd={{ size: '$bodyMd' }}
+          >
             {subtitle}
           </SizableText>
         ) : null}
       </YStack>
       {hasMultipleProtocols ? (
         <ProtocolSwitcher
-          selectedProtocol={selectedProtocol}
           protocols={protocols}
           protocolList={protocolList}
           onSelectProtocol={onSelectProtocol}
