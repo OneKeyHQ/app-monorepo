@@ -311,7 +311,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     defaultLogger.discovery.dapp.dappRequest({ request });
     let accounts = await this.eth_accounts(request);
-    if (!accounts.length) {
+    if (!accounts.length || !_requestOneKeyKeylessAccount) {
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
       accounts = await this.eth_accounts(request);
     }

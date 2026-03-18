@@ -16,6 +16,7 @@ import { LocalDbAgentBase } from '../LocalDbAgentBase';
 
 import { realmDBSchemasMap } from './schemas';
 
+import type { RealmObjectBase } from './base/RealmObjectBase';
 import type { ELocalDBStoreNames } from '../localDBStoreNames';
 import type {
   EIndexedDBBucketNames,
@@ -49,7 +50,6 @@ import type {
   ILocalDBWithTransactionTask,
   IRealmDBSchemaMap,
 } from '../types';
-import type { RealmObjectBase } from './base/RealmObjectBase';
 
 export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   constructor(realm: Realm) {

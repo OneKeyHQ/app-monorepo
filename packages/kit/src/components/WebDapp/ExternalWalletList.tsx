@@ -436,9 +436,12 @@ function KeylessProviderButtons() {
               )}
             </Stack>
             <SizableText size="$bodyLgMedium">
-              {intl.formatMessage({
-                id: ETranslations.wallet_keyless_web_continue_with_google,
-              })}
+              {intl.formatMessage(
+                {
+                  id: ETranslations.continue_with_social_platform,
+                },
+                { platform: 'Google' },
+              )}
             </SizableText>
           </XStack>
         </Button>
@@ -470,9 +473,12 @@ function KeylessProviderButtons() {
               )}
             </Stack>
             <SizableText size="$bodyLgMedium">
-              {intl.formatMessage({
-                id: ETranslations.wallet_keyless_web_continue_with_apple,
-              })}
+              {intl.formatMessage(
+                {
+                  id: ETranslations.continue_with_social_platform,
+                },
+                { platform: 'Apple' },
+              )}
             </SizableText>
           </XStack>
         </Button>

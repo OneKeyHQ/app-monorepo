@@ -51,7 +51,6 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IReplaceTxInfo } from '@onekeyhq/shared/types/tx';
 
-import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -65,6 +64,7 @@ import type {
   IAccountDeriveInfoMapKaspa,
   IAccountDeriveTypesKaspa,
 } from './impls/kaspa/settings';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type { HardwareAllNetworkGetAddressResponse } from '../services/ServiceHardware/HardwareAllNetworkGetAddressResponse';

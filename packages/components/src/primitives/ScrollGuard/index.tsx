@@ -9,6 +9,8 @@ export enum EScrollGuardDirection {
 }
 export { EScrollGuardDirection as ScrollGuardDirection };
 
+export { EScrollGuardDirection as ScrollGuardDirection };
+
 export interface IScrollGuardProps {
   style?: ViewStyle;
   direction?: EScrollGuardDirection;

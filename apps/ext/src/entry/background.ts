@@ -10,12 +10,12 @@ import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 import urlParse from 'url-parse';
 
 import offscreenApiProxy from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy';
+import keylessWebBridge from '@onekeyhq/shared/src/keylessWallet/keylessWebBridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
 import { setupExtUIEvent } from '../background/extUI';
 import { setupKeepAlive } from '../background/keepAlive';
-import extKeylessForWebBridge from '../background/extKeylessForWebBridge';
 import serviceWorker from '../background/serviceWorker';
 import { setupSidePanelPortInBg } from '../background/sidePanel';
 
@@ -45,7 +45,7 @@ if (platformEnv.isExtensionBackgroundServiceWorker) {
   // axios.defaults.adapter = axiosAdapter;
   setupKeepAlive();
   setupSidePanelPortInBg();
-  extKeylessForWebBridge.setupKeylessWebBridgeInBackground();
+  keylessWebBridge.setupKeylessWebBridgeInBackground();
   setupExtUIEvent();
   serviceWorker.disableCacheInBackground();
 }

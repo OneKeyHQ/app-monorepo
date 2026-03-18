@@ -3,9 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { useDebouncedCallback } from 'use-debounce';
 
-import extKeylessForWebBridge from '@onekeyhq/ext/src/background/extKeylessForWebBridge';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import keylessWebBridge from '@onekeyhq/shared/src/keylessWallet/keylessWebBridge';
 import {
   EKeylessWebFlowStep,
   type IKeylessPendingLogin,
@@ -408,8 +408,7 @@ export function useKeylessWebFlowAutoConnectDapp() {
     });
 
     const navigationInstance = appGlobals.$navigationRef?.current;
-    const autoConnectParams =
-      await extKeylessForWebBridge.clearTabWebHashAndReload();
+    const autoConnectParams = await keylessWebBridge.clearTabWebHashAndReload();
     const autoConnectOrigin = autoConnectParams?.autoConnectOrigin;
     if (!autoConnectOrigin) {
       return;
@@ -460,7 +459,7 @@ export function useKeylessWebFlowAutoConnectDapp() {
 
   const notifyKeylessWebConnectSuccess = useCallback(
     async ({ nonce }: { nonce?: string } = {}) => {
-      await extKeylessForWebBridge.notifyKeylessWebConnectSuccess({
+      await keylessWebBridge.notifyKeylessWebConnectSuccess({
         nonce,
       });
     },

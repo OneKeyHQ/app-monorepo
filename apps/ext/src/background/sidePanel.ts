@@ -9,6 +9,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import keylessWebBridge from '@onekeyhq/shared/src/keylessWallet/keylessWebBridge';
 import {
   isKeylessWebAutoConnectOriginAllowed,
   isKeylessWebOpenSidePanelMessage,
@@ -22,10 +23,8 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
-import extKeylessForWebBridge from './extKeylessForWebBridge';
-
 const SIDE_PANEL_PORT_NAME = 'ONEKEY_SIDE_PANEL';
-const SIDE_PANEL_DAPP_MOUNT_ACK_TIMEOUT_MS = 3_000;
+const SIDE_PANEL_DAPP_MOUNT_ACK_TIMEOUT_MS = 3000;
 
 let pendingKeylessGetStartedParams:
   | ReturnType<typeof buildKeylessGetStartedParams>
@@ -99,9 +98,7 @@ function pushKeylessGetStartedToSidePanel(
   );
 }
 
-function extractQueryFromModalParams(
-  modalParams: unknown,
-): string | undefined {
+function extractQueryFromModalParams(modalParams: unknown): string | undefined {
   if (!modalParams || typeof modalParams !== 'object') {
     return undefined;
   }
@@ -165,15 +162,23 @@ function waitForSidePanelDappRejectIdAck({
 }) {
   return new Promise<boolean>((resolve) => {
     let finished = false;
+    const timerRef: { current?: ReturnType<typeof setTimeout> } = {};
+    const onAckRef: {
+      current?: (
+        params: IAppEventBusPayload[EAppEventBusNames.SidePanel_UIToBg],
+      ) => void;
+    } = {};
 
-    const finish = (acked: boolean) => {
+    const finish = (didAck: boolean) => {
       if (finished) {
         return;
       }
       finished = true;
-      clearTimeout(timer);
-      appEventBus.off(EAppEventBusNames.SidePanel_UIToBg, onAck);
-      resolve(acked);
+      clearTimeout(timerRef.current);
+      if (onAckRef.current) {
+        appEventBus.off(EAppEventBusNames.SidePanel_UIToBg, onAckRef.current);
+      }
+      resolve(didAck);
     };
 
     const onAck = (
@@ -188,8 +193,9 @@ function waitForSidePanelDappRejectIdAck({
 
       finish(true);
     };
+    onAckRef.current = onAck;
 
-    const timer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
       finish(false);
     }, timeoutMs);
 
@@ -211,7 +217,7 @@ async function syncPendingKeylessWebTabForAutoConnect({
     return;
   }
 
-  await extKeylessForWebBridge.savePendingWebTab({
+  await keylessWebBridge.savePendingWebTab({
     tabId,
     autoConnectParams: {
       nonce,
@@ -550,7 +556,7 @@ export const setupSidePanelPortInUI = () => {
 
               try {
                 await navigateToRoute();
-              } catch (error) {
+              } catch {
                 try {
                   appGlobals.$navigationRef.current?.navigate(screen, params);
                 } catch (fallbackError) {
@@ -563,8 +569,8 @@ export const setupSidePanelPortInUI = () => {
                 return;
               }
 
-              const acked = await mountAckPromise;
-              if (!acked) {
+              const didAck = await mountAckPromise;
+              if (!didAck) {
                 emitSidePanelDappMountFailed({
                   rejectId,
                   errorMessage: `Side panel failed to mount DApp modal for route: ${String(
