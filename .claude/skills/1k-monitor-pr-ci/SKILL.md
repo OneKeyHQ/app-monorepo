@@ -284,3 +284,12 @@ Status: Ready for re-review / Ready to merge
 - Do NOT re-run checks automatically (only if user requests `gh run rerun`)
 - Do NOT include "Co-Authored-By" or "Generated with" in commit messages
 - Track which threads have been addressed to avoid duplicate work across iterations
+
+## Error Handling
+
+- **Non-blocking errors**: If any individual step fails (resolve thread, reply to comment, request re-review), log a warning and continue with the next thread/step. Never abort the entire loop due to a single thread failure.
+- **GraphQL unavailable**: Fall back to REST API for fetching comments. Skip resolve step, log warning.
+- **Reply fails**: Log warning with thread path/line, continue to next thread. The code fix is still committed.
+- **Resolve fails**: Log warning, continue. The thread stays open but the fix is pushed.
+- **Re-review request fails**: Log warning, continue. The reviewer can still see the push notification.
+- **Blocking errors**: Only abort if `gh` CLI is not authenticated or the PR does not exist.
