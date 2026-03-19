@@ -84,9 +84,13 @@ function OrderConfirmContent({
     if (!isTriggerMode) return null;
     switch (formData.triggerOrderType) {
       case ETriggerOrderType.TRIGGER_MARKET:
-        return intl.formatMessage({ id: ETranslations.perp_order_trigger_market });
+        return intl.formatMessage({
+          id: ETranslations.perp_order_trigger_market,
+        });
       case ETriggerOrderType.TRIGGER_LIMIT:
-        return intl.formatMessage({ id: ETranslations.perp_order_trigger_limit });
+        return intl.formatMessage({
+          id: ETranslations.perp_order_trigger_limit,
+        });
       default:
         return null;
     }

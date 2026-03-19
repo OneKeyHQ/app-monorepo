@@ -397,11 +397,15 @@ function PerpTradingForm({
   const triggerTypeOptions = useMemo(
     () => [
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_trigger_market }),
+        label: intl.formatMessage({
+          id: ETranslations.perp_order_trigger_market,
+        }),
         value: ETriggerOrderType.TRIGGER_MARKET as ITriggerDropdownValue,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_trigger_limit }),
+        label: intl.formatMessage({
+          id: ETranslations.perp_order_trigger_limit,
+        }),
         value: ETriggerOrderType.TRIGGER_LIMIT as ITriggerDropdownValue,
       },
     ],
@@ -418,11 +422,15 @@ function PerpTradingForm({
         value: 'limit' as string,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_trigger_market }),
+        label: intl.formatMessage({
+          id: ETranslations.perp_order_trigger_market,
+        }),
         value: ETriggerOrderType.TRIGGER_MARKET as string,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_trigger_limit }),
+        label: intl.formatMessage({
+          id: ETranslations.perp_order_trigger_limit,
+        }),
         value: ETriggerOrderType.TRIGGER_LIMIT as string,
       },
     ],
