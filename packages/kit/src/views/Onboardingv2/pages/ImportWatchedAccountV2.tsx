@@ -129,7 +129,6 @@ export default function ImportWatchedAccountV2() {
                   <TextAreaInput
                     allowPaste
                     allowClear
-                    allowSecureTextEye
                     size="large"
                     numberOfLines={5}
                     value={address}
@@ -155,7 +154,6 @@ export default function ImportWatchedAccountV2() {
                   <TextAreaInput
                     allowPaste
                     allowClear
-                    allowSecureTextEye
                     size="large"
                     numberOfLines={5}
                     value={publicKey}

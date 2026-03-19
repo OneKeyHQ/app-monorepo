@@ -901,9 +901,9 @@ describe('getVersion', () => {
 // displayAppUpdateVersion / displayWhatsNewVersion
 // ---------------------------------------------------------------------------
 describe('displayAppUpdateVersion', () => {
-  test('returns app version with bundle when no update info', () => {
+  test('returns plain app version when no update info', () => {
     const { displayAppUpdateVersion } = loadAppUpdate('1.0.0', '1');
-    expect(displayAppUpdateVersion(undefined)).toBe('1.0.0(1)');
+    expect(displayAppUpdateVersion(undefined)).toBe('1.0.0');
   });
 
   test('shows version with bundle when same as local', () => {
@@ -931,9 +931,10 @@ describe('displayAppUpdateVersion', () => {
 });
 
 describe('displayWhatsNewVersion', () => {
-  test('returns current app version with bundle when no info', () => {
+  test('returns plain app version when last update is not js bundle', () => {
     const { displayWhatsNewVersion } = loadAppUpdate('1.5.0', '3');
-    expect(displayWhatsNewVersion()).toBe('1.5.0(3)');
+    // isLastUpdateJsBundle() returns false when storage is empty
+    expect(displayWhatsNewVersion()).toBe('1.5.0');
   });
 });
 

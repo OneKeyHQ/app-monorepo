@@ -100,6 +100,7 @@ type IMarketTokenListBaseProps = {
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
   draggable?: boolean;
+  showTableHeader?: boolean;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -127,6 +128,7 @@ function MarketTokenListBase({
   watchlistFrom,
   copyFrom,
   draggable = false,
+  showTableHeader = true,
   tabIntegrated,
   tabName,
   listContainerProps,
@@ -477,7 +479,7 @@ function MarketTokenListBase({
                     }
               }
               stickyHeader
-              showHeader={!useDesktopPortal}
+              showHeader={showTableHeader ? !useDesktopPortal : false}
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
               tabIntegrated={tabIntegrated}

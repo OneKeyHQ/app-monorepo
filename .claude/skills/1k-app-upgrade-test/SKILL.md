@@ -62,15 +62,20 @@ Update these files in order:
 
 1. **`.env.version`**
    - Set VERSION to test version
-   - Set BUILD_NUMBER to calculated value
 
 2. **`.github/actions/shared-env/action.yml`**
    - Update version in outputs section
 
 3. **`.github/workflows/release-android.yml`**
-   - Update versionName in android-build job
+   - Hardcode BUILD_NUMBER in "Write .env.version" step
 
-4. **`apps/mobile/android/app/build.gradle`**
+4. **`.github/workflows/release-ios.yml`**
+   - Hardcode BUILD_NUMBER in "Write .env.version" step
+
+5. **`.github/workflows/daily-build.yml`**
+   - Hardcode BUILD_NUMBER in "Setup ENV" step
+
+6. **`apps/mobile/android/app/build.gradle`**
    - Update versionCode
    - Update versionName
 
@@ -86,9 +91,11 @@ git push origin <test_version>
 
 | File | What to Update |
 |------|----------------|
-| `.env.version` | VERSION, BUILD_NUMBER |
-| `.github/actions/shared-env/action.yml` | outputs.version |
-| `.github/workflows/release-android.yml` | versionName |
+| `.env.version` | VERSION |
+| `.github/actions/shared-env/action.yml` | Hardcode BUILD_NUMBER, remove conditionals |
+| `.github/workflows/release-android.yml` | Hardcode BUILD_NUMBER in .env.version write |
+| `.github/workflows/release-ios.yml` | Hardcode BUILD_NUMBER in .env.version write |
+| `.github/workflows/daily-build.yml` | Hardcode BUILD_NUMBER in Setup ENV step |
 | `apps/mobile/android/app/build.gradle` | versionCode, versionName |
 
 ## Detailed Guide

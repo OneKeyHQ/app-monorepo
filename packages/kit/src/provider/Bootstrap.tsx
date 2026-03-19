@@ -42,10 +42,10 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
-import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -481,6 +481,15 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
   }
 };
 
+const useLogVersionInfo = () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void defaultLogger.setting.device.logFullVersionInfo();
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, []);
+};
+
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
 
@@ -774,6 +783,8 @@ export function Bootstrap() {
     }, 5000);
     return () => clearTimeout(timer);
   }, []);
+
+  useLogVersionInfo();
 
   // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
   useEffect(() => {

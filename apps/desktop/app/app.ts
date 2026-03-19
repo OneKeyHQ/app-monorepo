@@ -52,12 +52,14 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
-import * as store from './libs/store';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 import './libs/react-native-mmkv-desktop-main';
+import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
+import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import './logger';
 import initProcess from './process';
+import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
   getResourcesPath,
@@ -66,9 +68,6 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-
-// Logger initialization (file rotation, sanitization, rate limiting)
-import './logger';
 
 initSentry();
 
@@ -495,6 +494,33 @@ const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
 async function createMainWindow() {
+  // === Boot Recovery Check (must be first) ===
+  const currentAppVersion = app.getVersion();
+  const storedFailVersion = store.getBootFailAppVersion();
+  if (storedFailVersion && storedFailVersion !== currentAppVersion) {
+    store.resetConsecutiveBootFailCount();
+    logger.info(
+      'Boot fail counter reset due to version change',
+      storedFailVersion,
+      '→',
+      currentAppVersion,
+    );
+  }
+  store.setBootFailAppVersion(currentAppVersion);
+  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  logger.info('Boot fail count:', bootFailCount);
+  if (bootFailCount >= 3) {
+    logger.error('Recovery page triggered', {
+      crashCount: bootFailCount,
+      appVersion: currentAppVersion,
+    });
+    const recoveryWin = createRecoveryWindow();
+    recoveryWin.on('closed', () => {
+      mainWindow = null;
+    });
+    return recoveryWin;
+  }
+
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -564,6 +590,7 @@ async function createMainWindow() {
     return undefined;
   };
 
+  store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
   const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
@@ -636,7 +663,7 @@ async function createMainWindow() {
   }
 
   /* eslint-disable no-nested-ternary */
-  const src = isPerfCiMode
+  let src = isPerfCiMode
     ? formatUrl({
         pathname: perfIndexHtmlPath,
         protocol: PROTOCOL,
@@ -655,40 +682,7 @@ async function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  // === Boot Recovery Check ===
-  // Version-aware counter reset
-  const currentAppVersion = app.getVersion();
-  const storedFailVersion = store.getBootFailAppVersion();
-  if (storedFailVersion && storedFailVersion !== currentAppVersion) {
-    store.resetConsecutiveBootFailCount();
-    logger.info(
-      'Boot fail counter reset due to version change',
-      storedFailVersion,
-      '→',
-      currentAppVersion,
-    );
-  }
-  store.setBootFailAppVersion(currentAppVersion);
-
-  // Increment FIRST, then check NEW value (avoids off-by-one)
-  const bootFailCount = store.incrementConsecutiveBootFailCount();
-  logger.info('Boot fail count:', bootFailCount);
-
-  if (bootFailCount >= 3) {
-    logger.error('Recovery page triggered', {
-      crashCount: bootFailCount,
-      appVersion: currentAppVersion,
-    });
-
-    const recoveryUrl = formatUrl({
-      pathname: path.join(__dirname, 'recovery.html'),
-      protocol: PROTOCOL,
-      slashes: true,
-    });
-    void browserWindow.loadURL(recoveryUrl);
-  } else {
-    void browserWindow.loadURL(src);
-  }
+  void browserWindow.loadURL(src);
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -863,103 +857,6 @@ async function createMainWindow() {
     },
   );
 
-  ipcMain.removeHandler(ipcMessageKeys.RECOVERY_EXPORT_LOGS);
-  ipcMain.handle(ipcMessageKeys.RECOVERY_EXPORT_LOGS, async () => {
-    try {
-      const { dialog } = await import('electron');
-      const logDir = path.dirname(logger.transports.file.getFile().path);
-      const logFiles = fs.readdirSync(logDir).filter((f) => f.endsWith('.log'));
-      if (logFiles.length === 0) {
-        return { error: 'No log files found' };
-      }
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const result = await dialog.showSaveDialog({
-        defaultPath: `onekey-logs-${timestamp}.zip`,
-        filters: [{ name: 'ZIP', extensions: ['zip'] }],
-      });
-      if (result.canceled || !result.filePath) {
-        return {};
-      }
-      const AdmZip = (await import('adm-zip')).default;
-      const zip = new AdmZip();
-      for (const file of logFiles) {
-        zip.addLocalFile(path.join(logDir, file));
-      }
-      zip.writeZip(result.filePath);
-      return {};
-    } catch (e: any) {
-      logger.error('Recovery export logs failed:', e);
-      return { error: e?.message || String(e) };
-    }
-  });
-
-  ipcMain.removeHandler(ipcMessageKeys.RECOVERY_TRY_AGAIN);
-  ipcMain.handle(ipcMessageKeys.RECOVERY_TRY_AGAIN, async () => {
-    store.resetConsecutiveBootFailCount();
-    if (process.mas) {
-      // MAS cannot relaunch programmatically, return signal for UI to show prompt
-      return { needsManualRestart: true };
-    }
-    app.relaunch();
-    app.exit(0);
-  });
-
-  ipcMain.removeHandler(ipcMessageKeys.RECOVERY_AUTO_REPAIR);
-  ipcMain.handle(ipcMessageKeys.RECOVERY_AUTO_REPAIR, async () => {
-    const errors: string[] = [];
-    try {
-      store.clearUpdateBundleData();
-    } catch (e: any) {
-      errors.push(`clearUpdateBundleData: ${e?.message}`);
-    }
-    try {
-      store.clearFallbackUpdateBundleData();
-    } catch (e: any) {
-      errors.push(`clearFallbackUpdateBundleData: ${e?.message}`);
-    }
-    try {
-      store.clearASCFile();
-    } catch (e: any) {
-      errors.push(`clearASCFile: ${e?.message}`);
-    }
-    try {
-      store.clearUpdateBuildNumber();
-    } catch (e: any) {
-      errors.push(`clearUpdateBuildNumber: ${e?.message}`);
-    }
-    try {
-      const bundleDir = path.join(app.getPath('userData'), 'onekey-bundle');
-      if (fs.existsSync(bundleDir)) {
-        fs.rmSync(bundleDir, { recursive: true, force: true });
-      }
-    } catch (e: any) {
-      errors.push(`deleteBundleDir: ${e?.message}`);
-    }
-    try {
-      const bundleDownloadDir = path.join(
-        app.getPath('userData'),
-        'onekey-bundle-download',
-      );
-      if (fs.existsSync(bundleDownloadDir)) {
-        fs.rmSync(bundleDownloadDir, { recursive: true, force: true });
-      }
-    } catch (e: any) {
-      errors.push(`deleteBundleDownloadDir: ${e?.message}`);
-    }
-    // Clear recovery-related keys from MMKV persistent store (electron-store backed)
-    try {
-      store.clearMmkvRecoveryKeys();
-    } catch (e: any) {
-      errors.push(`clearMmkvKeys: ${e?.message}`);
-    }
-    store.resetConsecutiveBootFailCount();
-    if (errors.length > 0) {
-      logger.error('Recovery auto repair partial errors:', errors);
-    }
-    // Don't relaunch here — return result to renderer, let user confirm before restart
-    return errors.length > 0 ? { error: errors.join('; ') } : {};
-  });
-
   ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
 
@@ -1129,16 +1026,26 @@ async function createMainWindow() {
     logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
-    const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
+    let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
-    const metadata = bundleDirPath
-      ? await getMetadata({
+    let metadata: Record<string, string> = {};
+    let metadataFailed = false;
+    if (bundleDirPath) {
+      try {
+        metadata = await getMetadata({
           bundleDir: bundleDirPath,
           appVersion: bundleData.appVersion,
           bundleVersion: bundleData.bundleVersion,
           signature: bundleData.signature,
-        })
-      : {};
+        });
+      } catch (e) {
+        // GPG verification failed or metadata unreadable — disable JS bundle
+        // so the interceptor falls back to the builtin bundle in the asar.
+        logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        useJsBundle = false;
+        metadataFailed = true;
+      }
+    }
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -1204,6 +1111,17 @@ async function createMainWindow() {
         }
       },
     );
+    // When getMetadata failed, src still points to the bundle path which the
+    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
+    // now that the interceptor is registered and will serve builtin files.
+    if (metadataFailed) {
+      src = formatUrl({
+        pathname: 'index.html',
+        protocol: PROTOCOL,
+        slashes: true,
+      });
+      void browserWindow.loadURL(src);
+    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
@@ -1298,14 +1216,27 @@ if (!singleInstance && !process.mas) {
 
   app.on('ready', async (_, launchInfo) => {
     logger.info('launchInfo >>>> ', launchInfo);
+    logger.info(
+      `nativeAppVersion: ${app.getVersion()}, buildNumber: ${process.env.BUILD_NUMBER ?? ''}, builtinBundleVersion: ${process.env.BUNDLE_VERSION ?? ''}`,
+    );
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
-    startServices();
 
     if (!mainWindow) {
       mainWindow = await createMainWindow();
-      initMenu();
     }
+
+    // Menu is needed in both normal and recovery mode
+    initMenu();
+
+    // In recovery mode, skip heavy app initialization.
+    // createMainWindow() increments bootFailCount; if >= 3 it returned
+    // a standalone recovery window that doesn't need these services.
+    if (store.getConsecutiveBootFailCount() >= 3) {
+      return;
+    }
+
+    startServices();
     void initChildProcess();
   });
 }
@@ -1322,6 +1253,14 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  // Reset crash counter on graceful shutdown so normal close
+  // is not mistaken for a crash on next boot.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still
+  // offered if the user closes the recovery window without resolving.
+  if (store.getConsecutiveBootFailCount() < 3) {
+    store.resetConsecutiveBootFailCount();
+  }
+
   if (systemIdleInterval) {
     clearInterval(systemIdleInterval);
   }

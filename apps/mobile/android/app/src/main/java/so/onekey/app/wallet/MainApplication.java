@@ -91,28 +91,57 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     // Recovery check
-    SharedPreferences prefs = getSharedPreferences("onekey_recovery", MODE_PRIVATE);
+    SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
 
     // Version-aware counter reset
     String currentVersion = BuildConfig.VERSION_NAME;
-    String storedVersion = prefs.getString("boot_fail_app_version", "");
+    String storedVersion = prefs.getString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, "");
     if (!storedVersion.isEmpty() && !storedVersion.equals(currentVersion)) {
-        prefs.edit().putInt("consecutive_boot_fail_count", 0).commit();
+        prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0).commit();
     }
-    prefs.edit().putString("boot_fail_app_version", currentVersion).commit();
+    prefs.edit().putString(BootRecoveryKeys.BOOT_FAIL_APP_VERSION, currentVersion).commit();
 
-    // Increment FIRST, then check
-    int oldCount = prefs.getInt("consecutive_boot_fail_count", 0);
+    // Increment boot fail count; counter is reset in MainActivity.onStop()
+    // on graceful exit, so only consecutive crashes accumulate
+    int oldCount = prefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
     int newCount = oldCount + 1;
-    prefs.edit().putInt("consecutive_boot_fail_count", newCount).commit();
+    prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, newCount).commit();
 
     shouldShowRecovery = newCount >= 3;
 
     super.onCreate();
-    
+
+    // SoLoader and new architecture entry point must be initialized before
+    // the recovery early-return because MainActivity extends ReactActivity,
+    // and super.onCreate(null) triggers SoLoader.loadLibrary() and Fabric/
+    // TurboModules initialization. Without these, recovery mode itself crashes.
+    try {
+        SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }
+    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+      DefaultNewArchitectureEntryPoint.load();
+    }
+
+    if (shouldShowRecovery) {
+        // Skip heavy initialization (React Native, Expo, JPush).
+        // RecoveryActivity is a plain Android Activity and doesn't need them.
+        // This prevents crashes in RN initialization from blocking recovery.
+        return;
+    }
+
     long startupTime = System.currentTimeMillis();
     ReactNativeDeviceUtils.saveStartupTimeStatic(startupTime);
     OneKeyLog.info("App", "OneKey started");
+    String builtinBundleVersion = "";
+    try {
+      android.content.pm.ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), android.content.pm.PackageManager.GET_META_DATA);
+      if (ai.metaData != null) {
+        builtinBundleVersion = ai.metaData.getString("BUNDLE_VERSION", "");
+      }
+    } catch (Exception ignored) {}
+    OneKeyLog.info("App", "nativeAppVersion: " + BuildConfig.VERSION_NAME + ", buildNumber: " + BuildConfig.VERSION_CODE + ", builtinBundleVersion: " + builtinBundleVersion);
 
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
@@ -122,19 +151,6 @@ public class MainApplication extends Application implements ReactApplication {
       e.printStackTrace();
     }
 
-    // SoLoader.init(this, /* native exopackage */ false);
-    // if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
-    //   ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;
-    // }
-      try {
-          SoLoader.init(this, OpenSourceMergedSoMapping.INSTANCE);
-      } catch (IOException e) {
-          throw new RuntimeException(e);
-      }
-      if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
-      DefaultNewArchitectureEntryPoint.load();
-    }
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     // }

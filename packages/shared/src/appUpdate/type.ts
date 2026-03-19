@@ -139,6 +139,11 @@ export interface IBasicAppUpdateInfo {
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
   version?: string;
+  // Number of hot-update (jsBundle) records for this version in the server DB.
+  // When 0, the server has no bundle configured — client should rollback to
+  // builtin if it has an active custom bundle.
+  // When > 0 and jsBundleVersion is absent, the client is already up to date.
+  jsBundleCount?: number;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
