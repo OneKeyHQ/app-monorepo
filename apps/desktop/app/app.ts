@@ -682,8 +682,6 @@ async function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  void browserWindow.loadURL(src);
-
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
 
@@ -1112,15 +1110,14 @@ async function createMainWindow() {
       },
     );
     // When getMetadata failed, src still points to the bundle path which the
-    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
-    // now that the interceptor is registered and will serve builtin files.
+    // interceptor cannot resolve with useJsBundle=false. Recompute src so the
+    // loadURL below uses the builtin index.html.
     if (metadataFailed) {
       src = formatUrl({
         pathname: 'index.html',
         protocol: PROTOCOL,
         slashes: true,
       });
-      void browserWindow.loadURL(src);
     }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
@@ -1134,6 +1131,11 @@ async function createMainWindow() {
       },
     );
   }
+
+  // Load the page AFTER the file protocol interceptor is registered so that
+  // Chromium never resolves file:// requests through its default handler or
+  // stale disk cache from a previous app version.
+  void browserWindow.loadURL(src);
 
   // @ts-expect-error
   browserWindow.on('close', (event: Event) => {
