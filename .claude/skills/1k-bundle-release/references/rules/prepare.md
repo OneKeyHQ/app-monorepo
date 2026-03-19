@@ -4,16 +4,17 @@ Prepares the release branch for bundle CI by writing `BUILD_NUMBER` to `.env.ver
 
 ## Pre-flight Checks
 
-### 1. On a release branch
+### 1. Read release branch and verify
 
 ```bash
+VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
+RELEASE_BRANCH="release/v${VERSION}"
 current_branch=$(git branch --show-current)
-# Must match: release/*
 ```
 
-If not on a `release/*` branch, **stop immediately**:
+Verify current branch matches the expected release branch. If not:
 
-> "You must be on a `release/*` branch to run this command. Current branch: `$current_branch`"
+> "Expected to be on `$RELEASE_BRANCH` (from .env.version VERSION=$VERSION), but you're on `$current_branch`. Switch to the correct branch or update .env.version."
 
 ### 2. Working tree clean
 
@@ -73,13 +74,13 @@ Show the diff and target branch, then wait for user confirmation:
 ```
 === Prepare Bundle Release ===
 
-Branch: release/v6.1.0
+Branch: $RELEASE_BRANCH
 BUILD_NUMBER: 1026031801
 
 Diff:
   (git diff .env.version output)
 
-Proceed with commit and push to origin/release/v6.1.0? (y/n)
+Proceed with commit and push to origin/$RELEASE_BRANCH? (y/n)
 ```
 
 Do NOT proceed without explicit user confirmation.
@@ -97,7 +98,7 @@ git push origin $current_branch
 ```
 === Bundle Release Prepared ===
 
-Branch: release/v6.1.0
+Branch: $RELEASE_BRANCH
 BUILD_NUMBER: 1026031801
 Commit: abc1234
 
