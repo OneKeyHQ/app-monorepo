@@ -44,7 +44,6 @@ const {
   extractDerivedDebugMetrics,
 } = require('./lib/regression');
 
-
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
 }
@@ -304,9 +303,16 @@ async function main() {
 
   // Read app version from package.json
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'apps', 'ext', 'package.json'), 'utf8'));
+    const pkg = JSON.parse(
+      fs.readFileSync(
+        path.join(repoRoot, 'apps', 'ext', 'package.json'),
+        'utf8',
+      ),
+    );
     if (pkg.version) meta.appVersion = pkg.version;
-  } catch (_) {}
+  } catch (_) {
+    // ignore read errors
+  }
 
   const jobState = { meta, status: 'running' };
   writeJson(path.join(outputDir, 'job-meta.json'), jobState);

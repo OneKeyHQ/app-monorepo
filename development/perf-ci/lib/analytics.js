@@ -1,7 +1,7 @@
 /**
  * Analytics ingestion helpers for perf-ci.
  *
- * Serialises report.json (job-level) and derived session data into payloads
+ * Serializes report.json (job-level) and derived session data into payloads
  * that can be POSTed to a Cloudflare Worker backed by D1.
  *
  * Environment variables consumed by callers:
@@ -37,32 +37,33 @@ function readAllMarks(sessionsDir, sessionId) {
 
   for (const rawLine of raw.split('\n')) {
     const line = rawLine.trim();
-    if (!line) continue;
-    const evt = safeParseJsonLine(line);
-    if (!evt) continue;
+    const evt = line ? safeParseJsonLine(line) : null;
+    if (!evt) {
+      // skip empty lines and non-JSON entries
+    } else {
+      const payload = evt.data && typeof evt.data === 'object' ? evt.data : evt;
+      const name = payload?.name ?? evt?.name;
+      const ts = evt?.timestamp ?? payload?.timestamp ?? null;
+      const absoluteTime = evt?.absoluteTime ?? payload?.absoluteTime ?? null;
+      const detail = payload?.detail ?? evt?.detail ?? null;
+      const sinceSessionStartMs =
+        payload?.sinceSessionStartMs ?? evt?.sinceSessionStartMs ?? null;
 
-    const payload =
-      evt.data && typeof evt.data === 'object' ? evt.data : evt;
-    const name = payload?.name ?? evt?.name;
-    const ts = evt?.timestamp ?? payload?.timestamp ?? null;
-    const absoluteTime =
-      evt?.absoluteTime ?? payload?.absoluteTime ?? null;
-    const detail = payload?.detail ?? evt?.detail ?? null;
-    const sinceSessionStartMs =
-      payload?.sinceSessionStartMs ?? evt?.sinceSessionStartMs ?? null;
-
-    if (typeof name !== 'string') continue;
-    if (!Number.isFinite(ts) && !Number.isFinite(absoluteTime)) continue;
-
-    marks.push({
-      name,
-      ts: Number.isFinite(ts) ? ts : null,
-      absoluteTime: Number.isFinite(absoluteTime) ? absoluteTime : null,
-      sinceSessionStartMs: Number.isFinite(sinceSessionStartMs)
-        ? sinceSessionStartMs
-        : null,
-      detail,
-    });
+      if (
+        typeof name === 'string' &&
+        (Number.isFinite(ts) || Number.isFinite(absoluteTime))
+      ) {
+        marks.push({
+          name,
+          ts: Number.isFinite(ts) ? ts : null,
+          absoluteTime: Number.isFinite(absoluteTime) ? absoluteTime : null,
+          sinceSessionStartMs: Number.isFinite(sinceSessionStartMs)
+            ? sinceSessionStartMs
+            : null,
+          detail,
+        });
+      }
+    }
   }
 
   return marks;
@@ -88,14 +89,15 @@ function buildJobPayload(report, notifyModel) {
   const startMetric = rMetrics.tokensStartMs || {};
   const spanMetric = rMetrics.tokensSpanMs || {};
 
-  const jobId =
-    meta.jobId || path.basename(report?.outputDir || 'unknown');
+  const jobId = meta.jobId || path.basename(report?.outputDir || 'unknown');
 
   // platform from targetKey (e.g. 'ios', 'android', 'web', 'ext', 'desktop')
   // fall back to targetLabel lower-cased
   const platform =
     meta.targetKey ||
-    (meta.targetLabel ? meta.targetLabel.toLowerCase().replace(/\s+/g, '-') : 'unknown');
+    (meta.targetLabel
+      ? meta.targetLabel.toLowerCase().replace(/\s+/g, '-')
+      : 'unknown');
 
   return {
     job_id: jobId,
@@ -199,7 +201,9 @@ async function postToWorker(analyticsUrl, secret, endpoint, payload) {
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Analytics POST to ${endpoint} failed (${res.status}): ${body}`);
+    throw new Error(
+      `Analytics POST to ${endpoint} failed (${res.status}): ${body}`,
+    );
   }
 
   return res;

@@ -158,7 +158,11 @@ async function postModelToSlack({ slackWebhookUrl, model }) {
   await postSlackWebhook(slackWebhookUrl, payload);
 }
 
-async function postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret }) {
+async function postAllSessionAnalytics({
+  derivedSessions,
+  analyticsUrl,
+  analyticsSecret,
+}) {
   if (!analyticsUrl || !Array.isArray(derivedSessions)) return;
   for (const s of derivedSessions) {
     // eslint-disable-next-line no-await-in-loop
@@ -184,8 +188,10 @@ async function notifyPerfResult({
   localConfig,
   derivedSessions,
 }) {
-  const analyticsUrl = process.env.PERF_ANALYTICS_URL || localConfig?.analyticsUrl || null;
-  const analyticsSecret = process.env.PERF_ANALYTICS_SECRET || localConfig?.analyticsSecret || null;
+  const analyticsUrl =
+    process.env.PERF_ANALYTICS_URL || localConfig?.analyticsUrl || null;
+  const analyticsSecret =
+    process.env.PERF_ANALYTICS_SECRET || localConfig?.analyticsSecret || null;
 
   const targetKey = report?.meta?.targetKey || 'perf';
   const alertStatePath = getAlertStatePath({
@@ -212,11 +218,23 @@ async function notifyPerfResult({
     };
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
-    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch((err) => {
+    await postJobAnalytics({
+      report,
+      notifyModel: model,
+      analyticsUrl,
+      analyticsSecret,
+    }).catch((err) => {
       // eslint-disable-next-line no-console
-      console.warn('[analytics] job ingest failed (regression):', err?.message || err);
+      console.warn(
+        '[analytics] job ingest failed (regression):',
+        err?.message || err,
+      );
     });
-    await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
+    await postAllSessionAnalytics({
+      derivedSessions,
+      analyticsUrl,
+      analyticsSecret,
+    });
     return model;
   }
 
@@ -240,11 +258,23 @@ async function notifyPerfResult({
     };
     await postModelToSlack({ slackWebhookUrl, model });
     writeAlertState(alertStatePath, buildStateSnapshot(model));
-    await postJobAnalytics({ report, notifyModel: model, analyticsUrl, analyticsSecret }).catch((err) => {
+    await postJobAnalytics({
+      report,
+      notifyModel: model,
+      analyticsUrl,
+      analyticsSecret,
+    }).catch((err) => {
       // eslint-disable-next-line no-console
-      console.warn('[analytics] job ingest failed (recovered):', err?.message || err);
+      console.warn(
+        '[analytics] job ingest failed (recovered):',
+        err?.message || err,
+      );
     });
-    await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
+    await postAllSessionAnalytics({
+      derivedSessions,
+      analyticsUrl,
+      analyticsSecret,
+    });
     return model;
   }
 
@@ -264,11 +294,20 @@ async function notifyPerfResult({
     updatedAt: new Date().toISOString(),
   });
   // Always post to analytics, even on healthy runs
-  await postJobAnalytics({ report, notifyModel: null, analyticsUrl, analyticsSecret }).catch((err) => {
+  await postJobAnalytics({
+    report,
+    notifyModel: null,
+    analyticsUrl,
+    analyticsSecret,
+  }).catch((err) => {
     // eslint-disable-next-line no-console
     console.warn('[analytics] job ingest failed (ok):', err?.message || err);
   });
-  await postAllSessionAnalytics({ derivedSessions, analyticsUrl, analyticsSecret });
+  await postAllSessionAnalytics({
+    derivedSessions,
+    analyticsUrl,
+    analyticsSecret,
+  });
   return null;
 }
 

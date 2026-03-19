@@ -36,7 +36,6 @@ const {
   extractDerivedDebugMetrics,
 } = require('./lib/regression');
 
-
 function hasFlag(name) {
   return process.argv.includes(name);
 }
@@ -220,7 +219,9 @@ async function main() {
   try {
     const pkg = readJson(path.join(repoRoot, 'apps', 'mobile', 'package.json'));
     if (pkg.version) meta.appVersion = pkg.version;
-  } catch (_) {}
+  } catch (_) {
+    // ignore read errors
+  }
 
   const jobState = { meta, status: 'running' };
   writeJson(path.join(outputDir, 'job-meta.json'), jobState);
