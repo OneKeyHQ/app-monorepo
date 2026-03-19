@@ -46,11 +46,7 @@ function demoError(error: unknown, apiName: string) {
   }
 }
 
-type IDemoOrderType =
-  | 'market'
-  | 'limit'
-  | 'triggerMarket'
-  | 'triggerLimit';
+type IDemoOrderType = 'market' | 'limit' | 'triggerMarket' | 'triggerLimit';
 
 type IDemoOrderTypeOption = {
   value: IDemoOrderType;
