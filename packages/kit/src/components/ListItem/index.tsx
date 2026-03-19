@@ -7,6 +7,8 @@ import type {
 } from 'react';
 import { isValidElement, useCallback } from 'react';
 
+import { Pressable } from 'react-native';
+
 import {
   Divider,
   Icon,
@@ -33,6 +35,7 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { useStatefulAction } from '../../hooks/useStatefulAction';
@@ -323,7 +326,16 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       await onPress?.();
     }, [onPress, props.disabled]);
 
-    return (
+    const hasPressHandler = !!onPress && !props.disabled;
+
+    // On native, use Pressable to wrap the item for better scroll-vs-tap
+    // disambiguation. Pressable cooperates with ScrollView's gesture system,
+    // automatically cancelling the press when a scroll gesture takes over.
+    // This prevents accidental onPress triggers while scrolling in nested
+    // PagerView + ScrollView layouts.
+    const useNativePressable = platformEnv.isNative && hasPressHandler;
+
+    const content = (
       <Stack
         ref={ref}
         flexDirection="row"
@@ -335,11 +347,11 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         mx="$2"
         borderRadius="$3"
         borderCurve="continuous"
-        onPress={onPress ? handleItemPress : undefined}
+        onPress={!useNativePressable && onPress ? handleItemPress : undefined}
         {...(props.disabled && {
           opacity: 0.5,
         })}
-        {...(onPress && !props.disabled && listItemPressStyle)}
+        {...(!useNativePressable && hasPressHandler ? listItemPressStyle : undefined)}
         {...rest}
       >
         {childrenBefore}
@@ -391,6 +403,20 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         </Unspaced>
       </Stack>
     );
+
+    if (useNativePressable) {
+      // delayPressIn: delays the visual press highlight so it doesn't briefly
+      // flash when the user starts a scroll gesture on top of a list item.
+      // It does NOT affect whether onPress fires — that is handled by
+      // Pressable's built-in scroll cancellation.
+      return (
+        <Pressable onPress={handleItemPress} delayPressIn={50}>
+          {content}
+        </Pressable>
+      );
+    }
+
+    return content;
   },
 );
 
