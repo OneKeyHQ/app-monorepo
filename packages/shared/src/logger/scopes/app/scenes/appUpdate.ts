@@ -235,6 +235,7 @@ export class AppUpdateScene extends BaseScene {
     return { ...payload, level };
   }
 
+  @LogToServer()
   @LogToLocal({ level: 'info' })
   public appUpdateDecisionResolved(
     payload: IAppUpdateAuditPayload,
@@ -275,6 +276,7 @@ export class AppUpdateScene extends BaseScene {
     return { ...payload, level };
   }
 
+  @LogToServer()
   @LogToLocal({ level: 'info' })
   public fullFlowRetryTriggered(
     payload: IAppUpdateAuditPayload,
@@ -339,6 +341,7 @@ export class AppUpdateScene extends BaseScene {
     return { ...payload, level };
   }
 
+  @LogToServer()
   @LogToLocal({ level: 'info' })
   public pendingSwitchStart(
     payload: IAppUpdateAuditPayload,
@@ -347,6 +350,7 @@ export class AppUpdateScene extends BaseScene {
     return { ...payload, level };
   }
 
+  @LogToServer()
   @LogToLocal({ level: 'info' })
   public pendingSwitchResult(
     payload: IAppUpdateAuditPayload,
