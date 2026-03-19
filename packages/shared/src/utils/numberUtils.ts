@@ -201,6 +201,12 @@ const lazyGroupingSeparator = (): string => {
   return symbolMap[key];
 };
 
+// Returns the locale-specific decimal separator (e.g. '.' for en, ',' for de).
+export const getDecimalSeparator = (): string => lazyDecimalSymbol(1);
+
+// Returns the locale-specific grouping (thousands) separator (e.g. ',' for en, '.' for de).
+export const getGroupingSeparator = (): string => lazyGroupingSeparator();
+
 // Insert grouping separator into a plain integer string.
 // This avoids passing large numbers through Intl.NumberFormat which
 // may overflow to Infinity or lose precision on Hermes.

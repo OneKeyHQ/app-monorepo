@@ -25,9 +25,11 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { LOCALE_SEPARATORS } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  getDecimalSeparator,
+  getGroupingSeparator,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useClipboard, useSelectionColor } from '../../hooks';
@@ -429,16 +431,6 @@ function BaseInput(
     valueRef.current = value;
   }
 
-  const getGroupingSeparator = useCallback((): string => {
-    const locale = appLocale.intl.locale;
-    return LOCALE_SEPARATORS[locale]?.grouping ?? ',';
-  }, []);
-
-  const getDecimalSeparator = useCallback((): string => {
-    const locale = appLocale.intl.locale;
-    return LOCALE_SEPARATORS[locale]?.decimal ?? '.';
-  }, []);
-
   const formattedValue = useMemo(() => {
     if (!value) return value;
 
@@ -459,13 +451,7 @@ function BaseInput(
     }
 
     return value;
-  }, [
-    enableThousandsSeparator,
-    value,
-    keyboardType,
-    getGroupingSeparator,
-    getDecimalSeparator,
-  ]);
+  }, [enableThousandsSeparator, value, keyboardType]);
 
   const shownValue = useFixAndroidInputValueDisplay(formattedValue);
   // workaround for selectTextOnFocus={true} not working on Native App
@@ -499,14 +485,14 @@ function BaseInput(
         // keyboard presses '.' which is also the grouping separator for 'de').
         const rawValue = value ?? '';
         const intPart = rawValue.split('.')[0].replace(/^-/, '');
-        const expectedGroupSeps = Math.max(
+        const expectedGroupSeparators = Math.max(
           0,
           Math.floor((intPart.length - 1) / 3),
         );
-        const actualGroupSeps = (text.match(groupRegex) ?? []).length;
+        const actualGroupSeparators = (text.match(groupRegex) ?? []).length;
 
         let cleaned: string;
-        if (actualGroupSeps > expectedGroupSeps) {
+        if (actualGroupSeparators > expectedGroupSeparators) {
           // The last grouping-separator character was typed as a decimal point
           const lastIdx = text.lastIndexOf(groupSep);
           cleaned = `${text
@@ -526,13 +512,7 @@ function BaseInput(
         onChangeText?.(text.replace(',', '.'));
       }
     },
-    [
-      onChangeText,
-      enableThousandsSeparator,
-      getGroupingSeparator,
-      getDecimalSeparator,
-      value,
-    ],
+    [onChangeText, enableThousandsSeparator, value],
   );
 
   const isNumberKeyboardType = useMemo(
@@ -558,7 +538,6 @@ function BaseInput(
       isNumberKeyboardType,
       onNumberPadChangeText,
       enableThousandsSeparator,
-      getGroupingSeparator,
       onChangeText,
     ],
   );

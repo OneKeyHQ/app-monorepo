@@ -12,6 +12,8 @@ import {
   formatPriceChange,
   formatValue,
   fromBigIntHex,
+  getDecimalSeparator,
+  getGroupingSeparator,
   numberFormat,
   numberFormatAsRaw,
   toBigIntHex,
@@ -972,4 +974,32 @@ describe('numberUtils it-IT formatting', () => {
       }),
     ).toEqual('$558.934,09');
   });
+});
+
+describe('getDecimalSeparator and getGroupingSeparator', () => {
+  afterEach(() => {
+    appLocale.setLocale(defaultLocal, defaultMessages);
+  });
+
+  const cases: Array<[string, string, string]> = [
+    ['en', '.', ','],
+    ['en-US', '.', ','],
+    ['de', ',', '.'],
+    ['fr-FR', ',', '\u202F'],
+    ['it-IT', ',', '.'],
+    ['zh-CN', '.', ','],
+    ['ru', ',', '\u00A0'],
+  ];
+
+  for (const [locale, expectedDecimal, expectedGrouping] of cases) {
+    test(`${locale}: getDecimalSeparator returns "${expectedDecimal}"`, () => {
+      appLocale.setLocale(locale, {} as any);
+      expect(getDecimalSeparator()).toBe(expectedDecimal);
+    });
+
+    test(`${locale}: getGroupingSeparator returns "${expectedGrouping}"`, () => {
+      appLocale.setLocale(locale, {} as any);
+      expect(getGroupingSeparator()).toBe(expectedGrouping);
+    });
+  }
 });
