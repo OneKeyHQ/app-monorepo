@@ -15,13 +15,13 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useMedia,
 } from '@onekeyhq/components';
 import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IRelayChain,
   IRelayCurrency,
@@ -50,6 +50,8 @@ function parseErrorMessage(raw: string): string {
   return raw;
 }
 
+const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
+  'perp-deposit-withdraw-accessory-view';
 const DEBOUNCE_MS = 1000;
 const DEFAULT_RECEIVE_AMOUNT = '100';
 const PERPS_USDC_LOGO =
@@ -57,13 +59,16 @@ const PERPS_USDC_LOGO =
 
 interface IRelayDepositContentProps {
   selectedAccount: IPerpsActiveAccountAtom;
+  isMobile?: boolean;
 }
 
-function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
+function RelayDepositContent({
+  selectedAccount,
+  isMobile,
+}: IRelayDepositContentProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const theme = useTheme();
-  const { gtMd } = useMedia();
 
   const [chains, setChains] = useState<IRelayChain[]>([]);
   const [currencies, setCurrencies] = useState<
@@ -330,8 +335,8 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       let formatted: string;
       if (max >= 1_000_000) {
         formatted = `$${(max / 1_000_000).toFixed(1)}M`;
-      } else if (max >= 1_000) {
-        formatted = `$${Math.round(max / 1_000)}K`;
+      } else if (max >= 1000) {
+        formatted = `$${Math.round(max / 1000)}K`;
       } else {
         formatted = `$${Math.round(max)}`;
       }
@@ -395,6 +400,11 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
             <TextInput
               accessible
               accessibilityLabel="Send amount"
+              inputAccessoryViewID={
+                platformEnv.isNativeIOS
+                  ? DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID
+                  : undefined
+              }
               value={formatWithCommas(sendAmount)}
               onChangeText={handleSendAmountChange}
               keyboardType="numeric"
@@ -452,6 +462,11 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
             <TextInput
               accessible
               accessibilityLabel="Receive amount"
+              inputAccessoryViewID={
+                platformEnv.isNativeIOS
+                  ? DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID
+                  : undefined
+              }
               value={formatWithCommas(receiveAmount)}
               onChangeText={handleReceiveAmountChange}
               keyboardType="numeric"
@@ -470,11 +485,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
               }}
             />
           </YStack>
-          <Image
-            src={PERPS_USDC_LOGO}
-            size="$4"
-            borderRadius="$full"
-          />
+          <Image src={PERPS_USDC_LOGO} size="$4" borderRadius="$full" />
           <SizableText size="$bodySm" color="$textSuccess">
             USDC (Perps)
           </SizableText>
@@ -634,7 +645,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       ) : null}
 
       {/* Mobile: amount first, then address; Desktop: address first, then amount */}
-      {gtMd ? (
+      {!isMobile ? (
         <>
           {addressSection}
           {addressSection ? <Divider /> : null}

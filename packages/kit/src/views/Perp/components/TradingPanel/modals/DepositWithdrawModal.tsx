@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
@@ -317,6 +324,64 @@ export function DepositWithdrawContent({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
+
+  // On mobile, dynamically update page header to show back/close button
+  const pageNavigation = useNavigation();
+  const backActionMap: Partial<
+    Record<IPerpsDepositWithdrawActionType, IPerpsDepositWithdrawActionType>
+  > = useMemo(
+    () => ({
+      depositSelect: 'deposit',
+      walletDeposit: 'depositSelect',
+      relay: 'depositSelect',
+      withdraw: 'deposit',
+    }),
+    [],
+  );
+  const headerBackAction = backActionMap[selectedAction];
+  const handleHeaderBack = useCallback(() => {
+    if (headerBackAction) {
+      setSelectedAction(headerBackAction);
+    }
+  }, [headerBackAction, setSelectedAction]);
+  const handleHeaderClose = useCallback(() => {
+    pageNavigation.goBack();
+  }, [pageNavigation]);
+  useLayoutEffect(() => {
+    if (!isMobile) return;
+    if (headerBackAction) {
+      pageNavigation.setOptions({
+        // eslint-disable-next-line react/no-unstable-nested-components
+        headerLeft: () => (
+          <IconButton
+            icon="ChevronLeftOutline"
+            size="small"
+            variant="tertiary"
+            onPress={handleHeaderBack}
+          />
+        ),
+      });
+    } else {
+      pageNavigation.setOptions({
+        // eslint-disable-next-line react/no-unstable-nested-components
+        headerLeft: () => (
+          <IconButton
+            icon="CrossedLargeOutline"
+            size="small"
+            variant="tertiary"
+            onPress={handleHeaderClose}
+          />
+        ),
+      });
+    }
+  }, [
+    isMobile,
+    headerBackAction,
+    pageNavigation,
+    handleHeaderBack,
+    handleHeaderClose,
+  ]);
+
   const unrealizedPnl = accountSummary?.totalUnrealizedPnl ?? '0';
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(unrealizedPnl || '0');
@@ -1586,7 +1651,10 @@ export function DepositWithdrawContent({
 
       {/* Relay deposit content */}
       {selectedAction === 'relay' ? (
-        <RelayDepositContent selectedAccount={selectedAccount} />
+        <RelayDepositContent
+          selectedAccount={selectedAccount}
+          isMobile={isMobile}
+        />
       ) : null}
 
       {/* Wallet deposit / Withdraw form */}
