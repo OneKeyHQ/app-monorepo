@@ -13,8 +13,10 @@ import PagerView from 'react-native-pager-view';
 import type { IEarnHomeMode } from './MarketSelector';
 import type {
   PageScrollStateChangedNativeEvent,
+  PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view';
+import type { SharedValue } from 'react-native-reanimated';
 
 // --- Styles ---
 
@@ -42,12 +44,19 @@ interface IEarnBorrowPagerViewProps {
   onModeChange: (mode: IEarnHomeMode) => void;
   earnContent: React.ReactNode;
   borrowContent: React.ReactNode;
+  pageScrollPosition?: SharedValue<number>;
 }
 
 // --- Component ---
 
 function EarnBorrowPagerViewComponent(
-  { mode, onModeChange, earnContent, borrowContent }: IEarnBorrowPagerViewProps,
+  {
+    mode,
+    onModeChange,
+    earnContent,
+    borrowContent,
+    pageScrollPosition,
+  }: IEarnBorrowPagerViewProps,
   ref: React.Ref<IEarnBorrowPagerViewRef>,
 ) {
   const pagerRef = useRef<PagerView>(null);
@@ -96,6 +105,17 @@ function EarnBorrowPagerViewComponent(
     [],
   );
 
+  // Sync scroll position to shared value for animated tab indicator
+  const handlePageScroll = useCallback(
+    (e: PagerViewOnPageScrollEvent) => {
+      if (pageScrollPosition) {
+        pageScrollPosition.value =
+          e.nativeEvent.position + e.nativeEvent.offset;
+      }
+    },
+    [pageScrollPosition],
+  );
+
   // PagerView -> mode sync (gesture swiping only)
   const handlePageSelected = useCallback(
     (e: PagerViewOnPageSelectedEvent) => {
@@ -124,6 +144,7 @@ function EarnBorrowPagerViewComponent(
       overScrollMode="never"
       nestedScrollEnabled
       scrollSensitivity={4}
+      onPageScroll={handlePageScroll}
       onPageScrollStateChanged={handlePageScrollStateChanged}
       onPageSelected={handlePageSelected}
     >

@@ -557,8 +557,10 @@ class ServicePendingInstallTask {
       stage,
     });
 
-    // jsBundleRollbackToBuiltin is handled by fetchAppUpdateInfo directly
-    // (no download needed — just reset and relaunch).
+    // jsBundleRollbackToBuiltin is handled by fetchAppUpdateInfo which
+    // creates a pending task with targetBundleVersion="0".  On next cold
+    // start, executeBundleSwitchTask detects the missing bundle and falls
+    // back to builtin via resetToBuiltInBundle + switchBundle({empty}).
 
     if (
       decision.decision !== 'appShellUpdate' &&

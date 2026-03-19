@@ -63,6 +63,7 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
                 color="$textSubdued"
                 numberOfLines={1}
                 formatter="marketCap"
+                formatterOptions={{ currency: '$' }}
                 userSelect="none"
               >
                 {item.volume24h ?? '0'}

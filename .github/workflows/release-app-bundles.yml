@@ -2,10 +2,14 @@ name: release-app-bundles
 
 on:
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to build (optional, builds from PR merge ref)'
+        required: false
+        type: string
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   prepare-params:
@@ -19,6 +23,13 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        if: ${{ !inputs.pr_number }}
+
+      - name: Checkout PR
+        if: ${{ inputs.pr_number }}
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/merge
 
       - name: Generate build parameters
         id: params
@@ -50,13 +61,23 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
           echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
-          echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          echo "commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            BRANCH="pull/${{ inputs.pr_number }}"
+            COMMIT=$(git rev-parse HEAD)
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
 
           echo "Summary:"
           echo "  BUILD_NUMBER=$BUILD_NUMBER"
           echo "  BUILD_BUNDLE_VERSION=$BUILD_BUNDLE_VERSION"
           echo "  BUILD_SOURCE=$BUILD_SOURCE"
+          echo "  BRANCH=$BRANCH"
+          echo "  COMMIT=$COMMIT"
 
   desktop-bundle:
     needs: prepare-params
@@ -67,6 +88,7 @@ jobs:
       build_source: ${{ needs.prepare-params.outputs.build_source }}
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit
 
   native-bundle:
@@ -78,4 +100,5 @@ jobs:
       build_source: ${{ needs.prepare-params.outputs.build_source }}
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets: inherit
