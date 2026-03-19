@@ -9,6 +9,11 @@ import {
 
 import { StyleSheet, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
+import Animated, {
+  useAnimatedRef,
+  useEvent,
+  useHandler,
+} from 'react-native-reanimated';
 
 import type { IEarnHomeMode } from './MarketSelector';
 import type {
@@ -17,6 +22,10 @@ import type {
   PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view';
 import type { SharedValue } from 'react-native-reanimated';
+
+// --- AnimatedPagerView: enables worklet-based onPageScroll on the UI thread ---
+
+const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 // --- Styles ---
 
@@ -32,6 +41,37 @@ const MODE_TO_INDEX: Record<IEarnHomeMode, number> = {
   borrow: 1,
 };
 const INDEX_TO_MODE: IEarnHomeMode[] = ['earn', 'borrow'];
+
+// --- Worklet-based page scroll handler (same pattern as collapsible-tab-view) ---
+
+function usePageScrollHandler(
+  handlers: {
+    onPageScroll: (
+      event: PagerViewOnPageScrollEvent['nativeEvent'],
+      context: Record<string, unknown>,
+    ) => void;
+  },
+  dependencies?: unknown[],
+): (event: PagerViewOnPageScrollEvent) => void {
+  const { context, doDependenciesDiffer } = useHandler(handlers, dependencies);
+
+  // Reanimated's useEvent return type (EventHandlerProcessed) doesn't match
+  // AnimatedPagerView's onPageScroll prop (DirectEventHandler), but they are
+  // compatible at runtime — Reanimated intercepts the native event internally.
+  return useEvent(
+    (
+      event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent'],
+    ) => {
+      'worklet';
+      const { onPageScroll } = handlers;
+      if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
+        onPageScroll(event, context);
+      }
+    },
+    ['onPageScroll'],
+    doDependenciesDiffer,
+  ) as unknown as (event: PagerViewOnPageScrollEvent) => void;
+}
 
 // --- Types ---
 
@@ -59,7 +99,7 @@ function EarnBorrowPagerViewComponent(
   }: IEarnBorrowPagerViewProps,
   ref: React.Ref<IEarnBorrowPagerViewRef>,
 ) {
-  const pagerRef = useRef<PagerView>(null);
+  const pagerRef = useAnimatedRef<PagerView>();
   const currentIndexRef = useRef(MODE_TO_INDEX[mode]);
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -88,7 +128,7 @@ function EarnBorrowPagerViewComponent(
       pagerRef.current?.setPage(index);
       currentIndexRef.current = index;
     }
-  }, [mode]);
+  }, [mode, pagerRef]);
 
   // Track drag state: 'dragging' → wasUserDrag=true, 'idle' → wasUserDrag=false.
   // A user swipe sequence is: dragging → settling → onPageSelected → idle.
@@ -105,16 +145,16 @@ function EarnBorrowPagerViewComponent(
     [],
   );
 
-  // Sync scroll position to shared value for animated tab indicator
-  const handlePageScroll = useCallback(
-    (e: PagerViewOnPageScrollEvent) => {
+  // Worklet-based onPageScroll: updates pageScrollPosition on the UI thread
+  // with zero bridge overhead for smooth animated tab indicator.
+  const pageScrollHandler = usePageScrollHandler({
+    onPageScroll: (e) => {
+      'worklet';
       if (pageScrollPosition) {
-        pageScrollPosition.value =
-          e.nativeEvent.position + e.nativeEvent.offset;
+        pageScrollPosition.value = e.position + e.offset;
       }
     },
-    [pageScrollPosition],
-  );
+  });
 
   // PagerView -> mode sync (gesture swiping only)
   const handlePageSelected = useCallback(
@@ -136,7 +176,7 @@ function EarnBorrowPagerViewComponent(
   );
 
   return (
-    <PagerView
+    <AnimatedPagerView
       ref={pagerRef}
       style={styles.pager}
       initialPage={MODE_TO_INDEX[mode]}
@@ -144,7 +184,7 @@ function EarnBorrowPagerViewComponent(
       overScrollMode="never"
       nestedScrollEnabled
       scrollSensitivity={4}
-      onPageScroll={handlePageScroll}
+      onPageScroll={pageScrollHandler}
       onPageScrollStateChanged={handlePageScrollStateChanged}
       onPageSelected={handlePageSelected}
     >
@@ -154,7 +194,7 @@ function EarnBorrowPagerViewComponent(
       <View key="borrow" style={styles.page}>
         {borrowContent}
       </View>
-    </PagerView>
+    </AnimatedPagerView>
   );
 }
 
