@@ -19,6 +19,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
@@ -436,7 +437,11 @@ export const useEarnPortfolio = ({
           },
         });
       } catch (error) {
-        console.error('[useEarnPortfolio] stream failed:', error);
+        defaultLogger.app.error.log(
+          `[useEarnPortfolio] stream failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       } finally {
         flushQueuedPatchesImmediately(nextRunId);
         if (nextRunId === runContextRef.current.runId && isMountedRef.current) {

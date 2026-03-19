@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -450,7 +451,11 @@ export async function streamEarnPortfolio({
       onPatches?.(patches);
     },
     onTaskError: (task, error) => {
-      console.warn('[streamEarnPortfolio] task failed:', error);
+      defaultLogger.app.error.log(
+        `[streamEarnPortfolio] task failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
       task.keys.forEach((key) => failedKeys.add(key));
     },
   });
