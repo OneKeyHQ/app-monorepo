@@ -1727,19 +1727,19 @@ export interface IEarnInvestmentItemV2 {
         logoURI: string;
       };
     };
-    deposit: {
+    deposit?: {
       title: IEarnText;
-      description: IEarnText;
+      description?: IEarnText;
     };
-    earnings24h: {
+    earnings24h?: {
       title: IEarnText;
       description?: IEarnText;
     };
     totalReward?: {
       title: IEarnText;
-      description: IEarnText;
+      description?: IEarnText;
     };
-    rewardAssets: {
+    rewardAssets?: {
       title: IEarnText;
       tooltip?: IEarnTooltip;
       button:
@@ -1751,7 +1751,7 @@ export interface IEarnInvestmentItemV2 {
       key?: string;
       description: IEarnText;
     }[];
-    assetsStatus: {
+    assetsStatus?: {
       title: IEarnText;
       description: IEarnText;
       tooltip?: IEarnTooltip;
@@ -1821,6 +1821,9 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     netPnlFiatValue?: IEarnText;
   };
 };
+
+export type IEarnPortfolioInvestmentItemAsset =
+  IEarnInvestmentItemV2['assets'][number];
 
 export type IEarnPortfolioAirdropAsset =
   IEarnAirdropInvestmentItemV2['assets'][number] & {

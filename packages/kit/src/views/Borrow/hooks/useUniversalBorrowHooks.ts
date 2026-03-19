@@ -428,6 +428,9 @@ export function useUniversalBorrowRepayWithCollateral({
         }
 
         if (needsSetupLut) {
+          const failedMessage = intl.formatMessage({
+            id: ETranslations.global_failed,
+          });
           const setupResp =
             await backgroundApiProxy.serviceStaking.borrowBuildSetupLutTransaction(
               {
@@ -441,12 +444,7 @@ export function useUniversalBorrowRepayWithCollateral({
             );
 
           if (!setupResp.tx) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_failed,
-              }),
-            });
-            return;
+            throw new OneKeyLocalError(failedMessage);
           }
 
           const setupConfirmResult = await waitForTxConfirmResult({
@@ -459,12 +457,7 @@ export function useUniversalBorrowRepayWithCollateral({
 
           const latestSetupTxId = getLatestTxId(setupConfirmResult.data);
           if (!latestSetupTxId) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_failed,
-              }),
-            });
-            return;
+            throw new OneKeyLocalError(failedMessage);
           }
 
           await syncBorrowOrder({

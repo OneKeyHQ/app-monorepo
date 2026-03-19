@@ -61,8 +61,9 @@ const useIsDesktopLayout = () => {
   return !platformEnv.isNative && media.gtSm;
 };
 
-type IPortfolioAssetStatusItem =
-  IEarnPortfolioInvestment['assets'][number]['assetsStatus'][number];
+type IPortfolioAssetStatusItem = NonNullable<
+  IEarnPortfolioInvestment['assets'][number]['assetsStatus']
+>[number];
 type IPortfolioActionableAssetStatusItem = Omit<
   IPortfolioAssetStatusItem,
   'button'
@@ -70,7 +71,9 @@ type IPortfolioActionableAssetStatusItem = Omit<
   button: IEarnActionIcon;
 };
 type IWrappedActionReward =
-  | IEarnPortfolioInvestment['assets'][number]['rewardAssets'][number]
+  | NonNullable<
+      IEarnPortfolioInvestment['assets'][number]['rewardAssets']
+    >[number]
   | IEarnPortfolioInvestment['airdropAssets'][number]['airdropAssets'][number]
   | IPortfolioActionableAssetStatusItem;
 type IWrappedActionButton = IWrappedActionReward['button'];

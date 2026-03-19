@@ -12,7 +12,7 @@ describe('borrowLutFinalization', () => {
       EDecodedTxStatus.Pending,
     );
     expect(getBorrowLutFinalizationErrorTranslation('timeout')).toBe(
-      ETranslations.global_pending,
+      ETranslations.global_failed,
     );
   });
 

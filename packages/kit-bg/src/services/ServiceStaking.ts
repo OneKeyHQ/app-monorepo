@@ -2477,12 +2477,22 @@ class ServiceStaking extends ServiceBase {
       txId,
       maxAttempts,
       intervalMs,
-      getSignatureStatuses: async (signatures) =>
-        client.getSignatureStatuses(signatures),
+      getSignatureStatuses: async (signatures) => {
+        const statuses = await client.getSignatureStatuses(signatures);
+        return statuses?.map((status) =>
+          status
+            ? {
+                ...status,
+                confirmationStatus: status.confirmationStatus ?? undefined,
+              }
+            : status,
+        );
+      },
       onStatusError: (error) => {
-        console.warn(
-          '[waitForSolTxFinalized] getSignatureStatuses failed:',
-          error,
+        defaultLogger.app.error.log(
+          `[waitForSolTxFinalized] getSignatureStatuses failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
       },
     });

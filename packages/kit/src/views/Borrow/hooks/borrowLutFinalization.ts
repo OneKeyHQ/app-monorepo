@@ -18,8 +18,5 @@ export const mapBorrowLutFinalizationToTxStatus = (
 };
 
 export const getBorrowLutFinalizationErrorTranslation = (
-  result: Exclude<IBorrowLutFinalizationResult, 'finalized'>,
-) =>
-  result === 'timeout'
-    ? ETranslations.global_pending
-    : ETranslations.global_failed;
+  _result: Exclude<IBorrowLutFinalizationResult, 'finalized'>,
+) => ETranslations.global_failed;

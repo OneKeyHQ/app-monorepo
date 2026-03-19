@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 let earnAvailableAssetsRequestSeed = 0;
@@ -86,7 +87,11 @@ export function useEarnAvailableAssetsRequest({
             type: tabType,
           })
           .catch((error) => {
-            console.error('Failed to fetch available assets:', error);
+            defaultLogger.app.error.log(
+              `[useEarnAvailableAssetsRequest] failed to fetch available assets: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
             throw error;
           });
 
