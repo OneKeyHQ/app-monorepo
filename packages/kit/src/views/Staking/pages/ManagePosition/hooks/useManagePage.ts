@@ -231,6 +231,7 @@ export const useManagePage = ({
       maxRepayBalance: managePageData.repay?.data?.maxBalance,
       // debt balance for collateral repay mode
       debtBalance: managePageData.debt?.data?.balance,
+      needsSetupLut: managePageData.needsSetupLut,
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
       // approve

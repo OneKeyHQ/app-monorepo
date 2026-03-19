@@ -22,7 +22,6 @@ import type {
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IStakingConfig } from '@onekeyhq/shared/types/earn';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
@@ -264,7 +263,6 @@ export type IVaultSettings = {
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
 
-  stakingConfig?: IStakingConfig;
   stakingResultPollingInterval?: number;
 
   editApproveAmountEnabled?: boolean;

@@ -93,7 +93,7 @@ type IBorrowRepayPositionProps = Omit<
 type IRepayMode = 'wallet' | 'collateral';
 
 const ARROW_OVERLAY_OFFSET = -13;
-const ENABLE_COLLATERAL_REPAY_ENTRY = false;
+const ENABLE_COLLATERAL_REPAY_ENTRY = true;
 
 function CollateralSelectContent({
   assets,

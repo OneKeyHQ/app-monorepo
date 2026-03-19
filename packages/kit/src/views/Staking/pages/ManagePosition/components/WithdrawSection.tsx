@@ -735,6 +735,7 @@ export const WithdrawSection = ({
         marketAddress,
         reserveAddress,
         collateralReserveAddress,
+        needsSetupLut: protocolInfo?.needsSetupLut,
         repayAll,
         slippageBps,
         routeKey,
@@ -766,6 +767,7 @@ export const WithdrawSection = ({
       networkId,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.needsSetupLut,
       protocolInfo?.stakeTag,
     ],
   );

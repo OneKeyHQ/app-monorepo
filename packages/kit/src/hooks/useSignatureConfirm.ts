@@ -40,6 +40,7 @@ type IParams = {
 type IBuildUnsignedTxParams = {
   encodedTx?: IEncodedTx;
   unsignedTx?: IUnsignedTxPro;
+  unsignedTxs?: IUnsignedTxPro[];
   transfersInfo?: ITransferInfo[];
   approvesInfo?: IApproveInfo[];
   wrappedInfo?: IWrappedInfo;
@@ -120,9 +121,10 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
       } = params;
       let transferPayload = transferPayloadBase;
       try {
-        const unsignedTxs = [];
+        const unsignedTxs = [...(params.unsignedTxs ?? [])];
         // for batch approve&swap
         if (
+          unsignedTxs.length === 0 &&
           approvesInfo &&
           !isEmpty(approvesInfo) &&
           (encodedTx || !isEmpty(transfersInfo))
@@ -153,7 +155,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               ...rest,
             }),
           );
-        } else {
+        } else if (unsignedTxs.length === 0) {
           unsignedTxs.push(
             await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
               networkId,

@@ -66,23 +66,6 @@ export interface IStakingFlowConfig {
   allowPartialWithdraw?: boolean;
 }
 
-interface IProviderConfig {
-  supportedSymbols: ISupportedSymbol[];
-  configs: {
-    [key in ISupportedSymbol]?: IStakingFlowConfig;
-  };
-}
-
-interface INetworkStakingConfig {
-  providers: {
-    [key in EEarnProviderEnum]?: IProviderConfig;
-  };
-}
-
-export interface IStakingConfig {
-  [networkId: string]: INetworkStakingConfig;
-}
-
 export interface IEarnPermitCache {
   accountId: string;
   networkId: string;
