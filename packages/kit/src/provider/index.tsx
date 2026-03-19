@@ -1,10 +1,12 @@
-/* eslint-disable camelcase */
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-} from '@expo-google-fonts/inter';
-import { useFonts } from 'expo-font';
+// Inter fonts are not used — Tamagui uses Roobert. The JS keys (e.g. "Inter_400Regular")
+// also don't match the font's internal PostScript names (e.g. "Inter-Regular"), so the
+// useFonts registration was ineffective anyway.
+// import {
+//   Inter_400Regular,
+//   Inter_500Medium,
+//   Inter_600SemiBold,
+// } from '@expo-google-fonts/inter';
+// import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -59,11 +61,11 @@ export function KitProvider(props: any = {}) {
 
   useDebugComponentRemountLog({ name: 'KitProvider' });
 
-  useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-  });
+  // useFonts({
+  //   Inter_400Regular,
+  //   Inter_500Medium,
+  //   Inter_600SemiBold,
+  // });
 
   const content = (
     <SafeAreaProvider>
