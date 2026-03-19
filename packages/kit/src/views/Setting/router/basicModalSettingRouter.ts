@@ -157,8 +157,7 @@ const DevLocalBundleList = LazyLoadPage(
 );
 
 const DevBundleUpdateStatusModal = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Setting/pages/DevBundleUpdateStatus'),
+  () => import('@onekeyhq/kit/src/views/Setting/pages/DevBundleUpdateStatus'),
 );
 
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<

@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Divider,
+  IconButton,
   Page,
   SizableText,
   Stack,
@@ -117,8 +118,7 @@ function buildUpdatePipeline(
     }
 
     // Attach download percent for the download step when active
-    const pct =
-      i === 1 && state === 'active' ? downloadPercent : undefined;
+    const pct = i === 1 && state === 'active' ? downloadPercent : undefined;
 
     return { label, state, details, percent: pct };
   });
@@ -284,6 +284,27 @@ const stateBgColors: Record<IStepState, string> = {
   pending: '$neutral3',
 };
 
+function PipelineDotContent({ state }: { state: IStepState }) {
+  if (state === 'completed') {
+    return (
+      <SizableText size="$bodyXs" color={stateColors[state]}>
+        ✓
+      </SizableText>
+    );
+  }
+  if (state === 'failed') {
+    return (
+      <SizableText size="$bodyXs" color={stateColors[state]}>
+        ✕
+      </SizableText>
+    );
+  }
+  if (state === 'active') {
+    return <Stack w={8} h={8} borderRadius={4} bg={stateColors[state]} />;
+  }
+  return null;
+}
+
 function PipelineDot({ state }: { state: IStepState }) {
   return (
     <Stack
@@ -294,22 +315,7 @@ function PipelineDot({ state }: { state: IStepState }) {
       alignItems="center"
       justifyContent="center"
     >
-      {state === 'completed' ? (
-        <SizableText size="$bodyXs" color={stateColors[state]}>
-          ✓
-        </SizableText>
-      ) : state === 'failed' ? (
-        <SizableText size="$bodyXs" color={stateColors[state]}>
-          ✕
-        </SizableText>
-      ) : state === 'active' ? (
-        <Stack
-          w={8}
-          h={8}
-          borderRadius={4}
-          bg={stateColors[state]}
-        />
-      ) : null}
+      <PipelineDotContent state={state} />
     </Stack>
   );
 }
@@ -333,9 +339,7 @@ function PipelineStepRow({
           <Stack
             flex={1}
             w={LINE_WIDTH}
-            bg={
-              step.state === 'completed' ? '$borderSuccess' : '$neutral5'
-            }
+            bg={step.state === 'completed' ? '$borderSuccess' : '$neutral5'}
             minHeight="$4"
           />
         ) : null}
@@ -345,22 +349,26 @@ function PipelineStepRow({
       <YStack flex={1} pb={isLast ? 0 : '$3'}>
         <SizableText
           size={isExpanded ? '$bodyMdMedium' : '$bodySm'}
-          color={
-            step.state === 'pending' ? '$textDisabled' : '$text'
-          }
+          color={step.state === 'pending' ? '$textDisabled' : '$text'}
         >
           {step.label}
           {step.state === 'failed' ? ' — Failed' : ''}
-          {step.percent != null ? ` ${step.percent}%` : ''}
+          {step.percent !== undefined && step.percent !== null ? ` ${step.percent}%` : ''}
         </SizableText>
 
-        {step.percent != null ? (
-          <XStack mt="$1.5" h={6} bg="$neutral3" borderRadius={3} overflow="hidden">
+        {step.percent !== undefined && step.percent !== null ? (
+          <XStack
+            mt="$1.5"
+            h={6}
+            bg="$neutral3"
+            borderRadius={3}
+            overflow="hidden"
+          >
             <Stack
               h={6}
               borderRadius={3}
               bg="$bgInfoStrong"
-              width={`${Math.min(step.percent, 100)}%` as `${number}%`}
+              width={`${Math.min(step.percent, 100)}%`}
             />
           </XStack>
         ) : null}
@@ -383,16 +391,16 @@ function PipelineStepRow({
                 alignItems="flex-start"
                 py="$1"
               >
-                <SizableText
-                  size="$bodyXs"
-                  color="$textSubdued"
-                  flexShrink={0}
-                >
+                <SizableText size="$bodyXs" color="$textSubdued" flexShrink={0}>
                   {d.label}
                 </SizableText>
                 <SizableText
                   size="$bodyXs"
-                  color={step.state === 'failed' && d.label === 'Error' ? '$textCritical' : '$text'}
+                  color={
+                    step.state === 'failed' && d.label === 'Error'
+                      ? '$textCritical'
+                      : '$text'
+                  }
                   flexShrink={1}
                   ml="$3"
                   textAlign="right"
@@ -412,15 +420,27 @@ function PipelineStepRow({
 function Pipeline({
   title,
   steps,
+  onRefresh,
 }: {
   title: string;
   steps: IPipelineStep[];
+  onRefresh?: () => void;
 }) {
   return (
     <YStack gap="$2">
-      <SizableText size="$headingSm" color="$text">
-        {title}
-      </SizableText>
+      <XStack alignItems="center" justifyContent="space-between">
+        <SizableText size="$headingSm" color="$text">
+          {title}
+        </SizableText>
+        {onRefresh ? (
+          <IconButton
+            icon="RefreshCcwOutline"
+            size="small"
+            variant="tertiary"
+            onPress={onRefresh}
+          />
+        ) : null}
+      </XStack>
       <YStack>
         {steps.map((step, i) => (
           <PipelineStepRow
@@ -430,6 +450,53 @@ function Pipeline({
           />
         ))}
       </YStack>
+    </YStack>
+  );
+}
+
+function PendingTaskSection({
+  taskSteps,
+  isLoading,
+  onRefresh,
+}: {
+  taskSteps: IPipelineStep[] | null;
+  isLoading: boolean;
+  onRefresh?: () => void;
+}) {
+  if (isLoading) {
+    return (
+      <SizableText size="$bodySm" color="$textSubdued">
+        Loading task...
+      </SizableText>
+    );
+  }
+  if (taskSteps) {
+    return (
+      <Pipeline
+        title="Pending Install Task"
+        steps={taskSteps}
+        onRefresh={onRefresh}
+      />
+    );
+  }
+  return (
+    <YStack gap="$1">
+      <XStack alignItems="center" justifyContent="space-between">
+        <SizableText size="$headingSm" color="$text">
+          Pending Install Task
+        </SizableText>
+        {onRefresh ? (
+          <IconButton
+            icon="RefreshCcwOutline"
+            size="small"
+            variant="tertiary"
+            onPress={onRefresh}
+          />
+        ) : null}
+      </XStack>
+      <SizableText size="$bodySm" color="$textSubdued">
+        No pending task
+      </SizableText>
     </YStack>
   );
 }
@@ -470,7 +537,7 @@ export default function DevBundleUpdateStatusModal() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Bundle Update Status" />
+      <Page.Header title="App/Bundle Update Status" />
       <Page.Body>
         <YStack px="$5" py="$4" gap="$6">
           {/* Summary bar */}
@@ -520,27 +587,12 @@ export default function DevBundleUpdateStatusModal() {
           </XStack>
 
           {/* Update pipeline */}
-          <Pipeline title="Update Flow" steps={updateSteps} />
+          <Pipeline title="Update Flow" steps={updateSteps} onRefresh={fetchTask} />
 
           <Divider />
 
           {/* Pending task pipeline */}
-          {pendingTask === undefined ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              Loading task...
-            </SizableText>
-          ) : taskSteps ? (
-            <Pipeline title="Pending Install Task" steps={taskSteps} />
-          ) : (
-            <YStack gap="$1">
-              <SizableText size="$headingSm" color="$text">
-                Pending Install Task
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                No pending task
-              </SizableText>
-            </YStack>
-          )}
+          <PendingTaskSection taskSteps={taskSteps} isLoading={pendingTask === undefined} onRefresh={fetchTask} />
         </YStack>
       </Page.Body>
     </Page>
