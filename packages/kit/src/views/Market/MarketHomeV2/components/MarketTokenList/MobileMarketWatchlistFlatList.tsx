@@ -53,11 +53,9 @@ interface IMobileMarketWatchlistFlatListProps {
 
 const EMPTY_DATA: IMarketToken[] = [];
 const FIRST_LEVEL_LONG_PRESS_DELAY_MS = 800;
-const SECOND_LEVEL_LONG_PRESS_DELAY_MS = 2000;
 const DRAG_MOVE_THRESHOLD_PX = 10;
 const DRAG_ACTIVATION_DISTANCE_PX = 0;
 const PRESS_STATIONARY_THRESHOLD_PX = 3;
-const DRAG_START_AFTER_PRIMED_MOVE_PX = 3;
 const ROW_HEIGHT_FALLBACK_PX = 60;
 const AUTOSCROLL_THRESHOLD_PX = 0;
 const AUTOSCROLL_SPEED_PX = 0;
@@ -140,7 +138,6 @@ function MobileMarketWatchlistFlatListImpl({
   const filteredData = filteredGroups[selectedFilter];
   const DraggableFlatListComponent =
     (Tabs as any).DraggableFlatList ?? DraggableFlatList;
-  const [primedItemId, setPrimedItemId] = useState<string | null>(null);
   const [dragResetNonce, setDragResetNonce] = useState(0);
   const rowHeightsRef = useRef<Record<string, number>>({});
   const listRef = useRef<{
@@ -180,14 +177,10 @@ function MobileMarketWatchlistFlatListImpl({
     pressStartAt: number;
     lastPageX: number;
     lastPageY: number;
-    primedPageX: number;
-    primedPageY: number;
     rowTop: number;
     rowBottom: number;
-    firstLevelTriggered: boolean;
     movedBeyondThreshold: boolean;
     hasMoved: boolean;
-    dragTimer: ReturnType<typeof setTimeout> | null;
     menuTimer: ReturnType<typeof setTimeout> | null;
     consumeNextPress: boolean;
   }>({
@@ -197,14 +190,10 @@ function MobileMarketWatchlistFlatListImpl({
     pressStartAt: 0,
     lastPageX: 0,
     lastPageY: 0,
-    primedPageX: 0,
-    primedPageY: 0,
     rowTop: 0,
     rowBottom: 0,
-    firstLevelTriggered: false,
     movedBeyondThreshold: false,
     hasMoved: false,
-    dragTimer: null,
     menuTimer: null,
     consumeNextPress: false,
   });
@@ -220,13 +209,6 @@ function MobileMarketWatchlistFlatListImpl({
         : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`,
     [],
   );
-
-  const clearDragTimer = useCallback(() => {
-    if (gestureRef.current.dragTimer) {
-      clearTimeout(gestureRef.current.dragTimer);
-      gestureRef.current.dragTimer = null;
-    }
-  }, []);
 
   const clearMenuTimer = useCallback(() => {
     if (gestureRef.current.menuTimer) {
@@ -244,7 +226,6 @@ function MobileMarketWatchlistFlatListImpl({
 
   const resetGestureSession = useCallback(() => {
     gestureRef.current.activeItemId = '';
-    gestureRef.current.firstLevelTriggered = false;
     gestureRef.current.movedBeyondThreshold = false;
     gestureRef.current.hasMoved = false;
     gestureRef.current.rowTop = 0;
@@ -252,9 +233,6 @@ function MobileMarketWatchlistFlatListImpl({
     gestureRef.current.pressStartAt = 0;
     gestureRef.current.lastPageX = 0;
     gestureRef.current.lastPageY = 0;
-    gestureRef.current.primedPageX = 0;
-    gestureRef.current.primedPageY = 0;
-    setPrimedItemId(null);
   }, []);
 
   const stopManualAutoScroll = useCallback(() => {
@@ -458,14 +436,12 @@ function MobileMarketWatchlistFlatListImpl({
     clearDragEndFallbackTimer();
     isDragSessionActiveRef.current = false;
     stopDragPointerTracking();
-    clearDragTimer();
     clearMenuTimer();
     stopManualAutoScroll();
     resetGestureSession();
     globalRef.reset();
   }, [
     clearDragEndFallbackTimer,
-    clearDragTimer,
     clearMenuTimer,
     resetGestureSession,
     stopDragPointerTracking,
@@ -473,7 +449,7 @@ function MobileMarketWatchlistFlatListImpl({
   ]);
 
   const scheduleDragEndFallback = useCallback(() => {
-    if (!platformEnv.isNativeAndroid || !isDragSessionActiveRef.current) {
+    if (!platformEnv.isNative || !isDragSessionActiveRef.current) {
       return;
     }
     clearDragEndFallbackTimer();
@@ -553,7 +529,6 @@ function MobileMarketWatchlistFlatListImpl({
     () => () => {
       clearDragEndFallbackTimer();
       stopDragPointerTracking();
-      clearDragTimer();
       clearMenuTimer();
       stopManualAutoScroll();
       resetGestureSession();
@@ -564,7 +539,6 @@ function MobileMarketWatchlistFlatListImpl({
     },
     [
       clearDragEndFallbackTimer,
-      clearDragTimer,
       clearMenuTimer,
       resetGestureSession,
       stopDragPointerTracking,
@@ -609,39 +583,14 @@ function MobileMarketWatchlistFlatListImpl({
     ({
       item,
       getIndex,
-      drag,
       isActive,
     }: {
       item: IMarketToken;
       getIndex: () => number | undefined;
-      drag: () => void;
       isActive: boolean;
     }) => {
       const resolvedIndex = getIndex() ?? 0;
       const itemKey = getStableItemKey(item);
-      const startDragWithGuard = (startDrag?: () => void) => {
-        if (!startDrag) {
-          return false;
-        }
-        if (
-          isDragSessionActiveRef.current ||
-          gestureRef.current.movedBeyondThreshold
-        ) {
-          return true;
-        }
-        clearMenuTimer();
-        gestureRef.current.movedBeyondThreshold = true;
-        gestureRef.current.consumeNextPress = true;
-        setPrimedItemId(null);
-        startDrag();
-        if (!isDragSessionActiveRef.current) {
-          gestureRef.current.movedBeyondThreshold = false;
-          gestureRef.current.consumeNextPress = false;
-          return false;
-        }
-        Haptics.impact(ImpactFeedbackStyle.Medium);
-        return true;
-      };
       return (
         <TokenListItem
           item={item}
@@ -664,7 +613,6 @@ function MobileMarketWatchlistFlatListImpl({
           }}
           onPressIn={(event: GestureResponderEvent) => {
             clearDragEndFallbackTimer();
-            clearDragTimer();
             clearMenuTimer();
             isDragSessionActiveRef.current = false;
             const {
@@ -684,86 +632,34 @@ function MobileMarketWatchlistFlatListImpl({
             current.pressStartAt = Date.now();
             current.lastPageX = pageX;
             current.lastPageY = pageY;
-            current.primedPageX = pageX;
-            current.primedPageY = pageY;
             current.rowTop = rowTop;
             current.rowBottom = rowTop + rowHeight;
-            current.firstLevelTriggered = false;
             current.movedBeyondThreshold = false;
             current.hasMoved = false;
             current.consumeNextPress = false;
-            if (platformEnv.isNativeAndroid) {
-              // Android: no drag, show context menu directly at first level
-              current.menuTimer = setTimeout(() => {
-                const latest = gestureRef.current;
-                if (latest.activeItemId !== itemKey || latest.hasMoved) {
-                  return;
-                }
-                const latestPageY = latest.lastPageY || pageY;
-                const stillInsideRow =
-                  latestPageY >= latest.rowTop &&
-                  latestPageY <= latest.rowBottom;
-                if (!stillInsideRow) {
-                  return;
-                }
-                latest.consumeNextPress = true;
-                clearMenuTimer();
-                const latestIndex = getLatestIndex();
-                Haptics.impact(ImpactFeedbackStyle.Medium);
-                const { width } = Dimensions.get('window');
-                handleShowContextMenu(item, latestIndex, {
-                  x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
-                  y: latestPageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
-                });
-                resetGestureSession();
-              }, FIRST_LEVEL_LONG_PRESS_DELAY_MS);
-            } else {
-              current.dragTimer = setTimeout(() => {
-                if (gestureRef.current.activeItemId !== itemKey) {
-                  return;
-                }
-                gestureRef.current.firstLevelTriggered = true;
-                gestureRef.current.primedPageX = gestureRef.current.lastPageX;
-                gestureRef.current.primedPageY = gestureRef.current.lastPageY;
-                setPrimedItemId(itemKey);
-              }, FIRST_LEVEL_LONG_PRESS_DELAY_MS);
-              current.menuTimer = setTimeout(() => {
-                const latest = gestureRef.current;
-                if (latest.activeItemId !== itemKey) {
-                  return;
-                }
-                if (
-                  isDragSessionActiveRef.current ||
-                  latest.movedBeyondThreshold ||
-                  !latest.firstLevelTriggered ||
-                  latest.hasMoved
-                ) {
-                  return;
-                }
-
-                const latestPageY = latest.lastPageY || pageY;
-                const stillInsideRow =
-                  latestPageY >= latest.rowTop &&
-                  latestPageY <= latest.rowBottom;
-                if (!stillInsideRow) {
-                  return;
-                }
-
-                latest.consumeNextPress = true;
-                clearDragTimer();
-                clearMenuTimer();
-                stopManualAutoScroll();
-                setPrimedItemId(null);
-                const latestIndex = getLatestIndex();
-                Haptics.impact(ImpactFeedbackStyle.Medium);
-                const { width } = Dimensions.get('window');
-                handleShowContextMenu(item, latestIndex, {
-                  x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
-                  y: latestPageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
-                });
-                resetGestureSession();
-              }, SECOND_LEVEL_LONG_PRESS_DELAY_MS);
-            }
+            // No drag, show context menu directly at first level
+            current.menuTimer = setTimeout(() => {
+              const latest = gestureRef.current;
+              if (latest.activeItemId !== itemKey || latest.hasMoved) {
+                return;
+              }
+              const latestPageY = latest.lastPageY || pageY;
+              const stillInsideRow =
+                latestPageY >= latest.rowTop && latestPageY <= latest.rowBottom;
+              if (!stillInsideRow) {
+                return;
+              }
+              latest.consumeNextPress = true;
+              clearMenuTimer();
+              const latestIndex = getLatestIndex();
+              Haptics.impact(ImpactFeedbackStyle.Medium);
+              const { width } = Dimensions.get('window');
+              handleShowContextMenu(item, latestIndex, {
+                x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
+                y: latestPageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
+              });
+              resetGestureSession();
+            }, FIRST_LEVEL_LONG_PRESS_DELAY_MS);
           }}
           onTouchMove={(event: GestureResponderEvent) => {
             const current = gestureRef.current;
@@ -780,60 +676,9 @@ function MobileMarketWatchlistFlatListImpl({
               current.hasMoved = true;
             }
 
-            // Android: no drag/primed state, only track position and hasMoved
-            if (platformEnv.isNativeAndroid) {
-              if (movedDistance > DRAG_MOVE_THRESHOLD_PX) {
-                clearMenuTimer();
-              }
-              return;
-            }
-
-            if (!current.firstLevelTriggered) {
-              const pressedFor = Date.now() - current.pressStartAt;
-              if (pressedFor >= FIRST_LEVEL_LONG_PRESS_DELAY_MS) {
-                current.firstLevelTriggered = true;
-                current.primedPageX = pageX;
-                current.primedPageY = pageY;
-                setPrimedItemId(itemKey);
-              }
-              stopManualAutoScroll();
-              if (!current.firstLevelTriggered) {
-                return;
-              }
-            }
-
-            if (!isActive && !current.movedBeyondThreshold) {
-              const movedAfterPrimed = Math.max(
-                Math.abs(pageX - current.primedPageX),
-                Math.abs(pageY - current.primedPageY),
-              );
-              if (movedAfterPrimed) {
-                if (
-                  movedAfterPrimed >= DRAG_START_AFTER_PRIMED_MOVE_PX &&
-                  startDragWithGuard(drag)
-                ) {
-                  return;
-                }
-              }
-            }
-
+            // No drag/primed state, only track position and hasMoved
             if (movedDistance > DRAG_MOVE_THRESHOLD_PX) {
               clearMenuTimer();
-            }
-
-            if (current.firstLevelTriggered && isActive) {
-              const dragItemTopY = getDraggedItemTopY({
-                anchorRowTopY:
-                  dragPointerTrackRef.current.anchorRowTopY || current.rowTop,
-                translationY: globalRef.translationY,
-              });
-              updateManualAutoScroll({
-                dragItemTopY,
-                dragItemBottomY:
-                  dragItemTopY + (current.rowBottom - current.rowTop),
-              });
-            } else {
-              stopManualAutoScroll();
             }
           }}
           onLayout={(layoutEvent) => {
@@ -848,7 +693,6 @@ function MobileMarketWatchlistFlatListImpl({
             if (touchesLength > 0) {
               return;
             }
-            clearDragTimer();
             clearMenuTimer();
             stopManualAutoScroll();
             resetGestureSession();
@@ -860,28 +704,24 @@ function MobileMarketWatchlistFlatListImpl({
               scheduleDragEndFallback();
               return;
             }
-            clearDragTimer();
             clearMenuTimer();
             stopManualAutoScroll();
             resetGestureSession();
           }}
-          isPrimed={primedItemId === itemKey ? !isActive : false}
+          isPrimed={false}
           isDragging={isActive}
         />
       );
     },
     [
-      clearDragTimer,
       clearMenuTimer,
       clearDragEndFallbackTimer,
       getStableItemKey,
       handleShowContextMenu,
       navigateToPerps,
-      primedItemId,
       resetGestureSession,
       stopDragPointerTracking,
       stopManualAutoScroll,
-      updateManualAutoScroll,
       scheduleDragEndFallback,
       toMarketDetailPage,
     ],
@@ -948,10 +788,8 @@ function MobileMarketWatchlistFlatListImpl({
         clearDragEndFallbackTimer();
         isDragSessionActiveRef.current = true;
         gestureRef.current.consumeNextPress = true;
-        clearDragTimer();
         clearMenuTimer();
         stopManualAutoScroll();
-        setPrimedItemId(null);
         dismissInlineActionBar();
         if (syncDragItemAnchor()) {
           startDragPointerTracking();
@@ -991,7 +829,7 @@ function MobileMarketWatchlistFlatListImpl({
       activationDistance={DRAG_ACTIVATION_DISTANCE_PX}
       autoscrollThreshold={AUTOSCROLL_THRESHOLD_PX}
       autoscrollSpeed={AUTOSCROLL_SPEED_PX}
-      scrollEnabled={!primedItemId}
+      scrollEnabled
       renderItem={renderItem}
       renderPlaceholder={renderPlaceholder}
       keyExtractor={keyExtractor}

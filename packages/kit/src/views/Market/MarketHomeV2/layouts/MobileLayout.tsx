@@ -98,10 +98,7 @@ function MarketHomeTabBar({
       <Tabs.TabBar {...tabBarProps} />
       {focusedTab === watchlistTabName && !ctx.isWatchlistEmpty ? (
         <>
-          <XStack
-            alignItems="center"
-            pr={platformEnv.isNativeAndroid ? '$3' : undefined}
-          >
+          <XStack alignItems="center" pr="$3">
             <XStack flex={1}>
               <MarketWatchlistCategorySelector
                 selectedFilter={ctx.watchlistFilter}
@@ -113,14 +110,12 @@ function MarketHomeTabBar({
                 }}
               />
             </XStack>
-            {platformEnv.isNativeAndroid ? (
-              <IconButton
-                icon="PencilOutline"
-                size="small"
-                variant="tertiary"
-                onPress={ctx.onEditWatchlist}
-              />
-            ) : null}
+            <IconButton
+              icon="PencilOutline"
+              size="small"
+              variant="tertiary"
+              onPress={ctx.onEditWatchlist}
+            />
           </XStack>
           <YStack
             onLayout={(event: {

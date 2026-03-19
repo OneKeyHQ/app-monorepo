@@ -8,7 +8,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Dialog,
-  Empty,
   Icon,
   SortableListView,
   Spinner,
@@ -112,7 +111,7 @@ function MarketWatchlistEditDialogContent({
     [onSort],
   );
 
-  if (watchlistResult.isLoading && !dataSource.length) {
+  if (!dataSource.length) {
     return (
       <YStack
         h={EDIT_DIALOG_HEIGHT}
@@ -132,15 +131,7 @@ function MarketWatchlistEditDialogContent({
         keyExtractor={getWatchlistTokenKey}
         getItemLayout={getWatchlistItemLayout}
         onDragEnd={handleDragEnd}
-        ListEmptyComponent={
-          <Empty
-            py="$20"
-            icon="StarOutline"
-            title={intl.formatMessage({
-              id: ETranslations.global_no_data,
-            })}
-          />
-        }
+        ListEmptyComponent={null}
         renderItem={({ item, drag, isActive }) => (
           <ListItem
             h={CELL_HEIGHT}
@@ -236,11 +227,9 @@ export function useOpenMarketWatchlistEditDialog() {
     }
 
     dialogRef.current = Dialog.show({
-      title: `${intl.formatMessage({
-        id: ETranslations.global_manage,
-      })} ${intl.formatMessage({
+      title: intl.formatMessage({
         id: ETranslations.global_favorites,
-      })}`,
+      }),
       renderContent: (
         <MarketWatchlistEditDialogContent
           watchlist={watchlistRef.current}
@@ -249,6 +238,7 @@ export function useOpenMarketWatchlistEditDialog() {
         />
       ),
       estimatedContentHeight: EDIT_DIALOG_HEIGHT,
+      disableDrag: true,
       showCancelButton: false,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_done,
