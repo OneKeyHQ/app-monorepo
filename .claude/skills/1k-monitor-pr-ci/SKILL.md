@@ -253,7 +253,7 @@ After pushing fixes, request re-review from the reviewers who left comments:
    ```bash
    gh api --method POST \
      repos/{owner}/{repo}/pulls/{pr_number}/requested_reviewers \
-     -f '{"reviewers":["reviewer1","reviewer2"]}'
+     -f 'reviewers[]=reviewer1' -f 'reviewers[]=reviewer2'
    ```
 
 3. Return to Step 1 (wait for CI to re-run)
