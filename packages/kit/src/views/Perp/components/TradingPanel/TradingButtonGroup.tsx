@@ -27,11 +27,7 @@ import {
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  getTriggerDirectionRule,
-  parseDexCoin,
-  validateStandaloneTriggerPrice,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
@@ -251,8 +247,7 @@ function SideButtonInternal({
           return;
         }
         const isLimitTrigger =
-          formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
-          formData.triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+          formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
         if (isLimitTrigger) {
           const ep = formData.executionPrice?.trim();
           if (!ep || new BigNumber(ep).lte(0)) {
@@ -264,50 +259,14 @@ function SideButtonInternal({
             return;
           }
         }
-        // Direction validation: triggerPrice vs mid price (per HL order-types doc)
         if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
           Toast.error({ title: 'Market price unavailable, please try again' });
           return;
         }
-        if (
-          !validateStandaloneTriggerPrice(
-            tp,
-            midPriceBN,
-            formData.triggerOrderType,
-            side,
-          )
-        ) {
-          const isStop =
-            formData.triggerOrderType === ETriggerOrderType.STOP_MARKET ||
-            formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT;
-          const dirRule = getTriggerDirectionRule(
-            formData.triggerOrderType,
-            side,
-          );
-          let typeKey: ETranslations;
-          if (isStop) {
-            typeKey =
-              side === 'long'
-                ? ETranslations.perps_stop_loss_buy
-                : ETranslations.perps_stop_loss_sell;
-          } else {
-            typeKey =
-              side === 'long'
-                ? ETranslations.perps_take_profit_buy
-                : ETranslations.perps_take_profit_sell;
-          }
-          const dirKey =
-            dirRule === 'above'
-              ? ETranslations.perps_above
-              : ETranslations.perps_below;
+        // Trigger price must differ from current price for TP/SL inference
+        if (new BigNumber(tp).eq(midPriceBN)) {
           Toast.error({
-            title: intl.formatMessage(
-              { id: ETranslations.perps_pro_order_trigger_price },
-              {
-                type: intl.formatMessage({ id: typeKey }),
-                dir: intl.formatMessage({ id: dirKey }),
-              },
-            ),
+            title: 'Trigger price must differ from current price',
           });
           return;
         }

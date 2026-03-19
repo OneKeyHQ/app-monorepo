@@ -146,7 +146,7 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     slValue: '',
     // Standalone trigger defaults
     orderMode: 'standard',
-    triggerOrderType: ETriggerOrderType.STOP_MARKET,
+    triggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     triggerPrice: '',
     executionPrice: '',
     triggerReduceOnly: true,
