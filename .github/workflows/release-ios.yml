@@ -115,7 +115,7 @@ jobs:
       - name: Write .env.version
         run: |
           # pass BUILD_NUMBER as env variable to expo server
-          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+          echo "BUILD_NUMBER=2026031916" >> .env.version
 
       - name: Write .sentry.properties
         run: |
