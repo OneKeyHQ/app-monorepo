@@ -32,11 +32,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
   // WebView onScroll is JS-thread only, so we extract numeric values in JS
   // and dispatch via runOnUI to avoid an extra JS→UI hop for withTiming.
   const processScroll = useCallback(
-    (
-      contentOffsetY: number,
-      canScroll: boolean,
-      isOutOfBounds: boolean,
-    ) => {
+    (contentOffsetY: number, canScroll: boolean, isOutOfBounds: boolean) => {
       'worklet';
       if (isOutOfBounds) {
         lastScrollY.value = UNSET;
