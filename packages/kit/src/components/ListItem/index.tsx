@@ -334,6 +334,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     // This prevents accidental onPress triggers while scrolling in nested
     // PagerView + ScrollView layouts.
     const useNativePressable = platformEnv.isNative && hasPressHandler;
+    const useStackPress = !useNativePressable && hasPressHandler;
 
     const content = (
       <Stack
@@ -347,11 +348,11 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         mx="$2"
         borderRadius="$3"
         borderCurve="continuous"
-        onPress={!useNativePressable && onPress ? handleItemPress : undefined}
+        onPress={useStackPress ? handleItemPress : undefined}
         {...(props.disabled && {
           opacity: 0.5,
         })}
-        {...(!useNativePressable && hasPressHandler ? listItemPressStyle : undefined)}
+        {...(useStackPress ? listItemPressStyle : undefined)}
         {...rest}
       >
         {childrenBefore}
@@ -405,10 +406,10 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     );
 
     if (useNativePressable) {
-      // delayPressIn: delays the visual press highlight so it doesn't briefly
-      // flash when the user starts a scroll gesture on top of a list item.
-      // It does NOT affect whether onPress fires — that is handled by
-      // Pressable's built-in scroll cancellation.
+      // unstable_pressDelay: delays the visual press highlight (onPressIn) so
+      // it doesn't briefly flash when the user starts a scroll gesture on top
+      // of a list item. It does NOT affect whether onPress fires — that is
+      // handled by Pressable's built-in scroll cancellation.
       return (
         <Pressable onPress={handleItemPress} unstable_pressDelay={50}>
           {content}
