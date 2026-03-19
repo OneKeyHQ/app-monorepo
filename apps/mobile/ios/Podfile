@@ -120,6 +120,30 @@ target 'OneKeyWallet' do
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'
 
   post_install do |installer|
+    # Copy custom fonts from components package and add to Xcode Resources.
+    # Fonts are registered via Info.plist UIAppFonts so iOS manages them natively,
+    # making them resilient to background memory purge.
+    fonts_src = File.join(__dir__, '..', '..', '..', 'packages', 'components', 'src', 'hocs', 'Provider', 'fonts')
+    fonts_dst = File.join(__dir__, 'OneKeyWallet', 'Fonts')
+    font_files = %w[Roobert-Regular.ttf Roobert-Medium.ttf Roobert-SemiBold.ttf Roobert-Bold.ttf GeistMono-Regular.ttf GeistMono-Medium.ttf]
+
+    FileUtils.mkdir_p(fonts_dst)
+    font_files.each { |f| FileUtils.cp(File.join(fonts_src, f), File.join(fonts_dst, f)) }
+    puts "[Fonts] Copied #{font_files.length} fonts to ios/OneKeyWallet/Fonts/"
+
+    # Add font files to the Xcode project Resources build phase
+    user_project = installer.aggregate_targets.first.user_project
+    main_target = user_project.native_targets.find { |t| t.name == 'OneKeyWallet' }
+    main_group = user_project.main_group.find_subpath('OneKeyWallet', false)
+    fonts_group = main_group.find_subpath('Fonts', false) || main_group.new_group('Fonts', 'OneKeyWallet/Fonts')
+
+    font_files.each do |f|
+      next if fonts_group.files.any? { |ref| ref.path == f }
+      file_ref = fonts_group.new_file(f)
+      main_target.resources_build_phase.add_file_reference(file_ref)
+    end
+    user_project.save
+    puts "[Fonts] Added fonts to Xcode project Resources"
     react_native_post_install(
       installer,
       config[:reactNativePath],
