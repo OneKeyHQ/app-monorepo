@@ -479,7 +479,7 @@ export function DesktopLeftSideBar({
   }, []);
 
   const { visibleRoutes, overflowRoutes, deviceRoute } = useMemo(() => {
-    let deviceRoute: (typeof routes)[0] | undefined;
+    let currentDeviceRoute: (typeof routes)[0] | undefined;
     const validRoutes = routes.filter((route) => {
       const { options } = descriptors[route.key] as {
         options: {
@@ -491,7 +491,7 @@ export function DesktopLeftSideBar({
         return false;
       }
       if (route.name === ETabRoutes.DeviceManagement) {
-        deviceRoute = route;
+        currentDeviceRoute = route;
         return false;
       }
       if (isShowWebTabBar && route.name === extraConfig?.name) {
@@ -504,14 +504,14 @@ export function DesktopLeftSideBar({
       return {
         visibleRoutes: validRoutes,
         overflowRoutes: [] as typeof validRoutes,
-        deviceRoute,
+        deviceRoute: currentDeviceRoute,
       };
     }
     const visibleCount = Math.max(0, maxVisibleCount - 1);
     return {
       visibleRoutes: validRoutes.slice(0, visibleCount),
       overflowRoutes: validRoutes.slice(visibleCount),
-      deviceRoute,
+      deviceRoute: currentDeviceRoute,
     };
   }, [
     routes,
