@@ -476,11 +476,15 @@ export default function PagePrimeTransferPreview() {
   );
 
   const { result: selectedTransferData } = usePromiseResult(async () => {
+    if (!transferData) {
+      return undefined;
+    }
     const d =
-      await backgroundApiProxy.servicePrimeTransfer.getSelectedTransferData({
-        data: transferData,
-        selectedItemMap,
-      });
+      await backgroundApiProxy.servicePrimeTransfer.getSelectedTransferDataFromReceived(
+        {
+          selectedItemMap,
+        },
+      );
     return d;
   }, [selectedItemMap, transferData]);
   const isSelectedEmpty = useMemo(() => {
@@ -510,6 +514,14 @@ export default function PagePrimeTransferPreview() {
     return <></>;
   }, [selectedTransferData, transferData]);
 
+  const hasCredentials = useMemo(() => {
+    const firstWalletCredential =
+      selectedTransferData?.wallets?.[0]?.credential;
+    const firstImportedAccountCredential =
+      selectedTransferData?.importedAccounts?.[0]?.credential;
+    return Boolean(firstWalletCredential || firstImportedAccountCredential);
+  }, [selectedTransferData]);
+
   const onConfirm = useCallback(async () => {
     if (!selectedTransferData) {
       return;
@@ -520,13 +532,9 @@ export default function PagePrimeTransferPreview() {
 
     try {
       setIsImporting(true);
-      const firstWalletCredential =
-        selectedTransferData?.wallets?.[0]?.credential;
-      const firstImportedAccountCredential =
-        selectedTransferData?.importedAccounts?.[0]?.credential;
 
       let localPassword = '';
-      if (firstWalletCredential || firstImportedAccountCredential) {
+      if (hasCredentials) {
         const { password } =
           await backgroundApiProxy.servicePassword.promptPasswordVerify();
         localPassword = password;
@@ -534,11 +542,9 @@ export default function PagePrimeTransferPreview() {
 
       let canBeDecryptedByRemotePassword = false;
       const canBeDecrypted =
-        await backgroundApiProxy.servicePrimeTransfer.verifyCredentialCanBeDecrypted(
+        await backgroundApiProxy.servicePrimeTransfer.verifyReceivedFirstCredential(
           {
             password: localPassword,
-            walletCredential: firstWalletCredential,
-            importedAccountCredential: firstImportedAccountCredential,
           },
         );
 
@@ -549,35 +555,31 @@ export default function PagePrimeTransferPreview() {
         try {
           void remotePasswordDialog?.close();
 
-          // exitTransferFlow();
-          // await timerUtils.wait(1000);
-
           // Delay to ensure the dialog is closed before proceeding
           if (platformEnv.isNative) {
             await timerUtils.wait(350);
           }
 
-          await backgroundApiProxy.servicePrimeTransfer.initImportProgress({
-            selectedTransferData,
-          });
+          const usedPassword = remoteDevicePassword || localPassword;
 
           // Show progress dialog
           showPrimeTransferImportProcessingDialog({
             navigation,
           });
 
-          const usedPassword = remoteDevicePassword || localPassword;
           const { success, errorsInfo } =
-            await backgroundApiProxy.servicePrimeTransfer.startImport({
-              decryptedCredentialsHex:
-                transferData?.privateData?.decryptedCredentialsHex,
-              selectedTransferData,
-              password: usedPassword
-                ? await backgroundApiProxy.servicePassword.encodeSensitiveText({
-                    text: usedPassword,
-                  })
-                : '',
-            });
+            await backgroundApiProxy.servicePrimeTransfer.startImportFromReceived(
+              {
+                selectedItemMap,
+                password: usedPassword
+                  ? await backgroundApiProxy.servicePassword.encodeSensitiveText(
+                      {
+                        text: usedPassword,
+                      },
+                    )
+                  : '',
+              },
+            );
 
           await backgroundApiProxy.servicePrimeTransfer.completeImportProgress({
             errorsInfo,
@@ -609,11 +611,9 @@ export default function PagePrimeTransferPreview() {
               setIsImporting(true);
 
               canBeDecryptedByRemotePassword =
-                await backgroundApiProxy.servicePrimeTransfer.verifyCredentialCanBeDecrypted(
+                await backgroundApiProxy.servicePrimeTransfer.verifyReceivedFirstCredential(
                   {
                     password: remoteDevicePassword,
-                    walletCredential: firstWalletCredential,
-                    importedAccountCredential: firstImportedAccountCredential,
                   },
                 );
 
@@ -683,8 +683,9 @@ export default function PagePrimeTransferPreview() {
   }, [
     selectedTransferData,
     isImporting,
+    hasCredentials,
+    selectedItemMap,
     navigation,
-    transferData?.privateData?.decryptedCredentialsHex,
     exitTransferFlow,
     intl,
     directionUserInfo?.fromUser?.appPlatformName,

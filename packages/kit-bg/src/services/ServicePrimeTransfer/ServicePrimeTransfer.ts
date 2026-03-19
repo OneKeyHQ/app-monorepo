@@ -142,6 +142,9 @@ class ServicePrimeTransfer extends ServiceBase {
 
   private heartbeatCheckTimer: ReturnType<typeof setInterval> | null = null;
 
+  // Store received transfer data in background to avoid serializing across bridge
+  private receivedTransferData: IPrimeTransferData | undefined;
+
   @backgroundMethod()
   async verifyWebSocketEndpoint(endpoint: string): Promise<{
     isValid: boolean;
@@ -1397,13 +1400,27 @@ class ServicePrimeTransfer extends ServiceBase {
       }
       account.createAtNetwork = networkId || account.createAtNetwork;
     }
+    // Store full data in background service to avoid passing it through bridge
+    this.receivedTransferData = transferData;
+
+    // Emit lightweight data WITHOUT credentials to UI
+    const uiData: IPrimeTransferData = {
+      ...transferData,
+      privateData: {
+        ...transferData.privateData,
+        credentials: undefined,
+        decryptedCredentials: undefined,
+        decryptedCredentialsHex: undefined,
+      },
+    };
     appEventBus.emit(EAppEventBusNames.PrimeTransferDataReceived, {
-      data: transferData,
+      data: uiData,
     });
   }
 
   @backgroundMethod()
   async clearSensitiveData() {
+    this.receivedTransferData = undefined;
     connectedPairingCode = null;
     connectedEncryptedKey = null;
     e2eeClientToClientApi.setSelfPairingCode({ pairingCode: '' });
@@ -1411,6 +1428,7 @@ class ServicePrimeTransfer extends ServiceBase {
   }
 
   async handleDisconnect() {
+    this.receivedTransferData = undefined;
     connectedPairingCode = null;
     connectedEncryptedKey = null;
     await primeTransferAtom.set(
@@ -1674,6 +1692,112 @@ class ServicePrimeTransfer extends ServiceBase {
       importedAccounts,
       watchingAccounts,
     };
+  }
+
+  /**
+   * Get selected transfer data using stored receivedTransferData.
+   * Only passes selectedItemMap across bridge instead of the full transferData.
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async getSelectedTransferDataFromReceived({
+    selectedItemMap,
+  }: {
+    selectedItemMap: IPrimeTransferSelectedItemMap;
+  }): Promise<IPrimeTransferSelectedData> {
+    if (!this.receivedTransferData) {
+      throw new OneKeyLocalError('No received transfer data available');
+    }
+    return this.getSelectedTransferData({
+      data: this.receivedTransferData,
+      selectedItemMap,
+    });
+  }
+
+  /**
+   * Verify that the first credential in receivedTransferData can be decrypted.
+   * Avoids sending credential data to UI and back.
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async verifyReceivedFirstCredential({
+    password,
+  }: {
+    password: string;
+  }) {
+    if (!this.receivedTransferData) {
+      throw new OneKeyLocalError('No received transfer data available');
+    }
+    const credentials = this.receivedTransferData.privateData.credentials;
+    const wallets = Object.keys(
+      this.receivedTransferData.privateData.wallets || {},
+    );
+    const importedAccounts = Object.keys(
+      this.receivedTransferData.privateData.importedAccounts || {},
+    );
+
+    let walletCredential: string | undefined;
+    let importedAccountCredential: string | undefined;
+    for (const walletId of wallets) {
+      if (credentials?.[walletId]) {
+        walletCredential = credentials[walletId];
+        break;
+      }
+    }
+    if (!walletCredential) {
+      for (const accountId of importedAccounts) {
+        if (credentials?.[accountId]) {
+          importedAccountCredential = credentials[accountId];
+          break;
+        }
+      }
+    }
+
+    return this.verifyCredentialCanBeDecrypted({
+      walletCredential,
+      importedAccountCredential,
+      password,
+    });
+  }
+
+  /**
+   * Start import using stored receivedTransferData.
+   * Avoids sending selectedTransferData and decryptedCredentialsHex across bridge.
+   */
+  @backgroundMethod()
+  @toastIfError()
+  async startImportFromReceived({
+    selectedItemMap,
+    password,
+    isFromCloudBackupRestore,
+    includingDefaultNetworks,
+  }: {
+    selectedItemMap: IPrimeTransferSelectedItemMap;
+    password: string;
+    isFromCloudBackupRestore?: boolean;
+    includingDefaultNetworks?: boolean;
+  }) {
+    if (!this.receivedTransferData) {
+      throw new OneKeyLocalError('No received transfer data available');
+    }
+    const selectedTransferData = await this.getSelectedTransferData({
+      data: this.receivedTransferData,
+      selectedItemMap,
+    });
+
+    await this.initImportProgress({
+      selectedTransferData,
+      isFromCloudBackupRestore,
+    });
+
+    return this.startImport({
+      decryptedCredentialsHex:
+        this.receivedTransferData.privateData.decryptedCredentialsHex,
+      selectedTransferData,
+      password,
+      includingDefaultNetworks,
+      isFromCloudBackupRestore,
+    });
   }
 
   @backgroundMethod()
