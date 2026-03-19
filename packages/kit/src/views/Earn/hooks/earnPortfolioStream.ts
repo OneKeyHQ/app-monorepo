@@ -365,7 +365,7 @@ const buildEarnPortfolioStreamTasks = ({
   });
 
   batchGroupMap.forEach((group) => {
-    const batchableGroup: IEarnBatchTaskGroup = {
+    const nextBatchGroup: IEarnBatchTaskGroup = {
       ...group,
       requestsByKey: new Map(),
       requestKeysBySymbol: new Map(),
@@ -381,20 +381,20 @@ const buildEarnPortfolioStreamTasks = ({
       }
 
       addRequestToBatchGroup({
-        group: batchableGroup,
+        group: nextBatchGroup,
         key,
         request,
       });
     });
 
-    if (batchableGroup.requestsByKey.size === 0) {
+    if (nextBatchGroup.requestsByKey.size === 0) {
       return;
     }
 
     tasks.push(
       buildBatchTask({
         accountId,
-        group: batchableGroup,
+        group: nextBatchGroup,
       }),
     );
   });
