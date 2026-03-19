@@ -14,6 +14,27 @@ import type {
 
 import ServiceBase from './ServiceBase';
 
+// --- Relay protocol constants ---
+const RELAY_API_BASE = 'https://api.relay.link';
+const HYPERLIQUID_CHAIN_ID = 1337;
+const HYPERLIQUID_DESTINATION_CURRENCY =
+  '0x00000000000000000000000000000000';
+// Hyperliquid uses 8-decimal USDC for EXACT_OUTPUT amount encoding
+const DESTINATION_DECIMALS = 8;
+const DEFAULT_EVM_DECIMALS = 18;
+const MAX_PROBE_AMOUNT = '10000000'; // 10M USD probe to find max liquidity
+
+// Non-EVM chain IDs
+const BITCOIN_CHAIN_ID = 8_253_038;
+const TRON_CHAIN_ID = 728_126_428;
+
+// Dummy users for non-EVM quote requests (API requires a valid address format)
+const NON_EVM_DUMMY_USERS: Record<number, string> = {
+  [BITCOIN_CHAIN_ID]: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
+  [TRON_CHAIN_ID]: 'TCWTKkQUNJw5rUersaecwkGKkxpU5amwmJ',
+};
+const EVM_DUMMY_USER = '0x0000000000000000000000000000000000000001';
+
 @backgroundClass()
 class ServiceRelay extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -29,8 +50,8 @@ class ServiceRelay extends ServiceBase {
     8453, // Base
     42_161, // Arbitrum
     43_114, // Avalanche
-    8_253_038, // Bitcoin
-    728_126_428, // Tron
+    BITCOIN_CHAIN_ID,
+    TRON_CHAIN_ID,
   ]);
 
   // Major currencies to keep (by symbol, case-insensitive)
@@ -76,17 +97,17 @@ class ServiceRelay extends ServiceBase {
       logo: 'https://uni.onekey-asset.com/static/chain/avalanche.png',
       displayName: 'Avalanche',
     },
-    8_253_038: {
+    [BITCOIN_CHAIN_ID]: {
       logo: 'https://uni.onekey-asset.com/static/chain/btc.png',
       displayName: 'Bitcoin',
     },
-    728_126_428: {
+    [TRON_CHAIN_ID]: {
       logo: 'https://uni.onekey-asset.com/static/chain/tron.png',
       displayName: 'Tron',
     },
   };
 
-  // Well-known token logos (native tokens don't have logoURI from API)
+  // Well-known token logos — takes priority over API-provided logoURI
   private static readonly TOKEN_LOGO_MAP: Record<string, string> = {
     eth: 'https://uni.onekey-asset.com/static/chain/eth.png',
     weth: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2.png',
@@ -103,14 +124,14 @@ class ServiceRelay extends ServiceBase {
   }[] = [
     {
       chain: {
-        id: 8_253_038,
+        id: BITCOIN_CHAIN_ID,
         name: 'Bitcoin',
         icon: 'https://uni.onekey-asset.com/static/chain/btc.png',
         vmType: 'btc',
       },
       currencies: [
         {
-          chainId: 8_253_038,
+          chainId: BITCOIN_CHAIN_ID,
           address: 'bc1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqmql8k8',
           symbol: 'BTC',
           name: 'Bitcoin',
@@ -121,14 +142,14 @@ class ServiceRelay extends ServiceBase {
     },
     {
       chain: {
-        id: 728_126_428,
+        id: TRON_CHAIN_ID,
         name: 'Tron',
         icon: 'https://uni.onekey-asset.com/static/chain/tron.png',
         vmType: 'tvm',
       },
       currencies: [
         {
-          chainId: 728_126_428,
+          chainId: TRON_CHAIN_ID,
           address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
           symbol: 'USDT',
           name: 'Tether USD',
@@ -154,7 +175,7 @@ class ServiceRelay extends ServiceBase {
       return this._chainsCache;
     }
 
-    const response = await fetch('https://api.relay.link/chains');
+    const response = await fetch(`${RELAY_API_BASE}/chains`);
     const data = (await response.json()) as IRelayChainsResponse;
 
     const chains: IRelayChain[] = [];
@@ -184,10 +205,12 @@ class ServiceRelay extends ServiceBase {
             symbol: c.symbol,
             name: c.name,
             decimals: c.decimals,
-            logoURI:
-              c.logoURI ||
-              ServiceRelay.TOKEN_LOGO_MAP[c.symbol.toLowerCase()] ||
-              `https://uni.onekey-asset.com/server-service-indexer/evm--${chain.id}/tokens/address-${c.address}.png`,
+            logoURI: ServiceRelay._resolveTokenLogo(
+              c.symbol,
+              c.logoURI,
+              chain.id,
+              c.address,
+            ),
           }));
         }
       }
@@ -203,6 +226,35 @@ class ServiceRelay extends ServiceBase {
     return this._chainsCache;
   }
 
+  /**
+   * Resolve token logo: our curated map takes priority, then API logoURI,
+   * then a generated URL from the indexer.
+   */
+  private static _resolveTokenLogo(
+    symbol: string,
+    apiLogoURI: string,
+    chainId: number,
+    address: string,
+  ): string {
+    const key = symbol.toLowerCase();
+    return (
+      ServiceRelay.TOKEN_LOGO_MAP[key] ||
+      apiLogoURI ||
+      `https://uni.onekey-asset.com/server-service-indexer/evm--${chainId}/tokens/address-${address}.png`
+    );
+  }
+
+  /**
+   * Convert a human-readable amount string to smallest-unit integer string.
+   * Uses string splitting instead of floating-point to avoid precision loss.
+   */
+  private static _toSmallestUnit(amount: string, decimals: number): string {
+    const [intPart, decPart = ''] = amount.split('.');
+    const paddedDec = decPart.slice(0, decimals).padEnd(decimals, '0');
+    const raw = `${intPart}${paddedDec}`.replace(/^0+/, '') || '0';
+    return raw;
+  }
+
   private _buildQuoteRequest(params: {
     originChainId: number;
     originCurrency: string;
@@ -212,73 +264,64 @@ class ServiceRelay extends ServiceBase {
     decimals?: number;
   }): IRelayQuoteRequest {
     const { originChainId, originCurrency, recipient, amount } = params;
-    const DESTINATION_DECIMALS = 8;
     const amountDecimals =
       params.tradeType === 'EXACT_INPUT'
-        ? (params.decimals ?? 18)
+        ? (params.decimals ?? DEFAULT_EVM_DECIMALS)
         : DESTINATION_DECIMALS;
-    const amountInSmallestUnit = BigInt(
-      Math.floor(parseFloat(amount) * 10 ** amountDecimals),
-    ).toString();
+    const amountInSmallestUnit = ServiceRelay._toSmallestUnit(
+      amount,
+      amountDecimals,
+    );
 
-    const isNonEvm =
-      originChainId === 8_253_038 || originChainId === 728_126_428;
+    const dummyUser = NON_EVM_DUMMY_USERS[originChainId];
+    const isNonEvm = !!dummyUser;
+
+    const baseRequest = {
+      originChainId,
+      destinationChainId: HYPERLIQUID_CHAIN_ID,
+      originCurrency,
+      destinationCurrency: HYPERLIQUID_DESTINATION_CURRENCY,
+      recipient,
+      amount: amountInSmallestUnit,
+      useDepositAddress: true,
+    };
 
     if (isNonEvm) {
-      // BTC dummy user, Tron dummy user
-      const dummyUser =
-        originChainId === 8_253_038
-          ? 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4'
-          : 'TCWTKkQUNJw5rUersaecwkGKkxpU5amwmJ';
       return {
+        ...baseRequest,
         user: dummyUser,
-        originChainId,
-        destinationChainId: 1337,
-        originCurrency,
-        destinationCurrency: '0x00000000000000000000000000000000',
-        recipient,
-        tradeType: 'EXPECTED_OUTPUT',
-        amount: amountInSmallestUnit,
-        useDepositAddress: true,
-        referrer: 'onekey.so',
-        topupGas: false, // cspell:disable-line
-        explicitDeposit: false,
+        tradeType:
+          params.tradeType === 'EXACT_INPUT'
+            ? 'EXACT_INPUT'
+            : 'EXPECTED_OUTPUT',
       };
     }
 
     return {
-      user: '0x0000000000000000000000000000000000000001',
-      originChainId,
-      destinationChainId: 1337,
-      originCurrency,
-      destinationCurrency: '0x00000000000000000000000000000000',
-      recipient,
+      ...baseRequest,
+      user: EVM_DUMMY_USER,
       tradeType: params.tradeType || 'EXACT_OUTPUT',
-      amount: amountInSmallestUnit,
-      useDepositAddress: true,
       refundTo: recipient,
     };
   }
 
   private _parseDepositAddress(data: IRelayQuoteResponse): string {
-    let depositAddress = '';
     for (const step of data.steps ?? []) {
       if (step.depositAddress) {
-        depositAddress = step.depositAddress;
-        break;
+        return step.depositAddress;
       }
+      let fallback = '';
       for (const item of step.items ?? []) {
         if (item.data?.depositAddress) {
-          depositAddress = item.data.depositAddress;
-          break;
+          return item.data.depositAddress;
         }
-        if (!depositAddress && item.data?.to) {
-          depositAddress = item.data.to;
+        if (!fallback && item.data?.to) {
+          fallback = item.data.to;
         }
       }
-      if (depositAddress) break;
+      if (fallback) return fallback;
     }
-    return depositAddress;
+    return '';
   }
 
   private _parseMaxAmountFromError(errorText: string): string | null {
@@ -293,7 +336,7 @@ class ServiceRelay extends ServiceBase {
   private async _fetchQuote(
     requestBody: IRelayQuoteRequest,
   ): Promise<IRelayQuoteResponse> {
-    const response = await fetch('https://api.relay.link/quote/v2', {
+    const response = await fetch(`${RELAY_API_BASE}/quote/v2`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -309,16 +352,10 @@ class ServiceRelay extends ServiceBase {
     return (await response.json()) as IRelayQuoteResponse;
   }
 
-  @backgroundMethod()
-  async getRelayQuote(params: {
-    originChainId: number;
-    originCurrency: string;
-    recipient: string;
-    amount: string;
-  }): Promise<IRelayDepositInfo> {
-    const requestBody = this._buildQuoteRequest(params);
-    const data = await this._fetchQuote(requestBody);
-
+  private _buildDepositInfo(
+    data: IRelayQuoteResponse,
+    fallbackAmount: string,
+  ): Omit<IRelayDepositInfo, 'maxReceiveAmount'> {
     const depositAddress = this._parseDepositAddress(data);
     if (!depositAddress) {
       throw new OneKeyError({
@@ -333,7 +370,8 @@ class ServiceRelay extends ServiceBase {
 
     return {
       depositAddress,
-      sendAmount: data.details?.currencyIn?.amountFormatted ?? params.amount,
+      sendAmount:
+        data.details?.currencyIn?.amountFormatted ?? fallbackAmount,
       sendSymbol: data.details?.currencyIn?.currency?.symbol ?? '',
       receiveAmount: data.details?.currencyOut?.amountFormatted ?? '0',
       receiveSymbol: data.details?.currencyOut?.currency?.symbol ?? 'USDC',
@@ -341,6 +379,18 @@ class ServiceRelay extends ServiceBase {
       totalFeePercent: data.details?.totalImpact?.percent,
       timeEstimate: data.details?.timeEstimate ?? 0,
     };
+  }
+
+  @backgroundMethod()
+  async getRelayQuote(params: {
+    originChainId: number;
+    originCurrency: string;
+    recipient: string;
+    amount: string;
+  }): Promise<IRelayDepositInfo> {
+    const requestBody = this._buildQuoteRequest(params);
+    const data = await this._fetchQuote(requestBody);
+    return this._buildDepositInfo(data, params.amount);
   }
 
   @backgroundMethod()
@@ -353,7 +403,6 @@ class ServiceRelay extends ServiceBase {
     decimals?: number;
   }): Promise<IRelayDepositInfo> {
     const quoteAmount = params.amount || '100';
-    const PROBE_AMOUNT = '10000000'; // 10M USD probe to find max liquidity
 
     // Parallel: quote for deposit address + fees, large probe for max amount
     const [quoteResult, probeResult] = await Promise.allSettled([
@@ -372,39 +421,25 @@ class ServiceRelay extends ServiceBase {
           originChainId: params.originChainId,
           originCurrency: params.originCurrency,
           recipient: params.recipient,
-          amount: PROBE_AMOUNT,
+          amount: MAX_PROBE_AMOUNT,
         }),
       ),
     ]);
 
-    // Extract deposit info from the small quote
     if (quoteResult.status === 'rejected') {
       throw new OneKeyError({
         message: `Relay quote failed: ${quoteResult.reason instanceof Error ? quoteResult.reason.message : String(quoteResult.reason)}`,
       });
     }
 
-    const data = quoteResult.value;
-    const depositAddress = this._parseDepositAddress(data);
-    if (!depositAddress) {
-      throw new OneKeyError({
-        message: 'No deposit address found in relay quote response',
-      });
-    }
-
-    const totalFeeUsd = (
-      parseFloat(data.fees?.gas?.amountUsd ?? '0') +
-      parseFloat(data.fees?.relayer?.amountUsd ?? '0')
-    ).toFixed(2);
+    const depositInfo = this._buildDepositInfo(quoteResult.value, quoteAmount);
 
     // Extract max amount from probe result
     let maxReceiveAmount: string | undefined;
     if (probeResult.status === 'fulfilled') {
-      // Probe succeeded — liquidity >= 10M, use probe's output amount
       maxReceiveAmount =
         probeResult.value.details?.currencyOut?.amountFormatted;
     } else {
-      // Probe failed — parse max from INSUFFICIENT_LIQUIDITY error
       const errorMessage =
         probeResult.reason instanceof Error
           ? probeResult.reason.message
@@ -414,14 +449,7 @@ class ServiceRelay extends ServiceBase {
     }
 
     return {
-      depositAddress,
-      sendAmount: data.details?.currencyIn?.amountFormatted ?? quoteAmount,
-      sendSymbol: data.details?.currencyIn?.currency?.symbol ?? '',
-      receiveAmount: data.details?.currencyOut?.amountFormatted ?? '0',
-      receiveSymbol: data.details?.currencyOut?.currency?.symbol ?? 'USDC',
-      totalFeeUsd,
-      totalFeePercent: data.details?.totalImpact?.percent,
-      timeEstimate: data.details?.timeEstimate ?? 0,
+      ...depositInfo,
       maxReceiveAmount,
     };
   }

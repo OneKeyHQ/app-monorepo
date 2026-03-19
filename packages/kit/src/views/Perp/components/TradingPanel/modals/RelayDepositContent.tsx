@@ -49,6 +49,11 @@ function parseErrorMessage(raw: string): string {
   return raw;
 }
 
+const DEBOUNCE_MS = 1000;
+const DEFAULT_RECEIVE_AMOUNT = '100';
+const PERPS_USDC_LOGO =
+  'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png';
+
 interface IRelayDepositContentProps {
   selectedAccount: IPerpsActiveAccountAtom;
 }
@@ -69,7 +74,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
     null,
   );
   const [sendAmount, setSendAmount] = useState('');
-  const [receiveAmount, setReceiveAmount] = useState('100');
+  const [receiveAmount, setReceiveAmount] = useState(DEFAULT_RECEIVE_AMOUNT);
   const [loading, setLoading] = useState(false);
   const [chainsLoading, setChainsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -185,7 +190,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
             decimals: selectedCurrency?.decimals,
           });
         }
-      }, 1000);
+      }, DEBOUNCE_MS);
     },
     [fetchQuote, selectedChainId, selectedCurrencyAddress, selectedCurrency],
   );
@@ -206,7 +211,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
             amount: raw,
           });
         }
-      }, 1000);
+      }, DEBOUNCE_MS);
     },
     [fetchQuote, selectedChainId, selectedCurrencyAddress],
   );
@@ -251,7 +256,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
           void fetchQuote({
             chainId: defaultChainId,
             currencyAddress: defaultCurrencyAddr,
-            amount: '100',
+            amount: DEFAULT_RECEIVE_AMOUNT,
           });
         }
       } catch (e) {
@@ -277,7 +282,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
         void fetchQuote({
           chainId,
           currencyAddress: picked.address,
-          amount: '100',
+          amount: DEFAULT_RECEIVE_AMOUNT,
         });
       }
     },
@@ -294,7 +299,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
         void fetchQuote({
           chainId: selectedChainId,
           currencyAddress: currency.address,
-          amount: '100',
+          amount: DEFAULT_RECEIVE_AMOUNT,
         });
       }
     },
@@ -576,7 +581,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
                     }}
                     pointerEvents="none"
                   >
-                    {formatWithCommas(receiveAmount) || '100'}
+                    {formatWithCommas(receiveAmount) || DEFAULT_RECEIVE_AMOUNT}
                   </Text>
                   <TextInput
                     accessible
@@ -584,7 +589,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
                     value={formatWithCommas(receiveAmount)}
                     onChangeText={handleReceiveAmountChange}
                     keyboardType="numeric"
-                    placeholder="100"
+                    placeholder={DEFAULT_RECEIVE_AMOUNT}
                     placeholderTextColor={theme.textDisabled.val}
                     style={{
                       position: 'absolute',
@@ -600,7 +605,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
                   />
                 </YStack>
                 <Image
-                  src="https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png"
+                  src={PERPS_USDC_LOGO}
                   size="$4"
                   borderRadius="$full"
                 />

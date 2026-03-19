@@ -25,9 +25,6 @@ export interface IRelayQuoteRequest {
   amount: string;
   useDepositAddress: boolean;
   refundTo?: string;
-  referrer?: string;
-  topupGas?: boolean; // cspell:disable-line
-  explicitDeposit?: boolean;
 }
 
 export interface IRelayQuoteStep {
