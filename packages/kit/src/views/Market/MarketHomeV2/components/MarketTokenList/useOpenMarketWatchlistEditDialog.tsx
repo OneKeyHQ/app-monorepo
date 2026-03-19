@@ -158,8 +158,12 @@ function MarketWatchlistEditDialogContent({
                 networkId={item.networkId}
                 symbol={item.symbol}
                 address={item.address}
+                showVolume
+                volume={item.turnover}
                 communityRecognized={item.communityRecognized}
                 stock={item.stock}
+                maxLeverage={item.maxLeverage}
+                perpsSubtitle={item.perpsSubtitle}
               />
             </YStack>
             <XStack gap="$1">
