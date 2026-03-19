@@ -982,7 +982,7 @@ class ServiceAppUpdate extends ServiceBase {
         defaultLogger.app.appUpdate.log(
           'fetchAppUpdateInfo: skipped — ignoreServerBundleUpdate is enabled',
         );
-        return appUpdatePersistAtom.get();
+        return await appUpdatePersistAtom.get();
       }
     } catch {
       // ignore — proceed with normal flow
@@ -1063,6 +1063,10 @@ class ServiceAppUpdate extends ServiceBase {
           requestSeq,
           appVersion: platformEnv.version || '',
         });
+        await appUpdatePersistAtom.set((prev) => ({
+          ...prev,
+          updateAt: Date.now(),
+        }));
         const latest = await appUpdatePersistAtom.get();
         return latest;
       }
@@ -1115,6 +1119,10 @@ class ServiceAppUpdate extends ServiceBase {
           requestSeq,
           appVersion: releaseInfo.version || platformEnv.version || '',
         });
+        await appUpdatePersistAtom.set((prev) => ({
+          ...prev,
+          updateAt: Date.now(),
+        }));
         const latest = await appUpdatePersistAtom.get();
         return latest;
       }

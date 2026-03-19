@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 import { useIntl } from 'react-intl';
 
+import { resetToRoute } from '@onekeyhq/components';
 import type {
   IDBDevice,
   IDBWallet,
@@ -13,7 +14,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-import { resetToRoute } from '@onekeyhq/components';
 import {
   OneKeyErrorAirGapDeviceMismatch,
   OneKeyErrorAirGapWalletMismatch,
