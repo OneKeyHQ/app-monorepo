@@ -25,7 +25,9 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { IQRCodeHandlerParseOutsideOptions } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { LOCALE_SEPARATORS } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useClipboard, useSelectionColor } from '../../hooks';
@@ -422,12 +424,43 @@ function BaseInput(
     valueRef.current = value;
   }
 
+  const getGroupingSeparator = useCallback((): string => {
+    const locale = appLocale.intl.locale;
+    return LOCALE_SEPARATORS[locale]?.grouping ?? ',';
+  }, []);
+
+  const getDecimalSeparator = useCallback((): string => {
+    const locale = appLocale.intl.locale;
+    return LOCALE_SEPARATORS[locale]?.decimal ?? '.';
+  }, []);
+
   const formattedValue = useMemo(() => {
-    if (!enableThousandsSeparator || !value) return value;
-    const parts = value.split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return parts.join('.');
-  }, [enableThousandsSeparator, value]);
+    if (!value) return value;
+
+    if (enableThousandsSeparator) {
+      const groupSep = getGroupingSeparator();
+      const decSep = getDecimalSeparator();
+      const parts = value.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, groupSep);
+      return parts.join(decSep);
+    }
+
+    // For all numeric inputs, display the locale decimal separator
+    const isNumeric =
+      keyboardType === 'decimal-pad' || keyboardType === 'number-pad';
+    if (isNumeric) {
+      const decSep = getDecimalSeparator();
+      if (decSep !== '.') return value.replace('.', decSep);
+    }
+
+    return value;
+  }, [
+    enableThousandsSeparator,
+    value,
+    keyboardType,
+    getGroupingSeparator,
+    getDecimalSeparator,
+  ]);
 
   const shownValue = useFixAndroidInputValueDisplay(formattedValue);
   // workaround for selectTextOnFocus={true} not working on Native App
@@ -449,19 +482,80 @@ function BaseInput(
   const onNumberPadChangeText = useCallback(
     (text: string) => {
       if (enableThousandsSeparator) {
-        // When thousands separator is enabled, commas are our separators,
-        // not locale decimal separators. Strip them instead of converting.
-        onChangeText?.(text.replace(/,/g, ''));
+        const groupSep = getGroupingSeparator();
+        const decSep = getDecimalSeparator();
+        const escapedGroup = groupSep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const groupRegex = new RegExp(escapedGroup, 'g');
+
+        // Calculate how many grouping separators the current formatted value
+        // should contain, based on the integer length of the raw value.
+        // If the typed text contains more than this, the extra one was typed
+        // by the user as a decimal separator (e.g. German user on an English
+        // keyboard presses '.' which is also the grouping separator for 'de').
+        const rawValue = value ?? '';
+        const intPart = rawValue.split('.')[0].replace(/^-/, '');
+        const expectedGroupSeps = Math.max(
+          0,
+          Math.floor((intPart.length - 1) / 3),
+        );
+        const actualGroupSeps = (text.match(groupRegex) ?? []).length;
+
+        let cleaned: string;
+        if (actualGroupSeps > expectedGroupSeps) {
+          // The last grouping-separator character was typed as a decimal point
+          const lastIdx = text.lastIndexOf(groupSep);
+          cleaned = `${text
+            .slice(0, lastIdx)
+            .replace(groupRegex, '')}.${text.slice(lastIdx + 1)}`;
+        } else {
+          // All grouping-separator characters are thousands separators — strip them
+          cleaned = text.replace(groupRegex, '');
+          // Also convert the locale decimal separator to '.' when it differs
+          // (e.g. German/French user presses ',' on the decimal-pad)
+          if (decSep !== '.') {
+            cleaned = cleaned.replace(decSep, '.');
+          }
+        }
+        onChangeText?.(cleaned);
       } else {
         onChangeText?.(text.replace(',', '.'));
       }
     },
-    [onChangeText, enableThousandsSeparator],
+    [
+      onChangeText,
+      enableThousandsSeparator,
+      getGroupingSeparator,
+      getDecimalSeparator,
+      value,
+    ],
   );
 
   const isNumberKeyboardType = useMemo(
     () => keyboardType === 'decimal-pad' || keyboardType === 'number-pad',
     [keyboardType],
+  );
+
+  const onChangeTextHandler = useCallback(
+    (text: string) => {
+      if (isNumberKeyboardType) {
+        onNumberPadChangeText(text);
+        return;
+      }
+      if (enableThousandsSeparator) {
+        const groupSep = getGroupingSeparator();
+        const escapedGroup = groupSep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        onChangeText?.(text.replace(new RegExp(escapedGroup, 'g'), ''));
+        return;
+      }
+      onChangeText?.(text);
+    },
+    [
+      isNumberKeyboardType,
+      onNumberPadChangeText,
+      enableThousandsSeparator,
+      getGroupingSeparator,
+      onChangeText,
+    ],
   );
 
   return (
@@ -528,13 +622,7 @@ function BaseInput(
           {...InputComponentStyle}
           {...props}
           onPaste={platformEnv.isNative ? onPaste : undefined}
-          onChangeText={
-            isNumberKeyboardType
-              ? onNumberPadChangeText
-              : enableThousandsSeparator
-                ? (text: string) => onChangeText?.(text.replace(/,/g, ''))
-                : onChangeText
-          }
+          onChangeText={onChangeTextHandler}
           allowFontScaling={false}
         />
       </Group.Item>
