@@ -29,8 +29,8 @@ Must be empty. If not, tell the user to commit or stash first.
 ### 3. Remote is up to date
 
 ```bash
-git fetch origin $current_branch
-git log HEAD..origin/$current_branch --oneline
+git fetch origin $RELEASE_BRANCH
+git log HEAD..origin/$RELEASE_BRANCH --oneline
 ```
 
 If remote has new commits, warn the user and suggest pulling first.
@@ -77,7 +77,7 @@ Show the diff and target branch, then wait for user confirmation:
 === Prepare Bundle Release ===
 
 Branch: $RELEASE_BRANCH
-BUILD_NUMBER: 1026031801
+BUILD_NUMBER: 2026031801
 
 Diff:
   (git diff .env.version output)
@@ -92,7 +92,7 @@ Do NOT proceed without explicit user confirmation.
 ```bash
 git add .env.version
 git commit -m "chore: set BUILD_NUMBER=$BUILD_NUMBER for bundle release"
-git push origin $current_branch
+git push origin $RELEASE_BRANCH
 ```
 
 ## Step 5: Output
@@ -101,7 +101,7 @@ git push origin $current_branch
 === Bundle Release Prepared ===
 
 Branch: $RELEASE_BRANCH
-BUILD_NUMBER: 1026031801
+BUILD_NUMBER: 2026031801
 Commit: abc1234
 
 .env.version updated and pushed.
