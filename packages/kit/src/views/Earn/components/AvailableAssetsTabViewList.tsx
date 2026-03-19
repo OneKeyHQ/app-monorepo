@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
-import { useThrottledCallback } from 'use-debounce';
 
 import {
   Badge,
@@ -22,7 +21,6 @@ import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableLi
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useEarnActions,
@@ -36,12 +34,13 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation } from '../earnUtils';
+import { useEarnAvailableAssetsMachine } from '../hooks/useEarnAvailableAssetsMachine';
 
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
 export function AvailableAssetsTabViewList() {
-  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
+  const [{ availableAssetsByType = {} }] = useEarnAtom();
   const actions = useEarnActions();
   const intl = useIntl();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
@@ -63,11 +62,15 @@ export function AvailableAssetsTabViewList() {
     return tabData.map((item) => item.title);
   }, [tabData]);
   const focusedTab = useSharedValue(TabNames[0]);
+  const currentTabType = tabData[selectedTabIndex]?.type;
+  const { assets: currentTabAssets, isInitialLoading } =
+    useEarnAvailableAssetsMachine({
+      tabType: currentTabType,
+    });
 
   // Get filtered assets based on selected tab and search text
   const assets = useMemo(() => {
-    const currentTabType = tabData[selectedTabIndex]?.type;
-    const source = availableAssetsByType[currentTabType] || [];
+    const source = currentTabAssets;
     if (!searchText) return source;
     const query = searchText.toLowerCase();
     return source.filter(
@@ -75,66 +78,7 @@ export function AvailableAssetsTabViewList() {
         a.symbol.toLowerCase().includes(query) ||
         a.name.toLowerCase().includes(query),
     );
-  }, [availableAssetsByType, selectedTabIndex, tabData, searchText]);
-
-  // Use ref to track component mount status to prevent state updates after unmount
-  const isMountedRef = useRef(true);
-
-  // Throttled function to fetch assets data
-  const fetchAssetsData = useThrottledCallback(
-    async (tabType: EAvailableAssetsTypeEnum) => {
-      // Early return if component is unmounted
-      if (!isMountedRef.current) {
-        return [];
-      }
-
-      const loadingKey = `availableAssets-${tabType}`;
-      actions.current.setLoadingState(loadingKey, true);
-
-      try {
-        const tabAssets =
-          await backgroundApiProxy.serviceStaking.getAvailableAssets({
-            type: tabType,
-          });
-
-        // Only update state if component is still mounted
-        if (isMountedRef.current) {
-          // Update the corresponding data in atom
-          actions.current.updateAvailableAssetsByType(tabType, tabAssets);
-        }
-        return tabAssets;
-      } catch (error) {
-        console.error('Failed to fetch available assets:', error);
-        // Return empty array on error to prevent infinite loading
-        return [];
-      } finally {
-        // Only update loading state if component is still mounted
-        if (isMountedRef.current) {
-          actions.current.setLoadingState(loadingKey, false);
-        }
-      }
-    },
-    200,
-    { leading: true, trailing: false },
-  );
-
-  // Load data for the selected tab
-  usePromiseResult(
-    async () => {
-      const currentTabType = tabData[selectedTabIndex]?.type;
-      if (currentTabType) {
-        const result = await fetchAssetsData(currentTabType);
-        return result || [];
-      }
-      return [];
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedTabIndex, tabData, refreshTrigger, fetchAssetsData],
-    {
-      watchLoading: true,
-      undefinedResultIfError: false, // Return empty array instead of undefined on error
-    },
-  );
+  }, [currentTabAssets, searchText]);
 
   // Handle tab change
   const handleTabChange = useCallback(
@@ -283,10 +227,9 @@ export function AvailableAssetsTabViewList() {
   // Handle row press in the main table
   const handleRowPress = useCallback(
     (asset: IEarnAvailableAsset) => {
-      const currentTabType = tabData[selectedTabIndex]?.type;
       return navigateToAsset(asset, currentTabType);
     },
-    [navigateToAsset, tabData, selectedTabIndex],
+    [currentTabType, navigateToAsset],
   );
 
   // Mobile custom renderer
@@ -388,7 +331,7 @@ export function AvailableAssetsTabViewList() {
   // Memoize ListEmptyComponent
   const listEmptyComponent = useMemo(
     () =>
-      searchText ? (
+      searchText && !isInitialLoading ? (
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({
@@ -396,7 +339,7 @@ export function AvailableAssetsTabViewList() {
           })}
         />
       ) : null,
-    [searchText, intl],
+    [intl, isInitialLoading, searchText],
   );
 
   // Pre-fetch all categories and open search dialog
@@ -465,16 +408,6 @@ export function AvailableAssetsTabViewList() {
     tabData,
   ]);
 
-  // Cleanup on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      // Mark component as unmounted
-      isMountedRef.current = false;
-      // Cancel any pending throttled calls
-      fetchAssetsData.cancel();
-    };
-  }, [fetchAssetsData]);
-
   return (
     <YStack gap="$3">
       <XStack px="$pagePadding" ai="center" jc="space-between">
@@ -515,6 +448,7 @@ export function AvailableAssetsTabViewList() {
       <TableList<IEarnAvailableAsset>
         key={`assets-tab-${selectedTabIndex}`}
         data={assets ?? []}
+        isLoading={isInitialLoading}
         columns={columns}
         keyExtractor={keyExtractor}
         withHeader={platformEnv.isNative ? false : media.gtMd}
