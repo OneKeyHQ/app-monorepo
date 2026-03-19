@@ -436,9 +436,7 @@ const BaseDevSettingsSection = () => {
         width="100%"
         type="multiple"
         defaultValue={
-          searchText
-            ? visibleSectionKeys
-            : visibleSectionKeys.slice(0, 1)
+          searchText ? visibleSectionKeys : visibleSectionKeys.slice(0, 1)
         }
         key={visibleSectionKeys.join(',')}
       >
