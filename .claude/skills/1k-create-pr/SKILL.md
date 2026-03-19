@@ -13,13 +13,14 @@ Automates the complete PR creation workflow for OneKey app-monorepo changes.
 | Step | Action | Commands |
 |------|--------|----------|
 | 1 | Check status | `git status`, `git branch --show-current` |
-| 2 | Create branch (if on x) | `git checkout -b <branch-name>` |
-| 3 | Lint fix | `yarn lint --fix` |
-| 4 | Stage & commit | `git add .`, `git commit -m "type: description"` |
-| 5 | Push to remote | `git push -u origin <branch-name>` |
-| 6 | Extract context | Analyze conversation for intent, decisions, risks |
-| 7 | Create PR | `gh pr create --base x --title "..." --body "..."` |
-| 8 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
+| 2 | Determine base branch | Auto-detect or ask user |
+| 3 | Create branch (if on x or release/*) | `git checkout -b <branch-name>` |
+| 4 | Lint fix | `yarn lint --fix` |
+| 5 | Stage & commit | `git add .`, `git commit -m "type: description"` |
+| 6 | Push to remote | `git push -u origin <branch-name>` |
+| 7 | Extract context | Analyze conversation for intent, decisions, risks |
+| 8 | Create PR | `gh pr create --base <base> --title "..." --body "..."` |
+| 9 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
 
 ## Workflow
 
@@ -30,9 +31,36 @@ git status
 git branch --show-current
 ```
 
-### 2. Branch Handling
+### 2. Determine Base Branch
 
-**If on `x` branch:**
+The PR base branch depends on where the current branch was created from.
+
+**Auto-detection logic:**
+
+```bash
+VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
+RELEASE_BRANCH="release/v${VERSION}"
+
+# Check if current branch is based on the release branch
+if git merge-base --is-ancestor "origin/$RELEASE_BRANCH" HEAD 2>/dev/null; then
+  BASE="$RELEASE_BRANCH"
+else
+  BASE="x"
+fi
+```
+
+If on `x` or `release/*` directly (not a feature branch), auto-detection is ambiguous. In this case, **ask the user before creating the feature branch**:
+
+> "You're on `$current_branch` directly. Where should the PR target?"
+> - `x` — normal development (non-bundle)
+> - `$RELEASE_BRANCH` — bundle release
+>
+> This determines which branch to base your feature branch on.
+
+### 3. Branch Handling
+
+**If on `x` or `release/*` branch (not a feature branch):**
+- Ask user for PR target (step 2 above) if not already determined
 - Analyze current changes (staged and unstaged)
 - Generate descriptive branch name based on changes:
   - `feat/` - new features
@@ -40,8 +68,10 @@ git branch --show-current
   - `refactor/` - refactoring
   - `chore/` - maintenance tasks
 - Create and switch: `git checkout -b <branch-name>`
+  - If base is `x`, branch from current `x`
+  - If base is `release/*`, fetch latest and branch from `origin/$RELEASE_BRANCH`
 
-**If already on feature branch:** Skip branch creation
+**If already on feature branch:** Skip branch creation, use auto-detected base
 
 ### 3. Run Lint Fix
 
@@ -93,8 +123,10 @@ Before creating the PR, analyze the full conversation history to extract:
 ### 7. Create Pull Request with Context
 
 ```bash
-gh pr create --base x --title "<title>" --body "<description>"
+gh pr create --base $BASE --title "<title>" --body "<description>"
 ```
+
+Use the `$BASE` determined in step 2 (either `x` or `release/v{X.Y.Z}`).
 
 **Issue ID handling:**
 - Extract `OK-{number}` from commit summary/description and conversation history
@@ -146,7 +178,7 @@ open <PR_URL>
 
 ## Important Notes
 
-- Always target `x` as base branch
+- Base branch is auto-detected: `release/*` for bundle release branches, `x` for everything else. When on `x` or `release/*` directly, ask the user which target to use before creating the feature branch.
 - Use conventional commit format: `type: description`
 - Extract and append issue IDs (OK-{number}) to PR title
 - **Context extraction is mandatory**: The PR description MUST reflect the conversation context. Do NOT create generic descriptions. The code review AI relies on this context to understand the intent behind changes.
