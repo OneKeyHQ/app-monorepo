@@ -970,6 +970,17 @@ class ServicePendingInstallTask {
     // this pending-task engine path.  UI-driven paths (installPackage /
     // manualInstallPackage) cannot trigger rollback because
     // isNeedUpdate.shouldUpdate excludes jsBundleRollback.
+
+    // Persist appliedWaitingVerify BEFORE switchBundle because switchBundle
+    // terminates the process (desktop: app.exit(0), native: RNRestart after
+    // 2.5s).  Code after switchBundle never executes, so the caller's
+    // post-execution status update is unreachable.  Without this, the task
+    // stays stuck in "running" and blocks subsequent tasks for up to 5 min.
+    await setPendingInstallTask({
+      ...task,
+      status: EPendingInstallTaskStatus.appliedWaitingVerify,
+      lastError: undefined,
+    });
     await BundleUpdate.switchBundle({
       appVersion,
       bundleVersion,
@@ -1182,6 +1193,30 @@ class ServicePendingInstallTask {
       }
 
       if (task.status === EPendingInstallTaskStatus.appliedWaitingVerify) {
+        const aligned = this.isTaskTargetAligned(task);
+        // If target is already aligned, clear immediately — no grace period
+        // needed.  This avoids blocking subsequent tasks (e.g. rollback) while
+        // waiting for a grace period that serves no purpose when the switch has
+        // clearly succeeded.
+        if (aligned) {
+          defaultLogger.app.appUpdate.pendingVerifyAfterRestart({
+            traceId,
+            requestSeq,
+            aligned,
+            currentAppVersion: platformEnv.version || '',
+            currentBundleVersion: String(platformEnv.bundleVersion || ''),
+            ...this.buildTaskLogFields(task),
+          });
+          await this.resetTargetControlState(targetKey);
+          await this.clearPendingTaskWithLog({
+            traceId,
+            task,
+            clearReason: 'applied_task_verified_success',
+          });
+          return;
+        }
+        // Target not aligned yet — apply grace period before marking failed,
+        // because platformEnv may not be fully initialised right after restart.
         if (task.runningStartedAt) {
           const gracePeriodMs = timerUtils.getTimeDurationMs({ minute: 10 });
           if (now - task.runningStartedAt < gracePeriodMs) {
@@ -1195,7 +1230,6 @@ class ServicePendingInstallTask {
             return;
           }
         }
-        const aligned = this.isTaskTargetAligned(task);
         defaultLogger.app.appUpdate.pendingVerifyAfterRestart(
           {
             traceId,
@@ -1205,17 +1239,8 @@ class ServicePendingInstallTask {
             currentBundleVersion: String(platformEnv.bundleVersion || ''),
             ...this.buildTaskLogFields(task),
           },
-          aligned ? 'info' : 'error',
+          'error',
         );
-        if (aligned) {
-          await this.resetTargetControlState(targetKey);
-          await this.clearPendingTaskWithLog({
-            traceId,
-            task,
-            clearReason: 'applied_task_verified_success',
-          });
-          return;
-        }
         await this.markTaskFailed(
           task,
           'VERIFY_AFTER_RESTART_MISMATCH',
