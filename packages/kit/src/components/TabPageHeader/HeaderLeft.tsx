@@ -13,9 +13,9 @@ import {
   Page,
   SizableText,
   XStack,
+  fs,
   rootNavigationRef,
   useMedia,
-  fs,
   useTheme,
 } from '@onekeyhq/components';
 import {
