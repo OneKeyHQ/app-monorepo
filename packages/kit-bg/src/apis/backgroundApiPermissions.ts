@@ -105,7 +105,6 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
     (origin?.endsWith('.onekey.so') ||
       origin?.endsWith('.onekeytest.com') ||
       isDevLocalhostOrigin ||
-      origin?.endsWith('.onekey.so') ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }

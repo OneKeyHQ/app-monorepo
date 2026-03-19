@@ -90,10 +90,6 @@ export const useToOnBoardingPage = () => {
               screen: EOnboardingPagesV2.GetStarted,
               params: {
                 ...params,
-                screen: EOnboardingPagesV2.CreateOrImportWallet,
-                params: {
-                  ...ONBOARDING_FULL_OPTIONS_PARAM,
-                },
               },
             },
           });

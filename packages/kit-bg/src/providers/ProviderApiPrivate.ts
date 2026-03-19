@@ -89,7 +89,19 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   private lastFocusUrl = '';
 
+  private static readonly MAX_KEYLESS_CACHE_SIZE = 50;
+
   private keylessLoginDoneEventCache = new Set<string>();
+
+  private addToKeylessLoginDoneEventCache(key: string) {
+    if (
+      this.keylessLoginDoneEventCache.size >=
+      ProviderApiPrivate.MAX_KEYLESS_CACHE_SIZE
+    ) {
+      this.keylessLoginDoneEventCache.clear();
+    }
+    this.keylessLoginDoneEventCache.add(key);
+  }
 
   private async queryTabsByOrigin(origin: string): Promise<chrome.tabs.Tab[]> {
     if (!platformEnv.isExtension || !chrome.tabs?.query) {
@@ -685,7 +697,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       sessionState.siteConnected &&
       !this.keylessLoginDoneEventCache.has(`${request.origin}:${nonce}`)
     ) {
-      this.keylessLoginDoneEventCache.add(`${request.origin}:${nonce}`);
+      this.addToKeylessLoginDoneEventCache(`${request.origin}:${nonce}`);
       void this.emitKeylessBridgeEventToOrigin({
         origin: request.origin,
         payload: {
@@ -814,7 +826,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       throw new OneKeyLocalError('nonce is required');
     }
     if (request.origin) {
-      this.keylessLoginDoneEventCache.add(`${request.origin}:${nonce}`);
+      this.addToKeylessLoginDoneEventCache(`${request.origin}:${nonce}`);
       await this.emitKeylessBridgeEventToOrigin({
         origin: request.origin,
         payload: {
