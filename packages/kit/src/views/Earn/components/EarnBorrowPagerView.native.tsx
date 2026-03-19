@@ -48,10 +48,10 @@ function usePageScrollHandler(
   handlers: {
     onPageScroll: (
       event: PagerViewOnPageScrollEvent['nativeEvent'],
-      context: Record<string, unknown>
+      context: Record<string, unknown>,
     ) => void;
   },
-  dependencies?: unknown[]
+  dependencies?: unknown[],
 ): (event: PagerViewOnPageScrollEvent) => void {
   const { context, doDependenciesDiffer } = useHandler(handlers, dependencies);
 
@@ -59,7 +59,9 @@ function usePageScrollHandler(
   // AnimatedPagerView's onPageScroll prop (DirectEventHandler), but they are
   // compatible at runtime — Reanimated intercepts the native event internally.
   return useEvent(
-    (event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent']) => {
+    (
+      event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent'],
+    ) => {
       'worklet';
       const { onPageScroll } = handlers;
       if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
@@ -126,6 +128,7 @@ function EarnBorrowPagerViewComponent(
       pagerRef.current?.setPage(index);
       currentIndexRef.current = index;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   // Track drag state: 'dragging' → wasUserDrag=true, 'idle' → wasUserDrag=false.
@@ -149,7 +152,8 @@ function EarnBorrowPagerViewComponent(
     onPageScroll: (e) => {
       'worklet';
       if (pageScrollPosition) {
-        pageScrollPosition.value = (e.position as number) + (e.offset as number);
+        pageScrollPosition.value =
+          (e.position) + (e.offset);
       }
     },
   });

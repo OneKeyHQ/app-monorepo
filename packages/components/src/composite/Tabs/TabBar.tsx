@@ -36,12 +36,10 @@ function AnimatedPillText({
   name,
   index: tabIndex,
   indexDecimal,
-  textSize,
 }: {
   name: string;
   index: number;
   indexDecimal: SharedValue<number>;
-  textSize: ISizableTextProps['size'];
 }) {
   const theme = useTheme();
   const activeColor = theme.textInverse.val;
@@ -87,11 +85,12 @@ export function TabBarItem({
   if (variant === 'pill') {
     // When animatedPillIndicator is active, the sliding background is rendered
     // by AnimatedPillIndicator — items should be transparent so it shows through.
-    const pillBg = animatedPillIndicator
-      ? 'transparent'
-      : isFocused
-        ? '$bgPrimary'
-        : '$bgStrong';
+    let pillBg: string = '$bgStrong';
+    if (animatedPillIndicator) {
+      pillBg = 'transparent';
+    } else if (isFocused) {
+      pillBg = '$bgPrimary';
+    }
 
     const useAnimatedText =
       animatedPillIndicator &&
@@ -124,7 +123,6 @@ export function TabBarItem({
             name={name}
             index={tabIndex}
             indexDecimal={indexDecimal}
-            textSize={resolvedTextSize}
           />
         ) : (
           <SizableText
@@ -404,8 +402,7 @@ function AnimatedPillIndicator({
     itemsLayout.length !== countSV.value ||
     itemsLayout.some(
       (v, i) =>
-        leftEdgesSV.value[i] !== v.x ||
-        rightEdgesSV.value[i] !== v.x + v.width,
+        leftEdgesSV.value[i] !== v.x || rightEdgesSV.value[i] !== v.x + v.width,
     )
   ) {
     leftEdgesSV.value = itemsLayout.map((v) => v.x);

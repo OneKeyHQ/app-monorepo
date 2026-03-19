@@ -58,10 +58,10 @@ function usePageScrollHandler(
   handlers: {
     onPageScroll: (
       event: PagerViewOnPageScrollEvent['nativeEvent'],
-      context: Record<string, unknown>
+      context: Record<string, unknown>,
     ) => void;
   },
-  dependencies?: unknown[]
+  dependencies?: unknown[],
 ): (event: PagerViewOnPageScrollEvent) => void {
   const { context, doDependenciesDiffer } = useHandler(handlers, dependencies);
 
@@ -69,7 +69,9 @@ function usePageScrollHandler(
   // AnimatedPagerView's onPageScroll prop (DirectEventHandler), but they are
   // compatible at runtime — Reanimated intercepts the native event internally.
   return useEvent(
-    (event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent']) => {
+    (
+      event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent'],
+    ) => {
       'worklet';
       const { onPageScroll } = handlers;
       if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
@@ -247,8 +249,8 @@ function OuterTabPagerViewComponent({
   const pageScrollHandler = usePageScrollHandler({
     onPageScroll: (e) => {
       'worklet';
-      const position = e.position as number;
-      const offset = e.offset as number;
+      const position = e.position;
+      const offset = e.offset;
 
       if (pageScrollPosition) {
         pageScrollPosition.value = position + offset;
@@ -336,6 +338,7 @@ function OuterTabPagerViewComponent({
       }
     });
     return () => cancelAnimationFrame(rafId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePageIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
 
   const marketPage = useMemo(
