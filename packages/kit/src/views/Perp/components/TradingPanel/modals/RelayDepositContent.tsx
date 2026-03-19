@@ -15,6 +15,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -62,6 +63,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const theme = useTheme();
+  const { gtMd } = useMedia();
 
   const [chains, setChains] = useState<IRelayChain[]>([]);
   const [currencies, setCurrencies] = useState<
@@ -348,6 +350,184 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
     );
   }
 
+  const amountSection = quoteResult ? (
+    <YStack gap="$2" opacity={loading ? 0.5 : 1}>
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {`手续费: $${quoteResult.totalFeeUsd}`}
+        </SizableText>
+        {timeEstimateText ? (
+          <XStack alignItems="center" gap="$1">
+            <Icon
+              name="ClockTimeHistoryOutline"
+              size="$3.5"
+              color="$iconSubdued"
+            />
+            <SizableText size="$bodySm" color="$textSubdued">
+              {timeEstimateText}
+            </SizableText>
+          </XStack>
+        ) : null}
+      </XStack>
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText size="$bodySm" color="$textSubdued">
+          发送
+        </SizableText>
+        <XStack alignItems="center" gap="$1.5">
+          <YStack
+            position="relative"
+            borderRadius="$2"
+            px="$1.5"
+            py="$0.5"
+            hoverStyle={{ bg: '$bgHover' }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                opacity: 0,
+                minWidth: 30,
+                color: 'transparent',
+              }}
+              pointerEvents="none"
+            >
+              {formatWithCommas(sendAmount) || '0'}
+            </Text>
+            <TextInput
+              accessible
+              accessibilityLabel="Send amount"
+              value={formatWithCommas(sendAmount)}
+              onChangeText={handleSendAmountChange}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={theme.textDisabled.val}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 6,
+                right: 6,
+                bottom: 0,
+                color: theme.text.val,
+                fontSize: 12,
+                textAlign: 'right',
+                padding: 0,
+              }}
+            />
+          </YStack>
+          {selectedCurrency?.logoURI ? (
+            <Image
+              src={selectedCurrency.logoURI}
+              size="$4"
+              borderRadius="$full"
+            />
+          ) : null}
+          <SizableText size="$bodySm" color="$text">
+            {selectedCurrency?.symbol ?? ''}
+          </SizableText>
+        </XStack>
+      </XStack>
+
+      <XStack justifyContent="space-between" alignItems="center">
+        <SizableText size="$bodySm" color="$textSubdued">
+          接收
+        </SizableText>
+        <XStack alignItems="center" gap="$1.5">
+          <YStack
+            position="relative"
+            borderRadius="$2"
+            px="$1.5"
+            py="$0.5"
+            hoverStyle={{ bg: '$bgHover' }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                opacity: 0,
+                minWidth: 30,
+                color: 'transparent',
+              }}
+              pointerEvents="none"
+            >
+              {formatWithCommas(receiveAmount) || DEFAULT_RECEIVE_AMOUNT}
+            </Text>
+            <TextInput
+              accessible
+              accessibilityLabel="Receive amount"
+              value={formatWithCommas(receiveAmount)}
+              onChangeText={handleReceiveAmountChange}
+              keyboardType="numeric"
+              placeholder={DEFAULT_RECEIVE_AMOUNT}
+              placeholderTextColor={theme.textDisabled.val}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 6,
+                right: 6,
+                bottom: 0,
+                color: theme.textSuccess.val,
+                fontSize: 12,
+                textAlign: 'right',
+                padding: 0,
+              }}
+            />
+          </YStack>
+          <Image
+            src={PERPS_USDC_LOGO}
+            size="$4"
+            borderRadius="$full"
+          />
+          <SizableText size="$bodySm" color="$textSuccess">
+            USDC (Perps)
+          </SizableText>
+        </XStack>
+      </XStack>
+
+      {/* Hint bubble */}
+      <YStack mt="$-1.5">
+        <XStack justifyContent="center" pl={110} overflow="hidden" h={6}>
+          <YStack
+            width={10}
+            height={10}
+            bg="$bgInfoSubdued"
+            mt={1}
+            transform={[{ rotate: '45deg' }]}
+          />
+        </XStack>
+        <YStack bg="$bgInfoSubdued" borderRadius="$2" px="$3" py="$2">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {hintText}
+          </SizableText>
+        </YStack>
+      </YStack>
+    </YStack>
+  ) : null;
+
+  const addressSection = quoteResult ? (
+    <YStack gap="$4" opacity={loading ? 0.5 : 1}>
+      <YStack borderRadius="$3" p="$4" gap="$4" alignItems="center">
+        <QRCode value={quoteResult.depositAddress} size={180} />
+      </YStack>
+
+      <YStack gap="$1" py="$1">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.global_address,
+          })}
+        </SizableText>
+        <XStack alignItems="center" gap="$10">
+          <YStack flex={1} width={0}>
+            <HighlightAddress address={quoteResult.depositAddress} />
+          </YStack>
+          <IconButton
+            size="small"
+            variant="primary"
+            icon="Copy1Outline"
+            onPress={handleCopyAddress}
+          />
+        </XStack>
+      </YStack>
+    </YStack>
+  ) : null;
+
   return (
     <YStack gap="$4">
       {/* Chain & Token selectors */}
@@ -453,190 +633,20 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
         </YStack>
       ) : null}
 
-      {/* Quote Result */}
-      {quoteResult ? (
-        <YStack gap="$4" opacity={loading ? 0.5 : 1}>
-          {/* Deposit Address Card */}
-          <YStack borderRadius="$3" p="$4" gap="$4" alignItems="center">
-            <QRCode value={quoteResult.depositAddress} size={180} />
-          </YStack>
-
-          <YStack gap="$1" py="$1">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.global_address,
-              })}
-            </SizableText>
-            <XStack alignItems="center" gap="$10">
-              <YStack flex={1} width={0}>
-                <HighlightAddress address={quoteResult.depositAddress} />
-              </YStack>
-              <IconButton
-                size="small"
-                variant="primary"
-                icon="Copy1Outline"
-                onPress={handleCopyAddress}
-              />
-            </XStack>
-          </YStack>
-
-          <Divider />
-
-          {/* Send & Receive rows */}
-          <YStack gap="$2">
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {`手续费: $${quoteResult.totalFeeUsd}`}
-              </SizableText>
-              {timeEstimateText ? (
-                <XStack alignItems="center" gap="$1">
-                  <Icon
-                    name="ClockTimeHistoryOutline"
-                    size="$3.5"
-                    color="$iconSubdued"
-                  />
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {timeEstimateText}
-                  </SizableText>
-                </XStack>
-              ) : null}
-            </XStack>
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodySm" color="$textSubdued">
-                发送
-              </SizableText>
-              <XStack alignItems="center" gap="$1.5">
-                <YStack
-                  position="relative"
-                  borderRadius="$2"
-                  px="$1.5"
-                  py="$0.5"
-                  hoverStyle={{ bg: '$bgHover' }}
-                >
-                  {/* Hidden sizer — same fontSize as TextInput for exact metric match */}
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      opacity: 0,
-                      minWidth: 30,
-                      color: 'transparent',
-                    }}
-                    pointerEvents="none"
-                  >
-                    {formatWithCommas(sendAmount) || '0'}
-                  </Text>
-                  <TextInput
-                    accessible
-                    accessibilityLabel="Send amount"
-                    value={formatWithCommas(sendAmount)}
-                    onChangeText={handleSendAmountChange}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor={theme.textDisabled.val}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 6,
-                      right: 6,
-                      bottom: 0,
-                      color: theme.text.val,
-                      fontSize: 12,
-                      textAlign: 'right',
-                      padding: 0,
-                    }}
-                  />
-                </YStack>
-                {selectedCurrency?.logoURI ? (
-                  <Image
-                    src={selectedCurrency.logoURI}
-                    size="$4"
-                    borderRadius="$full"
-                  />
-                ) : null}
-                <SizableText size="$bodySm" color="$text">
-                  {selectedCurrency?.symbol ?? ''}
-                </SizableText>
-              </XStack>
-            </XStack>
-
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodySm" color="$textSubdued">
-                接收
-              </SizableText>
-              <XStack alignItems="center" gap="$1.5">
-                <YStack
-                  position="relative"
-                  borderRadius="$2"
-                  px="$1.5"
-                  py="$0.5"
-                  hoverStyle={{ bg: '$bgHover' }}
-                >
-                  {/* Hidden sizer — same fontSize as TextInput for exact metric match */}
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      opacity: 0,
-                      minWidth: 30,
-                      color: 'transparent',
-                    }}
-                    pointerEvents="none"
-                  >
-                    {formatWithCommas(receiveAmount) || DEFAULT_RECEIVE_AMOUNT}
-                  </Text>
-                  <TextInput
-                    accessible
-                    accessibilityLabel="Receive amount"
-                    value={formatWithCommas(receiveAmount)}
-                    onChangeText={handleReceiveAmountChange}
-                    keyboardType="numeric"
-                    placeholder={DEFAULT_RECEIVE_AMOUNT}
-                    placeholderTextColor={theme.textDisabled.val}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 6,
-                      right: 6,
-                      bottom: 0,
-                      color: theme.textSuccess.val,
-                      fontSize: 12,
-                      textAlign: 'right',
-                      padding: 0,
-                    }}
-                  />
-                </YStack>
-                <Image
-                  src={PERPS_USDC_LOGO}
-                  size="$4"
-                  borderRadius="$full"
-                />
-                <SizableText size="$bodySm" color="$textSuccess">
-                  USDC (Perps)
-                </SizableText>
-              </XStack>
-            </XStack>
-          </YStack>
-
-          {/* Hint bubble */}
-          <YStack mt="$-3.5">
-            {/* Arrow pointing up at the numbers */}
-            <XStack justifyContent="center" pl={110} overflow="hidden" h={6}>
-              <YStack
-                width={10}
-                height={10}
-                bg="$bgInfoSubdued"
-                mt={1}
-                transform={[{ rotate: '45deg' }]}
-              />
-            </XStack>
-            {/* Bubble */}
-            <YStack bg="$bgInfoSubdued" borderRadius="$2" px="$3" py="$2">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {hintText}
-              </SizableText>
-            </YStack>
-          </YStack>
-        </YStack>
-      ) : null}
+      {/* Mobile: amount first, then address; Desktop: address first, then amount */}
+      {gtMd ? (
+        <>
+          {addressSection}
+          {addressSection ? <Divider /> : null}
+          {amountSection}
+        </>
+      ) : (
+        <>
+          {amountSection}
+          {amountSection ? <Divider /> : null}
+          {addressSection}
+        </>
+      )}
     </YStack>
   );
 }
