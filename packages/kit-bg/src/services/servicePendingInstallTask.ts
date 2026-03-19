@@ -1266,8 +1266,7 @@ class ServicePendingInstallTask {
       // Compare against native values to detect same-version native rebuilds
       // (e.g. hotfix that keeps appVersion but bumps buildNumber).
       const nativeAppVersionMatch =
-        !nativeAppVersion ||
-        task.scheduledEnvAppVersion === nativeAppVersion;
+        !nativeAppVersion || task.scheduledEnvAppVersion === nativeAppVersion;
       const nativeBuildNumberMatch =
         !task.scheduledEnvBuildNumber ||
         !nativeBuildNumber ||

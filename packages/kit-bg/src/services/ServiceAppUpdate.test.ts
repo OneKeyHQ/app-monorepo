@@ -1721,7 +1721,7 @@ describe('ServiceAppUpdate state transitions', () => {
         scheduledEnvAppVersion: '1.0.0',
         scheduledEnvBundleVersion: '1',
         createdAt: Date.now(),
-        expiresAt: Date.now() + 86400000,
+        expiresAt: Date.now() + 86_400_000,
         retryCount: 0,
         status: EPendingInstallTaskStatus.pending,
         payload: {
@@ -1752,7 +1752,7 @@ describe('ServiceAppUpdate state transitions', () => {
         scheduledEnvAppVersion: '1.0.0',
         scheduledEnvBundleVersion: '1',
         createdAt: Date.now(),
-        expiresAt: Date.now() + 86400000,
+        expiresAt: Date.now() + 86_400_000,
         retryCount: 0,
         status: EPendingInstallTaskStatus.running,
         runningStartedAt: Date.now(),
@@ -1782,7 +1782,7 @@ describe('ServiceAppUpdate state transitions', () => {
         scheduledEnvAppVersion: '1.0.0',
         scheduledEnvBundleVersion: '1',
         createdAt: Date.now(),
-        expiresAt: Date.now() + 86400000,
+        expiresAt: Date.now() + 86_400_000,
         retryCount: 3,
         status: EPendingInstallTaskStatus.failed,
         payload: {
