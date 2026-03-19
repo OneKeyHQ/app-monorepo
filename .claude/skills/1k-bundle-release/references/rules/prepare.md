@@ -12,9 +12,11 @@ RELEASE_BRANCH="release/v${VERSION}"
 current_branch=$(git branch --show-current)
 ```
 
-Verify current branch matches the expected release branch. If not:
+If current branch is not the expected release branch, offer to switch:
 
-> "Expected to be on `$RELEASE_BRANCH` (from .env.version VERSION=$VERSION), but you're on `$current_branch`. Switch to the correct branch or update .env.version."
+> "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
+
+If yes, run `git checkout $RELEASE_BRANCH`.
 
 ### 2. Working tree clean
 
@@ -39,7 +41,7 @@ Ask the user for the `BUILD_NUMBER` value (the native App Shell build number thi
 
 Validate:
 - Non-empty, digits only
-- Typical format: `1026MMDD##` (e.g., `1026031801`)
+- Format: `YYYYMMDD##` (e.g., `2026031801`)
 
 If invalid, explain the expected format and ask again.
 
@@ -62,7 +64,7 @@ After:
 
 VERSION=6.1.0
 
-BUILD_NUMBER=1026031801
+BUILD_NUMBER=2026031801
 
 # Will auto add BUILD_NUMBER and BUNDLE_VERSION variable at CI job. Must give an empty line at end of this file.
 ```

@@ -1,6 +1,6 @@
 # Sync Workflow
 
-Syncs release branch changes to `x` via rebase after a bundle release. Creates a temporary branch, rebases onto `x`, then fast-forward merges.
+Syncs release branch changes to `x` via rebase after a bundle release. Creates a sync branch from `x`, rebases release commits onto it, then pushes and creates a PR.
 
 ## Pre-flight Checks
 
@@ -31,27 +31,50 @@ Must be empty. If not, tell the user to commit or stash first.
 git fetch origin "$RELEASE_BRANCH" x
 ```
 
-## Step 1: Create temporary sync branch
+## Step 1: Create sync branch from x
+
+Create a sync branch based on `x`, not on the release branch:
 
 ```bash
-git checkout -b sync-to-x "origin/$RELEASE_BRANCH"
+SYNC_BRANCH="sync/${VERSION}-$(date +%Y%m%d)"
+git checkout -b "$SYNC_BRANCH" origin/x
 ```
 
-## Step 2: Rebase onto x
+## Step 2: Cherry-pick or rebase release commits onto sync branch
+
+Get the list of release-only commits (not yet on x) using patch-id comparison:
 
 ```bash
-git rebase origin/x
+# List commits on release not yet in x (by patch-id)
+git cherry origin/x "origin/$RELEASE_BRANCH"
 ```
 
-`git rebase` uses patch-id matching to automatically skip commits that have already been applied to `x` from previous syncs. This means repeated syncs are safe — only new commits are replayed.
+Lines starting with `+` are new commits. For each `+` commit, cherry-pick onto the sync branch:
 
-**On success:** All release-only commits are now replayed on top of `x`. Continue to Step 3.
+```bash
+git cherry-pick <commit-sha>
+```
+
+Alternatively, use rebase to replay all release-only commits at once:
+
+```bash
+# Create a temp branch at release HEAD, rebase onto sync branch
+git checkout -b temp-rebase "origin/$RELEASE_BRANCH"
+git rebase "$SYNC_BRANCH"
+git checkout "$SYNC_BRANCH"
+git merge --ff-only temp-rebase
+git branch -d temp-rebase
+```
+
+`git rebase` uses patch-id matching to automatically skip commits that have already been applied to `x` from previous syncs. Repeated syncs are safe — only new commits are replayed.
+
+**On success:** Continue to Step 3.
 
 **On conflict:** Enter conflict resolution mode (below).
 
 ## Conflict Resolution
 
-When `git rebase` reports a conflict:
+When a conflict occurs:
 
 ### 1. Show what's conflicting
 
@@ -81,39 +104,28 @@ Propose a resolution based on the analysis. For each conflict:
 | **a) Accept suggestion** | Apply the resolution, `git add` conflicting files, `git rebase --continue` |
 | **b) Manual edit** | User edits files, then confirm → `git add` + `git rebase --continue` |
 | **c) Skip this commit** | `git rebase --skip`, add to skipped list, continue |
-| **d) Abort entire sync** | `git rebase --abort`, clean up, exit |
+| **d) Abort entire sync** | `git rebase --abort`, clean up sync branch, exit |
 
-## Step 3: Fast-forward merge to x
-
-```bash
-git checkout x
-git merge --ff-only sync-to-x
-```
-
-If `--ff-only` fails (x has moved since fetch), re-fetch and retry:
+## Step 3: Push sync branch and create PR
 
 ```bash
-git fetch origin x
-git rebase origin/x
-git checkout x
-git pull origin x
-git merge --ff-only sync-to-x
+git push -u origin "$SYNC_BRANCH"
+
+gh pr create \
+  --base x \
+  --head "$SYNC_BRANCH" \
+  --title "chore: sync release/v${VERSION} to x" \
+  --body "Sync bundle release changes from release/v${VERSION} to x."
 ```
 
-## Step 4: Clean up and push
-
-```bash
-git branch -d sync-to-x
-git push origin x
-```
-
-## Step 5: Output
+## Step 4: Output
 
 ```
-=== Sync Complete ===
+=== Sync PR Created ===
 
 Release branch: $RELEASE_BRANCH
-Synced to: x
+Sync branch: $SYNC_BRANCH
+PR: $PR_URL
 
 Commits synced:
   - abc1234 fix: resolve swap page crash (#1234)
@@ -122,5 +134,5 @@ Commits synced:
 ⏭️  Skipped (if any):
   - ghi9012 fix: discovery banner width (#1260) — conflict, needs manual resolution
 
-x branch is up to date with all released changes.
+Review and merge the PR to complete the sync.
 ```

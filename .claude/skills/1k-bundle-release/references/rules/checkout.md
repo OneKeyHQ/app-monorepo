@@ -15,7 +15,17 @@ If `.env.version` doesn't exist or VERSION is empty, stop:
 
 > "Cannot read VERSION from .env.version. Ensure the file exists and contains a VERSION= line."
 
-### 2. Verify release branch exists on remote
+### 2. Working tree is clean
+
+```bash
+git status --porcelain
+```
+
+If not empty, stop:
+
+> "You have uncommitted changes. Please commit or stash them before switching branches."
+
+### 3. Verify release branch exists on remote
 
 ```bash
 git ls-remote --heads origin "$RELEASE_BRANCH"

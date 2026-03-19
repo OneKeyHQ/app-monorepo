@@ -12,7 +12,11 @@ RELEASE_BRANCH="release/v${VERSION}"
 current_branch=$(git branch --show-current)
 ```
 
-Verify current branch is the expected release branch.
+If current branch is not the expected release branch, offer to switch:
+
+> "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
+
+If yes, run `git checkout $RELEASE_BRANCH`.
 
 ### 2. Working tree clean
 
@@ -41,10 +45,10 @@ Determine the baseline (last release commit from RELEASES.json, or App Shell tag
 git log $base_sha..$commit_sha --oneline
 ```
 
-Extract PR numbers from merge commit messages:
+Extract PR numbers from commit messages (handles both merge and squash formats):
 
 ```bash
-git log $base_sha..$commit_sha --oneline --all-match --grep="Merge pull request" --grep="(#" --format="%s"
+git log $base_sha..$commit_sha --format="%s" | grep -oE '#[0-9]+' | sort -u
 ```
 
 ### Sequence number

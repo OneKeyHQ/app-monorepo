@@ -12,7 +12,11 @@ RELEASE_BRANCH="release/v${VERSION}"
 current_branch=$(git branch --show-current)
 ```
 
-Verify current branch is the expected release branch.
+If current branch is not the expected release branch, offer to switch:
+
+> "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
+
+If yes, run `git checkout $RELEASE_BRANCH`.
 
 ### 2. Fetch latest
 
@@ -59,13 +63,15 @@ echo "${repo_url}/compare/${base_sha}...${RELEASE_BRANCH}"
 
 ### Identify included PRs
 
-Since PRs are merged directly to the release branch, extract PR numbers from merge commit messages:
+Since PRs are merged directly to the release branch, extract PR numbers from commit messages. GitHub uses two formats depending on merge strategy:
+- Merge commit: `Merge pull request #1234 from user/branch`
+- Squash merge: `feat: description (#1234)`
+
+Extract all PR numbers with:
 
 ```bash
-git log $base_sha..$RELEASE_BRANCH --oneline --all-match --grep="Merge pull request" --grep="(#" --format="%s"
+git log $base_sha..$RELEASE_BRANCH --format="%s" | grep -oE '#[0-9]+' | sort -u
 ```
-
-Extract PR numbers (e.g., `#1234`) from the subjects.
 
 ## Check 2: Sync Status (Informational)
 
