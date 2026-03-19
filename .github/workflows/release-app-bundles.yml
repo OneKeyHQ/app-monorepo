@@ -1,0 +1,104 @@
+name: release-app-bundles
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to build (optional, builds from PR merge ref)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-params:
+    runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ steps.params.outputs.build_number }}
+      build_bundle_version: ${{ steps.params.outputs.build_bundle_version }}
+      build_source: ${{ steps.params.outputs.build_source }}
+      branch: ${{ steps.params.outputs.branch }}
+      commit: ${{ steps.params.outputs.commit }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        if: ${{ !inputs.pr_number }}
+
+      - name: Checkout PR
+        if: ${{ inputs.pr_number }}
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/merge
+
+      - name: Generate build parameters
+        id: params
+        run: |
+          # Read BUILD_NUMBER from .env.version
+          BUILD_NUMBER=""
+          BUILD_SOURCE="bundle-dev"
+          if [ -f .env.version ]; then
+            BUILD_NUMBER=$(grep -E '^BUILD_NUMBER=' .env.version | cut -d '=' -f 2 || true)
+          fi
+
+          if [ -n "$BUILD_NUMBER" ]; then
+            echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
+            BUILD_SOURCE="bundle-release"
+          else
+            # Fallback: bundle-dev format 10YYMMDD{run_number % 100}
+            DATE=$(date -u "+%y%m%d")
+            RUN_MOD=$(( $GITHUB_RUN_NUMBER % 100 ))
+            RUN_MOD=$(printf "%02d" $RUN_MOD)
+            BUILD_NUMBER="10${DATE}${RUN_MOD}"
+            echo "Generated BUILD_NUMBER: $BUILD_NUMBER"
+          fi
+
+          # Generate BUILD_BUNDLE_VERSION: seconds since 2026-01-01T00:00:00Z
+          EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
+          NOW=$(date -u +%s)
+          BUILD_BUNDLE_VERSION=$(( NOW - EPOCH_2026 ))
+
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
+          echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            BRANCH="pull/${{ inputs.pr_number }}"
+            COMMIT=$(git rev-parse HEAD)
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+
+          echo "Summary:"
+          echo "  BUILD_NUMBER=$BUILD_NUMBER"
+          echo "  BUILD_BUNDLE_VERSION=$BUILD_BUNDLE_VERSION"
+          echo "  BUILD_SOURCE=$BUILD_SOURCE"
+          echo "  BRANCH=$BRANCH"
+          echo "  COMMIT=$COMMIT"
+
+  desktop-bundle:
+    needs: prepare-params
+    uses: ./.github/workflows/release-desktop-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets: inherit
+
+  native-bundle:
+    needs: prepare-params
+    uses: ./.github/workflows/release-native-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets: inherit

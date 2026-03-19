@@ -119,6 +119,7 @@ export interface IBundleUpdate {
   downloadBundleASC: IDownloadBundleASC;
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
+  clearDownload: () => Promise<void>;
   resetToBuiltInBundle: () => Promise<void>;
   isSkipGpgVerificationAllowed: () => Promise<boolean>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
@@ -146,5 +147,6 @@ export interface IBundleUpdate {
   getNativeAppVersion: () => Promise<string>;
   getSha256FromFilePath: (filePath: string) => Promise<string>;
   getNativeBuildNumber: () => Promise<string>;
+  getBuiltinBundleVersion: () => Promise<string>;
   getJsBundlePath: () => Promise<string>;
 }

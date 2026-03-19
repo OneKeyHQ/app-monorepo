@@ -46,13 +46,7 @@ function demoError(error: unknown, apiName: string) {
   }
 }
 
-type IDemoOrderType =
-  | 'market'
-  | 'limit'
-  | 'stopMarket'
-  | 'stopLimit'
-  | 'takeMarket'
-  | 'takeLimit';
+type IDemoOrderType = 'market' | 'limit' | 'triggerMarket' | 'triggerLimit';
 
 type IDemoOrderTypeOption = {
   value: IDemoOrderType;
@@ -62,10 +56,8 @@ type IDemoOrderTypeOption = {
 const DEMO_ORDER_TYPE_OPTIONS: IDemoOrderTypeOption[] = [
   { value: 'market', label: 'Market' },
   { value: 'limit', label: 'Limit' },
-  { value: 'stopMarket', label: 'Stop Market' },
-  { value: 'stopLimit', label: 'Stop Limit' },
-  { value: 'takeMarket', label: 'Take Market' },
-  { value: 'takeLimit', label: 'Take Limit' },
+  { value: 'triggerMarket', label: 'Trigger Market' },
+  { value: 'triggerLimit', label: 'Trigger Limit' },
 ];
 
 function PerpOrderTypeInteractionDemo() {
@@ -78,14 +70,11 @@ function PerpOrderTypeInteractionDemo() {
   const [executionPrice, setExecutionPrice] = useState('67580');
   const [reduceOnly, setReduceOnly] = useState(false);
 
-  const isTriggerOrder =
-    orderType.startsWith('stop') || orderType.startsWith('take');
+  const isTriggerOrder = orderType.startsWith('trigger');
   const needsLimitPrice = orderType === 'limit';
-  const needsExecutionPrice =
-    orderType === 'stopLimit' || orderType === 'takeLimit';
-  const triggerTpsl = orderType.startsWith('take') ? 'tp' : 'sl';
-  const triggerIsMarket =
-    orderType === 'stopMarket' || orderType === 'takeMarket';
+  const needsExecutionPrice = orderType === 'triggerLimit';
+  const triggerTpsl = 'sl'; // inferred at submission time
+  const triggerIsMarket = orderType === 'triggerMarket';
 
   const payloadPreview = useMemo(() => {
     const base = {

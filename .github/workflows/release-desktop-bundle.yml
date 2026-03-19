@@ -7,6 +7,27 @@ on:
     types:
       - completed
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      build_number:
+        type: string
+        required: true
+      build_bundle_version:
+        type: string
+        required: true
+      build_source:
+        type: string
+        required: false
+        default: 'daily-build'
+      branch:
+        type: string
+        required: false
+      commit:
+        type: string
+        required: false
+      checkout_ref:
+        type: string
+        required: false
 
 env:
   NODE_ENV: production
@@ -25,10 +46,19 @@ jobs:
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
+      - name: Validate workflow_run source
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.head_repository.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::error::Rejecting workflow_run from fork repository"
+            exit 1
+          fi
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           lfs: true
+          ref: ${{ inputs.checkout_ref || '' }}
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -56,6 +86,48 @@ jobs:
             echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
           fi
 
+      - name: Override params from caller
+        if: ${{ inputs.build_number }}
+        run: |
+          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          # Also update .env file since shared-env already wrote the old values
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+
+      - name: Resolve branch and commit
+        env:
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WR_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -n "$INPUT_BRANCH" ]; then
+            BRANCH="$INPUT_BRANCH"
+            COMMIT="$INPUT_COMMIT"
+          elif [ -n "$WR_COMMIT" ]; then
+            BRANCH="$WR_BRANCH"
+            COMMIT="$WR_COMMIT"
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+          {
+            echo "BRANCH<<GHEOF"
+            echo "$BRANCH"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+          {
+            echo "COMMIT<<GHEOF"
+            echo "$COMMIT"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+          COMMIT_MESSAGE=$(git log -1 --pretty=%s "$COMMIT" 2>/dev/null || echo "")
+          {
+            echo "COMMIT_MESSAGE<<GHEOF"
+            echo "$COMMIT_MESSAGE"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -166,13 +238,12 @@ jobs:
           server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
           upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
           bundle-dir: ./apps/desktop/bundle-zip
-          commit-hash: ${{ github.sha }}
-          branch: ${{ github.ref_name }}
-          pr-title: ${{ github.event.pull_request.title || github.event.workflow_run.name || '' }}
+          commit-hash: ${{ env.COMMIT }}
+          branch: ${{ env.BRANCH }}
+          pr-title: ${{ env.COMMIT_MESSAGE }}
 
       - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
-        uses: onekeyhq/actions/slack-notify-webhook@main
+        uses: originalix/actions/slack-notify-webhook@feat/bundle-release-notification
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
@@ -182,3 +253,7 @@ jobs:
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-branch: '${{ env.BRANCH }}'
+          artifact-commit: '${{ env.COMMIT }}'

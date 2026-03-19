@@ -197,6 +197,9 @@ const BaseDevSettingsSection = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
+  const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
+    ? 'http://10.0.2.2:5173/'
+    : 'http://localhost:5173/';
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -833,6 +836,20 @@ const BaseDevSettingsSection = () => {
               />
 
               <SentryCrashSettings />
+              <SectionPressItem
+                icon="ShieldCheckDoneOutline"
+                title="Show Recovery Page on Next Launch"
+                subtitle="Sets crash counter to 3, triggering recovery page on restart"
+                onPress={async () => {
+                  const BootRecovery = (
+                    await import('@onekeyhq/shared/src/modules/BootRecovery')
+                  ).default;
+                  BootRecovery.setConsecutiveBootFailCount(3);
+                  Toast.success({
+                    title: 'Recovery page will show on next launch',
+                  });
+                }}
+              />
               <CrashDevSettings />
             </Accordion.Content>
           </Accordion.HeightAnimator>
@@ -1140,7 +1157,7 @@ const BaseDevSettingsSection = () => {
                 title="使用本地 TradingView URL"
                 subtitle={
                   devSettings.settings?.useLocalTradingViewUrl
-                    ? 'http://localhost:5173/'
+                    ? localTradingViewUrlSubtitle
                     : 'https://tradingview.onekeytest.com/'
                 }
               >

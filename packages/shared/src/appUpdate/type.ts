@@ -22,6 +22,7 @@ export type IUpdateDecision =
   | 'appShellUpdate'
   | 'jsBundleUpgrade'
   | 'jsBundleRollback'
+  | 'jsBundleRollbackToBuiltin'
   | 'staleRemote'
   | 'invalidLocal'
   | 'invalidRemote';
@@ -138,6 +139,11 @@ export interface IBasicAppUpdateInfo {
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
   version?: string;
+  // Number of hot-update (jsBundle) records for this version in the server DB.
+  // When 0, the server has no bundle configured — client should rollback to
+  // builtin if it has an active custom bundle.
+  // When > 0 and jsBundleVersion is absent, the client is already up to date.
+  jsBundleCount?: number;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
@@ -158,6 +164,8 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   summary?: string;
   // the last time the update dialog was shown (for rate limiting)
   lastUpdateDialogShownAt?: number;
+  // true when the pending update target is a rollback (target bundle < current bundle)
+  isRollbackTarget?: boolean;
   freezeUntil?: number;
   ignoredTargets?: Record<string, IIgnoredUpdateTargetInfo>;
   fullFlowRetryByTarget?: Record<string, IFullFlowRetryInfo>;

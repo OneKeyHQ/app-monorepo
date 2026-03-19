@@ -7,6 +7,9 @@ import type {
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
+  EPendingInstallTaskAction,
+  EPendingInstallTaskStatus,
+  EPendingInstallTaskType,
   EUpdateStrategy,
   isFirstLaunchAfterUpdated,
   resolveUpdateDecision,
@@ -31,9 +34,14 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
-import { PLACEHOLDER_SIGNATURE } from './servicePendingInstallTask';
+import {
+  PLACEHOLDER_SIGNATURE,
+  getPendingInstallTask,
+  setPendingInstallTask,
+} from './servicePendingInstallTask';
 
 let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
@@ -110,6 +118,59 @@ class ServiceAppUpdate extends ServiceBase {
       retryCount: task?.retryCount ?? null,
       nextRetryAt: task?.nextRetryAt ?? null,
     };
+  }
+
+  // Schedule a pending task with targetBundleVersion="0" to rollback to
+  // the builtin bundle on next cold start.  executeBundleSwitchTask will
+  // detect the missing bundle and fall into the existing builtin fallback
+  // path: clearPendingInstallTask → resetToBuiltInBundle → switchBundle.
+  // Returns true if the task was scheduled, false if skipped.
+  private async scheduleRollbackToBuiltinTask({
+    reason,
+    requestSeq,
+    appVersion,
+  }: {
+    reason: string;
+    requestSeq: number;
+    appVersion: string;
+  }): Promise<boolean> {
+    // Don't overwrite in-progress tasks (running / appliedWaitingVerify)
+    const existingTask = await getPendingInstallTask();
+    if (
+      existingTask &&
+      (existingTask.status === EPendingInstallTaskStatus.running ||
+        existingTask.status === EPendingInstallTaskStatus.appliedWaitingVerify)
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `fetchAppUpdateInfo: ${reason} rollback skipped — existing task in progress`,
+      );
+      return false;
+    }
+
+    defaultLogger.app.appUpdate.log(
+      `fetchAppUpdateInfo: ${reason} — scheduling rollback to builtin for next cold start`,
+    );
+    const now = Date.now();
+    await setPendingInstallTask({
+      taskId: `jsbundle:${appVersion}:builtin`,
+      revision: requestSeq,
+      action: EPendingInstallTaskAction.switchBundle,
+      type: EPendingInstallTaskType.jsBundleSwitch,
+      targetAppVersion: appVersion,
+      targetBundleVersion: '0',
+      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
+      createdAt: now,
+      expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
+      retryCount: 0,
+      status: EPendingInstallTaskStatus.pending,
+      payload: {
+        appVersion,
+        bundleVersion: '0',
+        signature: PLACEHOLDER_SIGNATURE,
+      },
+    });
+    return true;
   }
 
   private getTargetKey(taskOrTarget: {
@@ -190,18 +251,23 @@ class ServiceAppUpdate extends ServiceBase {
     return null;
   }
 
-  private shouldUpdateFromReleaseInfo(releaseInfo: IResponseAppUpdateInfo) {
+  private shouldUpdateFromReleaseInfo(
+    releaseInfo: IResponseAppUpdateInfo,
+    hasActiveCustomBundle = false,
+  ) {
     const resolved = resolveUpdateDecision({
       currentAppVersion: platformEnv.version,
       currentBundleVersion: platformEnv.bundleVersion,
       remoteAppVersion: releaseInfo.version,
       remoteBundleVersion: releaseInfo.jsBundleVersion,
       allowRollback: true,
+      hasActiveCustomBundle,
     });
     return (
       resolved.decision === 'appShellUpdate' ||
       resolved.decision === 'jsBundleUpgrade' ||
-      resolved.decision === 'jsBundleRollback'
+      resolved.decision === 'jsBundleRollback' ||
+      resolved.decision === 'jsBundleRollbackToBuiltin'
     );
   }
 
@@ -300,6 +366,7 @@ class ServiceAppUpdate extends ServiceBase {
         summary: normalizeOptionalString(data.summary),
         jsBundleVersion: normalizeOptionalString(data.jsBundleVersion),
         fileSize: normalizeOptionalNumber(data.fileSize),
+        jsBundleCount: normalizeOptionalNumber(data.jsBundleCount),
         jsBundle: data.jsBundle
           ? {
               downloadUrl: normalizeOptionalString(data.jsBundle.downloadUrl),
@@ -804,6 +871,7 @@ class ServiceAppUpdate extends ServiceBase {
       status: EAppUpdateStatus.done,
       jsBundle: undefined,
       previousAppVersion: undefined,
+      isRollbackTarget: undefined,
       downloadedEvent: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
@@ -861,7 +929,8 @@ class ServiceAppUpdate extends ServiceBase {
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
     await AppUpdate.clearPackage();
-    await BundleUpdate.clearBundle();
+    await BundleUpdate.clearDownload();
+    await this.backgroundApi.servicePendingInstallTask.clearPendingInstallTask();
     await this.reset();
   }
 
@@ -902,6 +971,23 @@ class ServiceAppUpdate extends ServiceBase {
       action: null,
     });
 
+    // Dev mode: skip all server bundle update checks when the toggle is on.
+    // This prevents auto-rollback from interfering with QA/dev bundle testing.
+    try {
+      const devSettings = await devSettingsPersistAtom.get();
+      if (
+        devSettings.enabled &&
+        devSettings.settings?.ignoreServerBundleUpdate
+      ) {
+        defaultLogger.app.appUpdate.log(
+          'fetchAppUpdateInfo: skipped — ignoreServerBundleUpdate is enabled',
+        );
+        return await appUpdatePersistAtom.get();
+      }
+    } catch {
+      // ignore — proceed with normal flow
+    }
+
     await this.cleanupUpdateControlState();
     // NOTE: refreshUpdateStatus() was previously called here, but it resets
     // ANY failed status to notify unconditionally — including same-version
@@ -941,13 +1027,66 @@ class ServiceAppUpdate extends ServiceBase {
       },
       releaseInfo ? 'info' : 'warn',
     );
+    // jsBundleCount === 0 means the server has no hot-update records for
+    // this version — admin removed them.  If the client has an active
+    // custom bundle, schedule a rollback to builtin on next cold start.
+    // jsBundleCount > 0 means hot-update records exist but the client
+    // already has the same bundleVersion (filtered by server's $ne query)
+    // — no action needed, fall through to normal flow.
+    if (
+      typeof releaseInfo?.jsBundleCount === 'number' &&
+      releaseInfo.jsBundleCount === 0
+    ) {
+      let hasActiveCustomBundle = false;
+      try {
+        const jsBundlePath = await BundleUpdate.getJsBundlePath();
+        hasActiveCustomBundle = !!jsBundlePath;
+      } catch {
+        // ignore — default to false
+      }
+
+      if (hasActiveCustomBundle) {
+        defaultLogger.app.appUpdate.appUpdateDecisionResolved({
+          traceId,
+          requestSeq,
+          decision: 'jsBundleRollbackToBuiltin',
+          reason: 'jsBundleCount_is_zero',
+          allowRollback: true,
+          currentAppVersion: platformEnv.version || '',
+          currentBundleVersion: String(platformEnv.bundleVersion || ''),
+          targetAppVersion: null,
+          targetBundleVersion: null,
+          ...this.buildTaskLogFields(null),
+        });
+        await this.scheduleRollbackToBuiltinTask({
+          reason: 'jsBundleCount_is_zero',
+          requestSeq,
+          appVersion: platformEnv.version || '',
+        });
+        await appUpdatePersistAtom.set((prev) => ({
+          ...prev,
+          updateAt: Date.now(),
+        }));
+        const latest = await appUpdatePersistAtom.get();
+        return latest;
+      }
+    }
+
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
+      let hasActiveCustomBundle = false;
+      try {
+        const jsBundlePath = await BundleUpdate.getJsBundlePath();
+        hasActiveCustomBundle = !!jsBundlePath;
+      } catch {
+        // ignore — default to false
+      }
       const decision = resolveUpdateDecision({
         currentAppVersion: platformEnv.version,
         currentBundleVersion: platformEnv.bundleVersion,
         remoteAppVersion: releaseInfo.version,
         remoteBundleVersion: releaseInfo.jsBundleVersion,
         allowRollback: true,
+        hasActiveCustomBundle,
       });
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
@@ -965,7 +1104,33 @@ class ServiceAppUpdate extends ServiceBase {
         decision.isValid ? 'info' : 'warn',
       );
 
-      let shouldUpdate = this.shouldUpdateFromReleaseInfo(releaseInfo);
+      // Rollback to builtin: no download needed — schedule a pending task
+      // with targetBundleVersion="0" so the reset happens on next cold start,
+      // consistent with jsBundleRollback behavior.
+      //
+      // On cold start, executeBundleSwitchTask will:
+      //   1. isBundleExists("X.Y.Z", "0") → false
+      //   2. targetBundle(0) < currentBundle → true (rollback)
+      //   3. Fall into the existing builtin fallback path:
+      //      clearPendingInstallTask → resetToBuiltInBundle → switchBundle({empty})
+      if (decision.decision === 'jsBundleRollbackToBuiltin') {
+        await this.scheduleRollbackToBuiltinTask({
+          reason: 'jsBundleRollbackToBuiltin',
+          requestSeq,
+          appVersion: releaseInfo.version || platformEnv.version || '',
+        });
+        await appUpdatePersistAtom.set((prev) => ({
+          ...prev,
+          updateAt: Date.now(),
+        }));
+        const latest = await appUpdatePersistAtom.get();
+        return latest;
+      }
+
+      let shouldUpdate = this.shouldUpdateFromReleaseInfo(
+        releaseInfo,
+        hasActiveCustomBundle,
+      );
       if (
         (decision.decision === 'jsBundleUpgrade' ||
           decision.decision === 'jsBundleRollback' ||
@@ -1091,11 +1256,57 @@ class ServiceAppUpdate extends ServiceBase {
             ? undefined
             : prev.downloadedEvent,
           status: nextStatus,
+          // Always refresh based on current decision — a stale flag from a
+          // previous rollback would break first-launch detection for upgrades.
+          isRollbackTarget: decision.decision === 'jsBundleRollback',
           previousAppVersion: shouldTransitionToNotify
             ? platformEnv.version
             : prev.previousAppVersion,
         };
       });
+
+      // Auto-trigger silent download for rollback decisions so the user does
+      // not need to manually initiate the update.  The download flow will
+      // eventually call readyToInstall → syncPendingInstallTask → relaunch.
+      if (
+        decision.decision === 'jsBundleRollback' &&
+        (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
+      ) {
+        // Verify target is not frozen/ignored before auto-triggering download
+        const rollbackTargetKey =
+          releaseInfo.version && releaseInfo.jsBundleVersion
+            ? this.getTargetKey({
+                targetAppVersion: releaseInfo.version,
+                targetBundleVersion: releaseInfo.jsBundleVersion,
+              })
+            : null;
+        const rollbackBlocked = rollbackTargetKey
+          ? await this.shouldSkipTargetByControl(
+              rollbackTargetKey,
+              traceId,
+              requestSeq,
+              false,
+            )
+          : false;
+        if (!rollbackBlocked) {
+          // Use setTimeout to avoid blocking the current fetch flow.
+          // Re-check status inside the callback: if the UI hook already
+          // called downloadPackage(), status will be 'downloadPackage'
+          // by now — skip to avoid duplicate concurrent downloads.
+          setTimeout(() => {
+            void (async () => {
+              const current = await appUpdatePersistAtom.get();
+              if (current.status !== EAppUpdateStatus.notify) {
+                return;
+              }
+              defaultLogger.app.appUpdate.log(
+                'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+              );
+              void this.downloadPackage();
+            })();
+          }, 0);
+        }
+      }
     } else {
       defaultLogger.app.appUpdate.appUpdateDecisionResolved(
         {
@@ -1173,6 +1384,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   async devFetchBundlesForVersion(version: string): Promise<
     {
+      bundleVersion?: string;
       ciBundleVersion: string;
       downloadUrl: string;
       sha256: string;
@@ -1182,6 +1394,7 @@ class ServiceAppUpdate extends ServiceBase {
       branch?: string;
       prTitle?: string;
       changeLog?: string;
+      buildNumber?: string;
     }[]
   > {
     try {
@@ -1189,6 +1402,7 @@ class ServiceAppUpdate extends ServiceBase {
       const response = await client.get<{
         code: number;
         data: {
+          bundleVersion?: string;
           ciBundleVersion: string;
           downloadUrl: string;
           sha256: string;
@@ -1197,6 +1411,7 @@ class ServiceAppUpdate extends ServiceBase {
           commitHash?: string;
           branch?: string;
           prTitle?: string;
+          buildNumber?: string;
         }[];
       }>('/utility/v1/app-update/bundles', {
         params: { version },
@@ -1214,6 +1429,7 @@ class ServiceAppUpdate extends ServiceBase {
           })),
         });
         return data.map((item) => ({
+          bundleVersion: item.bundleVersion,
           ciBundleVersion: item.ciBundleVersion,
           downloadUrl: item.downloadUrl,
           sha256: item.sha256,
@@ -1225,6 +1441,7 @@ class ServiceAppUpdate extends ServiceBase {
           changeLog: item.commitHash
             ? `${item.branch || ''} ${item.commitHash.slice(0, 8)}`.trim()
             : undefined,
+          buildNumber: item.buildNumber,
         }));
       }
       defaultLogger.app.jsBundleDev.fetchBundlesError({
@@ -1239,6 +1456,40 @@ class ServiceAppUpdate extends ServiceBase {
       });
       return [];
     }
+  }
+
+  @backgroundMethod()
+  async devSearchBundleByCommit(commitHash: string): Promise<
+    {
+      version: string;
+      bundle: {
+        bundleVersion?: string;
+        ciBundleVersion: string;
+        downloadUrl: string;
+        sha256: string;
+        signature?: string;
+        fileSize: number;
+        commitHash?: string;
+        branch?: string;
+        prTitle?: string;
+        changeLog?: string;
+        buildNumber?: string;
+      };
+    }[]
+  > {
+    const needle = commitHash.trim().toLowerCase();
+    if (!needle) return [];
+    const versions = await this.devFetchBundleVersions();
+    const results = await Promise.all(
+      versions.map(async (v) => {
+        const bundles = await this.devFetchBundlesForVersion(v.version);
+        const match = bundles.find((b) =>
+          (b.commitHash || '').toLowerCase().startsWith(needle),
+        );
+        return match ? { version: v.version, bundle: match } : null;
+      }),
+    );
+    return results.filter((r): r is NonNullable<typeof r> => r !== null);
   }
 }
 

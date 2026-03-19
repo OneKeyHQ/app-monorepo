@@ -15,9 +15,11 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
+  LeverageBadge,
   StockSourceLogo,
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -83,6 +85,14 @@ interface ITokenIdentityItemProps {
    * Stock info for tokenized real-world assets.
    */
   stock?: IMarketStockInfo;
+  /**
+   * Max leverage for perpetual tokens (e.g. 40 for "40x").
+   */
+  maxLeverage?: number;
+  /**
+   * Subtitle for perpetual tokens (e.g. Chinese name tag).
+   */
+  perpsSubtitle?: string;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -99,6 +109,8 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   copyFrom = ECopyFrom.Homepage,
   communityRecognized,
   stock,
+  maxLeverage,
+  perpsSubtitle,
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
@@ -167,9 +179,29 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           >
             {symbol}
           </SizableText>
-          <StockSourceLogo stock={stock} />
-          {communityRecognized ? <CommunityRecognizedBadge /> : null}
-          {stock?.subtitle ? <SubtitleBadge subtitle={stock.subtitle} /> : null}
+          {maxLeverage ? <LeverageBadge leverage={maxLeverage} /> : null}
+          {gtMd ? (
+            <>
+              <StockSourceLogo stock={stock} />
+              {communityRecognized ? <CommunityRecognizedBadge /> : null}
+              {stock?.subtitle ? (
+                <SubtitleBadge subtitle={stock.subtitle} />
+              ) : null}
+            </>
+          ) : (
+            <>
+              <TokenTagsPopover
+                communityRecognized={communityRecognized}
+                stock={stock}
+              />
+              {stock?.subtitle ? (
+                <SubtitleBadge subtitle={stock.subtitle} />
+              ) : null}
+            </>
+          )}
+          {!stock?.subtitle && perpsSubtitle ? (
+            <SubtitleBadge subtitle={perpsSubtitle} />
+          ) : null}
         </XStack>
         {shouldShowSecondRow ? (
           <XStack alignItems="center" gap="$1" height="$4">

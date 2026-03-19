@@ -590,11 +590,11 @@ export function SocialButtonGroup() {
 
   const version = useMemo(() => {
     let bundleSuffix = '';
-    if (platformEnv.bundleVersion) {
+    if (isSkipGpgVerificationAllowed && platformEnv.bundleVersion) {
       bundleSuffix = `(${encodeBundleVersionForDisplay(platformEnv.bundleVersion)})`;
     }
     return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}${bundleSuffix}`;
-  }, []);
+  }, [isSkipGpgVerificationAllowed]);
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
