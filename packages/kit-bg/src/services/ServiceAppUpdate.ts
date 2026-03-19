@@ -1080,9 +1080,13 @@ class ServiceAppUpdate extends ServiceBase {
       } catch {
         // ignore — default to false
       }
-      // jsBundleCount > 0 means bundles exist on server but none newer
-      // than what the client has (server filtered via $ne query).
-      // Don't treat absent jsBundleVersion as a rollback signal.
+      // When the server finds appVersion and bundleVersion match the
+      // client's current versions, it returns a response like:
+      //   { version: "5.x.x", jsBundleCount: 3, jsBundleVersion: undefined }
+      // jsBundleCount > 0 indicates bundles exist on server, but
+      // jsBundleVersion is omitted (no newer bundle available).
+      // In this case, don't treat the absent jsBundleVersion as a
+      // rollback signal — the client is already on the latest bundle.
       if (
         typeof releaseInfo?.jsBundleCount === 'number' &&
         releaseInfo.jsBundleCount > 0 &&
