@@ -934,11 +934,11 @@ class ServicePendingInstallTask {
         await BundleUpdate.resetToBuiltInBundle();
         // switchBundle triggers app.exit(0) on desktop / restart on native,
         // so the throw below is a safety net for unexpected survival.
-        // await BundleUpdate.switchBundle({
-        //   appVersion: '',
-        //   bundleVersion: '',
-        //   signature: '',
-        // });
+        await BundleUpdate.switchBundle({
+          appVersion: '',
+          bundleVersion: '',
+          signature: '',
+        });
         throw new OneKeyLocalError('BUILTIN_FALLBACK_RELAUNCH');
       }
       throw new OneKeyLocalError(RETRY_TRIGGER_BUNDLE_MISSING);
