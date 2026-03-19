@@ -21,112 +21,112 @@ private struct RecoveryLocale {
 private enum RecoveryStrings {
   static let localeMap: [String: RecoveryLocale] = [
     "en": RecoveryLocale(
-      title: "App Failed to Start",
-      subtitle: "The app has failed to start multiple times.\nPlease try the options below to recover.",
-      exportLogs: "Export Logs", tryAgain: "Try Again", autoRepair: "Auto Repair",
+      title: "We hit a snag",
+      subtitle: "It looks like the app had trouble starting.\nA quick fix should get things back to normal.",
+      exportLogs: "Export Logs", tryAgain: "Not Now", autoRepair: "Quick Fix",
       repairComplete: "Repair Complete", pleaseRestart: "Please reopen the app", error: "Error", ok: "OK",
       exportError: "Failed to export logs", repairError: "Repair failed", noLogs: "No log files found"),
     "zh-CN": RecoveryLocale(
-      title: "应用启动失败",
-      subtitle: "应用已多次启动失败。\n请尝试以下选项来解决问题。",
-      exportLogs: "导出日志", tryAgain: "重试", autoRepair: "自动修复",
+      title: "遇到了一点问题",
+      subtitle: "应用似乎未能正常启动，\n快速修复一下试试？",
+      exportLogs: "导出日志", tryAgain: "暂不修复", autoRepair: "快速修复",
       repairComplete: "修复完成", pleaseRestart: "请重新打开应用", error: "错误", ok: "确定",
       exportError: "导出日志失败", repairError: "修复失败", noLogs: "未找到日志文件"),
     // Traditional Chinese — shared by zh-TW, zh-HK, zh-Hant
     "zh-Hant": RecoveryLocale(
-      title: "應用程式啟動失敗",
-      subtitle: "應用程式已多次啟動失敗。\n請嘗試以下選項來解決問題。",
-      exportLogs: "匯出日誌", tryAgain: "重試", autoRepair: "自動修復",
+      title: "遇到了一點問題",
+      subtitle: "應用程式似乎未能正常啟動，\n快速修復一下試試？",
+      exportLogs: "匯出日誌", tryAgain: "暫不修復", autoRepair: "快速修復",
       repairComplete: "修復完成", pleaseRestart: "請重新打開應用程式", error: "錯誤", ok: "確定",
       exportError: "匯出日誌失敗", repairError: "修復失敗", noLogs: "未找到日誌檔案"),
     "ja-JP": RecoveryLocale(
-      title: "アプリの起動に失敗しました",
-      subtitle: "アプリが複数回起動に失敗しました。\n以下のオプションをお試しください。",
-      exportLogs: "ログを書き出す", tryAgain: "再試行", autoRepair: "自動修復",
+      title: "問題が発生しました",
+      subtitle: "アプリの起動がうまくいかなかったようです。\nクイック修復をお試しください。",
+      exportLogs: "ログを書き出す", tryAgain: "今はしない", autoRepair: "クイック修復",
       repairComplete: "修復完了", pleaseRestart: "アプリを再起動してください", error: "エラー", ok: "OK",
       exportError: "ログの書き出しに失敗しました", repairError: "修復に失敗しました", noLogs: "ログファイルが見つかりません"),
     "ko-KR": RecoveryLocale(
-      title: "앱 시작 실패",
-      subtitle: "앱이 여러 번 시작에 실패했습니다.\n아래 옵션을 시도해 보세요.",
-      exportLogs: "로그 내보내기", tryAgain: "다시 시도", autoRepair: "자동 복구",
+      title: "문제가 발생했어요",
+      subtitle: "앱이 정상적으로 시작되지 않은 것 같아요.\n빠른 수리를 시도해 보세요.",
+      exportLogs: "로그 내보내기", tryAgain: "나중에", autoRepair: "빠른 수리",
       repairComplete: "복구 완료", pleaseRestart: "앱을 다시 열어주세요", error: "오류", ok: "확인",
       exportError: "로그 내보내기 실패", repairError: "복구 실패", noLogs: "로그 파일을 찾을 수 없습니다"),
     "de": RecoveryLocale(
-      title: "App konnte nicht gestartet werden",
-      subtitle: "Die App konnte mehrfach nicht gestartet werden.\nBitte versuchen Sie die folgenden Optionen.",
-      exportLogs: "Protokolle exportieren", tryAgain: "Erneut versuchen", autoRepair: "Automatische Reparatur",
+      title: "Ein kleines Problem",
+      subtitle: "Die App scheint nicht richtig gestartet zu sein.\nEine Schnellreparatur sollte helfen.",
+      exportLogs: "Protokolle exportieren", tryAgain: "Nicht jetzt", autoRepair: "Schnellreparatur",
       repairComplete: "Reparatur abgeschlossen", pleaseRestart: "Bitte starten Sie die App neu", error: "Fehler", ok: "OK",
       exportError: "Protokollexport fehlgeschlagen", repairError: "Reparatur fehlgeschlagen", noLogs: "Keine Protokolldateien gefunden"),
     "es": RecoveryLocale(
-      title: "La aplicación no pudo iniciarse",
-      subtitle: "La aplicación no pudo iniciarse varias veces.\nPuede intentar las siguientes opciones.",
-      exportLogs: "Exportar registros", tryAgain: "Reintentar", autoRepair: "Reparación automática",
+      title: "Algo no salió bien",
+      subtitle: "Parece que la aplicación tuvo problemas al iniciarse.\nUna reparación rápida debería solucionarlo.",
+      exportLogs: "Exportar registros", tryAgain: "Ahora no", autoRepair: "Reparación rápida",
       repairComplete: "Reparación completada", pleaseRestart: "Por favor, vuelva a abrir la aplicación", error: "Error", ok: "OK",
       exportError: "Error al exportar registros", repairError: "Reparación fallida", noLogs: "No se encontraron archivos de registro"),
     "fr-FR": RecoveryLocale(
-      title: "Échec du lancement de l'application",
-      subtitle: "L'application n'a pas pu démarrer plusieurs fois.\nVeuillez essayer les options suivantes.",
-      exportLogs: "Exporter les journaux", tryAgain: "Réessayer", autoRepair: "Réparation automatique",
+      title: "Un petit souci",
+      subtitle: "L'application semble avoir eu du mal à démarrer.\nUne réparation rapide devrait arranger les choses.",
+      exportLogs: "Exporter les journaux", tryAgain: "Pas maintenant", autoRepair: "Réparation rapide",
       repairComplete: "Réparation terminée", pleaseRestart: "Veuillez rouvrir l'application", error: "Erreur", ok: "OK",
       exportError: "Échec de l'exportation des journaux", repairError: "Échec de la réparation", noLogs: "Aucun fichier journal trouvé"),
     "it-IT": RecoveryLocale(
-      title: "Avvio dell'app non riuscito",
-      subtitle: "L'app non è riuscita ad avviarsi più volte.\nProva le seguenti opzioni.",
-      exportLogs: "Esporta log", tryAgain: "Riprova", autoRepair: "Riparazione automatica",
+      title: "Un piccolo problema",
+      subtitle: "Sembra che l'app abbia avuto difficoltà ad avviarsi.\nUna riparazione rapida dovrebbe risolvere.",
+      exportLogs: "Esporta log", tryAgain: "Non ora", autoRepair: "Riparazione rapida",
       repairComplete: "Riparazione completata", pleaseRestart: "Si prega di riaprire l'app", error: "Errore", ok: "OK",
       exportError: "Esportazione log non riuscita", repairError: "Riparazione non riuscita", noLogs: "Nessun file di log trovato"),
     "pt": RecoveryLocale(
-      title: "Falha ao iniciar a aplicação",
-      subtitle: "A aplicação falhou ao iniciar várias vezes.\nTente as seguintes opções.",
-      exportLogs: "Exportar registos", tryAgain: "Tentar novamente", autoRepair: "Reparação automática",
+      title: "Um pequeno problema",
+      subtitle: "A aplicação parece ter tido dificuldades ao iniciar.\nUma reparação rápida deverá resolver.",
+      exportLogs: "Exportar registos", tryAgain: "Agora não", autoRepair: "Reparação rápida",
       repairComplete: "Reparação concluída", pleaseRestart: "Por favor, reabra a aplicação", error: "Erro", ok: "OK",
       exportError: "Falha ao exportar registos", repairError: "Falha na reparação", noLogs: "Nenhum ficheiro de registo encontrado"),
     "pt-BR": RecoveryLocale(
-      title: "Falha ao iniciar o aplicativo",
-      subtitle: "O aplicativo falhou ao iniciar várias vezes.\nTente as seguintes opções.",
-      exportLogs: "Exportar logs", tryAgain: "Tentar novamente", autoRepair: "Reparo automático",
+      title: "Um pequeno problema",
+      subtitle: "O aplicativo parece ter tido dificuldades ao iniciar.\nUma correção rápida deve resolver.",
+      exportLogs: "Exportar logs", tryAgain: "Agora não", autoRepair: "Correção rápida",
       repairComplete: "Reparo concluído", pleaseRestart: "Por favor, reabra o aplicativo", error: "Erro", ok: "OK",
       exportError: "Falha ao exportar logs", repairError: "Falha no reparo", noLogs: "Nenhum arquivo de log encontrado"),
     "ru": RecoveryLocale(
-      title: "Не удалось запустить приложение",
-      subtitle: "Приложение не удалось запустить несколько раз.\nПопробуйте следующие варианты.",
-      exportLogs: "Экспорт журналов", tryAgain: "Повторить", autoRepair: "Автовосстановление",
+      title: "Небольшая проблема",
+      subtitle: "Похоже, приложение не смогло нормально запуститься.\nБыстрое исправление должно помочь.",
+      exportLogs: "Экспорт журналов", tryAgain: "Не сейчас", autoRepair: "Быстрое исправление",
       repairComplete: "Восстановление завершено", pleaseRestart: "Пожалуйста, откройте приложение заново", error: "Ошибка", ok: "OK",
       exportError: "Не удалось экспортировать журналы", repairError: "Не удалось выполнить восстановление", noLogs: "Файлы журналов не найдены"),
     "bn": RecoveryLocale(
-      title: "অ্যাপ চালু করতে ব্যর্থ",
-      subtitle: "অ্যাপটি একাধিকবার চালু করতে ব্যর্থ হয়েছে।\nঅনুগ্রহ করে নিম্নলিখিত বিকল্পগুলি চেষ্টা করুন।",
-      exportLogs: "লগ রপ্তানি", tryAgain: "পুনরায় চেষ্টা", autoRepair: "স্বয়ংক্রিয় মেরামত",
+      title: "একটু সমস্যা হয়েছে",
+      subtitle: "অ্যাপটি সঠিকভাবে চালু হতে পারেনি বলে মনে হচ্ছে।\nদ্রুত মেরামত করে দেখুন।",
+      exportLogs: "লগ রপ্তানি", tryAgain: "এখন নয়", autoRepair: "দ্রুত মেরামত",
       repairComplete: "মেরামত সম্পন্ন", pleaseRestart: "অনুগ্রহ করে অ্যাপটি পুনরায় খুলুন", error: "ত্রুটি", ok: "ঠিক আছে",
       exportError: "লগ রপ্তানি ব্যর্থ", repairError: "মেরামত ব্যর্থ", noLogs: "কোনো লগ ফাইল পাওয়া যায়নি"),
     "hi-IN": RecoveryLocale(
-      title: "ऐप प्रारंभ करने में विफल",
-      subtitle: "ऐप कई बार प्रारंभ होने में विफल रहा है।\nकृपया निम्नलिखित विकल्प आज़माएँ।",
-      exportLogs: "लॉग निर्यात करें", tryAgain: "पुनः प्रयास करें", autoRepair: "स्वतः मरम्मत",
+      title: "एक छोटी सी समस्या",
+      subtitle: "ऐप सही से शुरू नहीं हो पाया लगता है।\nत्वरित मरम्मत से ठीक हो जाना चाहिए।",
+      exportLogs: "लॉग निर्यात करें", tryAgain: "अभी नहीं", autoRepair: "त्वरित मरम्मत",
       repairComplete: "मरम्मत पूर्ण", pleaseRestart: "कृपया ऐप को पुनः खोलें", error: "त्रुटि", ok: "ठीक है",
       exportError: "लॉग निर्यात विफल", repairError: "मरम्मत विफल", noLogs: "कोई लॉग फ़ाइल नहीं मिली"),
     "id": RecoveryLocale(
-      title: "Aplikasi gagal dimulai",
-      subtitle: "Aplikasi gagal dimulai beberapa kali.\nSilakan coba opsi berikut.",
-      exportLogs: "Ekspor log", tryAgain: "Coba lagi", autoRepair: "Perbaikan otomatis",
+      title: "Ada sedikit masalah",
+      subtitle: "Sepertinya aplikasi mengalami kendala saat memulai.\nPerbaikan cepat seharusnya bisa mengatasinya.",
+      exportLogs: "Ekspor log", tryAgain: "Nanti saja", autoRepair: "Perbaikan cepat",
       repairComplete: "Perbaikan selesai", pleaseRestart: "Silakan buka ulang aplikasi", error: "Kesalahan", ok: "OK",
       exportError: "Gagal mengekspor log", repairError: "Perbaikan gagal", noLogs: "File log tidak ditemukan"),
     "th-TH": RecoveryLocale(
-      title: "แอปเริ่มต้นไม่สำเร็จ",
-      subtitle: "แอปเริ่มต้นไม่สำเร็จหลายครั้ง\nกรุณาลองตัวเลือกต่อไปนี้",
-      exportLogs: "ส่งออกบันทึก", tryAgain: "ลองอีกครั้ง", autoRepair: "ซ่อมแซมอัตโนมัติ",
+      title: "พบปัญหาเล็กน้อย",
+      subtitle: "ดูเหมือนแอปเริ่มต้นไม่สำเร็จ\nการซ่อมแซมด่วนน่าจะช่วยได้",
+      exportLogs: "ส่งออกบันทึก", tryAgain: "ไว้ทีหลัง", autoRepair: "ซ่อมแซมด่วน",
       repairComplete: "ซ่อมแซมเสร็จสิ้น", pleaseRestart: "กรุณาเปิดแอปใหม่", error: "ข้อผิดพลาด", ok: "ตกลง",
       exportError: "ส่งออกบันทึกไม่สำเร็จ", repairError: "ซ่อมแซมไม่สำเร็จ", noLogs: "ไม่พบไฟล์บันทึก"),
     "uk-UA": RecoveryLocale(
-      title: "Не вдалося запустити додаток",
-      subtitle: "Додаток не вдалося запустити кілька разів.\nСпробуйте наступні варіанти.",
-      exportLogs: "Експорт журналів", tryAgain: "Спробувати знову", autoRepair: "Автовідновлення",
+      title: "Невелика проблема",
+      subtitle: "Схоже, додаток не зміг нормально запуститися.\nШвидке виправлення має допомогти.",
+      exportLogs: "Експорт журналів", tryAgain: "Не зараз", autoRepair: "Швидке виправлення",
       repairComplete: "Відновлення завершено", pleaseRestart: "Будь ласка, відкрийте додаток заново", error: "Помилка", ok: "OK",
       exportError: "Не вдалося експортувати журнали", repairError: "Не вдалося виконати відновлення", noLogs: "Файли журналів не знайдено"),
     "vi": RecoveryLocale(
-      title: "Ứng dụng không khởi động được",
-      subtitle: "Ứng dụng đã không khởi động được nhiều lần.\nVui lòng thử các tùy chọn sau.",
-      exportLogs: "Xuất nhật ký", tryAgain: "Thử lại", autoRepair: "Tự động sửa chữa",
+      title: "Gặp chút trục trặc",
+      subtitle: "Có vẻ ứng dụng gặp khó khăn khi khởi động.\nSửa nhanh sẽ giúp mọi thứ trở lại bình thường.",
+      exportLogs: "Xuất nhật ký", tryAgain: "Để sau", autoRepair: "Sửa nhanh",
       repairComplete: "Sửa chữa hoàn tất", pleaseRestart: "Vui lòng mở lại ứng dụng", error: "Lỗi", ok: "OK",
       exportError: "Xuất nhật ký thất bại", repairError: "Sửa chữa thất bại", noLogs: "Không tìm thấy tệp nhật ký"),
   ]
@@ -256,12 +256,12 @@ final class RecoveryViewController: UIViewController {
     return label
   }()
 
-  private lazy var exportLogsButton: UIButton = {
+  private lazy var autoRepairButton: UIButton = {
     makeButton(
-      title: RecoveryStrings.current.exportLogs,
-      backgroundColor: UIColor(red: 0x2C/255.0, green: 0x2C/255.0, blue: 0x2C/255.0, alpha: 1.0),
-      titleColor: .white,
-      action: #selector(exportLogsTapped)
+      title: RecoveryStrings.current.autoRepair,
+      backgroundColor: UIColor(red: 0x44/255.0, green: 0xD6/255.0, blue: 0x2C/255.0, alpha: 1.0),
+      titleColor: .black,
+      action: #selector(autoRepairTapped)
     )
   }()
 
@@ -274,13 +274,15 @@ final class RecoveryViewController: UIViewController {
     )
   }()
 
-  private lazy var autoRepairButton: UIButton = {
-    makeButton(
-      title: RecoveryStrings.current.autoRepair,
-      backgroundColor: UIColor(red: 0x44/255.0, green: 0xD6/255.0, blue: 0x2C/255.0, alpha: 1.0),
-      titleColor: .black,
-      action: #selector(autoRepairTapped)
-    )
+  private lazy var exportLogsButton: UIButton = {
+    let button = UIButton(type: .system)
+    button.setTitle(RecoveryStrings.current.exportLogs + " \u{203A}", for: .normal)
+    button.setTitleColor(UIColor(white: 0.55, alpha: 1.0), for: .normal)
+    button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .regular)
+    button.backgroundColor = .clear
+    button.translatesAutoresizingMaskIntoConstraints = false
+    button.addTarget(self, action: #selector(exportLogsTapped), for: .touchUpInside)
+    return button
   }()
 
   private let versionLabel: UILabel = {
@@ -306,16 +308,31 @@ final class RecoveryViewController: UIViewController {
 
   // MARK: - Layout
 
+  private let separatorLabel: UILabel = {
+    let label = UILabel()
+    label.text = "\u{00B7}"
+    label.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+    label.textColor = UIColor(white: 0.27, alpha: 1.0)
+    label.translatesAutoresizingMaskIntoConstraints = false
+    return label
+  }()
+
   private func setupLayout() {
     let logoSize: CGFloat = 64
 
     view.addSubview(logoImageView)
     view.addSubview(titleLabel)
     view.addSubview(subtitleLabel)
-    view.addSubview(exportLogsButton)
-    view.addSubview(tryAgainButton)
     view.addSubview(autoRepairButton)
-    view.addSubview(versionLabel)
+    view.addSubview(tryAgainButton)
+
+    // Bottom bar: Export Logs · v6.1.0
+    let bottomBar = UIStackView(arrangedSubviews: [versionLabel, separatorLabel, exportLogsButton])
+    bottomBar.axis = .horizontal
+    bottomBar.spacing = 6
+    bottomBar.alignment = .center
+    bottomBar.translatesAutoresizingMaskIntoConstraints = false
+    view.addSubview(bottomBar)
 
     let screenWidth = UIScreen.main.bounds.width
     let buttonWidth = min(screenWidth * 0.8, 320)
@@ -333,30 +350,24 @@ final class RecoveryViewController: UIViewController {
 
       // Subtitle
       subtitleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-      subtitleLabel.bottomAnchor.constraint(equalTo: exportLogsButton.topAnchor, constant: -40),
+      subtitleLabel.bottomAnchor.constraint(equalTo: autoRepairButton.topAnchor, constant: -40),
       subtitleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: buttonWidth),
 
-      // Export Logs Button
-      exportLogsButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-      exportLogsButton.widthAnchor.constraint(equalToConstant: buttonWidth),
-      exportLogsButton.heightAnchor.constraint(equalToConstant: 48),
-      exportLogsButton.bottomAnchor.constraint(equalTo: tryAgainButton.topAnchor, constant: -12),
-
-      // Try Again Button
-      tryAgainButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-      tryAgainButton.widthAnchor.constraint(equalToConstant: buttonWidth),
-      tryAgainButton.heightAnchor.constraint(equalToConstant: 48),
-      tryAgainButton.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 60),
-
-      // Auto Repair Button
+      // Auto Repair Button (Primary - on top)
       autoRepairButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
       autoRepairButton.widthAnchor.constraint(equalToConstant: buttonWidth),
       autoRepairButton.heightAnchor.constraint(equalToConstant: 48),
-      autoRepairButton.topAnchor.constraint(equalTo: tryAgainButton.bottomAnchor, constant: 12),
+      autoRepairButton.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 36),
 
-      // Version Label
-      versionLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-      versionLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+      // Try Again Button (Secondary)
+      tryAgainButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      tryAgainButton.widthAnchor.constraint(equalToConstant: buttonWidth),
+      tryAgainButton.heightAnchor.constraint(equalToConstant: 48),
+      tryAgainButton.topAnchor.constraint(equalTo: autoRepairButton.bottomAnchor, constant: 12),
+
+      // Bottom bar
+      bottomBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      bottomBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
     ])
   }
 
@@ -417,8 +428,8 @@ final class RecoveryViewController: UIViewController {
 
   @objc private func tryAgainTapped() {
     let defaults = UserDefaults.standard
-    defaults.set(0, forKey: "onekey_consecutive_boot_fail_count")
-    defaults.set("try_again", forKey: "onekey_recovery_action")
+    defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    defaults.set("try_again", forKey: BootRecoveryKeys.recoveryAction)
     defaults.synchronize()
     showAlert(title: RecoveryStrings.current.pleaseRestart, message: "")
   }
@@ -456,8 +467,8 @@ final class RecoveryViewController: UIViewController {
 
     // 4. Reset boot fail counter
     let defaults = UserDefaults.standard
-    defaults.set(0, forKey: "onekey_consecutive_boot_fail_count")
-    defaults.set("auto_repair", forKey: "onekey_recovery_action")
+    defaults.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+    defaults.set("auto_repair", forKey: BootRecoveryKeys.recoveryAction)
     defaults.synchronize()
 
     if errors.isEmpty {

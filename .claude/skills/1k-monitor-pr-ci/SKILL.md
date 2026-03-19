@@ -31,16 +31,21 @@ Determine the PR to monitor:
 
 Each iteration (`[Check N/30]`):
 
-1. **Fetch CI status**:
+**MUST run ALL three commands in parallel on every iteration** (missing any one may cause review comments to be silently ignored):
+
    ```bash
+   # 1. CI check status
    gh pr checks <PR_NUMBER>
+
+   # 2. PR-level reviews and general comments
+   gh pr view <PR_NUMBER> --json reviews,comments,reviewDecision
+
+   # 3. Inline review comments (e.g. from Devin, human reviewers)
+   gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments \
+     --jq '.[] | {user: .user.login, body: .body, path: .path, line: .original_line, created_at: .created_at}'
    ```
 
-2. **Fetch review comments** (every iteration):
-   ```bash
-   gh pr view <PR_NUMBER> --json reviews,comments,reviewDecision
-   gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments --jq '.[] | {user: .user.login, body: .body, path: .path, line: .original_line, created_at: .created_at}'
-   ```
+   > **Why all three?** `gh pr checks` only returns CI status. `gh pr view --json reviews` returns PR-level reviews but NOT inline file comments. `gh api .../pulls/.../comments` is the ONLY way to get inline code review comments (the kind that appear on specific lines in the diff). Skipping it means inline comments from bots like Devin or human reviewers will be completely invisible.
 
 3. **Display status summary**:
    ```

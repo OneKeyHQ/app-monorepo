@@ -164,7 +164,7 @@ export default function SettingDevLocalBundleList() {
         'ignoreServerBundleUpdate',
         true,
       );
-      await backgroundApiProxy.serviceAppUpdate.reset();
+      // await backgroundApiProxy.serviceAppUpdate.reset();
       await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
       await BundleUpdate.switchBundle({
         ...bundle,

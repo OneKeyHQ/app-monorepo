@@ -90,6 +90,8 @@ const BasicTokenListItem: FC<ITokenListItemProps> = ({
           volume={item.turnover}
           communityRecognized={item.communityRecognized}
           stock={item.stock}
+          maxLeverage={item.maxLeverage}
+          perpsSubtitle={item.perpsSubtitle}
         />
       </XStack>
 

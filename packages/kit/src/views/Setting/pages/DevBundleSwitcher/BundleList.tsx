@@ -35,7 +35,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 
-type IBundleInfo = {
+export type IBundleInfo = {
   bundleVersion?: string;
   ciBundleVersion: string;
   downloadUrl: string;
@@ -49,7 +49,7 @@ type IBundleInfo = {
   buildNumber?: string;
 };
 
-function normalizeCommitHash(commitHash?: string) {
+export function normalizeCommitHash(commitHash?: string) {
   return String(commitHash || '')
     .trim()
     .toLowerCase();
@@ -61,7 +61,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function BundleItem({
+export function BundleItem({
   bundle,
   version,
   isCurrentBundle,
@@ -175,7 +175,7 @@ function BundleItem({
       'ignoreServerBundleUpdate',
       true,
     );
-    await backgroundApiProxy.serviceAppUpdate.reset();
+    // await backgroundApiProxy.serviceAppUpdate.reset();
     await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
     defaultLogger.app.jsBundleDev.installBundle({
       version,
@@ -259,23 +259,23 @@ function BundleItem({
     <YStack px="$4" py="$3" gap="$2">
       {/* Row 1: bundleVersion + branch badge + status badges + action */}
       <XStack alignItems="center" justifyContent="space-between">
-        <XStack alignItems="center" gap="$2" flex={1}>
+        <XStack alignItems="center" gap="$2" flex={1} overflow="hidden" mr="$2">
           {isCurrentBundle ? (
             <Icon name="CheckRadioSolid" size="$4.5" color="$iconSuccess" />
           ) : null}
-          <SizableText size="$bodyMdMedium">
+          <SizableText size="$bodyMdMedium" flexShrink={0}>
             {`#${bundle.ciBundleVersion}`}
           </SizableText>
-          <Badge badgeType="default" badgeSize="sm">
-            <Badge.Text>{bundle.branch || '-'}</Badge.Text>
+          <Badge badgeType="default" badgeSize="sm" flexShrink={1}>
+            <Badge.Text numberOfLines={1}>{bundle.branch || '-'}</Badge.Text>
           </Badge>
           {isCurrentBundle ? (
-            <Badge badgeType="success" badgeSize="sm">
+            <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
               <Badge.Text>Active</Badge.Text>
             </Badge>
           ) : null}
           {status === 'downloaded' && !isCurrentBundle ? (
-            <Badge badgeType="info" badgeSize="sm">
+            <Badge badgeType="info" badgeSize="sm" flexShrink={0}>
               <Badge.Text>Ready</Badge.Text>
             </Badge>
           ) : null}
@@ -288,6 +288,7 @@ function BundleItem({
             variant="tertiary"
             disabled={downloadDisabled}
             onPress={handleDownload}
+            flexShrink={0}
           />
         ) : null}
       </XStack>
@@ -312,7 +313,7 @@ function BundleItem({
 
       {/* Row 4: prTitle (least prominent) */}
       {bundle.prTitle ? (
-        <SizableText size="$bodyXs" color="$textDisabled" numberOfLines={1}>
+        <SizableText size="$bodyXs" color="$textDisabled">
           {bundle.prTitle}
         </SizableText>
       ) : null}

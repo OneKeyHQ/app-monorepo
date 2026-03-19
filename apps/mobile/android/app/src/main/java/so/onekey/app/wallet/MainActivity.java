@@ -3,6 +3,7 @@ package so.onekey.app.wallet;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -84,6 +85,22 @@ public class MainActivity extends ReactActivity {
     I18nUtil sharedI18nUtilInstance = I18nUtil.getInstance();
     sharedI18nUtilInstance.allowRTL(getApplicationContext(), true);
     EventBus.getDefault().register(this);
+  }
+
+  @Override
+  protected void onStop() {
+    super.onStop();
+    // Reset crash counter on graceful exit so normal close
+    // is not mistaken for a crash on next boot.
+    // Skip reset when already in recovery mode (count >= 3) so recovery
+    // is still offered if the user swipe-kills without resolving.
+    SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
+    int count = prefs.getInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0);
+    if (count < 3) {
+      prefs.edit()
+          .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+          .commit();
+    }
   }
 
   @Override
