@@ -1619,9 +1619,13 @@ export function DepositWithdrawContent({
           >
             <Icon name="WalletOutline" size="$6" color="$iconSubdued" />
             <YStack flex={1} gap="$0.5">
-              <SizableText size="$bodyLgMedium">Wallet</SizableText>
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage({ id: ETranslations.global_wallet })}
+              </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                Transfer directly from your wallet
+                {intl.formatMessage({
+                  id: ETranslations.perp_relay_wallet_deposit__desc,
+                })}
               </SizableText>
             </YStack>
           </XStack>
@@ -1640,9 +1644,15 @@ export function DepositWithdrawContent({
           >
             <Icon name="SwitchHorOutline" size="$6" color="$iconSubdued" />
             <YStack flex={1} gap="$0.5">
-              <SizableText size="$bodyLgMedium">Crypto Transfer</SizableText>
+              <SizableText size="$bodyLgMedium">
+                {intl.formatMessage({
+                  id: ETranslations.perp_relay_crypto_transfer__title,
+                })}
+              </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                Deposit from CEX or external wallet
+                {intl.formatMessage({
+                  id: ETranslations.perp_relay_crypto_transfer__desc,
+                })}
               </SizableText>
             </YStack>
           </XStack>

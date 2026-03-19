@@ -22,6 +22,7 @@ import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress'
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IRelayChain,
   IRelayCurrency,
@@ -328,22 +329,21 @@ function RelayDepositContent({
   }, [quoteResult?.timeEstimate]);
 
   const hintText = useMemo(() => {
-    const max = quoteResult?.maxReceiveAmount
-      ? parseFloat(quoteResult.maxReceiveAmount)
-      : null;
-    if (max && max > 0) {
-      let formatted: string;
-      if (max >= 1_000_000) {
-        formatted = `$${(max / 1_000_000).toFixed(1)}M`;
-      } else if (max >= 1000) {
-        formatted = `$${Math.round(max / 1000)}K`;
-      } else {
-        formatted = `$${Math.round(max)}`;
-      }
-      return `您最多可接收 ${formatted} USDC，在限制数量内您可发送任意数量。修改上方数量以估算手续费。`;
+    const maxRaw = quoteResult?.maxReceiveAmount;
+    if (maxRaw && parseFloat(maxRaw) > 0) {
+      const formatted = numberFormat(maxRaw, {
+        formatter: 'marketCap',
+        formatterOptions: { currency: '$' },
+      });
+      return intl.formatMessage(
+        { id: ETranslations.perp_relay_deposit_hint_with_max__desc },
+        { amount: formatted },
+      );
     }
-    return '您可发送任意数量。修改上方数量以估算手续费。';
-  }, [quoteResult?.maxReceiveAmount]);
+    return intl.formatMessage({
+      id: ETranslations.perp_relay_deposit_hint__desc,
+    });
+  }, [quoteResult?.maxReceiveAmount, intl]);
 
   if (chainsLoading) {
     return (
@@ -359,7 +359,7 @@ function RelayDepositContent({
     <YStack gap="$2" opacity={loading ? 0.5 : 1}>
       <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$bodySm" color="$textSubdued">
-          {`手续费: $${quoteResult.totalFeeUsd}`}
+          {`${intl.formatMessage({ id: ETranslations.fee_fee })}: $${quoteResult.totalFeeUsd}`}
         </SizableText>
         {timeEstimateText ? (
           <XStack alignItems="center" gap="$1">
@@ -376,7 +376,7 @@ function RelayDepositContent({
       </XStack>
       <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$bodySm" color="$textSubdued">
-          发送
+          {intl.formatMessage({ id: ETranslations.global_send })}
         </SizableText>
         <XStack alignItems="center" gap="$1.5">
           <YStack
@@ -438,7 +438,7 @@ function RelayDepositContent({
 
       <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$bodySm" color="$textSubdued">
-          接收
+          {intl.formatMessage({ id: ETranslations.global_receive })}
         </SizableText>
         <XStack alignItems="center" gap="$1.5">
           <YStack
@@ -572,7 +572,10 @@ function RelayDepositContent({
                       <Image src={chain.icon} size="$5" borderRadius="$full" />
                     ) : null}
                     <SizableText size="$bodyMd" numberOfLines={1}>
-                      {chain?.name ?? '选择网络'}
+                      {chain?.name ??
+                        intl.formatMessage({
+                          id: ETranslations.global_select_network,
+                        })}
                     </SizableText>
                   </XStack>
                   <Icon name="ChevronDownSmallOutline" size="$4" />
@@ -584,10 +587,12 @@ function RelayDepositContent({
 
         <YStack gap="$2" flex={1}>
           <SizableText size="$bodyMd" color="$textSubdued">
-            代币
+            {intl.formatMessage({ id: ETranslations.perp_relay_token__title })}
           </SizableText>
           <Select
-            title="代币"
+            title={intl.formatMessage({
+              id: ETranslations.perp_relay_token__title,
+            })}
             value={selectedCurrencyAddress}
             onChange={handleCurrencyChange}
             items={currencyOptions}
@@ -617,7 +622,10 @@ function RelayDepositContent({
                       />
                     ) : null}
                     <SizableText size="$bodyMd" numberOfLines={1}>
-                      {currency?.symbol ?? '选择代币'}
+                      {currency?.symbol ??
+                        intl.formatMessage({
+                          id: ETranslations.dexmarket_select_token,
+                        })}
                     </SizableText>
                   </XStack>
                   <Icon name="ChevronDownSmallOutline" size="$4" />
