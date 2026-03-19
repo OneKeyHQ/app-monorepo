@@ -326,7 +326,6 @@ export const processPreLaunchPendingTask = (): boolean => {
     // Apply: set new bundle data
     setUpdateBundleData({ appVersion, bundleVersion, signature });
     setNativeVersion(currentAppVersion);
-    const currentBuildNumber = process.env.BUILD_NUMBER ?? '';
     if (currentBuildNumber) {
       setNativeBuildNumber(currentBuildNumber);
     }
