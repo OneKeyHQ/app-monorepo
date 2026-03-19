@@ -3,6 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
+import Animated, {
+  runOnJS,
+  useAnimatedRef,
+  useEvent,
+  useHandler,
+} from 'react-native-reanimated';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
@@ -16,6 +22,10 @@ import type {
   PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view';
 import type { SharedValue } from 'react-native-reanimated';
+
+// --- AnimatedPagerView: enables worklet-based onPageScroll on the UI thread ---
+
+const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
@@ -41,6 +51,37 @@ const INDEX_TO_TAB: ETranslations[] = [
   ETranslations.global_earn,
   ETranslations.global_browser,
 ];
+
+// --- Worklet-based page scroll handler (same pattern as collapsible-tab-view) ---
+
+function usePageScrollHandler(
+  handlers: {
+    onPageScroll: (
+      event: PagerViewOnPageScrollEvent['nativeEvent'],
+      context: Record<string, unknown>,
+    ) => void;
+  },
+  dependencies?: unknown[],
+): (event: PagerViewOnPageScrollEvent) => void {
+  const { context, doDependenciesDiffer } = useHandler(handlers, dependencies);
+
+  // Reanimated's useEvent return type (EventHandlerProcessed) doesn't match
+  // AnimatedPagerView's onPageScroll prop (DirectEventHandler), but they are
+  // compatible at runtime — Reanimated intercepts the native event internally.
+  return useEvent(
+    (
+      event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent'],
+    ) => {
+      'worklet';
+      const { onPageScroll } = handlers;
+      if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
+        onPageScroll(event, context);
+      }
+    },
+    ['onPageScroll'],
+    doDependenciesDiffer,
+  ) as unknown as (event: PagerViewOnPageScrollEvent) => void;
+}
 
 // --- Types ---
 
@@ -70,7 +111,7 @@ function OuterTabPagerViewComponent({
   pageScrollPosition,
 }: IOuterTabPagerViewProps) {
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
-  const outerPagerRef = useRef<PagerView>(null);
+  const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
   const wasUserDragRef = useRef(false);
@@ -178,21 +219,10 @@ function OuterTabPagerViewComponent({
     [setTransitioning, setVisiblePair],
   );
 
-  // During horizontal swipe, pre-mount the neighbor page and keep only
-  // the current + target pages unfrozen to avoid black frames.
-  // IMPORTANT: Only run for user-gesture swipes, NOT programmatic setPage().
-  // When setPage() scrolls across a non-adjacent page (e.g. page 0 → 2),
-  // intermediate onPageScroll events would overwrite visiblePair from [0,2]
-  // to [0,1], freezing the target page mid-animation → white flash.
-  const handleOuterPageScroll = useCallback(
-    (e: PagerViewOnPageScrollEvent) => {
-      const { position, offset } = e.nativeEvent;
-
-      // Always update the shared scroll position for smooth header animation
-      if (pageScrollPosition) {
-        pageScrollPosition.value = position + offset;
-      }
-
+  // JS-thread handler for freeze/unfreeze logic during user-gesture swipes.
+  // Called from the worklet-based onPageScroll via runOnJS.
+  const handlePageScrollJS = useCallback(
+    (position: number, offset: number) => {
       if (!wasUserDragRef.current) {
         return;
       }
@@ -211,8 +241,24 @@ function OuterTabPagerViewComponent({
       setVisiblePair([position, nextPosition]);
       markPagesVisited([position, nextPosition]);
     },
-    [markPagesVisited, pageScrollPosition, setVisiblePair],
+    [markPagesVisited, setVisiblePair],
   );
+
+  // Worklet-based onPageScroll: updates pageScrollPosition on the UI thread
+  // with zero bridge overhead, then dispatches freeze logic to JS thread.
+  const pageScrollHandler = usePageScrollHandler({
+    onPageScroll: (e) => {
+      'worklet';
+      const position = e.position;
+      const offset = e.offset;
+
+      if (pageScrollPosition) {
+        pageScrollPosition.value = position + offset;
+      }
+
+      runOnJS(handlePageScrollJS)(position, offset);
+    },
+  });
 
   // --- PagerView -> Atom sync (gesture swiping) ---
   const handleOuterPageSelected = useCallback(
@@ -292,7 +338,13 @@ function OuterTabPagerViewComponent({
       }
     });
     return () => cancelAnimationFrame(rafId);
-  }, [activePageIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
+  }, [
+    activePageIndex,
+    outerPagerRef,
+    marketTabsRef,
+    earnTabsRef,
+    earnBorrowPagerRef,
+  ]);
 
   const marketPage = useMemo(
     () =>
@@ -337,7 +389,7 @@ function OuterTabPagerViewComponent({
   );
 
   return (
-    <PagerView
+    <AnimatedPagerView
       ref={outerPagerRef}
       style={styles.pager}
       initialPage={initialPage}
@@ -345,14 +397,14 @@ function OuterTabPagerViewComponent({
       overdrag
       overScrollMode="always"
       offscreenPageLimit={1}
-      onPageScroll={handleOuterPageScroll}
+      onPageScroll={pageScrollHandler}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}
     >
       {marketPage}
       {earnPage}
       {browserPage}
-    </PagerView>
+    </AnimatedPagerView>
   );
 }
 
