@@ -338,8 +338,7 @@ function OuterTabPagerViewComponent({
       }
     });
     return () => cancelAnimationFrame(rafId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePageIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
+  }, [activePageIndex, outerPagerRef, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
 
   const marketPage = useMemo(
     () =>

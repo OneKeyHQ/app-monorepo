@@ -128,8 +128,7 @@ function EarnBorrowPagerViewComponent(
       pagerRef.current?.setPage(index);
       currentIndexRef.current = index;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, pagerRef]);
 
   // Track drag state: 'dragging' → wasUserDrag=true, 'idle' → wasUserDrag=false.
   // A user swipe sequence is: dragging → settling → onPageSelected → idle.
