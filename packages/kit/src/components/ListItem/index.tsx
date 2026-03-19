@@ -334,7 +334,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     // This prevents accidental onPress triggers while scrolling in nested
     // PagerView + ScrollView layouts.
     const useNativePressable = platformEnv.isNative && hasPressHandler;
-    const useStackPress = !useNativePressable && hasPressHandler;
+    const useStackPress = !platformEnv.isNative && hasPressHandler;
 
     const content = (
       <Stack
