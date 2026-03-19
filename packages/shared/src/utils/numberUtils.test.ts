@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import { appLocale } from '../locale/appLocale';
+
 import {
+  LOCALE_SEPARATORS,
   formatBalance,
   formatDisplayNumber,
   formatMarketCap,
@@ -9,6 +12,8 @@ import {
   formatPriceChangeCapped,
   formatValue,
   fromBigIntHex,
+  getDecimalSeparator,
+  getGroupingSeparator,
   numberFormat,
   numberFormatAsRaw,
   toBigIntHex,
@@ -1168,4 +1173,56 @@ test('countLeadingZeroDecimals edge cases via formatBalance', () => {
   expect(formatBalance('-0.000000000000000000000000000001')).toMatchObject({
     meta: { leadingZeros: 29 },
   });
+});
+
+test('LOCALE_SEPARATORS static table entries', () => {
+  expect(LOCALE_SEPARATORS['en']).toEqual({ decimal: '.', grouping: ',' });
+  expect(LOCALE_SEPARATORS['en-US']).toEqual({ decimal: '.', grouping: ',' });
+  expect(LOCALE_SEPARATORS['de']).toEqual({ decimal: ',', grouping: '.' });
+  expect(LOCALE_SEPARATORS['fr-FR']).toEqual({
+    decimal: ',',
+    grouping: '\u202F',
+  });
+  expect(LOCALE_SEPARATORS['ru']).toEqual({ decimal: ',', grouping: '\u00A0' });
+  expect(LOCALE_SEPARATORS['zh-CN']).toEqual({ decimal: '.', grouping: ',' });
+  expect(LOCALE_SEPARATORS['zh-HK']).toEqual({ decimal: '.', grouping: ',' });
+  expect(LOCALE_SEPARATORS['zh-TW']).toEqual({ decimal: '.', grouping: ',' });
+  expect(LOCALE_SEPARATORS['ja-JP']).toEqual({ decimal: '.', grouping: ',' });
+  expect(LOCALE_SEPARATORS['ko-KR']).toEqual({ decimal: '.', grouping: ',' });
+  expect(LOCALE_SEPARATORS['hi-IN']).toEqual({
+    decimal: '.',
+    grouping: ',',
+    indianGrouping: true,
+  });
+  expect(LOCALE_SEPARATORS['bn']).toEqual({
+    decimal: '.',
+    grouping: ',',
+    indianGrouping: true,
+  });
+});
+
+test('getDecimalSeparator and getGroupingSeparator', () => {
+  // Default locale is en-US: decimal='.' grouping=','
+  expect(getDecimalSeparator()).toBe('.');
+  expect(getGroupingSeparator()).toBe(',');
+
+  // Switch to German locale: decimal=',' grouping='.'
+  appLocale.setLocale('de', {} as any);
+  expect(getDecimalSeparator()).toBe(',');
+  expect(getGroupingSeparator()).toBe('.');
+
+  // Switch to French locale: decimal=',' grouping=narrow no-break space
+  appLocale.setLocale('fr-FR', {} as any);
+  expect(getDecimalSeparator()).toBe(',');
+  expect(getGroupingSeparator()).toBe('\u202F');
+
+  // Switch to Russian locale: decimal=',' grouping=non-breaking space
+  appLocale.setLocale('ru', {} as any);
+  expect(getDecimalSeparator()).toBe(',');
+  expect(getGroupingSeparator()).toBe('\u00A0');
+
+  // Restore default locale
+  appLocale.setLocale('en-US', {} as any);
+  expect(getDecimalSeparator()).toBe('.');
+  expect(getGroupingSeparator()).toBe(',');
 });
