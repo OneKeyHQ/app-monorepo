@@ -593,7 +593,12 @@ function MobileBrowser() {
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}
             selectedHeaderTab={selectedHeaderTab}
-            pageScrollPosition={outerPageScrollPosition}
+            // Only pass pageScrollPosition when OuterTabPagerView is active (phone).
+            // On tablet/dual-screen, useOuterPager is false so no onPageScroll
+            // events fire — passing the stale shared value would freeze tab colors.
+            pageScrollPosition={
+              useOuterPager ? outerPageScrollPosition : undefined
+            }
           />
         </YStack>
       ) : null}
