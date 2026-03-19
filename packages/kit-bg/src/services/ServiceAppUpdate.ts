@@ -1085,7 +1085,8 @@ class ServiceAppUpdate extends ServiceBase {
       // Don't treat absent jsBundleVersion as a rollback signal.
       if (
         typeof releaseInfo?.jsBundleCount === 'number' &&
-        releaseInfo.jsBundleCount > 0
+        releaseInfo.jsBundleCount > 0 &&
+        !releaseInfo.jsBundleVersion
       ) {
         hasActiveCustomBundle = false;
       }
