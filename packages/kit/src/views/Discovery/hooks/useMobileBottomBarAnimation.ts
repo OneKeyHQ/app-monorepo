@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
+  runOnUI,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -16,61 +17,49 @@ import {
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
 
+// Sentinel for "undefined" in SharedValue (SharedValue<number> can't hold undefined)
+const UNSET = -1;
+
 function useMobileBottomBarAnimation(activeTabId: string | null) {
   const { bottom: bottomInset } = useSafeAreaInsets();
   const fullBarHeight = BROWSER_BOTTOM_BAR_HEIGHT + bottomInset;
   const toolbarHeight = useSharedValue(fullBarHeight);
   const toolbarOpacity = useSharedValue(MAX_OPACITY_BOTTOM_BAR);
-  const lastScrollY = useRef<number | undefined>(undefined);
-  const lastTurnScrollY = useRef<number | undefined>(undefined);
+  const lastScrollY = useSharedValue(UNSET);
+  const lastTurnScrollY = useSharedValue(UNSET);
 
-  const handleScroll = useCallback(
-    ({ nativeEvent }: IWebViewOnScrollEvent) => {
-      const { contentOffset, contentSize, contentInset, layoutMeasurement } =
-        nativeEvent;
-      const contentOffsetY = contentOffset.y;
-      if (
-        contentOffsetY < 0 ||
-        Math.round(contentOffsetY) >
-          Math.round(
-            contentSize.height -
-              (layoutMeasurement.height +
-                contentInset.top +
-                contentInset.bottom),
-          )
-      ) {
-        lastScrollY.current = undefined;
-        lastTurnScrollY.current = undefined;
+  // Direction detection + SharedValue writes run entirely on UI thread.
+  // WebView onScroll is JS-thread only, so we extract numeric values in JS
+  // and dispatch via runOnUI to avoid an extra JS→UI hop for withTiming.
+  const processScroll = useCallback(
+    (contentOffsetY: number, canScroll: boolean, isOutOfBounds: boolean) => {
+      'worklet';
+      if (isOutOfBounds) {
+        lastScrollY.value = UNSET;
+        lastTurnScrollY.value = UNSET;
         return;
       }
-      const webViewCanScroll =
-        Math.round(contentSize.height) >
-        Math.round(
-          layoutMeasurement.height + contentInset.top + contentInset.bottom,
-        ) +
-          MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE +
-          fullBarHeight;
 
-      if (!webViewCanScroll) {
+      if (!canScroll) {
         toolbarHeight.value = withTiming(fullBarHeight);
         toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
         return;
       }
 
       if (
-        lastScrollY.current === undefined ||
-        lastTurnScrollY.current === undefined ||
-        (contentOffsetY - lastScrollY.current) *
-          (lastScrollY.current - lastTurnScrollY.current) <
+        lastScrollY.value === UNSET ||
+        lastTurnScrollY.value === UNSET ||
+        (contentOffsetY - lastScrollY.value) *
+          (lastScrollY.value - lastTurnScrollY.value) <
           0
       ) {
-        lastTurnScrollY.current = lastScrollY.current;
+        lastTurnScrollY.value = lastScrollY.value;
       }
-      lastScrollY.current = contentOffsetY;
-      if (lastTurnScrollY.current === undefined) {
+      lastScrollY.value = contentOffsetY;
+      if (lastTurnScrollY.value === UNSET) {
         return;
       }
-      const distanceOffsetY = contentOffsetY - lastTurnScrollY.current;
+      const distanceOffsetY = contentOffsetY - lastTurnScrollY.value;
       if (Math.abs(distanceOffsetY) <= MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE) {
         return;
       }
@@ -78,13 +67,44 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
 
       toolbarHeight.value = withTiming(height, {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
-      }); // No gradual animation
+      });
       toolbarOpacity.value = withTiming(height / fullBarHeight, {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
-      }); // No gradual animation
+      });
     },
-    [toolbarHeight, toolbarOpacity, fullBarHeight],
+    [
+      fullBarHeight,
+      lastScrollY,
+      lastTurnScrollY,
+      toolbarHeight,
+      toolbarOpacity,
+    ],
   );
+
+  const handleScroll = useCallback(
+    ({ nativeEvent }: IWebViewOnScrollEvent) => {
+      const { contentOffset, contentSize, contentInset, layoutMeasurement } =
+        nativeEvent;
+      const contentOffsetY = contentOffset.y;
+      const scrollableHeight =
+        contentSize.height -
+        (layoutMeasurement.height + contentInset.top + contentInset.bottom);
+      const isOutOfBounds =
+        contentOffsetY < 0 ||
+        Math.round(contentOffsetY) > Math.round(scrollableHeight);
+      const canScroll =
+        Math.round(contentSize.height) >
+        Math.round(
+          layoutMeasurement.height + contentInset.top + contentInset.bottom,
+        ) +
+          MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE +
+          fullBarHeight;
+
+      runOnUI(processScroll)(contentOffsetY, canScroll, isOutOfBounds);
+    },
+    [fullBarHeight, processScroll],
+  );
+
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: toolbarHeight.value,
     opacity: toolbarOpacity.value,
@@ -94,8 +114,11 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
   useEffect(() => {
     toolbarHeight.value = withTiming(fullBarHeight);
     toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
-    lastScrollY.current = undefined;
-    lastTurnScrollY.current = undefined;
+    runOnUI(() => {
+      'worklet';
+      lastScrollY.value = UNSET;
+      lastTurnScrollY.value = UNSET;
+    })();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId, fullBarHeight]);
