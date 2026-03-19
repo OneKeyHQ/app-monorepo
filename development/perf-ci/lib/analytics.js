@@ -166,6 +166,107 @@ function buildSessionPayload(sessionId, derived, jobId, sessionsDir, platform) {
 
   const marks = readAllMarks(sessionsDir, sessionId);
 
+  // Repeated calls (rapid repeated invocations within 100ms)
+  const repeatedCalls = Array.isArray(derived?.repeatedCalls)
+    ? derived.repeatedCalls.slice(0, 20).map((f) => ({
+        name: f.name,
+        file: f.file || null,
+        module: f.module || null,
+        calls: f.calls ?? null,
+        total_duration_ms: Number.isFinite(f.totalDuration)
+          ? Math.round(f.totalDuration)
+          : null,
+      }))
+    : [];
+
+  // JS thread block windows (top 5, slim shape)
+  const jsblock = (() => {
+    const raw = derived?.jsblock;
+    if (!raw || !Array.isArray(raw.topWindows)) return null;
+    return {
+      minDriftMs: raw.minDriftMs ?? null,
+      topWindows: raw.topWindows.slice(0, 5).map((w) => ({
+        span: w.span ?? null,
+        jsblock: w.jsblock
+          ? { name: w.jsblock.name, duration: w.jsblock.duration }
+          : null,
+        topFunctions: Array.isArray(w.topFunctions)
+          ? w.topFunctions.slice(0, 5).map((f) => ({
+              name: f.name,
+              module: f.module || null,
+              p95: Number.isFinite(f.p95) ? Math.round(f.p95) : null,
+              avg: Number.isFinite(f.avg) ? Math.round(f.avg) : null,
+              count: f.count ?? null,
+            }))
+          : [],
+      })),
+    };
+  })();
+
+  // Low FPS windows (top 3, slim shape)
+  const lowFps = (() => {
+    const raw = derived?.lowFps;
+    if (!raw || !Array.isArray(raw.topWindows)) return null;
+    return {
+      thresholdFps: raw.thresholdFps ?? null,
+      topWindows: raw.topWindows.slice(0, 3).map((w) => ({
+        span: w.span ?? null,
+        fps: w.fps ? { min: w.fps.min, avg: w.fps.avg } : null,
+        topFunctions: Array.isArray(w.topFunctions)
+          ? w.topFunctions.slice(0, 5).map((f) => ({
+              name: f.name,
+              module: f.module || null,
+              p95: Number.isFinite(f.p95) ? Math.round(f.p95) : null,
+              avg: Number.isFinite(f.avg) ? Math.round(f.avg) : null,
+              count: f.count ?? null,
+            }))
+          : [],
+      })),
+    };
+  })();
+
+  // Home refresh token window — top functions during the measurement span
+  const homeRefresh = (() => {
+    const raw = derived?.homeRefreshTokens;
+    if (!raw) return null;
+    return {
+      startSinceSessionStartMs: raw.startSinceSessionStartMs ?? null,
+      endSinceSessionStartMs: raw.endSinceSessionStartMs ?? null,
+      spanMs:
+        Number.isFinite(raw.startSinceSessionStartMs) &&
+        Number.isFinite(raw.endSinceSessionStartMs)
+          ? Math.round(
+              raw.endSinceSessionStartMs - raw.startSinceSessionStartMs,
+            )
+          : null,
+      topFunctions: Array.isArray(raw.topFunctions)
+        ? raw.topFunctions.slice(0, 10).map((f) => ({
+            name: f.name,
+            module: f.module || null,
+            p95: Number.isFinite(f.p95) ? Math.round(f.p95) : null,
+            avg: Number.isFinite(f.avg) ? Math.round(f.avg) : null,
+            count: f.count ?? null,
+          }))
+        : [],
+    };
+  })();
+
+  // Key marks (slim: just first occurrence timing per mark name)
+  const keyMarks = (() => {
+    const raw = derived?.keyMarks;
+    if (!raw || !raw.marks) return null;
+    const sessionStart = Number(raw.sessionStart);
+    const slim = {};
+    for (const [name, info] of Object.entries(raw.marks)) {
+      const t = info?.first?.t;
+      slim[name] =
+        Number.isFinite(t) && Number.isFinite(sessionStart)
+          ? Math.round(t - sessionStart)
+          : null;
+    }
+    return { sessionStart, marks: slim };
+  })();
+
   return {
     job_id: jobId,
     session_id: sessionId,
@@ -181,6 +282,11 @@ function buildSessionPayload(sessionId, derived, jobId, sessionsDir, platform) {
       p95_ms: Number.isFinite(f.p95) ? f.p95 : null,
     })),
     marks,
+    repeated_calls: repeatedCalls,
+    jsblock,
+    low_fps: lowFps,
+    home_refresh: homeRefresh,
+    key_marks: keyMarks,
   };
 }
 
