@@ -16,6 +16,10 @@ import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import type { GestureResponderEvent } from 'react-native';
 
+const handlePress = (e: GestureResponderEvent) => {
+  e.stopPropagation();
+};
+
 interface ITokenTagsPopoverProps {
   communityRecognized?: boolean;
   stock?: IMarketStockInfo;
@@ -57,10 +61,6 @@ function TokenTagsPopover({
       ) : null}
     </XStack>
   );
-
-  const handlePress = (e: GestureResponderEvent) => {
-    e.stopPropagation();
-  };
 
   return (
     <Stack onPress={handlePress}>

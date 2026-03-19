@@ -137,26 +137,20 @@ export function TokenDetailHeaderLeft({
               {symbol}
             </SizableText>
             {md ? (
-              <>
-                <TokenTagsPopover
-                  communityRecognized={communityRecognized}
-                  stock={stock}
-                />
-                {stock?.subtitle ? (
-                  <SubtitleBadge subtitle={stock.subtitle} />
-                ) : null}
-                {stock ? <StockIsOpenBadge stock={stock} /> : null}
-              </>
+              <TokenTagsPopover
+                communityRecognized={communityRecognized}
+                stock={stock}
+              />
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
                 {communityRecognized ? <CommunityRecognizedBadge /> : null}
-                {stock?.subtitle ? (
-                  <SubtitleBadge subtitle={stock.subtitle} />
-                ) : null}
-                {stock ? <StockIsOpenBadge stock={stock} /> : null}
               </>
             )}
+            {stock?.subtitle ? (
+              <SubtitleBadge subtitle={stock.subtitle} />
+            ) : null}
+            {stock ? <StockIsOpenBadge stock={stock} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">
