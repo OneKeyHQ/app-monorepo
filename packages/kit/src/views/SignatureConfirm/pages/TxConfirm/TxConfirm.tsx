@@ -34,8 +34,6 @@ import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { useTxRiskChecks } from '@onekeyhq/kit/src/components/RiskDetectionCard';
-
 import { getBorrowTxTitle } from '../../../Borrow/borrowUtils';
 import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
@@ -373,25 +371,6 @@ function TxConfirm() {
     }
   }, [sourceInfo, accountId]);
 
-  // Collect risk signals from decoded txs and URL security
-  const decodedTxAlerts = useMemo(
-    () =>
-      (decodedTxs ?? [])
-        .flatMap((tx) => tx.txDisplay?.alerts ?? [])
-        .filter(Boolean),
-    [decodedTxs],
-  );
-  const decodedTxDisplayComponents = useMemo(
-    () => (decodedTxs ?? []).flatMap((tx) => tx.txDisplay?.components ?? []),
-    [decodedTxs],
-  );
-  const riskChecks = useTxRiskChecks({
-    decodedTxAlerts,
-    urlSecurityInfo,
-    displayComponents: decodedTxDisplayComponents,
-    origin: sourceInfo?.origin,
-  });
-
   const renderTxConfirmContent = useCallback(() => {
     if (
       (isBuildingDecodedTxs || !decodedTxs || decodedTxs.length === 0) &&
@@ -413,11 +392,7 @@ function TxConfirm() {
             urlSecurityInfo={urlSecurityInfo}
           />
         ) : null}
-        <TxConfirmDetails
-          accountId={accountId}
-          networkId={networkId}
-          riskChecks={riskChecks}
-        />
+        <TxConfirmDetails accountId={accountId} networkId={networkId} />
         <TxConfirmExtraInfo
           accountId={accountId}
           networkId={networkId}
@@ -436,7 +411,6 @@ function TxConfirm() {
     transferPayload,
     sourceInfo?.origin,
     urlSecurityInfo,
-    riskChecks,
     unsignedTxs,
     swapInfo,
     stakingInfo,
