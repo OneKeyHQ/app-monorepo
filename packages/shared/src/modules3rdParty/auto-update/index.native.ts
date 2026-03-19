@@ -311,8 +311,8 @@ export const BundleUpdate: IBundleUpdate = {
     ReactNativeBundleUpdate.verifyExtractedBundle(appVersion, bundleVersion),
   listLocalBundles: () => ReactNativeBundleUpdate.listLocalBundles(),
   switchBundle: async (params) => {
+    await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     if (params.appVersion && params.bundleVersion) {
-      await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
       setTimeout(() => {
         RNRestart.restart();
       }, 2500);
