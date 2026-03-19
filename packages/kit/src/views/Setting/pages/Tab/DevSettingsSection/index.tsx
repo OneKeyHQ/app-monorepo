@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 
 import { random } from 'lodash';
@@ -10,13 +10,16 @@ import {
   Dialog,
   ESwitchSize,
   Icon,
+  IconButton,
   Input,
   Select,
   SizableText,
+  Stack,
   Switch,
   TextAreaInput,
   Toast,
   View,
+  XStack,
   YStack,
   useClipboard,
   useInPageDialog,
@@ -153,10 +156,14 @@ const DevSettingsAccordionTrigger = ({
   title,
   description,
   icon,
+  pinned,
+  onTogglePin,
 }: {
   title: string;
   description?: string;
   icon?: ComponentProps<typeof Icon>['name'];
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }) => (
   <Accordion.Trigger
     bg="$bgSubdued"
@@ -166,14 +173,10 @@ const DevSettingsAccordionTrigger = ({
     borderRightWidth={0}
   >
     {({ open }: { open: boolean }) => (
-      <YStack
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <YStack flexDirection="row" alignItems="center" gap="$3">
+      <XStack justifyContent="space-between" alignItems="center">
+        <XStack alignItems="center" gap="$3" flex={1}>
           {icon ? <Icon name={icon} color="$iconSubdued" /> : null}
-          <YStack>
+          <YStack flex={1}>
             <SizableText textAlign="left" size="$bodyLgMedium">
               {title}
             </SizableText>
@@ -183,11 +186,27 @@ const DevSettingsAccordionTrigger = ({
               </SizableText>
             ) : null}
           </YStack>
-        </YStack>
-        <View animation="quick" rotate={open ? '0deg' : '-90deg'}>
-          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
-        </View>
-      </YStack>
+        </XStack>
+        <XStack alignItems="center" gap="$1">
+          {onTogglePin ? (
+            <IconButton
+              icon={pinned ? 'PinSolid' : 'PinOutline'}
+              size="small"
+              variant="tertiary"
+              iconProps={{
+                color: pinned ? '$iconActive' : '$iconSubdued',
+              }}
+              onPress={(e) => {
+                e.stopPropagation();
+                onTogglePin();
+              }}
+            />
+          ) : null}
+          <View animation="quick" rotate={open ? '0deg' : '-90deg'}>
+            <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+          </View>
+        </XStack>
+      </XStack>
     )}
   </Accordion.Trigger>
 );
@@ -732,6 +751,26 @@ const BaseDevSettingsSection = () => {
                   navigation.push(
                     EModalSettingRoutes.SettingDevBundleManagerModal,
                   );
+                }}
+              />
+              <SectionPressItem
+                icon="RefreshCwOutline"
+                title="Force Check Updates"
+                subtitle="Force fetch app update info"
+                onPress={async () => {
+                  try {
+                    Toast.message({ title: 'Checking for updates...' });
+                    await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
+                      true,
+                    );
+                    Toast.success({ title: 'Check updates done' });
+                  } catch (e) {
+                    Toast.error({
+                      title: `Check updates failed: ${
+                        (e as Error).message || 'Unknown error'
+                      }`,
+                    });
+                  }
                 }}
               />
               <SectionPressItem
