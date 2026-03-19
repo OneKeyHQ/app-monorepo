@@ -5,7 +5,7 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import { isValidElement, useCallback } from 'react';
+import { isValidElement, useCallback, useState } from 'react';
 
 import { Pressable } from 'react-native';
 
@@ -336,6 +336,14 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     const useNativePressable = platformEnv.isNative && hasPressHandler;
     const useWebPress = !platformEnv.isNative && hasPressHandler;
 
+    // Track native press state for visual feedback. Pressable's onPressIn/
+    // onPressOut drive this state, which applies bg='$bgActive' on the Stack.
+    // This replaces Tamagui's pressStyle which requires onPress on the Stack
+    // (but we removed Stack's onPress so Pressable handles scroll cancellation).
+    const [nativePressed, setNativePressed] = useState(false);
+    const handlePressIn = useCallback(() => setNativePressed(true), []);
+    const handlePressOut = useCallback(() => setNativePressed(false), []);
+
     const content = (
       <Stack
         ref={ref}
@@ -352,7 +360,8 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
         {...(props.disabled && {
           opacity: 0.5,
         })}
-        {...(hasPressHandler ? listItemPressStyle : undefined)}
+        {...(useWebPress ? listItemPressStyle : undefined)}
+        {...(nativePressed ? { bg: '$bgActive' } : undefined)}
         {...rest}
       >
         {childrenBefore}
@@ -406,12 +415,15 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     );
 
     if (useNativePressable) {
-      // unstable_pressDelay: delays the visual press highlight (onPressIn) so
-      // it doesn't briefly flash when the user starts a scroll gesture on top
-      // of a list item. It does NOT affect whether onPress fires — that is
-      // handled by Pressable's built-in scroll cancellation.
+      // unstable_pressDelay delays onPressIn so the bg highlight doesn't
+      // briefly flash when the user starts a scroll gesture on a list item.
       return (
-        <Pressable onPress={handleItemPress} unstable_pressDelay={50}>
+        <Pressable
+          onPress={handleItemPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          unstable_pressDelay={50}
+        >
           {content}
         </Pressable>
       );
