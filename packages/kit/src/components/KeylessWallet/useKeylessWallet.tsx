@@ -1237,7 +1237,7 @@ export function useVerifyKeylessPinChecking() {
           if (!selectedAccount?.walletId) {
             return undefined;
           }
-          return backgroundApiProxy.serviceAccount.getWallet({
+          return await backgroundApiProxy.serviceAccount.getWallet({
             walletId: selectedAccount.walletId,
           });
         } catch {

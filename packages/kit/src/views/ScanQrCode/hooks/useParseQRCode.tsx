@@ -8,7 +8,6 @@ import {
   Stack,
   Toast,
   ToastContent,
-  popActionCenterPages,
   resetAboveMainRoute,
   resetScanModalRoute,
   resetToRoute,
@@ -173,13 +172,14 @@ const useParseQRCode = () => {
             resetAboveMainRoute();
             await timerUtils.wait(100);
           } else {
-            // Atomically remove only the ScanQrCodeModal route, preserving
-            // caller routes (e.g. onboarding). This avoids goBack() animated
-            // dismiss which causes RNSScreenStack window=NIL and blocks
-            // Fabric commits on the underlying page.
+            // Atomically remove ScanQrCodeModal and ActionCenter routes,
+            // preserving caller routes (e.g. onboarding). This avoids
+            // goBack() animated dismiss which causes RNSScreenStack
+            // window=NIL and blocks Fabric commits on the underlying page.
             resetScanModalRoute();
-            await popActionCenterPages();
-            await timerUtils.wait(100);
+            if (!platformEnv.isNativeIOS) {
+              await timerUtils.wait(100);
+            }
           }
         }
       };

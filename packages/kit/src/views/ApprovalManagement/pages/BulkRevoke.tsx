@@ -32,6 +32,7 @@ import type {
 import { isHardwareInterruptErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalApprovalManagementRoutes,
   IModalApprovalManagementParamList,
@@ -601,6 +602,9 @@ function BulkRevoke() {
 
   const handleOnConfirm = useCallback(() => {
     if (progressState === ERevokeProgressState.Finished) {
+      defaultLogger.prime.usage.bulkRevokeSuccess({
+        revokeCount: succeededTxCount,
+      });
       navigation.popStack();
       return;
     }
@@ -622,7 +626,13 @@ function BulkRevoke() {
         },
       }));
     }
-  }, [progressState, navigation, currentProcessIndex, unsignedTxs]);
+  }, [
+    progressState,
+    navigation,
+    currentProcessIndex,
+    unsignedTxs,
+    succeededTxCount,
+  ]);
 
   const handleOnCancel = useCallback(() => {
     if (skippedTxCount === 0 && failedTxCount === 0) {

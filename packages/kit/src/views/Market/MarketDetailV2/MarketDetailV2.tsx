@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
