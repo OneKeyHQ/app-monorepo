@@ -32,6 +32,40 @@ type IItemLayout = { x: number; width: number };
 
 export type ITabBarVariant = 'default' | 'pill';
 
+function AnimatedPillText({
+  name,
+  index: tabIndex,
+  indexDecimal,
+  textSize,
+}: {
+  name: string;
+  index: number;
+  indexDecimal: SharedValue<number>;
+  textSize: ISizableTextProps['size'];
+}) {
+  const theme = useTheme();
+  const activeColor = theme.textInverse.val;
+  const inactiveColor = theme.text.val;
+
+  const animatedColorStyle = useAnimatedStyle(() => {
+    const color = interpolateColor(
+      indexDecimal.value,
+      [tabIndex - 1, tabIndex, tabIndex + 1],
+      [inactiveColor, activeColor, inactiveColor],
+    );
+    return { color };
+  });
+
+  return (
+    <Animated.Text
+      style={[animatedTextStyles.text, animatedColorStyle]}
+      numberOfLines={1}
+    >
+      {name}
+    </Animated.Text>
+  );
+}
+
 export function TabBarItem({
   name,
   isFocused,
@@ -41,6 +75,8 @@ export function TabBarItem({
   variant = 'default',
   textSize,
   animatedPillIndicator,
+  indexDecimal,
+  index: tabIndex,
 }: ITabBarItemProps) {
   const handlePress = useCallback(() => {
     onPress(name);
@@ -56,6 +92,12 @@ export function TabBarItem({
       : isFocused
         ? '$bgPrimary'
         : '$bgStrong';
+
+    const useAnimatedText =
+      animatedPillIndicator &&
+      indexDecimal !== undefined &&
+      tabIndex !== undefined;
+
     return (
       <YStack
         ai="center"
@@ -77,13 +119,22 @@ export function TabBarItem({
         {...tabItemStyle}
         {...(isFocused ? focusedTabStyle : undefined)}
       >
-        <SizableText
-          size={resolvedTextSize}
-          color={isFocused ? '$textInverse' : '$text'}
-          userSelect="none"
-        >
-          {name}
-        </SizableText>
+        {useAnimatedText ? (
+          <AnimatedPillText
+            name={name}
+            index={tabIndex}
+            indexDecimal={indexDecimal}
+            textSize={resolvedTextSize}
+          />
+        ) : (
+          <SizableText
+            size={resolvedTextSize}
+            color={isFocused ? '$textInverse' : '$text'}
+            userSelect="none"
+          >
+            {name}
+          </SizableText>
+        )}
       </YStack>
     );
   }
@@ -444,6 +495,9 @@ export interface ITabBarItemProps {
   // When true, the pill background is handled by AnimatedPillIndicator,
   // so TabBarItem should not render its own background color.
   animatedPillIndicator?: boolean;
+  // Provided when animatedPillIndicator is true for UI-thread text color.
+  indexDecimal?: SharedValue<number>;
+  index?: number;
 }
 
 const PILL_GRADIENT_THRESHOLD = 2;
@@ -690,6 +744,8 @@ export function TabBar({
             variant,
             textSize,
             animatedPillIndicator: hasAnimatedIndicator,
+            indexDecimal: hasAnimatedIndicator ? indexDecimal : undefined,
+            index: hasAnimatedIndicator ? index : undefined,
           },
           index,
         )
