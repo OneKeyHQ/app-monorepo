@@ -410,7 +410,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       // It does NOT affect whether onPress fires — that is handled by
       // Pressable's built-in scroll cancellation.
       return (
-        <Pressable onPress={handleItemPress} delayPressIn={50}>
+        <Pressable onPress={handleItemPress} unstable_pressDelay={50}>
           {content}
         </Pressable>
       );
