@@ -145,23 +145,16 @@ function TableRow<T>({
   const handleNativePressIn = useCallback(() => setNativePressed(true), []);
   const handleNativePressOut = useCallback(() => setNativePressed(false), []);
 
-  const rowBg = useMemo(() => {
-    if (isDragging && isDarkMode) return '$bgActive';
-    if (nativePressed) return '$bgActive';
-    return '$bgApp';
-  }, [isDragging, isDarkMode, nativePressed]);
 
   const content = (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
-      bg={rowBg}
+      bg="$bgApp"
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
       onPress={!useNativePressable ? handlePress : undefined}
-      onLongPress={
-        !useNativePressable && md ? handleLongPress : undefined
-      }
+      onLongPress={!useNativePressable && md ? handleLongPress : undefined}
       {...(!platformEnv.isNative && {
         onContextMenu: handleContextMenu as any,
       })}
@@ -172,6 +165,9 @@ function TableRow<T>({
       {...nativeScaleAnimationProps}
       {...(!useNativePressable ? (itemPressStyle as IXStackProps) : undefined)}
       {...(rowProps as IXStackProps)}
+      {...(nativePressed || (isDragging && isDarkMode)
+        ? { bg: '$bgActive' }
+        : undefined)}
     >
       {columns.map((column) => {
         if (!column) {

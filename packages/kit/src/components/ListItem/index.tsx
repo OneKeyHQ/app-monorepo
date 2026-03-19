@@ -361,8 +361,8 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
           opacity: 0.5,
         })}
         {...(useWebPress ? listItemPressStyle : undefined)}
-        {...(nativePressed ? { bg: '$bgActive' } : undefined)}
         {...rest}
+        {...(nativePressed ? { bg: '$bgActive' } : undefined)}
       >
         {childrenBefore}
         {renderWithFallback(
