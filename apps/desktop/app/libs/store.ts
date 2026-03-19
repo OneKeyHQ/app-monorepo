@@ -287,16 +287,16 @@ export const processPreLaunchPendingTask = (): boolean => {
     const currentAppVersion = app.getVersion();
     if (task.scheduledEnvAppVersion !== currentAppVersion) return false;
 
-    const prevBuildNumber = getNativeBuildNumber();
+    const scheduledBuildNumber = task.scheduledEnvBuildNumber ?? '';
     const currentBuildNumber = process.env.BUILD_NUMBER ?? '';
     if (
-      prevBuildNumber &&
+      scheduledBuildNumber &&
       currentBuildNumber &&
-      prevBuildNumber !== currentBuildNumber
+      scheduledBuildNumber !== currentBuildNumber
     ) {
       logger.info(
         'processPreLaunchPendingTask: buildNumber changed from',
-        prevBuildNumber,
+        scheduledBuildNumber,
         'to',
         currentBuildNumber,
         ', skipping stale task',

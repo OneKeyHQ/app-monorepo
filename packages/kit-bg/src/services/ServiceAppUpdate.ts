@@ -150,6 +150,10 @@ class ServiceAppUpdate extends ServiceBase {
     defaultLogger.app.appUpdate.log(
       `fetchAppUpdateInfo: ${reason} — scheduling rollback to builtin for next cold start`,
     );
+    const [nativeAppVersion, nativeBuildNumber] = await Promise.all([
+      BundleUpdate.getNativeAppVersion(),
+      BundleUpdate.getNativeBuildNumber(),
+    ]);
     const now = Date.now();
     await setPendingInstallTask({
       taskId: `jsbundle:${appVersion}:builtin`,
@@ -158,8 +162,9 @@ class ServiceAppUpdate extends ServiceBase {
       type: EPendingInstallTaskType.jsBundleSwitch,
       targetAppVersion: appVersion,
       targetBundleVersion: '0',
-      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvAppVersion: nativeAppVersion || platformEnv.version || '',
       scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
+      scheduledEnvBuildNumber: nativeBuildNumber || '',
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
