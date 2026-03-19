@@ -338,7 +338,13 @@ function OuterTabPagerViewComponent({
       }
     });
     return () => cancelAnimationFrame(rafId);
-  }, [activePageIndex, outerPagerRef, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
+  }, [
+    activePageIndex,
+    outerPagerRef,
+    marketTabsRef,
+    earnTabsRef,
+    earnBorrowPagerRef,
+  ]);
 
   const marketPage = useMemo(
     () =>

@@ -151,8 +151,7 @@ function EarnBorrowPagerViewComponent(
     onPageScroll: (e) => {
       'worklet';
       if (pageScrollPosition) {
-        pageScrollPosition.value =
-          (e.position) + (e.offset);
+        pageScrollPosition.value = e.position + e.offset;
       }
     },
   });
