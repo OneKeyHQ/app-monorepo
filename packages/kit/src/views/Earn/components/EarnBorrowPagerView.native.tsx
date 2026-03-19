@@ -52,11 +52,14 @@ function usePageScrollHandler(
     ) => void;
   },
   dependencies?: unknown[]
-) {
+): (event: PagerViewOnPageScrollEvent) => void {
   const { context, doDependenciesDiffer } = useHandler(handlers, dependencies);
 
-  return useEvent<PagerViewOnPageScrollEvent['nativeEvent']>(
-    (event) => {
+  // Reanimated's useEvent return type (EventHandlerProcessed) doesn't match
+  // AnimatedPagerView's onPageScroll prop (DirectEventHandler), but they are
+  // compatible at runtime — Reanimated intercepts the native event internally.
+  return useEvent(
+    (event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent']) => {
       'worklet';
       const { onPageScroll } = handlers;
       if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
@@ -65,7 +68,7 @@ function usePageScrollHandler(
     },
     ['onPageScroll'],
     doDependenciesDiffer,
-  );
+  ) as unknown as (event: PagerViewOnPageScrollEvent) => void;
 }
 
 // --- Types ---
