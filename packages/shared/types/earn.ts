@@ -170,4 +170,5 @@ export interface IEarnAvailableAssetV2 {
   symbol: string;
   vault?: string;
   ptAddress?: string;
+  enableBatch?: boolean;
 }
