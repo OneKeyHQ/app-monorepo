@@ -1216,7 +1216,7 @@ class ServicePendingInstallTask {
           return;
         }
         // Target not aligned yet — apply grace period before marking failed,
-        // because platformEnv may not be fully initialised right after restart.
+        // because platformEnv may not be fully initialized right after restart.
         if (task.runningStartedAt) {
           const gracePeriodMs = timerUtils.getTimeDurationMs({ minute: 10 });
           if (now - task.runningStartedAt < gracePeriodMs) {
