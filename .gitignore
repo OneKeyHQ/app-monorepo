@@ -104,6 +104,7 @@ apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy
 /apps/mobile/out-dir-bundle-zip
 /apps/mobile/ios/go-install
 /apps/mobile/ios/tmp-oc-test
+/apps/mobile/ios/OneKeyWallet/Fonts
 
 debug.log
 

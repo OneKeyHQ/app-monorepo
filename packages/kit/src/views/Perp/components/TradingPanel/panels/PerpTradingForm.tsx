@@ -68,6 +68,17 @@ interface IPerpTradingFormProps {
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 
+// Migrate old persisted trigger order types to new values
+function migrateTriggerOrderType(raw: string): ETriggerOrderType {
+  if (raw === 'stopMarket' || raw === 'takeMarket') {
+    return ETriggerOrderType.TRIGGER_MARKET;
+  }
+  if (raw === 'stopLimit' || raw === 'takeLimit') {
+    return ETriggerOrderType.TRIGGER_LIMIT;
+  }
+  return raw as ETriggerOrderType;
+}
+
 const TRIGGER_MODE_TPSL_RESET: Partial<ITradingFormData> = {
   hasTpsl: false,
   tpTriggerPx: '',
@@ -128,11 +139,12 @@ function PerpTradingForm({
   // Derive primaryOrderType from formData.orderMode
   const primaryOrderType: IPrimaryOrderType =
     formData.orderMode === 'trigger' ? 'trigger' : formData.type;
-  // Trigger order type: prefer formData, fall back to persisted setting
-  const triggerOrderType =
+  // Trigger order type: prefer formData, fall back to persisted setting (with migration)
+  const triggerOrderType = migrateTriggerOrderType(
     formData.triggerOrderType ??
-    perpsCustomSettings.lastTriggerOrderType ??
-    ETriggerOrderType.STOP_MARKET;
+      perpsCustomSettings.lastTriggerOrderType ??
+      ETriggerOrderType.TRIGGER_MARKET,
+  );
   // Only triggerMenuOpen stays as local state (pure UI)
   const [triggerMenuOpen, setTriggerMenuOpen] = useState(false);
   // Trigger price and reduceOnly from atom
@@ -385,23 +397,15 @@ function PerpTradingForm({
   const triggerTypeOptions = useMemo(
     () => [
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_stop_market }),
-        value: ETriggerOrderType.STOP_MARKET as ITriggerDropdownValue,
+        label: 'Trigger Market',
+        value: ETriggerOrderType.TRIGGER_MARKET as ITriggerDropdownValue,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_stop_limit }),
-        value: ETriggerOrderType.STOP_LIMIT as ITriggerDropdownValue,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.perp_order_tp_market }),
-        value: ETriggerOrderType.TAKE_MARKET as ITriggerDropdownValue,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.perp_order_tp_limit }),
-        value: ETriggerOrderType.TAKE_LIMIT as ITriggerDropdownValue,
+        label: 'Trigger Limit',
+        value: ETriggerOrderType.TRIGGER_LIMIT as ITriggerDropdownValue,
       },
     ],
-    [intl],
+    [],
   );
   const mobileOrderTypeOptions = useMemo(
     () => [
@@ -414,20 +418,12 @@ function PerpTradingForm({
         value: 'limit' as string,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_stop_market }),
-        value: ETriggerOrderType.STOP_MARKET as string,
+        label: 'Trigger Market',
+        value: ETriggerOrderType.TRIGGER_MARKET as string,
       },
       {
-        label: intl.formatMessage({ id: ETranslations.perp_order_stop_limit }),
-        value: ETriggerOrderType.STOP_LIMIT as string,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.perp_order_tp_market }),
-        value: ETriggerOrderType.TAKE_MARKET as string,
-      },
-      {
-        label: intl.formatMessage({ id: ETranslations.perp_order_tp_limit }),
-        value: ETriggerOrderType.TAKE_LIMIT as string,
+        label: 'Trigger Limit',
+        value: ETriggerOrderType.TRIGGER_LIMIT as string,
       },
     ],
     [intl],
@@ -436,13 +432,12 @@ function PerpTradingForm({
   const applyPrimaryOrderType = useCallback(
     (nextType: IPrimaryOrderType) => {
       if (nextType === 'trigger') {
-        // Use persisted trigger type when switching to trigger tab
-        const persistedType =
+        const persistedType = migrateTriggerOrderType(
           perpsCustomSettings.lastTriggerOrderType ??
-          ETriggerOrderType.STOP_MARKET;
+            ETriggerOrderType.TRIGGER_MARKET,
+        );
         const isLimitTrigger =
-          persistedType === ETriggerOrderType.STOP_LIMIT ||
-          persistedType === ETriggerOrderType.TAKE_LIMIT;
+          persistedType === ETriggerOrderType.TRIGGER_LIMIT;
         updateForm({
           ...TRIGGER_MODE_TPSL_RESET,
           orderMode: 'trigger',
@@ -469,20 +464,18 @@ function PerpTradingForm({
       if (nextType === 'scale' || nextType === 'twap') {
         return;
       }
-      const isLimitTrigger =
-        nextType === ETriggerOrderType.STOP_LIMIT ||
-        nextType === ETriggerOrderType.TAKE_LIMIT;
+      const migrated = migrateTriggerOrderType(nextType);
+      const isLimitTrigger = migrated === ETriggerOrderType.TRIGGER_LIMIT;
       updateForm({
         ...TRIGGER_MODE_TPSL_RESET,
         orderMode: 'trigger',
-        triggerOrderType: nextType,
+        triggerOrderType: migrated,
         type: isLimitTrigger ? 'limit' : 'market',
         bboPriceMode: null,
       });
-      // Persist last selected trigger type
       setPerpsCustomSettings({
         ...perpsCustomSettings,
-        lastTriggerOrderType: nextType,
+        lastTriggerOrderType: migrated,
       });
     },
     [updateForm, perpsCustomSettings, setPerpsCustomSettings],
@@ -490,8 +483,7 @@ function PerpTradingForm({
 
   const isTriggerMode = formData.orderMode === 'trigger';
   const isTriggerLimitOrder =
-    triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
-    triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+    triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
 
   const renderPriceInputSection = () => {
     if (isTriggerMode) {
