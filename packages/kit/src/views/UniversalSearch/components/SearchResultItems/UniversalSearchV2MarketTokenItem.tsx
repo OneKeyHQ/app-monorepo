@@ -22,6 +22,7 @@ import {
   StockSourceLogo,
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -303,11 +304,25 @@ export function UniversalSearchV2MarketTokenItem({
               >
                 {formatTokenSymbolForDisplay(symbol)}
               </SizableText>
-              <StockSourceLogo stock={stock} />
-              {communityRecognized ? <CommunityRecognizedBadge /> : null}
-              {stock?.subtitle ? (
-                <SubtitleBadge subtitle={stock.subtitle} />
-              ) : null}
+              {gtMd ? (
+                <>
+                  <StockSourceLogo stock={stock} />
+                  {communityRecognized ? <CommunityRecognizedBadge /> : null}
+                  {stock?.subtitle ? (
+                    <SubtitleBadge subtitle={stock.subtitle} />
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <TokenTagsPopover
+                    communityRecognized={communityRecognized}
+                    stock={stock}
+                  />
+                  {stock?.subtitle ? (
+                    <SubtitleBadge subtitle={stock.subtitle} />
+                  ) : null}
+                </>
+              )}
             </XStack>
             <XStack ai="center" gap="$0.5" minWidth={0}>
               {name ? (

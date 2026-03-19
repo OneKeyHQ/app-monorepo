@@ -86,12 +86,19 @@ function TokenTagsPopover({
             ) : null}
             {hasStockSource ? (
               <XStack alignItems="center" gap="$3">
-                <Image
-                  width={24}
-                  height={24}
-                  borderRadius="$full"
-                  source={{ uri: stock.sourceLogoUri }}
-                />
+                <Stack
+                  width="$6"
+                  height="$6"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <Image
+                    width={20}
+                    height={20}
+                    borderRadius="$full"
+                    source={{ uri: stock.sourceLogoUri }}
+                  />
+                </Stack>
                 <SizableText size="$bodyLgMedium" flex={1} flexWrap="wrap">
                   {stockLabelId
                     ? intl.formatMessage({ id: stockLabelId })
