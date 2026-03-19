@@ -69,14 +69,17 @@ function MarketWatchlistEditDialogContent({
   });
   const [dataSource, setDataSource] = useState<IMarketToken[]>([]);
   const removedKeysRef = useRef(new Set<string>());
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    setDataSource(
-      watchlistResult.data.filter(
-        (item) => !removedKeysRef.current.has(getWatchlistTokenKey(item)),
-      ),
+    const filtered = watchlistResult.data.filter(
+      (item) => !removedKeysRef.current.has(getWatchlistTokenKey(item)),
     );
-  }, [watchlistResult.data]);
+    setDataSource(filtered);
+    if (filtered.length > 0 || !watchlistResult.isLoading) {
+      isInitializedRef.current = true;
+    }
+  }, [watchlistResult.data, watchlistResult.isLoading]);
 
   const handleRemove = useCallback(
     async (item: IMarketToken) => {
@@ -111,7 +114,7 @@ function MarketWatchlistEditDialogContent({
     [onSort],
   );
 
-  if (!dataSource.length) {
+  if (!isInitializedRef.current && !dataSource.length) {
     return (
       <YStack
         h={EDIT_DIALOG_HEIGHT}
