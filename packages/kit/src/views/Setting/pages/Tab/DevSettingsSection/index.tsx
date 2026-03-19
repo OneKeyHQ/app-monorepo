@@ -46,6 +46,7 @@ import {
   isRawSpanning,
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import {
   requestPermissionsAsync,
@@ -483,6 +484,15 @@ const BaseDevSettingsSection = () => {
                 }}
               />
 
+              <SectionPressItem
+                icon="FolderOutline"
+                title="Copy Log Path"
+                subtitle="Log Path"
+                onPress={() => {
+                  copyText(NativeLogger.getLogDirectory() || 'N/A');
+                }}
+              />
+
               {platformEnv.isNativeAndroid ? (
                 <SectionPressItem
                   icon="PhoneOutline"
@@ -731,6 +741,16 @@ const BaseDevSettingsSection = () => {
                 onPress={() => {
                   navigation.push(
                     EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+                  );
+                }}
+              />
+              <SectionPressItem
+                icon="ActivityOutline"
+                title="Bundle Update Status"
+                subtitle="Update state, strategy, download progress, pending task"
+                onPress={() => {
+                  navigation.push(
+                    EModalSettingRoutes.SettingDevBundleUpdateStatusModal,
                   );
                 }}
               />
