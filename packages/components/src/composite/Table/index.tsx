@@ -145,7 +145,6 @@ function TableRow<T>({
   const handleNativePressIn = useCallback(() => setNativePressed(true), []);
   const handleNativePressOut = useCallback(() => setNativePressed(false), []);
 
-
   const content = (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
