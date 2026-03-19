@@ -8,6 +8,7 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
+  useSharedValue,
 } from 'react-native-reanimated';
 import { useThrottledCallback } from 'use-debounce';
 
@@ -207,24 +208,44 @@ function AnimatedIndicator({
   const theme = useTheme();
   const indicatorColor = theme.text.val;
 
+  // Store layout data as SharedValues to avoid worklet recreation on re-render.
+  const xValuesSV = useSharedValue<number[]>([]);
+  const widthValuesSV = useSharedValue<number[]>([]);
+  const countSV = useSharedValue(0);
+
+  if (
+    itemsLayout.length !== countSV.value ||
+    itemsLayout.some(
+      (v, i) =>
+        xValuesSV.value[i] !== v.x || widthValuesSV.value[i] !== v.width,
+    )
+  ) {
+    xValuesSV.value = itemsLayout.map((v) => v.x);
+    widthValuesSV.value = itemsLayout.map((v) => v.width);
+    countSV.value = itemsLayout.length;
+  }
+
   const animatedStyle = useAnimatedStyle(() => {
-    if (itemsLayout.length < 2) {
-      const first = itemsLayout[0];
-      return first
-        ? { transform: [{ translateX: first.x }], width: first.width }
+    const count = countSV.value;
+    const xs = xValuesSV.value;
+    const ws = widthValuesSV.value;
+
+    if (count < 2) {
+      return count === 1
+        ? { transform: [{ translateX: xs[0] }], width: ws[0] }
         : {};
     }
-    const inputRange = itemsLayout.map((_, i) => i);
+    const inputRange = xs.map((_, i) => i);
     const translateX = interpolate(
       indexDecimal.value,
       inputRange,
-      itemsLayout.map((v) => v.x),
+      xs,
       Extrapolation.CLAMP,
     );
     const width = interpolate(
       indexDecimal.value,
       inputRange,
-      itemsLayout.map((v) => v.width),
+      ws,
       Extrapolation.CLAMP,
     );
     return { transform: [{ translateX }], width };
@@ -322,15 +343,33 @@ function AnimatedPillIndicator({
   const theme = useTheme();
   const bgColor = theme.bgPrimary.val;
 
-  // Pre-compute left/right edge arrays for the jelly effect
-  const leftEdges = itemsLayout.map((v) => v.x);
-  const rightEdges = itemsLayout.map((v) => v.x + v.width);
+  // Store layout edges as SharedValues so the worklet never needs to be
+  // recreated when itemsLayout changes — all reads stay on the UI thread.
+  const leftEdgesSV = useSharedValue<number[]>([]);
+  const rightEdgesSV = useSharedValue<number[]>([]);
+  const countSV = useSharedValue(0);
+
+  if (
+    itemsLayout.length !== countSV.value ||
+    itemsLayout.some(
+      (v, i) =>
+        leftEdgesSV.value[i] !== v.x ||
+        rightEdgesSV.value[i] !== v.x + v.width,
+    )
+  ) {
+    leftEdgesSV.value = itemsLayout.map((v) => v.x);
+    rightEdgesSV.value = itemsLayout.map((v) => v.x + v.width);
+    countSV.value = itemsLayout.length;
+  }
 
   const animatedStyle = useAnimatedStyle(() => {
-    if (itemsLayout.length < 2) {
-      const first = itemsLayout[0];
-      return first
-        ? { transform: [{ translateX: first.x }], width: first.width }
+    const count = countSV.value;
+    const lefts = leftEdgesSV.value;
+    const rights = rightEdgesSV.value;
+
+    if (count < 2) {
+      return count === 1
+        ? { transform: [{ translateX: lefts[0] }], width: rights[0] - lefts[0] }
         : {};
     }
 
@@ -341,28 +380,27 @@ function AnimatedPillIndicator({
 
     // At rest on a tab — no jelly needed
     if (floorIdx === ceilIdx || fraction === 0) {
-      const layout = itemsLayout[Math.min(floorIdx, itemsLayout.length - 1)];
-      return layout
-        ? { transform: [{ translateX: layout.x }], width: layout.width }
-        : {};
+      const idx = Math.max(0, Math.min(floorIdx, count - 1));
+      return {
+        transform: [{ translateX: lefts[idx] }],
+        width: rights[idx] - lefts[idx],
+      };
     }
 
-    const safeFloor = Math.max(0, Math.min(floorIdx, itemsLayout.length - 1));
-    const safeCeil = Math.max(0, Math.min(ceilIdx, itemsLayout.length - 1));
+    const safeFloor = Math.max(0, Math.min(floorIdx, count - 1));
+    const safeCeil = Math.max(0, Math.min(ceilIdx, count - 1));
 
-    const fromLeft = leftEdges[safeFloor];
-    const fromRight = rightEdges[safeFloor];
-    const toLeft = leftEdges[safeCeil];
-    const toRight = rightEdges[safeCeil];
+    const fromLeft = lefts[safeFloor];
+    const fromRight = rights[safeFloor];
+    const toLeft = lefts[safeCeil];
+    const toRight = rights[safeCeil];
 
     // Jelly/elastic effect: leading edge moves faster, trailing edge lags.
-    // ease-out (t => 1 - (1-t)^2): accelerates early — used for leading edge
-    // ease-in  (t => t^2):          accelerates late  — used for trailing edge
+    // ease-out (1-(1-t)^2): accelerates early — used for leading edge
+    // ease-in  (t^2):       accelerates late  — used for trailing edge
     const easeOut = 1 - (1 - fraction) * (1 - fraction);
     const easeIn = fraction * fraction;
 
-    // Moving right (floor → ceil): right edge leads, left edge trails
-    // Moving left would be the reverse, but indexDecimal always has floor < ceil
     const left = fromLeft + (toLeft - fromLeft) * easeIn;
     const right = fromRight + (toRight - fromRight) * easeOut;
 
