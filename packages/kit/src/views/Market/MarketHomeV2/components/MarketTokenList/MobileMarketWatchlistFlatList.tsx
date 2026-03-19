@@ -1,9 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Dimensions, type GestureResponderEvent } from 'react-native';
-import DraggableFlatList from 'react-native-draggable-flatlist';
-import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
+import {
+  Dimensions,
+  type FlatListProps,
+  type GestureResponderEvent,
+} from 'react-native';
 
 import {
   Haptics,
@@ -48,55 +50,19 @@ interface IMobileMarketWatchlistFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
-  topAutoScrollTriggerOffset?: number;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
 const FIRST_LEVEL_LONG_PRESS_DELAY_MS = 800;
-const DRAG_MOVE_THRESHOLD_PX = 10;
-const DRAG_ACTIVATION_DISTANCE_PX = 0;
+const CANCEL_MENU_MOVE_THRESHOLD_PX = 10;
 const PRESS_STATIONARY_THRESHOLD_PX = 3;
 const ROW_HEIGHT_FALLBACK_PX = 60;
-const AUTOSCROLL_THRESHOLD_PX = 0;
-const AUTOSCROLL_SPEED_PX = 0;
-const MANUAL_AUTOSCROLL_TOP_EDGE_PX = 96;
-const MANUAL_AUTOSCROLL_BOTTOM_EDGE_PX = 120;
-const MANUAL_AUTOSCROLL_MIN_STEP_PX = 4;
-const MANUAL_AUTOSCROLL_MAX_STEP_PX = 28;
 const SECOND_LEVEL_MENU_ANCHOR_X_RATIO = 0.48;
 const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
-const DRAG_END_FALLBACK_DELAY_MS = 220;
-const DRAG_POINTER_TRACK_INTERVAL_MS = 16;
-type IAutoScrollDirection = -1 | 0 | 1;
-type IAutoScrollResolveResult = {
-  direction: IAutoScrollDirection;
-  step: number;
-};
-
-function getWatchlistViewportTopBoundaryY({
-  viewportTop,
-  headerBottomOffset,
-}: {
-  viewportTop: number;
-  headerBottomOffset: number;
-}) {
-  return Math.max(0, viewportTop) + Math.max(0, headerBottomOffset);
-}
-
-function getDraggedItemTopY({
-  anchorRowTopY,
-  translationY,
-}: {
-  anchorRowTopY: number;
-  translationY: number;
-}) {
-  return anchorRowTopY + translationY;
-}
 
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
   listContainerProps,
-  topAutoScrollTriggerOffset = 0,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -136,50 +102,17 @@ function MobileMarketWatchlistFlatListImpl({
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data);
 
   const filteredData = filteredGroups[selectedFilter];
-  const DraggableFlatListComponent =
-    (Tabs as any).DraggableFlatList ?? DraggableFlatList;
-  const [dragResetNonce, setDragResetNonce] = useState(0);
   const rowHeightsRef = useRef<Record<string, number>>({});
-  const listRef = useRef<{
-    scrollToOffset: (params: { offset: number; animated?: boolean }) => void;
-  } | null>(null);
-  const scrollOffsetRef = useRef(0);
-  const contentHeightRef = useRef(0);
-  const viewportRef = useRef({
-    top: 0,
-    bottom: 0,
-    height: 0,
-  });
-  const autoScrollRef = useRef<{
-    timer: ReturnType<typeof setInterval> | null;
-    direction: -1 | 0 | 1;
-    step: number;
-  }>({
-    timer: null,
-    direction: 0,
-    step: 0,
-  });
-  const dragPointerTrackRef = useRef<{
-    timer: ReturnType<typeof setInterval> | null;
-    anchorRowTopY: number;
-    dragItemHeight: number;
-  }>({
-    timer: null,
-    anchorRowTopY: 0,
-    dragItemHeight: ROW_HEIGHT_FALLBACK_PX,
-  });
 
   const portalRef = useRef<IPortalManager | null>(null);
   const gestureRef = useRef<{
     activeItemId: string;
     pressX: number;
     pressY: number;
-    pressStartAt: number;
     lastPageX: number;
     lastPageY: number;
     rowTop: number;
     rowBottom: number;
-    movedBeyondThreshold: boolean;
     hasMoved: boolean;
     menuTimer: ReturnType<typeof setTimeout> | null;
     consumeNextPress: boolean;
@@ -187,20 +120,14 @@ function MobileMarketWatchlistFlatListImpl({
     activeItemId: '',
     pressX: 0,
     pressY: 0,
-    pressStartAt: 0,
     lastPageX: 0,
     lastPageY: 0,
     rowTop: 0,
     rowBottom: 0,
-    movedBeyondThreshold: false,
     hasMoved: false,
     menuTimer: null,
     consumeNextPress: false,
   });
-  const isDragSessionActiveRef = useRef(false);
-  const dragEndFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
 
   const getStableItemKey = useCallback(
     (item: IMarketToken) =>
@@ -217,202 +144,14 @@ function MobileMarketWatchlistFlatListImpl({
     }
   }, []);
 
-  const clearDragEndFallbackTimer = useCallback(() => {
-    if (dragEndFallbackTimerRef.current) {
-      clearTimeout(dragEndFallbackTimerRef.current);
-      dragEndFallbackTimerRef.current = null;
-    }
-  }, []);
-
   const resetGestureSession = useCallback(() => {
     gestureRef.current.activeItemId = '';
-    gestureRef.current.movedBeyondThreshold = false;
     gestureRef.current.hasMoved = false;
     gestureRef.current.rowTop = 0;
     gestureRef.current.rowBottom = 0;
-    gestureRef.current.pressStartAt = 0;
     gestureRef.current.lastPageX = 0;
     gestureRef.current.lastPageY = 0;
   }, []);
-
-  const stopManualAutoScroll = useCallback(() => {
-    if (autoScrollRef.current.timer) {
-      clearInterval(autoScrollRef.current.timer);
-      autoScrollRef.current.timer = null;
-    }
-    autoScrollRef.current.direction = 0;
-    autoScrollRef.current.step = 0;
-  }, []);
-
-  const startManualAutoScroll = useCallback(
-    (direction: -1 | 1, step: number) => {
-      const nextStep = Math.max(
-        MANUAL_AUTOSCROLL_MIN_STEP_PX,
-        Math.min(MANUAL_AUTOSCROLL_MAX_STEP_PX, step),
-      );
-      if (autoScrollRef.current.direction === direction) {
-        autoScrollRef.current.step = nextStep;
-        return;
-      }
-
-      stopManualAutoScroll();
-      autoScrollRef.current.direction = direction;
-      autoScrollRef.current.step = nextStep;
-      autoScrollRef.current.timer = setInterval(() => {
-        const viewportHeight = viewportRef.current.height;
-        if (!viewportHeight) return;
-        const maxOffset = Math.max(
-          0,
-          contentHeightRef.current - viewportHeight,
-        );
-        if (maxOffset <= 0) return;
-
-        const nextOffset = Math.max(
-          0,
-          Math.min(
-            maxOffset,
-            scrollOffsetRef.current +
-              autoScrollRef.current.direction * autoScrollRef.current.step,
-          ),
-        );
-        if (nextOffset === scrollOffsetRef.current) return;
-
-        scrollOffsetRef.current = nextOffset;
-        listRef.current?.scrollToOffset({
-          offset: nextOffset,
-          animated: false,
-        });
-      }, 16);
-    },
-    [stopManualAutoScroll],
-  );
-
-  const resolveManualAutoScrollState = useCallback(
-    ({
-      dragItemTopY,
-      dragItemBottomY,
-    }: {
-      dragItemTopY: number;
-      dragItemBottomY: number;
-    }): IAutoScrollResolveResult => {
-      const { height } = Dimensions.get('window');
-      const viewportTop =
-        viewportRef.current.top > 0 ? viewportRef.current.top : 0;
-      const viewportBottom =
-        viewportRef.current.bottom > 0 ? viewportRef.current.bottom : height;
-      const headerBottomY = getWatchlistViewportTopBoundaryY({
-        viewportTop,
-        headerBottomOffset: topAutoScrollTriggerOffset,
-      });
-      const distToTop = dragItemTopY - headerBottomY;
-      const distToBottom = viewportBottom - dragItemBottomY;
-      const normalizedDistToTop = Math.max(0, distToTop);
-      const normalizedDistToBottom = Math.max(0, distToBottom);
-      const topActive = distToTop <= MANUAL_AUTOSCROLL_TOP_EDGE_PX;
-      const bottomActive = distToBottom <= MANUAL_AUTOSCROLL_BOTTOM_EDGE_PX;
-
-      if (!topActive && !bottomActive) {
-        return { direction: 0 as const, step: 0 };
-      }
-
-      const direction: -1 | 1 =
-        topActive &&
-        (!bottomActive || normalizedDistToTop <= normalizedDistToBottom)
-          ? -1
-          : 1;
-      const distanceToEdge =
-        direction === -1 ? normalizedDistToTop : normalizedDistToBottom;
-      const edgePx =
-        direction === -1
-          ? MANUAL_AUTOSCROLL_TOP_EDGE_PX
-          : MANUAL_AUTOSCROLL_BOTTOM_EDGE_PX;
-      const clampedDistance = Math.max(0, Math.min(edgePx, distanceToEdge));
-      const ratio = 1 - clampedDistance / edgePx;
-      const easedRatio = ratio * ratio;
-      const step = Math.round(
-        MANUAL_AUTOSCROLL_MIN_STEP_PX +
-          (MANUAL_AUTOSCROLL_MAX_STEP_PX - MANUAL_AUTOSCROLL_MIN_STEP_PX) *
-            easedRatio,
-      );
-
-      return {
-        direction,
-        step: Math.max(
-          MANUAL_AUTOSCROLL_MIN_STEP_PX,
-          Math.min(MANUAL_AUTOSCROLL_MAX_STEP_PX, step),
-        ),
-      };
-    },
-    [topAutoScrollTriggerOffset],
-  );
-
-  const updateManualAutoScroll = useCallback(
-    ({
-      dragItemTopY,
-      dragItemBottomY,
-    }: {
-      dragItemTopY: number;
-      dragItemBottomY: number;
-    }) => {
-      const { direction, step } = resolveManualAutoScrollState({
-        dragItemTopY,
-        dragItemBottomY,
-      });
-      if (direction === 0 || step <= 0) {
-        stopManualAutoScroll();
-        return;
-      }
-      startManualAutoScroll(direction, step);
-    },
-    [resolveManualAutoScrollState, startManualAutoScroll, stopManualAutoScroll],
-  );
-
-  const stopDragPointerTracking = useCallback(() => {
-    if (dragPointerTrackRef.current.timer) {
-      clearInterval(dragPointerTrackRef.current.timer);
-      dragPointerTrackRef.current.timer = null;
-    }
-    dragPointerTrackRef.current.anchorRowTopY = 0;
-    dragPointerTrackRef.current.dragItemHeight = ROW_HEIGHT_FALLBACK_PX;
-  }, []);
-
-  const syncDragItemAnchor = useCallback(() => {
-    const rowTop = gestureRef.current.rowTop;
-    const rowHeight = Math.max(
-      ROW_HEIGHT_FALLBACK_PX,
-      gestureRef.current.rowBottom - gestureRef.current.rowTop,
-    );
-    if (rowTop <= 0) {
-      return false;
-    }
-    dragPointerTrackRef.current.anchorRowTopY = rowTop;
-    dragPointerTrackRef.current.dragItemHeight = rowHeight;
-    return true;
-  }, []);
-
-  const startDragPointerTracking = useCallback(() => {
-    if (dragPointerTrackRef.current.timer) {
-      return;
-    }
-    dragPointerTrackRef.current.timer = setInterval(() => {
-      if (!isDragSessionActiveRef.current) {
-        return;
-      }
-      const anchorRowTopY = dragPointerTrackRef.current.anchorRowTopY;
-      if (anchorRowTopY <= 0) {
-        return;
-      }
-      const dragItemTopY = getDraggedItemTopY({
-        anchorRowTopY,
-        translationY: globalRef.translationY,
-      });
-      updateManualAutoScroll({
-        dragItemTopY,
-        dragItemBottomY:
-          dragItemTopY + dragPointerTrackRef.current.dragItemHeight,
-      });
-    }, DRAG_POINTER_TRACK_INTERVAL_MS);
-  }, [updateManualAutoScroll]);
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -431,36 +170,6 @@ function MobileMarketWatchlistFlatListImpl({
       portalRef.current = null;
     }
   }, []);
-
-  const finalizeDragSession = useCallback(() => {
-    clearDragEndFallbackTimer();
-    isDragSessionActiveRef.current = false;
-    stopDragPointerTracking();
-    clearMenuTimer();
-    stopManualAutoScroll();
-    resetGestureSession();
-    globalRef.reset();
-  }, [
-    clearDragEndFallbackTimer,
-    clearMenuTimer,
-    resetGestureSession,
-    stopDragPointerTracking,
-    stopManualAutoScroll,
-  ]);
-
-  const scheduleDragEndFallback = useCallback(() => {
-    if (!platformEnv.isNative || !isDragSessionActiveRef.current) {
-      return;
-    }
-    clearDragEndFallbackTimer();
-    dragEndFallbackTimerRef.current = setTimeout(() => {
-      if (!isDragSessionActiveRef.current) {
-        return;
-      }
-      setDragResetNonce((prev) => prev + 1);
-      finalizeDragSession();
-    }, DRAG_END_FALLBACK_DELAY_MS);
-  }, [clearDragEndFallbackTimer, finalizeDragSession]);
 
   const handleShowContextMenu = useCallback(
     (
@@ -527,69 +236,18 @@ function MobileMarketWatchlistFlatListImpl({
 
   useEffect(
     () => () => {
-      clearDragEndFallbackTimer();
-      stopDragPointerTracking();
       clearMenuTimer();
-      stopManualAutoScroll();
       resetGestureSession();
       if (portalRef.current) {
         portalRef.current.destroy();
         portalRef.current = null;
       }
     },
-    [
-      clearDragEndFallbackTimer,
-      clearMenuTimer,
-      resetGestureSession,
-      stopDragPointerTracking,
-      stopManualAutoScroll,
-    ],
+    [clearMenuTimer, resetGestureSession],
   );
 
-  const handleDragEnd = useCallback(
-    ({
-      from,
-      to,
-      data,
-    }: {
-      from: number;
-      to: number;
-      data: IMarketToken[];
-    }) => {
-      clearDragEndFallbackTimer();
-      finalizeDragSession();
-      if (from === to) return;
-
-      const dragItem = data[to];
-      if (!dragItem) return;
-
-      const prevItem = data[to - 1];
-      const nextItem = data[to + 1];
-      void actions.current.sortWatchListV2Items({
-        target: tokenToWatchListItem(dragItem),
-        prev: prevItem ? tokenToWatchListItem(prevItem) : undefined,
-        next: nextItem ? tokenToWatchListItem(nextItem) : undefined,
-      });
-    },
-    [
-      actions,
-      clearDragEndFallbackTimer,
-      finalizeDragSession,
-      tokenToWatchListItem,
-    ],
-  );
-
-  const renderItem = useCallback(
-    ({
-      item,
-      getIndex,
-      isActive,
-    }: {
-      item: IMarketToken;
-      getIndex: () => number | undefined;
-      isActive: boolean;
-    }) => {
-      const resolvedIndex = getIndex() ?? 0;
+  const renderItem: FlatListProps<IMarketToken>['renderItem'] = useCallback(
+    ({ item, index }: { item: IMarketToken; index: number }) => {
       const itemKey = getStableItemKey(item);
       return (
         <TokenListItem
@@ -612,32 +270,25 @@ function MobileMarketWatchlistFlatListImpl({
             });
           }}
           onPressIn={(event: GestureResponderEvent) => {
-            clearDragEndFallbackTimer();
             clearMenuTimer();
-            isDragSessionActiveRef.current = false;
             const {
               pageX = 0,
               pageY = 0,
               locationY = ROW_HEIGHT_FALLBACK_PX / 2,
             } = event.nativeEvent;
-            const getLatestIndex = () => getIndex() ?? resolvedIndex;
             const current = gestureRef.current;
             const rowHeight =
               rowHeightsRef.current[itemKey] ?? ROW_HEIGHT_FALLBACK_PX;
             const rowTop = pageY - locationY;
-            globalRef.reset();
             current.activeItemId = itemKey;
             current.pressX = pageX;
             current.pressY = pageY;
-            current.pressStartAt = Date.now();
             current.lastPageX = pageX;
             current.lastPageY = pageY;
             current.rowTop = rowTop;
             current.rowBottom = rowTop + rowHeight;
-            current.movedBeyondThreshold = false;
             current.hasMoved = false;
             current.consumeNextPress = false;
-            // No drag, show context menu directly at first level
             current.menuTimer = setTimeout(() => {
               const latest = gestureRef.current;
               if (latest.activeItemId !== itemKey || latest.hasMoved) {
@@ -651,10 +302,9 @@ function MobileMarketWatchlistFlatListImpl({
               }
               latest.consumeNextPress = true;
               clearMenuTimer();
-              const latestIndex = getLatestIndex();
               Haptics.impact(ImpactFeedbackStyle.Medium);
               const { width } = Dimensions.get('window');
-              handleShowContextMenu(item, latestIndex, {
+              handleShowContextMenu(item, index, {
                 x: width * SECOND_LEVEL_MENU_ANCHOR_X_RATIO,
                 y: latestPageY - SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET,
               });
@@ -675,9 +325,7 @@ function MobileMarketWatchlistFlatListImpl({
             if (movedDistance > PRESS_STATIONARY_THRESHOLD_PX) {
               current.hasMoved = true;
             }
-
-            // No drag/primed state, only track position and hasMoved
-            if (movedDistance > DRAG_MOVE_THRESHOLD_PX) {
+            if (movedDistance > CANCEL_MENU_MOVE_THRESHOLD_PX) {
               clearMenuTimer();
             }
           }}
@@ -686,43 +334,26 @@ function MobileMarketWatchlistFlatListImpl({
               layoutEvent.nativeEvent.layout.height || ROW_HEIGHT_FALLBACK_PX;
           }}
           onPressOut={(event: GestureResponderEvent) => {
-            if (isDragSessionActiveRef.current || isActive) {
-              return;
-            }
             const touchesLength = event.nativeEvent.touches?.length ?? 0;
             if (touchesLength > 0) {
               return;
             }
             clearMenuTimer();
-            stopManualAutoScroll();
             resetGestureSession();
           }}
           onTouchEnd={() => {
-            if (isDragSessionActiveRef.current || isActive) {
-              stopDragPointerTracking();
-              stopManualAutoScroll();
-              scheduleDragEndFallback();
-              return;
-            }
             clearMenuTimer();
-            stopManualAutoScroll();
             resetGestureSession();
           }}
-          isPrimed={false}
-          isDragging={isActive}
         />
       );
     },
     [
       clearMenuTimer,
-      clearDragEndFallbackTimer,
       getStableItemKey,
       handleShowContextMenu,
       navigateToPerps,
       resetGestureSession,
-      stopDragPointerTracking,
-      stopManualAutoScroll,
-      scheduleDragEndFallback,
       toMarketDetailPage,
     ],
   );
@@ -730,11 +361,6 @@ function MobileMarketWatchlistFlatListImpl({
   const keyExtractor = useCallback(
     (item: IMarketToken) => getStableItemKey(item),
     [getStableItemKey],
-  );
-
-  const renderPlaceholder = useCallback(
-    () => <Stack pointerEvents="none" h={0} opacity={0} />,
-    [],
   );
 
   const { data, isLoading } = watchlistResult;
@@ -773,65 +399,10 @@ function MobileMarketWatchlistFlatListImpl({
   }
 
   return (
-    <DraggableFlatListComponent
-      key={`watchlist-drag-${dragResetNonce}`}
-      ref={listRef as any}
+    <Tabs.FlatList<IMarketToken>
       showsVerticalScrollIndicator={false}
       data={showSkeleton ? EMPTY_DATA : filteredData}
-      onDragEnd={handleDragEnd}
-      onRelease={() => {
-        stopDragPointerTracking();
-        stopManualAutoScroll();
-        scheduleDragEndFallback();
-      }}
-      onDragBegin={() => {
-        clearDragEndFallbackTimer();
-        isDragSessionActiveRef.current = true;
-        gestureRef.current.consumeNextPress = true;
-        clearMenuTimer();
-        stopManualAutoScroll();
-        dismissInlineActionBar();
-        if (syncDragItemAnchor()) {
-          startDragPointerTracking();
-          const dragItemTopY = getDraggedItemTopY({
-            anchorRowTopY: dragPointerTrackRef.current.anchorRowTopY,
-            translationY: globalRef.translationY,
-          });
-          updateManualAutoScroll({
-            dragItemTopY,
-            dragItemBottomY:
-              dragItemTopY + dragPointerTrackRef.current.dragItemHeight,
-          });
-        }
-      }}
-      onScrollOffsetChange={(offset: number) => {
-        scrollOffsetRef.current = offset;
-      }}
-      onContentSizeChange={(_: number, height: number) => {
-        contentHeightRef.current = height;
-      }}
-      onContainerLayout={({ layout, containerRef }: any) => {
-        viewportRef.current.height =
-          layout?.height ?? viewportRef.current.height;
-        const target = containerRef?.current as
-          | {
-              measureInWindow?: (
-                callback: (x: number, y: number, w: number, h: number) => void,
-              ) => void;
-            }
-          | undefined;
-        target?.measureInWindow?.((_x, y, _w, h) => {
-          viewportRef.current.top = y;
-          viewportRef.current.bottom = y + h;
-          viewportRef.current.height = h;
-        });
-      }}
-      activationDistance={DRAG_ACTIVATION_DISTANCE_PX}
-      autoscrollThreshold={AUTOSCROLL_THRESHOLD_PX}
-      autoscrollSpeed={AUTOSCROLL_SPEED_PX}
-      scrollEnabled
       renderItem={renderItem}
-      renderPlaceholder={renderPlaceholder}
       keyExtractor={keyExtractor}
       initialNumToRender={15}
       maxToRenderPerBatch={20}
