@@ -21,10 +21,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { inferTpsl, parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
+import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
   GetTradingButtonStyleProps,
@@ -75,32 +76,54 @@ function OrderConfirmContent({
 
   const isTriggerMode = formData.orderMode === 'trigger';
   const isLimitTrigger =
-    formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
-    formData.triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+    formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+
+  const { midPriceBN } = useTradingPrice();
 
   const triggerTypeLabel = useMemo(() => {
     if (!isTriggerMode) return null;
     switch (formData.triggerOrderType) {
-      case ETriggerOrderType.STOP_MARKET:
-        return intl.formatMessage({
-          id: ETranslations.perp_order_stop_market,
-        });
-      case ETriggerOrderType.STOP_LIMIT:
-        return intl.formatMessage({
-          id: ETranslations.perp_order_stop_limit,
-        });
-      case ETriggerOrderType.TAKE_MARKET:
-        return intl.formatMessage({
-          id: ETranslations.perp_order_tp_market,
-        });
-      case ETriggerOrderType.TAKE_LIMIT:
-        return intl.formatMessage({
-          id: ETranslations.perp_order_tp_limit,
-        });
+      case ETriggerOrderType.TRIGGER_MARKET:
+        return 'Trigger Market';
+      case ETriggerOrderType.TRIGGER_LIMIT:
+        return 'Trigger Limit';
       default:
         return null;
     }
-  }, [isTriggerMode, formData.triggerOrderType, intl]);
+  }, [isTriggerMode, formData.triggerOrderType]);
+
+  const inferredTpslBadge = useMemo(() => {
+    if (!isTriggerMode || !formData.triggerPrice) return null;
+    const triggerPriceBN = new BigNumber(formData.triggerPrice);
+    if (
+      !triggerPriceBN.isFinite() ||
+      triggerPriceBN.lte(0) ||
+      !midPriceBN.isFinite() ||
+      midPriceBN.lte(0) ||
+      triggerPriceBN.eq(midPriceBN)
+    ) {
+      return null;
+    }
+    const tpsl = inferTpsl({
+      side: effectiveSide,
+      triggerPrice: triggerPriceBN,
+      currentPrice: midPriceBN,
+    });
+    if (tpsl === 'tp') {
+      return intl.formatMessage({
+        id:
+          effectiveSide === 'long'
+            ? ETranslations.perps_take_profit_buy
+            : ETranslations.perps_take_profit_sell,
+      });
+    }
+    return intl.formatMessage({
+      id:
+        effectiveSide === 'long'
+          ? ETranslations.perps_stop_loss_buy
+          : ETranslations.perps_stop_loss_sell,
+    });
+  }, [isTriggerMode, formData.triggerPrice, midPriceBN, effectiveSide, intl]);
 
   const actionText =
     effectiveSide === 'long'
@@ -207,7 +230,8 @@ function OrderConfirmContent({
           </SizableText>
           {triggerTypeLabel ? (
             <SizableText size="$bodyMdMedium" color={actionColor}>
-              {triggerTypeLabel} /{' '}
+              {triggerTypeLabel}
+              {inferredTpslBadge ? ` (${inferredTpslBadge})` : ''} /{' '}
               {intl.formatMessage({
                 id:
                   effectiveSide === 'long'

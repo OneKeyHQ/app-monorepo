@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useSharedValue } from 'react-native-reanimated';
 
 import {
   HeaderScrollGestureWrapper,
@@ -14,8 +15,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabEarnRoutes,
   ETabRoutes,
@@ -227,6 +228,10 @@ function BasicEarnHome({
   const isEarnMode = defaultMode === 'earn';
   const isBorrowMode = defaultMode === 'borrow';
 
+  const earnBorrowScrollPosition = useSharedValue(
+    defaultMode === 'borrow' ? 1 : 0,
+  );
+
   const handleModeChange = useCallback(
     (mode: 'earn' | 'borrow') => {
       // Use setParams to update mode without navigation - prevents remount flash
@@ -435,11 +440,16 @@ function BasicEarnHome({
     if (useSwipePager) {
       return (
         <YStack flex={1}>
-          <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
+          <MarketSelector
+            mode={defaultMode}
+            onModeChange={handleModeChange}
+            pageScrollPosition={earnBorrowScrollPosition}
+          />
           <EarnBorrowPagerView
             ref={earnBorrowPagerRef}
             mode={defaultMode}
             onModeChange={handleModeChange}
+            pageScrollPosition={earnBorrowScrollPosition}
             earnContent={
               <>
                 <EarnMainTabs

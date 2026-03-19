@@ -157,10 +157,8 @@ export interface IPositionTpslOrderParams {
 // ── Standalone Trigger Order Types ──
 
 export enum ETriggerOrderType {
-  STOP_MARKET = 'stopMarket',
-  STOP_LIMIT = 'stopLimit',
-  TAKE_MARKET = 'takeMarket',
-  TAKE_LIMIT = 'takeLimit',
+  TRIGGER_MARKET = 'triggerMarket',
+  TRIGGER_LIMIT = 'triggerLimit',
 }
 
 export interface ITriggerOrderParams {
@@ -169,6 +167,7 @@ export interface ITriggerOrderParams {
   size: string;
   triggerPx: string;
   triggerOrderType: ETriggerOrderType;
+  tpsl: 'tp' | 'sl';
   executionPx?: string; // required for limit triggers
   reduceOnly: boolean;
   slippage?: number;

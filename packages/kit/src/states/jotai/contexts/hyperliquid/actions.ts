@@ -31,6 +31,7 @@ import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
   getTriggerEffectivePrice,
+  inferTpsl,
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -1012,7 +1013,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const slippage = params.slippage;
       const triggerOrderType =
-        formData.triggerOrderType ?? ETriggerOrderType.STOP_MARKET;
+        formData.triggerOrderType ?? ETriggerOrderType.TRIGGER_MARKET;
 
       return withToast({
         asyncFn: async () => {
@@ -1081,8 +1082,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             });
 
             const isLimitTrigger =
-              triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
-              triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+              triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+
+            // Infer TP/SL from side + triggerPrice vs midPrice
+            const midPriceBN = new BigNumber(
+              activeAssetCtxValue?.ctx?.midPrice ?? 0,
+            );
+            const triggerPriceBN = new BigNumber(formData.triggerPrice ?? 0);
+            if (
+              triggerPriceBN.isFinite() &&
+              triggerPriceBN.gt(0) &&
+              midPriceBN.isFinite() &&
+              midPriceBN.gt(0) &&
+              triggerPriceBN.eq(midPriceBN)
+            ) {
+              throw new OneKeyLocalError(
+                'Trigger price must differ from current price',
+              );
+            }
+            const tpsl = inferTpsl({
+              side: formData.side,
+              triggerPrice: triggerPriceBN,
+              currentPrice: midPriceBN,
+            });
 
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.orderTrigger({
@@ -1091,6 +1113,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 size: resolvedSize,
                 triggerPx: formData.triggerPrice ?? '',
                 triggerOrderType,
+                tpsl,
                 executionPx: isLimitTrigger
                   ? formData.executionPrice
                   : undefined,

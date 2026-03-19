@@ -437,7 +437,7 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
-    lastTriggerOrderType: ETriggerOrderType.STOP_MARKET,
+    lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },
 });
 

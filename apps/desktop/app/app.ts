@@ -52,11 +52,12 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
-import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
-import * as store from './libs/store';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 import './libs/react-native-mmkv-desktop-main';
+import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
+import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import './logger';
 import initProcess from './process';
 import { createRecoveryWindow } from './recoveryWindow';
 import {
@@ -67,9 +68,6 @@ import {
 import { initSentry } from './sentry';
 import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-
-// Logger initialization (file rotation, sanitization, rate limiting)
-import './logger';
 
 initSentry();
 
@@ -1255,6 +1253,14 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  // Reset crash counter on graceful shutdown so normal close
+  // is not mistaken for a crash on next boot.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still
+  // offered if the user closes the recovery window without resolving.
+  if (store.getConsecutiveBootFailCount() < 3) {
+    store.resetConsecutiveBootFailCount();
+  }
+
   if (systemIdleInterval) {
     clearInterval(systemIdleInterval);
   }

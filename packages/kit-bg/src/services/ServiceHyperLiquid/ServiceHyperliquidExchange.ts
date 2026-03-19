@@ -808,7 +808,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async orderTrigger(params: ITriggerOrderParams): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     try {
-      const { isMarket, tpsl } = mapTriggerOrderType(params.triggerOrderType);
+      const { isMarket } = mapTriggerOrderType(params.triggerOrderType);
+      const { tpsl } = params;
 
       // Format trigger price
       const triggerPxDecimals = getValidPriceDecimals(params.triggerPx);
