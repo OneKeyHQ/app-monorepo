@@ -353,7 +353,9 @@ function PipelineStepRow({
         >
           {step.label}
           {step.state === 'failed' ? ' — Failed' : ''}
-          {step.percent !== undefined && step.percent !== null ? ` ${step.percent}%` : ''}
+          {step.percent !== undefined && step.percent !== null
+            ? ` ${step.percent}%`
+            : ''}
         </SizableText>
 
         {step.percent !== undefined && step.percent !== null ? (
@@ -587,12 +589,20 @@ export default function DevBundleUpdateStatusModal() {
           </XStack>
 
           {/* Update pipeline */}
-          <Pipeline title="Update Flow" steps={updateSteps} onRefresh={fetchTask} />
+          <Pipeline
+            title="Update Flow"
+            steps={updateSteps}
+            onRefresh={fetchTask}
+          />
 
           <Divider />
 
           {/* Pending task pipeline */}
-          <PendingTaskSection taskSteps={taskSteps} isLoading={pendingTask === undefined} onRefresh={fetchTask} />
+          <PendingTaskSection
+            taskSteps={taskSteps}
+            isLoading={pendingTask === undefined}
+            onRefresh={fetchTask}
+          />
         </YStack>
       </Page.Body>
     </Page>
