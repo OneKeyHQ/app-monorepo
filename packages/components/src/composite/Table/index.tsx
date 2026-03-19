@@ -145,16 +145,16 @@ function TableRow<T>({
   const handleNativePressIn = useCallback(() => setNativePressed(true), []);
   const handleNativePressOut = useCallback(() => setNativePressed(false), []);
 
-  const getBg = () => {
+  const rowBg = useMemo(() => {
     if (isDragging && isDarkMode) return '$bgActive';
     if (nativePressed) return '$bgActive';
     return '$bgApp';
-  };
+  }, [isDragging, isDarkMode, nativePressed]);
 
   const content = (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
-      bg={getBg()}
+      bg={rowBg}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
