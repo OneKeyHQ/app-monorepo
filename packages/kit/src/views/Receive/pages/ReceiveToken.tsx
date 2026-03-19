@@ -874,7 +874,7 @@ function ReceiveToken() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
-      <Page.Body flex={1} pb="$5" px="$5" bg="$bgCriticalStrong">
+      <Page.Body flex={1} pb="$5" px="$5">
         {renderReceiveQrCode()}
         <YStack gap="$2">
           {banner && shouldShowQRCode && !isBtcUsedAddressVerifyMode ? (
