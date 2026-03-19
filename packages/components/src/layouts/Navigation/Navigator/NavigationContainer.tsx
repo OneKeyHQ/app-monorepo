@@ -27,7 +27,11 @@ import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdPa
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EFullScreenPushRoutes,
+  EModalRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -266,10 +270,11 @@ export function resetAboveMainRoute() {
 }
 
 /**
- * Atomically remove only the ScanQrCodeModal route from the navigation state
- * via CommonActions.reset, preserving all other routes (e.g. onboarding).
- * This avoids the goBack() animated dismiss that causes RNSScreenStack
- * window=NIL and blocks Fabric commits on the underlying page.
+ * Atomically remove ScanQrCodeModal and ActionCenter (FullScreenPush) routes
+ * from the navigation state via CommonActions.reset, preserving all other
+ * routes (e.g. onboarding). This avoids the goBack() animated dismiss that
+ * causes RNSScreenStack window=NIL and blocks Fabric commits on the
+ * underlying page.
  */
 export function resetScanModalRoute() {
   const state = rootNavigationRef.current?.getRootState();
@@ -277,13 +282,24 @@ export function resetScanModalRoute() {
     return;
   }
   const filteredRoutes = state.routes.filter((route) => {
-    if (route.name !== ERootRoutes.Modal) {
-      return true;
-    }
     const screenName =
       (route.params as { screen?: string })?.screen ||
       route.state?.routes?.[route.state?.index || 0]?.name;
-    return screenName !== EModalRoutes.ScanQrCodeModal;
+    // Remove ScanQrCodeModal routes
+    if (
+      route.name === ERootRoutes.Modal &&
+      screenName === EModalRoutes.ScanQrCodeModal
+    ) {
+      return false;
+    }
+    // Remove ActionCenter routes only (not other FullScreenPush pages)
+    if (
+      route.name === ERootRoutes.FullScreenPush &&
+      screenName === EFullScreenPushRoutes.ActionCenter
+    ) {
+      return false;
+    }
+    return true;
   });
   if (filteredRoutes.length === state.routes.length) {
     return;

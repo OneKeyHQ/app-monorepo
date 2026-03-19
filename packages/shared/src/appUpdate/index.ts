@@ -242,6 +242,13 @@ export const displayFullVersion = (
   return parts.join('');
 };
 
+export function isLastUpdateJsBundle(): boolean {
+  const data = syncStorage.getObject<IWhatsNewShownData>(
+    EAppSyncStorageKeys.onekey_whats_new_shown,
+  );
+  return data?.isJsBundleUpdate === true;
+}
+
 export const displayWhatsNewVersion = () =>
   displayFullVersion(
     APP_VERSION,
@@ -308,13 +315,6 @@ export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
     bundleVersions: versions,
     isJsBundleUpdate,
   });
-};
-
-export const isLastUpdateJsBundle = (): boolean => {
-  const data = syncStorage.getObject<IWhatsNewShownData>(
-    EAppSyncStorageKeys.onekey_whats_new_shown,
-  );
-  return data?.isJsBundleUpdate === true;
 };
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {

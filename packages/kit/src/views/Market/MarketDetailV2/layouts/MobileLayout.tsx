@@ -186,6 +186,15 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   );
 
   const informationHeader = useMemo(() => {
+    const chartAreaHorizontalSwipeHandler = platformEnv.isNativeAndroid
+      ? undefined
+      : handleHeaderHorizontalSwipe;
+    const chartAreaPanFailOffsetX: [number, number] =
+      platformEnv.isNativeAndroid ? [-12, 12] : [-40, 40];
+    const chartAreaExcludeRightEdgeRatio = platformEnv.isNativeAndroid
+      ? 0.16
+      : 0.1;
+
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
         <HeaderScrollGestureWrapper
@@ -202,10 +211,10 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         <Stack position="relative">
           <HeaderScrollGestureWrapper
             panActiveOffsetY={[-4, 4]}
-            panFailOffsetX={[-40, 40]}
-            excludeRightEdgeRatio={0.1}
+            panFailOffsetX={chartAreaPanFailOffsetX}
+            excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
             scrollScale={1}
-            onHorizontalSwipe={handleHeaderHorizontalSwipe}
+            onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}
             horizontalSwipeVelocityThreshold={900}
             simultaneousWithNativeGesture

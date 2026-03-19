@@ -35,7 +35,7 @@ env:
 
 jobs:
   release-native-bundle:
-    runs-on: macos-26
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [24.x]
@@ -75,7 +75,7 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
           if [ -z "${{ env.BUILD_BUNDLE_VERSION }}" ]; then
-            echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
+            echo "BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s) ))" >> $GITHUB_ENV
           fi
 
       - name: Override params from caller
@@ -83,9 +83,9 @@ jobs:
         run: |
           echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
           echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
-          # Also update .env file since shared-env already wrote the old values (BSD sed on macOS)
-          sed -i '' "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
-          sed -i '' "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+          # Also update .env file since shared-env already wrote the old values
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
 
       - name: Resolve branch and commit
         env:
