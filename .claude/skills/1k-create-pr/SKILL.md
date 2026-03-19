@@ -41,8 +41,12 @@ The PR base branch depends on where the current branch was created from.
 VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
 RELEASE_BRANCH="release/v${VERSION}"
 
-# Check if current branch is based on the release branch
-if git merge-base --is-ancestor "origin/$RELEASE_BRANCH" HEAD 2>/dev/null; then
+# Compare distance to both candidate base branches
+# (--is-ancestor would give false positives when release branch just forked from x)
+release_distance=$(git rev-list --count "origin/$RELEASE_BRANCH"..HEAD 2>/dev/null || echo 999999)
+x_distance=$(git rev-list --count origin/x..HEAD 2>/dev/null || echo 999999)
+
+if [ "$release_distance" -lt "$x_distance" ]; then
   BASE="$RELEASE_BRANCH"
 else
   BASE="x"
@@ -73,7 +77,7 @@ If on `x` or `release/*` directly (not a feature branch), auto-detection is ambi
 
 **If already on feature branch:** Skip branch creation, use auto-detected base
 
-### 3. Run Lint Fix
+### 4. Run Lint Fix
 
 ```bash
 yarn lint --fix
@@ -81,7 +85,7 @@ yarn lint --fix
 
 Fix any remaining lint errors before committing.
 
-### 4. Stage and Commit Changes
+### 5. Stage and Commit Changes
 
 ```bash
 git add .
@@ -92,13 +96,13 @@ git commit -m "<type>: <description>"
 - Follow conventional commits
 - Do NOT add Claude signatures or Co-Authored-By
 
-### 5. Push to Remote
+### 6. Push to Remote
 
 ```bash
 git push -u origin <branch-name>
 ```
 
-### 6. Extract Context and Intent (CRITICAL)
+### 7. Extract Context and Intent (CRITICAL)
 
 Before creating the PR, analyze the full conversation history to extract:
 
@@ -120,7 +124,7 @@ Before creating the PR, analyze the full conversation history to extract:
 6. **Security considerations** - Any security implications discussed.
 7. **Performance considerations** - Any performance trade-offs discussed.
 
-### 7. Create Pull Request with Context
+### 8. Create Pull Request with Context
 
 ```bash
 gh pr create --base $BASE --title "<title>" --body "<description>"
@@ -162,14 +166,14 @@ The PR body MUST use this template. Omit sections that don't apply (don't write 
 - [ ] <Testing steps to verify the changes>
 ```
 
-### 8. Enable Auto-Merge
+### 9. Enable Auto-Merge
 
 ```bash
 gh pr update-branch <PR_NUMBER>
 gh pr merge <PR_NUMBER> --auto --squash
 ```
 
-### 9. Return PR URL
+### 10. Return PR URL
 
 Display PR URL to user and open in browser:
 ```bash
