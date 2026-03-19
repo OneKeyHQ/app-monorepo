@@ -257,7 +257,9 @@ const buildEarnPortfolioStreamTasks = ({
           networkId: accountItem.networkId,
           provider: asset.provider,
           symbol: asset.symbol,
-          publicKey: accountItem.publicKey,
+          ...(accountItem.publicKey && {
+            publicKey: accountItem.publicKey,
+          }),
           vault: asset.vault,
           ptAddress: asset.ptAddress,
         };

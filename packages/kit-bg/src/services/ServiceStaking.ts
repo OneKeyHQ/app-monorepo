@@ -1093,7 +1093,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.push({
           accountAddress: account?.apiAddress,
           networkId: earnNetworkId,
-          publicKey: account?.pub,
+          publicKey: account?.pub?.trim() || undefined,
         });
       }
     });
