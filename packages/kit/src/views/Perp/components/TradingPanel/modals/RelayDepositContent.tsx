@@ -139,11 +139,8 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
         });
         if (id === fetchIdRef.current) {
           setQuoteResult(result);
-          if (params.tradeType === 'EXACT_INPUT') {
-            setReceiveAmount(result.receiveAmount);
-          } else {
-            setSendAmount(result.sendAmount);
-          }
+          setSendAmount(result.sendAmount);
+          setReceiveAmount(result.receiveAmount);
         }
       } catch (e: unknown) {
         if (id === fetchIdRef.current) {
@@ -188,7 +185,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
             decimals: selectedCurrency?.decimals,
           });
         }
-      }, 1_500);
+      }, 1000);
     },
     [fetchQuote, selectedChainId, selectedCurrencyAddress, selectedCurrency],
   );
@@ -209,7 +206,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
             amount: raw,
           });
         }
-      }, 1_500);
+      }, 1000);
     },
     [fetchQuote, selectedChainId, selectedCurrencyAddress],
   );
@@ -277,24 +274,14 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       const picked = usdc ?? chainCurrencies?.[0];
       if (picked) {
         setSelectedCurrencyAddress(picked.address);
-        if (lastEditedRef.current === 'send' && sendAmount) {
-          void fetchQuote({
-            chainId,
-            currencyAddress: picked.address,
-            amount: sendAmount,
-            tradeType: 'EXACT_INPUT',
-            decimals: picked.decimals,
-          });
-        } else {
-          void fetchQuote({
-            chainId,
-            currencyAddress: picked.address,
-            amount: receiveAmount || '100',
-          });
-        }
+        void fetchQuote({
+          chainId,
+          currencyAddress: picked.address,
+          amount: '100',
+        });
       }
     },
-    [currencies, fetchQuote, receiveAmount, sendAmount],
+    [currencies, fetchQuote],
   );
 
   const handleCurrencyChange = useCallback(
@@ -304,24 +291,14 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       setError('');
       const currency = currentCurrencies.find((c) => c.address === address);
       if (currency) {
-        if (lastEditedRef.current === 'send' && sendAmount) {
-          void fetchQuote({
-            chainId: selectedChainId,
-            currencyAddress: currency.address,
-            amount: sendAmount,
-            tradeType: 'EXACT_INPUT',
-            decimals: currency.decimals,
-          });
-        } else {
-          void fetchQuote({
-            chainId: selectedChainId,
-            currencyAddress: currency.address,
-            amount: receiveAmount || '100',
-          });
-        }
+        void fetchQuote({
+          chainId: selectedChainId,
+          currencyAddress: currency.address,
+          amount: '100',
+        });
       }
     },
-    [currentCurrencies, selectedChainId, fetchQuote, receiveAmount, sendAmount],
+    [currentCurrencies, selectedChainId, fetchQuote],
   );
 
   const handleCopyAddress = useCallback(() => {
@@ -343,15 +320,17 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
       ? parseFloat(quoteResult.maxReceiveAmount)
       : null;
     if (max && max > 0) {
-      const formatted =
-        max >= 1_000_000
-          ? `$${(max / 1_000_000).toFixed(1)}M`
-          : max >= 1_000
-            ? `$${Math.round(max / 1_000)}K`
-            : `$${Math.round(max)}`;
-      return `Edit amounts to estimate fees. You can receive up to ${formatted} USDC.`;
+      let formatted: string;
+      if (max >= 1_000_000) {
+        formatted = `$${(max / 1_000_000).toFixed(1)}M`;
+      } else if (max >= 1_000) {
+        formatted = `$${Math.round(max / 1_000)}K`;
+      } else {
+        formatted = `$${Math.round(max)}`;
+      }
+      return `您最多可接收 ${formatted} USDC，在限制数量内您可发送任意数量。修改上方数量以估算手续费。`;
     }
-    return 'Edit amounts to estimate fees. You can deposit any amount.';
+    return '您可发送任意数量。修改上方数量以估算手续费。';
   }, [quoteResult?.maxReceiveAmount]);
 
   if (chainsLoading) {
@@ -397,7 +376,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
                       <Image src={chain.icon} size="$5" borderRadius="$full" />
                     ) : null}
                     <SizableText size="$bodyMd" numberOfLines={1}>
-                      {chain?.name ?? 'Select Chain'}
+                      {chain?.name ?? '选择网络'}
                     </SizableText>
                   </XStack>
                   <Icon name="ChevronDownSmallOutline" size="$4" />
@@ -409,10 +388,10 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
 
         <YStack gap="$2" flex={1}>
           <SizableText size="$bodyMd" color="$textSubdued">
-            Token
+            代币
           </SizableText>
           <Select
-            title="Token"
+            title="代币"
             value={selectedCurrencyAddress}
             onChange={handleCurrencyChange}
             items={currencyOptions}
@@ -442,7 +421,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
                       />
                     ) : null}
                     <SizableText size="$bodyMd" numberOfLines={1}>
-                      {currency?.symbol ?? 'Select Token'}
+                      {currency?.symbol ?? '选择代币'}
                     </SizableText>
                   </XStack>
                   <Icon name="ChevronDownSmallOutline" size="$4" />
@@ -502,7 +481,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
           <YStack gap="$2">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                {`Fees: $${quoteResult.totalFeeUsd}`}
+                {`手续费: $${quoteResult.totalFeeUsd}`}
               </SizableText>
               {timeEstimateText ? (
                 <XStack alignItems="center" gap="$1">
@@ -519,7 +498,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                Send
+                发送
               </SizableText>
               <XStack alignItems="center" gap="$1.5">
                 <YStack
@@ -542,6 +521,8 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
                     {formatWithCommas(sendAmount) || '0'}
                   </Text>
                   <TextInput
+                    accessible
+                    accessibilityLabel="Send amount"
                     value={formatWithCommas(sendAmount)}
                     onChangeText={handleSendAmountChange}
                     keyboardType="numeric"
@@ -575,7 +556,7 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
 
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                Receive
+                接收
               </SizableText>
               <XStack alignItems="center" gap="$1.5">
                 <YStack
@@ -598,6 +579,8 @@ function RelayDepositContent({ selectedAccount }: IRelayDepositContentProps) {
                     {formatWithCommas(receiveAmount) || '100'}
                   </Text>
                   <TextInput
+                    accessible
+                    accessibilityLabel="Receive amount"
                     value={formatWithCommas(receiveAmount)}
                     onChangeText={handleReceiveAmountChange}
                     keyboardType="numeric"

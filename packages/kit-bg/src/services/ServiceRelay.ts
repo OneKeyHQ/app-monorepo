@@ -89,9 +89,11 @@ class ServiceRelay extends ServiceBase {
   // Well-known token logos (native tokens don't have logoURI from API)
   private static readonly TOKEN_LOGO_MAP: Record<string, string> = {
     eth: 'https://uni.onekey-asset.com/static/chain/eth.png',
-    weth: 'https://uni.onekey-asset.com/static/chain/eth.png',
+    weth: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2.png',
     btc: 'https://uni.onekey-asset.com/static/chain/btc.png',
-    wbtc: 'https://uni.onekey-asset.com/static/chain/btc.png',
+    wbtc: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
+    usdt: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xdac17f958d2ee523a2206206994597c13d831ec7.png',
+    usdc: 'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
   };
 
   // Chains not returned by /chains API, hardcoded
@@ -239,7 +241,7 @@ class ServiceRelay extends ServiceBase {
         amount: amountInSmallestUnit,
         useDepositAddress: true,
         referrer: 'onekey.so',
-        topupGas: false,
+        topupGas: false, // cspell:disable-line
         explicitDeposit: false,
       };
     }
