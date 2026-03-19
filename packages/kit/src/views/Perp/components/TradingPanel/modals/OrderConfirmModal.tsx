@@ -96,7 +96,7 @@ function OrderConfirmContent({
     }
   }, [isTriggerMode, formData.triggerOrderType, intl]);
 
-  const inferredTpslBadge = useMemo(() => {
+  const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
     const triggerPriceBN = new BigNumber(formData.triggerPrice);
     if (
