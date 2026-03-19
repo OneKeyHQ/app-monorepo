@@ -322,6 +322,10 @@ function AnimatedPillIndicator({
   const theme = useTheme();
   const bgColor = theme.bgPrimary.val;
 
+  // Pre-compute left/right edge arrays for the jelly effect
+  const leftEdges = itemsLayout.map((v) => v.x);
+  const rightEdges = itemsLayout.map((v) => v.x + v.width);
+
   const animatedStyle = useAnimatedStyle(() => {
     if (itemsLayout.length < 2) {
       const first = itemsLayout[0];
@@ -329,20 +333,40 @@ function AnimatedPillIndicator({
         ? { transform: [{ translateX: first.x }], width: first.width }
         : {};
     }
-    const inputRange = itemsLayout.map((_, i) => i);
-    const translateX = interpolate(
-      indexDecimal.value,
-      inputRange,
-      itemsLayout.map((v) => v.x),
-      Extrapolation.CLAMP,
-    );
-    const width = interpolate(
-      indexDecimal.value,
-      inputRange,
-      itemsLayout.map((v) => v.width),
-      Extrapolation.CLAMP,
-    );
-    return { transform: [{ translateX }], width };
+
+    const decimal = indexDecimal.value;
+    const floorIdx = Math.floor(decimal);
+    const ceilIdx = Math.ceil(decimal);
+    const fraction = decimal - floorIdx;
+
+    // At rest on a tab — no jelly needed
+    if (floorIdx === ceilIdx || fraction === 0) {
+      const layout = itemsLayout[Math.min(floorIdx, itemsLayout.length - 1)];
+      return layout
+        ? { transform: [{ translateX: layout.x }], width: layout.width }
+        : {};
+    }
+
+    const safeFloor = Math.max(0, Math.min(floorIdx, itemsLayout.length - 1));
+    const safeCeil = Math.max(0, Math.min(ceilIdx, itemsLayout.length - 1));
+
+    const fromLeft = leftEdges[safeFloor];
+    const fromRight = rightEdges[safeFloor];
+    const toLeft = leftEdges[safeCeil];
+    const toRight = rightEdges[safeCeil];
+
+    // Jelly/elastic effect: leading edge moves faster, trailing edge lags.
+    // ease-out (t => 1 - (1-t)^2): accelerates early — used for leading edge
+    // ease-in  (t => t^2):          accelerates late  — used for trailing edge
+    const easeOut = 1 - (1 - fraction) * (1 - fraction);
+    const easeIn = fraction * fraction;
+
+    // Moving right (floor → ceil): right edge leads, left edge trails
+    // Moving left would be the reverse, but indexDecimal always has floor < ceil
+    const left = fromLeft + (toLeft - fromLeft) * easeIn;
+    const right = fromRight + (toRight - fromRight) * easeOut;
+
+    return { transform: [{ translateX: left }], width: right - left };
   });
 
   if (itemsLayout.length === 0) {
