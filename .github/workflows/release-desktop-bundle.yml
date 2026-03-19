@@ -233,7 +233,7 @@ jobs:
             !**/.DS_Store
 
       - name: Upload QA Bundles
-        uses: originalix/actions/qa-bundle-upload@feat/qa-bundle-upload # TODO: replace with onekeyhq/actions/qa-bundle-upload@main after testing
+        uses: onekeyhq/actions/qa-bundle-upload@main
         with:
           server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
           upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
@@ -243,7 +243,7 @@ jobs:
           pr-title: ${{ env.COMMIT_MESSAGE }}
 
       - name: 'Notify to Slack'
-        uses: originalix/actions/slack-notify-webhook@feat/bundle-release-notification
+        uses: onekeyhq/actions/slack-notify-webhook@main
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
