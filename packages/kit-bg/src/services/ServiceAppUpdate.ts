@@ -150,6 +150,10 @@ class ServiceAppUpdate extends ServiceBase {
     defaultLogger.app.appUpdate.log(
       `fetchAppUpdateInfo: ${reason} — scheduling rollback to builtin for next cold start`,
     );
+    const [nativeAppVersion, nativeBuildNumber] = await Promise.all([
+      BundleUpdate.getNativeAppVersion(),
+      BundleUpdate.getNativeBuildNumber(),
+    ]);
     const now = Date.now();
     await setPendingInstallTask({
       taskId: `jsbundle:${appVersion}:builtin`,
@@ -158,8 +162,9 @@ class ServiceAppUpdate extends ServiceBase {
       type: EPendingInstallTaskType.jsBundleSwitch,
       targetAppVersion: appVersion,
       targetBundleVersion: '0',
-      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvAppVersion: nativeAppVersion || platformEnv.version || '',
       scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
+      scheduledEnvBuildNumber: nativeBuildNumber || '',
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
@@ -982,6 +987,35 @@ class ServiceAppUpdate extends ServiceBase {
         defaultLogger.app.appUpdate.log(
           'fetchAppUpdateInfo: skipped — ignoreServerBundleUpdate is enabled',
         );
+        return await appUpdatePersistAtom.get();
+      }
+    } catch {
+      // ignore — proceed with normal flow
+    }
+
+    // If a pending install task exists but hasn't been executed yet,
+    // skip the fetch to prevent the atom / pending task from being
+    // overwritten with newer server data before the scheduled task runs.
+    // This avoids a race where:
+    //   1. v101 pending task is waiting for next cold start
+    //   2. fetchAppUpdateInfo gets v102, updates atom to v102
+    //   3. App restarts → v101 task executes, but atom says v102
+    // By blocking the fetch, we ensure the pending task completes first.
+    try {
+      const pendingTask = await getPendingInstallTask();
+      if (
+        pendingTask &&
+        (pendingTask.status === EPendingInstallTaskStatus.pending ||
+          pendingTask.status === EPendingInstallTaskStatus.running)
+      ) {
+        defaultLogger.app.appUpdate.appUpdateFetchResult({
+          traceId,
+          requestSeq,
+          hasReleaseInfo: null,
+          httpStatus: null,
+          reason: 'skip_pending_task_not_executed',
+          finalStatus: (await appUpdatePersistAtom.get()).status,
+        });
         return await appUpdatePersistAtom.get();
       }
     } catch {

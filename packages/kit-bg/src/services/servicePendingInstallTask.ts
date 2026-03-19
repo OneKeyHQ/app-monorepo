@@ -408,16 +408,20 @@ class ServicePendingInstallTask {
     );
   }
 
-  private buildPendingJsBundleTask(
+  private async buildPendingJsBundleTask(
     releaseInfo: IResponseAppUpdateInfo,
     revision: number,
-  ): IPendingInstallTask | undefined {
+  ): Promise<IPendingInstallTask | undefined> {
     const appVersion = releaseInfo.version;
     const bundleVersion = releaseInfo.jsBundleVersion;
     if (!appVersion || !bundleVersion) {
       return undefined;
     }
 
+    const [nativeAppVersion, nativeBuildNumber] = await Promise.all([
+      BundleUpdate.getNativeAppVersion(),
+      BundleUpdate.getNativeBuildNumber(),
+    ]);
     const now = Date.now();
     return {
       taskId: `jsbundle:${appVersion}:${bundleVersion}`,
@@ -426,8 +430,9 @@ class ServicePendingInstallTask {
       type: EPendingInstallTaskType.jsBundleSwitch,
       targetAppVersion: appVersion,
       targetBundleVersion: bundleVersion,
-      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvAppVersion: nativeAppVersion || platformEnv.version || '',
       scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
+      scheduledEnvBuildNumber: nativeBuildNumber || '',
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
@@ -440,10 +445,10 @@ class ServicePendingInstallTask {
     };
   }
 
-  private buildPendingAppShellTask(
+  private async buildPendingAppShellTask(
     appInfo: Awaited<ReturnType<typeof appUpdatePersistAtom.get>>,
     revision: number,
-  ): IPendingInstallTask | undefined {
+  ): Promise<IPendingInstallTask | undefined> {
     if (!appInfo.latestVersion) {
       return undefined;
     }
@@ -453,6 +458,10 @@ class ServicePendingInstallTask {
     if (!downloadUrl || !downloadedFile) {
       return undefined;
     }
+    const [nativeAppVersion, nativeBuildNumber] = await Promise.all([
+      BundleUpdate.getNativeAppVersion(),
+      BundleUpdate.getNativeBuildNumber(),
+    ]);
     const now = Date.now();
     return {
       taskId: `appShell:${appInfo.latestVersion}:direct`,
@@ -462,8 +471,9 @@ class ServicePendingInstallTask {
       targetAppVersion: appInfo.latestVersion,
       targetBundleVersion:
         appInfo.jsBundleVersion || String(platformEnv.bundleVersion || ''),
-      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvAppVersion: nativeAppVersion || platformEnv.version || '',
       scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
+      scheduledEnvBuildNumber: nativeBuildNumber || '',
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
@@ -619,8 +629,8 @@ class ServicePendingInstallTask {
 
     const task =
       decision.decision === 'appShellUpdate'
-        ? this.buildPendingAppShellTask(runtimeAppInfo, requestSeq)
-        : this.buildPendingJsBundleTask(
+        ? await this.buildPendingAppShellTask(runtimeAppInfo, requestSeq)
+        : await this.buildPendingJsBundleTask(
             {
               ...releaseInfo,
               jsBundle: {
@@ -1244,10 +1254,28 @@ class ServicePendingInstallTask {
 
       const currentAppVersion = platformEnv.version || '';
       const currentBundleVersion = String(platformEnv.bundleVersion || '');
+      const [nativeAppVersion, nativeBuildNumber] = await Promise.all([
+        BundleUpdate.getNativeAppVersion(),
+        BundleUpdate.getNativeBuildNumber(),
+      ]);
       const targetMatch = this.isTaskTargetAligned(task);
-      const scheduledMatch =
-        task.scheduledEnvAppVersion === currentAppVersion &&
+      const scheduledAppVersionMatch =
+        task.scheduledEnvAppVersion === currentAppVersion;
+      const scheduledBundleVersionMatch =
         task.scheduledEnvBundleVersion === currentBundleVersion;
+      // Compare against native values to detect same-version native rebuilds
+      // (e.g. hotfix that keeps appVersion but bumps buildNumber).
+      const nativeAppVersionMatch =
+        !nativeAppVersion || task.scheduledEnvAppVersion === nativeAppVersion;
+      const nativeBuildNumberMatch =
+        !task.scheduledEnvBuildNumber ||
+        !nativeBuildNumber ||
+        task.scheduledEnvBuildNumber === nativeBuildNumber;
+      const scheduledMatch =
+        scheduledAppVersionMatch &&
+        scheduledBundleVersionMatch &&
+        nativeAppVersionMatch &&
+        nativeBuildNumberMatch;
       let envMatch: 'target' | 'scheduled' | 'mismatch' = 'mismatch';
       if (targetMatch) {
         envMatch = 'target';
@@ -1261,8 +1289,11 @@ class ServicePendingInstallTask {
         envMatch,
         currentAppVersion,
         currentBundleVersion,
+        nativeAppVersion: nativeAppVersion || null,
+        nativeBuildNumber: nativeBuildNumber || null,
         scheduledEnvAppVersion: task.scheduledEnvAppVersion,
         scheduledEnvBundleVersion: task.scheduledEnvBundleVersion,
+        scheduledEnvBuildNumber: task.scheduledEnvBuildNumber || null,
         ...this.buildTaskLogFields(task),
       });
 
