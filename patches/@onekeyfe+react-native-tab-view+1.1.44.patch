@@ -1,0 +1,62 @@
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/module/DelayedFreeze.js b/node_modules/@onekeyfe/react-native-tab-view/lib/module/DelayedFreeze.js
+--- a/node_modules/@onekeyfe/react-native-tab-view/lib/module/DelayedFreeze.js
++++ b/node_modules/@onekeyfe/react-native-tab-view/lib/module/DelayedFreeze.js
+@@ -3,24 +3,14 @@
+ import React from 'react';
+ import { Freeze } from 'react-freeze';
+ import { jsx as _jsx } from "react/jsx-runtime";
+-const ANIMATION_DELAY = 200;
+ function DelayedFreeze({
+   freeze,
+   children
+ }) {
+-  const [freezeState, setFreezeState] = React.useState(false);
+-  React.useEffect(() => {
+-    const id = setTimeout(() => {
+-      setFreezeState(freeze);
+-    }, ANIMATION_DELAY);
+-    return () => {
+-      clearTimeout(id);
+-    };
+-  }, [freeze]);
+   return /*#__PURE__*/_jsx(Freeze, {
+-    freeze: freeze ? freezeState : false,
++    freeze: freeze,
+     children: children
+   });
+ }
+ export default DelayedFreeze;
+-//# sourceMappingURL=DelayedFreeze.js.map
+\ No newline at end of file
++//# sourceMappingURL=DelayedFreeze.js.map
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/src/DelayedFreeze.tsx b/node_modules/@onekeyfe/react-native-tab-view/src/DelayedFreeze.tsx
+--- a/node_modules/@onekeyfe/react-native-tab-view/src/DelayedFreeze.tsx
++++ b/node_modules/@onekeyfe/react-native-tab-view/src/DelayedFreeze.tsx
+@@ -6,22 +6,12 @@
+   children: React.ReactNode;
+ }
+
+-const ANIMATION_DELAY = 200;
+-
+ function DelayedFreeze({ freeze, children }: FreezeWrapperProps) {
+-  const [freezeState, setFreezeState] = React.useState(false);
+-
+-  React.useEffect(() => {
+-    const id = setTimeout(() => {
+-      setFreezeState(freeze);
+-    }, ANIMATION_DELAY);
+-
+-    return () => {
+-      clearTimeout(id);
+-    };
+-  }, [freeze]);
+-
+-  return <Freeze freeze={freeze ? freezeState : false}>{children}</Freeze>;
++  // Freeze/unfreeze immediately without delay.
++  // The previous 200ms delay on freeze caused both the old and new tab
++  // to be unfrozen simultaneously during tab switches, doubling JS workload
++  // and causing black screen flicker (JS FPS drop to ~5).
++  return <Freeze freeze={freeze}>{children}</Freeze>;
+ }
+
+ export default DelayedFreeze;
