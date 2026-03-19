@@ -46,6 +46,14 @@ jobs:
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
+      - name: Validate workflow_run source
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.head_repository.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::error::Rejecting workflow_run from fork repository"
+            exit 1
+          fi
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
@@ -104,10 +112,22 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             COMMIT="${{ github.sha }}"
           fi
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-          echo "COMMIT=$COMMIT" >> $GITHUB_ENV
+          {
+            echo "BRANCH<<GHEOF"
+            echo "$BRANCH"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+          {
+            echo "COMMIT<<GHEOF"
+            echo "$COMMIT"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
           COMMIT_MESSAGE=$(git log -1 --pretty=%s "$COMMIT" 2>/dev/null || echo "")
-          echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
+          {
+            echo "COMMIT_MESSAGE<<GHEOF"
+            echo "$COMMIT_MESSAGE"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
 
       - name: Setup Node
         uses: actions/setup-node@v6
