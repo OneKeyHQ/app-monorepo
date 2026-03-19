@@ -297,6 +297,9 @@ const renderWithFallback = (
   return <Component {...props} />;
 };
 
+const pressableStyle = ({ pressed }: { pressed: boolean }) =>
+  pressed ? { opacity: 0.6 } : undefined;
+
 const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
   (props: IListItemProps, ref: any) => {
     const {
@@ -411,7 +414,11 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       // of a list item. It does NOT affect whether onPress fires — that is
       // handled by Pressable's built-in scroll cancellation.
       return (
-        <Pressable onPress={handleItemPress} unstable_pressDelay={50}>
+        <Pressable
+          onPress={handleItemPress}
+          unstable_pressDelay={50}
+          style={pressableStyle}
+        >
           {content}
         </Pressable>
       );
