@@ -2,7 +2,6 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { find, flatMap } from 'lodash';
 
-import type { IRiskCheckItem } from '@onekeyhq/kit/src/components/RiskDetectionCard';
 import {
   useDecodedTxsAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -23,11 +22,10 @@ import SignatureConfirmDetails from './SignatureConfirmDetails';
 type IProps = {
   accountId: string;
   networkId: string;
-  riskChecks?: IRiskCheckItem[];
 };
 
 function TxConfirmDetails(props: IProps) {
-  const { accountId, networkId, riskChecks } = props;
+  const { accountId, networkId } = props;
 
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
@@ -136,7 +134,6 @@ function TxConfirmDetails(props: IProps) {
         isMultiSignatures={isMultiTxs}
         isSendNativeTokenOnly={isSendNativeTokenOnly}
         nativeTokenTransferAmountToUpdate={nativeTokenTransferAmountToUpdate}
-        riskChecks={riskChecks}
       />
     );
   }, [
@@ -148,7 +145,6 @@ function TxConfirmDetails(props: IProps) {
     isBridge,
     isSendNativeTokenOnly,
     nativeTokenTransferAmountToUpdate,
-    riskChecks,
   ]);
 
   return (

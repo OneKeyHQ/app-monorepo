@@ -55,6 +55,8 @@ public class AppDelegate: ExpoAppDelegate {
     defaults.set(newCount, forKey: BootRecoveryKeys.consecutiveBootFailCount)
     defaults.synchronize()
 
+    NitroModuleBridge.logInfo("BootRecovery", "boot_fail_count: \(oldCount) -> \(newCount), shouldShowRecovery: \(newCount >= 3)")
+
     if newCount >= 3 {
       // Skip super.application() and React Native initialization entirely.
       // Create our own window — this replaces the system launch storyboard.
