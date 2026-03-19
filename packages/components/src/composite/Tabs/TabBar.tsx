@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -39,15 +39,8 @@ export function TabBarItem({
   focusedTabStyle,
   variant = 'default',
   textSize,
-}: {
-  name: string;
-  isFocused: boolean;
-  onPress: (name: string) => void;
-  tabItemStyle?: IYStackProps;
-  focusedTabStyle?: IYStackProps;
-  variant?: ITabBarVariant;
-  textSize?: ISizableTextProps['size'];
-}) {
+  animatedPillIndicator,
+}: ITabBarItemProps) {
   const handlePress = useCallback(() => {
     onPress(name);
   }, [name, onPress]);
@@ -55,6 +48,13 @@ export function TabBarItem({
   const resolvedTextSize = textSize ?? '$bodyLgMedium';
 
   if (variant === 'pill') {
+    // When animatedPillIndicator is active, the sliding background is rendered
+    // by AnimatedPillIndicator — items should be transparent so it shows through.
+    const pillBg = animatedPillIndicator
+      ? 'transparent'
+      : isFocused
+        ? '$bgPrimary'
+        : '$bgStrong';
     return (
       <YStack
         ai="center"
@@ -62,12 +62,17 @@ export function TabBarItem({
         px="$3.5"
         py="$1.5"
         borderRadius="$full"
-        bg={isFocused ? '$bgPrimary' : '$bgStrong'}
-        hoverStyle={isFocused ? undefined : { bg: '$bgHover' }}
-        pressStyle={isFocused ? undefined : { bg: '$bgActive' }}
+        bg={pillBg}
+        hoverStyle={
+          isFocused || animatedPillIndicator ? undefined : { bg: '$bgHover' }
+        }
+        pressStyle={
+          isFocused || animatedPillIndicator ? undefined : { bg: '$bgActive' }
+        }
         key={name}
         onPress={handlePress}
         cursor="default"
+        zIndex={1}
         {...tabItemStyle}
         {...(isFocused ? focusedTabStyle : undefined)}
       >
@@ -374,6 +379,9 @@ export interface ITabBarItemProps {
   focusedTabStyle?: IYStackProps;
   variant?: ITabBarVariant;
   textSize?: ISizableTextProps['size'];
+  // When true, the pill background is handled by AnimatedPillIndicator,
+  // so TabBarItem should not render its own background color.
+  animatedPillIndicator?: boolean;
 }
 
 const PILL_GRADIENT_THRESHOLD = 2;
@@ -510,6 +518,11 @@ export function TabBar({
     !renderItem &&
     !textSize;
 
+  // Pill indicator (background slide) should animate even when renderItem is
+  // provided — only the text rendering needs the guard.
+  const useAnimatedPillIndicator =
+    !!indexDecimal && variant === 'pill' && !scrollable;
+
   const handleItemLayout = useCallback(
     (index: number, layout: IItemLayout) => {
       itemsLayoutRef.current.set(index, layout);
@@ -602,8 +615,9 @@ export function TabBar({
         />
       ));
     }
-    return tabNames.map((name, index) =>
-      renderItem ? (
+    return tabNames.map((name, index) => {
+      const hasAnimatedIndicator = useAnimatedPillIndicator && !!renderItem;
+      const itemNode = renderItem ? (
         renderItem(
           {
             name,
@@ -613,6 +627,7 @@ export function TabBar({
             focusedTabStyle,
             variant,
             textSize,
+            animatedPillIndicator: hasAnimatedIndicator,
           },
           index,
         )
@@ -627,11 +642,27 @@ export function TabBar({
           variant={variant}
           textSize={textSize}
         />
-      ),
-    );
+      );
+      // Wrap with onLayout to collect layout data for animated pill indicator
+      if (useAnimatedPillIndicator && renderItem) {
+        return (
+          <View
+            key={name}
+            onLayout={(e: LayoutChangeEvent) => {
+              const { x, width } = e.nativeEvent.layout;
+              handleItemLayout(index, { x, width });
+            }}
+          >
+            {itemNode}
+          </View>
+        );
+      }
+      return itemNode;
+    });
   }, [
     useAnimatedDefault,
     useAnimatedPill,
+    useAnimatedPillIndicator,
     indexDecimal,
     currentTab,
     focusedTabStyle,
@@ -644,7 +675,7 @@ export function TabBar({
     variant,
   ]);
   const pillIndicator = useMemo(() => {
-    if (!useAnimatedPill || !indexDecimal) {
+    if (!useAnimatedPillIndicator || !indexDecimal) {
       return null;
     }
     if (itemsLayout.length !== tabNames.length) {
@@ -656,7 +687,7 @@ export function TabBar({
         itemsLayout={itemsLayout}
       />
     );
-  }, [useAnimatedPill, indexDecimal, itemsLayout, tabNames.length]);
+  }, [useAnimatedPillIndicator, indexDecimal, itemsLayout, tabNames.length]);
 
   const content = useMemo(() => {
     if (scrollable) {
