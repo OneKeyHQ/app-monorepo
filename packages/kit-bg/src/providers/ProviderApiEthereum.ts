@@ -24,6 +24,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EVM_SAFE_RPC_METHODS } from '@onekeyhq/shared/src/rpcCache/constants';
 import { RpcCache } from '@onekeyhq/shared/src/rpcCache/RpcCache';
+import { isKeylessWebAutoConnectOriginAllowed } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -310,8 +311,15 @@ class ProviderApiEthereum extends ProviderApiBase {
       _permissions?.requestOneKeyKeylessAccount;
 
     defaultLogger.discovery.dapp.dappRequest({ request });
+    const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
+      request.origin,
+    );
     let accounts = await this.eth_accounts(request);
-    if (!accounts.length || !_requestOneKeyKeylessAccount) {
+    if (
+      !accounts.length ||
+      !_requestOneKeyKeylessAccount ||
+      !isAllowedKeylessOrigin
+    ) {
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
       accounts = await this.eth_accounts(request);
     }
