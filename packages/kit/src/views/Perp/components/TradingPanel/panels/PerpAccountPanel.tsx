@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,7 @@ import {
   useClipboard,
   useInTabDialog,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openHyperLiquidExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import {
   usePerpsActiveAccountAtom,
@@ -23,6 +24,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -98,8 +101,15 @@ function PerpAccountPanel() {
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
   const dialogInTab = useInTabDialog();
+  const navigation = useAppNavigation();
   const intl = useIntl();
   const { copyText } = useClipboard();
+
+  const handleOpenPortfolio = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.PerpPortfolioModal,
+    });
+  }, [navigation]);
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -247,14 +257,7 @@ function PerpAccountPanel() {
             size="medium"
             h={36}
             variant="secondary"
-            onPress={() =>
-              showDepositWithdrawDialog(
-                {
-                  actionType: 'deposit',
-                },
-                dialogInTab,
-              )
-            }
+            onPress={handleOpenPortfolio}
             alignItems="center"
             justifyContent="center"
           >
