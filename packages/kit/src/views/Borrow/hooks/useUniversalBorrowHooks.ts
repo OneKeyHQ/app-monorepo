@@ -14,6 +14,11 @@ import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import {
+  getBorrowLutFinalizationErrorTranslation,
+  mapBorrowLutFinalizationToTxStatus,
+} from './borrowLutFinalization';
+
 function parseBorrowEncodedTx(tx: string): IEncodedTx {
   try {
     const parsed = JSON.parse(tx) as unknown;
@@ -485,10 +490,7 @@ export function useUniversalBorrowRepayWithCollateral({
                 accountId,
                 networkId,
                 txId: latestSetupTxId,
-                status:
-                  finalizationResult === 'finalized'
-                    ? EDecodedTxStatus.Confirmed
-                    : EDecodedTxStatus.Failed,
+                status: mapBorrowLutFinalizationToTxStatus(finalizationResult),
               },
             ],
           });
@@ -496,7 +498,9 @@ export function useUniversalBorrowRepayWithCollateral({
           if (finalizationResult !== 'finalized') {
             throw new OneKeyLocalError(
               intl.formatMessage({
-                id: ETranslations.global_failed,
+                id: getBorrowLutFinalizationErrorTranslation(
+                  finalizationResult,
+                ),
               }),
             );
           }

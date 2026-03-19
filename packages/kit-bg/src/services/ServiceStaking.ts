@@ -110,6 +110,7 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { pollSolTxFinalization } from './utils/pollSolTxFinalization';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -2472,23 +2473,19 @@ class ServiceStaking extends ServiceBase {
       backgroundApi: this.backgroundApi,
     });
 
-    for (let i = 0; i < maxAttempts; i += 1) {
-      const statuses = await client.getSignatureStatuses([txId]);
-      const status = statuses?.[0];
-
-      if (status) {
-        if (status.err) {
-          return 'failed';
-        }
-        if (status.confirmationStatus === 'finalized') {
-          return 'finalized';
-        }
-      }
-
-      await timerUtils.wait(intervalMs);
-    }
-
-    return 'timeout';
+    return pollSolTxFinalization({
+      txId,
+      maxAttempts,
+      intervalMs,
+      getSignatureStatuses: async (signatures) =>
+        client.getSignatureStatuses(signatures),
+      onStatusError: (error) => {
+        console.warn(
+          '[waitForSolTxFinalized] getSignatureStatuses failed:',
+          error,
+        );
+      },
+    });
   }
 
   @backgroundMethod()

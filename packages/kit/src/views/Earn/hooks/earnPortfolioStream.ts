@@ -35,6 +35,15 @@ type IEarnPortfolioStreamTask = {
   }>;
 };
 
+type IEarnBatchTaskGroup = {
+  provider: string;
+  networkId: string;
+  accountAddress: string;
+  publicKey?: string;
+  requestsByKey: Map<string, IPortfolioFetchRequest>;
+  requestKeysBySymbol: Map<string, Set<string>>;
+};
+
 type IEarnPortfolioStreamArgs = {
   accountId: string;
   networkId: string;
@@ -47,6 +56,65 @@ type IEarnPortfolioStreamArgs = {
 };
 
 const STREAM_CONCURRENCY = 6;
+
+const createPortfolioRequestKey = (request: IPortfolioFetchRequest) =>
+  createEarnPortfolioInvestmentKey({
+    provider: request.provider,
+    symbol: request.symbol,
+    vault: request.vault,
+    networkId: request.networkId,
+  });
+
+const addRequestToBatchGroup = ({
+  group,
+  key,
+  request,
+}: {
+  group: IEarnBatchTaskGroup;
+  key: string;
+  request: IPortfolioFetchRequest;
+}) => {
+  group.requestsByKey.set(key, request);
+
+  const existingKeys = group.requestKeysBySymbol.get(request.symbol);
+  if (existingKeys) {
+    existingKeys.add(key);
+    return;
+  }
+
+  group.requestKeysBySymbol.set(request.symbol, new Set([key]));
+};
+
+const matchBatchRequest = ({
+  group,
+  symbol,
+  vault,
+}: {
+  group: IEarnBatchTaskGroup;
+  symbol: string;
+  vault?: string;
+}) => {
+  const exactKey = createEarnPortfolioInvestmentKey({
+    provider: group.provider,
+    symbol,
+    vault,
+    networkId: group.networkId,
+  });
+  const exactRequest = group.requestsByKey.get(exactKey);
+  if (exactRequest) {
+    return exactRequest;
+  }
+
+  const symbolKeys = group.requestKeysBySymbol.get(symbol);
+  if (symbolKeys?.size === 1) {
+    const [matchedKey] = symbolKeys;
+    if (matchedKey) {
+      return group.requestsByKey.get(matchedKey);
+    }
+  }
+
+  return undefined;
+};
 
 async function runEarnPortfolioTaskPool({
   tasks,
@@ -91,15 +159,9 @@ const buildBatchTask = ({
   group,
 }: {
   accountId: string;
-  group: {
-    provider: string;
-    networkId: string;
-    accountAddress: string;
-    publicKey?: string;
-    assetKeys: Set<string>;
-  };
+  group: IEarnBatchTaskGroup;
 }): IEarnPortfolioStreamTask => ({
-  keys: Array.from(group.assetKeys),
+  keys: Array.from(group.requestsByKey.keys()),
   run: async () => {
     const response: IEarnBatchInvestmentDetailResponse =
       await backgroundApiProxy.serviceStaking.fetchInvestmentBatchDetail({
@@ -111,28 +173,39 @@ const buildBatchTask = ({
       });
 
     const patches = response.items
-      .map((item) =>
-        normalizeEarnPortfolioInvestment({
-          request: {
-            symbol:
-              item.protocol.symbol || item.assets[0]?.token.info.symbol || '',
-            vault: item.protocol.vault,
-          },
+      .map((item) => {
+        const matchedRequest = matchBatchRequest({
+          group,
+          symbol:
+            item.protocol.symbol || item.assets[0]?.token.info.symbol || '',
+          vault: item.protocol.vault,
+        });
+
+        if (!matchedRequest) {
+          return null;
+        }
+
+        return normalizeEarnPortfolioInvestment({
+          request: matchedRequest,
           result: item,
-        }),
-      )
-      .filter((patch) => group.assetKeys.has(patch.key));
+        });
+      })
+      .filter((patch): patch is IPortfolioPatch => Boolean(patch))
+      .filter((patch) => group.requestsByKey.has(patch.key));
 
     const failedKeys = response.errors
-      .map((errorItem) =>
-        createEarnPortfolioInvestmentKey({
-          provider: group.provider,
+      .map((errorItem) => {
+        const matchedRequest = matchBatchRequest({
+          group,
           symbol: errorItem.symbol,
           vault: errorItem.vault,
-          networkId: group.networkId,
-        }),
-      )
-      .filter((key) => group.assetKeys.has(key));
+        });
+
+        return matchedRequest
+          ? createPortfolioRequestKey(matchedRequest)
+          : null;
+      })
+      .filter((key): key is string => Boolean(key));
 
     return { patches, failedKeys };
   },
@@ -143,14 +216,7 @@ const buildSingleTask = ({
 }: {
   request: IPortfolioFetchRequest;
 }): IEarnPortfolioStreamTask => ({
-  keys: [
-    createEarnPortfolioInvestmentKey({
-      provider: request.provider,
-      symbol: request.symbol,
-      vault: request.vault,
-      networkId: request.networkId,
-    }),
-  ],
+  keys: [createPortfolioRequestKey(request)],
   run: async () => {
     const result =
       await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2({
@@ -181,14 +247,7 @@ const buildAirdropTask = ({
 }: {
   request: IPortfolioFetchRequest;
 }): IEarnPortfolioStreamTask => ({
-  keys: [
-    createEarnPortfolioInvestmentKey({
-      provider: request.provider,
-      symbol: request.symbol,
-      vault: request.vault,
-      networkId: request.networkId,
-    }),
-  ],
+  keys: [createPortfolioRequestKey(request)],
   run: async () => {
     const result =
       await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail({
@@ -228,16 +287,7 @@ const buildEarnPortfolioStreamTasks = ({
   options?: IRefreshOptions;
 }) => {
   const requestKeys = new Set<string>();
-  const batchGroupMap = new Map<
-    string,
-    {
-      provider: string;
-      networkId: string;
-      accountAddress: string;
-      publicKey?: string;
-      assetKeys: Set<string>;
-    }
-  >();
+  const batchGroupMap = new Map<string, IEarnBatchTaskGroup>();
   const tasks: IEarnPortfolioStreamTask[] = [];
 
   accounts.forEach((accountItem) => {
@@ -264,12 +314,7 @@ const buildEarnPortfolioStreamTasks = ({
           ptAddress: asset.ptAddress,
         };
 
-        const key = createEarnPortfolioInvestmentKey({
-          provider: request.provider,
-          symbol: request.symbol,
-          vault: request.vault,
-          networkId: request.networkId,
-        });
+        const key = createPortfolioRequestKey(request);
         requestKeys.add(key);
 
         if (asset.type === 'airdrop') {
@@ -277,7 +322,9 @@ const buildEarnPortfolioStreamTasks = ({
           return;
         }
 
-        if (asset.enableBatch) {
+        // Keep batch only for requests that remain uniquely addressable without
+        // request-only market fields like ptAddress.
+        if (asset.enableBatch && !asset.ptAddress) {
           const groupKey = [
             request.provider,
             request.networkId,
@@ -287,17 +334,28 @@ const buildEarnPortfolioStreamTasks = ({
           const existingGroup = batchGroupMap.get(groupKey);
 
           if (existingGroup) {
-            existingGroup.assetKeys.add(key);
+            addRequestToBatchGroup({
+              group: existingGroup,
+              key,
+              request,
+            });
             return;
           }
 
-          batchGroupMap.set(groupKey, {
+          const nextGroup: IEarnBatchTaskGroup = {
             provider: request.provider,
             networkId: request.networkId,
             accountAddress: request.accountAddress,
             publicKey: request.publicKey,
-            assetKeys: new Set([key]),
+            requestsByKey: new Map(),
+            requestKeysBySymbol: new Map(),
+          };
+          addRequestToBatchGroup({
+            group: nextGroup,
+            key,
+            request,
           });
+          batchGroupMap.set(groupKey, nextGroup);
           return;
         }
 
@@ -306,10 +364,36 @@ const buildEarnPortfolioStreamTasks = ({
   });
 
   batchGroupMap.forEach((group) => {
+    const batchableGroup: IEarnBatchTaskGroup = {
+      ...group,
+      requestsByKey: new Map(),
+      requestKeysBySymbol: new Map(),
+    };
+
+    group.requestsByKey.forEach((request, key) => {
+      const requestKeysForSymbol = group.requestKeysBySymbol.get(
+        request.symbol,
+      );
+      if ((requestKeysForSymbol?.size || 0) > 1) {
+        tasks.push(buildSingleTask({ request }));
+        return;
+      }
+
+      addRequestToBatchGroup({
+        group: batchableGroup,
+        key,
+        request,
+      });
+    });
+
+    if (batchableGroup.requestsByKey.size === 0) {
+      return;
+    }
+
     tasks.push(
       buildBatchTask({
         accountId,
-        group,
+        group: batchableGroup,
       }),
     );
   });
