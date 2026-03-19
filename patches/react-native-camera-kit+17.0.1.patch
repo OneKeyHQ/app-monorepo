@@ -1,8 +1,32 @@
 diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-index 135a383..d7435c3 100644
+index 135a383..c4796e4 100644
 --- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
 +++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-@@ -112,34 +112,35 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -31,6 +31,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     private let photoOutput = AVCapturePhotoOutput()
+     private let metadataOutput = AVCaptureMetadataOutput()
+ 
++    private var isCameraRemoved: Bool = false
+     private var resizeMode: ResizeMode = .contain
+     private var flashMode: FlashMode = .auto
+     private var torchMode: TorchMode = .off
+@@ -88,6 +89,15 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     }
+ 
+     func cameraRemovedFromSuperview() {
++        // Mark as removed on the main thread to prevent the deferred preview session
++        // assignment in setup() from executing. This avoids a race condition where
++        // setting cameraPreview.session triggers beginConfiguration/commitConfiguration
++        // on the main thread while stopRunning() executes on sessionQueue, causing
++        // NSGenericException: "stopRunning may not be called between calls to
++        // beginConfiguration and commitConfiguration".
++        isCameraRemoved = true
++        cameraPreview.session = nil
++
+         sessionQueue.async {
+             if self.setupResult == .success {
+                 self.session.stopRunning()
+@@ -112,34 +122,41 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      // MARK: - Public
  
      func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
@@ -54,13 +78,19 @@ index 135a383..d7435c3 100644
 +            // commitConfiguration). Dispatching to main after startRunning() ensures proper
 +            // sequencing of the AVCaptureSession configuration lifecycle. (Fixes REACT-NATIVE-1EZ)
 +            DispatchQueue.main.async {
++                // Guard against race condition: if the camera view was already removed
++                // from its superview (e.g., user dismissed the screen quickly), skip
++                // setting the preview session to avoid triggering
++                // beginConfiguration/commitConfiguration that would conflict with
++                // stopRunning() on sessionQueue.
++                guard !self.isCameraRemoved else { return }
 +                self.cameraPreview.session = self.session
 +                self.cameraPreview.previewLayer.videoGravity = self.resizeMode == .cover ? .resizeAspectFill : .resizeAspect
 +                self.setVideoOrientationToInterfaceOrientation()
              }
          }
      }
-@@ -347,6 +348,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -347,6 +364,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      }
  
      func update(resizeMode: ResizeMode) {
