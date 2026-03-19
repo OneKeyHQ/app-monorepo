@@ -199,6 +199,21 @@ export default function DevAppUpdateTestModal() {
           <Button variant="secondary" onPress={copyAppUpdateInfo}>
             Copy App Update Info
           </Button>
+
+          <Button
+            variant="secondary"
+            onPress={async () => {
+              const task =
+                await backgroundApiProxy.servicePendingInstallTask.getPendingInstallTask();
+              const text = task
+                ? JSON.stringify(task, null, 2)
+                : 'No pending install task';
+              copyText(text);
+              Toast.success({ title: 'Copied' });
+            }}
+          >
+            Copy Pending Install Task
+          </Button>
         </YStack>
       </Page.Body>
     </Page>

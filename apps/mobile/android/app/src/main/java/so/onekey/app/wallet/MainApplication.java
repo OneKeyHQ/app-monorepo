@@ -124,6 +124,8 @@ public class MainApplication extends Application implements ReactApplication {
       DefaultNewArchitectureEntryPoint.load();
     }
 
+    OneKeyLog.info("BootRecovery", "boot_fail_count: " + oldCount + " -> " + newCount + ", shouldShowRecovery: " + shouldShowRecovery);
+
     if (shouldShowRecovery) {
         // Skip heavy initialization (React Native, Expo, JPush).
         // RecoveryActivity is a plain Android Activity and doesn't need them.

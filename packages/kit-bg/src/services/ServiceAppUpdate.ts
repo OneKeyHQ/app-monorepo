@@ -1080,6 +1080,20 @@ class ServiceAppUpdate extends ServiceBase {
       } catch {
         // ignore — default to false
       }
+      // When the server finds appVersion and bundleVersion match the
+      // client's current versions, it returns a response like:
+      //   { version: "5.x.x", jsBundleCount: 3, jsBundleVersion: undefined }
+      // jsBundleCount > 0 indicates bundles exist on server, but
+      // jsBundleVersion is omitted (no newer bundle available).
+      // In this case, don't treat the absent jsBundleVersion as a
+      // rollback signal — the client is already on the latest bundle.
+      if (
+        typeof releaseInfo?.jsBundleCount === 'number' &&
+        releaseInfo.jsBundleCount > 0 &&
+        !releaseInfo.jsBundleVersion
+      ) {
+        hasActiveCustomBundle = false;
+      }
       const decision = resolveUpdateDecision({
         currentAppVersion: platformEnv.version,
         currentBundleVersion: platformEnv.bundleVersion,
