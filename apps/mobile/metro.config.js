@@ -165,6 +165,15 @@ if (process.env.RN_HARNESS === 'true') {
         }
       }
     }
+    // Replace react-native-mmkv with an in-memory mock during harness tests.
+    // MMKV's createMMKV() calls into JSI synchronously; after an app restart
+    // in the harness the JSI bridge may hang. Tests mock appStorage anyway.
+    if (moduleName === 'react-native-mmkv') {
+      return {
+        type: 'sourceFile',
+        filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
+      };
+    }
     // Map lodash-es to lodash (same as Jest moduleNameMapper: '^lodash-es$': 'lodash')
     if (moduleName === 'lodash-es') {
       return prevResolveRequest(context, 'lodash', platform);
