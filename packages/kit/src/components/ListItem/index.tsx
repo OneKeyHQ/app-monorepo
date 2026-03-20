@@ -5,7 +5,7 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import { isValidElement, useCallback, useState } from 'react';
+import { isValidElement, useCallback, useMemo, useState } from 'react';
 
 import { Pressable } from 'react-native';
 
@@ -343,6 +343,24 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     const [nativePressed, setNativePressed] = useState(false);
     const handlePressIn = useCallback(() => setNativePressed(true), []);
     const handlePressOut = useCallback(() => setNativePressed(false), []);
+
+    // On native with Pressable wrapper, strip pressStyle/hoverStyle from rest
+    // to prevent the inner Stack from claiming the touch responder via Tamagui's
+    // usePressability. Without this, Tamagui attaches onStartShouldSetResponder
+    // to the inner Stack (because pressStyle triggers attachPress), which steals
+    // the responder from the outer Pressable and prevents onPress from firing.
+    const { contentRest, nativePressStyle } = useMemo(() => {
+      if (useNativePressable) {
+        const {
+          pressStyle: _pressStyle,
+          hoverStyle: _hoverStyle,
+          ...filtered
+        } = rest as any;
+        return { contentRest: filtered, nativePressStyle: _pressStyle };
+      }
+      return { contentRest: rest, nativePressStyle: undefined };
+    }, [useNativePressable, rest]);
+
     const content = (
       <Stack
         ref={ref}
@@ -360,8 +378,10 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
           opacity: 0.5,
         })}
         {...(useWebPress ? listItemPressStyle : undefined)}
-        {...rest}
-        {...(nativePressed ? { bg: '$bgActive' } : undefined)}
+        {...contentRest}
+        {...(nativePressed
+          ? (nativePressStyle ?? { bg: '$bgActive' })
+          : undefined)}
       >
         {childrenBefore}
         {renderWithFallback(
