@@ -874,7 +874,7 @@ index 2bd6b9c..80c7377 100644
        contentOffset={memoContentOffset}
        automaticallyAdjustContentInsets={false}
 diff --git a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
-index ba7dffa..7e961e9 100644
+index ba7dffa..f2d3c16 100644
 --- a/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 +++ b/node_modules/react-native-collapsible-tab-view/src/hooks.tsx
 @@ -8,7 +8,7 @@ import {
@@ -886,30 +886,24 @@ index ba7dffa..7e961e9 100644
  import { ContainerRef, RefComponent } from 'react-native-collapsible-tab-view'
  import { PagerViewOnPageScrollEvent } from 'react-native-pager-view'
  import Animated, {
-@@ -101,7 +101,13 @@ export function useTabProps<T extends TabName>(
+@@ -101,7 +101,10 @@ export function useTabProps<T extends TabName>(
   */
  export function useTabsContext(): ContextType<TabName> {
    const c = useContext(Context)
 -  if (!c) throw new Error('useTabsContext must be inside a Tabs.Container')
 +  if (!c) {
-+    if (__DEV__) {
-+      throw new Error('useTabsContext must be inside a Tabs.Container')
-+    }
 +    console.error('useTabsContext must be inside a Tabs.Container')
 +    return {} as ContextType<TabName>
 +  }
    return c
  }
  
-@@ -114,23 +120,38 @@ export function useTabsContext(): ContextType<TabName> {
+@@ -114,23 +117,35 @@ export function useTabsContext(): ContextType<TabName> {
   */
  export function useTabNameContext(): TabName {
    const c = useContext(TabNameContext)
 -  if (!c) throw new Error('useTabNameContext must be inside a TabNameContext')
 +  if (!c) {
-+    if (__DEV__) {
-+      throw new Error('useTabNameContext must be inside a TabNameContext')
-+    }
 +    console.error('useTabNameContext must be inside a TabNameContext')
 +    return '' as TabName
 +  }
@@ -945,7 +939,7 @@ index ba7dffa..7e961e9 100644
  }
  /**
   * Hook to access some key styles that make the whole thing work.
-@@ -265,10 +286,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -265,10 +280,13 @@ export const useScrollHandlerY = (name: TabName) => {
      accScrollY,
      offset,
      headerScrollDistance,
@@ -959,7 +953,7 @@ index ba7dffa..7e961e9 100644
    } = useTabsContext()
  
    const enabled = useSharedValue(false)
-@@ -296,10 +320,13 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -296,10 +314,13 @@ export const useScrollHandlerY = (name: TabName) => {
    useAnimatedReaction(
      () => scrollAnimation.value,
      (val) => {
@@ -974,7 +968,7 @@ index ba7dffa..7e961e9 100644
    )
  
    const onMomentumEnd = () => {
-@@ -403,6 +430,14 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -403,6 +424,14 @@ export const useScrollHandlerY = (name: TabName) => {
                accDiffClamp.value = Math.max(0, nextValue)
              }
            }
@@ -989,7 +983,7 @@ index ba7dffa..7e961e9 100644
          }
        },
        onBeginDrag: () => {
-@@ -465,6 +500,9 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -465,6 +494,9 @@ export const useScrollHandlerY = (name: TabName) => {
        return isChangingPane
      },
      (isSyncNeeded, wasSyncNeeded) => {
@@ -999,7 +993,7 @@ index ba7dffa..7e961e9 100644
        if (
          isSyncNeeded &&
          isSyncNeeded !== wasSyncNeeded &&
-@@ -505,10 +543,68 @@ export const useScrollHandlerY = (name: TabName) => {
+@@ -505,10 +537,68 @@ export const useScrollHandlerY = (name: TabName) => {
          }
        }
      },
@@ -1070,7 +1064,7 @@ index ba7dffa..7e961e9 100644
  }
  
  type ForwardRefType<T> =
-@@ -579,11 +675,11 @@ export function useAfterMountEffect(
+@@ -579,11 +669,11 @@ export function useAfterMountEffect(
  export function useConvertAnimatedToValue<T>(
    animatedValue: Animated.SharedValue<T>
  ) {
