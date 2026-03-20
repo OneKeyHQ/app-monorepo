@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 
 import { random } from 'lodash';
@@ -10,13 +10,16 @@ import {
   Dialog,
   ESwitchSize,
   Icon,
+  IconButton,
   Input,
   Select,
   SizableText,
+  Stack,
   Switch,
   TextAreaInput,
   Toast,
   View,
+  XStack,
   YStack,
   useClipboard,
   useInPageDialog,
@@ -46,6 +49,7 @@ import {
   isRawSpanning,
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
+import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import {
   requestPermissionsAsync,
@@ -152,10 +156,14 @@ const DevSettingsAccordionTrigger = ({
   title,
   description,
   icon,
+  pinned,
+  onTogglePin,
 }: {
   title: string;
   description?: string;
   icon?: ComponentProps<typeof Icon>['name'];
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }) => (
   <Accordion.Trigger
     bg="$bgSubdued"
@@ -165,14 +173,10 @@ const DevSettingsAccordionTrigger = ({
     borderRightWidth={0}
   >
     {({ open }: { open: boolean }) => (
-      <YStack
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <YStack flexDirection="row" alignItems="center" gap="$3">
+      <XStack justifyContent="space-between" alignItems="center">
+        <XStack alignItems="center" gap="$3" flex={1}>
           {icon ? <Icon name={icon} color="$iconSubdued" /> : null}
-          <YStack>
+          <YStack flex={1}>
             <SizableText textAlign="left" size="$bodyLgMedium">
               {title}
             </SizableText>
@@ -182,11 +186,27 @@ const DevSettingsAccordionTrigger = ({
               </SizableText>
             ) : null}
           </YStack>
-        </YStack>
-        <View animation="quick" rotate={open ? '0deg' : '-90deg'}>
-          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
-        </View>
-      </YStack>
+        </XStack>
+        <XStack alignItems="center" gap="$1">
+          {onTogglePin ? (
+            <IconButton
+              icon={pinned ? 'StarSolid' : 'StarOutline'}
+              size="small"
+              variant="tertiary"
+              iconProps={{
+                color: pinned ? '$iconActive' : '$iconSubdued',
+              }}
+              onPress={(e) => {
+                e.stopPropagation();
+                onTogglePin();
+              }}
+            />
+          ) : null}
+          <View animation="quick" rotate={open ? '0deg' : '-90deg'}>
+            <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+          </View>
+        </XStack>
+      </XStack>
     )}
   </Accordion.Trigger>
 );
@@ -287,6 +307,113 @@ const BaseDevSettingsSection = () => {
 
   const inPageDialog = useInPageDialog();
 
+  // ---------------------------------------------------------------------------
+  // Search & Pin (MMKV sync read/write for instant restore)
+  // ---------------------------------------------------------------------------
+  const PINNED_STORAGE_KEY = 'onekey_dev_settings_pinned_sections';
+
+  const [searchText, setSearchText] = useState('');
+  const [pinnedSections, setPinnedSections] = useState<string[]>(() => {
+    try {
+      const raw = appStorage.syncStorage.getString(PINNED_STORAGE_KEY as any);
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const togglePin = useCallback((sectionKey: string) => {
+    setPinnedSections((prev) => {
+      const next = prev.includes(sectionKey)
+        ? prev.filter((k) => k !== sectionKey)
+        : [...prev, sectionKey];
+      appStorage.syncStorage.set(
+        PINNED_STORAGE_KEY as any,
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  }, []);
+
+  const sectionMeta: {
+    key: string;
+    title: string;
+    description: string;
+    keywords?: string;
+  }[] = useMemo(
+    () => [
+      {
+        key: 'basic',
+        title: 'Basic Info',
+        description: '基本信息',
+      },
+      {
+        key: 'devtools',
+        title: 'Dev Tools & Dev Settings',
+        description: '开发者工具 开发环境设置',
+      },
+      {
+        key: 'appUpdate',
+        title: 'App & Firmware Updates',
+        description: 'App update JS bundle firmware update',
+      },
+      {
+        key: 'performance',
+        title: 'Performance & Crash & Error & Unit Tests',
+        description: '性能 崩溃 错误 单元测试',
+      },
+      {
+        key: 'data',
+        title: 'Data Management',
+        description: '数据重置 清理 导出',
+      },
+      {
+        key: 'webview',
+        title: 'Webview & WebEmbed & TrandingView',
+        description: 'Webview WebEmbed TrandingView',
+      },
+      {
+        key: 'galleries',
+        title: 'UI Galleries',
+        description: 'UI Galleries',
+      },
+      {
+        key: 'account',
+        title: 'Account & Wallet & Prime & Network',
+        description: '账户 钱包 Prime 链和网络',
+      },
+      {
+        key: 'transaction',
+        title: 'Transaction & Signature',
+        description: '交易 签名',
+      },
+    ],
+    [],
+  );
+
+  const visibleSectionKeys = useMemo(() => {
+    const query = searchText.toLowerCase().trim();
+    let keys = sectionMeta.map((s) => s.key);
+    if (query) {
+      keys = sectionMeta
+        .filter(
+          (s) =>
+            s.title.toLowerCase().includes(query) ||
+            s.description.toLowerCase().includes(query) ||
+            (s.keywords && s.keywords.toLowerCase().includes(query)),
+        )
+        .map((s) => s.key);
+    }
+    // Sort: pinned first
+    const pinSet = new Set(pinnedSections);
+    keys.sort((a, b) => {
+      const ap = pinSet.has(a) ? 0 : 1;
+      const bp = pinSet.has(b) ? 0 : 1;
+      return ap - bp;
+    });
+    return keys;
+  }, [searchText, sectionMeta, pinnedSections]);
+
   if (!devSettings.enabled) {
     return null;
   }
@@ -296,1174 +423,1311 @@ const BaseDevSettingsSection = () => {
       title={intl.formatMessage({ id: ETranslations.global_dev_mode })}
       titleProps={{ color: '$textCritical' }}
     >
-      <Accordion width="100%" type="multiple" defaultValue={['basic']}>
-        <Accordion.Item value="basic">
-          <DevSettingsAccordionTrigger
-            title="Basic Info"
-            description="基本信息"
-            icon="InfoCircleOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <SectionPressItem
-                icon="PowerOutline"
-                title="关闭开发者模式"
-                onPress={handleDevModeOnChange}
-              />
-
-              <SectionFieldItem
-                icon="ServerOutline"
-                name="enableTestEndpoint"
-                title="启用 OneKey 测试网络节点"
-                subtitle={
-                  devSettings.settings?.enableTestEndpoint
-                    ? ONEKEY_TEST_API_HOST
-                    : ONEKEY_API_HOST
-                }
-                onBeforeValueChange={async () => {
-                  try {
-                    await backgroundApiProxy.serviceNotification.unregisterClient();
-                  } catch (error) {
-                    console.error(error);
-                  }
-                }}
-                onValueChange={async (enabled: boolean) => {
-                  if (platformEnv.isDesktop) {
-                    await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
-                      enabled,
-                    );
-                  }
-                  setTimeout(() => {
-                    void backgroundApiProxy.serviceApp.restartApp();
-                  }, 300);
-                }}
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-              <SectionPressItem
-                icon="ApiConnectionOutline"
-                title="API Endpoint Management"
-                onPress={() => {
-                  showApiEndpointDialog();
-                }}
-              />
-              {platformEnv.isWeb ? (
-                <ListItem
-                  icon="SwitchHorOutline"
-                  drillIn
-                  onPress={() => {
-                    switchWebDappMode();
-                    globalThis.location.reload();
-                  }}
-                  title="Switch web mode"
-                  subtitle={`Current: ${
-                    isWebInDappMode() ? 'dapp' : 'wallet'
-                  } mode`}
-                  titleProps={{ color: '$textCritical' }}
-                />
-              ) : null}
-              <AutoJumpSetting />
-              <SectionPressItem
-                icon="InfoCircleOutline"
-                copyable
-                title={settings.instanceId}
-                subtitle="InstanceId"
-              />
-
-              {platformEnv.githubSHA ? (
-                <SectionPressItem
-                  icon="CodeOutline"
-                  copyable
-                  title={platformEnv.githubSHA}
-                  subtitle="BuildHash"
-                />
-              ) : null}
-
-              <SectionPressItem
-                icon="CodeOutline"
-                title="platformEnv"
-                onPress={async () => {
-                  const bundleStartTime =
-                    typeof __BUNDLE_START_TIME__ !== 'undefined'
-                      ? __BUNDLE_START_TIME__
-                      : 0;
-                  Dialog.debugMessage({
-                    debugMessage: {
-                      startupTimeAt:
-                        await LaunchOptionsManager.getStartupTimeAt(),
-                      jsReadyTimeAt:
-                        await LaunchOptionsManager.getJSReadyTimeAt(),
-                      uiVisibleTimeAt:
-                        await LaunchOptionsManager.getUIVisibleTimeAt(),
-                      jsReadyTime: await LaunchOptionsManager.getJSReadyTime(),
-                      uiVisibleTime:
-                        await LaunchOptionsManager.getUIVisibleTime(),
-                      bundleStartTime:
-                        await LaunchOptionsManager.getBundleStartTime(),
-                      jsReadyFromPerformanceNow:
-                        await LaunchOptionsManager.getJsReadyFromPerformanceNow(),
-                      appWillMountFromPerformanceNow:
-                        (globalThis.$$onekeyAppWillMountFromPerformanceNow ||
-                          0) - bundleStartTime,
-                      uiVisibleFromPerformanceNow:
-                        await LaunchOptionsManager.getUIVisibleFromPerformanceNow(),
-                      deskChannel: globalThis?.desktopApi?.deskChannel,
-                      arch: globalThis?.desktopApi?.arch,
-                      platform: globalThis?.desktopApi?.platform,
-                      channel: globalThis?.desktopApi?.channel,
-                      isMas: globalThis?.desktopApi?.isMas,
-                      systemVersion: globalThis?.desktopApi?.systemVersion,
-                      isDualScreenDevice: isDualScreenDevice(),
-                      isRawSpanning: isRawSpanning(),
-                      isSpanning: isSpanning(),
-                      ...platformEnv,
-                    },
-                  });
-                }}
-              />
-              <RegistrationID />
-              <DeviceToken />
-              {platformEnv.isDesktop ? (
-                <>
-                  <SectionPressItem
-                    icon="ChromeBrand"
-                    title="Open Chrome DevTools in Desktop"
-                    subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
-                    onPress={handleOpenDevTools}
+      {/* Search bar */}
+      <Stack px="$3" pb="$2">
+        <Input
+          placeholder="Search sections..."
+          value={searchText}
+          onChangeText={setSearchText}
+          leftIconName="SearchOutline"
+        />
+      </Stack>
+      <Accordion
+        width="100%"
+        type="multiple"
+        defaultValue={
+          searchText ? visibleSectionKeys : visibleSectionKeys.slice(0, 1)
+        }
+        key={visibleSectionKeys.join(',')}
+      >
+        {visibleSectionKeys.map((sectionKey) => {
+          const isPinned = pinnedSections.includes(sectionKey);
+          const pinProps = {
+            pinned: isPinned,
+            onTogglePin: () => togglePin(sectionKey),
+          };
+          switch (sectionKey) {
+            case 'basic':
+              return (
+                <Accordion.Item value="basic" key="basic">
+                  <DevSettingsAccordionTrigger
+                    title="Basic Info"
+                    description="基本信息"
+                    icon="InfoCircleOutline"
+                    {...pinProps}
                   />
-                  <SectionPressItem
-                    icon="FolderOutline"
-                    title="Print Env Path in Desktop"
-                    subtitle="getEnvPath()"
-                    onPress={async () => {
-                      const envPath =
-                        await globalThis?.desktopApiProxy?.system?.getEnvPath?.();
-                      console.log(envPath);
-                      Dialog.show({
-                        title: 'getEnvPath',
-                        description: JSON.stringify(envPath),
-                      });
-                    }}
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionPressItem
+                        icon="PowerOutline"
+                        title="关闭开发者模式"
+                        onPress={handleDevModeOnChange}
+                      />
+
+                      <SectionFieldItem
+                        icon="ServerOutline"
+                        name="enableTestEndpoint"
+                        title="启用 OneKey 测试网络节点"
+                        subtitle={
+                          devSettings.settings?.enableTestEndpoint
+                            ? ONEKEY_TEST_API_HOST
+                            : ONEKEY_API_HOST
+                        }
+                        onBeforeValueChange={async () => {
+                          try {
+                            await backgroundApiProxy.serviceNotification.unregisterClient();
+                          } catch (error) {
+                            console.error(error);
+                          }
+                        }}
+                        onValueChange={async (enabled: boolean) => {
+                          if (platformEnv.isDesktop) {
+                            await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
+                              enabled,
+                            );
+                          }
+                          setTimeout(() => {
+                            void backgroundApiProxy.serviceApp.restartApp();
+                          }, 300);
+                        }}
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionPressItem
+                        icon="ApiConnectionOutline"
+                        title="API Endpoint Management"
+                        onPress={() => {
+                          showApiEndpointDialog();
+                        }}
+                      />
+                      {platformEnv.isWeb ? (
+                        <ListItem
+                          icon="SwitchHorOutline"
+                          drillIn
+                          onPress={() => {
+                            switchWebDappMode();
+                            globalThis.location.reload();
+                          }}
+                          title="Switch web mode"
+                          subtitle={`Current: ${
+                            isWebInDappMode() ? 'dapp' : 'wallet'
+                          } mode`}
+                          titleProps={{ color: '$textCritical' }}
+                        />
+                      ) : null}
+                      <AutoJumpSetting />
+                      <SectionPressItem
+                        icon="InfoCircleOutline"
+                        copyable
+                        title={settings.instanceId}
+                        subtitle="InstanceId"
+                      />
+
+                      {platformEnv.githubSHA ? (
+                        <SectionPressItem
+                          icon="CodeOutline"
+                          copyable
+                          title={platformEnv.githubSHA}
+                          subtitle="BuildHash"
+                        />
+                      ) : null}
+
+                      <SectionPressItem
+                        icon="CodeOutline"
+                        title="platformEnv"
+                        onPress={async () => {
+                          const bundleStartTime =
+                            typeof __BUNDLE_START_TIME__ !== 'undefined'
+                              ? __BUNDLE_START_TIME__
+                              : 0;
+                          Dialog.debugMessage({
+                            debugMessage: {
+                              startupTimeAt:
+                                await LaunchOptionsManager.getStartupTimeAt(),
+                              jsReadyTimeAt:
+                                await LaunchOptionsManager.getJSReadyTimeAt(),
+                              uiVisibleTimeAt:
+                                await LaunchOptionsManager.getUIVisibleTimeAt(),
+                              jsReadyTime:
+                                await LaunchOptionsManager.getJSReadyTime(),
+                              uiVisibleTime:
+                                await LaunchOptionsManager.getUIVisibleTime(),
+                              bundleStartTime:
+                                await LaunchOptionsManager.getBundleStartTime(),
+                              jsReadyFromPerformanceNow:
+                                await LaunchOptionsManager.getJsReadyFromPerformanceNow(),
+                              appWillMountFromPerformanceNow:
+                                (globalThis.$$onekeyAppWillMountFromPerformanceNow ||
+                                  0) - bundleStartTime,
+                              uiVisibleFromPerformanceNow:
+                                await LaunchOptionsManager.getUIVisibleFromPerformanceNow(),
+                              deskChannel: globalThis?.desktopApi?.deskChannel,
+                              arch: globalThis?.desktopApi?.arch,
+                              platform: globalThis?.desktopApi?.platform,
+                              channel: globalThis?.desktopApi?.channel,
+                              isMas: globalThis?.desktopApi?.isMas,
+                              systemVersion:
+                                globalThis?.desktopApi?.systemVersion,
+                              isDualScreenDevice: isDualScreenDevice(),
+                              isRawSpanning: isRawSpanning(),
+                              isSpanning: isSpanning(),
+                              ...platformEnv,
+                            },
+                          });
+                        }}
+                      />
+                      <RegistrationID />
+                      <DeviceToken />
+                      {platformEnv.isDesktop ? (
+                        <>
+                          <SectionPressItem
+                            icon="ChromeBrand"
+                            title="Open Chrome DevTools in Desktop"
+                            subtitle="启用后可以使用快捷键 Cmd/Ctrl + Shift + I 开启调试工具"
+                            onPress={handleOpenDevTools}
+                          />
+                          <SectionPressItem
+                            icon="FolderOutline"
+                            title="Print Env Path in Desktop"
+                            subtitle="getEnvPath()"
+                            onPress={async () => {
+                              const envPath =
+                                await globalThis?.desktopApiProxy?.system?.getEnvPath?.();
+                              console.log(envPath);
+                              Dialog.show({
+                                title: 'getEnvPath',
+                                description: JSON.stringify(envPath),
+                              });
+                            }}
+                          />
+                          <SectionFieldItem
+                            icon="UsbOutline"
+                            name="usbCommunicationMode"
+                            title="USB 通信方式"
+                          >
+                            <Select
+                              title="USB 通信方式"
+                              items={[
+                                { label: 'WebUSB', value: 'webusb' },
+                                { label: 'Bridge', value: 'bridge' },
+                              ]}
+                              placement="bottom-end"
+                            />
+                          </SectionFieldItem>
+                        </>
+                      ) : null}
+
+                      <SectionPressItem
+                        icon="InfoCircleOutline"
+                        title="Device Info"
+                        subtitle="设备信息"
+                        onPress={async () => {
+                          const deviceInfo =
+                            await appDeviceInfo.getDeviceInfo();
+                          Dialog.debugMessage({
+                            debugMessage: {
+                              ...deviceInfo,
+                              react_native_dsn: platformEnv.isNative
+                                ? process.env.SENTRY_DSN_REACT_NATIVE
+                                : '',
+                              windowHeight: Dimensions.get('window').height,
+                              windowWidth: Dimensions.get('window').width,
+                              screenHeight: Dimensions.get('screen').height,
+                              screenWidth: Dimensions.get('screen').width,
+                            },
+                          });
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="FolderOutline"
+                        title="Copy Log Path"
+                        subtitle="Log Path"
+                        onPress={() => {
+                          copyText(NativeLogger.getLogDirectory() || 'N/A');
+                        }}
+                      />
+
+                      {platformEnv.isNativeAndroid ? (
+                        <SectionPressItem
+                          icon="PhoneOutline"
+                          copyable
+                          title={`Android Channel: ${
+                            process.env.ANDROID_CHANNEL || ''
+                          }`}
+                        />
+                      ) : null}
+                      {platformEnv.isDesktop ? (
+                        <>
+                          <SectionPressItem
+                            icon="ComputerOutline"
+                            copyable
+                            title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
+                              globalThis?.desktopApi?.channel || ''
+                            } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
+                          />
+                          <SectionPressItem
+                            icon="ProcessorOutline"
+                            copyable
+                            title={`Desktop arch: ${
+                              globalThis?.desktopApi?.arch || ''
+                            }`}
+                          />
+                        </>
+                      ) : null}
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'devtools':
+              return (
+                <Accordion.Item value="devtools" key="devtools">
+                  <DevSettingsAccordionTrigger
+                    title="Dev Tools & Dev Settings"
+                    description="开发者工具，开发环境设置"
+                    icon="LabOutline"
+                    {...pinProps}
                   />
-                  <SectionFieldItem
-                    icon="UsbOutline"
-                    name="usbCommunicationMode"
-                    title="USB 通信方式"
-                  >
-                    <Select
-                      title="USB 通信方式"
-                      items={[
-                        { label: 'WebUSB', value: 'webusb' },
-                        { label: 'Bridge', value: 'bridge' },
-                      ]}
-                      placement="bottom-end"
-                    />
-                  </SectionFieldItem>
-                </>
-              ) : null}
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionFieldItem
+                        icon="LayoutWindowOutline"
+                        name="showDevOverlayWindow"
+                        title="开发者悬浮窗"
+                        subtitle="始终悬浮于全局的开发调试工具栏"
+                        testID="show-dev-overlay"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <SectionPressItem
-                icon="InfoCircleOutline"
-                title="Device Info"
-                subtitle="设备信息"
-                onPress={async () => {
-                  const deviceInfo = await appDeviceInfo.getDeviceInfo();
-                  Dialog.debugMessage({
-                    debugMessage: {
-                      ...deviceInfo,
-                      react_native_dsn: platformEnv.isNative
-                        ? process.env.SENTRY_DSN_REACT_NATIVE
-                        : '',
-                      windowHeight: Dimensions.get('window').height,
-                      windowWidth: Dimensions.get('window').width,
-                      screenHeight: Dimensions.get('screen').height,
-                      screenWidth: Dimensions.get('screen').width,
-                    },
-                  });
-                }}
-              />
+                      <SectionPressItem
+                        icon="SwitchHorOutline"
+                        title="force RTL"
+                        subtitle="强制启用 RTL 布局"
+                        drillIn={false}
+                      >
+                        <Switch
+                          onChange={forceIntoRTL}
+                          size={ESwitchSize.small}
+                          value={I18nManager.isRTL}
+                        />
+                      </SectionPressItem>
+                      <SectionFieldItem
+                        icon="KeyboardUpOutline"
+                        name="disableAllShortcuts"
+                        title="禁止桌面快捷键"
+                        onValueChange={(value: boolean) => {
+                          void globalThis.desktopApiProxy.system.disableShortcuts(
+                            {
+                              disableAllShortcuts: value,
+                            },
+                          );
+                          setTimeout(() => {
+                            void backgroundApiProxy.serviceApp.restartApp();
+                          }, 300);
+                        }}
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              {platformEnv.isNativeAndroid ? (
-                <SectionPressItem
-                  icon="PhoneOutline"
-                  copyable
-                  title={`Android Channel: ${
-                    process.env.ANDROID_CHANNEL || ''
-                  }`}
-                />
-              ) : null}
-              {platformEnv.isDesktop ? (
-                <>
-                  <SectionPressItem
-                    icon="ComputerOutline"
-                    copyable
-                    title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
-                      globalThis?.desktopApi?.channel || ''
-                    } ${globalThis?.desktopApi?.isMas ? 'mas' : ''}`}
+                      <SectionFieldItem
+                        icon="BrokenLinkOutline"
+                        name="disableIpTableInProd"
+                        title="[生产环境] 禁用 IP 直连"
+                        subtitle={
+                          devSettings.settings?.disableIpTableInProd
+                            ? '生产环境已禁用 IP 直连'
+                            : '生产环境默认启用 (可手动禁用)'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ArrowTopRightIllus"
+                        name="forceIpTableStrict"
+                        title="强制使用 IP 请求"
+                        subtitle={
+                          devSettings.settings?.forceIpTableStrict
+                            ? '强制使用 IP 请求'
+                            : '非强制使用 IP 请求'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionPressItem
+                        icon="RefreshCcwOutline"
+                        title="Reset IP Table Cache"
+                        subtitle="清除 IP 直连缓存，解决网络切换后请求失败问题"
+                        onPress={async () => {
+                          await backgroundApiProxy.serviceIpTable.reset();
+                          Toast.success({
+                            title: 'IP Table cache cleared',
+                          });
+                        }}
+                      />
+                      <IpTableSelector />
+                      <SectionPressItem
+                        icon="ForkOutline"
+                        title="Check Network info"
+                        onPress={() => {
+                          Dialog.confirm({
+                            renderContent: <NetInfo />,
+                          });
+                        }}
+                      />
+
+                      <SectionPressItem
+                        icon="BellOutline"
+                        title="NotificationDevSettings"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'NotificationDevSettings',
+                            renderContent: <NotificationDevSettings />,
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="SendOutline"
+                        title="Notification Payload Test"
+                        subtitle="Test parseNotificationPayload navigation"
+                        onPress={() => {
+                          inPageDialog.cancel({
+                            title: 'Notification Payload Test',
+                            renderContent: <NotificationPayloadTest />,
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="StorageOutline"
+                        title="AsyncStorageDevSettings"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Single data store test',
+                            renderContent: <AsyncStorageDevSettings />,
+                          });
+                        }}
+                      />
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="BagOutline"
+                          title="AppNotificationBadge"
+                          subtitle="设置应用图标角标"
+                          testID="app-notification-badge-menu"
+                          onPress={async () => {
+                            const permissionsStatus =
+                              await requestPermissionsAsync({
+                                ios: { allowBadge: true },
+                              });
+                            if (permissionsStatus.granted) {
+                              const result = await setBadgeCountAsync(10);
+                              console.log('result', result);
+                            }
+                          }}
+                        />
+                      ) : null}
+                      <SectionPressItem
+                        icon="AnimationOutline"
+                        title="V4MigrationDevSettings"
+                        testID="v4-migration-dev-settings-menu"
+                        onPress={() => {
+                          Dialog.show({
+                            title: '!!!!  Danger Zone: Clear all your data',
+                            description:
+                              'This is a feature specific to development environments. Function used to erase all data in the app.',
+                            confirmButtonProps: {
+                              variant: 'destructive',
+                            },
+                            onConfirm: () => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevV4MigrationModal,
+                              );
+                            },
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="TouchIdOutline"
+                        title="Haptics"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Haptics',
+                            renderContent: <HapticsPanel />,
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="AiImagesOutline"
+                        title="Image"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'Image',
+                            renderContent: <ImagePanel />,
+                          });
+                        }}
+                      />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'appUpdate':
+              return (
+                <Accordion.Item value="appUpdate" key="appUpdate">
+                  <DevSettingsAccordionTrigger
+                    title="App & Firmware Updates"
+                    description="App update, JS bundle, firmware update"
+                    icon="ArrowTopCircleOutline"
+                    {...pinProps}
                   />
-                  <SectionPressItem
-                    icon="ProcessorOutline"
-                    copyable
-                    title={`Desktop arch: ${
-                      globalThis?.desktopApi?.arch || ''
-                    }`}
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionPressItem
+                        icon="ArrowTopCircleOutline"
+                        title="App Update Test"
+                        subtitle="Simulate update failures"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevAppUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="CodeOutline"
+                        title="JS Bundle Manager"
+                        subtitle="Manage and switch JS bundles"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevBundleManagerModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="RefreshCwOutline"
+                        title="Force Check Updates"
+                        subtitle="Force fetch app update info"
+                        onPress={async () => {
+                          try {
+                            Toast.message({ title: 'Checking for updates...' });
+                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
+                              true,
+                            );
+                            Toast.success({ title: 'Check updates done' });
+                          } catch (e) {
+                            Toast.error({
+                              title: `Check updates failed: ${
+                                (e as Error).message || 'Unknown error'
+                              }`,
+                            });
+                          }
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="Firmware Update Dev Settings"
+                        testID="firmware-update-dev-settings-menu"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="ActivityOutline"
+                        title="App/Bundle Update Status"
+                        subtitle="Update state, strategy, download progress, pending task"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevBundleUpdateStatusModal,
+                          );
+                        }}
+                      />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'performance':
+              return (
+                <Accordion.Item value="performance" key="performance">
+                  <DevSettingsAccordionTrigger
+                    title="Performance & Crash & Error & Unit Tests"
+                    description="性能，崩溃，错误，单元测试"
+                    icon="ServerOutline"
+                    {...pinProps}
                   />
-                </>
-              ) : null}
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <ListItem
+                        icon="PerformanceOutline"
+                        title="Performance Monitor(UI FPS/JS FPS)"
+                        subtitle="性能监控"
+                      >
+                        <Switch
+                          isUncontrolled
+                          size={ESwitchSize.small}
+                          defaultChecked={
+                            !!devSettings.settings?.showPerformanceMonitor
+                          }
+                          onChange={(v) => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'showPerformanceMonitor',
+                              v,
+                            );
+                            setTimeout(() => {
+                              void backgroundApiProxy.serviceApp.restartApp();
+                            }, 10);
+                          }}
+                        />
+                      </ListItem>
 
-        <Accordion.Item value="devtools">
-          <DevSettingsAccordionTrigger
-            title="Dev Tools & Dev Settings"
-            description="开发者工具，开发环境设置"
-            icon="LabOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <SectionFieldItem
-                icon="LayoutWindowOutline"
-                name="showDevOverlayWindow"
-                title="开发者悬浮窗"
-                subtitle="始终悬浮于全局的开发调试工具栏"
-                testID="show-dev-overlay"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      <ListItem
+                        icon="LightBulbOutline"
+                        title="DebugRenderTracker 组件渲染高亮"
+                        subtitle="启用后会导致 FlatList 无法滚动，仅供测试"
+                      >
+                        <Switch
+                          isUncontrolled
+                          size={ESwitchSize.small}
+                          defaultChecked={
+                            appStorage.syncStorage.getBoolean(
+                              EAppSyncStorageKeys.onekey_debug_render_tracker,
+                            ) ?? false
+                          }
+                          onChange={(v) => {
+                            appStorage.syncStorage.set(
+                              EAppSyncStorageKeys.onekey_debug_render_tracker,
+                              v,
+                            );
+                          }}
+                        />
+                      </ListItem>
 
-              <SectionPressItem
-                icon="SwitchHorOutline"
-                title="force RTL"
-                subtitle="强制启用 RTL 布局"
-                drillIn={false}
-              >
-                <Switch
-                  onChange={forceIntoRTL}
-                  size={ESwitchSize.small}
-                  value={I18nManager.isRTL}
-                />
-              </SectionPressItem>
-              <SectionFieldItem
-                icon="KeyboardUpOutline"
-                name="disableAllShortcuts"
-                title="禁止桌面快捷键"
-                onValueChange={(value: boolean) => {
-                  void globalThis.desktopApiProxy.system.disableShortcuts({
-                    disableAllShortcuts: value,
-                  });
-                  setTimeout(() => {
-                    void backgroundApiProxy.serviceApp.restartApp();
-                  }, 300);
-                }}
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="CreditCardOutline"
+                        name="showPerpsRenderStats"
+                        title="显示 Perps 渲染统计"
+                        subtitle="显示 Perps 渲染统计"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <SectionFieldItem
-                icon="BrokenLinkOutline"
-                name="disableIpTableInProd"
-                title="[生产环境] 禁用 IP 直连"
-                subtitle={
-                  devSettings.settings?.disableIpTableInProd
-                    ? '生产环境已禁用 IP 直连'
-                    : '生产环境默认启用 (可手动禁用)'
-                }
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-              <SectionFieldItem
-                icon="ArrowTopRightIllus"
-                name="forceIpTableStrict"
-                title="强制使用 IP 请求"
-                subtitle={
-                  devSettings.settings?.forceIpTableStrict
-                    ? '强制使用 IP 请求'
-                    : '非强制使用 IP 请求'
-                }
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-              <SectionPressItem
-                icon="RefreshCcwOutline"
-                title="Reset IP Table Cache"
-                subtitle="清除 IP 直连缓存，解决网络切换后请求失败问题"
-                onPress={async () => {
-                  await backgroundApiProxy.serviceIpTable.reset();
-                  Toast.success({
-                    title: 'IP Table cache cleared',
-                  });
-                }}
-              />
-              <IpTableSelector />
-              <SectionPressItem
-                icon="ForkOutline"
-                title="Check Network info"
-                onPress={() => {
-                  Dialog.confirm({
-                    renderContent: <NetInfo />,
-                  });
-                }}
-              />
+                      <ListItem
+                        icon="LabOutline"
+                        title="Bg Api 可序列化检测"
+                        subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
+                      >
+                        <Switch
+                          isUncontrolled
+                          size={ESwitchSize.small}
+                          defaultChecked={
+                            !isBgApiSerializableCheckingDisabled()
+                          }
+                          onChange={(v) => {
+                            toggleBgApiSerializableChecking(v);
+                          }}
+                        />
+                      </ListItem>
 
-              <SectionPressItem
-                icon="BellOutline"
-                title="NotificationDevSettings"
-                onPress={() => {
-                  Dialog.cancel({
-                    title: 'NotificationDevSettings',
-                    renderContent: <NotificationDevSettings />,
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="SendOutline"
-                title="Notification Payload Test"
-                subtitle="Test parseNotificationPayload navigation"
-                onPress={() => {
-                  inPageDialog.cancel({
-                    title: 'Notification Payload Test',
-                    renderContent: <NotificationPayloadTest />,
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="StorageOutline"
-                title="AsyncStorageDevSettings"
-                onPress={() => {
-                  Dialog.cancel({
-                    title: 'Single data store test',
-                    renderContent: <AsyncStorageDevSettings />,
-                  });
-                }}
-              />
-              {platformEnv.isNative ? (
-                <SectionPressItem
-                  icon="BagOutline"
-                  title="AppNotificationBadge"
-                  subtitle="设置应用图标角标"
-                  testID="app-notification-badge-menu"
-                  onPress={async () => {
-                    const permissionsStatus = await requestPermissionsAsync({
-                      ios: { allowBadge: true },
-                    });
-                    if (permissionsStatus.granted) {
-                      const result = await setBadgeCountAsync(10);
-                      console.log('result', result);
-                    }
-                  }}
-                />
-              ) : null}
-              <SectionPressItem
-                icon="AnimationOutline"
-                title="V4MigrationDevSettings"
-                testID="v4-migration-dev-settings-menu"
-                onPress={() => {
-                  Dialog.show({
-                    title: '!!!!  Danger Zone: Clear all your data',
-                    description:
-                      'This is a feature specific to development environments. Function used to erase all data in the app.',
-                    confirmButtonProps: {
-                      variant: 'destructive',
-                    },
-                    onConfirm: () => {
-                      navigation.push(
-                        EModalSettingRoutes.SettingDevV4MigrationModal,
-                      );
-                    },
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="TouchIdOutline"
-                title="Haptics"
-                onPress={() => {
-                  Dialog.cancel({
-                    title: 'Haptics',
-                    renderContent: <HapticsPanel />,
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="AiImagesOutline"
-                title="Image"
-                onPress={() => {
-                  Dialog.cancel({
-                    title: 'Image',
-                    renderContent: <ImagePanel />,
-                  });
-                }}
-              />
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+                      <SectionFieldItem
+                        icon="ChartTrendingOutline"
+                        name="enableAnalyticsRequest"
+                        title="测试环境下发送 Analytics 请求"
+                        subtitle={
+                          devSettings.settings?.enableAnalyticsRequest
+                            ? '开启'
+                            : '关闭'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-        <Accordion.Item value="appUpdate">
-          <DevSettingsAccordionTrigger
-            title="App & Firmware Updates"
-            description="App update, JS bundle, firmware update"
-            icon="ArrowTopCircleOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <SectionPressItem
-                icon="ArrowTopCircleOutline"
-                title="App Update Test"
-                subtitle="Simulate update failures"
-                onPress={() => {
-                  navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
-                }}
-              />
-              <SectionPressItem
-                icon="CodeOutline"
-                title="JS Bundle Manager"
-                subtitle="Manage and switch JS bundles"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevBundleManagerModal,
-                  );
-                }}
-              />
-              <SectionPressItem
-                icon="OnekeyDeviceCustom"
-                title="Firmware Update Dev Settings"
-                testID="firmware-update-dev-settings-menu"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevFirmwareUpdateModal,
-                  );
-                }}
-              />
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+                      <SectionPressItem
+                        icon="Lab2Outline"
+                        title="Dev Unit Tests"
+                        testID="dev-unit-tests-menu"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevUnitTestsModal,
+                          );
+                        }}
+                      />
 
-        <Accordion.Item value="performance">
-          <DevSettingsAccordionTrigger
-            title="Performance & Crash & Error & Unit Tests"
-            description="性能，崩溃，错误，单元测试"
-            icon="ServerOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <ListItem
-                icon="PerformanceOutline"
-                title="Performance Monitor(UI FPS/JS FPS)"
-                subtitle="性能监控"
-              >
-                <Switch
-                  isUncontrolled
-                  size={ESwitchSize.small}
-                  defaultChecked={
-                    !!devSettings.settings?.showPerformanceMonitor
-                  }
-                  onChange={(v) => {
-                    void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                      'showPerformanceMonitor',
-                      v,
-                    );
-                    setTimeout(() => {
-                      void backgroundApiProxy.serviceApp.restartApp();
-                    }, 10);
-                  }}
-                />
-              </ListItem>
+                      <SentryCrashSettings />
+                      <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="Show Recovery Page on Next Launch"
+                        subtitle="Sets crash counter to 3, triggering recovery page on restart"
+                        onPress={async () => {
+                          const BootRecovery = (
+                            await import('@onekeyhq/shared/src/modules/BootRecovery')
+                          ).default;
+                          BootRecovery.setConsecutiveBootFailCount(3);
+                          Toast.success({
+                            title: 'Recovery page will show on next launch',
+                          });
+                        }}
+                      />
+                      <CrashDevSettings />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'data':
+              return (
+                <Accordion.Item value="data" key="data">
+                  <DevSettingsAccordionTrigger
+                    title="Data Management"
+                    description="数据重置、清理、导出"
+                    icon="TableOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionPressItem
+                        icon="BookmarkOutline"
+                        title="清空Market收藏数据"
+                        subtitle="清空所有Market页面的收藏/WatchList数据"
+                        onPress={() => {
+                          Dialog.confirm({
+                            title: '清空Market收藏数据',
+                            description:
+                              '确定要清空所有Market页面的收藏数据吗？此操作不可恢复。',
+                            confirmButtonProps: { variant: 'destructive' },
+                            onConfirm: async () => {
+                              try {
+                                await backgroundApiProxy.serviceMarketV2.clearAllMarketWatchListV2();
+                                Toast.success({
+                                  title: '成功清空Market收藏数据',
+                                });
+                                setTimeout(() => {
+                                  void backgroundApiProxy.serviceApp.restartApp();
+                                }, 1000);
+                              } catch (error) {
+                                Toast.error({
+                                  title: '清空失败',
+                                  message: String(error),
+                                });
+                              }
+                            },
+                          });
+                        }}
+                      />
 
-              <ListItem
-                icon="LightBulbOutline"
-                title="DebugRenderTracker 组件渲染高亮"
-                subtitle="启用后会导致 FlatList 无法滚动，仅供测试"
-              >
-                <Switch
-                  isUncontrolled
-                  size={ESwitchSize.small}
-                  defaultChecked={
-                    appStorage.syncStorage.getBoolean(
-                      EAppSyncStorageKeys.onekey_debug_render_tracker,
-                    ) ?? false
-                  }
-                  onChange={(v) => {
-                    appStorage.syncStorage.set(
-                      EAppSyncStorageKeys.onekey_debug_render_tracker,
-                      v,
-                    );
-                  }}
-                />
-              </ListItem>
+                      <SectionFieldItem
+                        icon="ChartColumnarOutline"
+                        name="enableMockMarketBanner"
+                        title="Mock Market Banner Data"
+                        subtitle="Use mock data to test Market Banner UI"
+                        onValueChange={() => {
+                          void backgroundApiProxy.serviceMarketV2.clearMarketBannerCache();
+                        }}
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <SectionFieldItem
-                icon="CreditCardOutline"
-                name="showPerpsRenderStats"
-                title="显示 Perps 渲染统计"
-                subtitle="显示 Perps 渲染统计"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-
-              <ListItem
-                icon="LabOutline"
-                title="Bg Api 可序列化检测"
-                subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
-              >
-                <Switch
-                  isUncontrolled
-                  size={ESwitchSize.small}
-                  defaultChecked={!isBgApiSerializableCheckingDisabled()}
-                  onChange={(v) => {
-                    toggleBgApiSerializableChecking(v);
-                  }}
-                />
-              </ListItem>
-
-              <SectionFieldItem
-                icon="ChartTrendingOutline"
-                name="enableAnalyticsRequest"
-                title="测试环境下发送 Analytics 请求"
-                subtitle={
-                  devSettings.settings?.enableAnalyticsRequest ? '开启' : '关闭'
-                }
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-
-              <SectionPressItem
-                icon="Lab2Outline"
-                title="Dev Unit Tests"
-                testID="dev-unit-tests-menu"
-                onPress={() => {
-                  navigation.push(EModalSettingRoutes.SettingDevUnitTestsModal);
-                }}
-              />
-
-              <SentryCrashSettings />
-              <SectionPressItem
-                icon="ShieldCheckDoneOutline"
-                title="Show Recovery Page on Next Launch"
-                subtitle="Sets crash counter to 3, triggering recovery page on restart"
-                onPress={async () => {
-                  const BootRecovery = (
-                    await import('@onekeyhq/shared/src/modules/BootRecovery')
-                  ).default;
-                  BootRecovery.setConsecutiveBootFailCount(3);
-                  Toast.success({
-                    title: 'Recovery page will show on next launch',
-                  });
-                }}
-              />
-              <CrashDevSettings />
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
-
-        <Accordion.Item value="data">
-          <DevSettingsAccordionTrigger
-            title="Data Management"
-            description="数据重置、清理、导出"
-            icon="TableOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <SectionPressItem
-                icon="BookmarkOutline"
-                title="清空Market收藏数据"
-                subtitle="清空所有Market页面的收藏/WatchList数据"
-                onPress={() => {
-                  Dialog.confirm({
-                    title: '清空Market收藏数据',
-                    description:
-                      '确定要清空所有Market页面的收藏数据吗？此操作不可恢复。',
-                    confirmButtonProps: { variant: 'destructive' },
-                    onConfirm: async () => {
-                      try {
-                        await backgroundApiProxy.serviceMarketV2.clearAllMarketWatchListV2();
-                        Toast.success({
-                          title: '成功清空Market收藏数据',
-                        });
-                        setTimeout(() => {
-                          void backgroundApiProxy.serviceApp.restartApp();
-                        }, 1000);
-                      } catch (error) {
-                        Toast.error({
-                          title: '清空失败',
-                          message: String(error),
-                        });
-                      }
-                    },
-                  });
-                }}
-              />
-
-              <SectionFieldItem
-                icon="ChartColumnarOutline"
-                name="enableMockMarketBanner"
-                title="Mock Market Banner Data"
-                subtitle="Use mock data to test Market Banner UI"
-                onValueChange={() => {
-                  void backgroundApiProxy.serviceMarketV2.clearMarketBannerCache();
-                }}
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-
-              <SectionPressItem
-                icon="DeleteOutline"
-                title="Clear App Data (E2E release only)"
-                testID="clear-data-menu"
-                onPress={() => {
-                  showDevOnlyPasswordDialog({
-                    title: 'Danger Zone: Clear all your data',
-                    confirmButtonProps: {
-                      variant: 'destructive',
-                      testID: 'clear-double-confirm',
-                    },
-                    description: `This is a feature specific to development environments.
+                      <SectionPressItem
+                        icon="DeleteOutline"
+                        title="Clear App Data (E2E release only)"
+                        testID="clear-data-menu"
+                        onPress={() => {
+                          showDevOnlyPasswordDialog({
+                            title: 'Danger Zone: Clear all your data',
+                            confirmButtonProps: {
+                              variant: 'destructive',
+                              testID: 'clear-double-confirm',
+                            },
+                            description: `This is a feature specific to development environments.
                   Function used to erase all data in the app.`,
-                    onConfirm: async (params) => {
-                      Dialog.cancel({
-                        title: 'Clear App Data (E2E release only)',
-                        renderContent: (
-                          <YStack>
-                            <SectionPressItem
-                              title="Clear Discovery Data"
-                              testID="clear-discovery-data"
-                              onPress={async () => {
-                                await backgroundApiProxy.serviceE2E.clearDiscoveryPageData(
-                                  params,
-                                );
-                                Toast.success({
-                                  title: 'Success',
-                                });
-                              }}
-                            />
-                            <SectionPressItem
-                              icon="Notebook3Outline"
-                              title="Clear Address Book Data"
-                              testID="clear-address-book-data"
-                              onPress={async () => {
-                                await backgroundApiProxy.serviceE2E.clearAddressBook(
-                                  params,
-                                );
-                                Toast.success({
-                                  title: 'Success',
-                                });
-                              }}
-                            />
-                            <SectionPressItem
-                              title="Clear Wallets & Accounts Data"
-                              testID="clear-wallets-data"
-                              onPress={async () => {
-                                await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
-                                  params,
-                                );
-                                if (platformEnv.isExtension) {
-                                  await backgroundApiProxy.serviceApp.restartApp();
-                                }
-                                Toast.success({
-                                  title: 'Success',
-                                });
-                              }}
-                            />
-                            <SectionPressItem
-                              title="Clear Password"
-                              testID="clear-password"
-                              onPress={async () => {
-                                await backgroundApiProxy.serviceE2E.clearPassword(
-                                  params,
-                                );
-                                Toast.success({
-                                  title: 'Success',
-                                });
-                              }}
-                            />
+                            onConfirm: async (params) => {
+                              Dialog.cancel({
+                                title: 'Clear App Data (E2E release only)',
+                                renderContent: (
+                                  <YStack>
+                                    <SectionPressItem
+                                      title="Clear Discovery Data"
+                                      testID="clear-discovery-data"
+                                      onPress={async () => {
+                                        await backgroundApiProxy.serviceE2E.clearDiscoveryPageData(
+                                          params,
+                                        );
+                                        Toast.success({
+                                          title: 'Success',
+                                        });
+                                      }}
+                                    />
+                                    <SectionPressItem
+                                      icon="Notebook3Outline"
+                                      title="Clear Address Book Data"
+                                      testID="clear-address-book-data"
+                                      onPress={async () => {
+                                        await backgroundApiProxy.serviceE2E.clearAddressBook(
+                                          params,
+                                        );
+                                        Toast.success({
+                                          title: 'Success',
+                                        });
+                                      }}
+                                    />
+                                    <SectionPressItem
+                                      title="Clear Wallets & Accounts Data"
+                                      testID="clear-wallets-data"
+                                      onPress={async () => {
+                                        await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts(
+                                          params,
+                                        );
+                                        if (platformEnv.isExtension) {
+                                          await backgroundApiProxy.serviceApp.restartApp();
+                                        }
+                                        Toast.success({
+                                          title: 'Success',
+                                        });
+                                      }}
+                                    />
+                                    <SectionPressItem
+                                      title="Clear Password"
+                                      testID="clear-password"
+                                      onPress={async () => {
+                                        await backgroundApiProxy.serviceE2E.clearPassword(
+                                          params,
+                                        );
+                                        Toast.success({
+                                          title: 'Success',
+                                        });
+                                      }}
+                                    />
 
-                            <SectionPressItem
-                              title="Clear History"
-                              testID="clear-history"
-                              onPress={async () => {
-                                await backgroundApiProxy.serviceE2E.clearHistoryData(
-                                  params,
-                                );
-                                Toast.success({
-                                  title: 'Success',
-                                });
-                              }}
-                            />
+                                    <SectionPressItem
+                                      title="Clear History"
+                                      testID="clear-history"
+                                      onPress={async () => {
+                                        await backgroundApiProxy.serviceE2E.clearHistoryData(
+                                          params,
+                                        );
+                                        Toast.success({
+                                          title: 'Success',
+                                        });
+                                      }}
+                                    />
 
-                            <SectionPressItem
-                              title="Clear Settings"
-                              testID="clear-settings"
-                              onPress={async () => {
-                                await backgroundApiProxy.serviceE2E.clearSettings(
-                                  params,
-                                );
-                                Toast.success({
-                                  title: 'Success',
-                                });
-                              }}
-                            />
+                                    <SectionPressItem
+                                      title="Clear Settings"
+                                      testID="clear-settings"
+                                      onPress={async () => {
+                                        await backgroundApiProxy.serviceE2E.clearSettings(
+                                          params,
+                                        );
+                                        Toast.success({
+                                          title: 'Success',
+                                        });
+                                      }}
+                                    />
 
-                            <SectionPressItem
-                              title="Clear Wallet Connect Sessions"
-                              testID="wallet-connect-session"
-                              onPress={async () => {
-                                await backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
-                                Toast.success({
-                                  title: 'Success',
-                                });
-                              }}
-                            />
-                          </YStack>
-                        ),
-                      });
-                    },
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="WalletOutline"
-                title="Clear HD Wallet Hash and XFP"
-                subtitle="清除所有钱包 hash 和 xfp"
-                onPress={async () => {
-                  await backgroundApiProxy.serviceAccount.clearAllWalletHashAndXfp();
-                  Toast.success({
-                    title: 'success',
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="CalendarOutline"
-                title="Clear Last DB Backup Timestamp"
-                subtitle="清除最后一次 DB 备份时间戳"
-                onPress={async () => {
-                  await backgroundApiProxy.simpleDb.appStatus.clearLastDBBackupTimestamp();
-                  Toast.success({
-                    title: 'success',
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="LockOutline"
-                title="Clear Cached Password"
-                subtitle="清除缓存密码"
-                onPress={async () => {
-                  await backgroundApiProxy.servicePassword.clearCachedPassword();
-                  Toast.success({
-                    title: 'Clear Cached Password Success',
-                  });
-                }}
-              />
-              <SectionPressItem
-                icon="SearchOutline"
-                title="Reset Spotlight"
-                onPress={() => {
-                  void backgroundApiProxy.serviceSpotlight.reset();
-                }}
-              />
-              <SectionPressItem
-                icon="PeopleOutline"
-                title="Reset Invite Code"
-                onPress={() => {
-                  void backgroundApiProxy.serviceReferralCode.reset();
-                }}
-              />
-              <SectionPressItem
-                icon="EyeOffOutline"
-                title="Reset Hidden Sites in Floating icon"
-                onPress={() => {
-                  void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
-                }}
-              />
-              <ResetInstanceId />
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+                                    <SectionPressItem
+                                      title="Clear Wallet Connect Sessions"
+                                      testID="wallet-connect-session"
+                                      onPress={async () => {
+                                        await backgroundApiProxy.serviceWalletConnect.disconnectAllSessions();
+                                        Toast.success({
+                                          title: 'Success',
+                                        });
+                                      }}
+                                    />
+                                  </YStack>
+                                ),
+                              });
+                            },
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="WalletOutline"
+                        title="Clear HD Wallet Hash and XFP"
+                        subtitle="清除所有钱包 hash 和 xfp"
+                        onPress={async () => {
+                          await backgroundApiProxy.serviceAccount.clearAllWalletHashAndXfp();
+                          Toast.success({
+                            title: 'success',
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="CalendarOutline"
+                        title="Clear Last DB Backup Timestamp"
+                        subtitle="清除最后一次 DB 备份时间戳"
+                        onPress={async () => {
+                          await backgroundApiProxy.simpleDb.appStatus.clearLastDBBackupTimestamp();
+                          Toast.success({
+                            title: 'success',
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="LockOutline"
+                        title="Clear Cached Password"
+                        subtitle="清除缓存密码"
+                        onPress={async () => {
+                          await backgroundApiProxy.servicePassword.clearCachedPassword();
+                          Toast.success({
+                            title: 'Clear Cached Password Success',
+                          });
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="SearchOutline"
+                        title="Reset Spotlight"
+                        onPress={() => {
+                          void backgroundApiProxy.serviceSpotlight.reset();
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="PeopleOutline"
+                        title="Reset Invite Code"
+                        onPress={() => {
+                          void backgroundApiProxy.serviceReferralCode.reset();
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="EyeOffOutline"
+                        title="Reset Hidden Sites in Floating icon"
+                        onPress={() => {
+                          void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
+                        }}
+                      />
+                      <ResetInstanceId />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'webview':
+              return (
+                <Accordion.Item value="webview" key="webview">
+                  <DevSettingsAccordionTrigger
+                    title="Webview & WebEmbed & TrandingView"
+                    description="Webview, WebEmbed, TrandingView"
+                    icon="BrowserOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionPressItem
+                        icon="BrowserOutline"
+                        title="WebEmbedDevConfig"
+                        onPress={() => {
+                          Dialog.cancel({
+                            title: 'WebEmbedDevConfig',
+                            renderContent: <WebEmbedDevConfig />,
+                          });
+                        }}
+                      />
+                      <SectionFieldItem
+                        icon="ApiConnectionOutline"
+                        name="disableWebEmbedApi"
+                        title="禁止 WebEmbedApi"
+                        subtitle="禁止 WebEmbedApi 渲染内置 Webview 网页"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ChromeBrand"
+                        name="showWebviewDevTools"
+                        title="开启 Electron Webview 调试工具"
+                        subtitle=""
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-        <Accordion.Item value="webview">
-          <DevSettingsAccordionTrigger
-            title="Webview & WebEmbed & TrandingView"
-            description="Webview, WebEmbed, TrandingView"
-            icon="BrowserOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <SectionPressItem
-                icon="BrowserOutline"
-                title="WebEmbedDevConfig"
-                onPress={() => {
-                  Dialog.cancel({
-                    title: 'WebEmbedDevConfig',
-                    renderContent: <WebEmbedDevConfig />,
-                  });
-                }}
-              />
-              <SectionFieldItem
-                icon="ApiConnectionOutline"
-                name="disableWebEmbedApi"
-                title="禁止 WebEmbedApi"
-                subtitle="禁止 WebEmbedApi 渲染内置 Webview 网页"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-              <SectionFieldItem
-                icon="ChromeBrand"
-                name="showWebviewDevTools"
-                title="开启 Electron Webview 调试工具"
-                subtitle=""
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      {platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="BrowserOutline"
+                          name="webviewDebuggingEnabled"
+                          title="Enable Native Webview Debugging"
+                          onValueChange={() => {
+                            setTimeout(() => {
+                              void backgroundApiProxy.serviceApp.restartApp();
+                            }, 300);
+                          }}
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
+                      ) : null}
 
-              {platformEnv.isNative ? (
-                <SectionFieldItem
-                  icon="BrowserOutline"
-                  name="webviewDebuggingEnabled"
-                  title="Enable Native Webview Debugging"
-                  onValueChange={() => {
-                    setTimeout(() => {
-                      void backgroundApiProxy.serviceApp.restartApp();
-                    }, 300);
-                  }}
-                >
-                  <Switch size={ESwitchSize.small} />
-                </SectionFieldItem>
-              ) : null}
+                      {platformEnv.isNativeAndroid ? (
+                        <SectionPressItem
+                          icon="BrowserOutline"
+                          title="check webview version"
+                          onPress={async () => {
+                            const webviewPackageInfo =
+                              await getCurrentWebViewPackageInfo();
+                            const googlePlayServicesStatus =
+                              await isGooglePlayServicesAvailable();
+                            Dialog.debugMessage({
+                              debugMessage: {
+                                webviewPackageInfo,
+                                googlePlayServicesStatus,
+                              },
+                              onConfirmText: 'open in Google Play',
+                              onConfirm: () => {
+                                openWebViewInGooglePlay();
+                              },
+                            });
+                          }}
+                        />
+                      ) : null}
 
-              {platformEnv.isNativeAndroid ? (
-                <SectionPressItem
-                  icon="BrowserOutline"
-                  title="check webview version"
-                  onPress={async () => {
-                    const webviewPackageInfo =
-                      await getCurrentWebViewPackageInfo();
-                    const googlePlayServicesStatus =
-                      await isGooglePlayServicesAvailable();
-                    Dialog.debugMessage({
-                      debugMessage: {
-                        webviewPackageInfo,
-                        googlePlayServicesStatus,
-                      },
-                      onConfirmText: 'open in Google Play',
-                      onConfirm: () => {
-                        openWebViewInGooglePlay();
-                      },
-                    });
-                  }}
-                />
-              ) : null}
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="useLocalTradingViewUrl"
+                        title="使用本地 TradingView URL"
+                        subtitle={
+                          devSettings.settings?.useLocalTradingViewUrl
+                            ? localTradingViewUrlSubtitle
+                            : 'https://tradingview.onekeytest.com/'
+                        }
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'galleries':
+              return (
+                <Accordion.Item value="galleries" key="galleries">
+                  <DevSettingsAccordionTrigger
+                    title="UI Galleries"
+                    icon="AiImagesOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionPressItem
+                        icon="LaptopOutline"
+                        title="DesktopApiProxy Test"
+                        subtitle="Test all DesktopApiProxy modules and methods"
+                        testID="desktop-api-proxy-test-menu"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
+                          );
+                        }}
+                      />
 
-              <SectionFieldItem
-                icon="TradeOutline"
-                name="useLocalTradingViewUrl"
-                title="使用本地 TradingView URL"
-                subtitle={
-                  devSettings.settings?.useLocalTradingViewUrl
-                    ? localTradingViewUrlSubtitle
-                    : 'https://tradingview.onekeytest.com/'
-                }
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+                      <SectionPressItem
+                        icon="ChartTrendingOutline"
+                        title="PerpGallery"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevPerpGalleryModal,
+                          );
+                        }}
+                      />
 
-        <Accordion.Item value="galleries">
-          <DevSettingsAccordionTrigger
-            title="UI Galleries"
-            icon="AiImagesOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <SectionPressItem
-                icon="LaptopOutline"
-                title="DesktopApiProxy Test"
-                subtitle="Test all DesktopApiProxy modules and methods"
-                testID="desktop-api-proxy-test-menu"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
-                  );
-                }}
-              />
+                      <SectionPressItem
+                        icon="LockOutline"
+                        title="CryptoGallery"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevCryptoGalleryModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="CloudOutline"
+                        title="CloudBackupGallery"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="PeopleOutline"
+                        title="AuthGallery"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevAuthGalleryModal,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="KeyOutline"
+                        title="KeylessWalletGallery"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevKeylessWalletGallery,
+                          );
+                        }}
+                      />
+                      <SectionPressItem
+                        icon="StorageOutline"
+                        title="StorageGallery"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevStorageGalleryModal,
+                          );
+                        }}
+                      />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'account':
+              return (
+                <Accordion.Item value="account" key="account">
+                  <DevSettingsAccordionTrigger
+                    title="Account & Wallet & Prime & Network"
+                    description="账户，钱包，Prime，链和网络"
+                    icon="HeadOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <AddressBookDevSetting />
 
-              <SectionPressItem
-                icon="ChartTrendingOutline"
-                title="PerpGallery"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevPerpGalleryModal,
-                  );
-                }}
-              />
+                      <SectionFieldItem
+                        icon="WalletOutline"
+                        name="allowAddSameHDWallet"
+                        title="允许添加相同助记词 HD 钱包"
+                        subtitle=""
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <SectionPressItem
-                icon="LockOutline"
-                title="CryptoGallery"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevCryptoGalleryModal,
-                  );
-                }}
-              />
-              <SectionPressItem
-                icon="CloudOutline"
-                title="CloudBackupGallery"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
-                  );
-                }}
-              />
-              <SectionPressItem
-                icon="PeopleOutline"
-                title="AuthGallery"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevAuthGalleryModal,
-                  );
-                }}
-              />
-              <SectionPressItem
-                icon="KeyOutline"
-                title="KeylessWalletGallery"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevKeylessWalletGallery,
-                  );
-                }}
-              />
-              <SectionPressItem
-                icon="StorageOutline"
-                title="StorageGallery"
-                onPress={() => {
-                  navigation.push(
-                    EModalSettingRoutes.SettingDevStorageGalleryModal,
-                  );
-                }}
-              />
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+                      <SectionFieldItem
+                        icon="InfoCircleOutline"
+                        name="enableKeylessDebugInfo"
+                        title="启用 Keyless 调试信息"
+                        subtitle="显示 Keyless 登录/恢复调试信息"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-        <Accordion.Item value="account">
-          <DevSettingsAccordionTrigger
-            title="Account & Wallet & Prime & Network"
-            description="账户，钱包，Prime，链和网络"
-            icon="HeadOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <AddressBookDevSetting />
+                      <SectionFieldItem
+                        icon="CloudOutline"
+                        name="enableKeylessCloudSyncFeature"
+                        title="启用 Keyless 云端同步"
+                        subtitle="开启后在 OneKey Cloud 展示 Keyless 同步开关"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <SectionFieldItem
-                icon="WalletOutline"
-                name="allowAddSameHDWallet"
-                title="允许添加相同助记词 HD 钱包"
-                subtitle=""
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="WalletOutline"
+                        name="allowDeleteKeylessKey"
+                        title="允许重置 Keyless 钱包"
+                        subtitle="允许重置 Keyless 钱包"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <SectionFieldItem
-                icon="InfoCircleOutline"
-                name="enableKeylessDebugInfo"
-                title="启用 Keyless 调试信息"
-                subtitle="显示 Keyless 登录/恢复调试信息"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      <SectionPressItem
+                        icon="ServerOutline"
+                        title="Add ServerNetwork Test Data"
+                        subtitle="添加 ServerNetwork 测试数据"
+                        onPress={async () => {
+                          const currentNetworks =
+                            await backgroundApiProxy.simpleDb.serverNetwork.getAllServerNetworks();
+                          await backgroundApiProxy.simpleDb.serverNetwork.upsertServerNetworks(
+                            {
+                              networkInfos: [
+                                ...(currentNetworks?.networks || []),
+                                {
+                                  ...presetNetworksMap.eth,
+                                  id: `evm--${random(100_000, 200_000)}`,
+                                },
+                              ],
+                            },
+                          );
+                          Toast.success({
+                            title: 'success',
+                          });
+                        }}
+                      />
 
-              <SectionFieldItem
-                icon="CloudOutline"
-                name="enableKeylessCloudSyncFeature"
-                title="启用 Keyless 云端同步"
-                subtitle="开启后在 OneKey Cloud 展示 Keyless 同步开关"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="PrimeOutline"
+                        name="showPrimeTest"
+                        title="开启 Prime"
+                        subtitle=""
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="CreditCardOutline"
+                        name="usePrimeSandboxPayment"
+                        title="开启 Prime Sandbox 付款"
+                        subtitle="需同时在服务器添加到 Sandbox 白名单后支付生效"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <SectionFieldItem
-                icon="WalletOutline"
-                name="allowDeleteKeylessKey"
-                title="允许重置 Keyless 钱包"
-                subtitle="允许重置 Keyless 钱包"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      <TestAccountsDevSetting />
 
-              <SectionPressItem
-                icon="ServerOutline"
-                title="Add ServerNetwork Test Data"
-                subtitle="添加 ServerNetwork 测试数据"
-                onPress={async () => {
-                  const currentNetworks =
-                    await backgroundApiProxy.simpleDb.serverNetwork.getAllServerNetworks();
-                  await backgroundApiProxy.simpleDb.serverNetwork.upsertServerNetworks(
-                    {
-                      networkInfos: [
-                        ...(currentNetworks?.networks || []),
-                        {
-                          ...presetNetworksMap.eth,
-                          id: `evm--${random(100_000, 200_000)}`,
-                        },
-                      ],
-                    },
-                  );
-                  Toast.success({
-                    title: 'success',
-                  });
-                }}
-              />
+                      <SectionPressItem
+                        icon="AppleBrand"
+                        title="In-App-Purchase(Mac)"
+                        subtitle="查看 Mac 内购"
+                        onPress={async () => {
+                          const products =
+                            await globalThis.desktopApiProxy.inAppPurchase.getProducts(
+                              {
+                                productIDs: ['Prime_Yearly', 'Prime_Monthly'],
+                              },
+                            );
+                          Dialog.debugMessage({
+                            debugMessage: products,
+                          });
+                        }}
+                      />
 
-              <SectionFieldItem
-                icon="PrimeOutline"
-                name="showPrimeTest"
-                title="开启 Prime"
-                subtitle=""
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-              <SectionFieldItem
-                icon="CreditCardOutline"
-                name="usePrimeSandboxPayment"
-                title="开启 Prime Sandbox 付款"
-                subtitle="需同时在服务器添加到 Sandbox 白名单后支付生效"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="KeyOutline"
+                        name="showDevExportPrivateKey"
+                        title="首页导出私钥临时入口"
+                        subtitle=""
+                        testID="export-private-key"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
 
-              <TestAccountsDevSetting />
+                      <SectionPressItem
+                        icon="UploadOutline"
+                        title="Export Accounts Data"
+                        onPress={() => {
+                          showDevOnlyPasswordDialog({
+                            title: 'Danger Zone',
+                            description: `Export Accounts Data`,
+                            onConfirm: async (params) => {
+                              Dialog.cancel({
+                                title: 'Export Accounts Data',
+                                renderContent: (
+                                  <YStack>
+                                    <SectionPressItem
+                                      title="Export Accounts Data"
+                                      onPress={async () => {
+                                        const data =
+                                          await backgroundApiProxy.serviceE2E.exportAllAccountsData(
+                                            params,
+                                          );
+                                        copyText(stableStringify(data));
+                                      }}
+                                    />
+                                  </YStack>
+                                ),
+                              });
+                            },
+                          });
+                        }}
+                      />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            case 'transaction':
+              return (
+                <Accordion.Item value="transaction" key="transaction">
+                  <DevSettingsAccordionTrigger
+                    title="Transaction & Signature"
+                    description="交易、签名"
+                    icon="SignatureOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <SectionPressItem
+                        icon="SignatureOutline"
+                        title="Sign Message"
+                        subtitle="Sign Message"
+                        onPress={handleSignMessage}
+                      />
+                      <SectionFieldItem
+                        icon="SolanaIllus"
+                        name="disableSolanaPriorityFee"
+                        title="禁用 Solana 交易优先费"
+                        subtitle={
+                          devSettings.settings?.disableSolanaPriorityFee
+                            ? '禁用'
+                            : '启用'
+                        }
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'disableSolanaPriorityFee',
+                              !devSettings.settings?.disableSolanaPriorityFee,
+                            );
+                          }}
+                          value={devSettings.settings?.disableSolanaPriorityFee}
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="GasIllus"
+                        name="enableMockHighTxFee"
+                        title="模拟交易费过高"
+                        subtitle="强制交易费用检测判定为过高"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'enableMockHighTxFee',
+                              !devSettings.settings?.enableMockHighTxFee,
+                            );
+                          }}
+                          value={devSettings.settings?.enableMockHighTxFee}
+                        />
+                      </SectionFieldItem>
 
-              <SectionPressItem
-                icon="AppleBrand"
-                title="In-App-Purchase(Mac)"
-                subtitle="查看 Mac 内购"
-                onPress={async () => {
-                  const products =
-                    await globalThis.desktopApiProxy.inAppPurchase.getProducts({
-                      productIDs: ['Prime_Yearly', 'Prime_Monthly'],
-                    });
-                  Dialog.debugMessage({
-                    debugMessage: products,
-                  });
-                }}
-              />
-
-              <SectionFieldItem
-                icon="KeyOutline"
-                name="showDevExportPrivateKey"
-                title="首页导出私钥临时入口"
-                subtitle=""
-                testID="export-private-key"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-
-              <SectionPressItem
-                icon="UploadOutline"
-                title="Export Accounts Data"
-                onPress={() => {
-                  showDevOnlyPasswordDialog({
-                    title: 'Danger Zone',
-                    description: `Export Accounts Data`,
-                    onConfirm: async (params) => {
-                      Dialog.cancel({
-                        title: 'Export Accounts Data',
-                        renderContent: (
-                          <YStack>
-                            <SectionPressItem
-                              title="Export Accounts Data"
-                              onPress={async () => {
-                                const data =
-                                  await backgroundApiProxy.serviceE2E.exportAllAccountsData(
-                                    params,
-                                  );
-                                copyText(stableStringify(data));
-                              }}
-                            />
-                          </YStack>
-                        ),
-                      });
-                    },
-                  });
-                }}
-              />
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
-
-        <Accordion.Item value="transaction">
-          <DevSettingsAccordionTrigger
-            title="Transaction & Signature"
-            description="交易、签名"
-            icon="SignatureOutline"
-          />
-          <Accordion.HeightAnimator animation="quick">
-            <Accordion.Content animation="quick" exitStyle={{ opacity: 0 }}>
-              <SectionPressItem
-                icon="SignatureOutline"
-                title="Sign Message"
-                subtitle="Sign Message"
-                onPress={handleSignMessage}
-              />
-              <SectionFieldItem
-                icon="SolanaIllus"
-                name="disableSolanaPriorityFee"
-                title="禁用 Solana 交易优先费"
-                subtitle={
-                  devSettings.settings?.disableSolanaPriorityFee
-                    ? '禁用'
-                    : '启用'
-                }
-              >
-                <Switch
-                  size={ESwitchSize.small}
-                  onChange={() => {
-                    void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                      'disableSolanaPriorityFee',
-                      !devSettings.settings?.disableSolanaPriorityFee,
-                    );
-                  }}
-                  value={devSettings.settings?.disableSolanaPriorityFee}
-                />
-              </SectionFieldItem>
-              <SectionFieldItem
-                icon="GasIllus"
-                name="enableMockHighTxFee"
-                title="模拟交易费过高"
-                subtitle="强制交易费用检测判定为过高"
-              >
-                <Switch
-                  size={ESwitchSize.small}
-                  onChange={() => {
-                    void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                      'enableMockHighTxFee',
-                      !devSettings.settings?.enableMockHighTxFee,
-                    );
-                  }}
-                  value={devSettings.settings?.enableMockHighTxFee}
-                />
-              </SectionFieldItem>
-
-              <SectionFieldItem
-                icon="SignatureOutline"
-                name="alwaysSignOnlySendTx"
-                title="始终只签名不广播"
-                testID="always-sign-only-send-tx"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-              <SectionFieldItem
-                icon="ShieldExclamationOutline"
-                name="strictSignatureAlert"
-                title="严格的签名 Alert 展示"
-                subtitle="signTypedData 签名，红色 Alert"
-              >
-                <Switch size={ESwitchSize.small} />
-              </SectionFieldItem>
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
+                      <SectionFieldItem
+                        icon="SignatureOutline"
+                        name="alwaysSignOnlySendTx"
+                        title="始终只签名不广播"
+                        testID="always-sign-only-send-tx"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="ShieldExclamationOutline"
+                        name="strictSignatureAlert"
+                        title="严格的签名 Alert 展示"
+                        subtitle="signTypedData 签名，红色 Alert"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
+              );
+            default:
+              return null;
+          }
+        })}
       </Accordion>
     </Section>
   );
