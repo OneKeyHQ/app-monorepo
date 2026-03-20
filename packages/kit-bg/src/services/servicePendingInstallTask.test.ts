@@ -66,6 +66,8 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     verifyExtractedBundle: jest.fn(async () => undefined),
     clearBundle: jest.fn(async () => undefined),
     resetToBuiltInBundle: jest.fn(async () => undefined),
+    restart: jest.fn(),
+    getBuiltinBundleVersion: jest.fn(async () => ''),
     getNativeAppVersion: jest.fn(async () => '1.0.0'),
     getNativeBuildNumber: jest.fn(async () => '100'),
   },
