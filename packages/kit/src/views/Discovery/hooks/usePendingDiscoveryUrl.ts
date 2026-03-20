@@ -58,9 +58,15 @@ export function usePendingDiscoveryUrl() {
     // Consume any pending URL on initial mount
     consumePendingUrl();
 
+    // Wait for native tab transition animation to complete before consuming
+    // the pending URL. Without this, RNSScreenStack may lose its window
+    // reference during the transition, causing the browser overlay to not
+    // render until the user touches the screen (iOS window-nil freeze).
     const handler = ({ openUrl }: { openUrl?: boolean }) => {
       if (openUrl) {
-        consumePendingUrl();
+        requestIdleCallback(() => {
+          consumePendingUrl();
+        });
       }
     };
     appEventBus.on(EAppEventBusNames.SwitchDiscoveryTabInNative, handler);
