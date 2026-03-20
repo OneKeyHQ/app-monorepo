@@ -580,7 +580,7 @@ class ServicePendingInstallTask {
     // jsBundleRollbackToBuiltin is handled by fetchAppUpdateInfo which
     // creates a pending task with targetBundleVersion="0".  On next cold
     // start, executeBundleSwitchTask detects the missing bundle and falls
-    // back to builtin via resetToBuiltInBundle + switchBundle({empty}).
+    // back to builtin via resetToBuiltInBundle + restart.
 
     if (
       decision.decision !== 'appShellUpdate' &&
@@ -953,7 +953,9 @@ class ServicePendingInstallTask {
           );
           await clearPendingInstallTask();
           await BundleUpdate.resetToBuiltInBundle();
-          return;
+          // Throw to skip the caller's success path which would re-persist
+          // the cleared task as appliedWaitingVerify.
+          throw new OneKeyLocalError('BUILTIN_ALREADY_ACTIVE');
         }
 
         defaultLogger.app.appUpdate.log(
@@ -1406,13 +1408,20 @@ class ServicePendingInstallTask {
       } catch (error) {
         const durationMs = Date.now() - startedAt;
         const message = (error as Error)?.message ?? 'unknown';
-        // Builtin fallback already cleared the task and triggered relaunch.
-        // Do not re-persist or retry — the app is restarting with builtin.
-        if (message === 'BUILTIN_FALLBACK_RELAUNCH') {
+        // Builtin fallback already cleared the task and triggered relaunch,
+        // or native already rolled back so no restart is needed.
+        // Do not re-persist or retry.
+        if (
+          message === 'BUILTIN_FALLBACK_RELAUNCH' ||
+          message === 'BUILTIN_ALREADY_ACTIVE'
+        ) {
           defaultLogger.app.appUpdate.pendingSwitchResult({
             traceId,
             requestSeq,
-            result: 'builtin_fallback',
+            result:
+              message === 'BUILTIN_ALREADY_ACTIVE'
+                ? 'builtin_already_active'
+                : 'builtin_fallback',
             durationMs,
             ...this.buildTaskLogFields(runningTask),
           });
