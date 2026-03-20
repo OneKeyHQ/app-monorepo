@@ -52,7 +52,7 @@ export class KeychainSigner implements ISigner {
         networkImpl: impl,
         networkId,
       },
-      template: "m/44'/60'/0'/0/{index}",
+      template: "m/44'/60'/0'/0/$$INDEX$$",
       hdCredential,
       password: CLI_PASSWORD,
       indexes: [0],

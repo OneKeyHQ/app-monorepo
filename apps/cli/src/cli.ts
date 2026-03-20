@@ -1,6 +1,14 @@
 import { Command } from 'commander';
+import 'fake-indexeddb/auto';
 
-import { registerStatusCommand, registerVersionCommand } from './commands';
+import {
+  registerBalanceCommand,
+  registerImportCommand,
+  registerLogoutCommand,
+  registerStatusCommand,
+  registerVersionCommand,
+} from './commands';
+import { secureCache } from './core';
 import { apiClient } from './infra';
 import { OutputFormatter } from './output';
 import { createLogger } from './utils/logger';
@@ -37,5 +45,16 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
 
 registerVersionCommand(program);
 registerStatusCommand(program);
+registerImportCommand(program);
+registerLogoutCommand(program);
+registerBalanceCommand(program);
+
+const cleanup = () => {
+  secureCache.clearAll();
+  process.exit(0);
+};
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+process.on('SIGHUP', cleanup);
 
 program.parse();
