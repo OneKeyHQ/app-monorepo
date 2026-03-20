@@ -5,7 +5,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import type { RefObject } from 'react';
@@ -76,6 +75,8 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   perpsTabName: string;
 }
 
+const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
+
 function MarketHomeTabBar({
   watchlistTabName,
   spotTabName,
@@ -85,62 +86,58 @@ function MarketHomeTabBar({
   const ctx = useContext(TabBarDynamicContext)!;
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
+  const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
+  const showSpotSubHeader = currentFocusedTabName === spotTabName;
+  const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
+  const fixedSecondaryHeaderHeight = useMemo(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return undefined;
+    }
 
-  // Watchlist sub-header: conditional rendering (hidden when empty).
-  // Spot & Perps sub-headers: display toggling keeps both mounted across
-  // tab switches — avoids remount flicker and loading re-trigger for the
-  // network selector and perps category selector.
-  const isSpotOrPerps =
-    currentFocusedTabName === spotTabName ||
-    currentFocusedTabName === perpsTabName;
+    return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
+  }, []);
 
-  return (
-    <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
-      <Tabs.TabBar
-        {...tabBarProps}
-        containerStyle={{ position: 'relative' as any }}
-      />
-      {currentFocusedTabName === watchlistTabName && !ctx.isWatchlistEmpty ? (
-        <>
-          <XStack alignItems="center" pr="$3">
-            <XStack flex={1}>
-              <MarketWatchlistCategorySelector
-                selectedFilter={ctx.watchlistFilter}
-                onSelectFilter={ctx.onSelectWatchlistFilter}
-                containerStyle={{
-                  px: '$5',
-                  pt: '$3',
-                  pb: '$2',
-                }}
-              />
-            </XStack>
-            <IconButton
-              icon="PencilOutline"
-              size="small"
-              variant="tertiary"
-              onPress={ctx.onEditWatchlist}
+  const renderWatchlistSubHeaderContent = useCallback(
+    () => (
+      <>
+        <XStack alignItems="center" pr="$3">
+          <XStack flex={1}>
+            <MarketWatchlistCategorySelector
+              selectedFilter={ctx.watchlistFilter}
+              onSelectFilter={ctx.onSelectWatchlistFilter}
+              containerStyle={{
+                px: '$5',
+                pt: '$3',
+                pb: '$2',
+              }}
             />
           </XStack>
-          <MarketListColumnHeader />
-        </>
-      ) : null}
-      <YStack
-        display={
-          isSpotOrPerps && currentFocusedTabName === spotTabName
-            ? 'flex'
-            : 'none'
-        }
-      >
+          <IconButton
+            icon="PencilOutline"
+            size="small"
+            variant="tertiary"
+            onPress={ctx.onEditWatchlist}
+          />
+        </XStack>
+        <MarketListColumnHeader />
+      </>
+    ),
+    [ctx.onEditWatchlist, ctx.onSelectWatchlistFilter, ctx.watchlistFilter],
+  );
+
+  const renderSpotSubHeaderContent = useCallback(
+    () => (
+      <>
         <MarketFilterBarSmall {...ctx.filterBarProps} />
         <MarketListColumnHeader />
-      </YStack>
-      <YStack
-        display={
-          isSpotOrPerps && currentFocusedTabName === perpsTabName
-            ? 'flex'
-            : 'none'
-        }
-      >
+      </>
+    ),
+    [ctx.filterBarProps],
+  );
+
+  const renderPerpsSubHeaderContent = useCallback(
+    () => (
+      <>
         <MarketPerpsCategorySelector
           categories={ctx.perpsCategories}
           selectedCategoryId={ctx.selectedCategoryId}
@@ -152,6 +149,57 @@ function MarketHomeTabBar({
           }}
         />
         <MarketListColumnHeader />
+      </>
+    ),
+    [ctx.onSelectCategory, ctx.perpsCategories, ctx.selectedCategoryId],
+  );
+
+  return (
+    <YStack bg="$bgApp">
+      <Tabs.TabBar {...tabBarProps} />
+      <YStack
+        height={fixedSecondaryHeaderHeight}
+        overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
+        position="relative"
+      >
+        <YStack
+          display={
+            showWatchlistSubHeader && !ctx.isWatchlistEmpty ? 'flex' : 'none'
+          }
+          position={
+            showWatchlistSubHeader && !ctx.isWatchlistEmpty
+              ? 'relative'
+              : 'absolute'
+          }
+          top={0}
+          left={0}
+          right={0}
+          pointerEvents={showWatchlistSubHeader ? 'auto' : 'none'}
+        >
+          {renderWatchlistSubHeaderContent()}
+        </YStack>
+        <YStack
+          display={showSpotSubHeader ? 'flex' : 'none'}
+          position={showSpotSubHeader ? 'relative' : 'absolute'}
+          top={0}
+          left={0}
+          right={0}
+          opacity={showSpotSubHeader ? 1 : 0}
+          pointerEvents={showSpotSubHeader ? 'auto' : 'none'}
+        >
+          {renderSpotSubHeaderContent()}
+        </YStack>
+        <YStack
+          display={showPerpsSubHeader ? 'flex' : 'none'}
+          position={showPerpsSubHeader ? 'relative' : 'absolute'}
+          top={0}
+          left={0}
+          right={0}
+          opacity={showPerpsSubHeader ? 1 : 0}
+          pointerEvents={showPerpsSubHeader ? 'auto' : 'none'}
+        >
+          {renderPerpsSubHeaderContent()}
+        </YStack>
       </YStack>
     </YStack>
   );
@@ -217,9 +265,9 @@ function MobileLayoutComponent({
     return spotTabName;
   }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
   const [activeTabName, setActiveTabName] = useState(initialTabName);
-
-  const setActiveTabNameRef = useRef(setActiveTabName);
-  setActiveTabNameRef.current = setActiveTabName;
+  const useNativeHeaderAnimation = platformEnv.isNativeAndroid
+    ? !nestedPager
+    : false;
 
   useEffect(() => {
     setActiveTabName(initialTabName);
@@ -261,22 +309,14 @@ function MobileLayoutComponent({
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => {
-      const handleTabPress = (name: string) => {
-        setActiveTabNameRef.current(name);
-        tabBarProps.onTabPress?.(name);
-      };
-
-      return (
-        <MarketHomeTabBar
-          {...tabBarProps}
-          onTabPress={handleTabPress}
-          watchlistTabName={watchlistTabName}
-          spotTabName={spotTabName}
-          perpsTabName={perpsTabName}
-        />
-      );
-    },
+    (tabBarProps: TabBarProps<string>) => (
+      <MarketHomeTabBar
+        {...tabBarProps}
+        watchlistTabName={watchlistTabName}
+        spotTabName={spotTabName}
+        perpsTabName={perpsTabName}
+      />
+    ),
     [watchlistTabName, spotTabName, perpsTabName],
   );
 
@@ -319,9 +359,7 @@ function MobileLayoutComponent({
         renderTabBar={renderTabBar}
         initialTabName={initialTabName}
         onTabChange={onTabChangeHandler}
-        useNativeHeaderAnimation={
-          platformEnv.isNativeAndroid ? !nestedPager : false
-        }
+        useNativeHeaderAnimation={useNativeHeaderAnimation}
         pagerProps={
           nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
         }

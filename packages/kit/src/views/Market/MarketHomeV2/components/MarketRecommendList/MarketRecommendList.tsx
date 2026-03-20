@@ -137,7 +137,18 @@ export function MarketRecommendList({
   }
 
   return (
-    <YStack p="$5" jc="center" ai="center" width="100%">
+    <YStack
+      $platform-android={{
+        paddingTop: '$-5',
+      }}
+      $platform-ios={{
+        paddingTop: '$-4',
+      }}
+      p="$5"
+      jc="center"
+      ai="center"
+      width="100%"
+    >
       {actualShowTitle ? (
         <>
           <SizableText
