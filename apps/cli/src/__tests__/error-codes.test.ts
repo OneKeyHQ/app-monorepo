@@ -1,4 +1,4 @@
-import { EXIT_CODES, getExitCode, ERROR_CODES } from '../errors/error-codes';
+import { ERROR_CODES, EXIT_CODES, getExitCode } from '../errors/error-codes';
 
 describe('error-codes', () => {
   it('maps PARAM_ prefix to exit code 2', () => {

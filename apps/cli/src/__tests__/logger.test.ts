@@ -2,12 +2,12 @@ import { sanitize } from '../utils/logger';
 
 describe('sanitize', () => {
   it('redacts 64-char hex private keys', () => {
-    const key = '0x' + 'a'.repeat(64);
+    const key = `0x${'a'.repeat(64)}`;
     expect(sanitize(`key: ${key}`)).toBe('key: [REDACTED]');
   });
 
   it('does not redact shorter hex strings', () => {
-    const short = '0x' + 'a'.repeat(40);
+    const short = `0x${'a'.repeat(40)}`;
     expect(sanitize(`addr: ${short}`)).toBe(`addr: ${short}`);
   });
 

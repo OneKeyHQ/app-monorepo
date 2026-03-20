@@ -16,22 +16,22 @@ export class OutputFormatter {
       if (data && typeof data === 'object') {
         const values = Object.values(data as Record<string, unknown>);
         if (values.length > 0) {
-          process.stdout.write(String(values[0]) + '\n');
+          process.stdout.write(`${String(values[0])}\n`);
         }
       } else {
-        process.stdout.write(String(data) + '\n');
+        process.stdout.write(`${String(data)}\n`);
       }
       return;
     }
 
     if (this.mode === 'agent') {
       const response = formatSuccess(data, metadata);
-      process.stdout.write(JSON.stringify(response) + '\n');
+      process.stdout.write(`${JSON.stringify(response)}\n`);
       return;
     }
 
     const output = formatHumanSuccess(data);
-    process.stdout.write(output + '\n');
+    process.stdout.write(`${output}\n`);
   }
 
   error(error: ErrorDetail): void {
@@ -42,22 +42,22 @@ export class OutputFormatter {
 
     if (this.mode === 'agent') {
       const response = formatError(error);
-      process.stdout.write(JSON.stringify(response) + '\n');
+      process.stdout.write(`${JSON.stringify(response)}\n`);
       return;
     }
 
     const output = formatHumanError(error);
-    process.stderr.write(output + '\n');
+    process.stderr.write(`${output}\n`);
   }
 
   warn(message: string): void {
     if (this.mode !== 'human') return;
-    process.stderr.write(formatHumanWarning(message) + '\n');
+    process.stderr.write(`${formatHumanWarning(message)}\n`);
   }
 
   info(message: string): void {
     if (this.mode !== 'human') return;
-    process.stderr.write(formatHumanInfo(message) + '\n');
+    process.stderr.write(`${formatHumanInfo(message)}\n`);
   }
 
   getMode(): OutputMode {

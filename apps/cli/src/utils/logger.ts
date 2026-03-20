@@ -38,7 +38,7 @@ export class Logger {
     const sanitized = sanitize(message);
     const suffix =
       args.length > 0
-        ? ' ' + args.map((a) => sanitize(String(a)).slice(0, 200)).join(' ')
+        ? ` ${args.map((a) => sanitize(String(a)).slice(0, 200)).join(' ')}`
         : '';
     process.stderr.write(`[${level}] ${sanitized}${suffix}\n`);
   }

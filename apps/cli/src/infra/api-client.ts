@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { randomUUID } from 'node:crypto';
-import { ERROR_CODES, AppError } from '../errors';
+import { AppError, ERROR_CODES } from '../errors';
 import type { IEndpointEnv } from '../config';
 import { getHost } from '../config';
 import type { Logger } from '../utils/logger';

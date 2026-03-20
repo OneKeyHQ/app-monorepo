@@ -5,7 +5,7 @@ export function formatHumanSuccess<T>(data: T): string {
   if (typeof data === 'string') return data;
   if (data && typeof data === 'object') {
     return Object.entries(data as Record<string, unknown>)
-      .map(([key, value]) => `  ${chalk.gray(key + ':')} ${String(value)}`)
+      .map(([key, value]) => `  ${chalk.gray(`${key}:`)} ${String(value)}`)
       .join('\n');
   }
   return String(data);
