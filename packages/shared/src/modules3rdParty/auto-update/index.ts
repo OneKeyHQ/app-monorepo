@@ -48,6 +48,7 @@ export const BundleUpdate: IBundleUpdate = {
   clearBundle: () => Promise.resolve(),
   clearDownload: () => Promise.resolve(),
   resetToBuiltInBundle: () => Promise.resolve(),
+  restart: () => {},
   isSkipGpgVerificationAllowed: () => Promise.resolve(false),
   clearAllJSBundleData: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),

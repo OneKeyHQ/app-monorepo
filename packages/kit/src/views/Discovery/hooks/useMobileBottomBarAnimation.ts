@@ -34,6 +34,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
   const processScroll = useCallback(
     (contentOffsetY: number, canScroll: boolean, isOutOfBounds: boolean) => {
       'worklet';
+
       if (isOutOfBounds) {
         lastScrollY.value = UNSET;
         lastTurnScrollY.value = UNSET;
@@ -116,6 +117,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
     runOnUI(() => {
       'worklet';
+
       lastScrollY.value = UNSET;
       lastTurnScrollY.value = UNSET;
     })();
