@@ -544,7 +544,10 @@ function TokenDetailsView() {
   const tabs = useMemo(() => {
     if (tokens.length > 1) {
       return tokens.map((token) => (
-        <Tabs.Tab key={token.$key} name={uniqueTabNames.get(token.$key) ?? token.$key}>
+        <Tabs.Tab
+          key={token.$key}
+          name={uniqueTabNames.get(token.$key) ?? token.$key}
+        >
           <TokenDetailsViews
             inTabList
             isTabView
