@@ -1876,11 +1876,13 @@ class ServiceHardware extends ServiceBase {
 
     if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
       const currentTransportType = await this.getCurrentTransportType();
-      if (
-        currentTransportType === EHardwareTransportType.DesktopWebBle &&
-        device?.bleConnectId
-      ) {
-        return device.bleConnectId;
+      if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
+        // In BLE mode: only proceed if we have a valid BLE connectId.
+        // Returning the USB connectId (e.g. a serial number like "PRB09B0045A")
+        // would cause Noble to receive a non-UUID identifier that can never match
+        // a peripheral, resulting in a 1.5 s targeted-scan timeout every time.
+        // Background tasks handle DeviceNotFound silently, so returning '' is safe.
+        return device?.bleConnectId || '';
       }
       return device?.connectId || connectId;
     }
@@ -1913,7 +1915,11 @@ class ServiceHardware extends ServiceBase {
       }
       if (device && !device.bleConnectId) {
         if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
-          return connectId;
+          // In BLE mode with no bleConnectId, returning the USB connectId would
+          // pass a serial-number-format string to Noble which can never match a
+          // BLE peripheral UUID — causing a guaranteed scan timeout. Silent calls
+          // cannot show a pairing dialog, so signal "not reachable" instead.
+          return '';
         }
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
