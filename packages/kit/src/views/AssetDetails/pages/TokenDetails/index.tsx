@@ -514,7 +514,7 @@ function TokenDetailsView() {
   //   1. Use networkName as-is when unique (e.g. "Ethereum", "BNB Chain")
   //   2. Fallback to networkId if networkName is empty (e.g. "evm--1")
   //   3. Append networkShortName for duplicates (e.g. "Ethereum(ETH)", "Ethereum(ARB)")
-  //   4. Append numeric suffix as final dedup guard (e.g. "Ethereum(ETH) 2")
+  //   4. Append numeric suffix as final deduplicate guard (e.g. "Ethereum(ETH) 2")
   const uniqueTabNames = useMemo(() => {
     const nameCount = new Map<string, number>();
     for (const token of tokens) {
@@ -755,6 +755,7 @@ function TokenDetailsView() {
     pageWidth,
     handleTabIndexChange,
     lastActiveTabName,
+    uniqueTabNames,
   ]);
 
   const headerTitle = useCallback(() => {
