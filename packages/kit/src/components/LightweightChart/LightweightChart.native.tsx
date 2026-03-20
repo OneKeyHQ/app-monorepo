@@ -23,6 +23,7 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  priceFormatter,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -39,6 +40,7 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    priceFormatter,
   });
   const htmlContent = useMemo(
     () => generateChartHTML(chartConfig),
