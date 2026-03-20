@@ -31,7 +31,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import {
-  PORTFOLIO_TITLE,
+  getPortfolioTitle,
   showPerpPortfolioDialog,
 } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
@@ -289,7 +289,7 @@ function PerpAccountPanel() {
             variant="secondary"
             icon="ChartLineOutline"
             iconSize="$4.5"
-            title={PORTFOLIO_TITLE}
+            title={getPortfolioTitle()}
             onPress={() => {
               if (gtMd) {
                 showPerpPortfolioDialog(dialogInTab);
