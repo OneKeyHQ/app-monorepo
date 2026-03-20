@@ -1205,11 +1205,7 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
     ).rejects.toThrow('BUILTIN_FALLBACK_RELAUNCH');
 
     expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalled();
-    expect(BundleUpdate.switchBundle).toHaveBeenCalledWith({
-      appVersion: '',
-      bundleVersion: '',
-      signature: '',
-    });
+    expect(BundleUpdate.restart).toHaveBeenCalled();
   });
 
   test('upgrade target not found locally throws BUNDLE_MISSING', async () => {
