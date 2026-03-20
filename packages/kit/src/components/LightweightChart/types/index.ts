@@ -1,6 +1,7 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import type {
+  BaselineSeriesPartialOptions,
   LineData,
   SingleValueData,
   UTCTimestamp,
@@ -30,6 +31,10 @@ export interface ILightweightChartConfig {
   showHorzGridLines?: boolean;
   horzLineColor?: string;
   horzLineStyle?: number;
+  priceFormatter?: (price: number) => string;
+  fontSize?: number;
+  seriesType?: 'area' | 'baseline';
+  baselineOptions?: BaselineSeriesPartialOptions;
 }
 
 export interface ILightweightChartProps {
@@ -44,6 +49,11 @@ export interface ILightweightChartProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceFormatter?: (price: number) => string;
+  fontSize?: number;
+  seriesType?: 'area' | 'baseline';
+  baselineOptions?: BaselineSeriesPartialOptions;
+  showLastValue?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;
