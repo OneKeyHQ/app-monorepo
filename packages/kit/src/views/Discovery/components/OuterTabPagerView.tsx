@@ -73,6 +73,7 @@ function usePageScrollHandler(
       event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent'],
     ) => {
       'worklet';
+
       const { onPageScroll } = handlers;
       if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
         onPageScroll(event, context);
@@ -249,6 +250,7 @@ function OuterTabPagerViewComponent({
   const pageScrollHandler = usePageScrollHandler({
     onPageScroll: (e) => {
       'worklet';
+
       const position = e.position;
       const offset = e.offset;
 

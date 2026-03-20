@@ -32,6 +32,15 @@ type IItemLayout = { x: number; width: number };
 
 export type ITabBarVariant = 'default' | 'pill';
 
+const animatedTextStyles = StyleSheet.create({
+  text: {
+    fontSize: fs(16),
+    fontWeight: '500',
+    lineHeight: fs(24),
+    fontFamily: 'Roobert-Medium',
+  },
+});
+
 function AnimatedPillText({
   name,
   index: tabIndex,
@@ -170,15 +179,6 @@ export function TabBarItem({
     </YStack>
   );
 }
-
-const animatedTextStyles = StyleSheet.create({
-  text: {
-    fontSize: fs(16),
-    fontWeight: '500',
-    lineHeight: fs(24),
-    fontFamily: 'Roobert-Medium',
-  },
-});
 
 function AnimatedTabBarItem({
   name,
