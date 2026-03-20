@@ -281,6 +281,8 @@ export const BundleUpdate: IBundleUpdate = {
   clearDownload: () => ReactNativeBundleUpdate.clearDownload(),
   resetToBuiltInBundle: async () => {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
+  },
+  restart: () => {
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);
