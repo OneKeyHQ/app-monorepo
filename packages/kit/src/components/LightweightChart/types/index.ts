@@ -32,9 +32,12 @@ export interface ILightweightChartConfig {
   horzLineColor?: string;
   horzLineStyle?: number;
   priceFormatter?: (price: number) => string;
+  /** Serializable formatter type for WebView (native) — 'usd' or 'percent' */
+  priceFormatterType?: 'usd' | 'percent';
   fontSize?: number;
   seriesType?: 'area' | 'baseline';
   baselineOptions?: BaselineSeriesPartialOptions;
+  showLastValue?: boolean;
 }
 
 export interface ILightweightChartProps {

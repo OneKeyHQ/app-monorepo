@@ -72,6 +72,7 @@ export function useChartConfig({
       secondaryLineColor,
       secondaryLineWidth,
       priceFormatter,
+      priceFormatterType: priceFormatter ? 'usd' : 'percent',
       fontSize,
       seriesType,
       baselineOptions,
