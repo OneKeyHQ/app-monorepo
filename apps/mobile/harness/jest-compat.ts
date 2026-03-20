@@ -73,7 +73,7 @@ const wrapTest = (original: TestFn): TestFn => {
   };
 };
 
-// test.each(table)(name, fn, timeout) — registers one test per entry.
+// Implements the `.each(table)(name, fn, timeout)` pattern — registers one test per entry.
 // Supports 1D arrays (each entry is a single arg) and 2D arrays (each row is spread).
 const makeEach =
   (testFn: TestFn) =>

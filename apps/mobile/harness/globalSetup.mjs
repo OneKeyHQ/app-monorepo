@@ -12,8 +12,12 @@ function setAndroidHarnessFlag() {
   execFileSync(
     'adb',
     [
-      'shell', 'run-as', 'so.onekey.app.wallet',
-      'sh', '-c', 'mkdir -p files && touch files/harness_mode',
+      'shell',
+      'run-as',
+      'so.onekey.app.wallet',
+      'sh',
+      '-c',
+      'mkdir -p files && touch files/harness_mode',
     ],
     { stdio: 'pipe', timeout: 5000 },
   );
@@ -23,10 +27,14 @@ function setAndroidHarnessFlag() {
 function setIOSHarnessFlag() {
   // Write a UserDefaults flag on all booted iOS simulators.
   // AppDelegate.swift checks for this flag and skips recovery.
-  const out = execFileSync('xcrun', ['simctl', 'list', 'devices', 'booted', '-j'], {
-    encoding: 'utf8',
-    timeout: 5000,
-  });
+  const out = execFileSync(
+    'xcrun',
+    ['simctl', 'list', 'devices', 'booted', '-j'],
+    {
+      encoding: 'utf8',
+      timeout: 5000,
+    },
+  );
   const { devices } = JSON.parse(out);
   for (const runtime of Object.values(devices)) {
     for (const device of runtime) {
@@ -34,9 +42,15 @@ function setIOSHarnessFlag() {
         execFileSync(
           'xcrun',
           [
-            'simctl', 'spawn', device.udid,
-            'defaults', 'write', 'so.onekey.wallet',
-            'onekey_harness_mode', '-bool', 'YES',
+            'simctl',
+            'spawn',
+            device.udid,
+            'defaults',
+            'write',
+            'so.onekey.wallet',
+            'onekey_harness_mode',
+            '-bool',
+            'YES',
           ],
           { stdio: 'pipe', timeout: 5000 },
         );
