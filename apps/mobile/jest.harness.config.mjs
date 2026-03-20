@@ -1,6 +1,7 @@
 /** @type {import('jest').Config} */
 export default {
   preset: 'react-native-harness',
+  globalSetup: '<rootDir>/harness/globalSetup.mjs',
   // rootDir defaults to apps/mobile/ (config file location).
   // rn-harness.config.mjs must be findable from rootDir, so we keep the default.
   // Use roots to include monorepo packages for cross-package test discovery.
