@@ -372,130 +372,22 @@ Object.defineProperty(globalThis, 'jest', {
         '[harness-compat] jest.requireMock() was not transformed by babel plugin',
       );
     },
-    // ---- Fake timers ----
-    // Minimal implementation using Hermes's built-in timer functions.
-    // Captures real timer references so fake mode can override them.
+    // Fake timers cannot be safely implemented in the harness because
+    // replacing globalThis.setTimeout breaks the harness bridge communication.
+    // Tests using fake timers are excluded via jest.harness.config.mjs.
+    // These no-op stubs prevent crashes if a test slips through.
     useFakeTimers: () => {
-      if (!(globalThis as any).__harness_real_setTimeout__) {
-        (globalThis as any).__harness_real_setTimeout__ = (
-          globalThis as any
-        ).setTimeout;
-        (globalThis as any).__harness_real_clearTimeout__ = (
-          globalThis as any
-        ).clearTimeout;
-        (globalThis as any).__harness_real_setInterval__ = (
-          globalThis as any
-        ).setInterval;
-        (globalThis as any).__harness_real_clearInterval__ = (
-          globalThis as any
-        ).clearInterval;
-      }
-      const pending: Array<{
-        cb: () => void;
-        delay: number;
-        time: number;
-        id: number;
-      }> = [];
-      let now = 0;
-      let nextId = 1;
-
-      (globalThis as any).setTimeout = (cb: () => void, delay = 0) => {
-        const id = nextId;
-        nextId += 1;
-        pending.push({ cb, delay, time: now + delay, id });
-        return id;
-      };
-      (globalThis as any).clearTimeout = (id: number) => {
-        const idx = pending.findIndex((t) => t.id === id);
-        if (idx >= 0) pending.splice(idx, 1);
-      };
-      (globalThis as any).setInterval = (cb: () => void, delay = 0) => {
-        const id = nextId;
-        nextId += 1;
-        const run = () => {
-          cb();
-          if (pending.some((t) => t.id === id)) {
-            const entry = pending.find((t) => t.id === id);
-            if (entry) entry.time = now + delay;
-          }
-        };
-        pending.push({ cb: run, delay, time: now + delay, id });
-        return id;
-      };
-      (globalThis as any).clearInterval = (id: number) => {
-        const idx = pending.findIndex((t) => t.id === id);
-        if (idx >= 0) pending.splice(idx, 1);
-      };
-
-      (globalThis as any).__harness_fake_timers__ = {
-        pending,
-        getNow: () => now,
-      };
-      (globalThis as any).__harness_advance_timers__ = (ms: number) => {
-        const target = now + ms;
-        while (pending.length > 0) {
-          pending.sort((a, b) => a.time - b.time);
-          if (pending[0].time > target) break;
-          const timer = pending.shift()!;
-          now = timer.time;
-          timer.cb();
-        }
-        now = target;
-      };
-
+      console.warn(
+        '[harness-compat] jest.useFakeTimers() is not supported — test excluded from harness?',
+      );
       return (globalThis as any).jest;
     },
-    useRealTimers: () => {
-      if ((globalThis as any).__harness_real_setTimeout__) {
-        (globalThis as any).setTimeout = (
-          globalThis as any
-        ).__harness_real_setTimeout__;
-        (globalThis as any).clearTimeout = (
-          globalThis as any
-        ).__harness_real_clearTimeout__;
-        (globalThis as any).setInterval = (
-          globalThis as any
-        ).__harness_real_setInterval__;
-        (globalThis as any).clearInterval = (
-          globalThis as any
-        ).__harness_real_clearInterval__;
-      }
-      (globalThis as any).__harness_fake_timers__ = undefined;
-      (globalThis as any).__harness_advance_timers__ = undefined;
-      return (globalThis as any).jest;
-    },
-    advanceTimersByTime: (ms: number) => {
-      if ((globalThis as any).__harness_advance_timers__) {
-        (globalThis as any).__harness_advance_timers__(ms);
-      }
-    },
-    advanceTimersByTimeAsync: async (ms: number) => {
-      if ((globalThis as any).__harness_advance_timers__) {
-        (globalThis as any).__harness_advance_timers__(ms);
-      }
-      // Flush microtasks
-      await Promise.resolve();
-    },
-    runAllTimers: () => {
-      if ((globalThis as any).__harness_advance_timers__) {
-        (globalThis as any).__harness_advance_timers__(Number.MAX_SAFE_INTEGER);
-      }
-    },
-    runOnlyPendingTimers: () => {
-      const state = (globalThis as any).__harness_fake_timers__;
-      if (!state) return;
-      const { pending } = state;
-      const snapshot = [...pending];
-      pending.length = 0;
-      for (const t of snapshot) {
-        t.cb();
-      }
-    },
-    getTimerCount: () => {
-      const state = (globalThis as any).__harness_fake_timers__;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return state ? state.pending.length : 0;
-    },
+    useRealTimers: () => (globalThis as any).jest,
+    advanceTimersByTime: (_ms: number) => {},
+    advanceTimersByTimeAsync: async (_ms: number) => {},
+    runAllTimers: () => {},
+    runOnlyPendingTimers: () => {},
+    getTimerCount: () => 0,
     clearAllMocks: harness.clearAllMocks,
     resetAllMocks: harness.resetAllMocks,
     restoreAllMocks: harness.restoreAllMocks,
