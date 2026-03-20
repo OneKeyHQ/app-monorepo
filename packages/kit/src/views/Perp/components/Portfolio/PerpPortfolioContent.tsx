@@ -6,6 +6,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import {
   Button,
+  DashText,
   Divider,
   SegmentControl,
   SizableText,
@@ -19,8 +20,13 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountMmrAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatChartUsdPrice,
+  formatPerpsCompactUsd,
+  formatPerpsUsd,
+  getHyperliquidTokenImageUrl,
+  getPerpsValueColor,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
@@ -49,47 +55,10 @@ const CHART_TYPE_OPTIONS = [
   { label: 'P&L', value: 'pnl' as IPortfolioChartType },
 ];
 
-function formatUsd(value: number | null | undefined, showSign = false): string {
-  if (value === null || value === undefined) return '--';
-  const bn = new BigNumber(value);
-  const abs = bn.abs().toFixed();
-  const formatted = numberFormat(abs, {
-    formatter: 'value',
-    formatterOptions: { currency: '$' },
-  });
-  if (showSign && !bn.isZero()) {
-    return bn.lt(0) ? `-${formatted}` : `+${formatted}`;
-  }
-  if (bn.lt(0)) {
-    return `-${formatted}`;
-  }
-  return formatted;
-}
-
 function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return '--';
   return `${new BigNumber(value).toFixed(1)}%`;
 }
-
-function pnlColor(value: number | null | undefined): string {
-  if (value === null || value === undefined || value === 0) return '$text';
-  return value > 0 ? '$green11' : '$red11';
-}
-
-const chartPriceFormatter = (price: number): string => {
-  const abs = Math.abs(price);
-  const sign = price < 0 ? '-' : '';
-  if (abs >= 1_000_000) {
-    return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-  }
-  if (abs >= 1000) {
-    return `${sign}$${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
-  }
-  if (Number.isInteger(abs)) {
-    return `${sign}$${abs.toFixed(0)}`;
-  }
-  return `${sign}$${abs.toFixed(2)}`;
-};
 
 function SectionBlock({
   children,
@@ -118,29 +87,26 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
-function formatCompactUsd(value: number): string {
-  if (value === 0) return '$0';
-  const bn = new BigNumber(value);
-  const abs = bn.abs().toFixed();
-  const formatted = numberFormat(abs, {
-    formatter: 'marketCap',
-    formatterOptions: { currency: '$' },
-  });
-  if (bn.lt(0)) {
-    return `-${formatted}`;
-  }
-  return formatted;
-}
+const GAUGE_SAFE_THRESHOLD = 40;
+const GAUGE_CAUTION_THRESHOLD = 70;
+const COLOR_SAFE = '#30a46c';
+const COLOR_CAUTION = '#eab308';
+const COLOR_DANGER = '#e5484d';
+const MAX_LEVERAGE_GAUGE = 20;
+const CHART_HEIGHT_DESKTOP = 480;
+const CHART_HEIGHT_MOBILE = 260;
+const HOVER_TOOLTIP_WIDTH = 148;
 
 function gaugeColor(pct: number): string {
-  if (pct <= 40) return '#30a46c'; // green — safe ($green9)
-  if (pct <= 70) return '#eab308'; // yellow — caution
-  return '#e5484d'; // red — danger ($red9)
+  if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
+  if (pct <= GAUGE_CAUTION_THRESHOLD) return COLOR_CAUTION;
+  return COLOR_DANGER;
 }
 
 function SemiCircleGauge({
   percentage,
   label,
+  labelNode,
   value,
   size = 72,
   strokeWidth = 5,
@@ -148,6 +114,7 @@ function SemiCircleGauge({
 }: {
   percentage: number;
   label: string;
+  labelNode?: React.ReactNode;
   value: string;
   size?: number;
   strokeWidth?: number;
@@ -206,14 +173,16 @@ function SemiCircleGauge({
           </SizableText>
         </YStack>
       </XStack>
-      <SizableText
-        size="$bodyXs"
-        color="$textDisabled"
-        textTransform="uppercase"
-        letterSpacing={0.8}
-      >
-        {label}
-      </SizableText>
+      {labelNode ?? (
+        <SizableText
+          size="$bodyXs"
+          color="$textDisabled"
+          textTransform="uppercase"
+          letterSpacing={0.8}
+        >
+          {label}
+        </SizableText>
+      )}
     </YStack>
   );
 }
@@ -248,29 +217,29 @@ function PerpPortfolioContentComponent({
       : chartData.pnlHistory;
   }, [chartData, chartType]);
 
-  const accountValue = formatUsd(
+  const accountValue = formatPerpsUsd(
     parseFloat(accountSummary?.accountValue ?? '0'),
   );
-  const withdrawable = formatUsd(
+  const withdrawable = formatPerpsUsd(
     parseFloat(accountSummary?.withdrawable ?? '0'),
   );
 
   const unrealizedPnlRaw = parseFloat(
     accountSummary?.totalUnrealizedPnl ?? '0',
   );
-  const unrealizedPnl = formatUsd(unrealizedPnlRaw, true);
-  const unrealizedColor = pnlColor(unrealizedPnlRaw);
+  const unrealizedPnl = formatPerpsUsd(unrealizedPnlRaw, true);
+  const unrealizedColor = getPerpsValueColor(unrealizedPnlRaw);
 
-  const realizedPnl = formatUsd(fillsStats.realizedPnl, true);
-  const realizedColor = pnlColor(fillsStats.realizedPnl);
+  const realizedPnl = formatPerpsUsd(fillsStats.realizedPnl, true);
+  const realizedColor = getPerpsValueColor(fillsStats.realizedPnl);
 
   const vlm = chartData?.vlm
-    ? formatCompactUsd(parseFloat(chartData.vlm))
+    ? formatPerpsCompactUsd(parseFloat(chartData.vlm))
     : '--';
 
   const winRateVal =
     fillsStats.winRate !== null ? formatPercent(fillsStats.winRate) : '--';
-  const winRateClr = pnlColor(
+  const winRateClr = getPerpsValueColor(
     fillsStats.winRate !== null ? fillsStats.winRate - 50 : null,
   );
 
@@ -282,11 +251,13 @@ function PerpPortfolioContentComponent({
     return Math.abs(ntlPos) / acctVal;
   }, [accountSummary]);
   const leverageText = leverageRaw > 0 ? `${leverageRaw.toFixed(2)}x` : '--';
-  // Gauge: cap leverage at 20x for visual scale
-  const leverageGaugePct = Math.min((leverageRaw / 20) * 100, 100);
+  const leverageGaugePct = Math.min(
+    (leverageRaw / MAX_LEVERAGE_GAUGE) * 100,
+    100,
+  );
 
   const marginUsedRaw = parseFloat(accountSummary?.totalMarginUsed ?? '0');
-  const marginUsedText = formatCompactUsd(marginUsedRaw);
+  const marginUsedText = formatPerpsCompactUsd(marginUsedRaw);
   const acctValRaw = parseFloat(accountSummary?.accountValue ?? '0');
   // Gauge: margin used as % of account value
   const marginUsedGaugePct =
@@ -334,7 +305,7 @@ function PerpPortfolioContentComponent({
 
   const tooltipPosition = useMemo(() => {
     if (!hoverData || !containerWidth) return null;
-    const W = 148;
+    const W = HOVER_TOOLTIP_WIDTH;
     const OFFSET = 10;
     const EDGE = 8;
     const isLeft = hoverData.x < containerWidth / 2;
@@ -364,16 +335,16 @@ function PerpPortfolioContentComponent({
   );
 
   // ─── Chart ──────────────────────────────────────────────────────────────────
-  const chartHeight = isMobile ? 260 : 480;
+  const chartHeight = isMobile ? CHART_HEIGHT_MOBILE : CHART_HEIGHT_DESKTOP;
   const isPnl = chartType === 'pnl';
 
   const baselineOptions = useMemo(
     (): BaselineSeriesPartialOptions => ({
       baseValue: { type: 'price', price: 0 },
-      topLineColor: '#30a46c',
+      topLineColor: COLOR_SAFE,
       topFillColor1: 'rgba(48, 164, 108, 0.24)',
       topFillColor2: 'rgba(48, 164, 108, 0.0)',
-      bottomLineColor: '#e5484d',
+      bottomLineColor: COLOR_DANGER,
       bottomFillColor1: 'rgba(229, 72, 77, 0.0)',
       bottomFillColor2: 'rgba(229, 72, 77, 0.24)',
     }),
@@ -423,7 +394,7 @@ function PerpPortfolioContentComponent({
               py="$2"
               zIndex={100}
               pointerEvents="none"
-              width={148}
+              width={HOVER_TOOLTIP_WIDTH}
             >
               <YStack gap="$1">
                 <SizableText size="$bodyXs" color="$textDisabled">
@@ -434,7 +405,7 @@ function PerpPortfolioContentComponent({
                     {chartType === 'accountValue' ? 'Value' : 'P&L'}
                   </SizableText>
                   <SizableText size="$bodySmMedium" color="$text">
-                    {formatUsd(hoverData.price)}
+                    {formatPerpsUsd(hoverData.price)}
                   </SizableText>
                 </XStack>
               </YStack>
@@ -450,7 +421,7 @@ function PerpPortfolioContentComponent({
             lineWidth={3}
             showPriceScale
             showHorzGridLines
-            priceFormatter={chartPriceFormatter}
+            priceFormatter={formatChartUsdPrice}
             fontSize={11}
             seriesType={isPnl ? 'baseline' : 'area'}
             baselineOptions={isPnl ? baselineOptions : undefined}
@@ -480,7 +451,7 @@ function PerpPortfolioContentComponent({
           </YStack>
           <YStack gap="$0.5" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Positions
+              Open Positions
             </SizableText>
             <SizableText size="$headingSm" color="$text">
               {positionsLength ?? 0}
@@ -560,12 +531,38 @@ function PerpPortfolioContentComponent({
           <SemiCircleGauge
             percentage={marginUsedGaugePct}
             label="Margin Used"
+            labelNode={
+              <DashText
+                size="$bodyXs"
+                color="$textDisabled"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                textTransform="uppercase"
+                letterSpacing={0.8}
+                tooltip="Total margin allocated to open positions."
+              >
+                Margin Used
+              </DashText>
+            }
             value={marginUsedText}
             color={gaugeColor(marginUsedGaugePct)}
           />
           <SemiCircleGauge
             percentage={marginPercentRaw}
-            label="Margin %"
+            label="MMR"
+            labelNode={
+              <DashText
+                size="$bodyXs"
+                color="$textDisabled"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                textTransform="uppercase"
+                letterSpacing={0.8}
+                tooltip="Maintenance Margin Ratio — the minimum margin required to keep positions open. Liquidation occurs when this exceeds 100%."
+              >
+                MMR
+              </DashText>
+            }
             value={marginPercentText}
             color={gaugeColor(marginPercentRaw)}
           />
@@ -612,15 +609,21 @@ function PerpPortfolioContentComponent({
               Fees Paid
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {formatCompactUsd(fillsStats.feesPaid ?? 0)}
+              {formatPerpsCompactUsd(fillsStats.feesPaid ?? 0)}
             </SizableText>
           </YStack>
           <YStack gap="$0.5" alignItems="center">
-            <SizableText size="$bodyXs" color="$textDisabled">
+            <DashText
+              size="$bodyXs"
+              color="$textDisabled"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip="Total deposits minus total withdrawals during this period."
+            >
               Net Deposits
-            </SizableText>
+            </DashText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {formatCompactUsd(netDeposits ?? 0)}
+              {formatPerpsCompactUsd(netDeposits ?? 0)}
             </SizableText>
           </YStack>
           <YStack gap="$0.5" alignItems="flex-end">
@@ -649,9 +652,15 @@ function PerpPortfolioContentComponent({
               </SizableText>
             </YStack>
             <YStack gap="$0.5" alignItems="flex-end">
-              <SizableText size="$bodyXs" color="$textDisabled">
+              <DashText
+                size="$bodyXs"
+                color="$textDisabled"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip="Ratio of total gains to total losses. A value above 1.0 means gains exceed losses overall."
+              >
                 Profit Factor
-              </SizableText>
+              </DashText>
               <SizableText size="$headingSm" color="$text">
                 {fillsStats.profitFactor !== null
                   ? new BigNumber(fillsStats.profitFactor).toFixed(2)
@@ -682,7 +691,7 @@ function PerpPortfolioContentComponent({
               Avg Win
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$green11">
-              {formatUsd(fillsStats.avgWin, true)}
+              {formatPerpsUsd(fillsStats.avgWin, true)}
             </SizableText>
           </YStack>
           <YStack flex={1} bg="$bgHover" borderRadius="$2" p="$2.5" gap="$0.5">
@@ -690,7 +699,7 @@ function PerpPortfolioContentComponent({
               Avg Loss
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$red11">
-              {formatUsd(fillsStats.avgLoss, true)}
+              {formatPerpsUsd(fillsStats.avgLoss, true)}
             </SizableText>
           </YStack>
         </XStack>
