@@ -38,5 +38,12 @@ export default {
     'packages/core/src/chains/stc',
     'packages/core/src/chains/xmr',
     'packages/core/src/chains/xrp',
+    // Tests using jest.doMock/jest.resetModules/jest.isolateModules which are
+    // not supported in the harness environment (Metro shares module registry).
+    'packages/shared/src/appUpdate/bundleUpdate\\.test',
+    'packages/kit/src/components/UpdateReminder/hooks\\.test',
+    // Tests that hang on second load after app restart due to native module
+    // initialization blocking in the Metro module graph.
+    'packages/kit-bg/src/services/servicePendingInstallTask\\.test',
   ],
 };

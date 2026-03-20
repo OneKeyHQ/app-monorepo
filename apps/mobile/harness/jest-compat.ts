@@ -374,6 +374,29 @@ Object.defineProperty(globalThis, 'jest', {
     resetAllMocks: harness.resetAllMocks,
     restoreAllMocks: harness.restoreAllMocks,
     resetModules: harness.resetModules,
+    // jest.doMock / jest.isolateModules are not supported in the harness
+    // environment (Metro shares a single module registry). Provide no-op
+    // stubs to prevent crashes from undefined function calls.
+    doMock: (_moduleName: string, _factory?: () => unknown) => {
+      console.warn(
+        `[harness-compat] jest.doMock('${_moduleName}') is not supported in harness mode`,
+      );
+    },
+    dontMock: (_moduleName: string) => {
+      // no-op
+    },
+    isolateModules: (fn: () => void) => {
+      console.warn(
+        '[harness-compat] jest.isolateModules() is not supported in harness mode, running inline',
+      );
+      fn();
+    },
+    isolateModulesAsync: async (fn: () => Promise<void>) => {
+      console.warn(
+        '[harness-compat] jest.isolateModulesAsync() is not supported in harness mode, running inline',
+      );
+      await fn();
+    },
     isMockFunction: (f: unknown): boolean => {
       return typeof f === 'function' && '_isMockFunction' in (f as any);
     },
