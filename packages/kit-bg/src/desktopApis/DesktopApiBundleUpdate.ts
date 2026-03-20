@@ -862,7 +862,7 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
-  restart() {
+  async restart() {
     this.getMainWindow()?.destroy();
     if (!process.mas) {
       app.relaunch();
