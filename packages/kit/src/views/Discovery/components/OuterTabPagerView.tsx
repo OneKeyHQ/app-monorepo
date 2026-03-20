@@ -396,6 +396,7 @@ function OuterTabPagerViewComponent({
       scrollEnabled={showDiscoveryPage}
       overdrag
       overScrollMode="always"
+      scrollSensitivity={4}
       offscreenPageLimit={1}
       onPageScroll={pageScrollHandler}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
