@@ -317,6 +317,18 @@ export function usePromiseResult<T>(
         resetDefer();
       }
 
+      // On native, defer focus-recovery re-execution until the JS thread is
+      // idle so the first render frame after tab switch can paint without
+      // being blocked by data fetching across 40+ hooks.
+      const idleHandles: ReturnType<typeof requestIdleCallback>[] = [];
+      const scheduleRun = () => {
+        if (platformEnv.isNative) {
+          idleHandles.push(requestIdleCallback(runWithPollingNonce));
+        } else {
+          runWithPollingNonce();
+        }
+      };
+
       // By employing a hack to simulate the recovery from a network disconnection and subsequently make a new network request.
       if (
         platformEnv.isNative &&
@@ -324,7 +336,7 @@ export function usePromiseResult<T>(
         isEmptyResultRef.current &&
         optionsRef.current.revalidateOnReconnect
       ) {
-        runWithPollingNonce();
+        scheduleRun();
       }
 
       if (
@@ -332,11 +344,15 @@ export function usePromiseResult<T>(
         isFocusedRefValue &&
         optionsRef.current.revalidateOnFocus
       ) {
-        runWithPollingNonce();
+        scheduleRun();
       } else if (isFocusedRefValue && isDepsChangedOnBlur.current) {
-        runWithPollingNonce();
+        scheduleRun();
       }
       prevFocusedRef.current = isFocusedRefValue;
+
+      return () => {
+        idleHandles.forEach(cancelIdleCallback);
+      };
     }
   }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
 
