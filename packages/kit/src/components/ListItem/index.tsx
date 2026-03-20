@@ -8,6 +8,7 @@ import type {
 import { isValidElement, useCallback, useState } from 'react';
 
 import { Pressable } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 import {
   Divider,
@@ -275,6 +276,7 @@ export type IListItemProps = PropsWithChildren<
     childrenBefore?: ComponentType | ReactNode;
     disabled?: boolean;
     testID?: string;
+    nativePressableStyle?: StyleProp<ViewStyle>;
   } & IStackProps
 >;
 
@@ -318,6 +320,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       renderItemText,
       titleMatch,
       subTitleMatch,
+      nativePressableStyle,
       ...rest
     } = props;
 
@@ -438,7 +441,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           unstable_pressDelay={50}
-          style={{ flex: 1 }}
+          style={nativePressableStyle ?? { flex: 1 }}
         >
           {content}
         </Pressable>
