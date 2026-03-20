@@ -12,17 +12,18 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useInTabDialog,
   useTheme,
 } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountMmrAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { showDepositWithdrawDialog } from '../TradingPanel/modals/DepositWithdrawModal';
+import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 
 import {
   type IPortfolioChartType,
@@ -117,6 +118,20 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
+function formatCompactUsd(value: number): string {
+  if (value === 0) return '$0';
+  const bn = new BigNumber(value);
+  const abs = bn.abs().toFixed();
+  const formatted = numberFormat(abs, {
+    formatter: 'marketCap',
+    formatterOptions: { currency: '$' },
+  });
+  if (bn.lt(0)) {
+    return `-${formatted}`;
+  }
+  return formatted;
+}
+
 function gaugeColor(pct: number): string {
   if (pct <= 40) return '#30a46c'; // green — safe ($green9)
   if (pct <= 70) return '#eab308'; // yellow — caution
@@ -186,7 +201,7 @@ function SemiCircleGauge({
           bottom={strokeWidth / 2}
           alignItems="center"
         >
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
             {value}
           </SizableText>
         </YStack>
@@ -207,11 +222,11 @@ function PerpPortfolioContentComponent({
   isMobile = false,
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
-  const dialogInTab = useInTabDialog();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const [mmrData] = usePerpsActiveAccountMmrAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
 
-  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('week');
+  const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('allTime');
   const [chartType, setChartType] =
     useState<IPortfolioChartType>('accountValue');
 
@@ -249,7 +264,9 @@ function PerpPortfolioContentComponent({
   const realizedPnl = formatUsd(fillsStats.realizedPnl, true);
   const realizedColor = pnlColor(fillsStats.realizedPnl);
 
-  const vlm = chartData?.vlm ? formatUsd(parseFloat(chartData.vlm)) : '--';
+  const vlm = chartData?.vlm
+    ? formatCompactUsd(parseFloat(chartData.vlm))
+    : '--';
 
   const winRateVal =
     fillsStats.winRate !== null ? formatPercent(fillsStats.winRate) : '--';
@@ -269,7 +286,7 @@ function PerpPortfolioContentComponent({
   const leverageGaugePct = Math.min((leverageRaw / 20) * 100, 100);
 
   const marginUsedRaw = parseFloat(accountSummary?.totalMarginUsed ?? '0');
-  const marginUsedText = formatUsd(marginUsedRaw);
+  const marginUsedText = formatCompactUsd(marginUsedRaw);
   const acctValRaw = parseFloat(accountSummary?.accountValue ?? '0');
   // Gauge: margin used as % of account value
   const marginUsedGaugePct =
@@ -386,7 +403,7 @@ function PerpPortfolioContentComponent({
         <YStack
           position="relative"
           flex={1}
-          mr={-16}
+          mr={isMobile ? -12 : -16}
           onLayout={(e) => {
             const w = e.nativeEvent.layout.width;
             if (w !== containerWidth) setContainerWidth(w);
@@ -477,59 +494,59 @@ function PerpPortfolioContentComponent({
   // Win rate progress value (0-100)
   const winRateProgress = fillsStats.winRate ?? 0;
 
+  // ─── Portfolio Value (shared between mobile top + desktop stats) ────────────
+  const portfolioValueBlock = (
+    <SectionBlock gap="$3">
+      <XStack justifyContent="space-between" alignItems="flex-start">
+        <YStack gap="$0.5">
+          <SectionLabel>Portfolio Value</SectionLabel>
+          <SizableText size="$heading2xl" color="$text">
+            {accountValue}
+          </SizableText>
+        </YStack>
+        <YStack gap="$0.5" alignItems="flex-end">
+          <SectionLabel>Available</SectionLabel>
+          <SizableText size="$headingMd" color="$text">
+            {withdrawable}
+          </SizableText>
+        </YStack>
+      </XStack>
+      <XStack gap="$2">
+        <Button
+          flex={1}
+          borderRadius="$full"
+          size="medium"
+          bg="$brand8"
+          hoverStyle={{ bg: '$brand9' }}
+          pressStyle={{ bg: '$brand10' }}
+          color="$textOnColor"
+          iconColor="$iconOnColor"
+          icon="DownloadOutline"
+          onPress={() => showDepositWithdrawModal('deposit')}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_deposit,
+          })}
+        </Button>
+        <Button
+          flex={1}
+          borderRadius="$full"
+          size="medium"
+          variant="secondary"
+          icon="AlignTopOutline"
+          onPress={() => showDepositWithdrawModal('withdraw')}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_withdraw,
+          })}
+        </Button>
+      </XStack>
+    </SectionBlock>
+  );
+
   // ─── Stats ──────────────────────────────────────────────────────────────────
   const statsPanel = (
     <YStack gap="$3">
-      {/* Portfolio Value + Address + Deposit */}
-      <SectionBlock gap="$3">
-        <XStack justifyContent="space-between" alignItems="flex-start">
-          <YStack gap="$0.5">
-            <SectionLabel>Portfolio Value</SectionLabel>
-            <SizableText size="$heading2xl" color="$text">
-              {accountValue}
-            </SizableText>
-          </YStack>
-          <YStack gap="$0.5" alignItems="flex-end">
-            <SectionLabel>Available</SectionLabel>
-            <SizableText size="$headingMd" color="$text">
-              {withdrawable}
-            </SizableText>
-          </YStack>
-        </XStack>
-        <XStack gap="$2">
-          <Button
-            borderRadius="$full"
-            size="small"
-            bg="$brand8"
-            hoverStyle={{ bg: '$brand9' }}
-            pressStyle={{ bg: '$brand10' }}
-            color="$textOnColor"
-            iconColor="$iconOnColor"
-            icon="DownloadOutline"
-            onPress={() =>
-              showDepositWithdrawDialog({ actionType: 'deposit' }, dialogInTab)
-            }
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_deposit,
-            })}
-          </Button>
-          <Button
-            borderRadius="$full"
-            size="small"
-            variant="secondary"
-            icon="AlignTopOutline"
-            onPress={() =>
-              showDepositWithdrawDialog({ actionType: 'withdraw' }, dialogInTab)
-            }
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_withdraw,
-            })}
-          </Button>
-        </XStack>
-      </SectionBlock>
-
       {/* Account Health */}
       <SectionBlock>
         <SectionLabel>Account Health</SectionLabel>
@@ -573,9 +590,17 @@ function PerpPortfolioContentComponent({
               <SizableText size="$bodyXs" color="$textDisabled">
                 Most Traded
               </SizableText>
-              <SizableText size="$headingSm" color="$text">
-                {fillsStats.mostTraded}
-              </SizableText>
+              <XStack gap="$1.5" alignItems="center">
+                <Token
+                  size="xs"
+                  tokenImageUri={getHyperliquidTokenImageUrl(
+                    fillsStats.mostTraded,
+                  )}
+                />
+                <SizableText size="$headingSm" color="$text">
+                  {fillsStats.mostTraded}
+                </SizableText>
+              </XStack>
             </YStack>
           ) : null}
         </XStack>
@@ -587,7 +612,7 @@ function PerpPortfolioContentComponent({
               Fees Paid
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {formatUsd(fillsStats.feesPaid)}
+              {formatCompactUsd(fillsStats.feesPaid ?? 0)}
             </SizableText>
           </YStack>
           <YStack gap="$0.5" alignItems="center">
@@ -595,7 +620,7 @@ function PerpPortfolioContentComponent({
               Net Deposits
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$text">
-              {formatUsd(netDeposits)}
+              {formatCompactUsd(netDeposits ?? 0)}
             </SizableText>
           </YStack>
           <YStack gap="$0.5" alignItems="flex-end">
@@ -676,7 +701,8 @@ function PerpPortfolioContentComponent({
   // ─── Mobile ─────────────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <YStack gap="$4" p="$5">
+      <YStack gap="$4" px="$5" pb="$5">
+        {portfolioValueBlock}
         {chartPanel}
         {statsPanel}
       </YStack>
@@ -689,7 +715,8 @@ function PerpPortfolioContentComponent({
       <YStack flex={6} flexBasis={0} overflow="visible" zIndex={1}>
         {chartPanel}
       </YStack>
-      <YStack flex={4} flexBasis={0}>
+      <YStack flex={4} flexBasis={0} gap="$3">
+        {portfolioValueBlock}
         {statsPanel}
       </YStack>
     </XStack>
