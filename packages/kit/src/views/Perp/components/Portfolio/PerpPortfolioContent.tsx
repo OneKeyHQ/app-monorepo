@@ -30,6 +30,8 @@ import {
   usePerpPortfolioData,
 } from './usePerpPortfolioData';
 
+import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
+
 interface IPerpPortfolioContentProps {
   isMobile?: boolean;
 }
@@ -57,6 +59,9 @@ function formatUsd(value: number | null | undefined, showSign = false): string {
   if (showSign && !bn.isZero()) {
     return bn.lt(0) ? `-${formatted}` : `+${formatted}`;
   }
+  if (bn.lt(0)) {
+    return `-${formatted}`;
+  }
   return formatted;
 }
 
@@ -79,7 +84,7 @@ const chartPriceFormatter = (price: number): string => {
   if (abs >= 1000) {
     return `${sign}$${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
   }
-  if (abs >= 100) {
+  if (Number.isInteger(abs)) {
     return `${sign}$${abs.toFixed(0)}`;
   }
   return `${sign}$${abs.toFixed(2)}`;
@@ -113,9 +118,9 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 function gaugeColor(pct: number): string {
-  if (pct <= 40) return '#22c55e'; // green — safe
+  if (pct <= 40) return '#30a46c'; // green — safe ($green9)
   if (pct <= 70) return '#eab308'; // yellow — caution
-  return '#ef4444'; // red — danger
+  return '#e5484d'; // red — danger ($red9)
 }
 
 function SemiCircleGauge({
@@ -134,7 +139,7 @@ function SemiCircleGauge({
   color?: string;
 }) {
   const theme = useTheme();
-  const arcColor = color ?? theme.textSuccess?.val ?? '#22c55e';
+  const arcColor = color ?? theme.textSuccess?.val ?? '#30a46c';
   const trackColor = theme.bgStrong?.val ?? '#333';
 
   const radius = (size - strokeWidth) / 2;
@@ -343,6 +348,20 @@ function PerpPortfolioContentComponent({
 
   // ─── Chart ──────────────────────────────────────────────────────────────────
   const chartHeight = isMobile ? 260 : 480;
+  const isPnl = chartType === 'pnl';
+
+  const baselineOptions = useMemo(
+    (): BaselineSeriesPartialOptions => ({
+      baseValue: { type: 'price', price: 0 },
+      topLineColor: '#30a46c',
+      topFillColor1: 'rgba(48, 164, 108, 0.24)',
+      topFillColor2: 'rgba(48, 164, 108, 0.0)',
+      bottomLineColor: '#e5484d',
+      bottomFillColor1: 'rgba(229, 72, 77, 0.0)',
+      bottomFillColor2: 'rgba(229, 72, 77, 0.24)',
+    }),
+    [],
+  );
 
   const chartPanel = (
     <YStack flex={1} gap="$3">
@@ -360,13 +379,14 @@ function PerpPortfolioContentComponent({
         />
       </XStack>
 
-      {/* Chart */}
+      {/* Chart — negative mr shifts chart right so plot area aligns with controls */}
       {isLoading ? (
         <Skeleton height={chartHeight} borderRadius="$2" />
       ) : (
         <YStack
           position="relative"
           flex={1}
+          mr={-16}
           onLayout={(e) => {
             const w = e.nativeEvent.layout.width;
             if (w !== containerWidth) setContainerWidth(w);
@@ -407,14 +427,17 @@ function PerpPortfolioContentComponent({
             data={chartSeriesData}
             height={chartHeight}
             onHover={handleHover}
-            lineColor="#008347D6"
-            topColor="#00834726"
-            bottomColor="#00834700"
-            lineWidth={2}
+            lineColor="#2EAA40"
+            topColor="#2EAA4026"
+            bottomColor="#2EAA4000"
+            lineWidth={3}
             showPriceScale
             showHorzGridLines
             priceFormatter={chartPriceFormatter}
-            fontSize={13}
+            fontSize={11}
+            seriesType={isPnl ? 'baseline' : 'area'}
+            baselineOptions={isPnl ? baselineOptions : undefined}
+            showLastValue
           />
         </YStack>
       )}
@@ -663,7 +686,7 @@ function PerpPortfolioContentComponent({
   // ─── Desktop ────────────────────────────────────────────────────────────────
   return (
     <XStack flex={1} gap="$5">
-      <YStack flex={6} flexBasis={0}>
+      <YStack flex={6} flexBasis={0} overflow="visible" zIndex={1}>
         {chartPanel}
       </YStack>
       <YStack flex={4} flexBasis={0}>

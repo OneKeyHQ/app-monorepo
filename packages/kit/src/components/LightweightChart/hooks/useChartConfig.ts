@@ -7,6 +7,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { DEFAULT_CHART_COLORS } from '../utils/constants';
 
 import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
+import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
 interface IUseChartConfigProps {
   data: IMarketTokenChart;
@@ -19,6 +20,10 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceFormatter?: (price: number) => string;
+  fontSize?: number;
+  seriesType?: 'area' | 'baseline';
+  baselineOptions?: BaselineSeriesPartialOptions;
 }
 
 export function useChartConfig({
@@ -32,6 +37,10 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  priceFormatter,
+  fontSize,
+  seriesType,
+  baselineOptions,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
 
@@ -62,6 +71,10 @@ export function useChartConfig({
       ),
       secondaryLineColor,
       secondaryLineWidth,
+      priceFormatter,
+      fontSize,
+      seriesType,
+      baselineOptions,
     }),
     [
       data,
@@ -77,6 +90,10 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceFormatter,
+      fontSize,
+      seriesType,
+      baselineOptions,
     ],
   );
 }
