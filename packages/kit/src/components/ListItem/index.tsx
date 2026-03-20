@@ -276,6 +276,7 @@ export type IListItemProps = PropsWithChildren<
     childrenBefore?: ComponentType | ReactNode;
     disabled?: boolean;
     testID?: string;
+    /** Style for the native Pressable wrapper. Only effective on native platforms. */
     nativePressableStyle?: StyleProp<ViewStyle>;
   } & IStackProps
 >;
