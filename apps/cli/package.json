@@ -14,8 +14,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "jest",
-    "lint": "tsc --noEmit"
+    "test": "npx jest",
+    "lint": "npx tsc --noEmit"
   },
   "dependencies": {
     "axios": "^1.7.0",

@@ -3,7 +3,7 @@ import { detectOutputMode } from './utils/mode-detector';
 import { createLogger } from './utils/logger';
 import { OutputFormatter } from './output';
 import { apiClient } from './infra';
-import { registerVersionCommand, registerStatusCommand } from './commands';
+import { registerStatusCommand, registerVersionCommand } from './commands';
 
 const program = new Command();
 

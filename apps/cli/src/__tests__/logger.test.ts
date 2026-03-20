@@ -12,7 +12,8 @@ describe('sanitize', () => {
   });
 
   it('redacts 12-word mnemonic phrases', () => {
-    const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    const mnemonic =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
     expect(sanitize(`seed: ${mnemonic}`)).toBe('seed: [REDACTED]');
   });
 

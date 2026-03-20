@@ -8,7 +8,8 @@ export function registerStatusCommand(program: Command): void {
     .command('status')
     .description('Check system status and API connectivity')
     .action(async (_options, command) => {
-      const output = command.optsWithGlobals()._outputFormatter as OutputFormatter;
+      const output = command.optsWithGlobals()
+        ._outputFormatter as OutputFormatter;
 
       try {
         const env = command.optsWithGlobals().env ?? 'test';
@@ -23,7 +24,8 @@ export function registerStatusCommand(program: Command): void {
 
         output.success({ status: 'connected', env, latency_ms: latency });
       } catch (error) {
-        const appError = error instanceof AppError ? error : AppError.from(error);
+        const appError =
+          error instanceof AppError ? error : AppError.from(error);
         if (appError.exitCode <= 1) {
           output.success({
             status: 'connected',

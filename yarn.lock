@@ -9401,9 +9401,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/cli@workspace:packages/cli":
+"@onekeyhq/cli@workspace:apps/cli":
   version: 0.0.0-use.local
-  resolution: "@onekeyhq/cli@workspace:packages/cli"
+  resolution: "@onekeyhq/cli@workspace:apps/cli"
   dependencies:
     axios: "npm:^1.7.0"
     chalk: "npm:^4.1.2"

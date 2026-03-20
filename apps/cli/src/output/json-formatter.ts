@@ -1,7 +1,10 @@
-import type { SuccessResponse, ErrorResponse, OutputMetadata } from '../types';
+import type { ErrorResponse, OutputMetadata, SuccessResponse } from '../types';
 import type { ErrorDetail } from '../errors';
 
-export function formatSuccess<T>(data: T, metadata?: Partial<OutputMetadata>): SuccessResponse<T> {
+export function formatSuccess<T>(
+  data: T,
+  metadata?: Partial<OutputMetadata>,
+): SuccessResponse<T> {
   return {
     status: 'success',
     api_version: '1',

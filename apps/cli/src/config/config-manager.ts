@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { parse as parseYaml } from 'yaml';
 import { AppError } from '../errors';
-import { configSchema, type AppConfig } from './config-schema';
+import { type AppConfig, configSchema } from './config-schema';
 import { DEFAULT_CONFIG } from './defaults';
 
 const ENV_MAP: Record<string, keyof AppConfig> = {
@@ -17,7 +17,8 @@ export class ConfigManager {
   private configPath: string;
 
   constructor(configPath?: string) {
-    this.configPath = configPath ?? path.join(os.homedir(), '.onekey', 'config.yaml');
+    this.configPath =
+      configPath ?? path.join(os.homedir(), '.onekey', 'config.yaml');
   }
 
   async getConfig(cliOverrides?: Partial<AppConfig>): Promise<AppConfig> {
@@ -34,7 +35,12 @@ export class ConfigManager {
       if (isEnoent(error)) {
         return {};
       }
-      throw new AppError('PARAM_INVALID_CONFIG', `Failed to read config: ${this.configPath}`, 'Check file permissions for ~/.onekey/config.yaml', { cause: error });
+      throw new AppError(
+        'PARAM_INVALID_CONFIG',
+        `Failed to read config: ${this.configPath}`,
+        'Check file permissions for ~/.onekey/config.yaml',
+        { cause: error },
+      );
     }
 
     try {
@@ -46,7 +52,12 @@ export class ConfigManager {
       return parsed as Partial<AppConfig>;
     } catch (error: unknown) {
       if (error instanceof AppError) throw error;
-      throw new AppError('PARAM_INVALID_CONFIG', `Invalid YAML: ${error instanceof Error ? error.message : String(error)}`, 'Check ~/.onekey/config.yaml syntax', { cause: error });
+      throw new AppError(
+        'PARAM_INVALID_CONFIG',
+        `Invalid YAML: ${error instanceof Error ? error.message : String(error)}`,
+        'Check ~/.onekey/config.yaml syntax',
+        { cause: error },
+      );
     }
   }
 
@@ -54,24 +65,38 @@ export class ConfigManager {
     const envConfig: Partial<AppConfig> = {};
     for (const [envKey, configKey] of Object.entries(ENV_MAP)) {
       const value = process.env[envKey];
-      if (value === undefined) continue;
-      if (configKey === 'cache_ttl') {
-        const num = Number(value);
-        if (!Number.isNaN(num) && Number.isInteger(num) && num > 0) {
-          envConfig.cache_ttl = num;
+      if (value !== undefined) {
+        if (configKey === 'cache_ttl') {
+          const num = Number(value);
+          if (!Number.isNaN(num) && Number.isInteger(num) && num > 0) {
+            envConfig.cache_ttl = num;
+          }
+        } else {
+          (envConfig as Record<string, unknown>)[configKey] = value;
         }
-      } else {
-        (envConfig as Record<string, unknown>)[configKey] = value;
       }
     }
     return envConfig;
   }
 
-  mergeConfig(fileConfig: Partial<AppConfig>, envConfig: Partial<AppConfig>, cliOverrides?: Partial<AppConfig>): AppConfig {
-    const merged = { ...DEFAULT_CONFIG, ...stripUndefined(fileConfig), ...stripUndefined(envConfig), ...stripUndefined(cliOverrides ?? {}) };
+  mergeConfig(
+    fileConfig: Partial<AppConfig>,
+    envConfig: Partial<AppConfig>,
+    cliOverrides?: Partial<AppConfig>,
+  ): AppConfig {
+    const merged = {
+      ...DEFAULT_CONFIG,
+      ...stripUndefined(fileConfig),
+      ...stripUndefined(envConfig),
+      ...stripUndefined(cliOverrides ?? {}),
+    };
     const result = configSchema.safeParse(merged);
     if (!result.success) {
-      throw new AppError('PARAM_INVALID_CONFIG', `Config validation failed: ${result.error.message}`, 'Run "onekey --help" for valid options');
+      throw new AppError(
+        'PARAM_INVALID_CONFIG',
+        `Config validation failed: ${result.error.message}`,
+        'Run "onekey --help" for valid options',
+      );
     }
     return result.data;
   }

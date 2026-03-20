@@ -10,7 +10,10 @@ export function mockApiSuccess<T>(data: T): OneKeyApiResponse<T> {
 /**
  * Create a mock OneKey API error response
  */
-export function mockApiError(code: number, message: string): OneKeyApiResponse<never> {
+export function mockApiError(
+  code: number,
+  message: string,
+): OneKeyApiResponse<never> {
   return { code, message, data: undefined as never };
 }
 

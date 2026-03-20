@@ -53,7 +53,11 @@ describe('OutputFormatter', () => {
 
     it('outputs JSON error to stdout (not stderr)', () => {
       const formatter = new OutputFormatter('agent');
-      formatter.error({ code: 'NET_TIMEOUT', message: 'timeout', suggestion: 'retry' });
+      formatter.error({
+        code: 'NET_TIMEOUT',
+        message: 'timeout',
+        suggestion: 'retry',
+      });
       const parsed = JSON.parse(stdoutData.trim());
       expect(parsed.status).toBe('error');
       expect(parsed.error.code).toBe('NET_TIMEOUT');

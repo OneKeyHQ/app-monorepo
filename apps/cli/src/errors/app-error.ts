@@ -1,4 +1,4 @@
-import { getExitCode, ERROR_CODES } from './error-codes';
+import { ERROR_CODES, getExitCode } from './error-codes';
 
 export interface ErrorDetail {
   code: string;

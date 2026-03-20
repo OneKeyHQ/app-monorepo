@@ -1,7 +1,12 @@
-import type { OutputMode, OutputMetadata } from '../types';
 import type { ErrorDetail } from '../errors';
-import { formatSuccess, formatError } from './json-formatter';
-import { formatHumanSuccess, formatHumanError, formatHumanWarning, formatHumanInfo } from './human-formatter';
+import type { OutputMetadata, OutputMode } from '../types';
+import { formatError, formatSuccess } from './json-formatter';
+import {
+  formatHumanError,
+  formatHumanInfo,
+  formatHumanSuccess,
+  formatHumanWarning,
+} from './human-formatter';
 
 export class OutputFormatter {
   constructor(private mode: OutputMode) {}
