@@ -132,6 +132,19 @@ export function Container({
 }: PropsWithChildren<CollapsibleProps> &
   ITabContainerRefProps &
   Pick<ITabContainerProps, 'disableScroll' | 'useNativeHeaderAnimation'>) {
+  const getTabContentHeight = useCallback((element: Element | null) => {
+    const htmlElement = element as HTMLElement | null;
+    if (!htmlElement) {
+      return 0;
+    }
+
+    return Math.max(
+      htmlElement.scrollHeight || 0,
+      htmlElement.clientHeight || 0,
+      htmlElement.getBoundingClientRect().height || 0,
+    );
+  }, []);
+
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -203,21 +216,21 @@ export function Container({
         if (resizeObserverRef.current) {
           resizeObserverRef.current.disconnect();
         }
-        const height =
-          scrollTabElementsRef.current?.[focusedTab.value]?.element
-            ?.clientHeight;
+        const height = getTabContentHeight(
+          scrollTabElementsRef.current?.[focusedTab.value]?.element ?? null,
+        );
 
         if (height) {
-          (listContainerRef.current as HTMLElement).style.maxHeight =
+          (listContainerRef.current as HTMLElement).style.height =
             `${height}px`;
           setTimeout(() => {
             resizeObserverRef.current = new ResizeObserver((entries) => {
               const entry = entries[0];
-              const borderBoxHeight =
-                entry?.borderBoxSize?.[0]?.blockSize ??
-                (entry?.target as HTMLElement)?.clientHeight;
+              const borderBoxHeight = getTabContentHeight(
+                (entry?.target as HTMLElement) ?? null,
+              );
               if (borderBoxHeight) {
-                (listContainerRef.current as HTMLElement).style.maxHeight =
+                (listContainerRef.current as HTMLElement).style.height =
                   `${borderBoxHeight}px`;
               } else {
                 // When quickly removing and adding observer nodes, ResizeObserver API has a delay
@@ -241,7 +254,7 @@ export function Container({
         }
       }
     },
-    [focusedTab],
+    [focusedTab, getTabContentHeight],
   );
 
   useLayoutEffect(() => {

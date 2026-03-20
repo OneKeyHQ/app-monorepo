@@ -95,35 +95,6 @@ const STATUS_TO_STAGE: Record<
   [EAppUpdateStatus.updateIncomplete]: { index: 6, failed: true },
 };
 
-function buildUpdatePipeline(
-  info: IAppUpdateInfo,
-  downloadPercent: number,
-): IPipelineStep[] {
-  const stage = STATUS_TO_STAGE[info.status] ?? { index: -1 };
-  const activeIdx = stage.index;
-  const isFailed = !!stage.failed;
-
-  return UPDATE_PIPELINE_LABELS.map((label, i) => {
-    let state: IStepState = 'pending';
-    if (i < activeIdx) {
-      state = 'completed';
-    } else if (i === activeIdx) {
-      state = isFailed ? 'failed' : 'active';
-    }
-
-    // Attach details only to the active / failed step
-    let details: { label: string; value: string }[] | undefined;
-    if (i === activeIdx) {
-      details = buildActiveDetails(info, i, isFailed);
-    }
-
-    // Attach download percent for the download step when active
-    const pct = i === 1 && state === 'active' ? downloadPercent : undefined;
-
-    return { label, state, details, percent: pct };
-  });
-}
-
 function buildActiveDetails(
   info: IAppUpdateInfo,
   stageIdx: number,
@@ -185,6 +156,35 @@ function buildActiveDetails(
   }
 
   return rows;
+}
+
+function buildUpdatePipeline(
+  info: IAppUpdateInfo,
+  downloadPercent: number,
+): IPipelineStep[] {
+  const stage = STATUS_TO_STAGE[info.status] ?? { index: -1 };
+  const activeIdx = stage.index;
+  const isFailed = !!stage.failed;
+
+  return UPDATE_PIPELINE_LABELS.map((label, i) => {
+    let state: IStepState = 'pending';
+    if (i < activeIdx) {
+      state = 'completed';
+    } else if (i === activeIdx) {
+      state = isFailed ? 'failed' : 'active';
+    }
+
+    // Attach details only to the active / failed step
+    let details: { label: string; value: string }[] | undefined;
+    if (i === activeIdx) {
+      details = buildActiveDetails(info, i, isFailed);
+    }
+
+    // Attach download percent for the download step when active
+    const pct = i === 1 && state === 'active' ? downloadPercent : undefined;
+
+    return { label, state, details, percent: pct };
+  });
 }
 
 // ---------------------------------------------------------------------------

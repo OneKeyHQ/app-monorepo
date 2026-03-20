@@ -4,16 +4,19 @@ Prepares the release branch for bundle CI by writing `BUILD_NUMBER` to `.env.ver
 
 ## Pre-flight Checks
 
-### 1. On a release branch
+### 1. Read release branch and verify
 
 ```bash
+VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
+RELEASE_BRANCH="release/v${VERSION}"
 current_branch=$(git branch --show-current)
-# Must match: release/*
 ```
 
-If not on a `release/*` branch, **stop immediately**:
+If current branch is not the expected release branch, offer to switch:
 
-> "You must be on a `release/*` branch to run this command. Current branch: `$current_branch`"
+> "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
+
+If yes, run `git checkout $RELEASE_BRANCH`.
 
 ### 2. Working tree clean
 
@@ -26,8 +29,8 @@ Must be empty. If not, tell the user to commit or stash first.
 ### 3. Remote is up to date
 
 ```bash
-git fetch origin $current_branch
-git log HEAD..origin/$current_branch --oneline
+git fetch origin $RELEASE_BRANCH
+git log HEAD..origin/$RELEASE_BRANCH --oneline
 ```
 
 If remote has new commits, warn the user and suggest pulling first.
@@ -38,7 +41,7 @@ Ask the user for the `BUILD_NUMBER` value (the native App Shell build number thi
 
 Validate:
 - Non-empty, digits only
-- Typical format: `1026MMDD##` (e.g., `1026031801`)
+- Format: `YYYYMMDD##` (e.g., `2026031801`)
 
 If invalid, explain the expected format and ask again.
 
@@ -61,7 +64,7 @@ After:
 
 VERSION=6.1.0
 
-BUILD_NUMBER=1026031801
+BUILD_NUMBER=2026031801
 
 # Will auto add BUILD_NUMBER and BUNDLE_VERSION variable at CI job. Must give an empty line at end of this file.
 ```
@@ -73,13 +76,13 @@ Show the diff and target branch, then wait for user confirmation:
 ```
 === Prepare Bundle Release ===
 
-Branch: release/v6.1.0
-BUILD_NUMBER: 1026031801
+Branch: $RELEASE_BRANCH
+BUILD_NUMBER: 2026031801
 
 Diff:
   (git diff .env.version output)
 
-Proceed with commit and push to origin/release/v6.1.0? (y/n)
+Proceed with commit and push to origin/$RELEASE_BRANCH? (y/n)
 ```
 
 Do NOT proceed without explicit user confirmation.
@@ -89,7 +92,7 @@ Do NOT proceed without explicit user confirmation.
 ```bash
 git add .env.version
 git commit -m "chore: set BUILD_NUMBER=$BUILD_NUMBER for bundle release"
-git push origin $current_branch
+git push origin $RELEASE_BRANCH
 ```
 
 ## Step 5: Output
@@ -97,8 +100,8 @@ git push origin $current_branch
 ```
 === Bundle Release Prepared ===
 
-Branch: release/v6.1.0
-BUILD_NUMBER: 1026031801
+Branch: $RELEASE_BRANCH
+BUILD_NUMBER: 2026031801
 Commit: abc1234
 
 .env.version updated and pushed.

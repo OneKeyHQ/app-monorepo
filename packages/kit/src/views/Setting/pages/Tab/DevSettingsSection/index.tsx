@@ -49,12 +49,12 @@ import {
   isRawSpanning,
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
-import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
+import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import {
   getCurrentWebViewPackageInfo,
   isGooglePlayServicesAvailable,
