@@ -188,6 +188,16 @@ class ServicePendingInstallTask {
     );
   }
 
+  private async isRunningBuiltinBundle(): Promise<boolean> {
+    try {
+      const builtinVersion = await BundleUpdate.getBuiltinBundleVersion();
+      const currentVersion = String(platformEnv.bundleVersion || '');
+      return !!builtinVersion && currentVersion === builtinVersion;
+    } catch {
+      return false;
+    }
+  }
+
   @backgroundMethod()
   public async nextRequestSeq() {
     this.fallbackRequestSeqCounter += 1;
@@ -570,7 +580,7 @@ class ServicePendingInstallTask {
     // jsBundleRollbackToBuiltin is handled by fetchAppUpdateInfo which
     // creates a pending task with targetBundleVersion="0".  On next cold
     // start, executeBundleSwitchTask detects the missing bundle and falls
-    // back to builtin via resetToBuiltInBundle + switchBundle({empty}).
+    // back to builtin via resetToBuiltInBundle + restart.
 
     if (
       decision.decision !== 'appShellUpdate' &&
@@ -932,6 +942,22 @@ class ServicePendingInstallTask {
         Number.isFinite(targetBundle) &&
         targetBundle < currentBundle
       ) {
+        // If native already rolled back to builtin (e.g. bundle validation
+        // failed at native startup), we are already running the builtin
+        // bundle.  Just clear native metadata and the pending task — no
+        // restart needed.
+        const alreadyBuiltin = await this.isRunningBuiltinBundle();
+        if (alreadyBuiltin) {
+          defaultLogger.app.appUpdate.log(
+            `executeBundleSwitchTask: rollback target ${bundleVersion} not found locally, already on builtin — clearing without restart`,
+          );
+          await clearPendingInstallTask();
+          await BundleUpdate.resetToBuiltInBundle();
+          // Throw to skip the caller's success path which would re-persist
+          // the cleared task as appliedWaitingVerify.
+          throw new OneKeyLocalError('BUILTIN_ALREADY_ACTIVE');
+        }
+
         defaultLogger.app.appUpdate.log(
           `executeBundleSwitchTask: rollback target ${bundleVersion} not found locally, falling back to builtin`,
         );
@@ -942,13 +968,10 @@ class ServicePendingInstallTask {
         // re-persist the task as appliedWaitingVerify) is skipped.
         await clearPendingInstallTask();
         await BundleUpdate.resetToBuiltInBundle();
-        // switchBundle triggers app.exit(0) on desktop / restart on native,
-        // so the throw below is a safety net for unexpected survival.
-        await BundleUpdate.switchBundle({
-          appVersion: '',
-          bundleVersion: '',
-          signature: '',
-        });
+        BundleUpdate.restart();
+        // restart schedules app relaunch after 2.5s on native / app.exit(0)
+        // on desktop, so the throw below is a safety net for unexpected
+        // survival.
         throw new OneKeyLocalError('BUILTIN_FALLBACK_RELAUNCH');
       }
       throw new OneKeyLocalError(RETRY_TRIGGER_BUNDLE_MISSING);
@@ -1385,13 +1408,20 @@ class ServicePendingInstallTask {
       } catch (error) {
         const durationMs = Date.now() - startedAt;
         const message = (error as Error)?.message ?? 'unknown';
-        // Builtin fallback already cleared the task and triggered relaunch.
-        // Do not re-persist or retry — the app is restarting with builtin.
-        if (message === 'BUILTIN_FALLBACK_RELAUNCH') {
+        // Builtin fallback already cleared the task and triggered relaunch,
+        // or native already rolled back so no restart is needed.
+        // Do not re-persist or retry.
+        if (
+          message === 'BUILTIN_FALLBACK_RELAUNCH' ||
+          message === 'BUILTIN_ALREADY_ACTIVE'
+        ) {
           defaultLogger.app.appUpdate.pendingSwitchResult({
             traceId,
             requestSeq,
-            result: 'builtin_fallback',
+            result:
+              message === 'BUILTIN_ALREADY_ACTIVE'
+                ? 'builtin_already_active'
+                : 'builtin_fallback',
             durationMs,
             ...this.buildTaskLogFields(runningTask),
           });
