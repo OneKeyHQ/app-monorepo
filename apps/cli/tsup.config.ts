@@ -2,6 +2,32 @@ import { defineConfig } from 'tsup';
 
 import type { Plugin } from 'esbuild';
 
+// Shim non-English locale JSON files — CLI only outputs English, saves ~10MB
+const shimLocalePlugin: Plugin = {
+  name: 'shim-locale',
+  setup(build) {
+    // Dynamic imports like: import('./json/ru.json')
+    // The filter matches the specifier, not the resolved path
+    build.onResolve({ filter: /\.json$/ }, (args) => {
+      if (!args.path.includes('json/') || args.path.includes('en_US')) {
+        return undefined;
+      }
+      // Only shim locale JSON files from shared/src/locale/json/
+      if (
+        args.resolveDir.includes('locale') ||
+        args.importer.includes('locale')
+      ) {
+        return { path: args.path, namespace: 'locale-shim' };
+      }
+      return undefined;
+    });
+    build.onLoad({ filter: /.*/, namespace: 'locale-shim' }, () => ({
+      contents: 'module.exports = {}',
+      loader: 'js',
+    }));
+  },
+};
+
 const shimReactNativePlugin: Plugin = {
   name: 'shim-react-native',
   setup(build) {
@@ -85,7 +111,7 @@ export default defineConfig({
     ].join('\n'),
   },
   splitting: false,
-  esbuildPlugins: [shimReactNativePlugin],
+  esbuildPlugins: [shimLocalePlugin, shimReactNativePlugin],
   env: {
     NODE_ENV: 'production',
   },

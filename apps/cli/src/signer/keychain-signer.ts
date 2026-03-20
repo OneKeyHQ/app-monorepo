@@ -1,4 +1,4 @@
-import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import CoreChainEvm from '@onekeyhq/core/src/chains/evm';
 import { revealableSeedFromMnemonic } from '@onekeyhq/core/src/secret';
 import type { ICoreApiGetAddressItem } from '@onekeyhq/core/src/types';
 
@@ -13,6 +13,10 @@ const CLI_PASSWORD = 'onekey';
 const WALLET_NAME = 'default';
 const MNEMONIC_KEY = `wallet:${WALLET_NAME}/mnemonic`;
 const ENCRYPTION_KEY = `wallet:${WALLET_NAME}/encryption-key`;
+
+// Direct EVM scope instance — avoids importing CoreChainApiHub which
+// pulls in ALL chain SDKs (btc, sol, cosmos, etc.) and bloats the bundle.
+const evmScope = new CoreChainEvm();
 
 export class KeychainSigner implements ISigner {
   private keychain = new KeychainStorage();
@@ -36,8 +40,7 @@ export class KeychainSigner implements ISigner {
       );
     }
 
-    const scope = coreChainApi[impl as keyof typeof coreChainApi];
-    if (!scope || !('hd' in scope)) {
+    if (impl !== 'evm') {
       throw new AppError(
         ERROR_CODES.PARAM_INVALID_CHAIN.code,
         `Unsupported chain impl: ${impl}`,
@@ -45,7 +48,7 @@ export class KeychainSigner implements ISigner {
       );
     }
 
-    const result = await scope.hd.getAddressesFromHd({
+    const result = await evmScope.hd.getAddressesFromHd({
       networkInfo: {
         networkChainCode: impl,
         chainId: networkId.split('--')[1],
