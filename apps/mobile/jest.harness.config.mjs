@@ -45,5 +45,13 @@ export default {
     // Tests that hang on second load after app restart due to native module
     // initialization blocking in the Metro module graph.
     'packages/kit-bg/src/services/servicePendingInstallTask\\.test',
+    // Tests requiring DOM (document/renderHook) — Hermes has no DOM.
+    // These run in Node.js Jest (jsdom) via `yarn test`.
+    'packages/kit/src/provider/SplashProvider\\.test',
+    'packages/kit/src/views/Perp/hooks/useLiquidationPrice\\.test',
+    'packages/kit/src/hooks/usePromiseResult\\.test',
+    // Tests that mock AssetSourceResolver prototype which requires module
+    // replacement not supported in Metro's shared registry.
+    'packages/shared/src/polyfills/polyfillsPlatform\\.test',
   ],
 };
