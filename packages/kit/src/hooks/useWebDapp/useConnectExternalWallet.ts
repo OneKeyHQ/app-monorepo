@@ -8,13 +8,15 @@ import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfi
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IKeylessPendingLogin } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IConnectExternalWalletPayload } from '@onekeyhq/shared/types/analytics/onboarding';
-import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
+import type {
+  IConnectToWalletOptions,
+  IExternalConnectionInfo,
+} from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
@@ -25,12 +27,7 @@ import useAppNavigation from '../useAppNavigation';
 
 import keylessWebPendingLoginCache from './keylessWebPendingLoginCache';
 
-export type IConnectToWalletOptions = {
-  allowEmptyAuthorizedAddresses?: boolean;
-  suppressDeniedToast?: boolean;
-  skipDisconnectConnector?: boolean;
-  webKeylessPendingLogin?: IKeylessPendingLogin;
-};
+export type { IConnectToWalletOptions } from '@onekeyhq/shared/types/externalWallet.types';
 
 function hasAuthorizedAddresses(
   addresses: Record<string, string> | undefined,

@@ -1,7 +1,7 @@
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import type { IConnectToWalletOptions } from '@onekeyhq/kit/src/hooks/useWebDapp/useConnectExternalWallet';
 import type { IWalletConnectChainInfo } from '@onekeyhq/shared/src/walletConnect/types';
 import type {
+  IConnectToWalletOptions,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
   IExternalConnector,
