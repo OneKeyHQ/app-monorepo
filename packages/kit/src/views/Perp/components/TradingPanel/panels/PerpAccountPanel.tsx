@@ -14,7 +14,9 @@ import {
   YStack,
   useClipboard,
   useInTabDialog,
+  useMedia,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { openHyperLiquidExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import {
   usePerpsActiveAccountAtom,
@@ -23,9 +25,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { showPerpPortfolioDialog } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
@@ -100,6 +105,8 @@ function PerpAccountPanel() {
   const dialogInTab = useInTabDialog();
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const { gtMd } = useMedia();
+  const navigation = useAppNavigation();
 
   const unrealizedPnlInfo = useMemo(() => {
     const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
@@ -281,6 +288,25 @@ function PerpAccountPanel() {
                 dialogInTab,
               )
             }
+          />
+          <IconButton
+            borderRadius="$full"
+            size="medium"
+            h={36}
+            w={36}
+            variant="secondary"
+            icon="ChartLineOutline"
+            iconSize="$4.5"
+            title="Portfolio & PnL"
+            onPress={() => {
+              if (gtMd) {
+                showPerpPortfolioDialog(dialogInTab);
+              } else {
+                navigation.pushModal(EModalRoutes.PerpModal, {
+                  screen: EModalPerpRoutes.MobilePortfolioPage,
+                });
+              }
+            }}
           />
         </XStack>
       ) : null}
