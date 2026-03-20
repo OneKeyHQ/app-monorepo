@@ -5,7 +5,7 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import { isValidElement, useCallback, useMemo, useState } from 'react';
+import { isValidElement, useCallback, useState } from 'react';
 
 import { Pressable } from 'react-native';
 
@@ -349,17 +349,13 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     // Tamagui attaches onStartShouldSetResponder to the inner Stack (because
     // pressStyle triggers attachPress), which steals the responder from the
     // outer Pressable and prevents onPress from firing.
-    const { contentRest, nativePressStyle } = useMemo(() => {
-      if (useNativePressable) {
-        const {
-          pressStyle: _pressStyle,
-          hoverStyle: _hoverStyle,
-          ...filtered
-        } = rest as any;
-        return { contentRest: filtered, nativePressStyle: _pressStyle };
-      }
-      return { contentRest: rest, nativePressStyle: undefined };
-    }, [useNativePressable, rest]);
+    let contentRest: typeof rest = rest;
+    let nativePressStyle: IStackProps['pressStyle'];
+    if (useNativePressable) {
+      const { pressStyle, hoverStyle, ...filtered } = rest;
+      contentRest = filtered;
+      nativePressStyle = pressStyle;
+    }
 
     const content = (
       <Stack
