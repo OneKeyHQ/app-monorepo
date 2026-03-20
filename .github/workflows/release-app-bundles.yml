@@ -20,27 +20,28 @@ jobs:
       - name: Validate PR is merged and from same repo
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
-          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ inputs.pr_number }} \
+          PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
             --jq '{merged: .merged, head_repo: .head.repo.full_name, base_repo: .base.repo.full_name}')
 
           MERGED=$(echo "$PR_DATA" | jq -r '.merged')
           HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head_repo')
           BASE_REPO=$(echo "$PR_DATA" | jq -r '.base_repo')
 
-          echo "PR #${{ inputs.pr_number }}: merged=$MERGED, head=$HEAD_REPO, base=$BASE_REPO"
+          echo "PR #$PR_NUMBER: merged=$MERGED, head=$HEAD_REPO, base=$BASE_REPO"
 
           if [ "$MERGED" != "true" ]; then
-            echo "::error::PR #${{ inputs.pr_number }} is not merged. Only merged PRs are allowed."
+            echo "::error::PR #$PR_NUMBER is not merged. Only merged PRs are allowed."
             exit 1
           fi
 
           if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
-            echo "::error::PR #${{ inputs.pr_number }} is from a fork ($HEAD_REPO). Fork PRs are not allowed."
+            echo "::error::PR #$PR_NUMBER is from a fork ($HEAD_REPO). Fork PRs are not allowed."
             exit 1
           fi
 
-          echo "PR #${{ inputs.pr_number }} validated: merged from same repo."
+          echo "PR #$PR_NUMBER validated: merged from same repo."
 
   prepare-params:
     needs: [validate-pr]
@@ -65,6 +66,8 @@ jobs:
 
       - name: Generate build parameters
         id: params
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           # Read BUILD_NUMBER from .env.version
           BUILD_NUMBER=""
@@ -93,8 +96,8 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
           echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
-          if [ -n "${{ inputs.pr_number }}" ]; then
-            BRANCH="pull/${{ inputs.pr_number }}"
+          if [ -n "$PR_NUMBER" ]; then
+            BRANCH="pull/$PR_NUMBER"
             COMMIT=$(git rev-parse HEAD)
           else
             BRANCH="${{ github.ref_name }}"
