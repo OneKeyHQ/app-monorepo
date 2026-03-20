@@ -43,17 +43,7 @@ interface IPerpPortfolioContentProps {
   isMobile?: boolean;
 }
 
-const TIME_PERIOD_OPTIONS = [
-  { label: '1D', value: 'day' as IPortfolioTimePeriod },
-  { label: '1W', value: 'week' as IPortfolioTimePeriod },
-  { label: '1M', value: 'month' as IPortfolioTimePeriod },
-  { label: 'All', value: 'allTime' as IPortfolioTimePeriod },
-];
-
-const CHART_TYPE_OPTIONS = [
-  { label: 'Value', value: 'accountValue' as IPortfolioChartType },
-  { label: 'P&L', value: 'pnl' as IPortfolioChartType },
-];
+// Time period and chart type options are built inside the component using intl
 
 function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return '--';
@@ -192,6 +182,54 @@ function PerpPortfolioContentComponent({
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+
+  const timePeriodOptions = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_portfolio_period_1d,
+        }),
+        value: 'day' as IPortfolioTimePeriod,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_portfolio_period_1w,
+        }),
+        value: 'week' as IPortfolioTimePeriod,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_portfolio_period_1m,
+        }),
+        value: 'month' as IPortfolioTimePeriod,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_portfolio_period_all,
+        }),
+        value: 'allTime' as IPortfolioTimePeriod,
+      },
+    ],
+    [intl],
+  );
+
+  const chartTypeOptions = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_portfolio_chart_type_value,
+        }),
+        value: 'accountValue' as IPortfolioChartType,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_portfolio_chart_type_pnl,
+        }),
+        value: 'pnl' as IPortfolioChartType,
+      },
+    ],
+    [intl],
+  );
   const [mmrData] = usePerpsActiveAccountMmrAtom();
   const [positionsLength] = usePerpsActivePositionLengthAtom();
 
@@ -358,12 +396,12 @@ function PerpPortfolioContentComponent({
         <SegmentControl
           value={chartType}
           onChange={handleChartTypeChange}
-          options={CHART_TYPE_OPTIONS}
+          options={chartTypeOptions}
         />
         <SegmentControl
           value={timePeriod}
           onChange={handleTimePeriodChange}
-          options={TIME_PERIOD_OPTIONS}
+          options={timePeriodOptions}
         />
       </XStack>
 
@@ -402,7 +440,13 @@ function PerpPortfolioContentComponent({
                 </SizableText>
                 <XStack justifyContent="space-between" alignItems="center">
                   <SizableText size="$bodyXs" color="$textSubdued">
-                    {chartType === 'accountValue' ? 'Value' : 'P&L'}
+                    {chartType === 'accountValue'
+                      ? intl.formatMessage({
+                          id: ETranslations.perp_portfolio_chart_type_value,
+                        })
+                      : intl.formatMessage({
+                          id: ETranslations.perp_portfolio_chart_type_pnl,
+                        })}
                   </SizableText>
                   <SizableText size="$bodySmMedium" color="$text">
                     {formatPerpsUsd(hoverData.price)}
@@ -435,7 +479,9 @@ function PerpPortfolioContentComponent({
         <XStack justifyContent="space-between" alignItems="center">
           <YStack gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Unrealized P&L
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_unrealized_pnl,
+              })}
             </SizableText>
             <SizableText size="$headingSm" color={unrealizedColor as any}>
               {unrealizedPnl}
@@ -443,7 +489,9 @@ function PerpPortfolioContentComponent({
           </YStack>
           <YStack gap="$0.5" alignItems="center">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Total P&L
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_total_pnl,
+              })}
             </SizableText>
             <SizableText size="$headingSm" color={realizedColor as any}>
               {realizedPnl}
@@ -451,7 +499,9 @@ function PerpPortfolioContentComponent({
           </YStack>
           <YStack gap="$0.5" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Open Positions
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_open_positions,
+              })}
             </SizableText>
             <SizableText size="$headingSm" color="$text">
               {positionsLength ?? 0}
@@ -470,13 +520,17 @@ function PerpPortfolioContentComponent({
     <SectionBlock gap="$3">
       <XStack justifyContent="space-between" alignItems="flex-start">
         <YStack gap="$0.5">
-          <SectionLabel>Portfolio Value</SectionLabel>
+          <SectionLabel>
+            {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
+          </SectionLabel>
           <SizableText size="$heading2xl" color="$text">
             {accountValue}
           </SizableText>
         </YStack>
         <YStack gap="$0.5" alignItems="flex-end">
-          <SectionLabel>Available</SectionLabel>
+          <SectionLabel>
+            {intl.formatMessage({ id: ETranslations.perp_portfolio_available })}
+          </SectionLabel>
           <SizableText size="$headingMd" color="$text">
             {withdrawable}
           </SizableText>
@@ -520,17 +574,23 @@ function PerpPortfolioContentComponent({
     <YStack gap="$3">
       {/* Account Health */}
       <SectionBlock>
-        <SectionLabel>Account Health</SectionLabel>
+        <SectionLabel>
+          {intl.formatMessage({
+            id: ETranslations.perp_portfolio_account_health,
+          })}
+        </SectionLabel>
         <XStack justifyContent="space-around" alignItems="flex-end">
           <SemiCircleGauge
             percentage={leverageGaugePct}
-            label="Leverage"
+            label={intl.formatMessage({ id: ETranslations.perp_leverage })}
             value={leverageText}
             color={gaugeColor(leverageGaugePct)}
           />
           <SemiCircleGauge
             percentage={marginUsedGaugePct}
-            label="Margin Used"
+            label={intl.formatMessage({
+              id: ETranslations.perp_portfolio_margin_used,
+            })}
             labelNode={
               <DashText
                 size="$bodyXs"
@@ -539,9 +599,13 @@ function PerpPortfolioContentComponent({
                 dashThickness={0.5}
                 textTransform="uppercase"
                 letterSpacing={0.8}
-                tooltip="Total margin allocated to open positions."
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_portfolio_margin_used_tooltip,
+                })}
               >
-                Margin Used
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_margin_used,
+                })}
               </DashText>
             }
             value={marginUsedText}
@@ -558,7 +622,9 @@ function PerpPortfolioContentComponent({
                 dashThickness={0.5}
                 textTransform="uppercase"
                 letterSpacing={0.8}
-                tooltip="Maintenance Margin Ratio — the minimum margin required to keep positions open. Liquidation occurs when this exceeds 100%."
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_portfolio_mmr_tooltip,
+                })}
               >
                 MMR
               </DashText>
@@ -571,12 +637,14 @@ function PerpPortfolioContentComponent({
 
       {/* Activity — moved above Performance per request */}
       <SectionBlock gap="$3.5">
-        <SectionLabel>Activity</SectionLabel>
+        <SectionLabel>
+          {intl.formatMessage({ id: ETranslations.perp_portfolio_activity })}
+        </SectionLabel>
         {/* Volume row — hero number */}
         <XStack justifyContent="space-between" alignItems="flex-end">
           <YStack gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Volume
+              {intl.formatMessage({ id: ETranslations.perp_portfolio_volume })}
             </SizableText>
             <SizableText size="$headingMd" color="$text">
               {vlm}
@@ -585,7 +653,9 @@ function PerpPortfolioContentComponent({
           {fillsStats.mostTraded ? (
             <YStack gap="$0.5" alignItems="flex-end">
               <SizableText size="$bodyXs" color="$textDisabled">
-                Most Traded
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_most_traded,
+                })}
               </SizableText>
               <XStack gap="$1.5" alignItems="center">
                 <Token
@@ -606,7 +676,9 @@ function PerpPortfolioContentComponent({
         <XStack justifyContent="space-between" alignItems="center">
           <YStack gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Fees Paid
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_fees_paid,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$text">
               {formatPerpsCompactUsd(fillsStats.feesPaid ?? 0)}
@@ -618,9 +690,13 @@ function PerpPortfolioContentComponent({
               color="$textDisabled"
               dashColor="$textDisabled"
               dashThickness={0.5}
-              tooltip="Total deposits minus total withdrawals during this period."
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_portfolio_net_deposits_tooltip,
+              })}
             >
-              Net Deposits
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_net_deposits,
+              })}
             </DashText>
             <SizableText size="$bodyMdMedium" color="$text">
               {formatPerpsCompactUsd(netDeposits ?? 0)}
@@ -628,7 +704,9 @@ function PerpPortfolioContentComponent({
           </YStack>
           <YStack gap="$0.5" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Total Trades
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_total_trades,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$text">
               {fillsStats.totalTrades}
@@ -639,13 +717,17 @@ function PerpPortfolioContentComponent({
 
       {/* Performance — with win rate progress bar */}
       <SectionBlock gap="$3.5">
-        <SectionLabel>Performance</SectionLabel>
+        <SectionLabel>
+          {intl.formatMessage({ id: ETranslations.perp_portfolio_performance })}
+        </SectionLabel>
         {/* Win Rate with progress bar */}
         <YStack gap="$2">
           <XStack justifyContent="space-between" alignItems="flex-end">
             <YStack gap="$0.5">
               <SizableText size="$bodyXs" color="$textDisabled">
-                Win Rate
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_win_rate,
+                })}
               </SizableText>
               <SizableText size="$headingLg" color={winRateClr as any}>
                 {winRateVal}
@@ -657,9 +739,13 @@ function PerpPortfolioContentComponent({
                 color="$textDisabled"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
-                tooltip="Ratio of total gains to total losses. A value above 1.0 means gains exceed losses overall."
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_portfolio_profit_factor_tooltip,
+                })}
               >
-                Profit Factor
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_profit_factor,
+                })}
               </DashText>
               <SizableText size="$headingSm" color="$text">
                 {fillsStats.profitFactor !== null
@@ -688,7 +774,7 @@ function PerpPortfolioContentComponent({
         <XStack gap="$2">
           <YStack flex={1} bg="$bgHover" borderRadius="$2" p="$2.5" gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Avg Win
+              {intl.formatMessage({ id: ETranslations.perp_portfolio_avg_win })}
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$green11">
               {formatPerpsUsd(fillsStats.avgWin, true)}
@@ -696,7 +782,9 @@ function PerpPortfolioContentComponent({
           </YStack>
           <YStack flex={1} bg="$bgHover" borderRadius="$2" p="$2.5" gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
-              Avg Loss
+              {intl.formatMessage({
+                id: ETranslations.perp_portfolio_avg_loss,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium" color="$red11">
               {formatPerpsUsd(fillsStats.avgLoss, true)}
