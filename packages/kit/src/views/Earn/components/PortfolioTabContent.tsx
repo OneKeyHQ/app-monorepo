@@ -155,19 +155,27 @@ const WrappedActionButtonCmp = ({
       provider: asset.metadata.protocol.providerDetail.code,
     });
   }, [onRefresh, asset.metadata.protocol.providerDetail.code]);
+  const providerName = asset?.metadata?.protocol?.providerDetail?.code;
+  const isMorphoProvider = earnUtils.isMorphoProvider({
+    providerName,
+  });
+  const isPendleProvider = earnUtils.isPendleProvider({
+    providerName,
+  });
 
-  // For staking config lookup, use:
-  // - stakedSymbol for airdrops (the token that was staked to earn rewards)
-  // - asset.token.info.symbol for normal claims (the staked token itself)
+  // Default airdrop claims reuse the source position's symbol/vault, but some
+  // providers expose rewards as their own backend asset (for example Pendle's
+  // Ethena unstake claim), so we normalize those separately below.
   let symbolForConfig = stakedSymbol || asset.token.info.symbol;
   let vaultForConfig = stakedVault || asset.metadata.protocol.vault;
-  if (
-    earnUtils.isMorphoProvider({
-      providerName: asset.metadata.protocol.providerDetail.code,
-    })
-  ) {
+  if (isMorphoProvider) {
     symbolForConfig = 'USDC';
     vaultForConfig = MorphoUSDCVaultAddress;
+  } else if (isPendleProvider) {
+    // Pendle Ethena-unstake rewards have their own protocol identity on the
+    // backend, so don't reuse the original staked position's symbol/vault.
+    symbolForConfig = asset.token.info.symbol;
+    vaultForConfig = asset.metadata.protocol.vault;
   }
 
   const stakeTag = buildLocalTxStatusSyncId({
@@ -212,8 +220,9 @@ const WrappedActionButtonCmp = ({
   });
 
   const onPress = useCallback(() => {
-    // For airdrop assets, also pass the reward token address from asset.token.info.address
+    // Only Morpho reward claims need the backend reward token selector.
     const rewardTokenAddress =
+      isMorphoProvider &&
       'token' in asset &&
       'address' in asset.token.info &&
       asset.token.info.address
@@ -232,6 +241,7 @@ const WrappedActionButtonCmp = ({
     handleAction,
     reward.button,
     asset,
+    isMorphoProvider,
     indexedAccount?.id,
     stakedSymbol,
     rewardSymbol,
