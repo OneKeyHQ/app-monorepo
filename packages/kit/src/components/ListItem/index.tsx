@@ -343,6 +343,28 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     const [nativePressed, setNativePressed] = useState(false);
     const handlePressIn = useCallback(() => setNativePressed(true), []);
     const handlePressOut = useCallback(() => setNativePressed(false), []);
+    const nativeWrapperLayoutProps = {
+      ...(props.flex !== undefined ? { flex: props.flex } : undefined),
+      ...(props.flexGrow !== undefined
+        ? { flexGrow: props.flexGrow }
+        : undefined),
+      ...(props.flexShrink !== undefined
+        ? { flexShrink: props.flexShrink }
+        : undefined),
+      ...(props.flexBasis !== undefined
+        ? { flexBasis: props.flexBasis }
+        : undefined),
+      ...(props.width !== undefined ? { width: props.width } : undefined),
+      ...(props.minWidth !== undefined
+        ? { minWidth: props.minWidth }
+        : undefined),
+      ...(props.maxWidth !== undefined
+        ? { maxWidth: props.maxWidth }
+        : undefined),
+      ...(props.alignSelf !== undefined
+        ? { alignSelf: props.alignSelf }
+        : undefined),
+    };
 
     const content = (
       <Stack
@@ -418,14 +440,17 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       // unstable_pressDelay delays onPressIn so the bg highlight doesn't
       // briefly flash when the user starts a scroll gesture on a list item.
       return (
-        <Pressable
-          onPress={handleItemPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          unstable_pressDelay={50}
-        >
-          {content}
-        </Pressable>
+        <Stack {...nativeWrapperLayoutProps}>
+          <Pressable
+            onPress={handleItemPress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            unstable_pressDelay={50}
+            style={{ flex: 1 }}
+          >
+            {content}
+          </Pressable>
+        </Stack>
       );
     }
 

@@ -77,7 +77,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Modify build.gradle
-        uses: OneKeyHQ/actions/build-gradle-edit@main
+        uses: OneKeyHQ/actions/build-gradle-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           versionCode: ${{ env.BUILD_NUMBER }}
           versionName: ${{ env.BUILD_APP_VERSION }}
