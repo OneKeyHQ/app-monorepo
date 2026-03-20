@@ -87,7 +87,7 @@ jobs:
             ./apps/web/web-build/
 
       - name: Deploy Github Pages
-        uses: OneKeyHQ/actions/gh-pages@main
+        uses: OneKeyHQ/actions/gh-pages@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./apps/web/web-build
@@ -190,7 +190,7 @@ jobs:
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/actions/slack-notify-webhook@main
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
