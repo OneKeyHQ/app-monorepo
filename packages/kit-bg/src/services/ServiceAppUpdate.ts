@@ -1160,7 +1160,7 @@ class ServiceAppUpdate extends ServiceBase {
       //   1. isBundleExists("X.Y.Z", "0") → false
       //   2. targetBundle(0) < currentBundle → true (rollback)
       //   3. Fall into the existing builtin fallback path:
-      //      clearPendingInstallTask → resetToBuiltInBundle → switchBundle({empty})
+      //      clearPendingInstallTask → resetToBuiltInBundle → restart
       if (decision.decision === 'jsBundleRollbackToBuiltin') {
         await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleRollbackToBuiltin',
