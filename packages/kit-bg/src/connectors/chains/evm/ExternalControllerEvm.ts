@@ -17,6 +17,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  IConnectToWalletOptions,
   IExternalConnectResultEvm,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
