@@ -1,8 +1,11 @@
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+
 import { parse as parseYaml } from 'yaml';
+
 import { AppError } from '../errors';
+
 import { type IAppConfig, configSchema } from './config-schema';
 import { DEFAULT_CONFIG } from './defaults';
 

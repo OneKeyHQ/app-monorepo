@@ -1,10 +1,13 @@
-import axios from 'axios';
-import type { AxiosInstance } from 'axios';
 import { randomUUID } from 'node:crypto';
-import { AppError, ERROR_CODES } from '../errors';
-import type { IEndpointEnv } from '../config';
+
+import axios from 'axios';
+
 import { getHost } from '../config';
+import { AppError, ERROR_CODES } from '../errors';
+
+import type { IEndpointEnv } from '../config';
 import type { Logger } from '../utils/logger';
+import type { AxiosInstance } from 'axios';
 
 const VERSION = '0.1.0';
 

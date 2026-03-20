@@ -1,5 +1,5 @@
-import type { Command } from 'commander';
 import type { OutputFormatter } from '../output';
+import type { Command } from 'commander';
 
 export function registerVersionCommand(program: Command): void {
   program

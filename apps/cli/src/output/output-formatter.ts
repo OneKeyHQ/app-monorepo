@@ -1,12 +1,13 @@
-import type { IErrorDetail } from '../errors';
-import type { IOutputMetadata, IOutputMode } from '../types';
-import { formatError, formatSuccess } from './json-formatter';
 import {
   formatHumanError,
   formatHumanInfo,
   formatHumanSuccess,
   formatHumanWarning,
 } from './human-formatter';
+import { formatError, formatSuccess } from './json-formatter';
+
+import type { IErrorDetail } from '../errors';
+import type { IOutputMetadata, IOutputMode } from '../types';
 
 export class OutputFormatter {
   // eslint-disable-next-line no-useless-constructor, no-empty-function

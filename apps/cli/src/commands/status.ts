@@ -1,8 +1,9 @@
-import type { Command } from 'commander';
 import { AppError } from '../errors';
-import type { IEndpointEnv } from '../config';
 import { apiClient } from '../infra';
+
+import type { IEndpointEnv } from '../config';
 import type { OutputFormatter } from '../output';
+import type { Command } from 'commander';
 
 export function registerStatusCommand(program: Command): void {
   program

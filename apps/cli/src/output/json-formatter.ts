@@ -1,9 +1,9 @@
+import type { IErrorDetail } from '../errors';
 import type {
   IErrorResponse,
   IOutputMetadata,
   ISuccessResponse,
 } from '../types';
-import type { IErrorDetail } from '../errors';
 
 export function formatSuccess<T>(
   data: T,

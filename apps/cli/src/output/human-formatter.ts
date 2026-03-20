@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+
 import type { IErrorDetail } from '../errors';
 
 export function formatHumanSuccess<T>(data: T): string {
