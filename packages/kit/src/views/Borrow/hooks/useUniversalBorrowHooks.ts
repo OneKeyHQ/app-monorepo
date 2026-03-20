@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -129,6 +130,7 @@ type IBorrowBuildTxParams = {
   slippageBps?: number;
   routeKey?: string;
   stakingInfo?: IStakingInfo;
+  onSetupLutFinalized?: () => void | Promise<void>;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
 };
@@ -419,6 +421,7 @@ export function useUniversalBorrowRepayWithCollateral({
       slippageBps,
       routeKey,
       stakingInfo,
+      onSetupLutFinalized,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams) => {
@@ -500,6 +503,16 @@ export function useUniversalBorrowRepayWithCollateral({
 
           // Wait for all RPC nodes to propagate the finalized LUT state
           await timerUtils.wait(LUT_PROPAGATION_BUFFER_MS);
+
+          try {
+            await onSetupLutFinalized?.();
+          } catch (error) {
+            defaultLogger.app.error.log(
+              `[useUniversalBorrowRepayWithCollateral] setup LUT revalidation failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
         }
 
         const resp =

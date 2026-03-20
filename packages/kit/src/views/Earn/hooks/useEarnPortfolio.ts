@@ -190,10 +190,14 @@ export const useEarnPortfolio = ({
   const runContextRef = useRef({
     scopeKey: '',
     runId: 0,
+    freshnessKey: 0,
   });
   const isSyncingAtomRef = useRef(false);
   const inFlightPromiseRef = useRef<Promise<void> | null>(null);
-  const pendingRunRef = useRef<{ options?: IRefreshOptions } | null>(null);
+  const inFlightRequestRef = useRef<{
+    freshnessKey: number;
+    options?: IRefreshOptions;
+  } | null>(null);
   const queuedPatchRef = useRef<{
     runId: number;
     patches: IPortfolioPatch[];
@@ -203,6 +207,7 @@ export const useEarnPortfolio = ({
   });
   const invalidateRuns = useCallback(() => {
     runContextRef.current.runId += 1;
+    runContextRef.current.freshnessKey += 1;
   }, []);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -250,6 +255,15 @@ export const useEarnPortfolio = ({
     });
     return removeSubscription;
   }, []);
+
+  const areRefreshOptionsEqual = useCallback(
+    (left?: IRefreshOptions, right?: IRefreshOptions) =>
+      left?.provider === right?.provider &&
+      left?.networkId === right?.networkId &&
+      left?.symbol === right?.symbol &&
+      left?.rewardSymbol === right?.rewardSymbol,
+    [],
+  );
 
   const scopeKey = `${accountIdValue}_${indexedAccountIdValue}_${
     earnAccountKey || ''
@@ -468,65 +482,37 @@ export const useEarnPortfolio = ({
   );
   executeStreamRef.current = executeStream;
 
-  const mergePendingRun = useCallback(
-    (
-      current: { options?: IRefreshOptions } | null,
-      incoming: { options?: IRefreshOptions },
-    ) => {
-      if (!current) {
-        return incoming;
-      }
-
-      if (!current.options || !incoming.options) {
-        return {
-          options: undefined,
-        };
-      }
-
-      const sameOptions =
-        current.options.provider === incoming.options.provider &&
-        current.options.networkId === incoming.options.networkId &&
-        current.options.symbol === incoming.options.symbol &&
-        current.options.rewardSymbol === incoming.options.rewardSymbol;
-
-      if (sameOptions) {
-        return current;
-      }
-
-      return {
-        options: undefined,
-      };
-    },
-    [],
-  );
-
   const scheduleRun = useCallback(
-    async (options?: IRefreshOptions) => {
-      const request = {
-        options,
-      };
-
-      if (inFlightPromiseRef.current) {
-        pendingRunRef.current = mergePendingRun(pendingRunRef.current, request);
+    async (
+      options?: IRefreshOptions,
+      { force = false }: { force?: boolean } = {},
+    ) => {
+      const currentRequest = inFlightRequestRef.current;
+      if (
+        inFlightPromiseRef.current &&
+        currentRequest &&
+        !force &&
+        currentRequest.freshnessKey === runContextRef.current.freshnessKey &&
+        areRefreshOptionsEqual(currentRequest.options, options)
+      ) {
         return inFlightPromiseRef.current;
       }
 
-      const promise = (async () => {
-        let nextRequest: { options?: IRefreshOptions } | null = request;
-
-        while (nextRequest) {
-          pendingRunRef.current = null;
-          await executeStreamRef.current(nextRequest.options);
-          nextRequest = pendingRunRef.current;
+      const promise = executeStreamRef.current(options).finally(() => {
+        if (inFlightPromiseRef.current === promise) {
+          inFlightPromiseRef.current = null;
+          inFlightRequestRef.current = null;
         }
-      })().finally(() => {
-        inFlightPromiseRef.current = null;
       });
 
       inFlightPromiseRef.current = promise;
+      inFlightRequestRef.current = {
+        options,
+        freshnessKey: runContextRef.current.freshnessKey,
+      };
       return promise;
     },
-    [mergePendingRun],
+    [areRefreshOptionsEqual],
   );
 
   useEffect(() => {
@@ -709,7 +695,7 @@ export const useEarnPortfolio = ({
     return () => {
       isMountedRef.current = false;
       invalidateRuns();
-      pendingRunRef.current = null;
+      inFlightRequestRef.current = null;
       throttledFlushQueuedPatches.cancel();
       debouncedSyncPortfolioCache.cancel();
       debouncedSyncEarnOverview.cancel();
@@ -723,7 +709,7 @@ export const useEarnPortfolio = ({
 
   const refresh = useCallback(
     async (options?: IRefreshOptions) => {
-      await scheduleRun(options);
+      await scheduleRun(options, { force: true });
     },
     [scheduleRun],
   );

@@ -56,7 +56,7 @@ interface INormalManageContentProps {
   onHistory?: (params?: { filterType?: string }) => void;
   indicatorAccountId?: string;
   stakeTag?: IStakeTag;
-  onIndicatorRefresh?: () => void;
+  onIndicatorRefresh?: () => void | Promise<void>;
   onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onSuccess?: () => void;
   defaultTab?: 'deposit' | 'withdraw';
@@ -734,6 +734,7 @@ export function NormalManageContent({
           tokenInfo={withdrawTokenInfo}
           protocolInfo={protocolInfo}
           isDisabled={withdrawDisabled}
+          onIndicatorRefresh={onIndicatorRefresh}
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
           showApyDetail={showApyDetail}

@@ -3,7 +3,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 export type ISolTxFinalizationResult = 'finalized' | 'failed' | 'timeout';
 
 type ISolTxSignatureStatus = {
-  confirmationStatus?: string;
+  confirmationStatus?: string | null;
   err?: unknown;
 };
 
