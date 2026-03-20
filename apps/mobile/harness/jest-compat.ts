@@ -73,10 +73,47 @@ const wrapTest = (original: TestFn): TestFn => {
   };
 };
 
+// test.each(table)(name, fn, timeout) — registers one test per entry.
+// Supports 1D arrays (each entry is a single arg) and 2D arrays (each row is spread).
+const makeEach =
+  (testFn: TestFn) =>
+  (table: ReadonlyArray<unknown>) =>
+  (
+    name: string,
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    fn: (...args: any[]) => void | Promise<void>,
+    timeout?: number,
+  ) => {
+    for (let i = 0; i < table.length; i += 1) {
+      const entry = table[i];
+      const args = Array.isArray(entry) ? entry : [entry];
+      let testName = name;
+      let argIdx = 0;
+      testName = testName.replace(/%[sdifjo#p]/g, (match) => {
+        if (match === '%#') return String(i);
+        if (argIdx < args.length) {
+          const val = args[argIdx];
+          argIdx += 1;
+          if (match === '%j') {
+            try {
+              return JSON.stringify(val);
+            } catch {
+              return String(val);
+            }
+          }
+          return String(val);
+        }
+        return match;
+      });
+      testFn(testName, () => fn(...args), timeout);
+    }
+  };
+
 const wrappedTest = Object.assign(wrapTest(test), {
   skip: test.skip,
   only: wrapTest(test.only),
   todo: test.todo,
+  each: makeEach(wrapTest(test)),
 }) as typeof test;
 
 // Inject test primitives as globals (matching Jest's behavior)
@@ -106,11 +143,65 @@ type ModSnapshot = {
 
 const mockSnapshots = new Map<Record<string, unknown>, ModSnapshot>();
 
+// ---- Safe property mutation helpers ----
+// Metro's `export *` re-exports create getter-only (non-writable, non-configurable)
+// property descriptors. Direct assignment / delete throws on these. We use
+// Object.getOwnPropertyDescriptor to check before mutating.
+
+const safeDelete = (obj: Record<string, unknown>, key: string): boolean => {
+  const desc = Object.getOwnPropertyDescriptor(obj, key);
+  if (!desc) return true;
+  if (desc.configurable) {
+    delete obj[key];
+    return true;
+  }
+  if (desc.writable) {
+    obj[key] = undefined;
+    return true;
+  }
+  return false;
+};
+
+const safeSet = (
+  obj: Record<string, unknown>,
+  key: string,
+  value: unknown,
+): boolean => {
+  const desc = Object.getOwnPropertyDescriptor(obj, key);
+  if (!desc) {
+    Object.defineProperty(obj, key, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    return true;
+  }
+  if (desc.configurable) {
+    Object.defineProperty(obj, key, {
+      value,
+      writable: true,
+      enumerable: desc.enumerable,
+      configurable: true,
+    });
+    return true;
+  }
+  if (desc.writable) {
+    obj[key] = value;
+    return true;
+  }
+  return false;
+};
+
 const saveSnapshot = (mod: Record<string, unknown>) => {
   if (mockSnapshots.has(mod)) return;
   const snapshot: ModSnapshot = { top: {} };
   for (const key of Object.keys(mod)) {
-    snapshot.top[key] = mod[key];
+    try {
+      snapshot.top[key] = mod[key];
+    } catch {
+      // Getter threw — skip this key in snapshot
+    }
   }
   if (
     (mod as any).__esModule &&
@@ -120,7 +211,11 @@ const saveSnapshot = (mod: Record<string, unknown>) => {
     const defaultObj = mod.default as Record<string, unknown>;
     snapshot.defaultObj = {};
     for (const key of Object.keys(defaultObj)) {
-      snapshot.defaultObj[key] = defaultObj[key];
+      try {
+        snapshot.defaultObj[key] = defaultObj[key];
+      } catch {
+        // Getter threw — skip
+      }
     }
   }
   mockSnapshots.set(mod, snapshot);
@@ -138,21 +233,23 @@ const restoreAllMocks = () => {
       const defaultObj = mod.default as Record<string, unknown>;
       for (const key of Object.keys(defaultObj)) {
         if (!(key in snapshot.defaultObj)) {
-          delete defaultObj[key];
+          safeDelete(defaultObj, key);
         }
       }
-      Object.assign(defaultObj, snapshot.defaultObj);
+      for (const key of Object.keys(snapshot.defaultObj)) {
+        safeSet(defaultObj, key, snapshot.defaultObj[key]);
+      }
     }
 
     // Restore top-level exports
     for (const key of Object.keys(mod)) {
       if (key !== '__esModule' && !(key in snapshot.top)) {
-        delete mod[key];
+        safeDelete(mod, key);
       }
     }
     for (const key of Object.keys(snapshot.top)) {
       if (key !== '__esModule') {
-        mod[key] = snapshot.top[key];
+        safeSet(mod, key, snapshot.top[key]);
       }
     }
   }
@@ -198,9 +295,11 @@ const restoreAllMocks = () => {
         if (!(mockExports as any).__esModule && !mockExports.default) {
           const keys = Object.keys(defaultObj);
           for (const key of keys) {
-            delete defaultObj[key];
+            safeDelete(defaultObj, key);
           }
-          Object.assign(defaultObj, mockExports);
+          for (const key of Object.keys(mockExports)) {
+            safeSet(defaultObj, key, mockExports[key]);
+          }
           return;
         }
         // Handle spread pattern: { ...require('esModule'), extraProp: true }
@@ -215,7 +314,7 @@ const restoreAllMocks = () => {
             (k) => k !== '__esModule' && k !== 'default',
           );
           for (const key of extraKeys) {
-            defaultObj[key] = mockExports[key];
+            safeSet(defaultObj, key, mockExports[key]);
           }
           return;
         }
@@ -224,9 +323,13 @@ const restoreAllMocks = () => {
       // Mutate the module exports directly
       const keys = Object.keys(mod).filter((k) => k !== '__esModule');
       for (const key of keys) {
-        delete mod[key];
+        safeDelete(mod, key);
       }
-      Object.assign(mod, mockExports);
+      for (const key of Object.keys(mockExports)) {
+        if (key !== '__esModule') {
+          safeSet(mod, key, mockExports[key]);
+        }
+      }
     }
   } catch (e) {
     console.warn('[harness-compat] __harness_mock_module__ failed:', e);
