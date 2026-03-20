@@ -1,5 +1,6 @@
 import type { Command } from 'commander';
 import { AppError } from '../errors';
+import type { IEndpointEnv } from '../config';
 import { apiClient } from '../infra';
 import type { OutputFormatter } from '../output';
 
@@ -8,11 +9,12 @@ export function registerStatusCommand(program: Command): void {
     .command('status')
     .description('Check system status and API connectivity')
     .action(async (_options, command) => {
-      const output = command.optsWithGlobals()
-        ._outputFormatter as OutputFormatter;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const globalOpts = command.optsWithGlobals() as Record<string, unknown>;
+      const output = globalOpts._outputFormatter as OutputFormatter;
 
       try {
-        const env = command.optsWithGlobals().env ?? 'test';
+        const env = ((globalOpts.env as string) ?? 'test') as IEndpointEnv;
         apiClient.setEnv(env);
 
         const start = Date.now();
@@ -27,9 +29,14 @@ export function registerStatusCommand(program: Command): void {
         const appError =
           error instanceof AppError ? error : AppError.from(error);
         if (appError.exitCode <= 1) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const statusOpts = command.optsWithGlobals() as Record<
+            string,
+            unknown
+          >;
           output.success({
             status: 'connected',
-            env: command.optsWithGlobals().env ?? 'test',
+            env: (statusOpts.env as string) ?? 'test',
             note: 'API reachable (business error expected for zero address)',
           });
           return;

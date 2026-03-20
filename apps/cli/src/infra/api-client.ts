@@ -8,7 +8,7 @@ import type { Logger } from '../utils/logger';
 
 const VERSION = '0.1.0';
 
-export interface OneKeyApiResponse<T> {
+export interface IOneKeyApiResponse<T> {
   code: number;
   message: string;
   data: T;
@@ -16,6 +16,7 @@ export interface OneKeyApiResponse<T> {
 
 export class ApiClient {
   private env: IEndpointEnv;
+
   private logger?: Logger;
 
   constructor(env: IEndpointEnv = 'test') {
@@ -47,7 +48,11 @@ export class ApiClient {
 
     client.interceptors.response.use(
       (response) => response,
-      (error) => {
+      (error: {
+        code?: string;
+        message?: string;
+        response?: { status: number; statusText: string };
+      }) => {
         if (
           error.code === 'ECONNABORTED' ||
           error.message?.includes('timeout')
@@ -95,7 +100,7 @@ export class ApiClient {
       `[API] GET ${service}${path}`,
       JSON.stringify(params ?? {}),
     );
-    const response = await client.get<OneKeyApiResponse<T>>(path, { params });
+    const response = await client.get<IOneKeyApiResponse<T>>(path, { params });
     return this.unwrap(response.data, `GET ${path}`);
   }
 
@@ -105,11 +110,11 @@ export class ApiClient {
       `[API] POST ${service}${path}`,
       JSON.stringify(body ?? {}),
     );
-    const response = await client.post<OneKeyApiResponse<T>>(path, body);
+    const response = await client.post<IOneKeyApiResponse<T>>(path, body);
     return this.unwrap(response.data, `POST ${path}`);
   }
 
-  private unwrap<T>(response: OneKeyApiResponse<T>, method: string): T {
+  private unwrap<T>(response: IOneKeyApiResponse<T>, method: string): T {
     if (response.code === 0) {
       this.logger?.debug(`[API] ${method} success`);
       return response.data;

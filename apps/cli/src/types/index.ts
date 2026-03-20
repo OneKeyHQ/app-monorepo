@@ -1,19 +1,19 @@
-export type OutputMode = 'agent' | 'human' | 'quiet';
+export type IOutputMode = 'agent' | 'human' | 'quiet';
 
-export interface OutputMetadata {
+export interface IOutputMetadata {
   duration_ms?: number;
   chain?: string;
   timestamp: string;
 }
 
-export interface SuccessResponse<T> {
+export interface ISuccessResponse<T> {
   status: 'success';
   api_version: '1';
   data: T;
-  metadata: OutputMetadata;
+  metadata: IOutputMetadata;
 }
 
-export interface ErrorResponse {
+export interface IErrorResponse {
   status: 'error';
   api_version: '1';
   error: {
@@ -24,4 +24,4 @@ export interface ErrorResponse {
   };
 }
 
-export type { ErrorDetail } from '../errors/app-error';
+export type { IErrorDetail } from '../errors/app-error';

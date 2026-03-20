@@ -3,15 +3,32 @@ import path from 'node:path';
 import os from 'node:os';
 import { parse as parseYaml } from 'yaml';
 import { AppError } from '../errors';
-import { type AppConfig, configSchema } from './config-schema';
+import { type IAppConfig, configSchema } from './config-schema';
 import { DEFAULT_CONFIG } from './defaults';
 
-const ENV_MAP: Record<string, keyof AppConfig> = {
+const ENV_MAP: Record<string, keyof IAppConfig> = {
   ONEKEY_DEFAULT_CHAIN: 'default_chain',
   ONEKEY_RPC_ENDPOINT: 'rpc_endpoint',
   ONEKEY_OUTPUT_FORMAT: 'output_format',
   ONEKEY_CACHE_TTL: 'cache_ttl',
 };
+
+function isEnoent(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'ENOENT'
+  );
+}
+
+function stripUndefined(obj: Partial<IAppConfig>): Partial<IAppConfig> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) result[key] = value;
+  }
+  return result as Partial<IAppConfig>;
+}
 
 export class ConfigManager {
   private configPath: string;
@@ -21,13 +38,13 @@ export class ConfigManager {
       configPath ?? path.join(os.homedir(), '.onekey', 'config.yaml');
   }
 
-  async getConfig(cliOverrides?: Partial<AppConfig>): Promise<AppConfig> {
+  async getConfig(cliOverrides?: Partial<IAppConfig>): Promise<IAppConfig> {
     const fileConfig = await this.loadConfigFile();
     const envConfig = this.loadEnvVars();
     return this.mergeConfig(fileConfig, envConfig, cliOverrides);
   }
 
-  async loadConfigFile(): Promise<Partial<AppConfig>> {
+  async loadConfigFile(): Promise<Partial<IAppConfig>> {
     let content: string;
     try {
       content = await fs.readFile(this.configPath, 'utf-8');
@@ -47,9 +64,13 @@ export class ConfigManager {
       const parsed: unknown = parseYaml(content);
       if (parsed === null || parsed === undefined) return {};
       if (typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('Config file must be a YAML mapping');
+        throw new AppError(
+          'PARAM_INVALID_CONFIG',
+          'Config file must be a YAML mapping',
+          'Check ~/.onekey/config.yaml syntax',
+        );
       }
-      return parsed as Partial<AppConfig>;
+      return parsed as Partial<IAppConfig>;
     } catch (error: unknown) {
       if (error instanceof AppError) throw error;
       throw new AppError(
@@ -61,8 +82,8 @@ export class ConfigManager {
     }
   }
 
-  loadEnvVars(): Partial<AppConfig> {
-    const envConfig: Partial<AppConfig> = {};
+  loadEnvVars(): Partial<IAppConfig> {
+    const envConfig: Partial<IAppConfig> = {};
     for (const [envKey, configKey] of Object.entries(ENV_MAP)) {
       const value = process.env[envKey];
       if (value !== undefined) {
@@ -80,10 +101,10 @@ export class ConfigManager {
   }
 
   mergeConfig(
-    fileConfig: Partial<AppConfig>,
-    envConfig: Partial<AppConfig>,
-    cliOverrides?: Partial<AppConfig>,
-  ): AppConfig {
+    fileConfig: Partial<IAppConfig>,
+    envConfig: Partial<IAppConfig>,
+    cliOverrides?: Partial<IAppConfig>,
+  ): IAppConfig {
     const merged = {
       ...DEFAULT_CONFIG,
       ...stripUndefined(fileConfig),
@@ -100,21 +121,4 @@ export class ConfigManager {
     }
     return result.data;
   }
-}
-
-function isEnoent(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === 'ENOENT'
-  );
-}
-
-function stripUndefined(obj: Partial<AppConfig>): Partial<AppConfig> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined) result[key] = value;
-  }
-  return result as Partial<AppConfig>;
 }

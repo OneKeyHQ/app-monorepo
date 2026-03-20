@@ -1,9 +1,9 @@
-import type { OneKeyApiResponse } from '../infra/api-client';
+import type { IOneKeyApiResponse } from '../infra/api-client';
 
 /**
  * Create a mock OneKey API success response
  */
-export function mockApiSuccess<T>(data: T): OneKeyApiResponse<T> {
+export function mockApiSuccess<T>(data: T): IOneKeyApiResponse<T> {
   return { code: 0, message: 'ok', data };
 }
 
@@ -13,7 +13,7 @@ export function mockApiSuccess<T>(data: T): OneKeyApiResponse<T> {
 export function mockApiError(
   code: number,
   message: string,
-): OneKeyApiResponse<never> {
+): IOneKeyApiResponse<never> {
   return { code, message, data: undefined as never };
 }
 

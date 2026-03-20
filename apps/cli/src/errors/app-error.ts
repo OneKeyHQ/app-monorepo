@@ -1,6 +1,6 @@
 import { ERROR_CODES, getExitCode } from './error-codes';
 
-export interface ErrorDetail {
+export interface IErrorDetail {
   code: string;
   message: string;
   suggestion: string;
@@ -9,8 +9,11 @@ export interface ErrorDetail {
 
 export class AppError extends Error {
   readonly code: string;
+
   readonly suggestion: string;
+
   readonly details?: Record<string, unknown>;
+
   readonly exitCode: number;
 
   constructor(
@@ -30,7 +33,7 @@ export class AppError extends Error {
     this.exitCode = getExitCode(code);
   }
 
-  toErrorDetail(): ErrorDetail {
+  toErrorDetail(): IErrorDetail {
     return {
       code: this.code,
       message: this.message,

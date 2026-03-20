@@ -1,5 +1,5 @@
-import type { ErrorDetail } from '../errors';
-import type { OutputMetadata, OutputMode } from '../types';
+import type { IErrorDetail } from '../errors';
+import type { IOutputMetadata, IOutputMode } from '../types';
 import { formatError, formatSuccess } from './json-formatter';
 import {
   formatHumanError,
@@ -9,9 +9,10 @@ import {
 } from './human-formatter';
 
 export class OutputFormatter {
-  constructor(private mode: OutputMode) {}
+  // eslint-disable-next-line no-useless-constructor, no-empty-function
+  constructor(private mode: IOutputMode) {}
 
-  success<T>(data: T, metadata?: Partial<OutputMetadata>): void {
+  success<T>(data: T, metadata?: Partial<IOutputMetadata>): void {
     if (this.mode === 'quiet') {
       if (data && typeof data === 'object') {
         const values = Object.values(data as Record<string, unknown>);
@@ -34,7 +35,7 @@ export class OutputFormatter {
     process.stdout.write(`${output}\n`);
   }
 
-  error(error: ErrorDetail): void {
+  error(error: IErrorDetail): void {
     if (this.mode === 'quiet') {
       process.stderr.write(`${error.code}: ${error.message}\n`);
       return;
@@ -60,7 +61,7 @@ export class OutputFormatter {
     process.stderr.write(`${formatHumanInfo(message)}\n`);
   }
 
-  getMode(): OutputMode {
+  getMode(): IOutputMode {
     return this.mode;
   }
 }

@@ -1,12 +1,12 @@
-import type { OutputMode } from '../types';
+import type { IOutputMode } from '../types';
 
-export interface ModeDetectorOptions {
+export interface IModeDetectorOptions {
   json?: boolean;
   interactive?: boolean;
   quiet?: boolean;
 }
 
-export function detectOutputMode(options: ModeDetectorOptions): OutputMode {
+export function detectOutputMode(options: IModeDetectorOptions): IOutputMode {
   if (options.quiet) return 'quiet';
   if (options.json) return 'agent';
   if (options.interactive) return 'human';

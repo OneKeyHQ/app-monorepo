@@ -7,7 +7,7 @@ export function sanitize(message: string): string {
     .replace(MNEMONIC_REGEX, '[REDACTED]');
 }
 
-export enum LogLevel {
+export enum ELogLevel {
   silent = 0,
   error = 1,
   warn = 2,
@@ -16,22 +16,23 @@ export enum LogLevel {
 }
 
 export class Logger {
-  constructor(private level: LogLevel) {}
+  // eslint-disable-next-line no-useless-constructor, no-empty-function
+  constructor(private level: ELogLevel) {}
 
   error(message: string, ...args: unknown[]): void {
-    if (this.level >= LogLevel.error) this.write('ERROR', message, args);
+    if (this.level >= ELogLevel.error) this.write('ERROR', message, args);
   }
 
   warn(message: string, ...args: unknown[]): void {
-    if (this.level >= LogLevel.warn) this.write('WARN', message, args);
+    if (this.level >= ELogLevel.warn) this.write('WARN', message, args);
   }
 
   info(message: string, ...args: unknown[]): void {
-    if (this.level >= LogLevel.info) this.write('INFO', message, args);
+    if (this.level >= ELogLevel.info) this.write('INFO', message, args);
   }
 
   debug(message: string, ...args: unknown[]): void {
-    if (this.level >= LogLevel.debug) this.write('DEBUG', message, args);
+    if (this.level >= ELogLevel.debug) this.write('DEBUG', message, args);
   }
 
   private write(level: string, message: string, args: unknown[]): void {
@@ -48,7 +49,7 @@ export function createLogger(options: {
   verbose?: boolean;
   quiet?: boolean;
 }): Logger {
-  if (options.quiet) return new Logger(LogLevel.silent);
-  if (options.verbose) return new Logger(LogLevel.debug);
-  return new Logger(LogLevel.warn);
+  if (options.quiet) return new Logger(ELogLevel.silent);
+  if (options.verbose) return new Logger(ELogLevel.debug);
+  return new Logger(ELogLevel.warn);
 }

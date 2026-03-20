@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import type { ErrorDetail } from '../errors';
+import type { IErrorDetail } from '../errors';
 
 export function formatHumanSuccess<T>(data: T): string {
   if (typeof data === 'string') return data;
@@ -11,7 +11,7 @@ export function formatHumanSuccess<T>(data: T): string {
   return String(data);
 }
 
-export function formatHumanError(error: ErrorDetail): string {
+export function formatHumanError(error: IErrorDetail): string {
   return [
     chalk.red(`Error [${error.code}]: ${error.message}`),
     chalk.yellow(`  Suggestion: ${error.suggestion}`),

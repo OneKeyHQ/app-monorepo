@@ -1,7 +1,7 @@
 export { ConfigManager } from './config-manager';
 export { DEFAULT_CONFIG } from './defaults';
 export { configSchema } from './config-schema';
-export type { AppConfig } from './config-schema';
+export type { IAppConfig } from './config-schema';
 
 export type IEndpointEnv = 'test' | 'prod';
 

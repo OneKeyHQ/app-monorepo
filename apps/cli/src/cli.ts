@@ -1,9 +1,10 @@
 import { Command } from 'commander';
-import { detectOutputMode } from './utils/mode-detector';
-import { createLogger } from './utils/logger';
-import { OutputFormatter } from './output';
-import { apiClient } from './infra';
+
 import { registerStatusCommand, registerVersionCommand } from './commands';
+import { apiClient } from './infra';
+import { OutputFormatter } from './output';
+import { createLogger } from './utils/logger';
+import { detectOutputMode } from './utils/mode-detector';
 
 const program = new Command();
 

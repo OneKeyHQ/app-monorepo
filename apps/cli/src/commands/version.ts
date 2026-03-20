@@ -6,12 +6,12 @@ export function registerVersionCommand(program: Command): void {
     .command('version')
     .description('Print version information')
     .action((_options, command) => {
-      const output = command.optsWithGlobals()
-        ._outputFormatter as OutputFormatter;
-      const opts = command.optsWithGlobals();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const globalOpts = command.optsWithGlobals() as Record<string, unknown>;
+      const output = globalOpts._outputFormatter as OutputFormatter;
       output.success({
         version: '0.1.0',
-        env: opts.env ?? 'test',
+        env: (globalOpts.env as string) ?? 'test',
       });
     });
 }

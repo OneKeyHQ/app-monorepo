@@ -7,4 +7,4 @@ export const configSchema = z.object({
   cache_ttl: z.number().int().positive().default(1_800_000),
 });
 
-export type AppConfig = z.infer<typeof configSchema>;
+export type IAppConfig = z.infer<typeof configSchema>;
