@@ -33,21 +33,12 @@ function getStartTimeForPeriod(period: IPortfolioTimePeriod): number {
   }
 }
 
-function getPerpPeriodKey(
-  period: IPortfolioTimePeriod,
-): 'perpDay' | 'perpWeek' | 'perpMonth' | 'perpAllTime' {
-  switch (period) {
-    case 'day':
-      return 'perpDay';
-    case 'week':
-      return 'perpWeek';
-    case 'month':
-      return 'perpMonth';
-    case 'allTime':
-    default:
-      return 'perpAllTime';
-  }
-}
+const PERIOD_KEY_MAP: Record<IPortfolioTimePeriod, string> = {
+  day: 'perpDay',
+  week: 'perpWeek',
+  month: 'perpMonth',
+  allTime: 'perpAllTime',
+};
 
 export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
   const [selectedAccount] = usePerpsActiveAccountAtom();
@@ -56,10 +47,7 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
 
   const address = selectedAccount.accountAddress;
 
-  const {
-    result: portfolioData,
-    isLoading: isChartLoading,
-  } = usePromiseResult(
+  const { result: portfolioData, isLoading: isChartLoading } = usePromiseResult(
     async () => {
       if (!address) return null;
       return backgroundApiProxy.serviceHyperliquid.getPortfolioHistory({
@@ -75,10 +63,7 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
     [timePeriod],
   );
 
-  const {
-    result: netDepositsData,
-    isLoading: isNetDepositsLoading,
-  } = usePromiseResult(
+  const { result: netDepositsData } = usePromiseResult(
     async () => {
       if (!address) return null;
       return backgroundApiProxy.serviceHyperliquid.getPortfolioNetDeposits({
@@ -92,8 +77,9 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
 
   const chartData = useMemo(() => {
     if (!portfolioData) return null;
-    const periodKey = getPerpPeriodKey(timePeriod);
-    const entry = portfolioData.find(([key]) => key === periodKey);
+    const entry = portfolioData.find(
+      ([key]) => key === PERIOD_KEY_MAP[timePeriod],
+    );
     if (!entry) return null;
     const metrics = entry[1] as {
       accountValueHistory: [number, string][];
@@ -103,11 +89,15 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
     return {
       // portfolio API returns milliseconds; LightweightChart needs UTC seconds
       accountValueHistory: metrics.accountValueHistory.map(
-        ([ts, val]): [number, number] => [Math.floor(ts / 1000), parseFloat(val)],
+        ([ts, val]): [number, number] => [
+          Math.floor(ts / 1000),
+          parseFloat(val),
+        ],
       ),
-      pnlHistory: metrics.pnlHistory.map(
-        ([ts, val]): [number, number] => [Math.floor(ts / 1000), parseFloat(val)],
-      ),
+      pnlHistory: metrics.pnlHistory.map(([ts, val]): [number, number] => [
+        Math.floor(ts / 1000),
+        parseFloat(val),
+      ]),
       vlm: metrics.vlm,
     };
   }, [portfolioData, timePeriod]);
@@ -177,16 +167,9 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
     const totalLoss = lossFills
       .reduce((sum, f) => sum.plus(f.closedPnl), new BigNumber(0))
       .abs();
-    const profitFactor =
-      totalLoss.gt(0) ? totalGain.div(totalLoss).toNumber() : null;
-
-    const volume = filteredFills
-      .reduce(
-        (sum, f) =>
-          sum.plus(new BigNumber(f.px).multipliedBy(new BigNumber(f.sz))),
-        new BigNumber(0),
-      )
-      .toNumber();
+    const profitFactor = totalLoss.gt(0)
+      ? totalGain.div(totalLoss).toNumber()
+      : null;
 
     const realizedPnl = totalGain.minus(totalLoss).toNumber();
 
@@ -197,7 +180,6 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
       feesPaid,
       mostTraded,
       profitFactor,
-      volume,
       realizedPnl,
       totalTrades: filteredFills.length,
     };
@@ -205,27 +187,29 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
 
   const netDeposits = useMemo(() => {
     if (!netDepositsData) return null;
-    return netDepositsData.reduce((sum, update) => {
-      const delta = update.delta as {
-        type: string;
-        usdc?: string;
-        toPerp?: boolean;
-      };
-      if (delta.type === 'deposit' && delta.usdc) {
-        return sum.plus(delta.usdc);
-      }
-      if (delta.type === 'withdraw' && delta.usdc) {
-        return sum.minus(delta.usdc);
-      }
-      if (
-        delta.type === 'accountClassTransfer' &&
-        delta.usdc &&
-        delta.toPerp !== undefined
-      ) {
-        return delta.toPerp ? sum.plus(delta.usdc) : sum.minus(delta.usdc);
-      }
-      return sum;
-    }, new BigNumber(0)).toNumber();
+    return netDepositsData
+      .reduce((sum, update) => {
+        const delta = update.delta as {
+          type: string;
+          usdc?: string;
+          toPerp?: boolean;
+        };
+        if (delta.type === 'deposit' && delta.usdc) {
+          return sum.plus(delta.usdc);
+        }
+        if (delta.type === 'withdraw' && delta.usdc) {
+          return sum.minus(delta.usdc);
+        }
+        if (
+          delta.type === 'accountClassTransfer' &&
+          delta.usdc &&
+          delta.toPerp !== undefined
+        ) {
+          return delta.toPerp ? sum.plus(delta.usdc) : sum.minus(delta.usdc);
+        }
+        return sum;
+      }, new BigNumber(0))
+      .toNumber();
   }, [netDepositsData]);
 
   return {
@@ -234,7 +218,5 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
     netDeposits,
     accountSummary,
     isLoading: isChartLoading,
-    isNetDepositsLoading,
-    fillsLoaded: tradesHistoryData?.isLoaded ?? false,
   };
 }

@@ -30,7 +30,10 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { showPerpPortfolioDialog } from '../../Portfolio/PerpPortfolioModal';
+import {
+  PORTFOLIO_TITLE,
+  showPerpPortfolioDialog,
+} from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
@@ -54,17 +57,6 @@ function PerpAccountMMRView() {
   const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
   const intl = useIntl();
   if (mmrPercent) {
-    // return (
-    //   <XStack justifyContent="space-between">
-    //     <SizableText size="$bodySm" color="$textSubdued" cursor="default">
-    //       Cross Margin Ratio
-    //     </SizableText>
-    //     <SizableText size="$bodySmMedium" color="$textSubdued">
-    //       {mmrPercent}%
-    //     </SizableText>
-    //   </XStack>
-    // );
-
     return (
       <XStack justifyContent="space-between">
         <Tooltip
@@ -297,7 +289,7 @@ function PerpAccountPanel() {
             variant="secondary"
             icon="ChartLineOutline"
             iconSize="$4.5"
-            title="Portfolio & PnL"
+            title={PORTFOLIO_TITLE}
             onPress={() => {
               if (gtMd) {
                 showPerpPortfolioDialog(dialogInTab);

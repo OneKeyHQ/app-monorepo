@@ -2,13 +2,16 @@ import { Page, ScrollView } from '@onekeyhq/components';
 import type { useInTabDialog } from '@onekeyhq/components';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+
 import { PerpPortfolioContent } from './PerpPortfolioContent';
+
+export const PORTFOLIO_TITLE = 'Portfolio & PnL';
 
 export function showPerpPortfolioDialog(
   dialogInTab: ReturnType<typeof useInTabDialog>,
 ) {
   const dialogRef = dialogInTab.show({
-    title: 'Portfolio & PnL',
+    title: PORTFOLIO_TITLE,
     showFooter: false,
     floatingPanelProps: { width: 960 },
     renderContent: (
@@ -23,7 +26,7 @@ export function showPerpPortfolioDialog(
 export function PerpPortfolioPage() {
   return (
     <Page>
-      <Page.Header title="Portfolio & PnL" />
+      <Page.Header title={PORTFOLIO_TITLE} />
       <Page.Body>
         <ScrollView>
           <PerpsProviderMirror>
