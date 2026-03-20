@@ -345,10 +345,10 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     const handlePressOut = useCallback(() => setNativePressed(false), []);
 
     // On native with Pressable wrapper, strip pressStyle/hoverStyle from rest
-    // to prevent the inner Stack from claiming the touch responder via Tamagui's
-    // usePressability. Without this, Tamagui attaches onStartShouldSetResponder
-    // to the inner Stack (because pressStyle triggers attachPress), which steals
-    // the responder from the outer Pressable and prevents onPress from firing.
+    // to prevent the inner Stack from claiming the touch responder. Without this,
+    // Tamagui attaches onStartShouldSetResponder to the inner Stack (because
+    // pressStyle triggers attachPress), which steals the responder from the
+    // outer Pressable and prevents onPress from firing.
     const { contentRest, nativePressStyle } = useMemo(() => {
       if (useNativePressable) {
         const {
