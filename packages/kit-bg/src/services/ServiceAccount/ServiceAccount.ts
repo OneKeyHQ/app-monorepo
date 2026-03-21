@@ -3291,7 +3291,6 @@ class ServiceAccount extends ServiceBase {
         .syncNowKeyless({
           callerName: 'Keyless Wallet Login Success',
           noDebounceUpload: true,
-          password,
         })
         .catch((error) => {
           errorUtils.autoPrintErrorIgnore(error);
