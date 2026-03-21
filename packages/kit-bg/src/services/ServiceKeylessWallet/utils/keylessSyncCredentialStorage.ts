@@ -12,40 +12,14 @@ import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keyless
 
 import keylessStorageUtils from './keylessStorageUtils';
 
-function buildStorageKey(keylessWalletId: string): string {
-  return `keyless_sync_credential_${keylessWalletId}`;
-}
+const STORAGE_KEY = 'keyless_sync_credentials';
 
-async function saveCredential(
-  credential: IKeylessCloudSyncCredential,
-): Promise<void> {
-  const json = JSON.stringify(credential);
-  const encryptedHex = await encryptStringAsync({
-    password: KEYLESS_SYNC_CREDENTIAL_STORAGE_KEY,
-    data: json,
-    dataEncoding: 'utf8',
-    allowRawPassword: true,
-    iterations: 1,
-    mode: EAppCryptoAesEncryptionMode.gcm,
-    aad: KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
-  });
-  const base64 = bufferUtils.bytesToBase64(
-    bufferUtils.hexToBytes(encryptedHex),
-  );
-  await keylessStorageUtils.storageSetItem(
-    buildStorageKey(credential.keylessWalletId),
-    base64,
-  );
-}
+type ICredentialMap = Record<string, IKeylessCloudSyncCredential>;
 
-async function getCredential(
-  keylessWalletId: string,
-): Promise<IKeylessCloudSyncCredential | null> {
-  const base64 = await keylessStorageUtils.storageGetItem(
-    buildStorageKey(keylessWalletId),
-  );
+async function readMap(): Promise<ICredentialMap> {
+  const base64 = await keylessStorageUtils.storageGetItem(STORAGE_KEY);
   if (!base64) {
-    return null;
+    return {};
   }
   try {
     const json = await decryptStringAsync({
@@ -58,24 +32,70 @@ async function getCredential(
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
     });
-    const credential = JSON.parse(json) as IKeylessCloudSyncCredential;
-    if (credential.keylessWalletId !== keylessWalletId) {
-      await removeCredential(keylessWalletId);
-      return null;
-    }
-    return credential;
+    return JSON.parse(json) as ICredentialMap;
   } catch {
-    await removeCredential(keylessWalletId);
-    return null;
+    // Corrupted — wipe everything
+    await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+    return {};
   }
 }
 
+async function writeMap(map: ICredentialMap): Promise<void> {
+  if (Object.keys(map).length === 0) {
+    await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+    return;
+  }
+  const json = JSON.stringify(map);
+  const encryptedHex = await encryptStringAsync({
+    password: KEYLESS_SYNC_CREDENTIAL_STORAGE_KEY,
+    data: json,
+    dataEncoding: 'utf8',
+    allowRawPassword: true,
+    iterations: 1,
+    mode: EAppCryptoAesEncryptionMode.gcm,
+    aad: KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
+  });
+  const base64 = bufferUtils.bytesToBase64(
+    bufferUtils.hexToBytes(encryptedHex),
+  );
+  await keylessStorageUtils.storageSetItem(STORAGE_KEY, base64);
+}
+
+async function saveCredential(
+  credential: IKeylessCloudSyncCredential,
+): Promise<void> {
+  // Overwrite entire map — only keep the current credential
+  await writeMap({ [credential.keylessWalletId]: credential });
+}
+
+async function getCredential(
+  keylessWalletId: string,
+): Promise<IKeylessCloudSyncCredential | null> {
+  const map = await readMap();
+  const credential = map[keylessWalletId];
+  if (!credential) {
+    // Not found — clear all orphaned entries
+    if (Object.keys(map).length > 0) {
+      await writeMap({});
+    }
+    return null;
+  }
+  return credential;
+}
+
 async function removeCredential(keylessWalletId: string): Promise<void> {
-  await keylessStorageUtils.storageRemoveItem(buildStorageKey(keylessWalletId));
+  const map = await readMap();
+  delete map[keylessWalletId];
+  await writeMap(map);
+}
+
+async function removeAllCredentials(): Promise<void> {
+  await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
 }
 
 export default {
   saveCredential,
   getCredential,
   removeCredential,
+  removeAllCredentials,
 };

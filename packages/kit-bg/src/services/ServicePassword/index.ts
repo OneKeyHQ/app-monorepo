@@ -717,6 +717,13 @@ export default class ServicePassword extends ServiceBase {
         } finally {
           this._mergeDuplicateHDWalletsExecuted = true;
         }
+        try {
+          await this.backgroundApi.serviceKeylessCloudSync.repairKeylessSyncCredentialIfNeeded(
+            { password: verifyingPassword },
+          );
+        } catch (e) {
+          console.error(e);
+        }
       })();
     }
     return verifyingPassword;
