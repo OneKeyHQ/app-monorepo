@@ -71,9 +71,7 @@ async function getCredential(
 }
 
 async function removeCredential(keylessWalletId: string): Promise<void> {
-  await keylessStorageUtils.storageRemoveItem(
-    buildStorageKey(keylessWalletId),
-  );
+  await keylessStorageUtils.storageRemoveItem(buildStorageKey(keylessWalletId));
 }
 
 export default {

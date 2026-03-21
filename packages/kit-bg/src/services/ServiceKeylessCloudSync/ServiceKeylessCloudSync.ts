@@ -95,12 +95,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const fullPostData = { ...postData, pwdHash };
     const dataString = stringUtils.stableStringify(fullPostData);
     const dataHash = keylessCloudSyncUtils.computeDataHash(dataString);
-    const signatureHeader =
-      keylessCloudSyncUtils.buildKeylessSignatureHeader({
-        signingPrivateKey: keylessCredential.signingPrivateKey,
-        signingPublicKey: keylessCredential.signingPublicKey,
-        dataHash,
-      });
+    const signatureHeader = keylessCloudSyncUtils.buildKeylessSignatureHeader({
+      signingPrivateKey: keylessCredential.signingPrivateKey,
+      signingPublicKey: keylessCredential.signingPublicKey,
+      dataHash,
+    });
     return {
       publicKey: keylessCredential.signingPublicKey,
       signatureHeader,
@@ -522,8 +521,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     // Remove persisted credential when disabling keyless sync
     if (!shouldEnableKeyless) {
-      const currentWalletId =
-        await this.getCurrentCloudSyncKeylessWalletId();
+      const currentWalletId = await this.getCurrentCloudSyncKeylessWalletId();
       if (currentWalletId) {
         await keylessSyncCredentialStorage.removeCredential(currentWalletId);
       }

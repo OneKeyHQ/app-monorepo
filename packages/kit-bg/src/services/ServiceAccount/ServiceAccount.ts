@@ -5,9 +5,7 @@ import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IBip39RevealableSeedEncryptHex,
-} from '@onekeyhq/core/src/secret';
+import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveTextAsync,
   decryptImportedCredential,
@@ -3267,11 +3265,10 @@ class ServiceAccount extends ServiceBase {
         });
         const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
         const keylessWalletId = result.wallet.id;
-        const credential =
-          await keylessCloudSyncUtils.deriveKeylessCredential({
-            seed: seedBuffer,
-            keylessWalletId,
-          });
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId,
+        });
         await keylessSyncCredentialStorage.saveCredential(credential);
         this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
           credential,

@@ -325,11 +325,10 @@ class ServiceKeylessWallet extends ServiceBase {
           password,
         });
         const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
-        const credential =
-          await keylessCloudSyncUtils.deriveKeylessCredential({
-            seed: seedBuffer,
-            keylessWalletId: result.wallet.id,
-          });
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId: result.wallet.id,
+        });
         await keylessSyncCredentialStorage.saveCredential(credential);
         this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
           credential,
