@@ -5,7 +5,9 @@ import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
+import type {
+  IBip39RevealableSeedEncryptHex,
+} from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveTextAsync,
   decryptImportedCredential,
@@ -159,6 +161,8 @@ import {
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import ServiceBase from '../ServiceBase';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
@@ -3255,6 +3259,30 @@ class ServiceAccount extends ServiceBase {
     });
 
     if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
+      // Derive and persist keyless cloud sync credential from wallet seed
+      try {
+        const revealableSeed = await decryptRevealableSeed({
+          rs,
+          password,
+        });
+        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
+        const keylessWalletId = result.wallet.id;
+        const credential =
+          await keylessCloudSyncUtils.deriveKeylessCredential({
+            seed: seedBuffer,
+            keylessWalletId,
+          });
+        await keylessSyncCredentialStorage.saveCredential(credential);
+        this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+          credential,
+        );
+      } catch (error) {
+        console.error(
+          '[ServiceAccount] Failed to derive and save keyless credential:',
+          error,
+        );
+      }
+
       await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
       await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
         result.wallet.id,
