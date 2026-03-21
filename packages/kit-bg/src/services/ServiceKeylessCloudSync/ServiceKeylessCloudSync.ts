@@ -492,22 +492,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
         if (!credentialRecord?.credential) {
           return;
         }
-        const { decryptRevealableSeed } = await import(
-          '@onekeyhq/core/src/secret'
-        );
-        const { default: bufferUtils } = await import(
-          '@onekeyhq/shared/src/utils/bufferUtils'
-        );
+        const { decryptRevealableSeed } =
+          await import('@onekeyhq/core/src/secret');
+        const { default: bufferUtils } =
+          await import('@onekeyhq/shared/src/utils/bufferUtils');
         const revealableSeed = await decryptRevealableSeed({
           rs: credentialRecord.credential,
           password,
         });
         const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
-        const credential =
-          await keylessCloudSyncUtils.deriveKeylessCredential({
-            seed: seedBuffer,
-            keylessWalletId: walletId,
-          });
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId: walletId,
+        });
         await keylessSyncCredentialStorage.saveCredential(credential);
         this.setKeylessCloudSyncCredentialCache(credential);
       } catch (error) {
