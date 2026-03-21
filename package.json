@@ -307,7 +307,7 @@
     "metro": "0.83.2",
     "node-notifier": "^10.0.1",
     "oxfmt": "^0.24.0",
-    "oxlint": "1.43.0",
+    "oxlint": "1.56.0",
     "oxlint-tsgolint": "^0.11.2",
     "patch-package": "8.0.0",
     "playwright-core": "^1.50.0",
