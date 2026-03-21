@@ -205,6 +205,7 @@ function ResourceRental() {
                 </SizableText>
                 <View
                   animation="quick"
+                  animateOnly={['transform']}
                   rotate={open ? '180deg' : '0deg'}
                   transformOrigin="center"
                 >
@@ -217,6 +218,7 @@ function ResourceRental() {
             <Accordion.Content
               backgroundColor="transparent"
               animation="quick"
+              animateOnly={['opacity']}
               exitStyle={{ opacity: 0 }}
               px="$3"
             >

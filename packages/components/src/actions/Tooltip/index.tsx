@@ -296,6 +296,7 @@ export function Tooltip({
           }}
           exitStyle={{ scale: 0.95, opacity: 0 }}
           animation="quick"
+          animateOnly={['opacity', 'transform']}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
         >

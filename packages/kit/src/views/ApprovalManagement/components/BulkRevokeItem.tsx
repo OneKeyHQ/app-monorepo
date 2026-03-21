@@ -262,6 +262,7 @@ function BulkRevokeItem(props: IProps) {
           <XStack alignItems="center" gap="$3" flex={1}>
             <View
               animation="quick"
+              animateOnly={['transform']}
               rotate={open ? '180deg' : '0deg'}
               transformOrigin="center"
             >
@@ -314,6 +315,7 @@ function BulkRevokeItem(props: IProps) {
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
+          animateOnly={['opacity']}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgSubdued"
           padding="$0"

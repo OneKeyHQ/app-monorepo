@@ -405,6 +405,7 @@ function Protocol({
               <View
                 ml="$2"
                 animation="quick"
+                animateOnly={['transform']}
                 rotate={open ? '180deg' : '0deg'}
                 transformOrigin="center"
               >

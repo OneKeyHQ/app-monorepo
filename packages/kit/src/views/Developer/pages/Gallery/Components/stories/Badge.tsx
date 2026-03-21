@@ -204,7 +204,7 @@ function SwapProviderItem({
                 Route
               </SizableText>
 
-              <Stack animation="quick" rotate={showRoute ? '90deg' : '0deg'}>
+              <Stack animation="quick" animateOnly={['transform']} rotate={showRoute ? '90deg' : '0deg'}>
                 <Icon
                   name="ChevronRightSmallOutline"
                   size="$5"

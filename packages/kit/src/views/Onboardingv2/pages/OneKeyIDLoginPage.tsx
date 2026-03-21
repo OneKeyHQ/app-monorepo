@@ -100,6 +100,7 @@ function OptionItem({
             <YStack
               key="chevron-right"
               animation="quick"
+              animateOnly={['transform', 'opacity']}
               enterStyle={{ scale: 0.7, opacity: 0 }}
               exitStyle={{ scale: 0.7, opacity: 0 }}
             >

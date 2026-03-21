@@ -87,6 +87,7 @@ export function StakingAmountInput({
           (percentageInputStageShow || !!value) ? (
             <XStack
               animation="quick"
+              animateOnly={['opacity', 'transform']}
               enterStyle={{
                 opacity: 0,
                 x: 8,

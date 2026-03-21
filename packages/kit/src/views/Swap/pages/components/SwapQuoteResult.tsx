@@ -415,6 +415,7 @@ const SwapQuoteResult = ({
               gap="$4"
               p="$0"
               animation="quick"
+              animateOnly={['opacity']}
               exitStyle={{ opacity: 0 }}
             >
               <Divider mt="$4" />

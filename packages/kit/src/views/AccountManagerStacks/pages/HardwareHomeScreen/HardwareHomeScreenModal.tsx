@@ -208,6 +208,7 @@ function HomeScreenImageItem({
             zIndex={100}
             // backgroundColor="$bg"
             animation="quick"
+            animateOnly={['opacity', 'transform']}
             enterStyle={
               platformEnv.isNativeAndroid
                 ? undefined
@@ -240,6 +241,7 @@ function HomeScreenImageItem({
             borderRadius="$full"
             backgroundColor="$bg"
             animation="quick"
+            animateOnly={['opacity', 'transform']}
             enterStyle={
               platformEnv.isNativeAndroid
                 ? undefined

@@ -11,5 +11,6 @@ export function useHoverOpacity(isHovering?: boolean) {
   return {
     opacity: isHovering ? 1 : 0.7,
     animation: 'quick' as const,
+    animateOnly: ['opacity'] as string[],
   };
 }

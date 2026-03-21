@@ -70,7 +70,7 @@ function AutoRiskControlContent() {
                     id: ETranslations.earn_disclaimer,
                   })}
                 </SizableText>
-                <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                <YStack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
                   <Icon
                     name="ChevronDownSmallOutline"
                     color="$iconSubdued"

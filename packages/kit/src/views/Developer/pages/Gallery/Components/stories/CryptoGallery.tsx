@@ -94,6 +94,7 @@ function CustomAccordionItem({
         <SizableText>{title}</SizableText>
         <View
           animation="quick"
+          animateOnly={['transform']}
           rotate={isOpen ? '0deg' : '-90deg'}
           transformOrigin="center"
         >
@@ -103,6 +104,7 @@ function CustomAccordionItem({
 
       <YStack
         animation="quick"
+        animateOnly={['opacity']}
         opacity={isOpen ? 1 : 0}
         overflow="hidden"
         style={{

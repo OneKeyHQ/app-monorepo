@@ -33,6 +33,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
           bg="$bgApp"
           key="splash-view"
           animation="50ms"
+          animateOnly={['opacity']}
           position="absolute"
           top={0}
           left={0}

@@ -34,6 +34,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
             flexBasis="25%"
             py="$2"
             animation="quick"
+            animateOnly={['transform']}
             hoverStyle={{
               scale: 1.1,
             }}

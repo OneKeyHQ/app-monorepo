@@ -239,6 +239,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
                     ) : null}
                     <View
                       animation="quick"
+                      animateOnly={['transform']}
                       rotate={open ? '180deg' : '0deg'}
                       transformOrigin="center"
                     >
@@ -258,6 +259,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
             >
               <Accordion.Content
                 animation="quick"
+                animateOnly={['opacity']}
                 exitStyle={{ opacity: 0 }}
                 backgroundColor="transparent"
                 padding="$0"

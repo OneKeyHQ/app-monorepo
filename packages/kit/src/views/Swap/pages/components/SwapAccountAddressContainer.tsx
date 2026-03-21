@@ -49,6 +49,7 @@ const SwapAccountAddressContainer = ({
           <XStack
             key="network-component"
             animation="quick"
+            animateOnly={['opacity', 'transform']}
             enterStyle={{
               opacity: 0,
               x: 8,

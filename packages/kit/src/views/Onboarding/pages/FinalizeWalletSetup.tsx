@@ -285,6 +285,7 @@ function FinalizeWalletSetupPage({
               <Stack
                 key="CheckRadioSolid"
                 animation="quick"
+                animateOnly={['opacity', 'transform']}
                 enterStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
@@ -301,6 +302,7 @@ function FinalizeWalletSetupPage({
                 key="spinner"
                 size="large"
                 animation="quick"
+                animateOnly={['opacity', 'transform']}
                 exitStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
@@ -317,6 +319,7 @@ function FinalizeWalletSetupPage({
           <Stack
             key={currentStep}
             animation="quick"
+            animateOnly={['opacity', 'transform']}
             enterStyle={{
               opacity: 0,
               x: 12,

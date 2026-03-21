@@ -42,6 +42,7 @@ function BlockAccessView({
         justifyContent="center"
         alignItems="center"
         animation="quick"
+        animateOnly={['opacity']}
       >
         <Empty
           icon="ErrorOutline"

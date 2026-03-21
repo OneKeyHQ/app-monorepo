@@ -145,6 +145,7 @@ const BtcFeeRateInputDialogContent = ({
             <SizableText
               pt="$1.5"
               animation="quick"
+              animateOnly={['opacity', 'transform']}
               enterStyle={{
                 opacity: 0,
                 y: -6,

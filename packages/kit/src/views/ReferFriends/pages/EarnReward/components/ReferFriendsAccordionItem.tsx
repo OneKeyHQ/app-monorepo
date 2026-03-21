@@ -83,6 +83,7 @@ export function ReferFriendsAccordionItem({
         <Accordion.Content
           unstyled
           animation="100ms"
+          animateOnly={['opacity']}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           {...mergedContentProps}

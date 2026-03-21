@@ -32,6 +32,7 @@ function StepStatusIcon(props: { state: ECreationStepState | undefined }) {
           key="spinner"
           size="small"
           animation="quick"
+          animateOnly={['opacity', 'transform']}
           enterStyle={{ scale: 0.7, opacity: 0 }}
           exitStyle={{ scale: 0.7, opacity: 0 }}
           scale={0.8}
@@ -41,6 +42,7 @@ function StepStatusIcon(props: { state: ECreationStepState | undefined }) {
       return (
         <YStack
           animation="quick"
+          animateOnly={['opacity', 'transform']}
           enterStyle={{ scale: 0.8, opacity: 0 }}
           exitStyle={{ scale: 0.8, opacity: 0 }}
           key="checkmark"
@@ -52,6 +54,7 @@ function StepStatusIcon(props: { state: ECreationStepState | undefined }) {
       return (
         <YStack
           animation="quick"
+          animateOnly={['opacity', 'transform']}
           enterStyle={{ scale: 0.8, opacity: 0 }}
           exitStyle={{ scale: 0.8, opacity: 0 }}
           key="error"
@@ -63,6 +66,7 @@ function StepStatusIcon(props: { state: ECreationStepState | undefined }) {
       return (
         <YStack
           animation="quick"
+          animateOnly={['opacity', 'transform']}
           enterStyle={{ scale: 0.8, opacity: 0 }}
           exitStyle={{ scale: 0.8, opacity: 0 }}
           key="info"

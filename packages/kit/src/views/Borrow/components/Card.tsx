@@ -56,6 +56,7 @@ export const Card = ({
                 </SizableText>
                 <View
                   animation="quick"
+                  animateOnly={['transform']}
                   rotate={open ? '180deg' : '0deg'}
                   transformOrigin="center"
                 >

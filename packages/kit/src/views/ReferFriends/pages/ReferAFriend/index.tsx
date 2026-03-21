@@ -48,6 +48,7 @@ function ReferAFriendPage({
           <YStack
             key="intro-phase"
             animation="quick"
+            animateOnly={['opacity']}
             enterStyle={{
               opacity: 0,
             }}
@@ -72,6 +73,7 @@ function ReferAFriendPage({
           <YStack
             key="howto-phase"
             animation="quick"
+            animateOnly={['opacity']}
             enterStyle={{
               opacity: 0,
             }}

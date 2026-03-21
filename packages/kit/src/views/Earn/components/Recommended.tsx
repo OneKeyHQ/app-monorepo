@@ -111,6 +111,7 @@ const RecommendedItem = memo(
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         animation="quick"
+        animateOnly={['transform']}
         hoverStyle={{
           scale: 1.05,
         }}

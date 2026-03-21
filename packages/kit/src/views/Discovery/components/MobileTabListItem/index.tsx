@@ -40,6 +40,7 @@ function MobileTabListItem({
       }}
       p="$1"
       animation="quick"
+      animateOnly={['transform']}
       pressStyle={{
         scale: 0.95,
       }}

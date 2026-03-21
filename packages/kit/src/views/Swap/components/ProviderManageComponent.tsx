@@ -94,7 +94,7 @@ export const ProviderSwitch = ({
           ) : null}
         </XStack>
       </XStack>
-      <XStack animation="quick" gap="$2">
+      <XStack animation="quick" animateOnly={['opacity']} gap="$2">
         <Stack
           onPress={(e) => {
             e.preventDefault();
@@ -282,6 +282,7 @@ const ProviderFold = ({
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
+          animateOnly={['opacity']}
           bg="$transparent"
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}

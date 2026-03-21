@@ -149,6 +149,7 @@ const ApyChartBaseComponent = ({
           position="relative"
           overflow="hidden"
           animation="quick"
+          animateOnly={['opacity']}
           enterStyle={{ opacity: 0 }}
         >
           <Skeleton w="100%" h="100%" borderRadius="$2" />
@@ -169,6 +170,7 @@ const ApyChartBaseComponent = ({
         <YStack
           position="relative"
           animation="quick"
+          animateOnly={['opacity', 'transform']}
           enterStyle={{ opacity: 0, scale: 0.98 }}
           exitStyle={{ opacity: 0, scale: 0.98 }}
           onLayout={(e) => {

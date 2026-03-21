@@ -195,6 +195,7 @@ function SpotlightContent({
       <Stack
         testID="spotlight-content"
         animation="quick"
+        animateOnly={['opacity']}
         bg="rgba(0,0,0,0.3)"
         position="absolute"
         top={0}

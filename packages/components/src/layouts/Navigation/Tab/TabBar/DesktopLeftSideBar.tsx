@@ -400,6 +400,7 @@ function OverflowMoreButton({
         enterStyle={{ scale: 0.95, opacity: 0 }}
         exitStyle={{ scale: 0.95, opacity: 0 }}
         animation={['quick', { opacity: { overshootClamping: true } }]}
+        animateOnly={['opacity', 'transform']}
         onHoverIn={() => {
           clearTimer();
           setIsOpen(true);

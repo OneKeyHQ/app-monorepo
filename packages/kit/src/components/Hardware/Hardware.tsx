@@ -71,6 +71,7 @@ function MacBluetoothIllustrationViews({
             },
           },
         ]}
+        animateOnly={['opacity', 'transform']}
         enterStyle={{
           opacity: 0,
           scale: 0.9,
@@ -179,6 +180,7 @@ function MacBluetoothIllustrationViews({
             },
           },
         ]}
+        animateOnly={['opacity', 'transform']}
         enterStyle={{
           opacity: 0,
           scale: 0.9,

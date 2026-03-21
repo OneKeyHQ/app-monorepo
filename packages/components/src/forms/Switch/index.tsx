@@ -77,6 +77,7 @@ export function Switch({
         borderRadius="$full"
         bg="$bg"
         animation="switch"
+        animateOnly={['transform']}
         {...thumbProps}
       />
     </TMSwitch>

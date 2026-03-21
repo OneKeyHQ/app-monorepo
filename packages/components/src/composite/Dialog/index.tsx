@@ -286,6 +286,7 @@ function DialogFrame({
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
           animation="quick"
+          animateOnly={['opacity']}
           enterStyle={{ opacity: 0 } as any}
           exitStyle={{ opacity: 0 } as any}
           backgroundColor="$bgBackdrop"

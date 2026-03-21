@@ -48,7 +48,7 @@ export function FAQAccordion<T>({
               {({ open }: { open: boolean }) => (
                 <>
                   {renderTitle(item, { open })}
-                  <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                  <Stack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
                     <Icon
                       name="ChevronDownSmallOutline"
                       color={open ? '$iconActive' : '$iconSubdued'}
@@ -64,6 +64,7 @@ export function FAQAccordion<T>({
                 pt="$2"
                 pb="$5"
                 animation="100ms"
+                animateOnly={['opacity']}
                 enterStyle={{ opacity: 0 }}
                 exitStyle={{ opacity: 0 }}
               >

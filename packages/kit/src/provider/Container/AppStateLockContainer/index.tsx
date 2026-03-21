@@ -125,6 +125,7 @@ export function AppStateLockContainer({
             lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
             animation="quick"
+            animateOnly={['opacity']}
             enterStyle={{
               opacity: 1,
             }}

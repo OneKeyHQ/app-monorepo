@@ -373,6 +373,7 @@ function BasicTokenPriceChart({
             opacity={1}
             flex={1}
             animation="quick"
+            animateOnly={['opacity']}
             exitStyle={{
               opacity: 0,
             }}

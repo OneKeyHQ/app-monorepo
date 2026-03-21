@@ -476,6 +476,7 @@ function TableListRow<T>({
             ai="center"
             jc="center"
             animation="quick"
+            animateOnly={['transform']}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
             <Icon
@@ -491,6 +492,7 @@ function TableListRow<T>({
           px="$5"
           py={isExpanded ? '$4' : '$0'}
           animation="quick"
+          animateOnly={['opacity']}
           opacity={isExpanded ? 1 : 0}
           maxHeight={isExpanded ? 1000 : 0}
           overflow="hidden"

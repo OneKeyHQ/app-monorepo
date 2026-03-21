@@ -50,7 +50,7 @@ function AdvancedSettings(props: IProps) {
                     id: ETranslations.global_advanced_settings,
                   })}
                 </SizableText>
-                <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                <YStack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
                   <Icon
                     name="ChevronDownSmallOutline"
                     color="$iconSubdued"
@@ -64,6 +64,7 @@ function AdvancedSettings(props: IProps) {
             <Accordion.Content
               unstyled
               animation="quick"
+              animateOnly={['opacity']}
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
               pt="$5"

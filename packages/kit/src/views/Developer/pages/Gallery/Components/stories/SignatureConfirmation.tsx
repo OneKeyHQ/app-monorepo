@@ -389,7 +389,7 @@ function SignatureAdvanceSection() {
                 <SizableText size="$bodyMd" color="$textSubdued">
                   Advance
                 </SizableText>
-                <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                <YStack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
                   <Icon
                     name="ChevronDownSmallOutline"
                     color="$iconSubdued"
@@ -405,6 +405,7 @@ function SignatureAdvanceSection() {
               pt="$2.5"
               gap="$5"
               animation="quick"
+              animateOnly={['opacity']}
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
             >

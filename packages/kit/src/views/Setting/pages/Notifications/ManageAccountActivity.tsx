@@ -449,12 +449,13 @@ function WalletAccordionItem({
           <>
             <XStack
               animation="quick"
+              animateOnly={['opacity']}
               flex={1}
               alignItems="center"
               gap="$3"
               opacity={isWalletEnabled ? 1 : 0.5}
             >
-              <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
+              <YStack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
                 <Icon
                   name="ChevronBottomOutline"
                   color={open ? '$iconActive' : '$iconSubdued'}
@@ -493,6 +494,7 @@ function WalletAccordionItem({
           // bg="$transparent"
           bg="$bgDefault"
           animation="quick"
+          animateOnly={['opacity']}
           exitStyle={{
             opacity: 0,
           }}

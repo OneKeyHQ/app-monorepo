@@ -395,6 +395,7 @@ function NetworkGroupItem({
           {shouldShowExtraPanel ? (
             <YStack
               animation="quick"
+              animateOnly={['opacity']}
               enterStyle={{
                 opacity: 0,
                 filter: 'blur(4px)',

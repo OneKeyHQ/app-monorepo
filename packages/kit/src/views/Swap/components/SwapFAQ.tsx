@@ -101,6 +101,7 @@ function SwapFAQ() {
                       </SizableText>
                       <Stack
                         animation="quick"
+                        animateOnly={['transform']}
                         rotate={open ? '180deg' : '0deg'}
                       >
                         <Icon
@@ -120,6 +121,7 @@ function SwapFAQ() {
                     pb="$5"
                     pr="$8"
                     animation="100ms"
+                    animateOnly={['opacity']}
                     enterStyle={{ opacity: 0 }}
                     exitStyle={{ opacity: 0 }}
                   >

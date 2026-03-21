@@ -1652,6 +1652,7 @@ export function UniversalStake({
                             </XStack>
                             <YStack
                               animation="quick"
+                              animateOnly={['transform']}
                               rotate={
                                 open && !isAccordionTriggerDisabled
                                   ? '180deg'
@@ -1677,6 +1678,7 @@ export function UniversalStake({
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
+                      animateOnly={['opacity']}
                       exitStyle={{ opacity: 0 }}
                       px={0}
                       pb={0}

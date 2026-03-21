@@ -452,6 +452,7 @@ function RawPopover({
             elevation: 20,
           }}
           animation="popoverQuick"
+          animateOnly={['opacity', 'transform']}
           {...floatingPanelProps}
         >
           <TMPopover.ScrollView
@@ -494,6 +495,7 @@ function RawPopover({
                   zIndex={sheetProps?.zIndex || zIndex}
                   backgroundColor="$bgBackdrop"
                   animation="quick"
+                  animateOnly={['opacity']}
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 />

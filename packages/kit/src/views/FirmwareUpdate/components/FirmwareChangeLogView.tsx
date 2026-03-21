@@ -121,7 +121,7 @@ function ChangeLogSection({
                 active={open}
               />
             </XStack>
-            <Stack animation="quick" rotate={open ? '-180deg' : '0deg'}>
+            <Stack animation="quick" animateOnly={['transform']} rotate={open ? '-180deg' : '0deg'}>
               <Icon
                 name="ChevronDownSmallOutline"
                 size="$6"
@@ -134,6 +134,7 @@ function ChangeLogSection({
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
+          animateOnly={['opacity']}
           exitStyle={{ opacity: 0 }}
           px="$5"
           pb="$5"

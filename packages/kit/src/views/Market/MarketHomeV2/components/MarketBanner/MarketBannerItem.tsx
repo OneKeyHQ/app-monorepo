@@ -103,6 +103,7 @@ function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
       justifyContent="space-between"
       onPress={handlePress}
       animation="quick"
+      animateOnly={['borderColor']}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
       hoverStyle={{ borderColor: '$neutral4' }}

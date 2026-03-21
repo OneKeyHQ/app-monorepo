@@ -174,6 +174,7 @@ function BasicShowToaster({
             maxWidth={platformEnv.isNative ? '$96' : undefined}
             px={platformEnv.isNative ? '$5' : undefined}
             animation="quick"
+            animateOnly={['opacity', 'transform']}
             viewportName={containerName}
           >
             <CustomToasterContext.Provider value={value}>

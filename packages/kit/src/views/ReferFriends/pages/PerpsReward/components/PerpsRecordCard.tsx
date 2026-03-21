@@ -145,7 +145,7 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
           </XStack>
 
           {/* Expand Icon */}
-          <Stack animation="quick" rotate={isExpanded ? '0deg' : '-90deg'}>
+          <Stack animation="quick" animateOnly={['transform']} rotate={isExpanded ? '0deg' : '-90deg'}>
             <Icon
               name="ChevronDownSmallOutline"
               size="$5"

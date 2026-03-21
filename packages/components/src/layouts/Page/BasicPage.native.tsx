@@ -88,6 +88,7 @@ function AbsoluteContainer({ children }: PropsWithChildren) {
       opacity={1}
       flex={1}
       animation="quick"
+      animateOnly={['opacity']}
       exitStyle={{
         opacity: 0,
       }}

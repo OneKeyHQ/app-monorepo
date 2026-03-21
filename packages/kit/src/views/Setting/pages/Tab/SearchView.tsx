@@ -71,6 +71,7 @@ export function SearchView({
                   <XStack>
                     <YStack
                       animation="quick"
+                      animateOnly={['transform']}
                       rotate={open ? '180deg' : '0deg'}
                       left="$2"
                     >
@@ -87,6 +88,7 @@ export function SearchView({
             <Accordion.HeightAnimator animation="quick">
               <Accordion.Content
                 animation="quick"
+                animateOnly={['opacity']}
                 exitStyle={{ opacity: 0 }}
                 px={0}
                 pb={0}

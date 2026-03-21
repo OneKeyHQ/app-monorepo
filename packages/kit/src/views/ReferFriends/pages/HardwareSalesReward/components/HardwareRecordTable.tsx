@@ -81,6 +81,7 @@ function TableRow({ item }: ITableRowProps) {
             ai="center"
             jc="center"
             animation="quick"
+            animateOnly={['transform']}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
             <Icon

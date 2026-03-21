@@ -123,6 +123,7 @@ export function Content({
               <Stack
                 bg="$bg"
                 animation="medium"
+                animateOnly={['opacity']}
                 position="absolute"
                 top={0}
                 left={0}

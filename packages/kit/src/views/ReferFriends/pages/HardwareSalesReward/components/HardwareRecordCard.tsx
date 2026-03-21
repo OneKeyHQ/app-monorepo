@@ -103,7 +103,7 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
               {item.inviteCode}
             </Badge>
           </XStack>
-          <Stack animation="quick" rotate={isExpanded ? '-180deg' : '-90deg'}>
+          <Stack animation="quick" animateOnly={['transform']} rotate={isExpanded ? '-180deg' : '-90deg'}>
             <Icon
               name="ChevronDownSmallOutline"
               size="$5"

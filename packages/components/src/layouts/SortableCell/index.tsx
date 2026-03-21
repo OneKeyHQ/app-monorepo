@@ -53,6 +53,7 @@ function BaseSortableCell(
                 icon="MinusCircleSolid"
                 variant="destructive"
                 animation="quick"
+                animateOnly={['opacity', 'transform']}
                 enterStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
@@ -74,6 +75,7 @@ function BaseSortableCell(
                 icon="MenuOutline"
                 onPressIn={drag}
                 animation="quick"
+                animateOnly={['opacity', 'transform']}
                 enterStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
