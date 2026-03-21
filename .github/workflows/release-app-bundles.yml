@@ -10,9 +10,42 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  validate-pr:
+    if: ${{ inputs.pr_number }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate PR is merged and from same repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
+            --jq '{merged: .merged, head_repo: .head.repo.full_name, base_repo: .base.repo.full_name}')
+
+          MERGED=$(echo "$PR_DATA" | jq -r '.merged')
+          HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head_repo')
+          BASE_REPO=$(echo "$PR_DATA" | jq -r '.base_repo')
+
+          echo "PR #$PR_NUMBER: merged=$MERGED, head=$HEAD_REPO, base=$BASE_REPO"
+
+          if [ "$MERGED" != "true" ]; then
+            echo "::error::PR #$PR_NUMBER is not merged. Only merged PRs are allowed."
+            exit 1
+          fi
+
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::error::PR #$PR_NUMBER is from a fork ($HEAD_REPO). Fork PRs are not allowed."
+            exit 1
+          fi
+
+          echo "PR #$PR_NUMBER validated: merged from same repo."
+
   prepare-params:
+    needs: [validate-pr]
+    if: ${{ always() && (needs.validate-pr.result == 'success' || needs.validate-pr.result == 'skipped') }}
     runs-on: ubuntu-24.04
     outputs:
       build_number: ${{ steps.params.outputs.build_number }}
@@ -25,7 +58,7 @@ jobs:
         uses: actions/checkout@v4
         if: ${{ !inputs.pr_number }}
 
-      - name: Checkout PR
+      - name: Checkout PR merge commit
         if: ${{ inputs.pr_number }}
         uses: actions/checkout@v4
         with:
@@ -33,6 +66,8 @@ jobs:
 
       - name: Generate build parameters
         id: params
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           # Read BUILD_NUMBER from .env.version
           BUILD_NUMBER=""
@@ -61,8 +96,8 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
           echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
-          if [ -n "${{ inputs.pr_number }}" ]; then
-            BRANCH="pull/${{ inputs.pr_number }}"
+          if [ -n "$PR_NUMBER" ]; then
+            BRANCH="pull/$PR_NUMBER"
             COMMIT=$(git rev-parse HEAD)
           else
             BRANCH="${{ github.ref_name }}"
@@ -89,7 +124,23 @@ jobs:
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
-    secrets: inherit
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      APPLEID: ${{ secrets.APPLEID }}
+      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+      QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
 
   native-bundle:
     needs: prepare-params
@@ -101,4 +152,20 @@ jobs:
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
-    secrets: inherit
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      APPLEID: ${{ secrets.APPLEID }}
+      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+      QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}

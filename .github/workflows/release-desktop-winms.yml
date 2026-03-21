@@ -117,7 +117,7 @@ jobs:
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
-        uses: onekeyhq/actions/slack-notify-webhook@main
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
