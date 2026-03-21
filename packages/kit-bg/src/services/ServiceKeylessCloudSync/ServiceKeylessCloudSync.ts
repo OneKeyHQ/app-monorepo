@@ -29,6 +29,7 @@ import ServiceBase from '../ServiceBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
 import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
 
@@ -84,12 +85,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
     pwdHash: string | undefined;
     fullPostData: T & { pwdHash: string | undefined };
   } | null> {
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      return null;
-    }
-
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
     const keylessCredential = syncCredential?.keylessCredential;
@@ -101,10 +96,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const dataString = stringUtils.stableStringify(fullPostData);
     const dataHash = keylessCloudSyncUtils.computeDataHash(dataString);
     const signatureHeader =
-      await keylessCloudSyncUtils.buildKeylessSignatureHeader({
+      keylessCloudSyncUtils.buildKeylessSignatureHeader({
         signingPrivateKey: keylessCredential.signingPrivateKey,
         signingPublicKey: keylessCredential.signingPublicKey,
-        password,
         dataHash,
       });
     return {
@@ -525,6 +519,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
       isCloudSyncEnabledKeyless: shouldEnableKeyless,
     }));
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+
+    // Remove persisted credential when disabling keyless sync
+    if (!shouldEnableKeyless) {
+      const currentWalletId =
+        await this.getCurrentCloudSyncKeylessWalletId();
+      if (currentWalletId) {
+        await keylessSyncCredentialStorage.removeCredential(currentWalletId);
+      }
+    }
+
     return shouldEnableKeyless;
   }
 
