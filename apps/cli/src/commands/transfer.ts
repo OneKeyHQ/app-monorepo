@@ -16,34 +16,55 @@ import type { OutputFormatter } from '../output';
 import type { EvmSigner } from '../signer/impls/evm/EvmSigner';
 import type { Command } from 'commander';
 
+// --- API response types aligned with real contracts ---
+
 interface IAccountResponse {
   address: string;
   nonce?: number;
 }
 
-interface ITokenInfo {
-  decimals: number;
-  symbol: string;
-  name: string;
-}
-
-interface IFeeEstimation {
-  common: {
-    feeDecimals: number;
-    feeSymbol: string;
-    nativeDecimals: number;
-    nativeSymbol: string;
+// /wallet/v1/account/token/search — POST, contractList is string[]
+// Response: IFetchTokenDetailItem[] where each has { info: IToken }
+interface ITokenDetailItem {
+  info: {
+    decimals: number;
+    symbol: string;
+    name: string;
+    address: string;
   };
-  gas?: Array<{
-    gasPrice?: string;
-    gasLimit?: string;
-    maxFeePerGas?: string;
-    maxPriorityFeePerGas?: string;
-  }>;
 }
 
+// /wallet/v1/account/estimate-fee — POST
+// Response: IEstimateGasResp (flat structure, NOT nested under common)
+interface IGasLegacy {
+  gasPrice: string;
+  gasLimit: string;
+  gasLimitForDisplay?: string;
+}
+
+interface IGasEIP1559 {
+  baseFeePerGas: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  gasLimit: string;
+  gasLimitForDisplay?: string;
+  gasPrice?: string;
+}
+
+interface IEstimateGasResp {
+  isEIP1559: boolean;
+  feeDecimals: number;
+  feeSymbol: string;
+  nativeDecimals: number;
+  nativeSymbol: string;
+  gas?: IGasLegacy[];
+  gasEIP1559?: IGasEIP1559[];
+}
+
+// /wallet/v1/account/send-transaction — POST
+// Response: { result: string } where result is the txid hash
 interface ISendTransactionResult {
-  txid: string;
+  result: string;
 }
 
 export function registerTransferCommand(program: Command): void {
@@ -97,18 +118,20 @@ export function registerTransferCommand(program: Command): void {
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;
 
-          // Validate amount precision against chain/token decimals
+          // Build encoded tx
           let encodedTx: Record<string, string>;
           if (validated.token) {
-            const tokenInfo = await apiClient.get<ITokenInfo>(
+            // #2 fix: POST with contractList as array, read from resp[0].info
+            const tokenResults = await apiClient.post<ITokenDetailItem[]>(
               'wallet',
               '/wallet/v1/account/token/search',
               {
                 networkId: chainConfig.networkId,
-                contractList: validated.token,
+                contractList: [validated.token],
               },
             );
-            if (!tokenInfo?.decimals && tokenInfo?.decimals !== 0) {
+            const tokenInfo = tokenResults?.[0]?.info;
+            if (!tokenInfo || tokenInfo.decimals === undefined) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_TOKEN.code,
                 `Cannot resolve decimals for token ${validated.token}`,
@@ -132,8 +155,8 @@ export function registerTransferCommand(program: Command): void {
             );
           }
 
-          // Estimate fee
-          const feeEstimation = await apiClient.post<IFeeEstimation>(
+          // #3 fix: estimate-fee response is flat IEstimateGasResp
+          const feeResp = await apiClient.post<IEstimateGasResp>(
             'wallet',
             '/wallet/v1/account/estimate-fee',
             {
@@ -143,41 +166,58 @@ export function registerTransferCommand(program: Command): void {
             },
           );
 
-          const gasInfo = feeEstimation.gas?.[1] ?? feeEstimation.gas?.[0];
-          if (!gasInfo?.gasLimit) {
+          // Verify decimals match chain config
+          if (feeResp.feeDecimals !== feeDecimals) {
             throw new AppError(
               ERROR_CODES.BIZ_UNKNOWN.code,
-              'Fee estimation returned no gas data',
-              'The API did not return gasLimit — cannot proceed safely',
+              `feeDecimals mismatch: API=${feeResp.feeDecimals}, config=${feeDecimals}`,
+              `Chain ${chainName} config may be outdated`,
+            );
+          }
+          if (feeResp.nativeDecimals !== nativeDecimals) {
+            throw new AppError(
+              ERROR_CODES.BIZ_UNKNOWN.code,
+              `nativeDecimals mismatch: API=${feeResp.nativeDecimals}, config=${nativeDecimals}`,
+              `Chain ${chainName} config may be outdated`,
             );
           }
 
-          // Verify API decimals match chain config
-          if (
-            feeEstimation.common?.feeDecimals !== undefined &&
-            feeEstimation.common.feeDecimals !== feeDecimals
-          ) {
-            throw new AppError(
-              ERROR_CODES.BIZ_UNKNOWN.code,
-              `feeDecimals mismatch: API returned ${feeEstimation.common.feeDecimals}, chain config has ${feeDecimals}`,
-              `Chain ${chainName} decimals config may be outdated — verify against presetNetworks.ts`,
-            );
-          }
+          // Parse gas from correct field based on isEIP1559
+          const isEIP1559 = feeResp.isEIP1559;
+          let gasLimit: string;
+          let gasPriceDisplay: string;
 
-          if (
-            feeEstimation.common?.nativeDecimals !== undefined &&
-            feeEstimation.common.nativeDecimals !== nativeDecimals
-          ) {
-            throw new AppError(
-              ERROR_CODES.BIZ_UNKNOWN.code,
-              `nativeDecimals mismatch: API returned ${feeEstimation.common.nativeDecimals}, chain config has ${nativeDecimals}`,
-              `Chain ${chainName} decimals config may be outdated — verify against presetNetworks.ts`,
-            );
+          if (isEIP1559) {
+            const eipGas = feeResp.gasEIP1559?.[1] ?? feeResp.gasEIP1559?.[0];
+            if (
+              !eipGas?.gasLimit ||
+              !eipGas.maxFeePerGas ||
+              !eipGas.maxPriorityFeePerGas
+            ) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                'EIP-1559 fee estimation incomplete',
+                'API did not return gasLimit/maxFeePerGas/maxPriorityFeePerGas',
+              );
+            }
+            gasLimit = eipGas.gasLimit;
+            gasPriceDisplay = eipGas.maxFeePerGas;
+          } else {
+            const legacyGas = feeResp.gas?.[1] ?? feeResp.gas?.[0];
+            if (!legacyGas?.gasLimit || !legacyGas.gasPrice) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                'Legacy fee estimation incomplete',
+                'API did not return gasLimit/gasPrice',
+              );
+            }
+            gasLimit = legacyGas.gasLimit;
+            gasPriceDisplay = legacyGas.gasPrice;
           }
 
           const estimatedGasDisplay = estimateGasCostDisplay(
-            gasInfo.gasLimit,
-            gasInfo.maxFeePerGas ?? gasInfo.gasPrice ?? '0',
+            gasLimit,
+            gasPriceDisplay,
             feeDecimals,
             nativeSymbol,
             nativeDecimals,
@@ -221,7 +261,7 @@ export function registerTransferCommand(program: Command): void {
           const networkInfo = signer.buildNetworkInfo(chainConfig.networkId);
           const chainId = chainConfig.networkId.split('--')[1];
 
-          // Fetch nonce via get-account with withNonce flag
+          // Fetch nonce
           const accountInfo = await apiClient.get<IAccountResponse>(
             'wallet',
             '/wallet/v1/account/get-account',
@@ -232,7 +272,6 @@ export function registerTransferCommand(program: Command): void {
             },
           );
 
-          // Validate nonce — never fallback to 0
           if (accountInfo.nonce === undefined || accountInfo.nonce === null) {
             throw new AppError(
               ERROR_CODES.NET_REQUEST_FAILED.code,
@@ -241,43 +280,32 @@ export function registerTransferCommand(program: Command): void {
             );
           }
 
-          // Validate gas price fields — never fallback to '0'
-          const isEIP1559 = Boolean(gasInfo.maxFeePerGas);
-          if (isEIP1559) {
-            if (!gasInfo.maxFeePerGas || !gasInfo.maxPriorityFeePerGas) {
-              throw new AppError(
-                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
-                'EIP-1559 fee estimation incomplete: missing maxFeePerGas or maxPriorityFeePerGas',
-                'Retry or check API response',
-              );
-            }
-          } else if (!gasInfo.gasPrice) {
-            throw new AppError(
-              ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
-              'Legacy fee estimation incomplete: missing gasPrice',
-              'Retry or check API response',
-            );
-          }
-
           // Build complete encodedTx for signing
-          // Gas prices from API are in feeDecimals units (e.g. Gwei), must convert to wei hex
-          const encodedTxWithGas = {
-            ...encodedTx,
-            nonce: accountInfo.nonce,
-            chainId,
-            gasLimit: gasInfo.gasLimit,
-            ...(isEIP1559
-              ? {
-                  maxFeePerGas: feeToWeiHex(gasInfo.maxFeePerGas!, feeDecimals),
-                  maxPriorityFeePerGas: feeToWeiHex(
-                    gasInfo.maxPriorityFeePerGas!,
-                    feeDecimals,
-                  ),
-                }
-              : {
-                  gasPrice: feeToWeiHex(gasInfo.gasPrice!, feeDecimals),
-                }),
-          };
+          // Gas prices from API are in feeDecimals units → convert to wei hex
+          let encodedTxWithGas: Record<string, unknown>;
+          if (isEIP1559) {
+            const eipGas = feeResp.gasEIP1559?.[1] ?? feeResp.gasEIP1559?.[0];
+            encodedTxWithGas = {
+              ...encodedTx,
+              nonce: accountInfo.nonce,
+              chainId,
+              gasLimit: eipGas!.gasLimit,
+              maxFeePerGas: feeToWeiHex(eipGas!.maxFeePerGas, feeDecimals),
+              maxPriorityFeePerGas: feeToWeiHex(
+                eipGas!.maxPriorityFeePerGas,
+                feeDecimals,
+              ),
+            };
+          } else {
+            const legacyGas = feeResp.gas?.[1] ?? feeResp.gas?.[0];
+            encodedTxWithGas = {
+              ...encodedTx,
+              nonce: accountInfo.nonce,
+              chainId,
+              gasLimit: legacyGas!.gasLimit,
+              gasPrice: feeToWeiHex(legacyGas!.gasPrice, feeDecimals),
+            };
+          }
 
           const signPayload = {
             networkInfo,
@@ -295,21 +323,28 @@ export function registerTransferCommand(program: Command): void {
 
           const signedTx = await signer.signTransaction(signPayload);
 
-          // Broadcast
-          const result = await apiClient.post<ISendTransactionResult>(
+          // #4 fix: broadcast response has { result: txHashString }
+          const broadcastResult = await apiClient.post<ISendTransactionResult>(
             'wallet',
             '/wallet/v1/account/send-transaction',
             {
               networkId: chainConfig.networkId,
               accountAddress: fromAddress,
               tx: signedTx.rawTx,
-              signedTx,
             },
           );
 
+          if (!broadcastResult?.result) {
+            throw new AppError(
+              ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+              'Broadcast succeeded but API did not return txid',
+              'Check the transaction on chain explorer manually',
+            );
+          }
+
           output.success(
             {
-              txid: result.txid ?? signedTx.txid,
+              txid: broadcastResult.result,
               from: fromAddress,
               to: validated.to,
               amount: validated.amount,
