@@ -162,9 +162,11 @@ export function registerTransferCommand(program: Command): void {
 
           let estimatedGasDisplay = 'unknown';
           if (gasInfo) {
-            const gasLimit = gasInfo.gasLimit ?? '21000';
-            const gasPrice = gasInfo.maxFeePerGas ?? gasInfo.gasPrice ?? '0';
-            const gasCostWei = (BigInt(gasLimit) * BigInt(gasPrice)).toString();
+            const gasLimit = Number(gasInfo.gasLimit ?? '21000');
+            const gasPrice = Number(
+              gasInfo.maxFeePerGas ?? gasInfo.gasPrice ?? '0',
+            );
+            const gasCostWei = Math.floor(gasLimit * gasPrice).toString();
             estimatedGasDisplay = `${weiToDisplay(gasCostWei, feeDecimals)} ${feeSymbol}`;
           }
 
