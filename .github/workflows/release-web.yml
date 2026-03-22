@@ -7,6 +7,50 @@ on:
     types:
       - completed
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      build_number:
+        type: string
+        required: true
+      build_bundle_version:
+        type: string
+        required: true
+      build_source:
+        type: string
+        required: false
+        default: 'daily-build'
+      branch:
+        type: string
+        required: false
+      commit:
+        type: string
+        required: false
+      checkout_ref:
+        type: string
+        required: false
+    secrets:
+      COVALENT_KEY:
+        required: false
+      SENTRY_TOKEN:
+        required: false
+      SENTRY_DSN_REACT_NATIVE:
+        required: false
+      SENTRY_DSN_WEB:
+        required: false
+      SENTRY_DSN_DESKTOP:
+        required: false
+      SENTRY_DSN_MAS:
+        required: false
+      SENTRY_DSN_SNAP:
+        required: false
+      SENTRY_DSN_WINMS:
+        required: false
+      SENTRY_DSN_EXT:
+        required: false
+      SLACK_NOTIFICATION_WEBHOOK:
+        required: false
+      ACTION_SIGN_SECERT_KEY:
+        required: false
 
 env:
   NODE_ENV: production
