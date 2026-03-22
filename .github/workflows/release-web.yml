@@ -139,6 +139,11 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             COMMIT="${{ github.sha }}"
           fi
+          # Validate commit SHA format to prevent env injection
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Invalid commit SHA format: $COMMIT"
+            exit 1
+          fi
           {
             echo "BRANCH<<GHEOF"
             echo "$BRANCH"
@@ -265,6 +270,11 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             COMMIT="${{ github.sha }}"
           fi
+          # Validate commit SHA format to prevent env injection
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Invalid commit SHA format: $COMMIT"
+            exit 1
+          fi
           {
             echo "BRANCH<<GHEOF"
             echo "$BRANCH"
@@ -363,6 +373,11 @@ jobs:
           else
             BRANCH="${{ github.ref_name }}"
             COMMIT="${{ github.sha }}"
+          fi
+          # Validate commit SHA format to prevent env injection
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Invalid commit SHA format: $COMMIT"
+            exit 1
           fi
           {
             echo "BRANCH<<GHEOF"
