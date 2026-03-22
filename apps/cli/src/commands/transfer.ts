@@ -5,6 +5,11 @@ import { transferOptionsSchema } from '../schemas';
 import { getSignerByImpl } from '../signer';
 import { CLI_PASSWORD } from '../signer/base/SignerBase';
 import { confirmTransaction } from '../utils/confirm-transaction';
+import {
+  buildErc20EncodedTx,
+  buildNativeEncodedTx,
+  estimateGasCostDisplay,
+} from '../utils/tx-utils';
 
 import type { OutputFormatter } from '../output';
 import type { EvmSigner } from '../signer/impls/evm/EvmSigner';
@@ -27,57 +32,6 @@ interface IFeeEstimation {
 
 interface ISendTransactionResult {
   txid: string;
-}
-
-function amountToWei(amount: string, decimals: number): string {
-  const parts = amount.split('.');
-  const wholePart = parts[0];
-  const fracPart = (parts[1] ?? '').padEnd(decimals, '0').slice(0, decimals);
-  const raw = `${wholePart}${fracPart}`.replace(/^0+/, '') || '0';
-  return raw;
-}
-
-function weiToDisplay(wei: string, decimals: number): string {
-  const padded = wei.padStart(decimals + 1, '0');
-  const whole = padded.slice(0, padded.length - decimals) || '0';
-  const frac = padded.slice(padded.length - decimals);
-  const trimmed = frac.replace(/0+$/, '');
-  return trimmed ? `${whole}.${trimmed}` : whole;
-}
-
-function buildNativeEncodedTx(
-  from: string,
-  to: string,
-  amount: string,
-): Record<string, string> {
-  return {
-    from,
-    to,
-    value: `0x${BigInt(amountToWei(amount, 18)).toString(16)}`,
-  };
-}
-
-function buildErc20EncodedTx(
-  from: string,
-  to: string,
-  amount: string,
-  tokenContract: string,
-): Record<string, string> {
-  // ERC-20 transfer(address,uint256) function selector + ABI encoded args
-  // For MVP, assume 18 decimals (most common). Token decimals query can be added later.
-  const selector = 'a9059cbb';
-  const paddedTo = to.slice(2).toLowerCase().padStart(64, '0');
-  const weiAmount = BigInt(amountToWei(amount, 18))
-    .toString(16)
-    .padStart(64, '0');
-  const data = `0x${selector}${paddedTo}${weiAmount}`;
-
-  return {
-    from,
-    to: tokenContract,
-    data,
-    value: '0x0',
-  };
 }
 
 export function registerTransferCommand(program: Command): void {
@@ -162,12 +116,12 @@ export function registerTransferCommand(program: Command): void {
 
           let estimatedGasDisplay = 'unknown';
           if (gasInfo) {
-            const gasLimit = Number(gasInfo.gasLimit ?? '21000');
-            const gasPrice = Number(
+            estimatedGasDisplay = estimateGasCostDisplay(
+              gasInfo.gasLimit ?? '21000',
               gasInfo.maxFeePerGas ?? gasInfo.gasPrice ?? '0',
+              feeDecimals,
+              feeSymbol,
             );
-            const gasCostWei = Math.floor(gasLimit * gasPrice).toString();
-            estimatedGasDisplay = `${weiToDisplay(gasCostWei, feeDecimals)} ${feeSymbol}`;
           }
 
           // Dry run — just show preview
