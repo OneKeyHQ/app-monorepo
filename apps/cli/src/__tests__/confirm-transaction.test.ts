@@ -20,23 +20,33 @@ describe('confirmTransaction', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('skips in agent mode', async () => {
+  it('skips in agent mode when skipConfirmation is true', async () => {
+    await expect(
+      confirmTransaction({
+        info: { action: 'Transfer 1 ETH', to: '0x123', network: 'eth' },
+        output: new OutputFormatter('agent'),
+        skipConfirmation: true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects in agent mode without --yes', async () => {
     await expect(
       confirmTransaction({
         info: { action: 'Transfer 1 ETH', to: '0x123', network: 'eth' },
         output: new OutputFormatter('agent'),
         skipConfirmation: false,
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('requires confirmation');
   });
 
-  it('skips in quiet mode', async () => {
+  it('rejects in quiet mode without --yes', async () => {
     await expect(
       confirmTransaction({
         info: { action: 'Transfer 1 ETH', to: '0x123', network: 'eth' },
         output: new OutputFormatter('quiet'),
         skipConfirmation: false,
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('requires confirmation');
   });
 });

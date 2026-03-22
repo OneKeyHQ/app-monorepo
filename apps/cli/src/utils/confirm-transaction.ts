@@ -21,9 +21,7 @@ function readConfirmation(prompt: string): Promise<boolean> {
     });
     rl.question(prompt, (answer) => {
       rl.close();
-      resolve(
-        answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes',
-      );
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
     });
   });
 }
@@ -36,7 +34,15 @@ export async function confirmTransaction(params: {
   const { info, output, skipConfirmation } = params;
 
   if (skipConfirmation) return;
-  if (output.getMode() !== 'human') return;
+
+  // Non-interactive modes (--json, --quiet) cannot prompt — require --yes
+  if (output.getMode() !== 'human') {
+    throw new AppError(
+      ERROR_CODES.USER_CANCELLED.code,
+      'Transaction requires confirmation. Pass --yes to authorize.',
+      'Run with --yes to skip confirmation in non-interactive mode',
+    );
+  }
 
   const lines = [
     '\u26A0 Transaction Summary',
