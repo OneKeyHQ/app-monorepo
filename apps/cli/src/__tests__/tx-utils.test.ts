@@ -5,6 +5,7 @@ import {
   estimateGasCostDisplay,
   feeToWeiHex,
   smallestUnitToDisplay,
+  validateAmountDecimals,
 } from '../utils/tx-utils';
 
 describe('amountToSmallestUnit', () => {
@@ -34,8 +35,9 @@ describe('amountToSmallestUnit', () => {
     );
   });
 
-  it('truncates excess decimals', () => {
-    // 0.1234567890123456789999 with 18 decimals → truncated to 18
+  it('truncates excess decimals (internal use)', () => {
+    // amountToSmallestUnit truncates for internal calculations (gas display etc.)
+    // User input validation is handled by validateAmountDecimals separately
     expect(amountToSmallestUnit('0.1234567890123456789999', 18)).toBe(
       '123456789012345678',
     );
@@ -73,6 +75,30 @@ describe('smallestUnitToDisplay', () => {
 
   it('works with 6 decimals', () => {
     expect(smallestUnitToDisplay('1500000', 6)).toBe('1.5');
+  });
+});
+
+describe('validateAmountDecimals', () => {
+  it('passes for valid precision', () => {
+    expect(() => validateAmountDecimals('1.5', 18)).not.toThrow();
+    expect(() => validateAmountDecimals('100', 18)).not.toThrow();
+    expect(() => validateAmountDecimals('0.123456', 6)).not.toThrow();
+  });
+
+  it('rejects excess decimals for 18-decimal token', () => {
+    expect(() => validateAmountDecimals('0.1234567890123456789', 18)).toThrow(
+      'decimal places',
+    );
+  });
+
+  it('rejects excess decimals for 6-decimal token (USDC)', () => {
+    expect(() => validateAmountDecimals('1.1234567', 6)).toThrow(
+      'decimal places',
+    );
+  });
+
+  it('passes at exact decimal limit', () => {
+    expect(() => validateAmountDecimals('0.123456', 6)).not.toThrow();
   });
 });
 
@@ -153,20 +179,32 @@ describe('buildNativeEncodedTx', () => {
 });
 
 describe('buildErc20EncodedTx', () => {
-  it('builds correct ERC-20 transfer calldata', () => {
+  it('builds correct ERC-20 transfer calldata with 18 decimals', () => {
     const tx = buildErc20EncodedTx(
       '0xfrom',
       '0x0000000000000000000000000000000000000001',
       '1',
       '0xTokenContract',
+      18,
     );
     expect(tx.from).toBe('0xfrom');
     expect(tx.to).toBe('0xTokenContract');
     expect(tx.value).toBe('0x0');
-    // Should start with transfer selector
     expect(tx.data).toMatch(/^0xa9059cbb/);
-    // data = selector(8) + address(64) + amount(64) = 138 chars + 0x prefix = 140
     expect(tx.data.length).toBe(2 + 8 + 64 + 64);
+  });
+
+  it('encodes 6-decimal token correctly (USDC)', () => {
+    const tx = buildErc20EncodedTx(
+      '0xfrom',
+      '0x0000000000000000000000000000000000000001',
+      '1',
+      '0xUSDC',
+      6,
+    );
+    // 1 USDC = 1_000_000 = 0xF4240
+    const amountHex = tx.data.slice(74);
+    expect(BigInt(`0x${amountHex}`)).toBe(1_000_000n);
   });
 
   it('pads address correctly', () => {
@@ -175,6 +213,7 @@ describe('buildErc20EncodedTx', () => {
       '0x0000000000000000000000000000000000000001',
       '1',
       '0xToken',
+      18,
     );
     // address portion: 40-char address without 0x, padded to 64
     const addressPart = tx.data.slice(10, 74);

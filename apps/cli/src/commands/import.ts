@@ -119,15 +119,24 @@ export function registerImportCommand(program: Command): void {
             }
           }
 
+          // Validate mnemonic by encrypting + deriving address BEFORE writing to Keychain.
+          // This ensures invalid mnemonics never get persisted.
           const encryptionKey = randomBytes(32).toString('hex');
           const encrypted = await encrypt(mnemonicBuf, encryptionKey);
 
+          // Derive address in-memory to validate mnemonic (uses revealableSeedFromMnemonic)
+          const { revealableSeedFromMnemonic } =
+            await import('@onekeyhq/core/src/secret');
+          await revealableSeedFromMnemonic(normalized, 'onekey');
+
+          // Mnemonic is valid — now persist to Keychain
           await keychain.set(
             KEYCHAIN_ENCRYPTION_KEY,
             Buffer.from(encryptionKey, 'utf-8'),
           );
           await keychain.set(KEYCHAIN_MNEMONIC_KEY, encrypted);
 
+          // Derive address for display
           const signer = await getSignerByImpl('evm');
           const addressInfo = await signer.getAddress('evm--1');
 

@@ -9,6 +9,7 @@ import {
   buildNativeEncodedTx,
   estimateGasCostDisplay,
   feeToWeiHex,
+  validateAmountDecimals,
 } from '../utils/tx-utils';
 
 import type { OutputFormatter } from '../output';
@@ -18,6 +19,12 @@ import type { Command } from 'commander';
 interface IAccountResponse {
   address: string;
   nonce?: number;
+}
+
+interface ITokenInfo {
+  decimals: number;
+  symbol: string;
+  name: string;
 }
 
 interface IFeeEstimation {
@@ -84,19 +91,46 @@ export function registerTransferCommand(program: Command): void {
             );
           }
 
+          const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
+
           const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;
 
-          // Build encoded tx
-          const encodedTx = validated.token
-            ? buildErc20EncodedTx(
-                fromAddress,
-                validated.to,
-                validated.amount,
-                validated.token,
-              )
-            : buildNativeEncodedTx(fromAddress, validated.to, validated.amount);
+          // Validate amount precision against chain/token decimals
+          let encodedTx: Record<string, string>;
+          if (validated.token) {
+            const tokenInfo = await apiClient.get<ITokenInfo>(
+              'wallet',
+              '/wallet/v1/account/token/search',
+              {
+                networkId: chainConfig.networkId,
+                contractList: validated.token,
+              },
+            );
+            if (!tokenInfo?.decimals && tokenInfo?.decimals !== 0) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                `Cannot resolve decimals for token ${validated.token}`,
+                'Verify the token contract address is correct',
+              );
+            }
+            validateAmountDecimals(validated.amount, tokenInfo.decimals);
+            encodedTx = buildErc20EncodedTx(
+              fromAddress,
+              validated.to,
+              validated.amount,
+              validated.token,
+              tokenInfo.decimals,
+            );
+          } else {
+            validateAmountDecimals(validated.amount, nativeDecimals);
+            encodedTx = buildNativeEncodedTx(
+              fromAddress,
+              validated.to,
+              validated.amount,
+            );
+          }
 
           // Estimate fee
           const feeEstimation = await apiClient.post<IFeeEstimation>(
@@ -118,10 +152,7 @@ export function registerTransferCommand(program: Command): void {
             );
           }
 
-          // Decimals come from chain config (presetNetworks), NOT from API fallbacks.
-          // If API returns different values, that's a data inconsistency we must flag.
-          const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
-
+          // Verify API decimals match chain config
           if (
             feeEstimation.common?.feeDecimals !== undefined &&
             feeEstimation.common.feeDecimals !== feeDecimals
@@ -201,23 +232,50 @@ export function registerTransferCommand(program: Command): void {
             },
           );
 
+          // Validate nonce — never fallback to 0
+          if (accountInfo.nonce === undefined || accountInfo.nonce === null) {
+            throw new AppError(
+              ERROR_CODES.NET_REQUEST_FAILED.code,
+              'API did not return nonce (withNonce=true). Cannot sign safely.',
+              'Check API connectivity or retry',
+            );
+          }
+
+          // Validate gas price fields — never fallback to '0'
+          const isEIP1559 = Boolean(gasInfo.maxFeePerGas);
+          if (isEIP1559) {
+            if (!gasInfo.maxFeePerGas || !gasInfo.maxPriorityFeePerGas) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                'EIP-1559 fee estimation incomplete: missing maxFeePerGas or maxPriorityFeePerGas',
+                'Retry or check API response',
+              );
+            }
+          } else if (!gasInfo.gasPrice) {
+            throw new AppError(
+              ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+              'Legacy fee estimation incomplete: missing gasPrice',
+              'Retry or check API response',
+            );
+          }
+
           // Build complete encodedTx for signing
           // Gas prices from API are in feeDecimals units (e.g. Gwei), must convert to wei hex
           const encodedTxWithGas = {
             ...encodedTx,
-            nonce: accountInfo.nonce ?? 0,
+            nonce: accountInfo.nonce,
             chainId,
-            gasLimit: gasInfo?.gasLimit ?? '21000',
-            ...(gasInfo?.maxFeePerGas
+            gasLimit: gasInfo.gasLimit,
+            ...(isEIP1559
               ? {
-                  maxFeePerGas: feeToWeiHex(gasInfo.maxFeePerGas, feeDecimals),
+                  maxFeePerGas: feeToWeiHex(gasInfo.maxFeePerGas!, feeDecimals),
                   maxPriorityFeePerGas: feeToWeiHex(
-                    gasInfo.maxPriorityFeePerGas ?? '0',
+                    gasInfo.maxPriorityFeePerGas!,
                     feeDecimals,
                   ),
                 }
               : {
-                  gasPrice: feeToWeiHex(gasInfo?.gasPrice ?? '0', feeDecimals),
+                  gasPrice: feeToWeiHex(gasInfo.gasPrice!, feeDecimals),
                 }),
           };
 

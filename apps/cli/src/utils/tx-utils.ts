@@ -1,3 +1,5 @@
+import { AppError, ERROR_CODES } from '../errors';
+
 /**
  * Convert human-readable amount to smallest unit (wei for ETH, satoshi for BTC).
  * Pure integer arithmetic — no floating point.
@@ -5,9 +7,25 @@
 export function amountToSmallestUnit(amount: string, decimals: number): string {
   const parts = amount.split('.');
   const wholePart = parts[0];
-  const fracPart = (parts[1] ?? '').padEnd(decimals, '0').slice(0, decimals);
+  const rawFrac = parts[1] ?? '';
+  const fracPart = rawFrac.padEnd(decimals, '0').slice(0, decimals);
   const raw = `${wholePart}${fracPart}`.replace(/^0+/, '') || '0';
   return raw;
+}
+
+/**
+ * Validate that user-supplied amount doesn't exceed the allowed decimal places.
+ * Call this on user inputs BEFORE amountToSmallestUnit.
+ */
+export function validateAmountDecimals(amount: string, decimals: number): void {
+  const frac = amount.split('.')[1] ?? '';
+  if (frac.length > decimals) {
+    throw new AppError(
+      ERROR_CODES.PARAM_INVALID_AMOUNT.code,
+      `Amount has ${frac.length} decimal places but max is ${decimals}`,
+      `Use at most ${decimals} decimal places`,
+    );
+  }
 }
 
 /**
@@ -74,17 +92,18 @@ export function buildNativeEncodedTx(
 
 /**
  * Build ERC-20 transfer encodedTx.
- * Assumes 18 decimals (most common). Token decimals query can be added later.
+ * `tokenDecimals` MUST come from on-chain or API token metadata — never hardcode.
  */
 export function buildErc20EncodedTx(
   from: string,
   to: string,
   amount: string,
   tokenContract: string,
+  tokenDecimals: number,
 ): Record<string, string> {
   const selector = 'a9059cbb';
   const paddedTo = to.slice(2).toLowerCase().padStart(64, '0');
-  const weiAmount = BigInt(amountToSmallestUnit(amount, 18))
+  const weiAmount = BigInt(amountToSmallestUnit(amount, tokenDecimals))
     .toString(16)
     .padStart(64, '0');
   const data = `0x${selector}${paddedTo}${weiAmount}`;
