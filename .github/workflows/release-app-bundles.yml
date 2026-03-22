@@ -116,6 +116,7 @@ jobs:
 
   desktop-bundle:
     needs: prepare-params
+    if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-desktop-bundle.yml
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
@@ -144,6 +145,7 @@ jobs:
 
   native-bundle:
     needs: prepare-params
+    if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-native-bundle.yml
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
@@ -172,6 +174,7 @@ jobs:
 
   web-bundle:
     needs: prepare-params
+    if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-web.yml
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
