@@ -63,9 +63,9 @@ jobs:
   build-renderer:
     runs-on: ubuntu-24.04
     outputs:
-      build_number: ${{ env.BUILD_NUMBER }}
-      build_bundle_version: ${{ env.BUILD_BUNDLE_VERSION }}
-      build_app_version: ${{ env.BUILD_APP_VERSION }}
+      build_number: ${{ steps.export-metadata.outputs.build_number }}
+      build_bundle_version: ${{ steps.export-metadata.outputs.build_bundle_version }}
+      build_app_version: ${{ steps.export-metadata.outputs.build_app_version }}
     strategy:
       matrix:
         node-version: [24.x]
@@ -94,13 +94,17 @@ jobs:
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
-      - name: Override params from caller
+      - name: Override build_number from caller
         if: ${{ inputs.build_number != '' }}
         run: |
           echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+
+      - name: Override build_bundle_version from caller
+        if: ${{ inputs.build_bundle_version != '' }}
+        run: |
           echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
           sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
-          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -129,6 +133,13 @@ jobs:
           npx cross-env NODE_ENV=production yarn clean:build
           npx cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build
           node scripts/finalize-renderer-assets.js
+
+      - name: Export build metadata
+        id: export-metadata
+        run: |
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
+          echo "build_app_version=$BUILD_APP_VERSION" >> $GITHUB_OUTPUT
 
       - name: Upload Renderer Artifact
         uses: actions/upload-artifact@v4

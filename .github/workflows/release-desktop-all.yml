@@ -95,8 +95,8 @@ jobs:
           echo "BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" >> $GITHUB_ENV
           echo "BUILD_BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" >> $GITHUB_ENV
           echo "BUILD_APP_VERSION=${{ needs.renderer.outputs.build_app_version }}" >> $GITHUB_ENV
-          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}/" .env
-          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}/" .env
+          sed -i '' "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}/" .env
+          sed -i '' "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}/" .env
 
       - name: Warn if GPG verification is skipped
         if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
