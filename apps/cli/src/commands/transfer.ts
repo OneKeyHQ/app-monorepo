@@ -3,7 +3,6 @@ import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
 import { getSignerByImpl } from '../signer';
-import { CLI_PASSWORD } from '../signer/base/SignerBase';
 import { confirmTransaction } from '../utils/confirm-transaction';
 import {
   buildErc20EncodedTx,
@@ -158,6 +157,7 @@ export function registerTransferCommand(program: Command): void {
 
           // Build sign payload
           const hdCredential = await signer.getHdCredential();
+          const encodedPassword = await signer.getEncodedPassword();
           const networkInfo = signer.buildNetworkInfo(chainConfig.networkId);
 
           // Attach gas info to encodedTx for signing
@@ -176,7 +176,7 @@ export function registerTransferCommand(program: Command): void {
 
           const signPayload = {
             networkInfo,
-            password: CLI_PASSWORD,
+            password: encodedPassword,
             credentials: { hd: hdCredential },
             account: {
               address: fromAddress,

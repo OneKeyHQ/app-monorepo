@@ -1,4 +1,7 @@
-import { revealableSeedFromMnemonic } from '@onekeyhq/core/src/secret';
+import {
+  encodeSensitiveTextAsync,
+  revealableSeedFromMnemonic,
+} from '@onekeyhq/core/src/secret';
 
 import { decrypt, secureWipe } from '../../core/crypto-utils';
 import { AppError, ERROR_CODES } from '../../errors';
@@ -13,6 +16,10 @@ export { CLI_PASSWORD };
 
 export class SignerBase {
   protected keychain = new KeychainStorage();
+
+  async getEncodedPassword(): Promise<string> {
+    return encodeSensitiveTextAsync({ text: CLI_PASSWORD });
+  }
 
   async getHdCredential(): Promise<string> {
     const encryptionKeyBuf = await this.keychain.get(KEYCHAIN_ENCRYPTION_KEY);
