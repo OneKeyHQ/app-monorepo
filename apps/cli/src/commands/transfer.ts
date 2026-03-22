@@ -14,6 +14,11 @@ import type { OutputFormatter } from '../output';
 import type { EvmSigner } from '../signer/impls/evm/EvmSigner';
 import type { Command } from 'commander';
 
+interface IAccountResponse {
+  address: string;
+  nonce?: number;
+}
+
 interface IFeeEstimation {
   common: {
     feeDecimals: number;
@@ -159,20 +164,31 @@ export function registerTransferCommand(program: Command): void {
           const hdCredential = await signer.getHdCredential();
           const encodedPassword = await signer.getEncodedPassword();
           const networkInfo = signer.buildNetworkInfo(chainConfig.networkId);
+          const chainId = chainConfig.networkId.split('--')[1];
 
-          // Attach gas info to encodedTx for signing
-          const encodedTxWithGas = gasInfo
-            ? {
-                ...encodedTx,
-                gasLimit: gasInfo.gasLimit,
-                ...(gasInfo.maxFeePerGas
-                  ? {
-                      maxFeePerGas: gasInfo.maxFeePerGas,
-                      maxPriorityFeePerGas: gasInfo.maxPriorityFeePerGas,
-                    }
-                  : { gasPrice: gasInfo.gasPrice }),
-              }
-            : encodedTx;
+          // Fetch nonce
+          const accountInfo = await apiClient.get<IAccountResponse>(
+            'wallet',
+            '/wallet/v1/account/get-account',
+            {
+              networkId: chainConfig.networkId,
+              accountAddress: fromAddress,
+            },
+          );
+
+          // Build complete encodedTx for signing (core requires nonce, chainId, gas fields)
+          const encodedTxWithGas = {
+            ...encodedTx,
+            nonce: accountInfo.nonce ?? 0,
+            chainId,
+            gasLimit: gasInfo?.gasLimit ?? '21000',
+            ...(gasInfo?.maxFeePerGas
+              ? {
+                  maxFeePerGas: gasInfo.maxFeePerGas,
+                  maxPriorityFeePerGas: gasInfo.maxPriorityFeePerGas,
+                }
+              : { gasPrice: gasInfo?.gasPrice ?? '0' }),
+          };
 
           const signPayload = {
             networkInfo,
