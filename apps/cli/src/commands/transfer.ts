@@ -8,6 +8,7 @@ import {
   buildErc20EncodedTx,
   buildNativeEncodedTx,
   estimateGasCostDisplay,
+  feeToWeiHex,
 } from '../utils/tx-utils';
 
 import type { OutputFormatter } from '../output';
@@ -109,10 +110,8 @@ export function registerTransferCommand(program: Command): void {
           );
 
           const gasInfo = feeEstimation.gas?.[1] ?? feeEstimation.gas?.[0];
-          const feeDecimals =
-            feeEstimation.common?.feeDecimals ??
-            feeEstimation.common?.nativeDecimals ??
-            18;
+          const feeDecimals = feeEstimation.common?.feeDecimals ?? 9;
+          const nativeDecimals = feeEstimation.common?.nativeDecimals ?? 18;
           const feeSymbol =
             feeEstimation.common?.feeSymbol ??
             feeEstimation.common?.nativeSymbol ??
@@ -125,6 +124,7 @@ export function registerTransferCommand(program: Command): void {
               gasInfo.maxFeePerGas ?? gasInfo.gasPrice ?? '0',
               feeDecimals,
               feeSymbol,
+              nativeDecimals,
             );
           }
 
@@ -177,7 +177,8 @@ export function registerTransferCommand(program: Command): void {
             },
           );
 
-          // Build complete encodedTx for signing (core requires nonce, chainId, gas fields)
+          // Build complete encodedTx for signing
+          // Gas prices from API are in feeDecimals units (e.g. Gwei), must convert to wei hex
           const encodedTxWithGas = {
             ...encodedTx,
             nonce: accountInfo.nonce ?? 0,
@@ -185,10 +186,15 @@ export function registerTransferCommand(program: Command): void {
             gasLimit: gasInfo?.gasLimit ?? '21000',
             ...(gasInfo?.maxFeePerGas
               ? {
-                  maxFeePerGas: gasInfo.maxFeePerGas,
-                  maxPriorityFeePerGas: gasInfo.maxPriorityFeePerGas,
+                  maxFeePerGas: feeToWeiHex(gasInfo.maxFeePerGas, feeDecimals),
+                  maxPriorityFeePerGas: feeToWeiHex(
+                    gasInfo.maxPriorityFeePerGas ?? '0',
+                    feeDecimals,
+                  ),
                 }
-              : { gasPrice: gasInfo?.gasPrice ?? '0' }),
+              : {
+                  gasPrice: feeToWeiHex(gasInfo?.gasPrice ?? '0', feeDecimals),
+                }),
           };
 
           const signPayload = {

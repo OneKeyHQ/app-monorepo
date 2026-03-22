@@ -3,6 +3,7 @@ import {
   buildErc20EncodedTx,
   buildNativeEncodedTx,
   estimateGasCostDisplay,
+  feeToWeiHex,
   smallestUnitToDisplay,
 } from '../utils/tx-utils';
 
@@ -76,38 +77,55 @@ describe('smallestUnitToDisplay', () => {
 });
 
 describe('estimateGasCostDisplay', () => {
-  it('calculates with integer gas values', () => {
-    // 21000 * 20000000000 = 420000000000000 wei = 0.00042 ETH
-    const result = estimateGasCostDisplay('21000', '20000000000', 18, 'ETH');
+  it('calculates with Gwei gas prices (feeDecimals=9)', () => {
+    // gasLimit=21000, gasPrice=20 Gwei → cost=420000 Gwei → 0.00042 ETH
+    const result = estimateGasCostDisplay('21000', '20', 9, 'ETH', 18);
     expect(result).toBe('0.00042 ETH');
   });
 
-  it('handles decimal gasPrice (the BSC bug)', () => {
-    // API returns "0.055" — this was the BigInt crash
-    const result = estimateGasCostDisplay('21000', '0.055', 18, 'BNB');
+  it('handles decimal gasPrice in Gwei', () => {
+    // gasLimit=21000, gasPrice=0.055 Gwei
+    const result = estimateGasCostDisplay('21000', '0.055', 9, 'BNB', 18);
     expect(result).toContain('BNB');
     expect(result).not.toBe('unknown BNB');
   });
 
-  it('handles decimal maxFeePerGas', () => {
-    const result = estimateGasCostDisplay('100000', '1.5', 9, 'GWEI');
-    expect(result).toContain('GWEI');
-    expect(result).not.toBe('unknown GWEI');
+  it('handles Base-like small gas prices', () => {
+    // gasLimit=25464, gasPrice=0.00723 Gwei
+    const result = estimateGasCostDisplay('25464', '0.00723', 9, 'ETH', 18);
+    expect(result).toContain('ETH');
+    expect(result).not.toBe('0 ETH');
   });
 
   it('returns unknown for NaN inputs', () => {
-    expect(estimateGasCostDisplay('abc', '100', 18, 'ETH')).toBe('unknown ETH');
-    expect(estimateGasCostDisplay('21000', 'xyz', 18, 'ETH')).toBe(
+    expect(estimateGasCostDisplay('abc', '100', 9, 'ETH')).toBe('unknown ETH');
+    expect(estimateGasCostDisplay('21000', 'xyz', 9, 'ETH')).toBe(
       'unknown ETH',
     );
   });
 
-  it('handles empty string', () => {
-    expect(estimateGasCostDisplay('', '100', 18, 'ETH')).toBe('0 ETH');
+  it('handles zero gasPrice', () => {
+    expect(estimateGasCostDisplay('21000', '0', 9, 'ETH')).toBe('0 ETH');
+  });
+});
+
+describe('feeToWeiHex', () => {
+  it('converts Gwei to wei hex (feeDecimals=9)', () => {
+    // 20 Gwei = 20_000_000_000 wei = 0x4A817C800
+    expect(feeToWeiHex('20', 9)).toBe('0x4a817c800');
   });
 
-  it('handles zero gasPrice', () => {
-    expect(estimateGasCostDisplay('21000', '0', 18, 'ETH')).toBe('0 ETH');
+  it('converts decimal Gwei to wei hex', () => {
+    // 0.055 Gwei = 55_000_000 wei = 0x3473BC0
+    expect(feeToWeiHex('0.055', 9)).toBe('0x3473bc0');
+  });
+
+  it('converts zero', () => {
+    expect(feeToWeiHex('0', 9)).toBe('0x0');
+  });
+
+  it('converts with feeDecimals=18 (already wei)', () => {
+    expect(feeToWeiHex('1', 18)).toBe('0xde0b6b3a7640000');
   });
 });
 

@@ -22,15 +22,16 @@ export function smallestUnitToDisplay(wei: string, decimals: number): string {
 }
 
 /**
- * Estimate gas cost for display. Uses Number because API may return
- * decimal strings (e.g. "0.055" Gwei). Safe for display — gas values
- * are well within Number.MAX_SAFE_INTEGER.
+ * Estimate gas cost for display.
+ * gasPrice is in API units (defined by feeDecimals, e.g. Gwei when feeDecimals=9).
+ * Result: gasLimit * gasPrice converted to native token display.
  */
 export function estimateGasCostDisplay(
   gasLimit: string,
   gasPrice: string,
   feeDecimals: number,
   feeSymbol: string,
+  nativeDecimals = 18,
 ): string {
   const limitNum = Number(gasLimit);
   const priceNum = Number(gasPrice);
@@ -39,8 +40,21 @@ export function estimateGasCostDisplay(
     return `unknown ${feeSymbol}`;
   }
 
-  const gasCostWei = Math.floor(limitNum * priceNum).toString();
-  return `${smallestUnitToDisplay(gasCostWei, feeDecimals)} ${feeSymbol}`;
+  // gasLimit * gasPrice = cost in API units (e.g. Gwei)
+  // Convert to wei by shifting, then display in native token
+  const costInApiUnits = limitNum * priceNum;
+  const costWei = amountToSmallestUnit(costInApiUnits.toString(), feeDecimals);
+  return `${smallestUnitToDisplay(costWei, nativeDecimals)} ${feeSymbol}`;
+}
+
+/**
+ * Convert a fee value from API units to wei hex string.
+ * API returns gas prices in units defined by feeDecimals (e.g. Gwei when feeDecimals=9).
+ * Core library expects wei as hex. Mirrors App's: toBigIntHex(new BigNumber(val).shiftedBy(feeDecimals))
+ */
+export function feeToWeiHex(value: string, feeDecimals: number): string {
+  const shifted = amountToSmallestUnit(value, feeDecimals);
+  return `0x${BigInt(shifted).toString(16)}`;
 }
 
 /**
