@@ -110,30 +110,54 @@ export function registerTransferCommand(program: Command): void {
           );
 
           const gasInfo = feeEstimation.gas?.[1] ?? feeEstimation.gas?.[0];
-          const feeDecimals = feeEstimation.common?.feeDecimals ?? 9;
-          const nativeDecimals = feeEstimation.common?.nativeDecimals ?? 18;
-          const feeSymbol =
-            feeEstimation.common?.feeSymbol ??
-            feeEstimation.common?.nativeSymbol ??
-            'ETH';
-
-          let estimatedGasDisplay = 'unknown';
-          if (gasInfo) {
-            estimatedGasDisplay = estimateGasCostDisplay(
-              gasInfo.gasLimit ?? '21000',
-              gasInfo.maxFeePerGas ?? gasInfo.gasPrice ?? '0',
-              feeDecimals,
-              feeSymbol,
-              nativeDecimals,
+          if (!gasInfo?.gasLimit) {
+            throw new AppError(
+              ERROR_CODES.BIZ_UNKNOWN.code,
+              'Fee estimation returned no gas data',
+              'The API did not return gasLimit — cannot proceed safely',
             );
           }
+
+          // Decimals come from chain config (presetNetworks), NOT from API fallbacks.
+          // If API returns different values, that's a data inconsistency we must flag.
+          const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
+
+          if (
+            feeEstimation.common?.feeDecimals !== undefined &&
+            feeEstimation.common.feeDecimals !== feeDecimals
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_UNKNOWN.code,
+              `feeDecimals mismatch: API returned ${feeEstimation.common.feeDecimals}, chain config has ${feeDecimals}`,
+              `Chain ${chainName} decimals config may be outdated — verify against presetNetworks.ts`,
+            );
+          }
+
+          if (
+            feeEstimation.common?.nativeDecimals !== undefined &&
+            feeEstimation.common.nativeDecimals !== nativeDecimals
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_UNKNOWN.code,
+              `nativeDecimals mismatch: API returned ${feeEstimation.common.nativeDecimals}, chain config has ${nativeDecimals}`,
+              `Chain ${chainName} decimals config may be outdated — verify against presetNetworks.ts`,
+            );
+          }
+
+          const estimatedGasDisplay = estimateGasCostDisplay(
+            gasInfo.gasLimit,
+            gasInfo.maxFeePerGas ?? gasInfo.gasPrice ?? '0',
+            feeDecimals,
+            nativeSymbol,
+            nativeDecimals,
+          );
 
           // Dry run — just show preview
           if (validated.dryRun) {
             output.success({
               action: validated.token
                 ? `Transfer ERC-20`
-                : `Transfer ${validated.amount} ${feeSymbol}`,
+                : `Transfer ${validated.amount} ${nativeSymbol}`,
               from: fromAddress,
               to: validated.to,
               amount: validated.amount,
@@ -150,7 +174,7 @@ export function registerTransferCommand(program: Command): void {
             info: {
               action: validated.token
                 ? `Transfer ERC-20`
-                : `Transfer ${validated.amount} ${feeSymbol}`,
+                : `Transfer ${validated.amount} ${nativeSymbol}`,
               to: validated.to,
               value: validated.amount,
               network: chainName,
