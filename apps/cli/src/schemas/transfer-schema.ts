@@ -6,9 +6,7 @@ const ethAddress = z
 
 export const transferOptionsSchema = z.object({
   to: ethAddress,
-  amount: z
-    .string()
-    .regex(/^\d+\.?\d*$/, 'Amount must be a positive number'),
+  amount: z.string().regex(/^\d+\.?\d*$/, 'Amount must be a positive number'),
   token: ethAddress.optional(),
   chain: z.string().optional(),
   dryRun: z.boolean().optional(),

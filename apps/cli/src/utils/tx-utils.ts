@@ -31,7 +31,7 @@ export function estimateGasCostDisplay(
   gasPrice: string,
   feeDecimals: number,
   feeSymbol: string,
-  nativeDecimals = 18,
+  nativeDecimals: number,
 ): string {
   const limitNum = Number(gasLimit);
   const priceNum = Number(gasPrice);

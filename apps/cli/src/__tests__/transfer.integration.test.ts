@@ -26,6 +26,7 @@ function loadTestMnemonic(): string {
   const match = content.match(/^TEST_MNEMONIC=(.+)$/m);
   const mnemonic = match?.[1]?.trim();
   if (!mnemonic) {
+    // eslint-disable-next-line no-restricted-syntax
     throw new Error('TEST_MNEMONIC not found in apps/cli/.env.test');
   }
   return mnemonic;
@@ -79,6 +80,7 @@ function runJSON(
     try {
       parsed = JSON.parse(result.stdout);
     } catch {
+      // eslint-disable-next-line no-restricted-syntax
       throw new Error(
         `Failed to parse JSON output:\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
       );
@@ -102,9 +104,11 @@ describe('Transfer integration — Sepolia testnet (binary)', () => {
       timeout: 60_000,
     });
 
+    // eslint-disable-next-line jest/no-standalone-expect
     expect(result.parsed.status).toBe('success');
     walletAddress = (result.parsed.data as Record<string, unknown>)
       .address as string;
+    // eslint-disable-next-line jest/no-standalone-expect
     expect(walletAddress).toMatch(/^0x[a-fA-F0-9]{40}$/);
   }, 90_000);
 

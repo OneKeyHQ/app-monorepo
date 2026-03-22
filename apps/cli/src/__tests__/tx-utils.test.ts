@@ -98,14 +98,16 @@ describe('estimateGasCostDisplay', () => {
   });
 
   it('returns unknown for NaN inputs', () => {
-    expect(estimateGasCostDisplay('abc', '100', 9, 'ETH')).toBe('unknown ETH');
-    expect(estimateGasCostDisplay('21000', 'xyz', 9, 'ETH')).toBe(
+    expect(estimateGasCostDisplay('abc', '100', 9, 'ETH', 18)).toBe(
+      'unknown ETH',
+    );
+    expect(estimateGasCostDisplay('21000', 'xyz', 9, 'ETH', 18)).toBe(
       'unknown ETH',
     );
   });
 
   it('handles zero gasPrice', () => {
-    expect(estimateGasCostDisplay('21000', '0', 9, 'ETH')).toBe('0 ETH');
+    expect(estimateGasCostDisplay('21000', '0', 9, 'ETH', 18)).toBe('0 ETH');
   });
 });
 
