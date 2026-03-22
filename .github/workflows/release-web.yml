@@ -312,10 +312,12 @@ jobs:
   notify:
     runs-on: ubuntu-24.04
     needs: [test-web, build-production]
-    if: ${{ github.event.workflow_run && always() }}
+    if: ${{ always() && (github.event.workflow_run || inputs.build_number) }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref || '' }}
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -337,6 +339,42 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
+      - name: Override params from caller
+        if: ${{ inputs.build_number }}
+        run: |
+          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+
+      - name: Resolve branch and commit
+        env:
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WR_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -n "$INPUT_BRANCH" ]; then
+            BRANCH="$INPUT_BRANCH"
+            COMMIT="$INPUT_COMMIT"
+          elif [ -n "$WR_COMMIT" ]; then
+            BRANCH="$WR_BRANCH"
+            COMMIT="$WR_COMMIT"
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+          {
+            echo "BRANCH<<GHEOF"
+            echo "$BRANCH"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+          {
+            echo "COMMIT<<GHEOF"
+            echo "$COMMIT"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
@@ -350,3 +388,6 @@ jobs:
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-branch: '${{ env.BRANCH }}'
+          artifact-commit: '${{ env.COMMIT }}'
