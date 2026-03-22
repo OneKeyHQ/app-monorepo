@@ -6,6 +6,7 @@ import {
   registerImportCommand,
   registerLogoutCommand,
   registerStatusCommand,
+  registerTransferCommand,
   registerVersionCommand,
 } from './commands';
 import { secureCache } from './core';
@@ -48,6 +49,7 @@ registerStatusCommand(program);
 registerImportCommand(program);
 registerLogoutCommand(program);
 registerBalanceCommand(program);
+registerTransferCommand(program);
 
 const cleanup = () => {
   secureCache.clearAll();
