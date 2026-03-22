@@ -10,6 +10,16 @@ name: release-desktop-all
 on:
   workflow_dispatch:
     inputs:
+      build_number:
+        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        required: false
+        type: string
+        default: ''
+      build_bundle_version:
+        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        required: false
+        type: string
+        default: ''
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
         description: "Allow skipping GPG verification for bundle updates (default: false)"
         required: false
@@ -29,6 +39,8 @@ jobs:
   renderer:
     uses: ./.github/workflows/build-desktop-renderer.yml
     with:
+      build_number: ${{ github.event.inputs.build_number || '' }}
+      build_bundle_version: ${{ github.event.inputs.build_bundle_version || '' }}
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}

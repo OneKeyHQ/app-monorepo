@@ -11,6 +11,16 @@ on:
         required: false
         type: string
         default: 'false'
+      build_number:
+        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        required: false
+        type: string
+        default: ''
+      build_bundle_version:
+        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        required: false
+        type: string
+        default: ''
     outputs:
       build_number:
         description: "Build number generated during renderer build"
@@ -83,6 +93,14 @@ jobs:
           sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Override params from caller
+        if: ${{ inputs.build_number != '' }}
+        run: |
+          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
 
       - name: Setup Node
         uses: actions/setup-node@v6
