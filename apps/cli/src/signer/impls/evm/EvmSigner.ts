@@ -18,9 +18,10 @@ let evmScopePromise: Promise<
 
 async function getEvmScope() {
   if (!evmScopePromise) {
-    evmScopePromise = import('@onekeyhq/core/src/chains/evm').then(
-      (mod) => new mod.default(),
-    );
+    evmScopePromise = import('@onekeyhq/core/src/chains/evm').then((mod) => {
+      const Scope = mod.default;
+      return new Scope();
+    });
   }
   return evmScopePromise;
 }
@@ -46,9 +47,7 @@ export class EvmSigner extends SignerBase implements ISigner {
     return result.addresses[0];
   }
 
-  async signTransaction(
-    payload: ICoreApiSignTxPayload,
-  ): Promise<ISignedTxPro> {
+  async signTransaction(payload: ICoreApiSignTxPayload): Promise<ISignedTxPro> {
     const scope = await getEvmScope();
     return scope.hd.signTransaction(payload);
   }

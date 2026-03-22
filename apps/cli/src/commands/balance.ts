@@ -1,7 +1,7 @@
 import { CHAINS } from '../config';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
-import { KeychainSigner } from '../signer';
+import { getSignerByImpl } from '../signer';
 
 import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
@@ -37,11 +37,8 @@ export function registerBalanceCommand(program: Command): void {
 
         let address = options.address;
         if (!address) {
-          const signer = new KeychainSigner();
-          const addrInfo = await signer.getAddress(
-            chainConfig.impl,
-            chainConfig.networkId,
-          );
+          const signer = await getSignerByImpl(chainConfig.impl);
+          const addrInfo = await signer.getAddress(chainConfig.networkId);
           address = addrInfo.address;
         }
 

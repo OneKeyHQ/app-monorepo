@@ -7,7 +7,7 @@ import { KeychainStorage } from '../infra/keychain-storage';
 import {
   KEYCHAIN_ENCRYPTION_KEY,
   KEYCHAIN_MNEMONIC_KEY,
-  KeychainSigner,
+  getSignerByImpl,
 } from '../signer';
 
 import type { OutputFormatter } from '../output';
@@ -128,8 +128,8 @@ export function registerImportCommand(program: Command): void {
           );
           await keychain.set(KEYCHAIN_MNEMONIC_KEY, encrypted);
 
-          const signer = new KeychainSigner();
-          const addressInfo = await signer.getAddress('evm', 'evm--1');
+          const signer = await getSignerByImpl('evm');
+          const addressInfo = await signer.getAddress('evm--1');
 
           output.success({ address: addressInfo.address });
         } catch (error) {

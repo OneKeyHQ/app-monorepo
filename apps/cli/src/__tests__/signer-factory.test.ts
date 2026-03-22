@@ -1,11 +1,16 @@
+/* eslint-disable import/first */
 // Mock the deep dependency that pulls in react-native
 jest.mock('@onekeyhq/core/src/secret', () => ({
   revealableSeedFromMnemonic: jest.fn(),
 }));
 
-jest.mock('../../packages/core/src/chains/evm', () => {
-  // noop — the EvmSigner lazy-loads this, we don't exercise it here
-}, { virtual: true });
+jest.mock(
+  '../../packages/core/src/chains/evm',
+  () => {
+    // noop — the EvmSigner lazy-loads this, we don't exercise it here
+  },
+  { virtual: true },
+);
 
 import { getSignerByImpl } from '../signer/factory';
 import { EvmSigner } from '../signer/impls/evm/EvmSigner';
