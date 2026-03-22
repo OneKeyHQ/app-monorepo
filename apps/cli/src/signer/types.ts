@@ -1,5 +1,14 @@
-import type { ICoreApiGetAddressItem } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ICoreApiSignMsgPayload,
+  ICoreApiSignTxPayload,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 
 export interface ISigner {
-  getAddress(impl: string, networkId: string): Promise<ICoreApiGetAddressItem>;
+  getAddress(networkId: string): Promise<ICoreApiGetAddressItem>;
+
+  signTransaction(payload: ICoreApiSignTxPayload): Promise<ISignedTxPro>;
+
+  signMessage(payload: ICoreApiSignMsgPayload): Promise<string>;
 }
