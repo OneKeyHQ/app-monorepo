@@ -166,13 +166,14 @@ export function registerTransferCommand(program: Command): void {
           const networkInfo = signer.buildNetworkInfo(chainConfig.networkId);
           const chainId = chainConfig.networkId.split('--')[1];
 
-          // Fetch nonce
+          // Fetch nonce via get-account with withNonce flag
           const accountInfo = await apiClient.get<IAccountResponse>(
             'wallet',
             '/wallet/v1/account/get-account',
             {
               networkId: chainConfig.networkId,
               accountAddress: fromAddress,
+              withNonce: true,
             },
           );
 
