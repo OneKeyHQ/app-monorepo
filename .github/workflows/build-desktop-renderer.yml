@@ -31,6 +31,9 @@ on:
       SENTRY_DSN_EXT:
         required: true
 
+permissions:
+  contents: read
+
 env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
