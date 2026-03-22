@@ -68,10 +68,19 @@ jobs:
         run: |
           echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
 
+      - name: Validate workflow_run source
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.head_repository.full_name }}" != "${{ github.repository }}" ]; then
+            echo "::error::Rejecting workflow_run from fork repository"
+            exit 1
+          fi
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           lfs: true
+          ref: ${{ inputs.checkout_ref || '' }}
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -105,6 +114,48 @@ jobs:
           # For test environment, use GitHub Pages URL
           echo "PUBLIC_URL=https://${{ env.TEST_ENDPOINT }}/" >> $GITHUB_ENV
 
+      - name: Override params from caller
+        if: ${{ inputs.build_number }}
+        run: |
+          echo "BUILD_NUMBER=${{ inputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ inputs.build_bundle_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ inputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ inputs.build_number }}/" .env
+
+      - name: Resolve branch and commit
+        env:
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WR_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -n "$INPUT_BRANCH" ]; then
+            BRANCH="$INPUT_BRANCH"
+            COMMIT="$INPUT_COMMIT"
+          elif [ -n "$WR_COMMIT" ]; then
+            BRANCH="$WR_BRANCH"
+            COMMIT="$WR_COMMIT"
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+          {
+            echo "BRANCH<<GHEOF"
+            echo "$BRANCH"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+          {
+            echo "COMMIT<<GHEOF"
+            echo "$COMMIT"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+          COMMIT_MESSAGE=$(git log -1 --pretty=%s "$COMMIT" 2>/dev/null || echo "")
+          {
+            echo "COMMIT_MESSAGE<<GHEOF"
+            echo "$COMMIT_MESSAGE"
+            echo "GHEOF"
+          } >> "$GITHUB_ENV"
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
@@ -126,7 +177,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-monorepo-test-${{ github.sha }}-${{ env.BUILD_NUMBER }}
+          name: app-monorepo-test-${{ env.COMMIT }}-${{ env.BUILD_NUMBER }}
           path: |
             ./apps/web/web-build/
 
