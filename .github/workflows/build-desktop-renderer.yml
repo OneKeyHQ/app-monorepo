@@ -11,6 +11,16 @@ on:
         required: false
         type: string
         default: 'false'
+    outputs:
+      build_number:
+        description: "Build number generated during renderer build"
+        value: ${{ jobs.build-renderer.outputs.build_number }}
+      build_bundle_version:
+        description: "Bundle version generated during renderer build"
+        value: ${{ jobs.build-renderer.outputs.build_bundle_version }}
+      build_app_version:
+        description: "App version from package.json"
+        value: ${{ jobs.build-renderer.outputs.build_app_version }}
     secrets:
       COVALENT_KEY:
         required: true
@@ -42,6 +52,10 @@ env:
 jobs:
   build-renderer:
     runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ env.BUILD_NUMBER }}
+      build_bundle_version: ${{ env.BUILD_BUNDLE_VERSION }}
+      build_app_version: ${{ env.BUILD_APP_VERSION }}
     strategy:
       matrix:
         node-version: [24.x]

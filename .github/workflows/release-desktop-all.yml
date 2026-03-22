@@ -78,6 +78,14 @@ jobs:
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
+      - name: Align version with renderer build
+        run: |
+          echo "BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" >> $GITHUB_ENV
+          echo "BUILD_APP_VERSION=${{ needs.renderer.outputs.build_app_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}/" .env
+
       - name: Warn if GPG verification is skipped
         if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
         run: |
@@ -314,6 +322,14 @@ jobs:
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
+      - name: Align version with renderer build
+        shell: pwsh
+        run: |
+          "BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "BUILD_BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "BUILD_APP_VERSION=${{ needs.renderer.outputs.build_app_version }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          (Get-Content .env) -replace '^BUNDLE_VERSION=.*', "BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" -replace '^CI_BUILD_NUMBER=.*', "CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" | Set-Content .env
+
       - name: Warn if GPG verification is skipped
         if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
         run: |
@@ -497,6 +513,14 @@ jobs:
           sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Align version with renderer build
+        run: |
+          echo "BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" >> $GITHUB_ENV
+          echo "BUILD_APP_VERSION=${{ needs.renderer.outputs.build_app_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}/" .env
 
       - name: Warn if GPG verification is skipped
         if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
