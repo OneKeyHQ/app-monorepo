@@ -58,7 +58,7 @@ const SIGNATURE_MODAL_SETTLE_WAIT_MS = 300;
 const getLatestTxId = (data: ISendTxOnSuccessData[]) => {
   for (let index = data.length - 1; index >= 0; index -= 1) {
     const item = data[index];
-    const txId = item?.signedTx?.txid ?? item?.decodedTx?.txid;
+    const txId = item?.signedTx?.txid || item?.decodedTx?.txid;
     if (txId) {
       return txId;
     }
@@ -478,16 +478,14 @@ export function useUniversalBorrowRepayWithCollateral({
               txId: latestSetupTxId,
             });
 
-          await backgroundApiProxy.serviceStaking.updateEarnOrder({
-            txs: [
-              {
-                accountId,
-                networkId,
-                txId: latestSetupTxId,
-                status: mapBorrowLutFinalizationToTxStatus(finalizationResult),
-              },
-            ],
-          });
+          if (setupResp.orderId) {
+            await backgroundApiProxy.serviceStaking.addEarnOrder({
+              orderId: setupResp.orderId,
+              networkId,
+              txId: latestSetupTxId,
+              status: mapBorrowLutFinalizationToTxStatus(finalizationResult),
+            });
+          }
 
           if (finalizationResult !== 'finalized') {
             throw new OneKeyLocalError(
@@ -524,7 +522,10 @@ export function useUniversalBorrowRepayWithCollateral({
               amount,
               repayAll,
               slippageBps,
-              routeKey,
+              // If we just went through LUT setup (which can take ~2 min to
+              // finalize on Solana), the original routeKey is likely stale.
+              // Drop it so the server re-quotes a fresh route.
+              routeKey: needsSetupLut ? undefined : routeKey,
             },
           );
 
