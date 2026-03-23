@@ -8,7 +8,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Dialog,
-  Empty,
   Icon,
   SortableListView,
   Spinner,
@@ -70,14 +69,17 @@ function MarketWatchlistEditDialogContent({
   });
   const [dataSource, setDataSource] = useState<IMarketToken[]>([]);
   const removedKeysRef = useRef(new Set<string>());
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    setDataSource(
-      watchlistResult.data.filter(
-        (item) => !removedKeysRef.current.has(getWatchlistTokenKey(item)),
-      ),
+    const filtered = watchlistResult.data.filter(
+      (item) => !removedKeysRef.current.has(getWatchlistTokenKey(item)),
     );
-  }, [watchlistResult.data]);
+    setDataSource(filtered);
+    if (filtered.length > 0 || !watchlistResult.isLoading) {
+      isInitializedRef.current = true;
+    }
+  }, [watchlistResult.data, watchlistResult.isLoading]);
 
   const handleRemove = useCallback(
     async (item: IMarketToken) => {
@@ -112,7 +114,7 @@ function MarketWatchlistEditDialogContent({
     [onSort],
   );
 
-  if (watchlistResult.isLoading && !dataSource.length) {
+  if (!isInitializedRef.current && !dataSource.length) {
     return (
       <YStack
         h={EDIT_DIALOG_HEIGHT}
@@ -132,15 +134,7 @@ function MarketWatchlistEditDialogContent({
         keyExtractor={getWatchlistTokenKey}
         getItemLayout={getWatchlistItemLayout}
         onDragEnd={handleDragEnd}
-        ListEmptyComponent={
-          <Empty
-            py="$20"
-            icon="StarOutline"
-            title={intl.formatMessage({
-              id: ETranslations.global_no_data,
-            })}
-          />
-        }
+        ListEmptyComponent={null}
         renderItem={({ item, drag, isActive }) => (
           <ListItem
             h={CELL_HEIGHT}
@@ -164,8 +158,12 @@ function MarketWatchlistEditDialogContent({
                 networkId={item.networkId}
                 symbol={item.symbol}
                 address={item.address}
+                showVolume
+                volume={item.turnover}
                 communityRecognized={item.communityRecognized}
                 stock={item.stock}
+                maxLeverage={item.maxLeverage}
+                perpsSubtitle={item.perpsSubtitle}
               />
             </YStack>
             <XStack gap="$1">
@@ -236,11 +234,9 @@ export function useOpenMarketWatchlistEditDialog() {
     }
 
     dialogRef.current = Dialog.show({
-      title: `${intl.formatMessage({
-        id: ETranslations.global_manage,
-      })} ${intl.formatMessage({
+      title: intl.formatMessage({
         id: ETranslations.global_favorites,
-      })}`,
+      }),
       renderContent: (
         <MarketWatchlistEditDialogContent
           watchlist={watchlistRef.current}
@@ -249,6 +245,7 @@ export function useOpenMarketWatchlistEditDialog() {
         />
       ),
       estimatedContentHeight: EDIT_DIALOG_HEIGHT,
+      disableDrag: true,
       showCancelButton: false,
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_done,
