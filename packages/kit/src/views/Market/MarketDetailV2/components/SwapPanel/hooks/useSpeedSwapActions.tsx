@@ -1415,6 +1415,7 @@ export function useSpeedSwapActions(props: {
       } catch (_e) {
         if (currentRequestId === speedCheckRequestIdRef.current) {
           setSpeedCheckLoading(false);
+          setIsStock(false);
         }
       }
     },
@@ -1454,6 +1455,7 @@ export function useSpeedSwapActions(props: {
       setCheckSpenderAddress('');
       setShouldApprove(false);
       setShouldResetApprove(false);
+      setIsStock(false);
     }
   }, [
     isWrapped,
