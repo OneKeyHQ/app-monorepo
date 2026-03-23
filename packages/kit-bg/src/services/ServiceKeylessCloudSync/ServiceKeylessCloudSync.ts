@@ -3,6 +3,7 @@ import { Semaphore } from 'async-mutex';
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -645,19 +646,38 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
     const { wallets } = await localDb.getAllWallets();
     await this.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(wallets);
-    const keylessWallets = wallets.filter((wallet) => wallet.isKeyless);
-    if (wallets.length === 1 && keylessWallets.length > 0) {
-      return;
-    }
-    const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
+    const { isCloudSyncEnabledKeyless, isCloudSyncEnabled } =
+      await primeCloudSyncPersistAtom.get();
     if (isCloudSyncEnabledKeyless) {
       return;
     }
-    await this.toggleCloudSyncKeyless({
-      enabled: true,
-      silentEnable: true,
-      forceEnable: true,
-    });
+    // If ID sync is active, sync ID data first before switching (auto-migration)
+    const isMigrationFromId = isCloudSyncEnabled;
+    if (isMigrationFromId) {
+      try {
+        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
+          callerName: 'Auto-migration: ID sync before switch',
+          noDebounceUpload: true,
+        });
+      } catch {
+        // ID sync failure shouldn't block auto-enable
+      }
+    }
+    try {
+      await this.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+        forceEnable: true,
+      });
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_sync_error,
+        }),
+      });
+    }
   }
 
   async prepareCloudSyncKeyless({

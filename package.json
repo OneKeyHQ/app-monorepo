@@ -12,6 +12,7 @@
   },
   "scripts": {
     "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env'))fs.copyFileSync('.env.example','.env');\"",
+    "skills:sync": "node development/scripts/skillshare/install.js",
     "postinstall": "node development/scripts/postinstall.js",
     "copy:inject": "node development/scripts/copy-injected.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
