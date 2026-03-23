@@ -86,8 +86,9 @@ export default class ServicePassword extends ServiceBase {
 
   private cachedPrfMasterKeyHex: string | null = null;
 
-  private cachedPrfMasterKeyTimeOutObject: ReturnType<typeof setTimeout> | null =
-    null;
+  private cachedPrfMasterKeyTimeOutObject: ReturnType<
+    typeof setTimeout
+  > | null = null;
 
   private readonly PRF_MASTER_KEY_CACHE_DURATION_MS = 5 * 60 * 1000;
 
