@@ -8,6 +8,7 @@ import type {
 import { isValidElement, useCallback, useState } from 'react';
 
 import { Pressable } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 import {
   Divider,
@@ -275,6 +276,8 @@ export type IListItemProps = PropsWithChildren<
     childrenBefore?: ComponentType | ReactNode;
     disabled?: boolean;
     testID?: string;
+    /** Style for the native Pressable wrapper. Only effective on native platforms. */
+    nativePressableStyle?: StyleProp<ViewStyle>;
   } & IStackProps
 >;
 
@@ -318,6 +321,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       renderItemText,
       titleMatch,
       subTitleMatch,
+      nativePressableStyle,
       ...rest
     } = props;
 
@@ -343,28 +347,19 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     const [nativePressed, setNativePressed] = useState(false);
     const handlePressIn = useCallback(() => setNativePressed(true), []);
     const handlePressOut = useCallback(() => setNativePressed(false), []);
-    const nativeWrapperLayoutProps = {
-      ...(props.flex !== undefined ? { flex: props.flex } : undefined),
-      ...(props.flexGrow !== undefined
-        ? { flexGrow: props.flexGrow }
-        : undefined),
-      ...(props.flexShrink !== undefined
-        ? { flexShrink: props.flexShrink }
-        : undefined),
-      ...(props.flexBasis !== undefined
-        ? { flexBasis: props.flexBasis }
-        : undefined),
-      ...(props.width !== undefined ? { width: props.width } : undefined),
-      ...(props.minWidth !== undefined
-        ? { minWidth: props.minWidth }
-        : undefined),
-      ...(props.maxWidth !== undefined
-        ? { maxWidth: props.maxWidth }
-        : undefined),
-      ...(props.alignSelf !== undefined
-        ? { alignSelf: props.alignSelf }
-        : undefined),
-    };
+
+    // On native with Pressable wrapper, strip pressStyle/hoverStyle from rest
+    // to prevent the inner Stack from claiming the touch responder. Without this,
+    // Tamagui attaches onStartShouldSetResponder to the inner Stack (because
+    // pressStyle triggers attachPress), which steals the responder from the
+    // outer Pressable and prevents onPress from firing.
+    let contentRest: typeof rest = rest;
+    let nativePressStyle: IStackProps['pressStyle'];
+    if (useNativePressable) {
+      const { pressStyle, hoverStyle, ...filtered } = rest;
+      contentRest = filtered;
+      nativePressStyle = pressStyle;
+    }
 
     const content = (
       <Stack
@@ -383,8 +378,10 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
           opacity: 0.5,
         })}
         {...(useWebPress ? listItemPressStyle : undefined)}
-        {...rest}
-        {...(nativePressed ? { bg: '$bgActive' } : undefined)}
+        {...contentRest}
+        {...(nativePressed
+          ? (nativePressStyle ?? { bg: '$bgActive' })
+          : undefined)}
       >
         {childrenBefore}
         {renderWithFallback(
@@ -440,17 +437,15 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       // unstable_pressDelay delays onPressIn so the bg highlight doesn't
       // briefly flash when the user starts a scroll gesture on a list item.
       return (
-        <Stack {...nativeWrapperLayoutProps}>
-          <Pressable
-            onPress={handleItemPress}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            unstable_pressDelay={50}
-            style={{ flex: 1 }}
-          >
-            {content}
-          </Pressable>
-        </Stack>
+        <Pressable
+          onPress={handleItemPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          unstable_pressDelay={50}
+          style={nativePressableStyle ?? { flex: 1 }}
+        >
+          {content}
+        </Pressable>
       );
     }
 
