@@ -29,6 +29,7 @@ import {
   useStyle,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { DRAG_CLONE_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -468,6 +469,8 @@ function BaseSortableListView<T>(
                     ? 'none'
                     : '0 4px 24px rgba(0, 0, 0, 0.12)',
                   borderRadius: 12,
+                  // Ensure clone renders above Dialog/Sheet overlays
+                  zIndex: DRAG_CLONE_Z_INDEX,
                   // Speed up drop animation
                   ...(isDropping
                     ? {
