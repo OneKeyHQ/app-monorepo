@@ -86,6 +86,9 @@ export default async function globalSetup() {
     // No booted iOS simulator — expected on Android runs
     console.log(`[harness-globalSetup] iOS flag skipped: ${e.message}`);
   }
+  console.log(
+    `[harness-globalSetup] Result: Android=${androidOk ? 'ok' : 'skipped'}, iOS=${iosOk ? 'ok' : 'skipped'}`,
+  );
   if (!androidOk && !iosOk) {
     console.warn(
       '[harness-globalSetup] WARNING: Failed to set harness flag on both platforms. ' +

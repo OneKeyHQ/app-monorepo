@@ -93,12 +93,14 @@ function clearIOSHarnessFlag() {
 export default async function globalTeardown() {
   try {
     clearAndroidHarnessFlag();
-  } catch {
+  } catch (e) {
     // No Android device/emulator — expected on iOS runs
+    console.log(`[harness-globalTeardown] Android cleanup skipped: ${e.message}`);
   }
   try {
     clearIOSHarnessFlag();
-  } catch {
+  } catch (e) {
     // No booted iOS simulator — expected on Android runs
+    console.log(`[harness-globalTeardown] iOS cleanup skipped: ${e.message}`);
   }
 }
