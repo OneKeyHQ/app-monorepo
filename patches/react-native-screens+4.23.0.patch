@@ -36,6 +36,75 @@ index 7055a0d..81ee02b 100644
          }
      }
  
+diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
+index 1c44762..3ed576d 100644
+--- a/node_modules/react-native-screens/ios/RNSScreen.mm
++++ b/node_modules/react-native-screens/ios/RNSScreen.mm
+@@ -1621,6 +1621,7 @@ @implementation RNSScreen {
+   BOOL _isSwiping;
+   BOOL _shouldNotify;
+   BOOL _isRemovedFromParent;
++  BOOL _shouldApplyDeferredModalBoundsUpdate;
+ }
+ 
+ #pragma mark - Common
+@@ -1643,6 +1644,18 @@ - (instancetype)initWithView:(UIView *)view
+ - (void)viewWillAppear:(BOOL)animated
+ {
+   [super viewWillAppear:animated];
++
++  // Workaround for react-native-screens issue #1779 / #2587:
++  // edgesForExtendedLayout is normally set in the navigationController:willShowViewController:
++  // delegate callback, which fires AFTER the first layout pass. This causes the initial
++  // content height to be too tall (not accounting for the navigation bar), producing a
++  // visible layout shift. By setting it early in viewWillAppear, the first Yoga layout
++  // already has the correct content insets.
++  RNSScreenStackHeaderConfig *config = [self.screenView findHeaderConfig];
++  if (config != nil && config.shouldHeaderBeVisible && !config.translucent) {
++    self.edgesForExtendedLayout = UIRectEdgeAll & ~UIRectEdgeTop;
++  }
++
+   if (!_isSwiping) {
+     [self.screenView notifyWillAppear];
+     if (self.transitionCoordinator.isInteractive) {
+@@ -1719,6 +1732,13 @@ - (void)viewDidAppear:(BOOL)animated
+   } else {
+     [self.screenView notifyGestureCancel];
+   }
++#ifdef RCT_NEW_ARCH_ENABLED
++  if (_shouldApplyDeferredModalBoundsUpdate && self.screenView.isPresentedAsNativeModal) {
++    _shouldApplyDeferredModalBoundsUpdate = NO;
++    [self calculateAndNotifyHeaderHeightChangeIsModal:YES];
++    [self.screenView updateBounds];
++  }
++#endif
+ 
+   _isSwiping = NO;
+   _shouldNotify = YES;
+@@ -1764,15 +1784,21 @@ - (void)viewDidLayoutSubviews
+   // screen size
+   BOOL isDisplayedWithinUINavController = [self.parentViewController isKindOfClass:[RNSNavigationController class]];
+   BOOL isTabScreen = [self.parentViewController isKindOfClass:RNSTabBarController.class];
++  BOOL isModalTransitionInProgress = self.screenView.isPresentedAsNativeModal && self.transitionCoordinator != nil;
+ 
+   // Calculate header height on modal open
+-  if (self.screenView.isPresentedAsNativeModal) {
++  if (self.screenView.isPresentedAsNativeModal && !isModalTransitionInProgress) {
+     [self calculateAndNotifyHeaderHeightChangeIsModal:YES];
+   }
+ 
+   if (isDisplayedWithinUINavController || isTabScreen || self.screenView.isPresentedAsNativeModal) {
+ #ifdef RCT_NEW_ARCH_ENABLED
+-    [self.screenView updateBounds];
++    if (self.screenView.isPresentedAsNativeModal && isModalTransitionInProgress) {
++      _shouldApplyDeferredModalBoundsUpdate = YES;
++    } else {
++      [self.screenView updateBounds];
++      _shouldApplyDeferredModalBoundsUpdate = NO;
++    }
+ #else
+     if (!CGRectEqualToRect(_lastViewFrame, self.screenView.frame)) {
+       _lastViewFrame = self.screenView.frame;
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 index e37e40a..1e95f36 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
