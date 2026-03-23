@@ -56,7 +56,7 @@ export function registerBalanceCommand(program: Command): void {
           {
             address,
             chain: chainName,
-            balance: account.balanceParsed ?? account.balance ?? '0',
+            balance: account.balanceParsed ?? account.balance ?? '-',
           },
           { chain: chainName },
         );

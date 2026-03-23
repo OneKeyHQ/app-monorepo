@@ -25,6 +25,22 @@ describe('error-codes', () => {
     expect(getExitCode('UNKNOWN_ERROR')).toBe(EXIT_CODES.BIZ);
   });
 
+  it('maps new SEC_ error codes to exit code 5', () => {
+    expect(getExitCode('SEC_HIGH_RISK_TOKEN')).toBe(EXIT_CODES.SEC);
+    expect(ERROR_CODES.SEC_HIGH_RISK_TOKEN.exitCode).toBe(EXIT_CODES.SEC);
+  });
+
+  it('maps new BIZ_ swap/token error codes to exit code 1', () => {
+    expect(getExitCode('BIZ_SWAP_SLIPPAGE')).toBe(EXIT_CODES.BIZ);
+    expect(getExitCode('BIZ_SWAP_EXPIRED')).toBe(EXIT_CODES.BIZ);
+    expect(getExitCode('BIZ_SWAP_FAILED')).toBe(EXIT_CODES.BIZ);
+    expect(getExitCode('BIZ_TOKEN_NOT_FOUND')).toBe(EXIT_CODES.BIZ);
+    expect(ERROR_CODES.BIZ_SWAP_SLIPPAGE.exitCode).toBe(EXIT_CODES.BIZ);
+    expect(ERROR_CODES.BIZ_SWAP_EXPIRED.exitCode).toBe(EXIT_CODES.BIZ);
+    expect(ERROR_CODES.BIZ_SWAP_FAILED.exitCode).toBe(EXIT_CODES.BIZ);
+    expect(ERROR_CODES.BIZ_TOKEN_NOT_FOUND.exitCode).toBe(EXIT_CODES.BIZ);
+  });
+
   it('all ERROR_CODES have valid code strings', () => {
     for (const entry of Object.values(ERROR_CODES)) {
       expect(typeof entry.code).toBe('string');

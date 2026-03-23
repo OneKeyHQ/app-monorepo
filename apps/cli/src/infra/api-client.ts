@@ -129,6 +129,12 @@ export class ApiClient {
       ERROR_CODES.BIZ_UNKNOWN.code,
       `OneKey API error (code ${response.code}): ${response.message}`,
       'Check parameters or retry',
+      {
+        details: {
+          upstreamCode: response.code,
+          upstreamMessage: response.message,
+        },
+      },
     );
   }
 }

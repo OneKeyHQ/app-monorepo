@@ -14,6 +14,8 @@ const ENV_MAP: Record<string, keyof IAppConfig> = {
   ONEKEY_RPC_ENDPOINT: 'rpc_endpoint',
   ONEKEY_OUTPUT_FORMAT: 'output_format',
   ONEKEY_CACHE_TTL: 'cache_ttl',
+  ONEKEY_DEFAULT_SLIPPAGE: 'default_slippage',
+  ONEKEY_AUTO_SECURITY_CHECK: 'auto_security_check',
 };
 
 function isEnoent(error: unknown): boolean {
@@ -95,6 +97,13 @@ export class ConfigManager {
           if (!Number.isNaN(num) && Number.isInteger(num) && num > 0) {
             envConfig.cache_ttl = num;
           }
+        } else if (configKey === 'default_slippage') {
+          const num = Number(value);
+          if (!Number.isNaN(num) && num >= 0.05 && num <= 50) {
+            envConfig.default_slippage = num;
+          }
+        } else if (configKey === 'auto_security_check') {
+          envConfig.auto_security_check = value === 'true';
         } else {
           (envConfig as Record<string, unknown>)[configKey] = value;
         }

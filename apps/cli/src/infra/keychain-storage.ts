@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 
 import { AppError, ERROR_CODES } from '../errors';
 
@@ -18,6 +18,40 @@ function execFileAsync(
   });
 }
 
+function spawnWithStdin(
+  cmd: string,
+  args: string[],
+  input: string,
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d: Buffer) => {
+      stdout += d.toString();
+    });
+    child.stderr.on('data', (d: Buffer) => {
+      stderr += d.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code !== 0) {
+        const err = new Error(`Process exited with code ${code}`) as Error & {
+          code: number;
+          stderr: string;
+        };
+        err.code = code ?? 1;
+        err.stderr = stderr;
+        reject(err);
+      } else {
+        resolve({ stdout, stderr });
+      }
+    });
+    child.stdin.write(input);
+    child.stdin.end();
+  });
+}
+
 const SERVICE_NAME = 'onekey-cli';
 
 export interface ISecureStorage {
@@ -30,16 +64,18 @@ export class KeychainStorage implements ISecureStorage {
   async set(key: string, value: Buffer): Promise<void> {
     const hex = value.toString('hex');
     try {
-      await execFileAsync('security', [
-        'add-generic-password',
-        '-s',
-        SERVICE_NAME,
-        '-a',
-        key,
-        '-w',
+      // Pass secret via stdin to avoid exposure in process argv (visible via `ps`)
+      await spawnWithStdin(
+        'sh',
+        [
+          '-c',
+          'read -r secret && security add-generic-password -s "$1" -a "$2" -w "$secret" -U',
+          '--',
+          SERVICE_NAME,
+          key,
+        ],
         hex,
-        '-U',
-      ]);
+      );
     } catch (error) {
       throw this.mapError(error);
     }

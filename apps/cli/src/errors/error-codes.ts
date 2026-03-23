@@ -100,4 +100,24 @@ export const ERROR_CODES = {
     code: 'SEC_DECRYPTION_FAILED',
     exitCode: EXIT_CODES.SEC,
   },
+  SEC_HIGH_RISK_TOKEN: {
+    code: 'SEC_HIGH_RISK_TOKEN',
+    exitCode: EXIT_CODES.SEC,
+  },
+  BIZ_SWAP_SLIPPAGE: {
+    code: 'BIZ_SWAP_SLIPPAGE',
+    exitCode: EXIT_CODES.BIZ,
+  },
+  BIZ_SWAP_EXPIRED: {
+    code: 'BIZ_SWAP_EXPIRED',
+    exitCode: EXIT_CODES.BIZ,
+  },
+  BIZ_SWAP_FAILED: {
+    code: 'BIZ_SWAP_FAILED',
+    exitCode: EXIT_CODES.BIZ,
+  },
+  BIZ_TOKEN_NOT_FOUND: {
+    code: 'BIZ_TOKEN_NOT_FOUND',
+    exitCode: EXIT_CODES.BIZ,
+  },
 } as const;
