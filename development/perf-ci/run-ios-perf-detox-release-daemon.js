@@ -79,6 +79,7 @@ async function main() {
   console.log(`[perf] release daemon started; intervalMs=${intervalMs}`);
 
   // Run immediately, then sleep interval.
+  // oxlint-disable-next-line no-unmodified-loop-condition -- stopping is set by SIGINT/SIGTERM signal handler
   while (!stopping) {
     const startedAt = new Date().toISOString();
     // eslint-disable-next-line no-console
