@@ -22,17 +22,11 @@ function clearAndroidHarnessFlag() {
   // on the next normal launch. SharedPrefs file: onekey_recovery.xml,
   // key: consecutive_boot_fail_count.
   try {
+    const key = 'consecutive_boot_fail_count';
+    const sedCmd = `sed -i 's/${key}" value="[0-9]*/${key}" value="0/' shared_prefs/onekey_recovery.xml`;
     execFileSync(
       'adb',
-      [
-        'shell',
-        'run-as',
-        'so.onekey.app.wallet',
-        'sh',
-        '-c',
-        // Replace the counter value with 0 in the SharedPreferences XML
-        "sed -i 's/\"consecutive_boot_fail_count\" value=\"[0-9]*\"/\"consecutive_boot_fail_count\" value=\"0\"/' shared_prefs/onekey_recovery.xml",
-      ],
+      ['shell', 'run-as', 'so.onekey.app.wallet', 'sh', '-c', sedCmd],
       { stdio: 'pipe', timeout: 5000 },
     );
   } catch {
