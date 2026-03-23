@@ -308,7 +308,11 @@ const restoreAllMocks = () => {
         if (!(mockExports as any).__esModule && !mockExports.default) {
           const keys = Object.keys(defaultObj);
           for (const key of keys) {
-            safeDelete(defaultObj, key);
+            if (!safeDelete(defaultObj, key)) {
+              console.warn(
+                `[harness-compat] Cannot remove read-only export "${key}" — original value persists`,
+              );
+            }
           }
           for (const key of Object.keys(mockExports)) {
             if (!safeSet(defaultObj, key, mockExports[key])) {
@@ -344,7 +348,11 @@ const restoreAllMocks = () => {
       // Mutate the module exports directly
       const keys = Object.keys(mod).filter((k) => k !== '__esModule');
       for (const key of keys) {
-        safeDelete(mod, key);
+        if (!safeDelete(mod, key)) {
+          console.warn(
+            `[harness-compat] Cannot remove read-only export "${key}" — original value persists`,
+          );
+        }
       }
       for (const key of Object.keys(mockExports)) {
         if (key !== '__esModule') {

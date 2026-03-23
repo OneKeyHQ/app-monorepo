@@ -48,21 +48,23 @@ function clearIOSHarnessFlag() {
   for (const runtime of Object.values(devices)) {
     for (const device of runtime) {
       if (device.state === 'Booted') {
-        execFileSync(
-          'xcrun',
-          [
-            'simctl',
-            'spawn',
-            device.udid,
-            'defaults',
-            'delete',
-            'so.onekey.wallet',
-            'onekey_harness_mode',
-          ],
-          { stdio: 'pipe', timeout: 5000 },
-        );
-        // Also reset the boot-fail counter to prevent harness restarts
-        // from triggering recovery on the next normal launch.
+        try {
+          execFileSync(
+            'xcrun',
+            [
+              'simctl',
+              'spawn',
+              device.udid,
+              'defaults',
+              'delete',
+              'so.onekey.wallet',
+              'onekey_harness_mode',
+            ],
+            { stdio: 'pipe', timeout: 5000 },
+          );
+        } catch {
+          // Key may not exist on this simulator — continue to next device
+        }
         try {
           execFileSync(
             'xcrun',
@@ -81,7 +83,7 @@ function clearIOSHarnessFlag() {
           // Key may not exist — not critical
         }
         console.log(
-          `[harness-globalTeardown] iOS harness_mode flag cleared on ${device.name} (${device.udid})`,
+          `[harness-globalTeardown] iOS cleanup done on ${device.name} (${device.udid})`,
         );
       }
     }
