@@ -297,6 +297,7 @@ function SenderAddressesInput() {
           indexedAccountId={selectedIndexedAccountId}
           activeDeriveType={selectedDeriveType}
           onSelect={handleAddressTypeSelect}
+          onCreate={handleAddressTypeSelect}
           changeDefaultAddressTypeAfterSelect={false}
           placement="bottom-end"
         />
