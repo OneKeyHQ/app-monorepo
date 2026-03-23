@@ -52,6 +52,7 @@ export const WithdrawSection = ({
   protocolInfo,
   isDisabled,
   onSuccess,
+  onIndicatorRefresh,
   beforeFooter,
   showApyDetail,
   isInModalContext,
@@ -75,6 +76,7 @@ export const WithdrawSection = ({
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
   onSuccess?: () => void;
+  onIndicatorRefresh?: () => void | Promise<void>;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
   isInModalContext?: boolean;
@@ -735,6 +737,7 @@ export const WithdrawSection = ({
         marketAddress,
         reserveAddress,
         collateralReserveAddress,
+        needsSetupLut: protocolInfo?.needsSetupLut,
         repayAll,
         slippageBps,
         routeKey,
@@ -754,6 +757,7 @@ export const WithdrawSection = ({
           },
           tags,
         },
+        onSetupLutFinalized: onIndicatorRefresh,
         onSuccess: () => {
           onSuccess?.();
         },
@@ -764,8 +768,10 @@ export const WithdrawSection = ({
       effectiveReserveAddress,
       handleBorrowRepayWithCollateral,
       networkId,
+      onIndicatorRefresh,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.needsSetupLut,
       protocolInfo?.stakeTag,
     ],
   );

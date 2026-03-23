@@ -517,6 +517,8 @@ export type IProtocolInfo = {
   maxRepayBalance?: string;
   // Debt balance for collateral repay (from debt field in manage page response)
   debtBalance?: string;
+  // Whether repay with collateral needs a setup LUT transaction first
+  needsSetupLut?: boolean;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
 };
@@ -1121,6 +1123,7 @@ export interface IEarnManagePageResponse {
   repay?: IEarnRepayActionData;
   debt?: IEarnManagePageActionData;
   collateral?: IEarnManagePageActionData;
+  needsSetupLut?: boolean;
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
   receive?: IEarnReceiveActionIcon;
