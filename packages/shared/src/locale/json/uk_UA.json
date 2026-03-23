@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "Симуляція транзакції",
   "date.today": "Сьогодні",
   "date.yesterday": "Вчора",
+  "defi.account_activation_fee_notice": "Для активації акаунту потрібна невелика комісія в SOL. Повертається при закритті акаунту.",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "Актив / Позичено",
   "defi.asset_can_be_collateral": "Актив / Може бути заставою",

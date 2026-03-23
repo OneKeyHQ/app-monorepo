@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "Simulasi Transaksi",
   "date.today": "Hari ini",
   "date.yesterday": "Kemarin",
+  "defi.account_activation_fee_notice": "Diperlukan sedikit biaya SOL untuk mengaktifkan akun. Dapat dikembalikan saat akun ditutup.",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "Aset / Dipinjam",
   "defi.asset_can_be_collateral": "Aset / Dapat Menjadi Jaminan",

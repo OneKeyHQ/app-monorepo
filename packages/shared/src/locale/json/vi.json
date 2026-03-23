@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "Mô phỏng giao dịch",
   "date.today": "Hôm nay",
   "date.yesterday": "Hôm qua",
+  "defi.account_activation_fee_notice": "Cần một khoản phí SOL nhỏ để kích hoạt tài khoản. Có thể hoàn lại khi đóng tài khoản.",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "Tài sản / Đã vay",
   "defi.asset_can_be_collateral": "Tài sản / Có thể làm tài sản thế chấp",

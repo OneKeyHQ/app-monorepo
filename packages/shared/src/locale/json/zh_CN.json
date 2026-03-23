@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "交易模拟",
   "date.today": "今天",
   "date.yesterday": "昨天",
+  "defi.account_activation_fee_notice": "这需要少量 SOL 费用来激活账户。关闭账户时可退还。",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "资产 / 已借入",
   "defi.asset_can_be_collateral": "资产 / 可作为抵押品",

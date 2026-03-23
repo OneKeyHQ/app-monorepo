@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "การจำลองธุรกรรม",
   "date.today": "วันนี้",
   "date.yesterday": "เมื่อวานนี้",
+  "defi.account_activation_fee_notice": "ต้องเสียค่าธรรมเนียม SOL จำนวนเล็กน้อยเพื่อเปิดใช้งานบัญชี คืนเงินได้เมื่อปิดบัญชี",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "สินทรัพย์ / ยืมแล้ว",
   "defi.asset_can_be_collateral": "สินทรัพย์ / สามารถเป็นหลักประกันได้",

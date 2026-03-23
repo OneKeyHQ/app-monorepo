@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "লেনদেন সিমুলেশন",
   "date.today": "আজ",
   "date.yesterday": "গতকাল",
+  "defi.account_activation_fee_notice": "অ্যাকাউন্ট সক্রিয় করতে অল্প পরিমাণ SOL ফি প্রয়োজন। অ্যাকাউন্ট বন্ধ করলে ফেরতযোগ্য।",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "সম্পদ / ধারকৃত",
   "defi.asset_can_be_collateral": "সম্পদ / বন্ধক হিসাবে ব্যবহার করা যাবে",

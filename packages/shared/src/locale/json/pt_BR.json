@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "Simulação de transação",
   "date.today": "Hoje",
   "date.yesterday": "Ontem",
+  "defi.account_activation_fee_notice": "É necessária uma pequena taxa em SOL para ativar a conta. Reembolsável ao fechar a conta.",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "Ativo / Emprestado",
   "defi.asset_can_be_collateral": "Ativo / Pode ser Garantia",

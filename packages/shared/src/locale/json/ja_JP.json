@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "トランザクションシミュレーション",
   "date.today": "今日",
   "date.yesterday": "昨日",
+  "defi.account_activation_fee_notice": "アカウントのアクティベーションに少額のSOL手数料が必要です。アカウント閉鎖時に返金されます。",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "資産 / 借り入れた",
   "defi.asset_can_be_collateral": "資産 / 担保にできる",

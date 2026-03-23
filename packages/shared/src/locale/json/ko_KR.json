@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "거래 시뮬레이션",
   "date.today": "오늘",
   "date.yesterday": "어제",
+  "defi.account_activation_fee_notice": "계정 활성화를 위해 소량의 SOL 수수료가 필요합니다. 계정 폐쇄 시 환불됩니다.",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "자산 / 빌린",
   "defi.asset_can_be_collateral": "자산 / 담보 가능",

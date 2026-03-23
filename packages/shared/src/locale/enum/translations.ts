@@ -516,6 +516,7 @@
   dapp_connect_transaction_simulation__title = 'dapp_connect_transaction_simulation__title',
   date_today = 'date.today',
   date_yesterday = 'date.yesterday',
+  defi_account_activation_fee_notice = 'defi.account_activation_fee_notice',
   defi_apr_apy = 'defi.apr_apy',
   defi_asset_borrowed = 'defi.asset_borrowed',
   defi_asset_can_be_collateral = 'defi.asset_can_be_collateral',

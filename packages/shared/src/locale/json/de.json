@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "Transaktionssimulation",
   "date.today": "Heute",
   "date.yesterday": "Gestern",
+  "defi.account_activation_fee_notice": "Für die Kontoaktivierung wird eine geringe SOL-Gebühr benötigt. Bei Kontoschließung erstattungsfähig.",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "Vermögenswert / Ausgeliehen",
   "defi.asset_can_be_collateral": "Vermögenswert / Kann als Sicherheit dienen",

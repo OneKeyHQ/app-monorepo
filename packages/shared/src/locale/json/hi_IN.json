@@ -511,6 +511,7 @@
   "dapp_connect_transaction_simulation__title": "लेनदेन सिमुलेशन",
   "date.today": "आज",
   "date.yesterday": "कल",
+  "defi.account_activation_fee_notice": "खाता सक्रिय करने के लिए थोड़ी SOL शुल्क आवश्यक है। खाता बंद करने पर वापसी योग्य।",
   "defi.apr_apy": "APR/APY",
   "defi.asset_borrowed": "संपत्ति / उधार लिया हुआ",
   "defi.asset_can_be_collateral": "संपत्ति / संपार्श्विक हो सकता है",
