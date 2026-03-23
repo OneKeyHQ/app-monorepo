@@ -101,17 +101,15 @@ const handleBorrowSuccess = async ({
   networkId: string;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
 }) => {
-  if (
-    orderId &&
-    Array.isArray(data) &&
-    data.length === 1 &&
-    data[0].signedTx?.txid
-  ) {
+  const latestTxId =
+    Array.isArray(data) && data.length > 0 ? getLatestTxId(data) : undefined;
+
+  if (orderId && latestTxId) {
     await backgroundApiProxy.serviceStaking.addEarnOrder({
       orderId,
       networkId,
-      txId: data[0].signedTx.txid,
-      status: data[0].decodedTx.status,
+      txId: latestTxId,
+      status: data[data.length - 1]?.decodedTx.status,
     });
   }
   onSuccess?.(data);

@@ -734,6 +734,7 @@ export function NormalManageContent({
           tokenInfo={withdrawTokenInfo}
           protocolInfo={protocolInfo}
           isDisabled={withdrawDisabled}
+          onIndicatorRefresh={onIndicatorRefresh}
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
           showApyDetail={showApyDetail}
