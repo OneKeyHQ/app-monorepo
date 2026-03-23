@@ -223,7 +223,8 @@ function AppDataSection() {
       const wallet = await backgroundApiProxy.serviceAccount.getKeylessWallet();
       if (!wallet) return { exists: false, wallet: undefined };
       return { exists: true, wallet };
-    }, [isKeylessWalletEnabled]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isKeylessWalletEnabled, config.isCloudSyncEnabledKeyless]);
 
   const kwExists = keylessWalletResult?.exists ?? false;
   const keylessWallet = keylessWalletResult?.wallet;
@@ -338,6 +339,7 @@ function AppDataSection() {
         // Enable KW first, then disable ID — safer order to avoid stuck middle state
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
           enabled: true,
+          silentEnable: true,
         });
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
           enabled: false,
