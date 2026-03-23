@@ -306,6 +306,15 @@ export function useMarketWatchlistTokenList({
     }
   }, [paginatedData]);
 
+  // Clear stale cache on unmount so re-mounting reads fresh data
+  useEffect(
+    () => () => {
+      watchlistTokenCache = [];
+      cacheListeners.forEach((cb) => cb());
+    },
+    [],
+  );
+
   return {
     data: paginatedData,
     isLoading,
