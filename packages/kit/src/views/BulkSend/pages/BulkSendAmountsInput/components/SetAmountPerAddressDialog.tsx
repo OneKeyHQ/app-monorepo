@@ -183,6 +183,7 @@ function SetAmountPerAddressDialogContent({
       isAmountValid,
       totalTokenAmount,
       totalFiatAmount,
+      minTransferAmountProp,
     ],
   );
 

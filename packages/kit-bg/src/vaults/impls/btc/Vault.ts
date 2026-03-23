@@ -593,8 +593,17 @@ export default class VaultBtc extends VaultBase {
     if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
       return unsignedTx;
     }
+    // Preserve the user-selected fee rate from the existing encoded tx
+    let specifiedFeeRate: string | undefined;
+    const existingEncodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+    if (existingEncodedTx?.fee && existingEncodedTx?.txSize) {
+      specifiedFeeRate = new BigNumber(existingEncodedTx.fee)
+        .div(existingEncodedTx.txSize)
+        .toFixed();
+    }
     const encodedTx = await this._buildEncodedTxFromBatchTransfer({
       transfersInfo: unsignedTx.transfersInfo,
+      specifiedFeeRate,
     });
     return this._buildUnsignedTxFromEncodedTx({
       encodedTx,

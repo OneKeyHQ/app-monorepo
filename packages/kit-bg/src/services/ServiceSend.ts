@@ -502,10 +502,13 @@ class ServiceSend extends ServiceBase {
           approveInfo: unsignedTx.approveInfo,
         };
 
-        // only fill swap(staking) tx info for batch approve&swap(staking) callback
+        // For batch approve+swap/staking: only return the swap/staking tx result
+        // For bulk send (multiple transfer txs): return all results
         if (
           !isMultiTxs ||
-          (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+          unsignedTx.swapInfo ||
+          unsignedTx.stakingInfo ||
+          unsignedTx.transfersInfo
         ) {
           result.push(data);
         }
