@@ -133,6 +133,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   ISignTransactionParams,
+  ITransferInfo,
   ITransferPayload,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -420,6 +421,24 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   abstract updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
+
+  // Override in chain vaults that need to refresh transaction data (e.g. blockhash)
+  // before signing each transaction in a batch send sequence.
+  async refreshUnsignedTxBeforeBatchSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    return unsignedTx;
+  }
+
+  async buildBulkSendEncodedTxs(_params: {
+    transfersInfo: ITransferInfo[];
+  }): Promise<{
+    encodedTxs: IEncodedTx[];
+    transfersInfoChunks: ITransferInfo[][];
+    ataCount?: number;
+  }> {
+    throw new NotImplemented();
+  }
 
   async broadcastTransaction(
     params: IBroadcastTransactionParams,

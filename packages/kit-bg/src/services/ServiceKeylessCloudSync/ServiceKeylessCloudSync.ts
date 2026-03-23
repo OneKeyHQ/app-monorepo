@@ -1,4 +1,5 @@
 /* eslint-disable no-continue */
+import { Semaphore } from 'async-mutex';
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -29,6 +30,7 @@ import ServiceBase from '../ServiceBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
 import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
 
@@ -37,6 +39,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
+
+  private repairCredentialMutex = new Semaphore(1);
 
   async getKeylessWallet(): Promise<IDBWallet | null> {
     const keylessWallet =
@@ -84,12 +88,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
     pwdHash: string | undefined;
     fullPostData: T & { pwdHash: string | undefined };
   } | null> {
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      return null;
-    }
-
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
     const keylessCredential = syncCredential?.keylessCredential;
@@ -100,13 +98,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const fullPostData = { ...postData, pwdHash };
     const dataString = stringUtils.stableStringify(fullPostData);
     const dataHash = keylessCloudSyncUtils.computeDataHash(dataString);
-    const signatureHeader =
-      await keylessCloudSyncUtils.buildKeylessSignatureHeader({
-        signingPrivateKey: keylessCredential.signingPrivateKey,
-        signingPublicKey: keylessCredential.signingPublicKey,
-        password,
-        dataHash,
-      });
+    const signatureHeader = keylessCloudSyncUtils.buildKeylessSignatureHeader({
+      signingPrivateKey: keylessCredential.signingPrivateKey,
+      signingPublicKey: keylessCredential.signingPublicKey,
+      dataHash,
+    });
     return {
       publicKey: keylessCredential.signingPublicKey,
       signatureHeader,
@@ -475,6 +471,51 @@ class ServiceKeylessCloudSync extends ServiceBase {
     this.currentCloudSyncKeylessWalletIdCache = undefined;
   }
 
+  async repairKeylessSyncCredentialIfNeeded({
+    password,
+  }: {
+    password: string;
+  }): Promise<void> {
+    await this.repairCredentialMutex.runExclusive(async () => {
+      const walletId = await this.getCurrentCloudSyncKeylessWalletId();
+      if (!walletId) {
+        return;
+      }
+      const existing =
+        await keylessSyncCredentialStorage.getCredential(walletId);
+      if (existing) {
+        return;
+      }
+      // Credential missing — re-derive from seed while password is available
+      try {
+        const credentialRecord = await localDb.getCredential(walletId);
+        if (!credentialRecord?.credential) {
+          return;
+        }
+        const { decryptRevealableSeed } =
+          await import('@onekeyhq/core/src/secret');
+        const { default: bufferUtils } =
+          await import('@onekeyhq/shared/src/utils/bufferUtils');
+        const revealableSeed = await decryptRevealableSeed({
+          rs: credentialRecord.credential,
+          password,
+        });
+        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId: walletId,
+        });
+        await keylessSyncCredentialStorage.saveCredential(credential);
+        this.setKeylessCloudSyncCredentialCache(credential);
+      } catch (error) {
+        console.error(
+          '[ServiceKeylessCloudSync] Failed to repair credential:',
+          error,
+        );
+      }
+    });
+  }
+
   buildSyncCredentialWithKeylessCredential(
     keylessCredential: IKeylessCloudSyncCredential,
   ): ICloudSyncCredential {
@@ -525,6 +566,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
       isCloudSyncEnabledKeyless: shouldEnableKeyless,
     }));
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+
+    // Remove persisted credential when disabling keyless sync
+    if (!shouldEnableKeyless) {
+      const currentWalletId = await this.getCurrentCloudSyncKeylessWalletId();
+      if (currentWalletId) {
+        await keylessSyncCredentialStorage.removeCredential(currentWalletId);
+      }
+    }
+
     return shouldEnableKeyless;
   }
 
@@ -642,6 +692,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
+
+    // Ensure credential exists before proceeding (auto-repair if missing)
+    await this.repairKeylessSyncCredentialIfNeeded({ password });
 
     const keylessCredential = await this.getKeylessCloudSyncCredential();
     if (!keylessCredential) {

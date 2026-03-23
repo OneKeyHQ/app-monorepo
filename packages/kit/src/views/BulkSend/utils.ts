@@ -340,10 +340,14 @@ export function validateRangeInput({
   rangeMin,
   rangeMax,
   balance,
+  minTransferAmount,
+  tokenSymbol,
 }: {
   rangeMin: string;
   rangeMax: string;
   balance: string;
+  minTransferAmount?: string;
+  tokenSymbol?: string;
 }): string | undefined {
   const minBN = new BigNumber(rangeMin || '0');
   const maxBN = new BigNumber(rangeMax || '0');
@@ -354,6 +358,22 @@ export function validateRangeInput({
     return appLocale.intl.formatMessage({
       id: ETranslations.swap_page_button_insufficient_balance,
     });
+  }
+
+  // Check if range min is below chain minimum transfer amount
+  if (minTransferAmount) {
+    const minTransferBN = new BigNumber(minTransferAmount);
+    if (
+      !minTransferBN.isZero() &&
+      rangeMin !== '' &&
+      !minBN.isNaN() &&
+      minBN.isLessThan(minTransferBN)
+    ) {
+      return appLocale.intl.formatMessage(
+        { id: ETranslations.send_error_minimum_amount },
+        { amount: minTransferAmount, token: tokenSymbol ?? '' },
+      );
+    }
   }
 
   // Only check if min exceeds balance (min must be achievable)
