@@ -271,8 +271,27 @@
         "disallowTypeAnnotations": false
       }
     ],
-    // NOTE: typescript/no-use-before-define and typescript/no-shadow do not exist in oxlint v1.43.0
-    // They were phantom rules (configured but never enforced). Removed to avoid confusion.
+    // Variable shadowing detection
+    "no-shadow": [
+      "error",
+      {
+        "ignoreTypeValueShadow": true,
+        "ignoreFunctionTypeParameterNameValueShadow": true,
+        "hoist": "functions-and-types",
+        "builtinGlobals": false
+      }
+    ],
+    // Disallow use before define
+    "no-use-before-define": [
+      "error",
+      {
+        "functions": false,
+        "classes": true,
+        "variables": true,
+        "allowNamedExports": true,
+        "ignoreTypeReferences": true
+      }
+    ],
 
     // ============================================
     // Unicorn rules (matching ESLint config)

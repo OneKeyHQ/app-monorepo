@@ -275,6 +275,7 @@ export class V4IndexedDBAgent
             .openCursor(null, 'prev');
 
           let skipped = 0;
+          // oxlint-disable-next-line no-unmodified-loop-condition -- IDB cursor is advanced via cursor.continue()
           while (cursor) {
             if (skipped < offset) {
               skipped += 1;

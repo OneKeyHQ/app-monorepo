@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
+  CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
   EPrimeCloudSyncDataType,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -19,7 +20,10 @@ import {
   OneKeyErrorPrimePaidMembershipRequired,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  ECustomCloudSyncError,
+  EOneKeyErrorClassNames,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -106,6 +110,29 @@ let oneKeyIdCloudSyncEnableFlowCount = 0;
 class ServicePrimeCloudSync extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  private _lastIdSyncUnavailableToastTime = 0;
+
+  private async notifyIfOnekeyIdSyncUnavailable() {
+    const now = Date.now();
+    const ONE_HOUR = timerUtils.getTimeDurationMs({ hour: 1 });
+    if (now - this._lastIdSyncUnavailableToastTime < ONE_HOUR) return;
+
+    const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
+    if (!isCloudSyncEnabled) return;
+
+    this._lastIdSyncUnavailableToastTime = now;
+
+    void this.backgroundApi.serviceApp.showToast({
+      method: 'error',
+      icon: 'CloudDisconnectedSolid',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.cloud_sync_issue_toast_title,
+      }),
+      toastId: CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
+      errorCode: ECustomCloudSyncError.OnekeyIdSyncUnavailable,
+    });
   }
 
   syncManagers = {
@@ -1186,6 +1213,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       // const syncMode = await this.getActiveSyncMode();
 
       if (!(await this.isCloudSyncIsAvailable())) {
+        if (!throwError) {
+          void this.notifyIfOnekeyIdSyncUnavailable();
+        }
         return;
       }
       await this.ensureCloudSyncIsAvailable({
@@ -1240,6 +1270,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
+      if (!throwError) {
+        void this.notifyIfOnekeyIdSyncUnavailable();
+      }
       if (throwError) {
         throw error;
       }
@@ -1502,9 +1535,6 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   async buildSyncCredentialForKeyless(): Promise<ICloudSyncCredential> {
-    if (!(await this.backgroundApi.servicePassword.getCachedPassword())) {
-      throw new OneKeyError('No password in memory');
-    }
     const keylessCredential =
       (await this.getKeylessCloudSyncCredentialCache()) ||
       (await this.getKeylessCloudSyncCredential());
@@ -1523,18 +1553,20 @@ class ServicePrimeCloudSync extends ServiceBase {
       activeMode: ECloudSyncMode;
       keylessWalletId?: string | null;
     }): Promise<ICloudSyncCredential> => {
-      const password =
-        await this.backgroundApi.servicePassword.getCachedPassword();
-
-      if (!password) {
-        throw new OneKeyError('No password in memory');
-      }
-
+      // Keyless mode does not need password
       if (activeMode === ECloudSyncMode.Keyless) {
         if (!keylessWalletId) {
           throw new OneKeyError('Failed to get current keyless wallet id');
         }
         return this.buildSyncCredentialForKeyless();
+      }
+
+      // OneKey ID mode still requires password
+      const password =
+        await this.backgroundApi.servicePassword.getCachedPassword();
+
+      if (!password) {
+        throw new OneKeyError('No password in memory');
       }
 
       return this.buildSyncCredentialForOneKeyId({ password });
@@ -1663,11 +1695,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncNowKeyless({
     callerName = 'Manual Cloud Sync Keyless',
     noDebounceUpload = true,
-    password,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
-    password?: string;
   } = {}): Promise<boolean> {
     const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabledKeyless) {
@@ -1679,7 +1709,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
     await this.initLocalSyncItemsDB({
       syncCredential,
-      password,
     });
     await this.startServerSyncFlow({
       callerName,
