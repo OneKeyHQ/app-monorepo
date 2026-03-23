@@ -5,6 +5,8 @@ on:
     branches:
       - onekey
       - x
+      - hotfix/*
+      - release/*
   push:
     branches:
       - onekey

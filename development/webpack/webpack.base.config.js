@@ -217,16 +217,18 @@ module.exports = ({ platform, basePath, configName }) => {
       new webpackManifestPlugin.WebpackManifestPlugin({
         fileName: 'asset-manifest.json',
         publicPath: './',
-        filter: ({ path }) => {
+        filter: ({ path: assetPath }) => {
           if (
-            path.match(
+            assetPath.match(
               /(apple-touch-startup-image|apple-touch-icon|chrome-icon|precache-manifest)/,
             )
           ) {
             return false;
           }
           // Remove compressed versions and service workers
-          return !(path.endsWith('.gz') || path.endsWith('worker.js'));
+          return !(
+            assetPath.endsWith('.gz') || assetPath.endsWith('worker.js')
+          );
         },
         generate: (seed, files, entrypoints) => {
           const manifestFiles = files.reduce((manifest, file) => {
