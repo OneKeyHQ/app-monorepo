@@ -28,6 +28,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -70,6 +71,7 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
     tokenDetailsState,
     bulkSendMode,
+    setSelectedDeriveType,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -298,6 +300,18 @@ function BaseBulkSendAddressesInput() {
   }, [initBulkSendInfo]);
 
   useEffect(() => {
+    if (selectedNetworkId && networkUtils.isBTCNetwork(selectedNetworkId)) {
+      void backgroundApiProxy.serviceNetwork
+        .getGlobalDeriveTypeOfNetwork({ networkId: selectedNetworkId })
+        .then((deriveType) => {
+          setSelectedDeriveType(deriveType);
+        });
+    } else {
+      setSelectedDeriveType(undefined);
+    }
+  }, [selectedNetworkId, setSelectedDeriveType]);
+
+  useEffect(() => {
     if (selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
     }
@@ -484,6 +498,9 @@ function BulkSendAddressesInput() {
   const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(
     EBulkSendMode.OneToMany,
   );
+  const [selectedDeriveType, setSelectedDeriveType] = useState<
+    IAccountDeriveTypes | undefined
+  >(undefined);
 
   const context = useMemo(
     () => ({
@@ -501,6 +518,8 @@ function BulkSendAddressesInput() {
       setTokenDetailsState,
       bulkSendMode,
       setBulkSendMode,
+      selectedDeriveType,
+      setSelectedDeriveType,
     }),
     [
       selectedAccountId,
@@ -517,6 +536,7 @@ function BulkSendAddressesInput() {
       setTokenDetailsState,
       bulkSendMode,
       setBulkSendMode,
+      selectedDeriveType,
     ],
   );
 

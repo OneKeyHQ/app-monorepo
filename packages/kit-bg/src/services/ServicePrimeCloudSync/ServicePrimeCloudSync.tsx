@@ -1535,9 +1535,6 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   async buildSyncCredentialForKeyless(): Promise<ICloudSyncCredential> {
-    if (!(await this.backgroundApi.servicePassword.getCachedPassword())) {
-      throw new OneKeyError('No password in memory');
-    }
     const keylessCredential =
       (await this.getKeylessCloudSyncCredentialCache()) ||
       (await this.getKeylessCloudSyncCredential());
@@ -1556,18 +1553,20 @@ class ServicePrimeCloudSync extends ServiceBase {
       activeMode: ECloudSyncMode;
       keylessWalletId?: string | null;
     }): Promise<ICloudSyncCredential> => {
-      const password =
-        await this.backgroundApi.servicePassword.getCachedPassword();
-
-      if (!password) {
-        throw new OneKeyError('No password in memory');
-      }
-
+      // Keyless mode does not need password
       if (activeMode === ECloudSyncMode.Keyless) {
         if (!keylessWalletId) {
           throw new OneKeyError('Failed to get current keyless wallet id');
         }
         return this.buildSyncCredentialForKeyless();
+      }
+
+      // OneKey ID mode still requires password
+      const password =
+        await this.backgroundApi.servicePassword.getCachedPassword();
+
+      if (!password) {
+        throw new OneKeyError('No password in memory');
       }
 
       return this.buildSyncCredentialForOneKeyId({ password });
@@ -1696,11 +1695,9 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncNowKeyless({
     callerName = 'Manual Cloud Sync Keyless',
     noDebounceUpload = true,
-    password,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
-    password?: string;
   } = {}): Promise<boolean> {
     const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabledKeyless) {
@@ -1712,7 +1709,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
     await this.initLocalSyncItemsDB({
       syncCredential,
-      password,
     });
     await this.startServerSyncFlow({
       callerName,
