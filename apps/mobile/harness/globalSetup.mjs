@@ -24,6 +24,7 @@ function setAndroidHarnessFlag() {
   console.log('[harness-globalSetup] Android harness_mode flag set');
 }
 
+/** @returns {boolean} true if at least one booted simulator was updated */
 function setIOSHarnessFlag() {
   // Write a UserDefaults flag on all booted iOS simulators.
   // AppDelegate.swift checks for this flag and skips recovery.
@@ -36,6 +37,7 @@ function setIOSHarnessFlag() {
     },
   );
   const { devices } = JSON.parse(out);
+  let flagSet = false;
   for (const runtime of Object.values(devices)) {
     for (const device of runtime) {
       if (device.state === 'Booted') {
@@ -57,9 +59,11 @@ function setIOSHarnessFlag() {
         console.log(
           `[harness-globalSetup] iOS harness_mode flag set on ${device.name} (${device.udid})`,
         );
+        flagSet = true;
       }
     }
   }
+  return flagSet;
 }
 
 export default async function globalSetup() {
@@ -74,8 +78,10 @@ export default async function globalSetup() {
     console.log(`[harness-globalSetup] Android flag skipped: ${e.message}`);
   }
   try {
-    setIOSHarnessFlag();
-    iosOk = true;
+    iosOk = setIOSHarnessFlag();
+    if (!iosOk) {
+      console.log('[harness-globalSetup] iOS: no booted simulators found');
+    }
   } catch (e) {
     // No booted iOS simulator — expected on Android runs
     console.log(`[harness-globalSetup] iOS flag skipped: ${e.message}`);

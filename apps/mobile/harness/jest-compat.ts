@@ -311,7 +311,11 @@ const restoreAllMocks = () => {
             safeDelete(defaultObj, key);
           }
           for (const key of Object.keys(mockExports)) {
-            safeSet(defaultObj, key, mockExports[key]);
+            if (!safeSet(defaultObj, key, mockExports[key])) {
+              console.warn(
+                `[harness-compat] Cannot mock read-only export "${key}" — test may use unmocked value`,
+              );
+            }
           }
           return;
         }
@@ -327,7 +331,11 @@ const restoreAllMocks = () => {
             (k) => k !== '__esModule' && k !== 'default',
           );
           for (const key of extraKeys) {
-            safeSet(defaultObj, key, mockExports[key]);
+            if (!safeSet(defaultObj, key, mockExports[key])) {
+              console.warn(
+                `[harness-compat] Cannot mock read-only export "${key}" — test may use unmocked value`,
+              );
+            }
           }
           return;
         }
@@ -340,7 +348,11 @@ const restoreAllMocks = () => {
       }
       for (const key of Object.keys(mockExports)) {
         if (key !== '__esModule') {
-          safeSet(mod, key, mockExports[key]);
+          if (!safeSet(mod, key, mockExports[key])) {
+            console.warn(
+              `[harness-compat] Cannot mock read-only export "${key}" — test may use unmocked value`,
+            );
+          }
         }
       }
     }
