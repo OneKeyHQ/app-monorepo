@@ -3903,7 +3903,7 @@
   "swap.provider_panel_badge_availability": "24/7",
   "swap.provider_panel_badge_chains": "20+ チェーン",
   "swap.provider_panel_badge_dexs": "400+ DEXs",
-  "swap.provider_panel_desc": "一键从 400+ 流动性来源中找到最优汇率",
+  "swap.provider_panel_desc": "400+ の DEX からワンクリックで最良レートを取得。",
   "swap.provider_panel_feature_liquidity": "高流動性",
   "swap.provider_panel_feature_liquidity_desc": "大額取引を低スリッページで行います。",
   "swap.provider_panel_feature_mev": "MEV シールド",
