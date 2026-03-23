@@ -1541,7 +1541,7 @@ function MoreButtonWithDot({
     return (
       <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
         <Stack position="relative">
-          <Icon name="DotGridOutline" size="$5" />
+          <Icon name="DotGridOutline" size="$6" color="$iconSubdued" />
           {desktopDot}
         </Stack>
       </YStack>

@@ -3,6 +3,7 @@ import { forwardRef, memo, useImperativeHandle } from 'react';
 import { YStack } from '@onekeyhq/components';
 
 import type { IEarnHomeMode } from './MarketSelector';
+import type { SharedValue } from 'react-native-reanimated';
 
 export interface IEarnBorrowPagerViewRef {
   syncCurrentPage: () => void;
@@ -13,6 +14,7 @@ interface IEarnBorrowPagerViewProps {
   onModeChange: (mode: IEarnHomeMode) => void;
   earnContent: React.ReactNode;
   borrowContent: React.ReactNode;
+  pageScrollPosition?: SharedValue<number>;
 }
 
 function EarnBorrowPagerViewComponent(

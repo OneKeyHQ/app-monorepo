@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -300,7 +299,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 currency: '$',
               }}
             >
-              {new BigNumber(record.volume24h).isNaN() ? '-' : record.volume24h}
+              {!record.volume24h ? '--' : record.volume24h}
             </NumberSizeableText>
           ),
         },
@@ -348,9 +347,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                     currency: '$',
                   }}
                 >
-                  {new BigNumber(record.volume24h).isNaN()
-                    ? '-'
-                    : record.volume24h}
+                  {!record.volume24h ? '--' : record.volume24h}
                 </NumberSizeableText>
               </YStack>
             </XStack>

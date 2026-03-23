@@ -8,6 +8,9 @@
 
 import {
   EAppUpdateStatus,
+  EPendingInstallTaskAction,
+  EPendingInstallTaskStatus,
+  EPendingInstallTaskType,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
@@ -1704,6 +1707,116 @@ describe('ServiceAppUpdate state transitions', () => {
 
       // gtVersion returns false → shouldUpdate=false → status stays done
       expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
+
+    test('skips fetch when pending install task has not executed yet (status=pending)', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      resetPendingTask({
+        taskId: 'task-v101',
+        revision: 1,
+        action: EPendingInstallTaskAction.switchBundle,
+        type: EPendingInstallTaskType.jsBundleSwitch,
+        targetAppVersion: '1.0.0',
+        targetBundleVersion: '101',
+        scheduledEnvAppVersion: '1.0.0',
+        scheduledEnvBundleVersion: '1',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 86_400_000,
+        retryCount: 0,
+        status: EPendingInstallTaskStatus.pending,
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '101',
+          signature: 'sig',
+        },
+      });
+      const mockLatest = jest.spyOn(service, 'getAppLatestInfo');
+
+      await service.fetchAppUpdateInfo(true);
+
+      // Should NOT have called getAppLatestInfo — fetch was skipped
+      expect(mockLatest).not.toHaveBeenCalled();
+      // Atom should remain unchanged
+      expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
+
+    test('skips fetch when pending install task is running', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      resetPendingTask({
+        taskId: 'task-v101',
+        revision: 1,
+        action: EPendingInstallTaskAction.switchBundle,
+        type: EPendingInstallTaskType.jsBundleSwitch,
+        targetAppVersion: '1.0.0',
+        targetBundleVersion: '101',
+        scheduledEnvAppVersion: '1.0.0',
+        scheduledEnvBundleVersion: '1',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 86_400_000,
+        retryCount: 0,
+        status: EPendingInstallTaskStatus.running,
+        runningStartedAt: Date.now(),
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '101',
+          signature: 'sig',
+        },
+      });
+      const mockLatest = jest.spyOn(service, 'getAppLatestInfo');
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(mockLatest).not.toHaveBeenCalled();
+      expect(atomValue.status).toBe(EAppUpdateStatus.done);
+    });
+
+    test('does NOT skip fetch when pending task status is failed', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      resetPendingTask({
+        taskId: 'task-v101',
+        revision: 1,
+        action: EPendingInstallTaskAction.switchBundle,
+        type: EPendingInstallTaskType.jsBundleSwitch,
+        targetAppVersion: '1.0.0',
+        targetBundleVersion: '101',
+        scheduledEnvAppVersion: '1.0.0',
+        scheduledEnvBundleVersion: '1',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 86_400_000,
+        retryCount: 3,
+        status: EPendingInstallTaskStatus.failed,
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '101',
+          signature: 'sig',
+        },
+      });
+      mockLatestInfo({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      // Failed task should NOT block fetch — allow recovery with newer version
+      expect(atomValue.latestVersion).toBe('2.0.0');
+    });
+
+    test('does NOT skip fetch when no pending task exists', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      resetPendingTask(undefined);
+      mockLatestInfo({
+        version: '2.0.0',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.latestVersion).toBe('2.0.0');
     });
 
     test('blockedByControl=true prevents transition to notify', async () => {

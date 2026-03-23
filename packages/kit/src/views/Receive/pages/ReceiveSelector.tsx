@@ -73,6 +73,7 @@ function ReceiveOptions({
       userSelect="none"
       bg="$neutral2"
       borderRadius="$4"
+      nativePressableStyle={{ flexShrink: 0 }}
       hoverStyle={{
         bg: '$neutral3',
       }}
@@ -493,6 +494,7 @@ function ReceiveSelectorContent() {
                 drillIn
                 onPress={() => handleExchangePress(config)}
                 gap="$4"
+                nativePressableStyle={{ flexShrink: 0 }}
               >
                 <Image
                   w="$10"

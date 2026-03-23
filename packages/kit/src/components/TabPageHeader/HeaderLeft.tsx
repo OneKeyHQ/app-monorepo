@@ -1,7 +1,11 @@
 import { type ReactNode, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TouchableOpacity } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 
 import {
   DebugRenderTracker,
@@ -9,8 +13,10 @@ import {
   Page,
   SizableText,
   XStack,
+  fs,
   rootNavigationRef,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -31,6 +37,8 @@ import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { WalletConnectionGroup } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
+import type { SharedValue } from 'react-native-reanimated';
+
 export function HeaderLeftCloseButton() {
   return (
     <Page.Close>
@@ -45,6 +53,16 @@ const discoveryTabs = platformEnv.isNative
       ETranslations.global_browser,
     ]
   : [ETranslations.global_market, ETranslations.global_earn];
+
+// Static styles for animated text to match $headingXl token
+const animatedTextStyles = StyleSheet.create({
+  text: {
+    fontSize: fs(20),
+    fontWeight: '600',
+    lineHeight: fs(28),
+    fontFamily: 'Roobert-SemiBold',
+  },
+});
 
 function SegmentText({
   translationId,
@@ -75,11 +93,72 @@ function SegmentText({
   );
 }
 
+function AnimatedSegmentText({
+  translationId,
+  index,
+  pageScrollPosition,
+}: {
+  translationId: (typeof discoveryTabs)[number];
+  index: number;
+  pageScrollPosition: SharedValue<number>;
+}) {
+  const intl = useIntl();
+  const theme = useTheme();
+  const activeColor = theme.text.val;
+  const inactiveColor = theme.textSubdued.val;
+
+  const handlePress = useCallback(() => {
+    appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+      tab: translationId as
+        | ETranslations.global_market
+        | ETranslations.global_browser
+        | ETranslations.global_earn,
+    });
+  }, [translationId]);
+
+  const animatedColorStyle = useAnimatedStyle(() => {
+    const color = interpolateColor(
+      pageScrollPosition.value,
+      [index - 1, index, index + 1],
+      [inactiveColor, activeColor, inactiveColor],
+    );
+    return { color };
+  });
+
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+      <Animated.Text
+        style={[animatedTextStyles.text, animatedColorStyle]}
+        numberOfLines={1}
+      >
+        {intl.formatMessage({ id: translationId })}
+      </Animated.Text>
+    </TouchableOpacity>
+  );
+}
+
 export function DiscoveryHeaderSegment({
   selectedHeaderTab,
+  pageScrollPosition,
 }: {
   selectedHeaderTab?: ETranslations;
+  pageScrollPosition?: SharedValue<number>;
 }) {
+  if (pageScrollPosition) {
+    return (
+      <XStack gap="$4">
+        {discoveryTabs.map((tab, index) => (
+          <AnimatedSegmentText
+            key={tab}
+            translationId={tab}
+            index={index}
+            pageScrollPosition={pageScrollPosition}
+          />
+        ))}
+      </XStack>
+    );
+  }
+
   return (
     <XStack gap="$4">
       {discoveryTabs.map((tab) => (
@@ -98,11 +177,13 @@ export function HeaderLeft({
   sceneName,
   tabRoute,
   customHeaderLeftItems,
+  pageScrollPosition,
 }: {
   selectedHeaderTab?: ETranslations;
   sceneName: EAccountSelectorSceneName;
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
+  pageScrollPosition?: SharedValue<number>;
 }) {
   const { gtMd: _gtMd } = useMedia();
 
@@ -153,13 +234,22 @@ export function HeaderLeft({
       return platformEnv.isNative ||
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel ? (
-        <DiscoveryHeaderSegment selectedHeaderTab={selectedHeaderTab} />
+        <DiscoveryHeaderSegment
+          selectedHeaderTab={selectedHeaderTab}
+          pageScrollPosition={pageScrollPosition}
+        />
       ) : null;
     }
 
     // For mobile and native platforms, keep the original layout
     return <WalletConnectionGroup tabRoute={tabRoute} />;
-  }, [customHeaderLeftItems, sceneName, tabRoute, selectedHeaderTab]);
+  }, [
+    customHeaderLeftItems,
+    sceneName,
+    tabRoute,
+    selectedHeaderTab,
+    pageScrollPosition,
+  ]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
