@@ -731,7 +731,7 @@ export const WithdrawSection = ({
         tags.push(protocolInfo.stakeTag);
       }
 
-      await handleBorrowRepayWithCollateral({
+      return handleBorrowRepayWithCollateral({
         amount,
         provider,
         marketAddress,
