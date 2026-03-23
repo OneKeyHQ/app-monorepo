@@ -103,8 +103,6 @@ export default async function globalTeardown() {
     clearIOSHarnessFlag();
   } catch (e) {
     // No booted iOS simulator — expected on Android runs
-    console.log(
-      `[harness-globalTeardown] iOS cleanup skipped: ${e.message}`,
-    );
+    console.log(`[harness-globalTeardown] iOS cleanup skipped: ${e.message}`);
   }
 }
