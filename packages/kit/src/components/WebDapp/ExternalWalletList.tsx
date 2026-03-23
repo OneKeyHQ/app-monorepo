@@ -391,7 +391,9 @@ function KeylessProviderButtons() {
         // Wallet already exists — connect silently without writing hash params.
         const connectionInfo = getOneKeyConnectionInfo();
         if (connectionInfo) {
-          await connectToWalletForKeylessSilently(connectionInfo);
+          await connectToWalletForKeylessSilently(connectionInfo, {
+            provider,
+          });
         }
       }
     },

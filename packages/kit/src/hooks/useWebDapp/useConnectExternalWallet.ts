@@ -7,6 +7,7 @@ import { Toast, resetAboveMainRoute } from '@onekeyhq/components';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessPendingLogin } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -237,9 +238,18 @@ export function useConnectExternalWallet() {
   );
 
   const connectToWalletForKeylessSilently = useCallback(
-    async (connectionInfo: IExternalConnectionInfo) => {
+    async (
+      connectionInfo: IExternalConnectionInfo,
+      options?: { provider?: EOAuthSocialLoginProvider },
+    ) => {
       const webKeylessPendingLogin: IKeylessPendingLogin | undefined =
-        keylessWebPendingLoginCache.readKeylessPendingLogin();
+        keylessWebPendingLoginCache.readKeylessPendingLogin() ??
+        (options?.provider
+          ? keylessWebPendingLoginCache.createKeylessPendingLogin({
+              provider: options.provider,
+              nonce: `silent-${Date.now()}`,
+            })
+          : undefined);
       return connectToWallet(connectionInfo, {
         allowEmptyAuthorizedAddresses: true,
         suppressDeniedToast: true,
