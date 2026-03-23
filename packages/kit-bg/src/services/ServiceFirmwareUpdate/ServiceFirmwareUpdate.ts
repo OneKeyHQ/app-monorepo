@@ -72,6 +72,7 @@ import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 
 import {
+  FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
   FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
   FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
 } from './firmwareUpdateConsts';
@@ -512,6 +513,30 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = false;
     }
 
+    // Force update if firmware is too many versions behind
+    if (firmware?.hasUpgrade) {
+      if (
+        this.isVersionTooOld(
+          firmware.fromVersion,
+          firmware.toVersion,
+          FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
+        )
+      ) {
+        firmware.hasUpgradeForce = true;
+      }
+    }
+    if (ble?.hasUpgrade) {
+      if (
+        this.isVersionTooOld(
+          ble.fromVersion,
+          ble.toVersion,
+          FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND,
+        )
+      ) {
+        ble.hasUpgradeForce = true;
+      }
+    }
+
     // TODO boot mode device uuid is empty
     const deviceUUID = getDeviceUUID(features);
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
@@ -895,6 +920,28 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgradeForce,
       hasUpgrade,
     };
+  }
+
+  isVersionTooOld(
+    fromVersion: string,
+    toVersion: string,
+    maxBehind: number,
+  ): boolean {
+    const from = semver.parse(fromVersion);
+    const to = semver.parse(toVersion);
+    if (!from || !to) return false;
+
+    if (to.major > from.major) return true;
+    if (to.major === from.major && to.minor - from.minor > maxBehind)
+      return true;
+    if (
+      to.major === from.major &&
+      to.minor === from.minor &&
+      to.patch - from.patch > maxBehind
+    )
+      return true;
+
+    return false;
   }
 
   async getConnectIdFromReleaseInfo(

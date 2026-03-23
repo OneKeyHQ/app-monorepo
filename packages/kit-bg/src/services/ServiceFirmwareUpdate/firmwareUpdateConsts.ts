@@ -51,3 +51,4 @@ const batteryLevelMap = {
   '100%': 4,
 };
 export const FIRMWARE_UPDATE_MIN_BATTERY_LEVEL = batteryLevelMap['25%'];
+export const FIRMWARE_ONBOARDING_MAX_VERSIONS_BEHIND = 2;
