@@ -986,14 +986,14 @@ class ServiceSend extends ServiceBase {
 
     const unsignedTxs: IUnsignedTxPro[] = [];
     for (let i = 0; i < encodedTxs.length; i += 1) {
-      const unsignedTx: IUnsignedTxPro = {
+      const unsignedTx = await vault.buildUnsignedTx({
         encodedTx: encodedTxs[i],
         transfersInfo: transfersInfoChunks[i],
-        accountId,
-        networkId,
-        indexedAccountId: account.indexedAccountId,
-        uuid: generateUUID(),
-      };
+      });
+      unsignedTx.accountId = accountId;
+      unsignedTx.networkId = networkId;
+      unsignedTx.indexedAccountId = account.indexedAccountId;
+      unsignedTx.uuid = generateUUID();
       unsignedTxs.push(unsignedTx);
     }
 

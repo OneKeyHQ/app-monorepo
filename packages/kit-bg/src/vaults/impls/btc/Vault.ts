@@ -585,6 +585,23 @@ export default class VaultBtc extends VaultBase {
     return { encodedTxs, transfersInfoChunks };
   }
 
+  override async refreshUnsignedTxBeforeBatchSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    // Rebuild the transaction with fresh UTXOs from the network
+    // to avoid double-spend when sending multiple chunked BTC transactions
+    if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
+      return unsignedTx;
+    }
+    const encodedTx = await this._buildEncodedTxFromBatchTransfer({
+      transfersInfo: unsignedTx.transfersInfo,
+    });
+    return this._buildUnsignedTxFromEncodedTx({
+      encodedTx,
+      transfersInfo: unsignedTx.transfersInfo,
+    });
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
