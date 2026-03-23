@@ -359,7 +359,6 @@ function KeylessProviderButtons() {
         });
       } else {
         console.log('startKeylessWebFlow: OneKey Extension is installed');
-        await startKeylessWebFlow(provider);
 
         const oneKeyPrivateProvider = getOneKeyPrivateProvider();
         const keylessStatus = await oneKeyPrivateProvider
@@ -375,6 +374,10 @@ function KeylessProviderButtons() {
         if (keylessStatus) {
           const shouldOpenSidePanel = !keylessStatus.walletExists;
           if (shouldOpenSidePanel) {
+            // Only write pending hash params when we actually need the
+            // side-panel onboarding flow; avoids leaving stale nonces that
+            // scanWebLoginTabs() would later treat as a new pending login.
+            await startKeylessWebFlow(provider);
             const pendingLogin =
               keylessWebPendingLoginCache.readKeylessPendingLogin();
             notifyOpenKeylessSidePanelInContentScript({
@@ -385,6 +388,7 @@ function KeylessProviderButtons() {
           }
         }
 
+        // Wallet already exists — connect silently without writing hash params.
         const connectionInfo = getOneKeyConnectionInfo();
         if (connectionInfo) {
           await connectToWalletForKeylessSilently(connectionInfo);

@@ -398,6 +398,7 @@ function setupKeylessWebBridgeInBackground() {
 }
 
 export default {
+  clearPendingWebTabStorage,
   clearTabWebHashAndReload,
   notifyKeylessWebConnectSuccess,
   savePendingWebTab,

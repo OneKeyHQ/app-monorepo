@@ -419,6 +419,9 @@ export const setupSidePanelPortInBg = () => {
       let dappRejectId: string | number | undefined;
       const closeSidePanel = () => {
         sidePanelState.isOpen = false;
+        // Clear stale pending web tab storage so an abandoned keyless
+        // onboarding flow does not auto-connect the wrong dapp later.
+        void keylessWebBridge.clearPendingWebTabStorage().catch(() => {});
         if (dappRejectId) {
           const backgroundApiProxy = getBackgroundApiProxy();
           void backgroundApiProxy.servicePromise.rejectCallback({
