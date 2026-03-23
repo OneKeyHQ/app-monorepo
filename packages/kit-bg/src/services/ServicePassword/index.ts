@@ -86,7 +86,8 @@ export default class ServicePassword extends ServiceBase {
 
   private cachedPrfMasterKeyHex: string | null = null;
 
-  private cachedPrfMasterKeyTimestamp = 0;
+  private cachedPrfMasterKeyTimeOutObject: ReturnType<typeof setTimeout> | null =
+    null;
 
   private readonly PRF_MASTER_KEY_CACHE_DURATION_MS = 5 * 60 * 1000;
 
@@ -219,21 +220,10 @@ export default class ServicePassword extends ServiceBase {
     await this.clearCachedPrfMasterKey();
   }
 
-  // PRF master key cache (stored in background memory)
+  // PRF master key cache (stored in background memory, auto-cleared by timer)
   @backgroundMethod()
   async getCachedPrfMasterKey(): Promise<string | null> {
     if (this.skipPrfCacheFlag) {
-      return null;
-    }
-    if (!this.cachedPrfMasterKeyHex) {
-      return null;
-    }
-    const now = Date.now();
-    if (
-      now - this.cachedPrfMasterKeyTimestamp >=
-      this.PRF_MASTER_KEY_CACHE_DURATION_MS
-    ) {
-      await this.clearCachedPrfMasterKey();
       return null;
     }
     return this.cachedPrfMasterKeyHex;
@@ -241,14 +231,22 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async setCachedPrfMasterKey(hex: string): Promise<void> {
+    if (this.cachedPrfMasterKeyTimeOutObject) {
+      clearTimeout(this.cachedPrfMasterKeyTimeOutObject);
+    }
     this.cachedPrfMasterKeyHex = hex;
-    this.cachedPrfMasterKeyTimestamp = Date.now();
+    this.cachedPrfMasterKeyTimeOutObject = setTimeout(() => {
+      void this.clearCachedPrfMasterKey();
+    }, this.PRF_MASTER_KEY_CACHE_DURATION_MS);
   }
 
   @backgroundMethod()
   async clearCachedPrfMasterKey(): Promise<void> {
     this.cachedPrfMasterKeyHex = null;
-    this.cachedPrfMasterKeyTimestamp = 0;
+    if (this.cachedPrfMasterKeyTimeOutObject) {
+      clearTimeout(this.cachedPrfMasterKeyTimeOutObject);
+      this.cachedPrfMasterKeyTimeOutObject = null;
+    }
   }
 
   @backgroundMethod()
