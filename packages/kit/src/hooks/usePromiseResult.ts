@@ -351,7 +351,9 @@ export function usePromiseResult<T>(
       prevFocusedRef.current = isFocusedRefValue;
 
       return () => {
-        idleHandles.forEach(cancelIdleCallback);
+        if (platformEnv.isNative) {
+          idleHandles.forEach(cancelIdleCallback);
+        }
       };
     }
   }, [isFocusedRefValue, resetDefer, resolveDefer, runWithPollingNonce]);
