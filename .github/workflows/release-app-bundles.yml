@@ -1,0 +1,194 @@
+name: release-app-bundles
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to build (optional, builds from PR merge ref)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  validate-pr:
+    if: ${{ inputs.pr_number }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate PR is merged and from same repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
+            --jq '{merged: .merged, head_repo: .head.repo.full_name, base_repo: .base.repo.full_name}')
+
+          MERGED=$(echo "$PR_DATA" | jq -r '.merged')
+          HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head_repo')
+          BASE_REPO=$(echo "$PR_DATA" | jq -r '.base_repo')
+
+          echo "PR #$PR_NUMBER: merged=$MERGED, head=$HEAD_REPO, base=$BASE_REPO"
+
+          if [ "$MERGED" != "true" ]; then
+            echo "::error::PR #$PR_NUMBER is not merged. Only merged PRs are allowed."
+            exit 1
+          fi
+
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::error::PR #$PR_NUMBER is from a fork ($HEAD_REPO). Fork PRs are not allowed."
+            exit 1
+          fi
+
+          echo "PR #$PR_NUMBER validated: merged from same repo."
+
+  prepare-params:
+    needs: [validate-pr]
+    if: ${{ always() && (needs.validate-pr.result == 'success' || needs.validate-pr.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ steps.params.outputs.build_number }}
+      build_bundle_version: ${{ steps.params.outputs.build_bundle_version }}
+      build_source: ${{ steps.params.outputs.build_source }}
+      branch: ${{ steps.params.outputs.branch }}
+      commit: ${{ steps.params.outputs.commit }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        if: ${{ !inputs.pr_number }}
+
+      - name: Checkout PR merge commit
+        if: ${{ inputs.pr_number }}
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/merge
+
+      - name: Generate build parameters
+        id: params
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          # Read BUILD_NUMBER from .env.version
+          BUILD_NUMBER=""
+          BUILD_SOURCE="bundle-dev"
+          if [ -f .env.version ]; then
+            BUILD_NUMBER=$(grep -E '^BUILD_NUMBER=' .env.version | cut -d '=' -f 2 || true)
+          fi
+
+          if [ -n "$BUILD_NUMBER" ]; then
+            echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
+            BUILD_SOURCE="bundle-release"
+          else
+            # Fallback: bundle-dev format 10YYMMDD{run_number % 100}
+            DATE=$(date -u "+%y%m%d")
+            RUN_MOD=$(( $GITHUB_RUN_NUMBER % 100 ))
+            RUN_MOD=$(printf "%02d" $RUN_MOD)
+            BUILD_NUMBER="10${DATE}${RUN_MOD}"
+            echo "Generated BUILD_NUMBER: $BUILD_NUMBER"
+          fi
+
+          # Generate BUILD_BUNDLE_VERSION: seconds since 2026-01-01T00:00:00Z
+          EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
+          NOW=$(date -u +%s)
+          BUILD_BUNDLE_VERSION=$(( NOW - EPOCH_2026 ))
+
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
+          echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
+          if [ -n "$PR_NUMBER" ]; then
+            BRANCH="pull/$PR_NUMBER"
+            COMMIT=$(git rev-parse HEAD)
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+
+          echo "Summary:"
+          echo "  BUILD_NUMBER=$BUILD_NUMBER"
+          echo "  BUILD_BUNDLE_VERSION=$BUILD_BUNDLE_VERSION"
+          echo "  BUILD_SOURCE=$BUILD_SOURCE"
+          echo "  BRANCH=$BRANCH"
+          echo "  COMMIT=$COMMIT"
+
+  desktop-bundle:
+    needs: prepare-params
+    uses: ./.github/workflows/release-desktop-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      APPLEID: ${{ secrets.APPLEID }}
+      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+      QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+
+  native-bundle:
+    needs: prepare-params
+    uses: ./.github/workflows/release-native-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      APPLEID: ${{ secrets.APPLEID }}
+      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+      QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+
+  web-bundle:
+    needs: prepare-params
+    uses: ./.github/workflows/release-web.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}

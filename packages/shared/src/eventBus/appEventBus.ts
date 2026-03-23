@@ -33,6 +33,7 @@ import type {
   INotificationViewDialogPayload,
 } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
+import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
@@ -454,6 +455,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ExecuteNotificationCommand]: {
     action: string;
     data?: Record<string, unknown>;
+  };
+  [EAppEventBusNames.ShowRookieShare]: {
+    data: IRookieShareData;
   };
   [EAppEventBusNames.CreateNewBrowserTab]: undefined;
 }

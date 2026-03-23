@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -7,14 +7,19 @@ import {
   Button,
   Dialog,
   Divider,
+  ESwitchSize,
   Icon,
+  IconButton,
   Input,
   Page,
   SizableText,
   Stack,
+  Switch,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import SkipGPGVerificationToggle from '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal/SkipGPGVerificationToggle';
 import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
@@ -237,9 +242,60 @@ function BundleTestsContent({
   );
 }
 
+async function enableIgnoreServerBundleUpdate() {
+  await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+    'ignoreServerBundleUpdate',
+    true,
+  );
+  // await backgroundApiProxy.serviceAppUpdate.reset();
+  await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
+}
+
+function IgnoreServerBundleUpdateToggle() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceDevSetting.getDevSetting().then((dev) => {
+      setEnabled(!!dev.settings?.ignoreServerBundleUpdate);
+    });
+  }, []);
+
+  const handleChange = useCallback(async (value: boolean) => {
+    setEnabled(value);
+    await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+      'ignoreServerBundleUpdate',
+      value,
+    );
+    if (value) {
+      // await backgroundApiProxy.serviceAppUpdate.reset();
+      await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
+    }
+  }, []);
+
+  return (
+    <XStack alignItems="center" justifyContent="space-between">
+      <YStack flex={1} mr="$2">
+        <SizableText size="$bodyLgMedium" color="$textCaution">
+          Ignore Server Bundle Update
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          Prevent server-driven update or rollback when testing a manually
+          switched bundle
+        </SizableText>
+      </YStack>
+      <Switch
+        size={ESwitchSize.small}
+        value={enabled}
+        onChange={handleChange}
+      />
+    </XStack>
+  );
+}
+
 export default function DevBundleManagerModal() {
   const navigation = useAppNavigation();
 
+  const { copyText } = useClipboard();
   const currentAppVersion = String(platformEnv.version);
   const currentBuildNumber = String(platformEnv.buildNumber);
   const currentCommitHash = String(platformEnv.githubSHA || '-');
@@ -248,12 +304,14 @@ export default function DevBundleManagerModal() {
   const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
   const [nativeAppVersion, setNativeAppVersion] = useState('');
   const [nativeBuildNumber, setNativeBuildNumber] = useState('');
+  const [builtinBundleVersion, setBuiltinBundleVersion] = useState('');
 
   useEffect(() => {
     void getJsBundlePathAsync().then(setJsBundlePath);
     void BundleUpdate.getFallbackBundles().then(setFallbackBundles);
     void BundleUpdate.getNativeAppVersion().then(setNativeAppVersion);
     void BundleUpdate.getNativeBuildNumber().then(setNativeBuildNumber);
+    void BundleUpdate.getBuiltinBundleVersion().then(setBuiltinBundleVersion);
   }, []);
 
   const showTestResult = (
@@ -295,23 +353,44 @@ export default function DevBundleManagerModal() {
         <YStack px="$5" py="$4" gap="$5">
           {/* Runtime Info */}
           <YStack gap="$1">
-            <SectionTitle icon="InfoCircleOutline" title="RUNTIME INFO" />
+            <XStack alignItems="center" gap="$2" mb="$2">
+              <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
+              <SizableText size="$headingXs" color="$textSubdued">
+                RUNTIME INFO
+              </SizableText>
+              <IconButton
+                icon="Copy1Outline"
+                size="small"
+                variant="tertiary"
+                onPress={() => {
+                  const versionStr = `${currentAppVersion}${currentBuildNumber ? `-${currentBuildNumber}` : ''}(${currentBundleVersion})(${encodeBundleVersionForDisplay(currentBundleVersion)})`;
+                  const nativeStr = nativeAppVersion
+                    ? `${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})(${encodeBundleVersionForDisplay(String(builtinBundleVersion))})` : ''}`
+                    : '';
+                  const lines = [
+                    `Version: ${versionStr}`,
+                    nativeStr ? `Native App Version: ${nativeStr}` : '',
+                    `Commit Hash: ${currentCommitHash}`,
+                  ]
+                    .filter(Boolean)
+                    .join('\n');
+                  copyText(lines);
+                }}
+              />
+            </XStack>
             <SectionCard>
               <YStack px="$4" py="$3" gap="$0.5">
-                <InfoRow label="App Version" value={currentAppVersion} />
-                <InfoRow label="Build Number" value={currentBuildNumber} />
-                <InfoRow label="Commit Hash" value={currentCommitHash} />
-                <InfoRow label="Bundle Version" value={currentBundleVersion} />
                 <InfoRow
-                  label="Bundle Hash"
-                  value={encodeBundleVersionForDisplay(currentBundleVersion)}
+                  label="Version"
+                  value={`${currentAppVersion}${currentBuildNumber ? `-${currentBuildNumber}` : ''}(${currentBundleVersion})(${encodeBundleVersionForDisplay(currentBundleVersion)})`}
                 />
                 {nativeAppVersion ? (
                   <InfoRow
-                    label="Native Version"
-                    value={`${nativeAppVersion}${nativeBuildNumber ? ` (${nativeBuildNumber})` : ''}`}
+                    label="Native App Version"
+                    value={`${nativeAppVersion}${nativeBuildNumber ? `-${nativeBuildNumber}` : ''}${builtinBundleVersion ? `(${builtinBundleVersion})(${encodeBundleVersionForDisplay(String(builtinBundleVersion))})` : ''}`}
                   />
                 ) : null}
+                <InfoRow label="Commit Hash" value={currentCommitHash} />
                 {jsBundlePath ? (
                   <>
                     <Divider my="$1.5" />
@@ -382,6 +461,7 @@ export default function DevBundleManagerModal() {
                       onConfirm: async () => {
                         try {
                           await BundleUpdate.resetToBuiltInBundle();
+                          BundleUpdate.restart();
                         } catch (error) {
                           showTestError(error);
                         }
@@ -421,11 +501,11 @@ export default function DevBundleManagerModal() {
                           isCurrent
                             ? undefined
                             : () => {
-                                void BundleUpdate.switchBundle(bundle).catch(
-                                  (e) => {
+                                void enableIgnoreServerBundleUpdate()
+                                  .then(() => BundleUpdate.switchBundle(bundle))
+                                  .catch((e) => {
                                     showTestError(e);
-                                  },
-                                );
+                                  });
                               }
                         }
                       >
@@ -461,6 +541,12 @@ export default function DevBundleManagerModal() {
           <YStack gap="$1">
             <SectionTitle icon="SettingsOutline" title="SETTINGS" />
             <SectionCard>
+              <YStack px="$4" py="$3">
+                <IgnoreServerBundleUpdateToggle />
+              </YStack>
+              <XStack mx="$4">
+                <Divider />
+              </XStack>
               <YStack px="$4" py="$3">
                 <SkipGPGVerificationToggle />
               </YStack>

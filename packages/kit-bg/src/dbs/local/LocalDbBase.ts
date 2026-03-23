@@ -111,7 +111,7 @@ import type {
   ICreateSignedTransactionParams,
 } from '@onekeyhq/shared/types/signatureRecord';
 
-import keylessCloudSyncUtils from '../../services/ServicePrimeCloudSync/keylessCloudSyncUtils';
+import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
 import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
@@ -653,38 +653,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx: ILocalDBTransaction;
   }): Promise<IKeylessCloudSyncCredential | null> {
     try {
-      const password =
-        await this.backgroundApi.servicePassword.getCachedPassword();
-      if (!password) {
-        return null;
-      }
-
       const keylessWallet = await this.txGetKeylessWallet({ tx });
       const keylessWalletId = keylessWallet?.id;
       if (!keylessWalletId) {
         return null;
       }
-
-      const [credential] = await this.txGetRecordById({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        id: keylessWalletId,
-      });
-
-      if (!credential?.credential) {
-        return null;
-      }
-
-      const keylessCredential =
-        await keylessCloudSyncUtils.deriveKeylessCredential({
-          hdCredential: credential.credential,
-          password,
-          keylessWalletId,
-        });
-
-      return keylessCredential;
+      const credential =
+        await keylessSyncCredentialStorage.getCredential(keylessWalletId);
+      return credential;
     } catch (error) {
-      console.error('[LocalDb] Failed to derive keyless credential:', error);
+      console.error('[LocalDb] Failed to get keyless credential:', error);
       return null;
     }
   }

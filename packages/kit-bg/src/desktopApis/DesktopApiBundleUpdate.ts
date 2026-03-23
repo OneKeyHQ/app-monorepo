@@ -768,8 +768,11 @@ class DesktopApiAppBundleUpdate {
       signature,
     });
     store.setNativeVersion(app.getVersion());
+    const buildNumber = process.env.BUILD_NUMBER ?? '';
+    store.setNativeBuildNumber(buildNumber);
     logger.info('installBundle setNativeVersion', {
       nativeVersion: app.getVersion(),
+      buildNumber,
     });
     const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
     if (
@@ -822,13 +825,15 @@ class DesktopApiAppBundleUpdate {
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
     store.setUpdateBundleData(updateBundleData);
-    // Destroy window first to ensure renderer process is fully terminated
-    // before relaunch, preventing webview custom element double registration
-    this.getMainWindow()?.destroy();
-    if (!process.mas) {
-      app.relaunch();
+    if (updateBundleData.appVersion && updateBundleData.bundleVersion) {
+      // Destroy window first to ensure renderer process is fully terminated
+      // before relaunch, preventing webview custom element double registration
+      this.getMainWindow()?.destroy();
+      if (!process.mas) {
+        app.relaunch();
+      }
+      app.exit(0);
     }
-    app.exit(0);
   }
 
   async clearBundleExtract() {
@@ -842,6 +847,7 @@ class DesktopApiAppBundleUpdate {
 
   async clearBundle() {
     await this.clearDownload();
+    await this.clearBundleExtract();
     return new Promise<void>((resolve) => {
       setTimeout(() => {
         resolve();
@@ -854,6 +860,14 @@ class DesktopApiAppBundleUpdate {
     logger.info(
       'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
     );
+  }
+
+  async restart() {
+    this.getMainWindow()?.destroy();
+    if (!process.mas) {
+      app.relaunch();
+    }
+    app.exit(0);
   }
 
   async clearAllJSBundleData() {
@@ -1054,6 +1068,11 @@ class DesktopApiAppBundleUpdate {
   async getNativeBuildNumber(): Promise<string> {
     const buildNumber = process.env.BUILD_NUMBER;
     return typeof buildNumber === 'string' ? buildNumber : '';
+  }
+
+  async getBuiltinBundleVersion(): Promise<string> {
+    const bundleVersion = process.env.BUNDLE_VERSION;
+    return typeof bundleVersion === 'string' ? bundleVersion : '';
   }
 
   async getJsBundlePath() {

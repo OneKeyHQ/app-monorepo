@@ -1213,25 +1213,18 @@ export function sortPerpsAssetIndices({
 // ── Standalone Trigger Order Utilities ──
 
 /**
- * Map trigger order type to HyperLiquid `isMarket` and `tpsl` fields.
+ * Map trigger order type to HyperLiquid `isMarket` field.
  *
- * HyperLiquid uses:
  * - `isMarket: true` for market triggers, `false` for limit triggers
- * - `tpsl: 'tp'` for take-profit types, `'sl'` for stop types
  */
 function mapTriggerOrderType(triggerOrderType: ETriggerOrderType): {
   isMarket: boolean;
-  tpsl: 'tp' | 'sl';
 } {
   switch (triggerOrderType) {
-    case ETriggerOrderType.STOP_MARKET:
-      return { isMarket: true, tpsl: 'sl' };
-    case ETriggerOrderType.STOP_LIMIT:
-      return { isMarket: false, tpsl: 'sl' };
-    case ETriggerOrderType.TAKE_MARKET:
-      return { isMarket: true, tpsl: 'tp' };
-    case ETriggerOrderType.TAKE_LIMIT:
-      return { isMarket: false, tpsl: 'tp' };
+    case ETriggerOrderType.TRIGGER_MARKET:
+      return { isMarket: true };
+    case ETriggerOrderType.TRIGGER_LIMIT:
+      return { isMarket: false };
     default: {
       const _exhaustive: never = triggerOrderType;
       throw new OneKeyLocalError(
@@ -1242,86 +1235,29 @@ function mapTriggerOrderType(triggerOrderType: ETriggerOrderType): {
 }
 
 /**
- * Get the required trigger price direction rule for a standalone trigger order.
+ * Infer TP/SL direction from side, triggerPrice, and currentPrice.
  *
- * Returns 'above' if triggerPrice must be above mid price, 'below' if below.
+ * HL API tpsl semantics (standalone trigger orders):
+ * - tpsl='sl': buy triggers when price rises above triggerPx; sell triggers when price drops below
+ * - tpsl='tp': buy triggers when price drops below triggerPx; sell triggers when price rises above
  *
- * Rules (per HL order-types doc):
- * - Stop + Long (buy stop): trigger must be ABOVE mid (triggers when price rises)
- * - Stop + Short (sell stop): trigger must be BELOW mid (triggers when price drops)
- * - Take + Long (buy TP): trigger must be BELOW mid (triggers when price drops)
- * - Take + Short (sell TP): trigger must be ABOVE mid (triggers when price rises)
+ * So for order side:
+ * - Long (buy) + trigger > current → 'sl' (buy stop: triggers on price rise)
+ * - Long (buy) + trigger < current → 'tp' (buy TP: triggers on price drop)
+ * - Short (sell) + trigger > current → 'tp' (sell TP: triggers on price rise)
+ * - Short (sell) + trigger < current → 'sl' (sell stop: triggers on price drop)
  */
-function getTriggerDirectionRule(
-  triggerOrderType: ETriggerOrderType,
-  side: 'long' | 'short',
-): 'above' | 'below' {
-  const isStop =
-    triggerOrderType === ETriggerOrderType.STOP_MARKET ||
-    triggerOrderType === ETriggerOrderType.STOP_LIMIT;
-  const isLong = side === 'long';
-  // Stop + Long → above, Stop + Short → below
-  // Take + Long → below, Take + Short → above
-  if (isStop) {
-    return isLong ? 'above' : 'below';
+function inferTpsl(params: {
+  side: 'long' | 'short';
+  triggerPrice: BigNumber;
+  currentPrice: BigNumber;
+}): 'tp' | 'sl' {
+  const { side, triggerPrice, currentPrice } = params;
+  const isAbove = triggerPrice.gt(currentPrice);
+  if (side === 'long') {
+    return isAbove ? 'sl' : 'tp';
   }
-  return isLong ? 'below' : 'above';
-}
-
-/**
- * Validate that a standalone trigger price satisfies the direction constraint
- * relative to the current mark/mid price.
- *
- * @returns `true` if the trigger price is valid (on the correct side of mark price)
- */
-function validateStandaloneTriggerPrice(
-  triggerPrice: string | BigNumber,
-  markPrice: string | BigNumber,
-  triggerOrderType: ETriggerOrderType,
-  side: 'long' | 'short',
-): boolean {
-  const triggerPriceBN =
-    triggerPrice instanceof BigNumber
-      ? triggerPrice
-      : new BigNumber(triggerPrice);
-  const markPriceBN =
-    markPrice instanceof BigNumber ? markPrice : new BigNumber(markPrice);
-
-  if (
-    !triggerPriceBN.isFinite() ||
-    triggerPriceBN.lte(0) ||
-    !markPriceBN.isFinite() ||
-    markPriceBN.lte(0)
-  ) {
-    return false;
-  }
-
-  const direction = getTriggerDirectionRule(triggerOrderType, side);
-  if (direction === 'above') {
-    return triggerPriceBN.gt(markPriceBN);
-  }
-  return triggerPriceBN.lt(markPriceBN);
-}
-
-/**
- * Compute a reasonable default trigger price for a standalone trigger order.
- * Applies a small offset (±0.5%) from mid price based on the direction rule.
- */
-function getDefaultStandaloneTriggerPrice(
-  midPrice: string | BigNumber,
-  triggerOrderType: ETriggerOrderType,
-  side: 'long' | 'short',
-): string {
-  const midPriceBN =
-    midPrice instanceof BigNumber ? midPrice : new BigNumber(midPrice);
-
-  if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
-    return '';
-  }
-
-  const direction = getTriggerDirectionRule(triggerOrderType, side);
-  const multiplier = direction === 'above' ? 1.005 : 0.995;
-  return formatPriceToSignificantDigits(midPriceBN.multipliedBy(multiplier));
+  return isAbove ? 'tp' : 'sl';
 }
 
 /**
@@ -1339,9 +1275,7 @@ function getTriggerEffectivePrice(params: {
 }): BigNumber {
   const { triggerOrderType, triggerPrice, executionPrice, midPrice } = params;
 
-  const isLimitTrigger =
-    triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
-    triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+  const isLimitTrigger = triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
 
   if (isLimitTrigger && executionPrice) {
     const execBN = new BigNumber(executionPrice);
@@ -1464,9 +1398,7 @@ export {
   resolveTradingSizeBN,
   getHyperliquidTokenImageUrl,
   mapTriggerOrderType,
-  getTriggerDirectionRule,
-  validateStandaloneTriggerPrice,
-  getDefaultStandaloneTriggerPrice,
+  inferTpsl,
   getTriggerEffectivePrice,
 };
 export default {
@@ -1502,8 +1434,6 @@ export default {
   findTokensByAlias,
   getTokenSubtitle,
   mapTriggerOrderType,
-  getTriggerDirectionRule,
-  validateStandaloneTriggerPrice,
-  getDefaultStandaloneTriggerPrice,
+  inferTpsl,
   getTriggerEffectivePrice,
 };

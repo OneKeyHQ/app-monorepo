@@ -63,6 +63,7 @@ export enum EGalleryRoutes {
   ComponentRadio = 'component-Radio',
   ComponentRefreshControl = 'component-RefreshControl',
   ComponentRichSizeableText = 'component-RichSizeableText',
+  ComponentRookieGuide = 'component-RookieGuide',
   Components = 'components',
   ComponentScanQrCode = 'component-ScanQrCode',
   ComponentScrollView = 'component-ScrollView',

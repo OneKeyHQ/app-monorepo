@@ -23,6 +23,7 @@ import networkUtils, {
 export function BatchCreateAccountButton({
   focusedWalletInfo,
   activeAccount,
+  currentNetworkId,
   onClose,
 }: {
   focusedWalletInfo:
@@ -32,6 +33,7 @@ export function BatchCreateAccountButton({
       }
     | undefined;
   activeAccount: IAccountSelectorActiveAccountInfo;
+  currentNetworkId?: string;
   onClose: () => void;
 }) {
   const intl = useIntl();
@@ -68,16 +70,17 @@ export function BatchCreateAccountButton({
       });
 
     let defaultNetworkId: string | undefined;
-    const currentNetworkId = activeAccount.network?.id;
+    const preferredNetworkId = currentNetworkId ?? activeAccount.network?.id;
 
     // 1. In single-chain mode, keep the manager aligned with the current network.
+    // The current network may be outside the portfolio-enabled list, but if the
+    // user is already on that chain we should still use it as the default.
     if (
-      currentNetworkId &&
-      !networkUtils.isAllNetwork({ networkId: currentNetworkId }) &&
-      networkIdsCompatible?.includes(currentNetworkId) &&
-      isNetworkEnabled(currentNetworkId)
+      preferredNetworkId &&
+      !networkUtils.isAllNetwork({ networkId: preferredNetworkId }) &&
+      networkIdsCompatible?.includes(preferredNetworkId)
     ) {
-      defaultNetworkId = currentNetworkId;
+      defaultNetworkId = preferredNetworkId;
     }
 
     // 2. Prefer Ethereum if compatible and enabled
@@ -115,7 +118,12 @@ export function BatchCreateAccountButton({
         networkId: defaultNetworkId,
       },
     });
-  }, [activeAccount.network?.id, focusedWalletInfo, navigation]);
+  }, [
+    activeAccount.network?.id,
+    currentNetworkId,
+    focusedWalletInfo,
+    navigation,
+  ]);
 
   return (
     <ActionList.Item

@@ -129,7 +129,7 @@ function MobileTokenSelectorModal({
 
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
-  const { favoriteItems } = usePerpsFavorites();
+  const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
@@ -162,9 +162,6 @@ function MobileTokenSelectorModal({
     }
     lastSortRef.current = { field, direction, activeTab: currentTab };
     ctxSnapshotRef.current = assetCtxsByDex;
-    if (sortChanged) {
-      listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
-    }
   }, [
     selectorConfig?.direction,
     selectorConfig?.field,
@@ -538,6 +535,7 @@ function MobileTokenSelectorModal({
       <Page.Body>
         <YStack flex={1} mt="$2">
           <ListView
+            key={`${activeTab}-${selectorConfig?.field ?? ''}-${selectorConfig?.direction ?? ''}`}
             useFlashList
             ref={listRef}
             keyExtractor={keyExtractor}
@@ -552,7 +550,7 @@ function MobileTokenSelectorModal({
             data={mockedListData}
             renderItem={renderItem}
             ListEmptyComponent={
-              activeTab === 'favorites' && !searchQuery ? (
+              activeTab === 'favorites' && !searchQuery && isFavoritesReady ? (
                 <FavoritesEmptyState isMobile />
               ) : (
                 <XStack p="$5" justifyContent="center">

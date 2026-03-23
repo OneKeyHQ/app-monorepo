@@ -9,10 +9,7 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  formatPriceToSignificantDigits,
-  validateStandaloneTriggerPrice,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderPrice } from './useOrderPrice';
@@ -59,7 +56,7 @@ export function useOrderConfirm(
       // Trigger mode: validate, snapshot, and submit (no TP/SL, no standard price validation)
       if (formDataSnapshot.orderMode === 'trigger') {
         const triggerOrderType =
-          formDataSnapshot.triggerOrderType ?? ETriggerOrderType.STOP_MARKET;
+          formDataSnapshot.triggerOrderType ?? ETriggerOrderType.TRIGGER_MARKET;
         const tp = formDataSnapshot.triggerPrice?.trim();
         if (!tp || new BigNumber(tp).lte(0)) {
           Toast.error({
@@ -69,8 +66,7 @@ export function useOrderConfirm(
           return;
         }
         const isLimitTrigger =
-          triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
-          triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+          triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
         if (isLimitTrigger) {
           const ep = formDataSnapshot.executionPrice?.trim();
           if (!ep || new BigNumber(ep).lte(0)) {
@@ -88,17 +84,10 @@ export function useOrderConfirm(
           });
           return;
         }
-        if (
-          !validateStandaloneTriggerPrice(
-            tp,
-            midPriceBN,
-            triggerOrderType,
-            side,
-          )
-        ) {
+        if (new BigNumber(tp).eq(midPriceBN)) {
           Toast.error({
             title: 'Order Failed',
-            message: 'Invalid trigger price direction',
+            message: 'Trigger price must differ from current price',
           });
           return;
         }

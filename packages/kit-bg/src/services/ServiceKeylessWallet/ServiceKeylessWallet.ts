@@ -74,12 +74,14 @@ import {
   primePersistAtom,
 } from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 import ServiceBase from '../ServiceBase';
 
 import keylessAuthPackCache from './utils/keylessAuthPackCache';
 import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
 import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
+import keylessSyncCredentialStorage from './utils/keylessSyncCredentialStorage';
 
 import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type {
@@ -91,7 +93,7 @@ import type { IKeylessDialogAtomData } from '../../states/jotai/atoms';
 
 const juiceboxClientCache = new cacheUtils.LRUCache<string, JuiceboxClient>({
   max: 100,
-  ttl: timerUtils.getTimeDurationMs({ minute: 5 }),
+  ttl: timerUtils.getTimeDurationMs({ minute: 8 }),
   ttlAutopurge: true,
   dispose: (client) => {
     // Best-effort cleanup: clear any cached realm tokens when the client is evicted.
@@ -313,6 +315,32 @@ class ServiceKeylessWallet extends ServiceBase {
       name,
       avatar: avatarInfo,
     });
+
+    // Derive and persist keyless cloud sync credential
+    try {
+      const credentialRecord = await localDb.getCredential(result.wallet.id);
+      if (credentialRecord?.credential) {
+        const revealableSeed = await decryptRevealableSeed({
+          rs: credentialRecord.credential,
+          password,
+        });
+        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId: result.wallet.id,
+        });
+        await keylessSyncCredentialStorage.saveCredential(credential);
+        this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+          credential,
+        );
+      }
+    } catch (error) {
+      console.error(
+        '[ServiceKeylessWallet] Failed to derive keyless credential:',
+        error,
+      );
+    }
+
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
       result.wallet.id,
@@ -321,7 +349,6 @@ class ServiceKeylessWallet extends ServiceBase {
       .syncNowKeyless({
         callerName: 'Create Keyless Wallet',
         noDebounceUpload: true,
-        password,
       })
       .catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
@@ -775,6 +802,12 @@ class ServiceKeylessWallet extends ServiceBase {
     const walletId = accountUtils.buildKeylessWalletId({
       sharePackSetId: params.packSetId,
     });
+
+    // Remove persisted credential before wallet deletion
+    await keylessSyncCredentialStorage.removeCredential(walletId);
+    this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache(
+      { keylessWalletId: walletId },
+    );
 
     await this.backgroundApi.serviceAccount.removeWallet({
       walletId,
@@ -1271,6 +1304,22 @@ class ServiceKeylessWallet extends ServiceBase {
     return bufferUtils.bytesToHex(hashBytes);
   }
 
+  private getKeylessInitProviderFromAppMetadata(params: {
+    token: string;
+  }): EOAuthSocialLoginProvider | undefined {
+    const { token } = params;
+    const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
+    const provider = decodedToken?.app_metadata
+      ?.provider as EOAuthSocialLoginProvider;
+    if (
+      provider === EOAuthSocialLoginProvider.Google ||
+      provider === EOAuthSocialLoginProvider.Apple
+    ) {
+      return provider;
+    }
+    return undefined;
+  }
+
   private getAlternativeKeylessProvider(
     provider: EOAuthSocialLoginProvider,
   ): EOAuthSocialLoginProvider {
@@ -1312,6 +1361,62 @@ class ServiceKeylessWallet extends ServiceBase {
     }
 
     throw new OneKeyLocalError(`Unsupported OAuth provider: ${issuer}`);
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiGetKeylessSameEmailAccountStatus(params: {
+    token: string;
+  }): Promise<{
+    isSameEmailAccountAtOldVersion: boolean;
+    currentProvider: EOAuthSocialLoginProvider;
+    retryProvider?: EOAuthSocialLoginProvider;
+  }> {
+    const { token } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<
+      IApiClientResponse<{
+        hasWrongProviders: boolean;
+      }>
+    >('/prime/v1/keyless-wallet/hasWrongProviders', {
+      token,
+    });
+
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+    if (!isSuccess) {
+      throw new OneKeyLocalError(
+        'Failed to get keyless same email account status',
+      );
+    }
+
+    const wrongProvidersData = res?.data?.data;
+    const isSameEmailAccountAtOldVersion =
+      wrongProvidersData?.hasWrongProviders ?? false;
+
+    const actualProvider = this.buildKeylessProviderFromSocialToken({
+      token,
+      skipFixedProvider: true,
+    });
+    const initProvider = this.getKeylessInitProviderFromAppMetadata({ token });
+
+    let currentProvider = actualProvider;
+
+    if (
+      initProvider &&
+      actualProvider !== initProvider &&
+      isSameEmailAccountAtOldVersion
+    ) {
+      currentProvider = initProvider;
+    }
+    const retryProvider = isSameEmailAccountAtOldVersion
+      ? this.getAlternativeKeylessProvider(currentProvider)
+      : undefined;
+
+    return {
+      isSameEmailAccountAtOldVersion,
+      currentProvider,
+      retryProvider,
+    };
   }
 
   private async apiGetKeylessBackendShare(params: { token: string }): Promise<{
@@ -1566,17 +1671,24 @@ class ServiceKeylessWallet extends ServiceBase {
     refreshToken?: string;
     mode?: EOnboardingV2OneKeyIDLoginMode;
     dangerousRetryByFixedProvider: boolean;
+    providerOverride?: EOAuthSocialLoginProvider;
   }): Promise<void> {
     const { token, pin, refreshToken, mode, dangerousRetryByFixedProvider } =
       params;
+    let providerOverride = params.providerOverride;
+    if (dangerousRetryByFixedProvider) {
+      providerOverride = undefined;
+    }
     const { hashId } = await this.apiGetKeylessBackendShare({
       token,
     });
     defaultLogger.wallet.keyless.verifyKeylessBackendShareRetrieved();
+    const currentSocialProvider = this.buildKeylessProviderFromSocialToken({
+      token,
+      skipFixedProvider: !!providerOverride,
+    });
     let socialProvider: EOAuthSocialLoginProvider =
-      this.buildKeylessProviderFromSocialToken({
-        token,
-      });
+      providerOverride ?? this.buildKeylessProviderFromSocialToken({ token });
     let ownerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
@@ -1586,12 +1698,13 @@ class ServiceKeylessWallet extends ServiceBase {
       token,
     });
     if (
+      !providerOverride &&
       dangerousRetryByFixedProvider &&
       !this.fixedKeylessProviderMap[socialUserId]
     ) {
-      const decodedToken = stringUtils.decodeJWT(token) as ISupabaseJWTPayload;
-      const providerOnCreate = decodedToken?.app_metadata
-        ?.provider as EOAuthSocialLoginProvider;
+      const providerOnCreate = this.getKeylessInitProviderFromAppMetadata({
+        token,
+      });
       if (providerOnCreate) {
         const alternativeProvider =
           this.getAlternativeKeylessProvider(providerOnCreate);
@@ -1630,6 +1743,13 @@ class ServiceKeylessWallet extends ServiceBase {
         pin,
       });
       if (
+        providerOverride &&
+        socialProvider !== currentSocialProvider &&
+        !this.fixedKeylessProviderMap[socialUserId]
+      ) {
+        this.fixedKeylessProviderMap[socialUserId] = socialProvider;
+      }
+      if (
         dangerousRetryByFixedProvider &&
         !this.fixedKeylessProviderMap[socialUserId]
       ) {
@@ -1643,6 +1763,7 @@ class ServiceKeylessWallet extends ServiceBase {
       });
       const isPinError = isPinErrorByInstance || isPinErrorByClassName;
       if (
+        !providerOverride &&
         isPinError &&
         dangerousRetryByFixedProvider &&
         !this.fixedKeylessProviderMap[socialUserId]
@@ -1759,7 +1880,10 @@ class ServiceKeylessWallet extends ServiceBase {
     this.fixedKeylessProviderMap = {};
 
     // 1. Get ownerId from token
-    const socialProvider = this.buildKeylessProviderFromSocialToken({ token });
+    const socialProvider = this.buildKeylessProviderFromSocialToken({
+      token,
+      skipFixedProvider: true,
+    });
     const targetOwnerId = await this.buildKeylessOwnerIdFromSocialToken({
       token,
       hashId,
@@ -1906,6 +2030,66 @@ class ServiceKeylessWallet extends ServiceBase {
 
     this.fixedKeylessProviderMap = {};
     return { success: true };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async apiMarkKeylessSameEmailResetPinSuccess(params: {
+    token: string;
+  }): Promise<{ success: true }> {
+    const { token } = params;
+    if (!token) {
+      throw new OneKeyLocalError('social login token is required');
+    }
+
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    const res = await client.post<IApiClientResponse<undefined>>(
+      '/prime/v1/keyless-wallet/resetPinDone',
+      {
+        token,
+      },
+    );
+
+    const isSuccess = res?.data?.code === 0 && res?.data?.message === 'success';
+
+    if (!isSuccess) {
+      throw new OneKeyLocalError(
+        'Failed to mark keyless same email reset pin success',
+      );
+    }
+
+    return { success: true };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async autoResetKeylessWalletPinAfterRestoreForSameEmailAccount(params: {
+    token: string;
+    refreshToken?: string;
+    pin: string;
+  }): Promise<{ success: boolean; skipped: boolean }> {
+    const { token, refreshToken, pin } = params;
+    const { isSameEmailAccountAtOldVersion: isSameEmailAccount } =
+      await this.apiGetKeylessSameEmailAccountStatus({ token });
+
+    if (!isSameEmailAccount) {
+      return {
+        success: false,
+        skipped: true,
+      };
+    }
+
+    await this.resetKeylessWalletPin({
+      token,
+      refreshToken,
+      newPin: pin,
+    });
+    await this.apiMarkKeylessSameEmailResetPinSuccess({ token });
+
+    return {
+      success: true,
+      skipped: false,
+    };
   }
 
   @backgroundMethod()

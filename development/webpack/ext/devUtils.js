@@ -124,8 +124,7 @@ function cleanBrowserBuild() {
 }
 
 function isManifestV3() {
-  const isManifestV3 = manifest.manifest_version >= 3;
-  return isManifestV3;
+  return manifest.manifest_version >= 3;
 }
 
 function isManifestV2() {

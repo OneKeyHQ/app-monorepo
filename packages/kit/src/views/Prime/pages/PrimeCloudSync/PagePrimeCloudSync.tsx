@@ -411,8 +411,6 @@ function AppDataSection() {
     }
     manualSyncingRef.current = true;
     try {
-      const { password } =
-        await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
           id: ETranslations.global_syncing,
@@ -421,7 +419,6 @@ function AppDataSection() {
       await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
         callerName: 'Manual Cloud Sync Keyless',
         noDebounceUpload: true,
-        password,
       });
     } finally {
       manualSyncingRef.current = false;

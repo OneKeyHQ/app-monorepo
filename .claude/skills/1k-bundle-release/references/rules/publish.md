@@ -4,22 +4,21 @@ Finalizes a release by recording it in `RELEASES.json` and committing the tracki
 
 ## Pre-flight Checks
 
-### 1. On a release branch
+### 1. Read release branch and verify
 
 ```bash
+VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
+RELEASE_BRANCH="release/v${VERSION}"
 current_branch=$(git branch --show-current)
-# Must match: release/v*
 ```
 
-### 2. Subset check passes
+If current branch is not the expected release branch, offer to switch:
 
-```bash
-result=$(git log $current_branch --not x --oneline)
-```
+> "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
 
-Must be empty. If not, tell the user to run `/1k-bundle-release diff-check` first.
+If yes, run `git checkout $RELEASE_BRANCH`.
 
-### 3. Working tree clean
+### 2. Working tree clean
 
 ```bash
 git status --porcelain
@@ -29,23 +28,28 @@ Only `RELEASES.json` may have changes (or nothing — both are fine).
 
 ## Step 1: Collect Release Information
 
-### Current HEAD
+### Record current HEAD (before RELEASES.json commit)
 
 ```bash
 commit_sha=$(git rev-parse HEAD)
 short_sha=$(git rev-parse --short HEAD)
 ```
 
+This is the last code-change commit. It becomes the `commit` field in RELEASES.json and the baseline for the next diff-check.
+
 ### Included PRs
 
-Determine the baseline (last release commit or App Shell tag), then list what's new:
+Determine the baseline (last release commit from RELEASES.json, or App Shell tag `v${VERSION}` for first release):
 
 ```bash
-# Read RELEASES.json for last release SHA, or fall back to tag
 git log $base_sha..$commit_sha --oneline
 ```
 
-Extract PR numbers from cherry-pick messages.
+Extract PR numbers from commit messages (handles both merge and squash formats):
+
+```bash
+git log $base_sha..$commit_sha --format="%s" | grep -oE '#[0-9]+' | sort -u
+```
 
 ### Sequence number
 
@@ -71,39 +75,43 @@ Read the existing file (or initialize `[]` if first release). Append a new entry
 ```json
 {
   "seq": 3,
-  "commit": "abc1234def5678",
+  "commit": "abc1234def5678...",
   "date": "2026-03-15T10:30:00Z",
   "prs": ["#1234", "#1256", "#1260"],
   "notes": "Fix swap page crash, add token search, fix discovery banner width"
 }
 ```
 
-- **date**: ISO 8601 UTC
-- **commit**: full SHA (not short)
+Field details:
+- **seq**: auto-incremented
+- **commit**: full SHA of the last code commit (before this RELEASES.json update)
+- **date**: ISO 8601 UTC, current time
 - **prs**: array of PR number strings with `#` prefix
 - **notes**: user-provided or auto-generated
 
 Write the updated JSON with 2-space indentation.
 
-## Step 3: Commit
+## Step 3: Commit and push
 
 ```bash
 git add RELEASES.json
 git commit -m "chore: release #$seq"
+git push origin $RELEASE_BRANCH
 ```
 
 ## Step 4: Output
 
 ```
-=== Release #3 Published ===
+=== Release #$seq Published ===
 
-📦 Commit: abc1234 (release/v6.1.0)
+📦 Commit: $short_sha ($RELEASE_BRANCH)
 📋 PRs: #1234, #1256, #1260
-📝 Notes: Fix swap page crash, add token search, fix discovery banner width
+📝 Notes: $notes
 
-To trigger CI build, use workflow_dispatch with:
-  Branch: release/v6.1.0
-  Commit: abc1234def5678
+To trigger CI build, use workflow_dispatch on branch: $RELEASE_BRANCH
 
-Release recorded in RELEASES.json
+Release recorded in RELEASES.json.
+Next step: /1k-bundle-release sync (sync changes to x)
 ```
+
+Note: The `commit` SHA in RELEASES.json refers to a release-branch commit. After sync (rebase), this SHA will NOT exist on `x` — this is expected. All RELEASES.json-based diffs must be run on the release branch.

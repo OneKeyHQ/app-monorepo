@@ -22,6 +22,8 @@ import {
   getUpdateFileType,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
+  isWhatsNewShown,
+  markWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -887,7 +889,16 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         ...buildSoftwareUpdateParams(fileType, appUpdateInfo),
         status: 'success',
       });
-      if (appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless) {
+      const whatsNewAlreadyShown = isWhatsNewShown();
+      // Don't use fileType here — getUpdateFileType compares against the
+      // already-updated running version (current == target), so it always
+      // returns appShell for completed updates. Determine the type directly
+      // from appUpdateInfo instead.
+      markWhatsNewShown(Boolean(appUpdateInfo.jsBundleVersion));
+      if (
+        appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless &&
+        !whatsNewAlreadyShown
+      ) {
         onViewReleaseInfo();
       }
       setTimeout(async () => {

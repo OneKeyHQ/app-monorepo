@@ -80,6 +80,8 @@ export interface IDevSettings {
   enableMockMarketBanner?: boolean;
   // Test accounts for OneKey ID login testing
   testAccounts?: ITestAccount[];
+  // Ignore server bundle update info (prevents rollback when dev-switching bundles)
+  ignoreServerBundleUpdate?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

@@ -59,6 +59,8 @@ export interface IActionListItemProps {
 
 // Duration to prevent rapid re-triggering of the action list
 const PROCESSING_RESET_DELAY = 350;
+const FALLBACK_MODAL_NAVIGATOR_CONTEXT = { portalId: '' };
+const FALLBACK_PAGE_CONTEXT = { footerRef: { current: null } as any };
 
 export function ActionListSkeletonItem() {
   return (
@@ -495,14 +497,15 @@ const showActionList = (
       actionList
     );
 
+  const modalCtxValue =
+    modalNavigatorContext || FALLBACK_MODAL_NAVIGATOR_CONTEXT;
+  const pageCtxValue = pageContextValue || FALLBACK_PAGE_CONTEXT;
   ref = Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    <ModalNavigatorContext.Provider
-      value={modalNavigatorContext || { portalId: '' }}
-    >
-      <PageContext.Provider
-        value={pageContextValue || { footerRef: { current: null } as any }}
-      >
+    // oxlint-disable-next-line react/jsx-no-constructed-context-values -- imperative Portal.Render, not a component render
+    <ModalNavigatorContext.Provider value={modalCtxValue}>
+      {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
+      <PageContext.Provider value={pageCtxValue}>
         {content}
       </PageContext.Provider>
     </ModalNavigatorContext.Provider>,
