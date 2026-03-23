@@ -714,7 +714,7 @@ export default function PagePrimeCloudSync() {
   }, []);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
