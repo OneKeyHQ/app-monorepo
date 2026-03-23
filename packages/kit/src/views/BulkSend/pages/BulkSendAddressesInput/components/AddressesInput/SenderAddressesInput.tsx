@@ -41,7 +41,6 @@ function SingleLineSenderInput() {
     setSelectedIndexedAccountId,
     selectedTokenDetail,
     tokenDetailsState,
-    bulkSendMode,
     selectedDeriveType,
     setSelectedDeriveType,
   } = useBulkSendAddressesInputContext();

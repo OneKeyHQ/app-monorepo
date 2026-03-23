@@ -622,7 +622,6 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
-
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
