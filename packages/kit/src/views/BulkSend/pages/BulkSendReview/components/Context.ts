@@ -35,6 +35,7 @@ export type IBulkSendFeeState = {
   ataRentFeeNative?: string;
   insufficientSol?: boolean;
   solBalanceNeeded?: string;
+  solBalance?: string; // cached SOL balance for recalculation in handleFeeChange
 };
 
 export type IBulkSendReviewContext = {

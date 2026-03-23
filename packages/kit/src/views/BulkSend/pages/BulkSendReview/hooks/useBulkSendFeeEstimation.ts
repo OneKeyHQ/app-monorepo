@@ -25,6 +25,7 @@ import {
   type IGasLegacy,
   type ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { IBulkSendFeeState } from '../components/Context';
 
@@ -40,6 +41,8 @@ type IUseBulkSendFeeEstimationParams = {
   feeState: IBulkSendFeeState;
   setFeeState: React.Dispatch<React.SetStateAction<IBulkSendFeeState>>;
   ataCount?: number;
+  tokenInfo?: IToken;
+  totalTokenAmount?: string;
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
@@ -83,6 +86,8 @@ export function useBulkSendFeeEstimation({
   feeState,
   setFeeState,
   ataCount,
+  tokenInfo,
+  totalTokenAmount,
 }: IUseBulkSendFeeEstimationParams) {
   const intl = useIntl();
   const isEstimating = useRef(false);
@@ -320,9 +325,13 @@ export function useBulkSendFeeEstimation({
               .toFixed();
           }
 
+          const nativeTransferAmount = tokenInfo?.isNative
+            ? new BigNumber(totalTokenAmount ?? '0')
+            : new BigNumber(0);
           const totalSolNeeded = totalNative
             .plus(ataRentFeeNative ?? '0')
             .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+            .plus(nativeTransferAmount)
             .toFixed();
           solBalanceNeeded = totalSolNeeded;
 
@@ -337,6 +346,11 @@ export function useBulkSendFeeEstimation({
               );
             const solBalance = accountDetails?.balanceParsed ?? '0';
             insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
+
+            setFeeState((prev) => ({
+              ...prev,
+              solBalance,
+            }));
           } catch {
             // If balance fetch fails, don't block the user
             insufficientSol = undefined;
@@ -403,6 +417,8 @@ export function useBulkSendFeeEstimation({
       intl,
       networkId,
       setFeeState,
+      tokenInfo?.isNative,
+      totalTokenAmount,
       unsignedTxs,
     ],
   );
@@ -486,22 +502,47 @@ export function useBulkSendFeeEstimation({
         });
       }
 
-      setFeeState((prev) => ({
-        ...prev,
-        selectedFee: {
-          feeType: EFeeType.Standard,
-          presetIndex,
-        },
-        totalFeeNative: totalNative.toFixed(),
-        totalFeeFiat: totalFiat.toFixed(),
-        feeInfos,
-      }));
+      setFeeState((prev) => {
+        const updated: Partial<IBulkSendFeeState> = {
+          selectedFee: {
+            feeType: EFeeType.Standard,
+            presetIndex,
+          },
+          totalFeeNative: totalNative.toFixed(),
+          totalFeeFiat: totalFiat.toFixed(),
+          feeInfos,
+        };
+
+        // Recalculate insufficientSol when fee level changes
+        if (
+          networkUtils.isSolanaNetworkByNetworkId(networkId) &&
+          prev.solBalance
+        ) {
+          const nativeTransferAmount = tokenInfo?.isNative
+            ? new BigNumber(totalTokenAmount ?? '0')
+            : new BigNumber(0);
+          const newTotalSolNeeded = totalNative
+            .plus(prev.ataRentFeeNative ?? '0')
+            .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+            .plus(nativeTransferAmount)
+            .toFixed();
+          updated.insufficientSol = new BigNumber(newTotalSolNeeded).gt(
+            prev.solBalance,
+          );
+          updated.solBalanceNeeded = newTotalSolNeeded;
+        }
+
+        return { ...prev, ...updated };
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       feeState.feeSelectorItems,
       feeState.perTxFeeInfos,
+      networkId,
       setFeeState,
+      tokenInfo?.isNative,
+      totalTokenAmount,
       unsignedTxs,
     ],
   );

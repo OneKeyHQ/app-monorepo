@@ -92,6 +92,8 @@ function BaseBulkSendReview({
       feeState,
       setFeeState,
       ataCount,
+      tokenInfo,
+      totalTokenAmount,
     });
 
   // Approval recheck hook - polls allowance after partial batch failure
@@ -233,6 +235,9 @@ function BaseBulkSendReview({
 
   // Track how many txs were successfully sent (used by Tron one-by-one flow)
   const sentTxCountRef = useRef(0);
+
+  // Track successfully sent transaction UUIDs to prevent duplicate sends on retry
+  const successfullySentTxs = useRef<string[]>([]);
 
   // Handle Tron transactions one by one
   const handleTronTxsOneByOne = useCallback(
@@ -429,6 +434,7 @@ function BaseBulkSendReview({
           feeInfos: feeState.feeInfos.slice(0, approveCount),
           signOnly: false,
           transferPayload: undefined,
+          successfullySentTxs: successfullySentTxs.current,
         });
         approveTxsSent = true;
       } catch (e: any) {
@@ -451,6 +457,7 @@ function BaseBulkSendReview({
         feeInfos: feeState.feeInfos.slice(approveCount),
         signOnly: false,
         transferPayload: undefined,
+        successfullySentTxs: successfullySentTxs.current,
       });
 
       // Step 6: Show success toast
