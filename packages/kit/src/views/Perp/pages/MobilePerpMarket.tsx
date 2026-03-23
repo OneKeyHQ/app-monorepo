@@ -73,7 +73,7 @@ function MobilePerpMarket() {
   const renderHeaderTitle = useCallback(() => {
     const parsedCoin = coin ? parseDexCoin(coin) : null;
     const displayCoin = parsedCoin?.displayName || coin || '';
-    const pairLabel = displayCoin ? `${displayCoin}USD` : '--';
+    const pairLabel = displayCoin ? `${displayCoin}USDC` : '--';
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton
