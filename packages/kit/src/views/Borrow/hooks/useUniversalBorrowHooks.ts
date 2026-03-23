@@ -175,6 +175,7 @@ type IBorrowBuildTxParams = {
   routeKey?: string;
   stakingInfo?: IStakingInfo;
   onSetupLutFinalized?: () => void | Promise<void>;
+  onSetupLutReadyForRepay?: () => void;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
 };
@@ -466,6 +467,7 @@ export function useUniversalBorrowRepayWithCollateral({
       routeKey,
       stakingInfo,
       onSetupLutFinalized,
+      onSetupLutReadyForRepay,
       onSuccess,
       onFail,
     }: IBorrowBuildTxParams): Promise<boolean> => {
@@ -568,6 +570,8 @@ export function useUniversalBorrowRepayWithCollateral({
           await timerUtils.wait(LUT_PROPAGATION_BUFFER_MS);
           await revalidateManagePageAfterSetup();
         }
+
+        onSetupLutReadyForRepay?.();
 
         let freshQuote: IRepayWithCollateralQuote | undefined;
         if (needsSetupLut) {

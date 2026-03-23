@@ -715,6 +715,7 @@ export const WithdrawSection = ({
       routeKey,
       collateralAmount,
       collateralAsset,
+      onSetupReadyForRepay,
     }: IRepayWithCollateralConfirmParams) => {
       if (!borrowApiCtx.isBorrow) {
         return false;
@@ -758,6 +759,7 @@ export const WithdrawSection = ({
           tags,
         },
         onSetupLutFinalized: onIndicatorRefresh,
+        onSetupLutReadyForRepay: onSetupReadyForRepay,
         onSuccess: () => {
           onSuccess?.();
         },

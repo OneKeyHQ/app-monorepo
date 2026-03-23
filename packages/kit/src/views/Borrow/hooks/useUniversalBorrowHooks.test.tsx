@@ -162,6 +162,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     );
 
     const onSetupLutFinalized = jest.fn().mockResolvedValue(undefined);
+    const onSetupLutReadyForRepay = jest.fn();
     const onSuccess = jest.fn();
 
     const { result } = renderHook(
@@ -184,11 +185,13 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
         collateralReserveAddress: 'collateral-reserve-address',
         needsSetupLut: true,
         onSetupLutFinalized,
+        onSetupLutReadyForRepay,
         onSuccess,
       });
     });
 
     expect(onSetupLutFinalized).toHaveBeenCalledTimes(1);
+    expect(onSetupLutReadyForRepay).toHaveBeenCalledTimes(1);
     expect(onSuccess).not.toHaveBeenCalled();
     expect(
       backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction,

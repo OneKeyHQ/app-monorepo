@@ -28,6 +28,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
+import { StakeProgress } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
 import { StakingAmountInput } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -50,6 +51,13 @@ import { useAmountInput } from './ManagePosition/hooks/useAmountInput';
 import { useTokenSelector } from './ManagePosition/hooks/useTokenSelector';
 import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/HealthFactorInfo';
 import { PositionInfo } from './ManagePosition/modules/InfoDisplaySection/PositionInfo';
+import {
+  appendBorrowRepaySetupState,
+  buildBorrowRepayPositionKey,
+  getBorrowRepayProgressStep,
+  hasPositiveDebtBalance,
+  isCollateralRepayEnabled,
+} from './borrowRepayPosition.utils';
 
 import type { IManagePositionProps } from './ManagePosition';
 
@@ -76,6 +84,7 @@ export type IRepayWithCollateralConfirmParams = {
   routeKey?: string;
   collateralAmount?: string;
   collateralAsset: IRepayCollateralAsset;
+  onSetupReadyForRepay?: () => void;
 };
 
 type IBorrowRepayPositionProps = Omit<
@@ -278,6 +287,7 @@ function RepayWithCollateralForm({
   const [selectedCollateral, setSelectedCollateral] = useState<
     IRepayCollateralAsset | undefined
   >();
+  const [setupReadyProgressKey, setSetupReadyProgressKey] = useState('');
   const [slippage, setSlippage] = useState<ISwapSlippageSegmentItem>({
     key: ESwapSlippageSegmentKey.AUTO,
     value: swapSlippageAutoValue,
@@ -369,8 +379,7 @@ function RepayWithCollateralForm({
   }, [balance, normalizedAmount]);
 
   const hasDebtPosition = useMemo(() => {
-    const balanceBN = new BigNumber(balance || '0');
-    return !balanceBN.isNaN() && balanceBN.gt(0);
+    return hasPositiveDebtBalance(balance);
   }, [balance]);
 
   const slippageBps = useMemo(
@@ -382,49 +391,60 @@ function RepayWithCollateralForm({
     [slippage.value],
   );
 
-  const repayRequestKey = useMemo(() => {
-    const amountBN = new BigNumber(normalizedAmount);
+  const repayProgressKey = useMemo(() => {
     // Once the debt is cleared, stop auto re-quoting with the stale input value.
-    if (
-      !hasDebtPosition ||
-      !selectedCollateral ||
-      amountBN.isNaN() ||
-      amountBN.lte(0)
-    ) {
-      return '';
-    }
-
-    return [
-      normalizedAmount,
-      selectedCollateral.reserveAddress,
-      isRepayAll ? '1' : '0',
+    return buildBorrowRepayPositionKey({
+      amount: normalizedAmount,
+      collateralReserveAddress: selectedCollateral?.reserveAddress,
+      repayAll: isRepayAll,
       slippageBps,
-    ].join(':');
+      hasDebtPosition,
+    });
   }, [
     hasDebtPosition,
     isRepayAll,
     normalizedAmount,
-    selectedCollateral,
+    selectedCollateral?.reserveAddress,
     slippageBps,
   ]);
 
-  const checkAmountRequestKey = useMemo(() => {
-    const amountBN = new BigNumber(normalizedAmount);
-    if (
-      !hasDebtPosition ||
-      !selectedCollateral ||
-      amountBN.isNaN() ||
-      amountBN.lte(0)
-    ) {
-      return '';
-    }
+  const repayRequestKey = useMemo(
+    () =>
+      appendBorrowRepaySetupState({
+        requestKey: repayProgressKey,
+        needsSetupLut,
+      }),
+    [needsSetupLut, repayProgressKey],
+  );
 
-    return [
-      normalizedAmount,
-      selectedCollateral.reserveAddress,
-      isRepayAll ? '1' : '0',
-    ].join(':');
-  }, [hasDebtPosition, isRepayAll, normalizedAmount, selectedCollateral]);
+  const checkAmountRequestKey = useMemo(() => {
+    const requestKey = buildBorrowRepayPositionKey({
+      amount: normalizedAmount,
+      collateralReserveAddress: selectedCollateral?.reserveAddress,
+      repayAll: isRepayAll,
+      hasDebtPosition,
+    });
+    return appendBorrowRepaySetupState({
+      requestKey,
+      needsSetupLut,
+    });
+  }, [
+    hasDebtPosition,
+    isRepayAll,
+    needsSetupLut,
+    normalizedAmount,
+    selectedCollateral?.reserveAddress,
+  ]);
+
+  const setupProgressStep = useMemo(
+    () =>
+      getBorrowRepayProgressStep({
+        progressKey: repayProgressKey,
+        needsSetupLut,
+        setupReadyProgressKey,
+      }),
+    [needsSetupLut, repayProgressKey, setupReadyProgressKey],
+  );
 
   const displaySlippageText = useMemo(() => {
     if (slippage.key === ESwapSlippageSegmentKey.AUTO) {
@@ -843,8 +863,14 @@ function RepayWithCollateralForm({
         routeKey: quote?.routeKey,
         collateralAmount: quote?.swapIn,
         collateralAsset: selectedCollateral,
+        onSetupReadyForRepay: repayProgressKey
+          ? () => {
+              setSetupReadyProgressKey(repayProgressKey);
+            }
+          : undefined,
       });
       if (submittedSuccessfully) {
+        setSetupReadyProgressKey('');
         setAmountValue('');
       }
     } finally {
@@ -1160,27 +1186,78 @@ function RepayWithCollateralForm({
       {beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
-          <Page.FooterActions
-            onConfirmText={intl.formatMessage({ id: ETranslations.defi_repay })}
-            confirmButtonProps={{
-              onPress: handleSubmit,
-              loading: submitting || checkAmountLoading,
-              disabled: isButtonDisabled,
-            }}
-          />
+          {setupProgressStep ? (
+            <Stack
+              bg="$bgApp"
+              flexDirection="column"
+              $gtMd={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                jc: 'space-between',
+              }}
+            >
+              <Stack pl="$5" $md={{ pt: '$5' }}>
+                <StakeProgress
+                  currentStep={setupProgressStep}
+                  step1LabelId={ETranslations.earn_pending_activation}
+                  step2LabelId={ETranslations.defi_repay}
+                />
+              </Stack>
+              <Page.FooterActions
+                onConfirmText={intl.formatMessage({
+                  id: ETranslations.defi_repay,
+                })}
+                confirmButtonProps={{
+                  onPress: handleSubmit,
+                  loading: submitting || checkAmountLoading,
+                  disabled: isButtonDisabled,
+                }}
+              />
+            </Stack>
+          ) : (
+            <Page.FooterActions
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.defi_repay,
+              })}
+              confirmButtonProps={{
+                onPress: handleSubmit,
+                loading: submitting || checkAmountLoading,
+                disabled: isButtonDisabled,
+              }}
+            />
+          )}
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
           />
         </Page.Footer>
       ) : (
-        <Page.FooterActions
-          onConfirmText={intl.formatMessage({ id: ETranslations.defi_repay })}
-          confirmButtonProps={{
-            onPress: handleSubmit,
-            loading: submitting || checkAmountLoading,
-            disabled: isButtonDisabled,
-          }}
-        />
+        <YStack bg="$bgApp" gap="$5">
+          {setupProgressStep ? (
+            <Stack>
+              <StakeProgress
+                currentStep={setupProgressStep}
+                step1LabelId={ETranslations.earn_pending_activation}
+                step2LabelId={ETranslations.defi_repay}
+              />
+            </Stack>
+          ) : null}
+          <Page.FooterActions
+            p={0}
+            onConfirmText={intl.formatMessage({ id: ETranslations.defi_repay })}
+            buttonContainerProps={{
+              $gtMd: {
+                ml: '0',
+              },
+              w: '100%',
+            }}
+            confirmButtonProps={{
+              onPress: handleSubmit,
+              loading: submitting || checkAmountLoading,
+              disabled: isButtonDisabled,
+              w: '100%',
+            }}
+          />
+        </YStack>
       )}
     </>
   );
@@ -1215,12 +1292,15 @@ export function BorrowRepayPosition({
 
   // Hide the entry for this release while keeping the collateral repay flow
   // implemented behind the flag.
-  const isCollateralRepayEnabled =
+  const shouldEnableCollateralRepay =
     ENABLE_COLLATERAL_REPAY_ENTRY &&
-    !!debtBalance &&
-    (!!collateralLoading || collateralAssets.length > 0);
+    isCollateralRepayEnabled({
+      debtBalance,
+      collateralLoading,
+      collateralAssetCount: collateralAssets.length,
+    });
 
-  if (!isCollateralRepayEnabled) {
+  if (!shouldEnableCollateralRepay) {
     return (
       <ManagePosition {...props} action="repay" onConfirm={onWalletConfirm} />
     );
