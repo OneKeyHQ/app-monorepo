@@ -64,6 +64,27 @@ const attachRepayWithCollateralAmount = ({
   };
 };
 
+const buildBorrowTrackingStakingInfo = ({
+  stakingInfo,
+  orderId,
+}: {
+  stakingInfo?: IStakingInfo;
+  orderId?: string;
+}): IStakingInfo | undefined => {
+  if (!stakingInfo?.tags?.length) {
+    return undefined;
+  }
+
+  return attachBorrowOrderId({
+    stakingInfo: {
+      ...stakingInfo,
+      send: undefined,
+      receive: undefined,
+    },
+    orderId,
+  });
+};
+
 type ITxConfirmResult =
   | {
       status: 'success';
@@ -491,8 +512,14 @@ export function useUniversalBorrowRepayWithCollateral({
             throw new OneKeyLocalError(failedMessage);
           }
 
+          const setupTrackingStakingInfo = buildBorrowTrackingStakingInfo({
+            stakingInfo,
+            orderId: setupResp.orderId,
+          });
+
           const setupConfirmResult = await waitForTxConfirmResult({
             encodedTx: parseBorrowEncodedTx(setupResp.tx),
+            stakingInfo: setupTrackingStakingInfo,
           });
 
           if (setupConfirmResult.status === 'cancel') {

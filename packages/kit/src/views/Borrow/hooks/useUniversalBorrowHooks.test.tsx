@@ -312,6 +312,107 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     expect(repayConfirmArgs.stakingInfo.send.amount).toBe('1.25');
   });
 
+  it('passes borrow tracking stakingInfo to the setup LUT confirm step', async () => {
+    backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'setup-order-id',
+      },
+    );
+    backgroundMock.serviceStaking.waitForSolTxFinalized.mockResolvedValue(
+      'finalized',
+    );
+    backgroundMock.serviceStaking.getBorrowRepayWithCollateralQuote.mockResolvedValue(
+      {
+        routeKey: 'fresh-route',
+        swapIn: '1.1',
+      },
+    );
+    backgroundMock.serviceStaking.borrowBuildRepayWithCollateralTransaction.mockResolvedValue(
+      {
+        tx: JSON.stringify({}),
+        orderId: 'repay-order-id',
+      },
+    );
+
+    let confirmCount = 0;
+    signatureConfirmMock.navigationToTxConfirm.mockImplementation(
+      async ({
+        onCancel,
+        onSuccess,
+      }: {
+        onCancel?: () => void;
+        onSuccess?: (
+          data: Array<{
+            decodedTx: { status: string; txid?: string };
+            signedTx: { txid: string };
+          }>,
+        ) => void;
+      }) => {
+        confirmCount += 1;
+
+        if (confirmCount === 1) {
+          onSuccess?.([
+            {
+              decodedTx: {
+                status: 'confirmed',
+                txid: 'setup-tx-id',
+              },
+              signedTx: {
+                txid: 'setup-tx-id',
+              },
+            },
+          ]);
+          return;
+        }
+
+        onCancel?.();
+      },
+    );
+
+    const { result } = renderHook(
+      () =>
+        useUniversalBorrowRepayWithCollateral({
+          networkId: 'sol--101',
+          accountId: 'hd-1--m/44',
+        }),
+      {
+        reactStrictMode: false,
+      },
+    );
+
+    await act(async () => {
+      await result.current({
+        amount: '1',
+        provider: 'kamino',
+        marketAddress: 'market-address',
+        reserveAddress: 'reserve-address',
+        collateralReserveAddress: 'collateral-reserve-address',
+        needsSetupLut: true,
+        stakingInfo: {
+          label: 'Repay' as any,
+          protocol: 'Kamino',
+          tags: ['Borrow', 'borrow:kamino:repay'],
+          send: {
+            amount: '0.9',
+            token: {} as any,
+          },
+        },
+      });
+    });
+
+    const setupConfirmArgs =
+      signatureConfirmMock.navigationToTxConfirm.mock.calls[0][0];
+    expect(setupConfirmArgs.stakingInfo).toEqual({
+      label: 'Repay',
+      protocol: 'Kamino',
+      tags: ['Borrow', 'borrow:kamino:repay'],
+      send: undefined,
+      receive: undefined,
+      orderId: 'setup-order-id',
+    });
+  });
+
   it('continues with the fresh setup route when LUT finalization polling times out', async () => {
     backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
       {
