@@ -3,6 +3,7 @@ import { createRef, useEffect, useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
+import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -254,7 +255,7 @@ function toastMessage({
 }: IToastBaseProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
-  const hapticColorMap: Record<string, string> = {
+  const hapticColorMap: Record<string, ColorTokens> = {
     success: '$iconSuccess',
     error: '$iconCritical',
     warning: '$iconCaution',
@@ -263,7 +264,7 @@ function toastMessage({
   const iconElement = icon ? (
     <Icon
       name={icon}
-      color={(hapticColorMap[haptic ?? ''] ?? '$iconCritical') as any}
+      color={hapticColorMap[haptic ?? ''] ?? '$iconCritical'}
       size="$5"
     />
   ) : (

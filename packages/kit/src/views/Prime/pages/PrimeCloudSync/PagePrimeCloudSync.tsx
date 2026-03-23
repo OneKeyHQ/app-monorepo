@@ -347,14 +347,6 @@ function AppDataSection() {
         await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
           syncMode: ECloudSyncMode.Keyless,
         });
-      } catch (error) {
-        void backgroundApiProxy.serviceApp.showToast({
-          method: 'error',
-          title: intl.formatMessage({
-            id: ETranslations.global_sync_error,
-          }),
-        });
-        throw error;
       } finally {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
