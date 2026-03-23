@@ -356,13 +356,31 @@ function AmountCard() {
         specifiedAmount: maxAmountPerAddress,
       };
       setAmountInputValues(newValues);
-      setAmountInputErrors({
-        ...amountInputErrors,
-        specifiedAmount: undefined,
-      });
+      // Validate against minTransferAmount
+      const maxAmountBN = new BigNumber(maxAmountPerAddress);
+      const minTransferAmountBN = new BigNumber(minTransferAmount);
+      if (
+        !minTransferAmountBN.isZero() &&
+        !maxAmountBN.isZero() &&
+        maxAmountBN.isLessThan(minTransferAmountBN)
+      ) {
+        setAmountInputErrors({
+          ...amountInputErrors,
+          specifiedAmount: intl.formatMessage(
+            { id: ETranslations.send_error_minimum_amount },
+            { amount: minTransferAmount, token: tokenInfo.symbol },
+          ),
+        });
+      } else {
+        setAmountInputErrors({
+          ...amountInputErrors,
+          specifiedAmount: undefined,
+        });
+      }
       updateTransfersInfoWithAmounts(amountInputMode, newValues);
     }
   }, [
+    intl,
     amountInputMode,
     balance,
     transfersInfo.length,
@@ -372,6 +390,7 @@ function AmountCard() {
     amountInputErrors,
     setAmountInputErrors,
     updateTransfersInfoWithAmounts,
+    minTransferAmount,
   ]);
 
   // Calculate fiat value for specified amount

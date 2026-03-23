@@ -610,10 +610,16 @@ export default class VaultBtc extends VaultBase {
       transfersInfo: unsignedTx.transfersInfo,
       specifiedFeeRate,
     });
-    return this._buildUnsignedTxFromEncodedTx({
+    const newUnsignedTx = await this._buildUnsignedTxFromEncodedTx({
       encodedTx,
       transfersInfo: unsignedTx.transfersInfo,
     });
+    // Preserve transfersInfo, uuid, accountId, networkId, indexedAccountId
+    // from the original unsignedTx, as _buildUnsignedTxFromEncodedTx returns a new object
+    return {
+      ...unsignedTx,
+      ...newUnsignedTx,
+    };
   }
 
   override async buildUnsignedTx(
