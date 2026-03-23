@@ -573,7 +573,7 @@ async function main() {
       slackWebhookUrl,
       localConfig,
       errorMessage: message,
-    });
+    }).catch(() => {});
 
     jobState.status = 'failed';
     jobState.meta.finishedAt = new Date().toISOString();

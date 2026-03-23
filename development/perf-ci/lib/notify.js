@@ -217,7 +217,7 @@ async function notifyPerfResult({
         representativeSessionId: draftModel.representativeSessionId,
       }),
     };
-    await postModelToSlack({ slackWebhookUrl, model });
+    await postModelToSlack({ slackWebhookUrl, model }).catch(() => {});
     writeAlertState(alertStatePath, buildStateSnapshot(model));
     await postJobAnalytics({
       report,
@@ -257,7 +257,7 @@ async function notifyPerfResult({
         representativeSessionId: draftModel.representativeSessionId,
       }),
     };
-    await postModelToSlack({ slackWebhookUrl, model });
+    await postModelToSlack({ slackWebhookUrl, model }).catch(() => {});
     writeAlertState(alertStatePath, buildStateSnapshot(model));
     await postJobAnalytics({
       report,
