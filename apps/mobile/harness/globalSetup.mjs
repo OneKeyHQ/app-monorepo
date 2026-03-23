@@ -73,7 +73,10 @@ function setIOSHarnessFlag() {
 }
 
 export default async function globalSetup() {
-  // Try both platforms — one will succeed, the other will silently fail.
+  // HARNESS_PLATFORM narrows which platform MUST succeed (set by
+  // platform-specific npm scripts, e.g. harness:test:android).
+  const targetPlatform = (process.env.HARNESS_PLATFORM || '').toLowerCase();
+
   let androidOk = false;
   let iosOk = false;
   try {
@@ -95,7 +98,20 @@ export default async function globalSetup() {
   console.log(
     `[harness-globalSetup] Result: Android=${androidOk ? 'ok' : 'skipped'}, iOS=${iosOk ? 'ok' : 'skipped'}`,
   );
-  if (!androidOk && !iosOk) {
+
+  // When a specific platform is targeted, fail fast if it didn't succeed —
+  // a success on the *other* platform must not mask the real failure.
+  if (targetPlatform === 'android' && !androidOk) {
+    throw new Error(
+      '[harness-globalSetup] Android is the target runner but flag setup failed',
+    );
+  }
+  if (targetPlatform === 'ios' && !iosOk) {
+    throw new Error(
+      '[harness-globalSetup] iOS is the target runner but flag setup failed',
+    );
+  }
+  if (!targetPlatform && !androidOk && !iosOk) {
     console.warn(
       '[harness-globalSetup] WARNING: Failed to set harness flag on both platforms. ' +
         'Boot recovery may block test startup.',

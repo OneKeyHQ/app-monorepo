@@ -29,8 +29,10 @@ function clearAndroidHarnessFlag() {
       ['shell', 'run-as', 'so.onekey.app.wallet', 'sh', '-c', sedCmd],
       { stdio: 'pipe', timeout: 5000 },
     );
-  } catch {
-    // SharedPrefs file may not exist yet — not critical
+  } catch (e) {
+    console.log(
+      `[harness-globalTeardown] Android boot-fail counter reset failed: ${e.message}`,
+    );
   }
   console.log('[harness-globalTeardown] Android harness_mode flag cleared');
 }
