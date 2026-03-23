@@ -368,6 +368,11 @@ function RepayWithCollateralForm({
     return amountBN.gt(0) && !balanceBN.isNaN() && amountBN.eq(balanceBN);
   }, [balance, normalizedAmount]);
 
+  const hasDebtPosition = useMemo(() => {
+    const balanceBN = new BigNumber(balance || '0');
+    return !balanceBN.isNaN() && balanceBN.gt(0);
+  }, [balance]);
+
   const slippageBps = useMemo(
     () =>
       new BigNumber(slippage.value || 0)
@@ -379,7 +384,13 @@ function RepayWithCollateralForm({
 
   const repayRequestKey = useMemo(() => {
     const amountBN = new BigNumber(normalizedAmount);
-    if (!selectedCollateral || amountBN.isNaN() || amountBN.lte(0)) {
+    // Once the debt is cleared, stop auto re-quoting with the stale input value.
+    if (
+      !hasDebtPosition ||
+      !selectedCollateral ||
+      amountBN.isNaN() ||
+      amountBN.lte(0)
+    ) {
       return '';
     }
 
@@ -389,11 +400,22 @@ function RepayWithCollateralForm({
       isRepayAll ? '1' : '0',
       slippageBps,
     ].join(':');
-  }, [isRepayAll, normalizedAmount, selectedCollateral, slippageBps]);
+  }, [
+    hasDebtPosition,
+    isRepayAll,
+    normalizedAmount,
+    selectedCollateral,
+    slippageBps,
+  ]);
 
   const checkAmountRequestKey = useMemo(() => {
     const amountBN = new BigNumber(normalizedAmount);
-    if (!selectedCollateral || amountBN.isNaN() || amountBN.lte(0)) {
+    if (
+      !hasDebtPosition ||
+      !selectedCollateral ||
+      amountBN.isNaN() ||
+      amountBN.lte(0)
+    ) {
       return '';
     }
 
@@ -402,7 +424,7 @@ function RepayWithCollateralForm({
       selectedCollateral.reserveAddress,
       isRepayAll ? '1' : '0',
     ].join(':');
-  }, [isRepayAll, normalizedAmount, selectedCollateral]);
+  }, [hasDebtPosition, isRepayAll, normalizedAmount, selectedCollateral]);
 
   const displaySlippageText = useMemo(() => {
     if (slippage.key === ESwapSlippageSegmentKey.AUTO) {
@@ -667,6 +689,7 @@ function RepayWithCollateralForm({
     const amountBN = new BigNumber(normalizedAmount);
     return (
       !!isDisabled ||
+      !hasDebtPosition ||
       isAmountInvalid ||
       amountBN.lte(0) ||
       !selectedCollateral ||
@@ -679,6 +702,7 @@ function RepayWithCollateralForm({
   }, [
     checkAmountLoading,
     checkAmountResult,
+    hasDebtPosition,
     isCheckAmountMessageError,
     isAmountInvalid,
     isDisabled,
