@@ -563,7 +563,6 @@ export function useUniversalBorrowRepayWithCollateral({
                 }),
         });
         onFail?.(error as Error);
-        throw error;
       }
     },
     [accountId, intl, networkId, waitForTxConfirmResult],
