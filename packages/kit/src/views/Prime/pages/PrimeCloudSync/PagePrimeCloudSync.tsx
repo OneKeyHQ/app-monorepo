@@ -224,7 +224,11 @@ function AppDataSection() {
       if (!wallet) return { exists: false, wallet: undefined };
       return { exists: true, wallet };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isKeylessWalletEnabled, config.isCloudSyncEnabledKeyless]);
+    }, [
+      isKeylessWalletEnabled,
+      config.isCloudSyncEnabledKeyless,
+      config.currentCloudSyncKeylessWalletId,
+    ]);
 
   const kwExists = keylessWalletResult?.exists ?? false;
   const keylessWallet = keylessWalletResult?.wallet;

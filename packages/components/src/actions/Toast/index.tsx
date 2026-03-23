@@ -476,7 +476,10 @@ export const Toast = {
     return r;
   },
   Close: ShowToasterClose,
-  dismiss: (id: string) => dismissToast(id),
+  dismiss: (id: string) => {
+    toastIdMap.delete(id);
+    dismissToast(id);
+  },
 };
 export type IToast = typeof Toast;
 
