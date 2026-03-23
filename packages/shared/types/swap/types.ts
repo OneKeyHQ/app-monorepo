@@ -364,6 +364,8 @@ export interface IQuoteTip {
   detail?: string;
   showCancelButton?: boolean;
   link?: string;
+  showCheckbox?: boolean;
+  checkboxLabel?: string;
 }
 
 export interface IFetchLimitMarketPrice {
