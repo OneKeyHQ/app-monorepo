@@ -932,8 +932,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (!from || !to) return false;
 
     if (to.major > from.major) return true;
-    if (to.minor - from.minor > maxBehind) return true;
-    if (to.minor === from.minor && to.patch - from.patch > maxBehind)
+    if (to.major === from.major && to.minor - from.minor > maxBehind)
+      return true;
+    if (
+      to.major === from.major &&
+      to.minor === from.minor &&
+      to.patch - from.patch > maxBehind
+    )
       return true;
 
     return false;
