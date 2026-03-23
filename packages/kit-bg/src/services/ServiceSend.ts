@@ -993,6 +993,9 @@ class ServiceSend extends ServiceBase {
         encodedTx: encodedTxs[i],
         transfersInfo: transfersInfoChunks[i],
       });
+      // Ensure transfersInfo is set on the unsigned tx for all chains
+      // (some vaults like SOL don't propagate it from buildUnsignedTx params)
+      unsignedTx.transfersInfo = transfersInfoChunks[i];
       unsignedTx.accountId = accountId;
       unsignedTx.networkId = networkId;
       unsignedTx.indexedAccountId = account.indexedAccountId;

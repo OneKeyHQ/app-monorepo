@@ -601,6 +601,8 @@ export default class VaultBtc extends VaultBase {
         .div(existingEncodedTx.txSize)
         .toFixed();
     }
+    // Clear the UTXO cache to ensure fresh UTXOs are fetched
+    this._collectUTXOsInfoByApiWithCache.clear();
     const encodedTx = await this._buildEncodedTxFromBatchTransfer({
       transfersInfo: unsignedTx.transfersInfo,
       specifiedFeeRate,
