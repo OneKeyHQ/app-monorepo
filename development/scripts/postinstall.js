@@ -9,13 +9,4 @@ execSync('yarn setup:env && patch-package && yarn copy:inject', {
   stdio: 'inherit',
 });
 
-// Install or upgrade skillshare
-try {
-  execSync('yarn skills:sync', {
-    stdio: 'inherit',
-  });
-} catch (e) {
-  console.warn('Skillshare install and sync skipped:', e.message);
-}
-
 console.log('Postinstall script completed.');

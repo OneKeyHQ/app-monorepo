@@ -55,15 +55,33 @@ function getEnvForSkillshareCli() {
   return process.env;
 }
 
-if (process.platform === 'win32') {
-  execSync(
-    `powershell -ExecutionPolicy Bypass -File "${path.join(dir, 'install.ps1')}"`,
-    { stdio: 'inherit' },
-  );
-} else {
-  execSync(`sh "${path.join(dir, 'install.sh')}"`, {
-    stdio: 'inherit',
-  });
+/**
+ * Returns true if the skillshare CLI is already usable (on PATH or default install dir).
+ * When true, skip install.ps1 / install.sh so we do not download or replace the binary.
+ */
+function isSkillshareInstalled() {
+  try {
+    execSync('skillshare version', {
+      stdio: 'pipe',
+      env: getEnvForSkillshareCli(),
+    });
+    return true;
+  } catch (_err) {
+    return false;
+  }
+}
+
+if (!isSkillshareInstalled()) {
+  if (process.platform === 'win32') {
+    execSync(
+      `powershell -ExecutionPolicy Bypass -File "${path.join(dir, 'install.ps1')}"`,
+      { stdio: 'inherit' },
+    );
+  } else {
+    execSync(`sh "${path.join(dir, 'install.sh')}"`, {
+      stdio: 'inherit',
+    });
+  }
 }
 
 execSync('skillshare install -p && skillshare sync -p', {
