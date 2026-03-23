@@ -1,10 +1,12 @@
-import { useCallback } from 'react';
+/* eslint-disable no-continue */
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Form, useFormContext } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,7 +28,112 @@ function SingleLineReceiverInput() {
     useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
 
-  const handleValidateAddress = useCallback(
+  const { result: vaultSettings } = usePromiseResult(
+    async () =>
+      selectedNetworkId
+        ? backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: selectedNetworkId,
+          })
+        : undefined,
+    [selectedNetworkId],
+  );
+
+  const minTransferAmount = useMemo(() => {
+    if (!vaultSettings || !selectedToken) return '0';
+    return selectedToken.isNative
+      ? (vaultSettings.nativeMinTransferAmount ??
+          vaultSettings.minTransferAmount ??
+          '0')
+      : (vaultSettings.minTransferAmount ?? '0');
+  }, [vaultSettings, selectedToken]);
+
+  const [errors, setErrors] = useState<ILineError[]>([]);
+
+  const validateAddress = useCallback(
+    async (
+      address: string,
+    ): Promise<{ isValid: false; error: string } | IAddressValidation> => {
+      const result =
+        await backgroundApiProxy.serviceValidator.localValidateAddress({
+          networkId: selectedNetworkId ?? '',
+          address: address.trim(),
+        });
+      if (!result.isValid) {
+        return {
+          isValid: false,
+          error: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_invalid_network_address,
+            },
+            { network: network?.name ?? '' },
+          ),
+        };
+      }
+      return result;
+    },
+    [intl, selectedNetworkId, network?.name],
+  );
+
+  const validateAmount = useCallback(
+    (amount: string): string | boolean => {
+      if (!selectedToken) {
+        return intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_error_token_not_selected,
+        });
+      }
+
+      const { isValid, error } = validateTokenAmount({
+        token: selectedToken,
+        amount,
+        allowZero: false,
+        minAmount:
+          minTransferAmount && minTransferAmount !== '0'
+            ? minTransferAmount
+            : undefined,
+        customErrorMessages: {
+          emptyAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_invalid_amount,
+          }),
+          invalidAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_invalid_amount,
+          }),
+          negativeAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_amount_zero,
+          }),
+          zeroAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_amount_zero,
+          }),
+          minAmount: intl.formatMessage(
+            { id: ETranslations.send_error_minimum_amount },
+            { amount: minTransferAmount, token: selectedToken.symbol },
+          ),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: selectedToken.decimals },
+          ),
+        },
+      });
+
+      if (!isValid && error) {
+        return error;
+      }
+
+      return true;
+    },
+    [intl, selectedToken, minTransferAmount],
+  );
+
+  const parseLineMode = useCallback(
+    (line: string): EReceiverMode =>
+      line.includes(',')
+        ? EReceiverMode.AddressAndAmount
+        : EReceiverMode.AddressOnly,
+    [],
+  );
+
+  const handleValidateAddresses = useCallback(
     async (value: string) => {
       if (!value) {
         return intl.formatMessage({

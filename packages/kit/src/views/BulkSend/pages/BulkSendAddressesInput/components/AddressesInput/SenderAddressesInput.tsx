@@ -41,6 +41,7 @@ function SingleLineSenderInput() {
     setSelectedIndexedAccountId,
     selectedTokenDetail,
     tokenDetailsState,
+    bulkSendMode,
     selectedDeriveType,
     setSelectedDeriveType,
   } = useBulkSendAddressesInputContext();
@@ -61,6 +62,7 @@ function SingleLineSenderInput() {
     return '';
   }, [selectedIndexedAccountId]);
 
+  // Use refs to store latest values for validation closure
   const selectedAccountIdRef = useRef(selectedAccountId);
   const selectedIndexedAccountIdRef = useRef(selectedIndexedAccountId);
 
@@ -293,6 +295,7 @@ function SingleLineSenderInput() {
           indexedAccountId={selectedIndexedAccountId}
           activeDeriveType={selectedDeriveType}
           onSelect={handleAddressTypeSelect}
+          onCreate={handleAddressTypeSelect}
           changeDefaultAddressTypeAfterSelect={false}
           placement="bottom-end"
         />

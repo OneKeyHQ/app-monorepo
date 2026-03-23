@@ -1,68 +1,62 @@
 ---
 name: 1k-bundle-release
-description: Release branch management — cherry-pick verified PRs to release branch, pre-release diff validation, and publish tracking. Use this skill whenever managing release branches, cherry-picking commits to a release branch, running pre-release diff checks, finalizing releases, or discussing the release branch workflow. Triggers on "bundle release", "cherry-pick to release", "release diff", "release publish", "发布管理", "cherry-pick 到 release", "release 分支", "release management", "bundle-release", "release-ready".
+description: Release branch management — checkout from release, prepare builds, pre-release diff checks, publish tracking, and sync back to x. Use this skill when managing release branches, creating branches for bundle releases, running pre-release diff checks, finalizing releases, or syncing release changes to x. Triggers on "bundle release", "release diff", "release publish", "release sync", "release checkout", "发布管理", "release 分支", "release management", "bundle-release", "bundle branch".
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 disable-model-invocation: true
 ---
 
 # Release Branch Management
 
-Automates the cherry-pick, diff-check, and publish workflow for release branches. This skill handles getting verified code from `x` onto the release branch and tracking what ships in each release.
+Manages the bundle release workflow: developers branch from `release/*`, PRs target `release/*` directly, and after publishing, changes sync back to `x` via rebase.
 
 ## Context
 
-OneKey ships periodic App Shell releases (tagged `v{X.Y.Z}` on the `x` branch). After each App Shell release, a release branch (`release/v{X.Y.Z}`) is created from the tag to accumulate verified changes via cherry-pick. Only the latest App Shell version's release branch is actively maintained.
+OneKey ships periodic App Shell releases (tagged `v{X.Y.Z}` on the `x` branch). After each App Shell release, a release branch (`release/v{X.Y.Z}`) is created from the tag. Bundle release features are developed directly on this branch — PRs target `release/*`, not `x`. After bundle publishing, changes are synced back to `x` via rebase.
 
-The core invariant: **every commit on the release branch must also exist on `x`**. The release branch is a curated subset of `x`, not a fork.
+**Release branch auto-detection:** All subcommands read `VERSION` from `.env.version` and construct `release/v${VERSION}` automatically.
 
 ## Quick Reference
 
 | Subcommand | When to use | Guide |
 |------------|-------------|-------|
-| `prepare` | First step — write BUILD_NUMBER to .env.version and push | [prepare.md](references/rules/prepare.md) |
-| `cherry-pick` | Ready to bring verified PRs into the next release | [cherry-pick.md](references/rules/cherry-pick.md) |
-| `diff-check` | After cherry-picks, before publishing — verify integrity | [diff-check.md](references/rules/diff-check.md) |
-| `publish` | Diff checks passed, ready to finalize the release | [publish.md](references/rules/publish.md) |
+| `checkout` | Start working on a bundle release feature | [checkout.md](references/rules/checkout.md) |
+| `prepare` | Set BUILD_NUMBER before triggering CI | [prepare.md](references/rules/prepare.md) |
+| `diff-check` | Before publishing — review changeset | [diff-check.md](references/rules/diff-check.md) |
+| `publish` | Diff check passed — record release | [publish.md](references/rules/publish.md) |
+| `sync` | After publishing — rebase to x | [sync.md](references/rules/sync.md) |
 
 ## Subcommand Routing
 
 Parse the argument passed to this skill:
 
+- **`checkout [branch-name]`** → Read and follow [checkout.md](references/rules/checkout.md)
 - **`prepare`** → Read and follow [prepare.md](references/rules/prepare.md)
-- **`cherry-pick`** → Read and follow [cherry-pick.md](references/rules/cherry-pick.md)
 - **`diff-check`** → Read and follow [diff-check.md](references/rules/diff-check.md)
 - **`publish`** → Read and follow [publish.md](references/rules/publish.md)
+- **`sync`** → Read and follow [sync.md](references/rules/sync.md)
 - **No argument** → Show this quick reference and ask which subcommand to run
 
 ## Typical Release Flow
 
 ```
-/1k-bundle-release prepare       ← Set BUILD_NUMBER in .env.version and push
-/1k-bundle-release cherry-pick   ← Collect and apply verified PRs
-/1k-bundle-release diff-check    ← Verify subset integrity + review changeset
-/1k-bundle-release publish       ← Record release in tracking file
+/1k-bundle-release checkout feat/my-fix   ← Branch from release/* to start work
+  ... develop, create PR targeting release/*, QA verifies, merge ...
+/1k-bundle-release prepare                ← Set BUILD_NUMBER
+/1k-bundle-release diff-check             ← Review changeset before publishing
+/1k-bundle-release publish                ← Record release in RELEASES.json
+/1k-bundle-release sync                   ← Rebase changes to x
 ```
 
-These steps are designed to run in sequence, but each can also run independently (e.g., re-running diff-check after fixing an issue).
-
-## Label Convention
-
-| Label | Meaning |
-|-------|---------|
-| `release-ready` | QA Bundle verification passed — this PR should be included in the next release |
-| `no-release` | Explicitly excluded — contains native changes or requires App Shell update |
-| `bundle-testing` | PR is ready for QA Bundle verification — developer has self-verified, QA is testing via Bundle in App |
-
-Label lifecycle: developer self-verifies on branch → adds `bundle-testing` → QA tests via Bundle in App → QA passes → label changed to `release-ready`. No label = not included by default.
+These steps are designed to run in sequence, but each can also run independently.
 
 ## Key Files
 
 | File | Location | Purpose |
 |------|----------|---------|
+| Version source | `.env.version` (`VERSION` field) | Determines release branch name |
 | Release tracking | `RELEASES.json` (release branch root) | Each entry: seq, commit SHA, date, PR list, notes |
 
 ## Related Skills
 
 - `/1k-git-workflow` — Branch naming, commit conventions
 - `/commit` — Create commits
-- `/1k-create-pr` — Create pull requests

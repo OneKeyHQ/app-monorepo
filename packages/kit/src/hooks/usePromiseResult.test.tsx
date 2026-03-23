@@ -4,6 +4,13 @@
 /* eslint-disable import/first */
 /* eslint-disable react-hooks/exhaustive-deps */
 
+// Polyfill requestIdleCallback/cancelIdleCallback for jsdom
+if (typeof globalThis.requestIdleCallback === 'undefined') {
+  (globalThis as any).requestIdleCallback = (cb: () => void) =>
+    setTimeout(cb, 0);
+  (globalThis as any).cancelIdleCallback = (id: number) => clearTimeout(id);
+}
+
 import { useRef } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';

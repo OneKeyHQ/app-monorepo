@@ -74,12 +74,14 @@ import {
   primePersistAtom,
 } from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 import ServiceBase from '../ServiceBase';
 
 import keylessAuthPackCache from './utils/keylessAuthPackCache';
 import keylessDeviceKeyStorage from './utils/keylessDeviceKeyStorage';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
 import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
+import keylessSyncCredentialStorage from './utils/keylessSyncCredentialStorage';
 
 import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type {
@@ -313,6 +315,32 @@ class ServiceKeylessWallet extends ServiceBase {
       name,
       avatar: avatarInfo,
     });
+
+    // Derive and persist keyless cloud sync credential
+    try {
+      const credentialRecord = await localDb.getCredential(result.wallet.id);
+      if (credentialRecord?.credential) {
+        const revealableSeed = await decryptRevealableSeed({
+          rs: credentialRecord.credential,
+          password,
+        });
+        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId: result.wallet.id,
+        });
+        await keylessSyncCredentialStorage.saveCredential(credential);
+        this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+          credential,
+        );
+      }
+    } catch (error) {
+      console.error(
+        '[ServiceKeylessWallet] Failed to derive keyless credential:',
+        error,
+      );
+    }
+
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
       result.wallet.id,
@@ -321,7 +349,6 @@ class ServiceKeylessWallet extends ServiceBase {
       .syncNowKeyless({
         callerName: 'Create Keyless Wallet',
         noDebounceUpload: true,
-        password,
       })
       .catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
@@ -775,6 +802,12 @@ class ServiceKeylessWallet extends ServiceBase {
     const walletId = accountUtils.buildKeylessWalletId({
       sharePackSetId: params.packSetId,
     });
+
+    // Remove persisted credential before wallet deletion
+    await keylessSyncCredentialStorage.removeCredential(walletId);
+    this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache(
+      { keylessWalletId: walletId },
+    );
 
     await this.backgroundApi.serviceAccount.removeWallet({
       walletId,

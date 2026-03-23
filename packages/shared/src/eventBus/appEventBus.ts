@@ -33,6 +33,7 @@ import type {
   INotificationViewDialogPayload,
 } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
+import type { IRookieShareData } from '../../types/rookieGuide';
 import type {
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
@@ -48,7 +49,6 @@ import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes } from '../routes';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
-import type { IRookieShareData } from '../../types/rookieGuide';
 
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {

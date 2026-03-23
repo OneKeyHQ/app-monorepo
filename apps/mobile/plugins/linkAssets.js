@@ -1,10 +1,10 @@
 const linkAssets = (projectRoot) => {
-  const linkAssets = require('react-native-copy-asset');
+  const copyAsset = require('react-native-copy-asset');
   console.log(
     `info Linking chunk bundle to native app. ${new Date().toISOString()}`,
   );
   const assets = ['./dist/chunks'];
-  linkAssets({
+  copyAsset({
     rootPath: projectRoot,
     shouldUnlink: false,
     platforms: {

@@ -308,22 +308,20 @@ export function useBulkSendFeeEstimation({
           });
         }
 
-        // Calculate ATA rent and check SOL balance for Solana SPL transfers
+        // Calculate ATA rent and check SOL balance for Solana transfers
         let ataRentFeeNative: string | undefined;
         let insufficientSol: boolean | undefined;
         let solBalanceNeeded: string | undefined;
 
-        if (
-          ataCount &&
-          ataCount > 0 &&
-          networkUtils.isSolanaNetworkByNetworkId(networkId)
-        ) {
-          ataRentFeeNative = new BigNumber(SOL_CREATE_TOKEN_ACCOUNT_RENT)
-            .times(ataCount)
-            .toFixed();
+        if (networkUtils.isSolanaNetworkByNetworkId(networkId)) {
+          if (ataCount && ataCount > 0) {
+            ataRentFeeNative = new BigNumber(SOL_CREATE_TOKEN_ACCOUNT_RENT)
+              .times(ataCount)
+              .toFixed();
+          }
 
           const totalSolNeeded = totalNative
-            .plus(ataRentFeeNative)
+            .plus(ataRentFeeNative ?? '0')
             .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
             .toFixed();
           solBalanceNeeded = totalSolNeeded;

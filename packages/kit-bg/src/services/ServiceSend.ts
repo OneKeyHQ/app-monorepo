@@ -502,10 +502,13 @@ class ServiceSend extends ServiceBase {
           approveInfo: unsignedTx.approveInfo,
         };
 
-        // only fill swap(staking) tx info for batch approve&swap(staking) callback
+        // For batch approve+swap/staking: only return the swap/staking tx result
+        // For bulk send (multiple transfer txs): return all results
         if (
           !isMultiTxs ||
-          (isMultiTxs && (unsignedTx.swapInfo || unsignedTx.stakingInfo))
+          unsignedTx.swapInfo ||
+          unsignedTx.stakingInfo ||
+          unsignedTx.transfersInfo
         ) {
           result.push(data);
         }
@@ -986,14 +989,17 @@ class ServiceSend extends ServiceBase {
 
     const unsignedTxs: IUnsignedTxPro[] = [];
     for (let i = 0; i < encodedTxs.length; i += 1) {
-      const unsignedTx: IUnsignedTxPro = {
+      const unsignedTx = await vault.buildUnsignedTx({
         encodedTx: encodedTxs[i],
         transfersInfo: transfersInfoChunks[i],
-        accountId,
-        networkId,
-        indexedAccountId: account.indexedAccountId,
-        uuid: generateUUID(),
-      };
+      });
+      // Ensure transfersInfo is set on the unsigned tx for all chains
+      // (some vaults like SOL don't propagate it from buildUnsignedTx params)
+      unsignedTx.transfersInfo = transfersInfoChunks[i];
+      unsignedTx.accountId = accountId;
+      unsignedTx.networkId = networkId;
+      unsignedTx.indexedAccountId = account.indexedAccountId;
+      unsignedTx.uuid = generateUUID();
       unsignedTxs.push(unsignedTx);
     }
 

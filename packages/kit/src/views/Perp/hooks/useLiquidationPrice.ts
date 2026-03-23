@@ -72,8 +72,7 @@ export function useLiquidationPrice(
 
     if (isTriggerMode) {
       const isLimitTrigger =
-        formData.triggerOrderType === ETriggerOrderType.STOP_LIMIT ||
-        formData.triggerOrderType === ETriggerOrderType.TAKE_LIMIT;
+        formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
       const rawTriggerPrice = isLimitTrigger
         ? formData.executionPrice?.trim()
         : formData.triggerPrice?.trim();

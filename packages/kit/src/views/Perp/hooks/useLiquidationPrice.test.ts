@@ -94,7 +94,7 @@ const resetMocks = () => {
   mockFormData = {
     side: 'long',
     orderMode: 'trigger',
-    triggerOrderType: ETriggerOrderType.STOP_LIMIT,
+    triggerOrderType: ETriggerOrderType.TRIGGER_LIMIT,
     triggerPrice: '100',
     executionPrice: '110',
     triggerReduceOnly: false,
@@ -156,7 +156,7 @@ describe('useLiquidationPrice', () => {
   });
 
   test('returns null when trigger market trigger price is missing', () => {
-    mockFormData.triggerOrderType = ETriggerOrderType.STOP_MARKET;
+    mockFormData.triggerOrderType = ETriggerOrderType.TRIGGER_MARKET;
     mockFormData.triggerPrice = '';
 
     const { result } = renderHook(() => useLiquidationPrice('long'));

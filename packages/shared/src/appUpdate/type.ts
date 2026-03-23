@@ -68,8 +68,11 @@ export interface IPendingInstallTaskBase {
   type: EPendingInstallTaskType;
   targetAppVersion: string;
   targetBundleVersion: string;
+  /** Native app version (e.g. CFBundleShortVersionString / versionName) at the time the task was scheduled */
   scheduledEnvAppVersion: string;
   scheduledEnvBundleVersion: string;
+  /** Native build number (e.g. CFBundleVersion / versionCode) at the time the task was scheduled */
+  scheduledEnvBuildNumber?: string;
   createdAt: number;
   expiresAt: number;
   retryCount: number;
@@ -139,6 +142,11 @@ export interface IBasicAppUpdateInfo {
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
   version?: string;
+  // Number of hot-update (jsBundle) records for this version in the server DB.
+  // When 0, the server has no bundle configured — client should rollback to
+  // builtin if it has an active custom bundle.
+  // When > 0 and jsBundleVersion is absent, the client is already up to date.
+  jsBundleCount?: number;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {

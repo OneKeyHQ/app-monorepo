@@ -706,6 +706,7 @@ const createNestedStateObject = (
   if (routes.length > 0) {
     let nestedState = state;
 
+    // oxlint-disable-next-line no-unmodified-loop-condition -- ParsedRoute is a type cast, not a loop variable
     while ((route = routes.shift() as ParsedRoute)) {
       initialRoute = findInitialRoute(route.name, parentScreens, initialRoutes);
 

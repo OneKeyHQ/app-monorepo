@@ -81,6 +81,7 @@ function CheckAndUpdatePage({
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
+  const hasUpgradeForceRef = useRef(false);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData.device as SearchDevice | undefined,
@@ -427,6 +428,10 @@ function CheckAndUpdatePage({
         if (r.features) {
           deviceFeaturesRef.current = r.features;
         }
+        hasUpgradeForceRef.current =
+          r.updateInfos?.firmware?.hasUpgradeForce ||
+          r.updateInfos?.ble?.hasUpgradeForce ||
+          false;
         if (r.hasUpgrade) {
           setSteps((prev) => {
             const newSteps = [...prev];
@@ -1130,11 +1135,13 @@ function CheckAndUpdatePage({
                               id: ETranslations.update_update_now,
                             })}
                           </Button>
-                          <Button onPress={handleSkipUpdate}>
-                            {intl.formatMessage({
-                              id: ETranslations.global_skip,
-                            })}
-                          </Button>
+                          {!hasUpgradeForceRef.current ? (
+                            <Button onPress={handleSkipUpdate}>
+                              {intl.formatMessage({
+                                id: ETranslations.global_skip,
+                              })}
+                            </Button>
+                          ) : null}
                         </XStack>
                       </XStack>
                     ) : null}
