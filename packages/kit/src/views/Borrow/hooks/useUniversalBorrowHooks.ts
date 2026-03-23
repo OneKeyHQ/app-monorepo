@@ -571,7 +571,9 @@ export function useUniversalBorrowRepayWithCollateral({
           await revalidateManagePageAfterSetup();
         }
 
-        onSetupLutReadyForRepay?.();
+        if (needsSetupLut) {
+          onSetupLutReadyForRepay?.();
+        }
 
         let freshQuote: IRepayWithCollateralQuote | undefined;
         if (needsSetupLut) {
