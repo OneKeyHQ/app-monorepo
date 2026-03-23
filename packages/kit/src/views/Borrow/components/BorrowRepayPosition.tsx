@@ -658,6 +658,11 @@ function RepayWithCollateralForm({
     [amountValue],
   );
 
+  const isRepayBlocked = useMemo(
+    () => Boolean(transactionConfirmation?.blockRepay),
+    [transactionConfirmation?.blockRepay],
+  );
+
   const isButtonDisabled = useMemo(() => {
     const amountBN = new BigNumber(normalizedAmount);
     return (
@@ -666,6 +671,7 @@ function RepayWithCollateralForm({
       amountBN.lte(0) ||
       !selectedCollateral ||
       !quote?.swapIn ||
+      isRepayBlocked ||
       isCheckAmountMessageError ||
       checkAmountResult === false ||
       checkAmountLoading
@@ -676,6 +682,7 @@ function RepayWithCollateralForm({
     isCheckAmountMessageError,
     isAmountInvalid,
     isDisabled,
+    isRepayBlocked,
     normalizedAmount,
     quote?.swapIn,
     selectedCollateral,
@@ -951,6 +958,32 @@ function RepayWithCollateralForm({
               icon="InfoCircleOutline"
               type="critical"
               title={checkAmountMessage}
+            />
+          ) : null}
+
+          {isRepayBlocked ? (
+            <Alert
+              type="critical"
+              renderTitle={() => (
+                <YStack>
+                  <EarnText
+                    text={{
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_reminder,
+                      }),
+                    }}
+                    size="$bodyMdMedium"
+                  />
+                  <EarnText
+                    text={{
+                      text: intl.formatMessage({
+                        id: ETranslations.defi_liquidation_withdraw_desc,
+                      }),
+                    }}
+                    size="$bodyMdMedium"
+                  />
+                </YStack>
+              )}
             />
           ) : null}
 

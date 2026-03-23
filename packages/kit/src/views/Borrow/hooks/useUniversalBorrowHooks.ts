@@ -11,7 +11,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type {
+  IRepayWithCollateralQuote,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -40,6 +43,26 @@ const attachBorrowOrderId = ({
   orderId?: string;
 }): IStakingInfo | undefined =>
   stakingInfo ? { ...stakingInfo, orderId } : undefined;
+
+const attachRepayWithCollateralAmount = ({
+  stakingInfo,
+  amount,
+}: {
+  stakingInfo?: IStakingInfo;
+  amount?: string;
+}): IStakingInfo | undefined => {
+  if (!stakingInfo?.send || !amount) {
+    return stakingInfo;
+  }
+
+  return {
+    ...stakingInfo,
+    send: {
+      ...stakingInfo.send,
+      amount,
+    },
+  };
+};
 
 type ITxConfirmResult =
   | {
@@ -426,6 +449,24 @@ export function useUniversalBorrowRepayWithCollateral({
       onFail,
     }: IBorrowBuildTxParams) => {
       try {
+        let setupLutFinalizationResult:
+          | 'finalized'
+          | 'failed'
+          | 'timeout'
+          | undefined;
+
+        const revalidateManagePageAfterSetup = async () => {
+          try {
+            await onSetupLutFinalized?.();
+          } catch (error) {
+            defaultLogger.app.error.log(
+              `[useUniversalBorrowRepayWithCollateral] setup LUT revalidation failed: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
+        };
+
         if (!collateralReserveAddress) {
           throw new OneKeyLocalError('collateralReserveAddress is required');
         }
@@ -472,42 +513,53 @@ export function useUniversalBorrowRepayWithCollateral({
                 ?.decodedTx.status ?? EDecodedTxStatus.Pending,
           });
 
-          const finalizationResult =
+          setupLutFinalizationResult =
             await backgroundApiProxy.serviceStaking.waitForSolTxFinalized({
               networkId,
               txId: latestSetupTxId,
             });
 
           if (setupResp.orderId) {
-            await backgroundApiProxy.serviceStaking.addEarnOrder({
-              orderId: setupResp.orderId,
-              networkId,
-              txId: latestSetupTxId,
-              status: mapBorrowLutFinalizationToTxStatus(finalizationResult),
+            await backgroundApiProxy.serviceStaking.updateOrderStatusByTxId({
+              currentTxId: latestSetupTxId,
+              status: mapBorrowLutFinalizationToTxStatus(
+                setupLutFinalizationResult,
+              ),
             });
           }
 
-          if (finalizationResult !== 'finalized') {
+          if (setupLutFinalizationResult === 'failed') {
             throw new OneKeyLocalError(
               intl.formatMessage({
                 id: getBorrowLutFinalizationErrorTranslation(
-                  finalizationResult,
+                  setupLutFinalizationResult,
                 ),
               }),
             );
           }
 
           await timerUtils.wait(LUT_PROPAGATION_BUFFER_MS);
+          await revalidateManagePageAfterSetup();
+        }
 
-          try {
-            await onSetupLutFinalized?.();
-          } catch (error) {
-            defaultLogger.app.error.log(
-              `[useUniversalBorrowRepayWithCollateral] setup LUT revalidation failed: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
+        let freshQuote: IRepayWithCollateralQuote | undefined;
+        if (needsSetupLut) {
+          // Re-quote after LUT setup so the confirm summary and the built
+          // transaction stay pinned to the same fresh route.
+          freshQuote =
+            await backgroundApiProxy.serviceStaking.getBorrowRepayWithCollateralQuote(
+              {
+                networkId,
+                accountId,
+                provider,
+                marketAddress,
+                reserveAddress,
+                collateralReserveAddress,
+                amount,
+                repayAll,
+                slippageBps,
+              },
             );
-          }
         }
 
         const resp =
@@ -522,15 +574,19 @@ export function useUniversalBorrowRepayWithCollateral({
               amount,
               repayAll,
               slippageBps,
-              // If we just went through LUT setup (which can take ~2 min to
-              // finalize on Solana), the original routeKey is likely stale.
-              // Drop it so the server re-quotes a fresh route.
-              routeKey: needsSetupLut ? undefined : routeKey,
+              routeKey: needsSetupLut ? freshQuote?.routeKey : routeKey,
             },
           );
 
+        if (setupLutFinalizationResult === 'timeout') {
+          await revalidateManagePageAfterSetup();
+        }
+
         const stakingInfoWithOrderId = attachBorrowOrderId({
-          stakingInfo,
+          stakingInfo: attachRepayWithCollateralAmount({
+            stakingInfo,
+            amount: freshQuote?.swapIn,
+          }),
           orderId: resp.orderId,
         });
 
