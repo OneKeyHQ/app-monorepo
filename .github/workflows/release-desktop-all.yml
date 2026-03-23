@@ -1,0 +1,643 @@
+name: release-desktop-all
+
+# Unified desktop release pipeline:
+#   1. Build renderer once on ubuntu (fastest)
+#   2. Fan out to 3 platform jobs (mac, win, linux) — each packages multiple variants
+#
+# This does NOT replace the existing per-platform workflows.
+# It is a new, optimized alternative that can be triggered independently.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Build number from upstream CI (e.g. daily-build). Defaults to 1 if not provided."
+        required: false
+        type: string
+        default: ''
+      build_bundle_version:
+        description: "Bundle version from upstream CI. Auto-generated if not provided."
+        required: false
+        type: string
+        default: ''
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
+        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+
+jobs:
+  # ──────────────────────────────────────────────────
+  # Stage 1: Build renderer once on ubuntu
+  # ──────────────────────────────────────────────────
+  renderer:
+    uses: ./.github/workflows/build-desktop-renderer.yml
+    with:
+      build_number: ${{ github.event.inputs.build_number || '' }}
+      build_bundle_version: ${{ github.event.inputs.build_bundle_version || '' }}
+      ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+
+  # ──────────────────────────────────────────────────
+  # Stage 2: Platform-specific packaging (3 parallel jobs)
+  # ──────────────────────────────────────────────────
+
+  # ═══════════════════════════════════════════════════
+  # macOS runner: mac DMG + MAS
+  # ═══════════════════════════════════════════════════
+  package-mac:
+    needs: renderer
+    runs-on: macos-26
+    strategy:
+      matrix:
+        node-version: [24.x]
+    env:
+      NODE_ENV: production
+      YARN_ENABLE_GLOBAL_CACHE: true
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env'
+          sentry_project: 'desktop'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Align version with renderer build
+        run: |
+          echo "BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" >> $GITHUB_ENV
+          echo "BUILD_APP_VERSION=${{ needs.renderer.outputs.build_app_version }}" >> $GITHUB_ENV
+          sed -i '' "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}/" .env
+          sed -i '' "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}/" .env
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
+      - name: 'Setup ENV'
+        run: |
+          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Download Renderer Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-renderer-${{ github.sha }}
+          path: ./apps/desktop/app/build/
+
+      - name: Compile macOS Liquid Glass Icon
+        run: |
+          cd apps/desktop
+          bash scripts/compile-liquid-icon.sh
+
+      - name: Verify Liquid Glass Icon
+        run: |
+          cd apps/desktop
+          bash scripts/verify-icon-compatibility.sh
+
+      # ── Phase 1: Mac + Linux (Developer ID) ──
+
+      - name: Setup Developer ID Code Signing
+        run: |
+          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
+
+      - name: Install Developer ID provisioning profile for CloudKit
+        env:
+          DESKTOP_ISO_PROVISION_PROFILE_BASE64: ${{ secrets.DESKTOP_ISO_PROVISION_PROFILE_BASE64 }}
+        run: |
+          PP_PATH=./apps/desktop/OneKey_Desktop_DeveloperId.provisionprofile
+          echo -n "$DESKTOP_ISO_PROVISION_PROFILE_BASE64" | base64 --decode > $PP_PATH
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: 'Build Main Process'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          cd apps/desktop
+          yarn build:main
+          yarn install-app-deps
+
+      - name: 'Package Mac'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: './sign.p12'
+        run: |
+          cd apps/desktop
+          yarn build:electron:mac --publish never
+
+      - name: Clean up Developer ID provisioning profile
+        if: ${{ always() }}
+        run: |
+          rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Desktop_DeveloperId.provisionprofile
+
+      - name: Upload Artifacts latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-mac-yml-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*.yml
+
+      - name: Upload universal Mac DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*-universal.dmg
+
+      - name: Upload x64 Mac DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*-x64.dmg
+
+      - name: Upload arm64 Mac DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*-arm64.dmg
+
+      - name: Upload Mac Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-mac-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*
+            !./apps/desktop/build-electron/mac-arm64
+            !./apps/desktop/build-electron/mac
+            !./apps/desktop/build-electron/builder-debug.yml
+
+      # ── Phase 2: MAS (App Store signing) ──
+
+      - name: Clean build-electron for MAS
+        run: rm -rf apps/desktop/build-electron
+
+      - name: Install the Apple certificate and provisioning profile for MAS
+        env:
+          MAC_INSTALL_P12_BASE64: ${{ secrets.MAC_INSTALL_P12_BASE64 }}
+          MAC_INSTALL_P12_PASSWORD: ${{ secrets.MAC_INSTALL_P12_PASSWORD }}
+          APPLE_DISTRIBUTION_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 }}
+          APPLE_DISTRIBUTION_P12_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_P12_PASSWORD }}
+          PROVISION_PROFILE_BASE64: ${{ secrets.PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          MAC_INSTALL_P12_PATH=$RUNNER_TEMP/mac_install_certificate.p12
+          APPLE_DISTRIBUTION_P12_PATH=$RUNNER_TEMP/apple_distribution_certificate.p12
+          PP_PATH=./apps/desktop/OneKey_Mac_App.provisionprofile
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$MAC_INSTALL_P12_BASE64" | base64 --decode > $MAC_INSTALL_P12_PATH
+          echo -n "$APPLE_DISTRIBUTION_P12_BASE64" | base64 --decode > $APPLE_DISTRIBUTION_P12_PATH
+          echo -n "$PROVISION_PROFILE_BASE64" | base64 --decode > $PP_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $MAC_INSTALL_P12_PATH -P "$MAC_INSTALL_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $APPLE_DISTRIBUTION_P12_PATH -P "$APPLE_DISTRIBUTION_P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+
+      - name: 'Package MAS'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd apps/desktop
+          npx electron-builder build -m --config electron-builder-mas.config.js --publish never
+
+      - name: Clean up MAS keychain and provisioning profile
+        if: ${{ always() }}
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
+          rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Mac_App.provisionprofile
+
+      - name: Upload MAS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/mas-universal/*.pkg
+
+      - name: Validate MAS for Testflight
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+        run: |
+          PKG_FILE=$(ls ./apps/desktop/build-electron/mas-universal/*.pkg)
+          echo "Found package: $PKG_FILE"
+          xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
+
+      - name: Upload MAS to Testflight
+        continue-on-error: true
+        env:
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+        run: |
+          PKG_FILE=$(ls ./apps/desktop/build-electron/mas-universal/*.pkg)
+          echo "Uploading package: $PKG_FILE"
+          xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
+
+  # ═══════════════════════════════════════════════════
+  # Windows runner: win NSIS + winms (Microsoft Store)
+  # ═══════════════════════════════════════════════════
+  package-win:
+    needs: renderer
+    runs-on: windows-2025
+    strategy:
+      matrix:
+        node-version: [24.x]
+    env:
+      NODE_ENV: production
+      YARN_ENABLE_GLOBAL_CACHE: true
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env'
+          sentry_project: 'desktop'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Align version with renderer build
+        shell: pwsh
+        run: |
+          "BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "BUILD_BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "BUILD_APP_VERSION=${{ needs.renderer.outputs.build_app_version }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          (Get-Content .env) -replace '^BUNDLE_VERSION=.*', "BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" -replace '^CI_BUILD_NUMBER=.*', "CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" | Set-Content .env
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          Write-Host "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
+      - name: 'Setup ENV'
+        run: |
+          $pkg_version = node -e "console.log(require('./apps/desktop/package.json').version)"
+          $pkg_version = $pkg_version.Trim()
+          Write-Host "pkg_version=$pkg_version"
+          "PKG_VERSION=$pkg_version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $artifacts_url = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          "ARTIFACTS_URL=$artifacts_url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        shell: pwsh
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Download Renderer Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-renderer-${{ github.sha }}
+          path: ./apps/desktop/app/build/
+
+      - name: Setup Code Signing file
+        run: |
+          [IO.File]::WriteAllBytes("apps/desktop/sign.p12", [Convert]::FromBase64String("${{ secrets.DESKTOP_KEYS_SECRET }}"))
+
+      # ── Phase 1: Windows NSIS installer ──
+
+      - name: 'Build Main Process (win)'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          cd apps/desktop
+          yarn build:main
+          yarn install-app-deps
+
+      - name: 'Package Windows NSIS'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: './sign.p12'
+        run: |
+          cd apps/desktop
+          npx electron-builder build -w --config electron-builder-win.config.js --publish never
+
+      - name: Upload x64 Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*-x64.exe
+
+      - name: Upload arm64 Windows exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*-arm64.exe
+
+      - name: Upload Artifacts latest.yml
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-win-yml-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*.yml
+
+      - name: Upload Windows NSIS Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-win-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*
+            !./apps/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/win-arm64-unpacked
+            !./apps/desktop/build-electron/mac-arm64
+            !./apps/desktop/build-electron/mac
+            !./apps/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/builder-debug.yml
+
+      # ── Phase 2: Windows Microsoft Store ──
+
+      - name: Clean build-electron for WinMS
+        shell: pwsh
+        run: Remove-Item -Recurse -Force apps/desktop/build-electron -ErrorAction SilentlyContinue
+
+      - name: 'Rebuild Main Process (winms, DESK_CHANNEL=ms-store)'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          DESK_CHANNEL: ms-store
+        run: |
+          cd apps/desktop
+          yarn build:main
+
+      - name: 'Package Windows Microsoft Store'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          DESK_CHANNEL: ms-store
+          CSC_LINK: './sign.p12'
+        run: |
+          cd apps/desktop
+          npx electron-builder build -w --config electron-builder-ms.config.js --publish never
+
+      - name: Upload WinMS universal exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-winms-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*.exe
+            !./apps/desktop/build-electron/*-x64.exe
+            !./apps/desktop/build-electron/*-arm64.exe
+
+  # ═══════════════════════════════════════════════════
+  # Linux runner: AppImage + Snap (amd64 + arm64)
+  # ═══════════════════════════════════════════════════
+  package-linux:
+    needs: renderer
+    strategy:
+      matrix:
+        node-version: [24.x]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+            build-flag: --x64
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            build-flag: --arm64
+    runs-on: ${{ matrix.runs-on }}
+    env:
+      NODE_ENV: production
+      YARN_ENABLE_GLOBAL_CACHE: true
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env'
+          sentry_project: 'desktop'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Align version with renderer build
+        run: |
+          echo "BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}" >> $GITHUB_ENV
+          echo "BUILD_BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}" >> $GITHUB_ENV
+          echo "BUILD_APP_VERSION=${{ needs.renderer.outputs.build_app_version }}" >> $GITHUB_ENV
+          sed -i "s/^BUNDLE_VERSION=.*/BUNDLE_VERSION=${{ needs.renderer.outputs.build_bundle_version }}/" .env
+          sed -i "s/^CI_BUILD_NUMBER=.*/CI_BUILD_NUMBER=${{ needs.renderer.outputs.build_number }}/" .env
+
+      - name: Warn if GPG verification is skipped
+        if: ${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION == 'true' }}
+        run: |
+          echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
+
+      - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@v2
+
+      - name: Install snap dependencies for snapcraft build
+        run: |
+          sudo snap install core24
+          sudo snap install gnome-46-2404
+          sudo snap install mesa-2404
+          sudo snap install gtk-common-themes
+
+      - name: Configure Snapcraft destructive mode
+        run: |
+          echo "SNAP_DESTRUCTIVE_MODE=true" >> $GITHUB_ENV
+
+      - name: 'Setup ENV'
+        run: |
+          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn install --immutable
+
+      - name: Download Renderer Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-renderer-${{ github.sha }}
+          path: ./apps/desktop/app/build/
+
+      # ── Phase 1: AppImage (no SNAP) ──
+
+      - name: 'Build Main Process (AppImage)'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          cd apps/desktop
+          yarn build:main
+          yarn install-app-deps
+
+      - name: 'Package AppImage'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd apps/desktop
+          npx electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
+
+      - name: Upload AppImage Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*.AppImage
+
+      # ── Phase 2: Snap (SNAP=true) ──
+
+      - name: Clean build-electron for Snap
+        run: rm -rf apps/desktop/build-electron
+
+      - name: 'Rebuild Main Process (Snap, SNAP=true)'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          SNAP: true
+        run: |
+          cd apps/desktop
+          yarn build:main
+
+      - name: 'Package Snap'
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SNAP: true
+        run: |
+          cd apps/desktop
+          npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
+
+      - name: Upload Snap Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-all-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*
+            !./apps/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/linux-arm64-unpacked
+            !./apps/desktop/build-electron/builder-debug.yml
