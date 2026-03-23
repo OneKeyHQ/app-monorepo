@@ -18,6 +18,26 @@ function clearAndroidHarnessFlag() {
     ],
     { stdio: 'pipe', timeout: 5000 },
   );
+  // Reset boot-fail counter so harness restarts don't trigger recovery
+  // on the next normal launch. SharedPrefs file: onekey_recovery.xml,
+  // key: consecutive_boot_fail_count.
+  try {
+    execFileSync(
+      'adb',
+      [
+        'shell',
+        'run-as',
+        'so.onekey.app.wallet',
+        'sh',
+        '-c',
+        // Replace the counter value with 0 in the SharedPreferences XML
+        "sed -i 's/\"consecutive_boot_fail_count\" value=\"[0-9]*\"/\"consecutive_boot_fail_count\" value=\"0\"/' shared_prefs/onekey_recovery.xml",
+      ],
+      { stdio: 'pipe', timeout: 5000 },
+    );
+  } catch {
+    // SharedPrefs file may not exist yet — not critical
+  }
   console.log('[harness-globalTeardown] Android harness_mode flag cleared');
 }
 
@@ -47,6 +67,25 @@ function clearIOSHarnessFlag() {
           ],
           { stdio: 'pipe', timeout: 5000 },
         );
+        // Also reset the boot-fail counter to prevent harness restarts
+        // from triggering recovery on the next normal launch.
+        try {
+          execFileSync(
+            'xcrun',
+            [
+              'simctl',
+              'spawn',
+              device.udid,
+              'defaults',
+              'delete',
+              'so.onekey.wallet',
+              'onekey_consecutive_boot_fail_count',
+            ],
+            { stdio: 'pipe', timeout: 5000 },
+          );
+        } catch {
+          // Key may not exist — not critical
+        }
         console.log(
           `[harness-globalTeardown] iOS harness_mode flag cleared on ${device.name} (${device.udid})`,
         );
