@@ -298,21 +298,6 @@ jobs:
           echo "Uploading package: $PKG_FILE"
           xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
-      - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
-        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
-        with:
-          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: Desktop
-          artifact-name: OneKey-Desktop-Mac
-          artifact-bundle-id: 'so.onekey.wallet.desktop'
-          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
-          artifact-version-code: '${{ env.BUILD_NUMBER }}'
-          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
-          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
-
   # ═══════════════════════════════════════════════════
   # Windows runner: Win NSIS + WinMS (Microsoft Store)
   # ═══════════════════════════════════════════════════
@@ -478,21 +463,6 @@ jobs:
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
             !./apps/desktop/build-electron/*-arm64.exe
-
-      - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
-        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
-        with:
-          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: Desktop
-          artifact-name: OneKey-Desktop-Win
-          artifact-bundle-id: 'so.onekey.wallet.desktop'
-          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
-          artifact-version-code: '${{ env.BUILD_NUMBER }}'
-          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
-          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
 
   # ═══════════════════════════════════════════════════
   # Linux runner: AppImage + Snap (amd64 + arm64)
@@ -668,17 +638,29 @@ jobs:
         run: |
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
 
+  # ═══════════════════════════════════════════════════
+  # Notify: Send single Slack message after all platforms complete
+  # ═══════════════════════════════════════════════════
+  notify:
+    needs: [renderer, package-mac, package-win, package-linux]
+    if: ${{ github.event.workflow_run }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 'Setup ENV'
+        run: |
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
       - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-Linux-${{ matrix.arch }}
+          artifact-name: OneKey-Desktop-All
           artifact-bundle-id: 'so.onekey.wallet.desktop'
-          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
-          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-version-name: '${{ needs.renderer.outputs.build_app_version }}@${{ needs.renderer.outputs.build_number }}'
+          artifact-version-code: '${{ needs.renderer.outputs.build_number }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
-          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+          artifact-bundle-version: '${{ needs.renderer.outputs.build_bundle_version }}'
