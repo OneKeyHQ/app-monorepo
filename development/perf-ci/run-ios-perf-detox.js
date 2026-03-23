@@ -220,7 +220,9 @@ async function main() {
     meta.appVersion = process.env.BUILD_APP_VERSION;
   } else {
     try {
-      const pkg = readJson(path.join(repoRoot, 'apps', 'mobile', 'package.json'));
+      const pkg = readJson(
+        path.join(repoRoot, 'apps', 'mobile', 'package.json'),
+      );
       if (pkg.version) meta.appVersion = pkg.version;
     } catch (_) {
       // ignore read errors
