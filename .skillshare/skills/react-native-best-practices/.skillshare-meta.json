@@ -1,7 +1,7 @@
 {
   "source": "https://github.com/callstackincubator/agent-skills/tree/main/skills/react-native-best-practices",
   "type": "github-subdir",
-  "installed_at": "2026-03-23T16:43:18.595528+08:00",
+  "installed_at": "2026-03-23T17:45:27.136923+08:00",
   "repo_url": "https://github.com/callstackincubator/agent-skills.git",
   "subdir": "skills/react-native-best-practices",
   "version": "06ae130",

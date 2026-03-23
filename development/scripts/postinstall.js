@@ -11,9 +11,11 @@ execSync('yarn setup:env && patch-package && yarn copy:inject', {
 
 // Install or upgrade skillshare
 try {
-  require('./skillshare/install.js');
+  execSync('yarn skills:sync', {
+    stdio: 'inherit',
+  });
 } catch (e) {
-  console.warn('Skillshare install skipped:', e.message);
+  console.warn('Skillshare install and sync skipped:', e.message);
 }
 
 console.log('Postinstall script completed.');
