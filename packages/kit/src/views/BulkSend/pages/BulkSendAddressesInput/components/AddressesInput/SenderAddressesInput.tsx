@@ -60,6 +60,10 @@ function SenderAddressesInput() {
     return '';
   }, [selectedIndexedAccountId]);
 
+  // Use refs to store latest values for validation closure
+  const selectedAccountIdRef = useRef(selectedAccountId);
+  const selectedIndexedAccountIdRef = useRef(selectedIndexedAccountId);
+
   const handleAddressTypeSelect = useCallback(
     async ({
       account,
@@ -77,10 +81,6 @@ function SenderAddressesInput() {
     },
     [setSelectedDeriveType, setSelectedAccountId],
   );
-
-  // Use refs to store latest values for validation closure
-  const selectedAccountIdRef = useRef(selectedAccountId);
-  const selectedIndexedAccountIdRef = useRef(selectedIndexedAccountId);
 
   const handleValidateAddresses = useCallback(
     async (_value: string) => {
