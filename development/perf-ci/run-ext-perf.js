@@ -301,17 +301,21 @@ async function main() {
     if (rb.code === 0) meta.git.branch = String(rb.stdout).trim();
   }
 
-  // Read app version from package.json
-  try {
-    const pkg = JSON.parse(
-      fs.readFileSync(
-        path.join(repoRoot, 'apps', 'ext', 'package.json'),
-        'utf8',
-      ),
-    );
-    if (pkg.version) meta.appVersion = pkg.version;
-  } catch (_) {
-    // ignore read errors
+  // Read app version: prefer BUILD_APP_VERSION env (set by release CI), fall back to package.json
+  if (process.env.BUILD_APP_VERSION) {
+    meta.appVersion = process.env.BUILD_APP_VERSION;
+  } else {
+    try {
+      const pkg = JSON.parse(
+        fs.readFileSync(
+          path.join(repoRoot, 'apps', 'ext', 'package.json'),
+          'utf8',
+        ),
+      );
+      if (pkg.version) meta.appVersion = pkg.version;
+    } catch (_) {
+      // ignore read errors
+    }
   }
 
   const jobState = { meta, status: 'running' };
