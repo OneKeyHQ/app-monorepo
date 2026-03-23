@@ -177,10 +177,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     return this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredential();
   }
 
-  async isKeylessCloudSyncFeatureEnabledInDev(): Promise<boolean> {
-    return this.backgroundApi.serviceKeylessCloudSync.isKeylessCloudSyncFeatureEnabledInDev();
-  }
-
   @backgroundMethod()
   async getActiveSyncMode(): Promise<ECloudSyncMode> {
     return this.backgroundApi.serviceKeylessCloudSync.getActiveSyncMode();
@@ -1606,13 +1602,6 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setCloudSyncEnabledKeyless(enabled: boolean): Promise<boolean> {
-    return this.backgroundApi.serviceKeylessCloudSync.setCloudSyncEnabledKeyless(
-      enabled,
-    );
-  }
-
-  @backgroundMethod()
   @toastIfError()
   async toggleCloudSync({ enabled }: { enabled: boolean }) {
     const shouldTrackEnableFlow = enabled;
@@ -1666,29 +1655,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
       void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
     }
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async toggleCloudSyncKeyless({
-    enabled,
-    silentEnable = false,
-    forceEnable = false,
-  }: {
-    enabled: boolean;
-    silentEnable?: boolean;
-    forceEnable?: boolean;
-  }) {
-    return this.backgroundApi.serviceKeylessCloudSync.toggleCloudSyncKeyless({
-      enabled,
-      silentEnable,
-      forceEnable,
-    });
-  }
-
-  @backgroundMethod()
-  async autoEnableCloudSyncKeyless() {
-    return this.backgroundApi.serviceKeylessCloudSync.autoEnableCloudSyncKeyless();
   }
 
   @backgroundMethod()
