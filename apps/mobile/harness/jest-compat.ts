@@ -255,10 +255,7 @@ const restoreAllMocks = () => {
 
     // Restore top-level exports
     for (const key of Object.keys(mod)) {
-      if (
-        key !== '__esModule' &&
-        !(key in snapshot.top)
-      ) {
+      if (key !== '__esModule' && !(key in snapshot.top)) {
         safeDelete(mod, key);
       }
     }
