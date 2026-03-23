@@ -145,6 +145,11 @@ type ModSnapshot = {
 
 const mockSnapshots = new Map<Record<string, unknown>, ModSnapshot>();
 
+// Sentinel value for keys whose getter threw during snapshot.
+// These keys existed on the module but couldn't be read, so restoreAllMocks
+// must skip them (neither delete nor overwrite) to avoid state corruption.
+const GETTER_THREW = Symbol('GETTER_THREW');
+
 // ---- Safe property mutation helpers ----
 // Metro's `export *` re-exports create getter-only (non-writable, non-configurable)
 // property descriptors. Direct assignment / delete throws on these. We use
@@ -202,7 +207,8 @@ const saveSnapshot = (mod: Record<string, unknown>) => {
     try {
       snapshot.top[key] = mod[key];
     } catch {
-      // Getter threw — skip this key in snapshot
+      // Getter threw — mark with sentinel so restoreAllMocks knows to skip it
+      snapshot.top[key] = GETTER_THREW;
     }
   }
   if (
@@ -216,7 +222,8 @@ const saveSnapshot = (mod: Record<string, unknown>) => {
       try {
         snapshot.defaultObj[key] = defaultObj[key];
       } catch {
-        // Getter threw — skip
+        // Getter threw — mark with sentinel so restoreAllMocks knows to skip it
+        snapshot.defaultObj[key] = GETTER_THREW;
       }
     }
   }
@@ -239,18 +246,25 @@ const restoreAllMocks = () => {
         }
       }
       for (const key of Object.keys(snapshot.defaultObj)) {
-        safeSet(defaultObj, key, snapshot.defaultObj[key]);
+        // Skip keys whose getter threw during snapshot — don't restore unknown state
+        if (snapshot.defaultObj[key] !== GETTER_THREW) {
+          safeSet(defaultObj, key, snapshot.defaultObj[key]);
+        }
       }
     }
 
     // Restore top-level exports
     for (const key of Object.keys(mod)) {
-      if (key !== '__esModule' && !(key in snapshot.top)) {
+      if (
+        key !== '__esModule' &&
+        !(key in snapshot.top)
+      ) {
         safeDelete(mod, key);
       }
     }
     for (const key of Object.keys(snapshot.top)) {
-      if (key !== '__esModule') {
+      // Skip keys whose getter threw during snapshot — don't restore unknown state
+      if (key !== '__esModule' && snapshot.top[key] !== GETTER_THREW) {
         safeSet(mod, key, snapshot.top[key]);
       }
     }

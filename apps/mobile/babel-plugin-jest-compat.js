@@ -53,11 +53,12 @@ module.exports = function ({ types: t }) {
 
           // jest.mock('module', factory) ->
           // globalThis.__harness_mock_module__(
-          //   (function(){try{return require('module')}catch(e){return {}}})(),
+          //   (function(){try{return require('module')}catch(e){console.warn(...);return {}}})(),
           //   factory
           // )
           // The try-catch prevents crashes when native modules fail to load
           // (e.g. after an app restart when the native bridge isn't fully ready).
+          // Failures are logged via console.warn so they remain visible.
           const safeRequire = t.callExpression(
             t.functionExpression(
               null,
@@ -72,6 +73,27 @@ module.exports = function ({ types: t }) {
                   t.catchClause(
                     t.identifier('_e'),
                     t.blockStatement([
+                      t.expressionStatement(
+                        t.callExpression(
+                          t.memberExpression(
+                            t.identifier('console'),
+                            t.identifier('warn'),
+                          ),
+                          [
+                            t.stringLiteral(
+                              '[babel-plugin-jest-compat] require() failed for mock:',
+                            ),
+                            t.logicalExpression(
+                              '||',
+                              t.memberExpression(
+                                t.identifier('_e'),
+                                t.identifier('message'),
+                              ),
+                              t.identifier('_e'),
+                            ),
+                          ],
+                        ),
+                      ),
                       t.returnStatement(t.objectExpression([])),
                     ]),
                   ),

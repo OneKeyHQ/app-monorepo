@@ -64,14 +64,26 @@ function setIOSHarnessFlag() {
 
 export default async function globalSetup() {
   // Try both platforms — one will succeed, the other will silently fail.
+  let androidOk = false;
+  let iosOk = false;
   try {
     setAndroidHarnessFlag();
-  } catch {
+    androidOk = true;
+  } catch (e) {
     // No Android device/emulator connected — expected on iOS runs
+    console.log(`[harness-globalSetup] Android flag skipped: ${e.message}`);
   }
   try {
     setIOSHarnessFlag();
-  } catch {
+    iosOk = true;
+  } catch (e) {
     // No booted iOS simulator — expected on Android runs
+    console.log(`[harness-globalSetup] iOS flag skipped: ${e.message}`);
+  }
+  if (!androidOk && !iosOk) {
+    console.warn(
+      '[harness-globalSetup] WARNING: Failed to set harness flag on both platforms. ' +
+        'Boot recovery may block test startup.',
+    );
   }
 }
