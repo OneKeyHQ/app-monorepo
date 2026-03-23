@@ -1,8 +1,8 @@
 
 ## 🌍 環境設定
 
-1. [node.js LTS バージョン (>= 16)] をインストールする(https://nodejs.org/en/)
-2. [yarnパッケージ管理ツール]（https://yarnpkg.com/）バージョン1.18.0をインストールします。 （最新バージョンのyarnをインストールした後、ルートディレクトリで `yarn policy set-version 1.18.0`を実行します）
+1. [node.js LTS バージョン (>= 16)](https://nodejs.org/en/) をインストールする
+2. [yarnパッケージ管理ツール](https://yarnpkg.com/) バージョン1.18.0をインストールします。 （最新バージョンのyarnをインストールした後、ルートディレクトリで `yarn policy set-version 1.18.0`を実行します）
 3. インストール [git lfs](https://git-lfs.github.com/) (いくつかのバイナリのプルおよびアップデートに必要)
 4. iOSプロジェクトを開始するには、ローカルXCodeバージョンが13.3以上であることを確認してください
 5. Androidプロジェクトを開始するには、ローカルJDKバージョンが11以上であることを確認してください
