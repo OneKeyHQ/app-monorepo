@@ -990,7 +990,7 @@ function RepayWithCollateralForm({
           {needsSetupLut ? (
             <Alert
               icon="InfoCircleOutline"
-              type="caution"
+              type="info"
               title={intl.formatMessage({
                 id: ETranslations.defi_account_activation_fee_notice,
               })}
