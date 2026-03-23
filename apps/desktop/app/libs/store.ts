@@ -283,9 +283,26 @@ export const processPreLaunchPendingTask = (): boolean => {
       return false;
     if (task.nextRetryAt && task.nextRetryAt > now) return false;
 
-    // Verify scheduledEnv matches current state
+    // Verify scheduledEnv matches current state (including buildNumber)
     const currentAppVersion = app.getVersion();
     if (task.scheduledEnvAppVersion !== currentAppVersion) return false;
+
+    const scheduledBuildNumber = task.scheduledEnvBuildNumber ?? '';
+    const currentBuildNumber = process.env.BUILD_NUMBER ?? '';
+    if (
+      scheduledBuildNumber &&
+      currentBuildNumber &&
+      scheduledBuildNumber !== currentBuildNumber
+    ) {
+      logger.info(
+        'processPreLaunchPendingTask: buildNumber changed from',
+        scheduledBuildNumber,
+        'to',
+        currentBuildNumber,
+        ', skipping stale task',
+      );
+      return false;
+    }
 
     const currentBundleData = getUpdateBundleData();
     const currentBundleVersion =
@@ -309,7 +326,6 @@ export const processPreLaunchPendingTask = (): boolean => {
     // Apply: set new bundle data
     setUpdateBundleData({ appVersion, bundleVersion, signature });
     setNativeVersion(currentAppVersion);
-    const currentBuildNumber = process.env.BUILD_NUMBER ?? '';
     if (currentBuildNumber) {
       setNativeBuildNumber(currentBuildNumber);
     }

@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
 import { BackHandler, type LayoutChangeEvent, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
   Icon,
@@ -178,6 +178,15 @@ function MobileBrowser() {
   const [settings] = useSettingsPersistAtom();
   const selectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
+
+  // Shared value for swipe-following header tab animation.
+  // Maps tab enum to pager index: market=0, earn=1, browser=2.
+  const initialPageIndex = useMemo(() => {
+    if (selectedHeaderTab === ETranslations.global_market) return 0;
+    if (selectedHeaderTab === ETranslations.global_earn) return 1;
+    return 2;
+  }, [selectedHeaderTab]);
+  const outerPageScrollPosition = useSharedValue(initialPageIndex);
 
   const searchInitialTab = useMemo(() => {
     if (selectedHeaderTab === ETranslations.global_market) {
@@ -428,6 +437,7 @@ function MobileBrowser() {
           <OuterTabPagerView
             selectedHeaderTab={selectedHeaderTab}
             showDiscoveryPage={showDiscoveryPage}
+            pageScrollPosition={outerPageScrollPosition}
             marketTabsRef={marketTabsRef}
             earnTabsRef={earnTabsRef}
             earnBorrowPagerRef={earnBorrowPagerRef}
@@ -583,6 +593,12 @@ function MobileBrowser() {
             sceneName={EAccountSelectorSceneName.home}
             tabRoute={ETabRoutes.Discovery}
             selectedHeaderTab={selectedHeaderTab}
+            // Only pass pageScrollPosition when OuterTabPagerView is active (phone).
+            // On tablet/dual-screen, useOuterPager is false so no onPageScroll
+            // events fire — passing the stale shared value would freeze tab colors.
+            pageScrollPosition={
+              useOuterPager ? outerPageScrollPosition : undefined
+            }
           />
         </YStack>
       ) : null}

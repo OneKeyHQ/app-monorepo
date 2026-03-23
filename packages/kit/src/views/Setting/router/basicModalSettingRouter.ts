@@ -156,6 +156,10 @@ const DevLocalBundleList = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/DevBundleSwitcher/LocalBundleList'),
 );
 
+const DevBundleUpdateStatusModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/DevBundleUpdateStatus'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -293,6 +297,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevLocalBundleList,
     component: DevLocalBundleList,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevBundleUpdateStatusModal,
+    component: DevBundleUpdateStatusModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

@@ -281,6 +281,8 @@ export const BundleUpdate: IBundleUpdate = {
   clearDownload: () => ReactNativeBundleUpdate.clearDownload(),
   resetToBuiltInBundle: async () => {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
+  },
+  restart: () => {
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);
@@ -312,9 +314,11 @@ export const BundleUpdate: IBundleUpdate = {
   listLocalBundles: () => ReactNativeBundleUpdate.listLocalBundles(),
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
-    setTimeout(() => {
-      RNRestart.restart();
-    }, 2500);
+    if (params.appVersion && params.bundleVersion) {
+      setTimeout(() => {
+        RNRestart.restart();
+      }, 2500);
+    }
   },
   getNativeAppVersion: () => ReactNativeBundleUpdate.getNativeAppVersion(),
   getNativeBuildNumber: () => ReactNativeBundleUpdate.getNativeBuildNumber(),

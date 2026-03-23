@@ -21,6 +21,7 @@ import { PerpScope } from './scopes/perp';
 import { PrimeScope } from './scopes/prime';
 import { ReferralScope } from './scopes/referral';
 import { RewardScope } from './scopes/reward';
+import { RookieGuideScope } from './scopes/rookieGuide';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -32,7 +33,6 @@ import { UIScope } from './scopes/ui';
 import { UniversalSearchScope } from './scopes/universalSearch';
 import { UpdateScope } from './scopes/update';
 import { WalletScope } from './scopes/wallet';
-import { RookieGuideScope } from './scopes/rookieGuide';
 
 export class DefaultLogger {
   account = new AccountScope();

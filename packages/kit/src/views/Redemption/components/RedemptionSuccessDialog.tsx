@@ -98,7 +98,7 @@ function RedemptionSuccessDialogContent({
   const handleViewChanges = useCallback(() => {
     defaultLogger.referral.redemption.successDialogViewChangesClick();
     onClose?.();
-    navigateToReferralLevel();
+    void navigateToReferralLevel();
   }, [onClose, navigateToReferralLevel]);
 
   return (
