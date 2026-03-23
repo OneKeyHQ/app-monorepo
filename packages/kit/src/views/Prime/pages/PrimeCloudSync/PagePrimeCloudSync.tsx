@@ -340,6 +340,7 @@ function AppDataSection() {
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
           enabled: true,
           silentEnable: true,
+          forceEnable: true,
         });
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
           enabled: false,
