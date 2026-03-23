@@ -594,11 +594,14 @@ export default class VaultBtc extends VaultBase {
       return unsignedTx;
     }
     // Preserve the user-selected fee rate from the existing encoded tx
+    // fee/txSize gives sat/vbyte, must convert to BTC/vbyte for _buildTransferParamsWithCoinSelector
+    const network = await this.getNetwork();
     let specifiedFeeRate: string | undefined;
     const existingEncodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
     if (existingEncodedTx?.fee && existingEncodedTx?.txSize) {
       specifiedFeeRate = new BigNumber(existingEncodedTx.fee)
         .div(existingEncodedTx.txSize)
+        .shiftedBy(-network.feeMeta.decimals)
         .toFixed();
     }
     // Clear the UTXO cache to ensure fresh UTXOs are fetched
