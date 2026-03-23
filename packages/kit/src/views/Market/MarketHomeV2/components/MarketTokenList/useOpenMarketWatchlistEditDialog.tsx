@@ -10,7 +10,6 @@ import {
   Dialog,
   Icon,
   SortableListView,
-  Spinner,
   Toast,
   XStack,
   YStack,
@@ -24,7 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { TokenIdentityItem } from './components/TokenIdentityItem/TokenIdentityItem';
-import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
+import { getWatchlistTokenCache } from './hooks/useMarketWatchlistTokenList';
 
 import type { IMarketToken } from './MarketTokenData';
 
@@ -54,37 +53,28 @@ function tokenToWatchListItem(token: IMarketToken): IMarketWatchListItemV2 {
 }
 
 function MarketWatchlistEditDialogContent({
-  watchlist,
+  cachedTokens,
   onRemove,
   onSort,
 }: {
-  watchlist: IMarketWatchListItemV2[];
+  cachedTokens: IMarketToken[];
   onRemove: (item: IMarketToken) => Promise<void>;
   onSort: (params: IDragEndParamsWithItem<IMarketToken>) => void;
 }) {
   const intl = useIntl();
-  const watchlistResult = useMarketWatchlistTokenList({
-    watchlist,
-    pageSize: 999,
-  });
-  const [dataSource, setDataSource] = useState<IMarketToken[]>([]);
-  const removedKeysRef = useRef(new Set<string>());
-  const isInitializedRef = useRef(false);
+  const [dataSource, setDataSource] = useState<IMarketToken[]>(() => [
+    ...cachedTokens,
+  ]);
 
-  useEffect(() => {
-    const filtered = watchlistResult.data.filter(
-      (item) => !removedKeysRef.current.has(getWatchlistTokenKey(item)),
-    );
-    setDataSource(filtered);
-    if (filtered.length > 0 || !watchlistResult.isLoading) {
-      isInitializedRef.current = true;
-    }
-  }, [watchlistResult.data, watchlistResult.isLoading]);
+  const dataSourceRef = useRef(dataSource);
+  dataSourceRef.current = dataSource;
 
   const handleRemove = useCallback(
     async (item: IMarketToken) => {
       const itemKey = getWatchlistTokenKey(item);
-      removedKeysRef.current.add(itemKey);
+      const originalIndex = dataSourceRef.current.findIndex(
+        (t) => getWatchlistTokenKey(t) === itemKey,
+      );
       setDataSource((prev) =>
         prev.filter(
           (currentItem) => getWatchlistTokenKey(currentItem) !== itemKey,
@@ -98,8 +88,15 @@ function MarketWatchlistEditDialogContent({
           }),
         });
       } catch {
-        removedKeysRef.current.delete(itemKey);
-        setDataSource((prev) => [...prev, item]);
+        setDataSource((prev) => {
+          const next = [...prev];
+          const insertAt =
+            originalIndex >= 0
+              ? Math.min(originalIndex, next.length)
+              : next.length;
+          next.splice(insertAt, 0, item);
+          return next;
+        });
       }
     },
     [intl, onRemove],
@@ -113,18 +110,6 @@ function MarketWatchlistEditDialogContent({
     },
     [onSort],
   );
-
-  if (!isInitializedRef.current && !dataSource.length) {
-    return (
-      <YStack
-        h={EDIT_DIALOG_HEIGHT}
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Spinner size="small" />
-      </YStack>
-    );
-  }
 
   return (
     <YStack h={EDIT_DIALOG_HEIGHT}>
@@ -233,13 +218,18 @@ export function useOpenMarketWatchlistEditDialog() {
       return;
     }
 
+    const cached = getWatchlistTokenCache();
+    if (cached.length === 0) {
+      return;
+    }
+
     dialogRef.current = Dialog.show({
       title: intl.formatMessage({
         id: ETranslations.global_favorites,
       }),
       renderContent: (
         <MarketWatchlistEditDialogContent
-          watchlist={watchlistRef.current}
+          cachedTokens={cached}
           onRemove={handleRemove}
           onSort={handleSort}
         />
