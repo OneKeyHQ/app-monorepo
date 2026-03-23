@@ -1,11 +1,6 @@
 name: release-desktop-winms
 
 on:
-  workflow_run:
-    workflows:
-      - daily-build
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:

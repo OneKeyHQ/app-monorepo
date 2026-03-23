@@ -1413,3 +1413,4 @@ macrotask
 pwdhash
 wesbos
 entrancy
+vbyte

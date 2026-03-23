@@ -18,6 +18,7 @@ type IUseTransferInfoActionsParams = {
   setTransfersInfo: (transfersInfo: ITransferInfo[]) => void;
   transferInfoErrors: ITransferInfoErrors;
   setTransferInfoErrors: (errors: ITransferInfoErrors) => void;
+  minTransferAmount?: string;
 };
 
 export function useTransferInfoActions({
@@ -26,6 +27,7 @@ export function useTransferInfoActions({
   setTransfersInfo,
   transferInfoErrors,
   setTransferInfoErrors,
+  minTransferAmount,
 }: IUseTransferInfoActionsParams) {
   const intl = useIntl();
 
@@ -65,6 +67,10 @@ export function useTransferInfoActions({
         token: tokenInfo,
         amount: value,
         allowZero: false,
+        minAmount:
+          minTransferAmount && minTransferAmount !== '0'
+            ? minTransferAmount
+            : undefined,
         customErrorMessages: {
           emptyAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_invalid_amount,
@@ -78,6 +84,10 @@ export function useTransferInfoActions({
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          minAmount: intl.formatMessage(
+            { id: ETranslations.send_error_minimum_amount },
+            { amount: minTransferAmount ?? '0', token: tokenInfo.symbol },
+          ),
           decimalPlaces: intl.formatMessage(
             {
               id: ETranslations.wallet_bulk_send_error_max_decimal_places,

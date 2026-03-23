@@ -22,6 +22,7 @@ export enum ERpcMethods {
   GET_TRANSACTION = 'getTransaction',
   GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION = 'getMinimumBalanceForRentExemption',
   GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
+  GET_MULTIPLE_ACCOUNTS_INFO = 'getMultipleAccounts',
 }
 
 export const MIN_PRIORITY_FEE = 1_000_000;
@@ -160,6 +161,31 @@ class ClientSol {
         ],
       });
 
+    return response.value;
+  }
+
+  async getMultipleAccountsInfo({
+    addresses,
+    encoding = EParamsEncodings.JSON_PARSED,
+  }: {
+    addresses: string[];
+    encoding?: EParamsEncodings;
+  }): Promise<(AccountInfo<[string, string]> | null)[]> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        value: (AccountInfo<[string, string]> | null)[];
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.GET_MULTIPLE_ACCOUNTS_INFO,
+              params: [addresses, { encoding }],
+            },
+          },
+        ],
+      });
     return response.value;
   }
 
