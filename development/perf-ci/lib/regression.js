@@ -23,7 +23,7 @@ function pickKeyMark(derivedJson, name) {
 function extractDerivedDebugMetrics(derivedJson) {
   const homeRefresh = derivedJson?.homeRefreshTokens || null;
   return {
-    // 保留诊断上下文用于 Slack/排查，不参与阈值判定。
+    // Keep diagnostic context for Slack/debugging; not used for threshold judgment.
     topSlowFunctions: Array.isArray(derivedJson?.slowFunctions)
       ? derivedJson.slowFunctions.slice(0, 5)
       : [],
