@@ -41,25 +41,31 @@ function setIOSHarnessFlag() {
   for (const runtime of Object.values(devices)) {
     for (const device of runtime) {
       if (device.state === 'Booted') {
-        execFileSync(
-          'xcrun',
-          [
-            'simctl',
-            'spawn',
-            device.udid,
-            'defaults',
-            'write',
-            'so.onekey.wallet',
-            'onekey_harness_mode',
-            '-bool',
-            'YES',
-          ],
-          { stdio: 'pipe', timeout: 5000 },
-        );
-        console.log(
-          `[harness-globalSetup] iOS harness_mode flag set on ${device.name} (${device.udid})`,
-        );
-        flagSet = true;
+        try {
+          execFileSync(
+            'xcrun',
+            [
+              'simctl',
+              'spawn',
+              device.udid,
+              'defaults',
+              'write',
+              'so.onekey.wallet',
+              'onekey_harness_mode',
+              '-bool',
+              'YES',
+            ],
+            { stdio: 'pipe', timeout: 5000 },
+          );
+          console.log(
+            `[harness-globalSetup] iOS harness_mode flag set on ${device.name} (${device.udid})`,
+          );
+          flagSet = true;
+        } catch (e) {
+          console.log(
+            `[harness-globalSetup] iOS flag failed on ${device.name}: ${e.message}`,
+          );
+        }
       }
     }
   }
