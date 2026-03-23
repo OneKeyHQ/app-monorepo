@@ -447,7 +447,7 @@ export function useUniversalBorrowRepayWithCollateral({
       onSetupLutFinalized,
       onSuccess,
       onFail,
-    }: IBorrowBuildTxParams) => {
+    }: IBorrowBuildTxParams): Promise<boolean> => {
       try {
         let setupLutFinalizationResult:
           | 'finalized'
@@ -496,7 +496,7 @@ export function useUniversalBorrowRepayWithCollateral({
           });
 
           if (setupConfirmResult.status === 'cancel') {
-            return;
+            return false;
           }
 
           const latestSetupTxId = getLatestTxId(setupConfirmResult.data);
@@ -600,7 +600,7 @@ export function useUniversalBorrowRepayWithCollateral({
         });
 
         if (repayConfirmResult.status === 'cancel') {
-          return;
+          return false;
         }
 
         await handleBorrowSuccess({
@@ -609,6 +609,7 @@ export function useUniversalBorrowRepayWithCollateral({
           networkId,
           onSuccess,
         });
+        return true;
       } catch (error) {
         Toast.error({
           title:
@@ -619,6 +620,7 @@ export function useUniversalBorrowRepayWithCollateral({
                 }),
         });
         onFail?.(error as Error);
+        return false;
       }
     },
     [accountId, intl, networkId, waitForTxConfirmResult],

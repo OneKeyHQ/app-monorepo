@@ -85,7 +85,7 @@ type IBorrowRepayPositionProps = Omit<
   onWalletConfirm?: IManagePositionProps['onConfirm'];
   onRepayWithCollateralConfirm: (
     params: IRepayWithCollateralConfirmParams,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   collateralAssets: IRepayCollateralAsset[];
   collateralLoading?: boolean;
   defaultCollateralReserveAddress?: string;
@@ -531,6 +531,7 @@ function RepayWithCollateralForm({
     async (
       value: string,
       collateralReserveAddress: string,
+      repayAll: boolean,
       currentSlippageBps: number,
       requestKey: string,
     ) => {
@@ -549,6 +550,7 @@ function RepayWithCollateralForm({
               reserveAddress: borrowReserveAddress,
               action: 'repayWithCollateral',
               amount: value,
+              repayAll,
               collateralReserveAddress,
               slippageBps: currentSlippageBps,
             },
@@ -577,6 +579,7 @@ function RepayWithCollateralForm({
     void debouncedFetchConfirmation(
       normalizedAmount,
       selectedCollateral.reserveAddress,
+      isRepayAll,
       slippageBps,
       repayRequestKey,
     );
@@ -585,6 +588,7 @@ function RepayWithCollateralForm({
     };
   }, [
     debouncedFetchConfirmation,
+    isRepayAll,
     normalizedAmount,
     repayRequestKey,
     selectedCollateral,
@@ -694,6 +698,7 @@ function RepayWithCollateralForm({
       amountBN.lte(0) ||
       !selectedCollateral ||
       !quote?.swapIn ||
+      !transactionConfirmation ||
       isRepayBlocked ||
       isCheckAmountMessageError ||
       checkAmountResult === false ||
@@ -710,6 +715,7 @@ function RepayWithCollateralForm({
     normalizedAmount,
     quote?.swapIn,
     selectedCollateral,
+    transactionConfirmation,
   ]);
 
   const collateralPopoverTitle = useMemo(
@@ -833,7 +839,7 @@ function RepayWithCollateralForm({
     }
     try {
       setSubmitting(true);
-      await onRepayWithCollateralConfirm({
+      const submittedSuccessfully = await onRepayWithCollateralConfirm({
         amount: normalizedAmount,
         collateralReserveAddress: selectedCollateral.reserveAddress,
         repayAll: isRepayAll,
@@ -842,7 +848,9 @@ function RepayWithCollateralForm({
         collateralAmount: quote?.swapIn,
         collateralAsset: selectedCollateral,
       });
-      setAmountValue('');
+      if (submittedSuccessfully) {
+        setAmountValue('');
+      }
     } finally {
       setSubmitting(false);
     }
