@@ -5,6 +5,7 @@ import {
   ONBOARDING_GET_STARTED_PATH,
 } from '@onekeyhq/shared/src/consts/onboardingConsts';
 import { KEYLESS_WEB_TAB_URL_PATTERNS } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
+import { isKeylessWebAutoConnectOriginAllowed } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
 import type {
   IAutoConnectParams,
   IKeylessWebConnectAlertMessage,
@@ -81,19 +82,7 @@ function normalizeAutoConnectOrigin(
 ): IOnboardingAutoConnectOrigin | undefined {
   try {
     const parsed = new URL(rawOrigin);
-
-    const isOneKeyWebOrigin =
-      parsed.protocol === 'https:' &&
-      (parsed.hostname === 'app.onekey.so' ||
-        parsed.hostname.endsWith('.onekey.so'));
-    if (isOneKeyWebOrigin) {
-      return parsed.origin;
-    }
-
-    const isLocalDevOrigin =
-      parsed.protocol === 'http:' &&
-      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1');
-    if (isLocalDevOrigin) {
+    if (isKeylessWebAutoConnectOriginAllowed(parsed)) {
       return parsed.origin;
     }
   } catch {
