@@ -855,6 +855,7 @@ export const WithdrawSection = ({
           collateralAssets={collateralAssets}
           collateralLoading={!!collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          needsSetupLut={protocolInfo?.needsSetupLut}
           debtBalance={
             protocolInfo?.debtBalance !== undefined
               ? (selectedAsset?.borrowed?.title?.text ??

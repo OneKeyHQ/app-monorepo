@@ -90,6 +90,7 @@ type IBorrowRepayPositionProps = Omit<
   collateralLoading?: boolean;
   defaultCollateralReserveAddress?: string;
   debtBalance?: string;
+  needsSetupLut?: boolean;
 };
 
 type IRepayMode = 'wallet' | 'collateral';
@@ -250,6 +251,7 @@ function RepayWithCollateralForm({
   collateralAssets,
   collateralLoading,
   defaultCollateralReserveAddress,
+  needsSetupLut,
   onRepayWithCollateralConfirm,
 }: Omit<IBorrowRepayPositionProps, 'onWalletConfirm'>) {
   // For collateral repay, use debt balance (how much user owes)
@@ -952,6 +954,16 @@ function RepayWithCollateralForm({
             />
           ) : null}
 
+          {needsSetupLut ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="caution"
+              title={intl.formatMessage({
+                id: ETranslations.defi_account_activation_fee_notice,
+              })}
+            />
+          ) : null}
+
           {checkAmountAlerts.length > 0
             ? checkAmountAlerts.map((alert, index) => (
                 <Alert
@@ -1119,6 +1131,7 @@ export function BorrowRepayPosition({
   collateralAssets,
   collateralLoading,
   defaultCollateralReserveAddress,
+  needsSetupLut,
   debtBalance,
   ...props
 }: IBorrowRepayPositionProps) {
@@ -1190,6 +1203,7 @@ export function BorrowRepayPosition({
           collateralAssets={collateralAssets}
           collateralLoading={collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          needsSetupLut={needsSetupLut}
           debtBalance={debtBalance}
         />
       )}
