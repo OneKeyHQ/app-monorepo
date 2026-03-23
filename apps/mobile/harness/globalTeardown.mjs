@@ -50,6 +50,7 @@ function clearIOSHarnessFlag() {
   for (const runtime of Object.values(devices)) {
     for (const device of runtime) {
       if (device.state === 'Booted') {
+        let cleanupOk = true;
         try {
           execFileSync(
             'xcrun',
@@ -64,8 +65,12 @@ function clearIOSHarnessFlag() {
             ],
             { stdio: 'pipe', timeout: 5000 },
           );
-        } catch {
-          // Key may not exist on this simulator — continue to next device
+        } catch (e) {
+          // "Domain not found" or "key not found" are expected when key was never set
+          console.log(
+            `[harness-globalTeardown] iOS harness_mode delete failed on ${device.name}: ${e.message}`,
+          );
+          cleanupOk = false;
         }
         try {
           execFileSync(
@@ -81,11 +86,14 @@ function clearIOSHarnessFlag() {
             ],
             { stdio: 'pipe', timeout: 5000 },
           );
-        } catch {
-          // Key may not exist — not critical
+        } catch (e) {
+          console.log(
+            `[harness-globalTeardown] iOS boot_fail_count delete failed on ${device.name}: ${e.message}`,
+          );
+          cleanupOk = false;
         }
         console.log(
-          `[harness-globalTeardown] iOS cleanup done on ${device.name} (${device.udid})`,
+          `[harness-globalTeardown] iOS cleanup ${cleanupOk ? 'done' : 'partial'} on ${device.name} (${device.udid})`,
         );
       }
     }
