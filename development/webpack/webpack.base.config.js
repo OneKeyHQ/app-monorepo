@@ -226,7 +226,9 @@ module.exports = ({ platform, basePath, configName }) => {
             return false;
           }
           // Remove compressed versions and service workers
-          return !(assetPath.endsWith('.gz') || assetPath.endsWith('worker.js'));
+          return !(
+            assetPath.endsWith('.gz') || assetPath.endsWith('worker.js')
+          );
         },
         generate: (seed, files, entrypoints) => {
           const manifestFiles = files.reduce((manifest, file) => {
