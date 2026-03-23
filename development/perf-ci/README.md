@@ -7,12 +7,12 @@ This folder provides a repeatable perf baseline runner for:
 
 High-level flow:
 
-1) App connects to `development/performance-server/` and writes a new perf `sessionId` under `PERF_SESSIONS_DIR`.
-2) Detox runs a single Jest file that loops 3 times:
+1. App connects to `development/performance-server/` and writes a new perf `sessionId` under `PERF_SESSIONS_DIR`.
+2. Detox runs a single Jest file that loops 3 times:
    - launch app (fresh instance)
    - detect the new `sessionId` folder
    - wait for mark `Home:refresh:done:tokens`
-3) The job runner derives metrics (`derive-session.js`), aggregates (median by default), checks thresholds, and optionally notifies Slack.
+3. The job runner derives metrics (`derive-session.js`), aggregates (median by default), checks thresholds, and optionally notifies Slack.
 
 ## Outputs
 
@@ -63,13 +63,13 @@ Note: no need to `npm install detox-cli --global` (we use the repo dependency).
 
 ## One-time setup (per perf machine)
 
-1) Create a sessions directory:
+1. Create a sessions directory:
 
 ```bash
 mkdir -p "$HOME/perf-sessions"
 ```
 
-2) Start performance-server (recommended as a dedicated service):
+2. Start performance-server (recommended as a dedicated service):
 
 ```bash
 yarn perf:server
@@ -77,7 +77,7 @@ yarn perf:server
 
 The job runners can auto-start perf-server if it's missing (one-shot mode), but a dedicated server is usually more stable.
 
-3) Prepare a stable app state so app launch reaches Home and emits:
+3. Prepare a stable app state so app launch reaches Home and emits:
 
 - `Home:refresh:done:tokens`
 
@@ -205,69 +205,6 @@ SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..." \
 yarn perf:ios:release
 ```
 
-### Slack Block Kit message layout
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ HEADER  (always present)                                                │
-│   🔴 [P1] Perf 性能回归 | Desktop Release                               │
-│   🟡 [P2] Perf 性能回归 | iOS Release                                   │
-│   ❌ [P1] Perf 任务失败 | Web Release                                   │
-│   ✅ [INFO] Perf 已恢复 | Desktop Release                               │
-├─────────────────────────────────────────────────────────────────────────┤
-│ SECTION  摘要  (always present)                                         │
-│   regression : "启动延迟 (tokensStartMs) 中位数 1234ms，超过阈值         │
-│                1000ms，+23.4%（3/3 次超阈）。"                           │
-│   failed     : "任务执行失败，Error: timeout waiting for mark..."         │
-│   recovered  : "本次结果已恢复正常，上次告警状态为「性能回归」，           │
-│                 当前 3 个核心指标均未超阈。"                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│ SECTION  指标监控  (only if metric data exists)                          │
-│   🔴 *启动延迟 (tokensStartMs)*　1234ms / 1000ms　+23.4%　3/3 次超阈    │
-│   🟡 *Refresh 耗时 (tokensSpanMs)*　2345ms / 2000ms　+17.2%　2/3 次超阈 │
-│   ✅ *函数调用次数 (functionCallCount)*　450 / 500　-10.0%　0/3 次超阈   │
-│   ➖ *函数调用次数 (functionCallCount)*　450 / n/a　n/a　未启用           │
-│   (icons: 🔴=超阈  ✅=正常  ➖=未启用)                                  │
-├─────────────────────────────────────────────────────────────────────────┤
-│ SECTION  N 次运行对比  (only if runs exist)                              │
-│   ```                                                                   │
-│   #1 sess-abc  start=1234ms  span=2345ms  fc=567                        │
-│   #2 sess-def  start=1210ms  span=2300ms  fc=550                        │
-│   #3 sess-ghi  start=1250ms  span=2400ms  fc=580                        │
-│   ```                                                                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│ SECTION  定位摘要  (regression / recovered only; up to 4 lines)          │
-│   连续第 N 次出现相同告警签名。          ← if consecutiveCount > 1       │
-│   推断: 回归更像发生在启动/初始化阶段。                                   │
-│   关键里程碑: app:start=320ms | AllNet:requests:done=890ms              │
-│   热点函数: funcA 180ms/12 calls | funcB 90ms/5 calls                   │
-├─────────────────────────────────────────────────────────────────────────┤
-│ SECTION  失败原因  (failed only)                                         │
-│   `Error: timeout waiting for mark after 120000ms`                      │
-├─────────────────────────────────────────────────────────────────────────┤
-│ SECTION  Context Fields  (always present; 3–4 fields, 2 per row)        │
-│   *提交*         *时间*                   *任务*                         │
-│   a1b2c3d        2026-03-11 10:00 UTC+8   desktop-xxx                   │
-│   *分支*                  ← if git branch available (replaces session)   │
-│   feat/perf-slack-xxx                                                   │
-│   *会话 (sessionId)*      ← only if no branch AND no dashboardUrl        │
-│   sess-abc123                                                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│ SECTION  相关链接  (only if any URL is configured)                       │
-│   <打开 Dashboard> | <打开产物目录> | <查看 report.json> |               │
-│   <查看 home-refresh API>                                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│ CONTEXT  (small text; always present)                                   │
-│   output: /path/to/perf-ci/output/desktop-release-20260311              │
-└─────────────────────────────────────────────────────────────────────────┘
-
-Links are built from env / localConfig:
-  outputUrl       ← PERF_REPORT_BASE_URL is set
-  reportUrl       ← same (outputUrl + /report.json)
-  dashboardUrl    ← dashboardBaseUrl is non-local AND representativeSessionId exists
-  homeRefreshUrl  ← same conditions as dashboardUrl
-```
-
 Recommended extra config for readable links:
 
 - `PERF_DASHBOARD_BASE_URL`: a reachable performance-server URL, for example `http://perf-machine:9527`
@@ -383,7 +320,7 @@ Android scheduling:
 
 ### Install to launchd (manual)
 
-1) Copy + edit:
+1. Copy + edit:
 
 ```bash
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/perf-logs" "$HOME/perf-sessions"
@@ -400,7 +337,7 @@ Replace in the copied plist(s):
 - `__REPO_ROOT__` with your repo root
 - `__HOME_DIR__` with your home dir (or use absolute paths you prefer)
 
-2) Load / start:
+2. Load / start:
 
 ```bash
 UID="$(id -u)"
@@ -413,7 +350,7 @@ launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/so.onekey.ios-perf-jo
 launchctl enable "gui/$UID/so.onekey.ios-perf-job"
 ```
 
-3) Inspect:
+3. Inspect:
 
 ```bash
 UID="$(id -u)"
@@ -421,7 +358,7 @@ launchctl print "gui/$UID/so.onekey.perf-server" | head
 launchctl print "gui/$UID/so.onekey.ios-perf-job" | head
 ```
 
-4) Uninstall:
+4. Uninstall:
 
 ```bash
 UID="$(id -u)"

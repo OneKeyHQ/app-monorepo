@@ -164,21 +164,22 @@ async function postAllSessionAnalytics({
   analyticsSecret,
 }) {
   if (!analyticsUrl || !Array.isArray(derivedSessions)) return;
-  for (const s of derivedSessions) {
-    // eslint-disable-next-line no-await-in-loop
-    await postSessionAnalytics({
-      sessionId: s.sessionId,
-      derived: s.derived,
-      jobId: s.jobId,
-      sessionsDir: s.sessionsDir,
-      platform: s.platform,
-      analyticsUrl,
-      analyticsSecret,
-    }).catch((err) => {
-      // eslint-disable-next-line no-console
-      console.warn('[analytics] session ingest failed:', err?.message || err);
-    });
-  }
+  await Promise.allSettled(
+    derivedSessions.map((s) =>
+      postSessionAnalytics({
+        sessionId: s.sessionId,
+        derived: s.derived,
+        jobId: s.jobId,
+        sessionsDir: s.sessionsDir,
+        platform: s.platform,
+        analyticsUrl,
+        analyticsSecret,
+      }).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[analytics] session ingest failed:', err?.message || err);
+      }),
+    ),
+  );
 }
 
 async function notifyPerfResult({
@@ -278,7 +279,7 @@ async function notifyPerfResult({
     return model;
   }
 
-  writeAlertState(alertStatePath, {
+  const okModel = {
     status: 'ok',
     severity: 'INFO',
     signature: 'ok',
@@ -291,8 +292,8 @@ async function notifyPerfResult({
     jobId: report?.meta?.jobId || path.basename(report?.outputDir || 'job'),
     representativeSessionId: report?.runs?.[0]?.sessionId || null,
     summary: '当前结果正常。',
-    updatedAt: new Date().toISOString(),
-  });
+  };
+  writeAlertState(alertStatePath, buildStateSnapshot(okModel));
   // Always post to analytics, even on healthy runs
   await postJobAnalytics({
     report,

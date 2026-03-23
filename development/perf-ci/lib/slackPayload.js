@@ -88,10 +88,7 @@ function getMetricDetails(report) {
       ...config,
       enabled: detail.enabled !== false,
       triggered: Boolean(detail.triggered),
-      current:
-        detail.current ??
-        report?.agg?.[config.key] ??
-        report?.values?.[config.key],
+      current: detail.current ?? report?.agg?.[config.key] ?? null,
       threshold: detail.threshold ?? report?.thresholds?.[config.key] ?? null,
       delta: detail.delta ?? null,
       deltaPct: detail.deltaPct ?? null,
