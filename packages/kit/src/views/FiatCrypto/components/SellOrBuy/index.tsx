@@ -62,11 +62,14 @@ export const SellOrBuyContent = memo(
           }),
         );
       }
-      return result.toSorted((a, b) => {
-        const num1 = a.fiatValue ?? '0';
-        const num2 = b.fiatValue ?? '0';
-        return BigNumber(num1).comparedTo(num2) * -1;
-      });
+      if (type === 'sell') {
+        return result.toSorted((a, b) => {
+          const num1 = a.fiatValue ?? '0';
+          const num2 = b.fiatValue ?? '0';
+          return BigNumber(num1).comparedTo(num2) * -1;
+        });
+      }
+      return result;
     }, [tokens, getTokenFiatValue, networkId, type, account]);
 
     const onPress = useCallback(
