@@ -531,7 +531,6 @@ function RepayWithCollateralForm({
     async (
       value: string,
       collateralReserveAddress: string,
-      repayAll: boolean,
       currentSlippageBps: number,
       requestKey: string,
     ) => {
@@ -550,7 +549,6 @@ function RepayWithCollateralForm({
               reserveAddress: borrowReserveAddress,
               action: 'repayWithCollateral',
               amount: value,
-              repayAll,
               collateralReserveAddress,
               slippageBps: currentSlippageBps,
             },
@@ -579,7 +577,6 @@ function RepayWithCollateralForm({
     void debouncedFetchConfirmation(
       normalizedAmount,
       selectedCollateral.reserveAddress,
-      isRepayAll,
       slippageBps,
       repayRequestKey,
     );
@@ -588,7 +585,6 @@ function RepayWithCollateralForm({
     };
   }, [
     debouncedFetchConfirmation,
-    isRepayAll,
     normalizedAmount,
     repayRequestKey,
     selectedCollateral,
