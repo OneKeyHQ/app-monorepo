@@ -47,6 +47,7 @@ export function SpecifiedAmountInput() {
     setAmountInputErrors,
     previewState,
     setPreviewState,
+    minTransferAmount,
   } = useBulkSendAmountsInputContext();
 
   const isInPreviewMode = previewState.specifiedPreviewed;
@@ -69,6 +70,24 @@ export function SpecifiedAmountInput() {
 
       // Reset preview state when input changes
       setPreviewState((prev) => ({ ...prev, specifiedPreviewed: false }));
+
+      const minTransferAmountBN = new BigNumber(minTransferAmount);
+      const valueBN = new BigNumber(value || '0');
+      if (
+        !minTransferAmountBN.isZero() &&
+        !valueBN.isZero() &&
+        !valueBN.isNaN() &&
+        valueBN.isLessThan(minTransferAmountBN)
+      ) {
+        setAmountInputErrors({
+          ...amountInputErrors,
+          specifiedAmount: intl.formatMessage(
+            { id: ETranslations.send_error_minimum_amount },
+            { amount: minTransferAmount, token: tokenInfo.symbol },
+          ),
+        });
+        return;
+      }
 
       const { error } = validateTokenAmount({
         token: tokenInfo,
@@ -107,6 +126,7 @@ export function SpecifiedAmountInput() {
       amountInputErrors,
       setAmountInputErrors,
       setPreviewState,
+      minTransferAmount,
     ],
   );
 
@@ -160,6 +180,7 @@ export function RangeAmountInput() {
     amountInputErrors,
     setAmountInputErrors,
     setPreviewState,
+    minTransferAmount: ctxMinTransferAmount,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
@@ -189,10 +210,12 @@ export function RangeAmountInput() {
         rangeMin: min,
         rangeMax: max,
         balance,
+        minTransferAmount: ctxMinTransferAmount,
+        tokenSymbol: tokenInfo.symbol,
       });
       return error ? { rangeError: error } : {};
     },
-    [balance],
+    [balance, ctxMinTransferAmount, tokenInfo.symbol],
   );
 
   const generatePreviewAmounts = useCallback(
@@ -470,6 +493,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     tokenDetails,
     amountInputValues,
     hasCustomAmounts,
+    minTransferAmount,
   } = useBulkSendAmountsInputContext();
 
   // Only show Custom option if receivers have custom amounts from address input
@@ -501,6 +525,22 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
 
   const validateSpecifiedAmount = useCallback((): IAmountInputError => {
     const balance = tokenDetails?.balanceParsed ?? '0';
+    const minTransferAmountBN = new BigNumber(minTransferAmount);
+    const valueBN = new BigNumber(amountInputValues.specifiedAmount || '0');
+    if (
+      !minTransferAmountBN.isZero() &&
+      !valueBN.isZero() &&
+      !valueBN.isNaN() &&
+      valueBN.isLessThan(minTransferAmountBN)
+    ) {
+      return {
+        specifiedAmount: intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          { amount: minTransferAmount, token: tokenInfo.symbol },
+        ),
+      };
+    }
+
     const { error } = validateTokenAmount({
       token: tokenInfo,
       amount: new BigNumber(amountInputValues.specifiedAmount || '0')
@@ -530,6 +570,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     tokenDetails?.balanceParsed,
     amountInputValues.specifiedAmount,
     transfersInfo.length,
+    minTransferAmount,
   ]);
 
   const validateRangeAmount = useCallback((): IAmountInputError => {
@@ -538,12 +579,16 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       rangeMin: amountInputValues.rangeMin,
       rangeMax: amountInputValues.rangeMax,
       balance,
+      minTransferAmount,
+      tokenSymbol: tokenInfo.symbol,
     });
     return error ? { rangeError: error } : {};
   }, [
     tokenDetails?.balanceParsed,
     amountInputValues.rangeMin,
     amountInputValues.rangeMax,
+    minTransferAmount,
+    tokenInfo.symbol,
   ]);
 
   const handleModeChange = useCallback(
