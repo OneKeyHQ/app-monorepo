@@ -717,7 +717,7 @@ export const WithdrawSection = ({
       collateralAsset,
     }: IRepayWithCollateralConfirmParams) => {
       if (!borrowApiCtx.isBorrow) {
-        return;
+        return false;
       }
 
       const { provider, marketAddress } = borrowApiCtx.borrowApiParams;
