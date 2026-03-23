@@ -116,7 +116,7 @@ jobs:
             ./apps/mobile/android/app/build/outputs/apk/huawei/debug
 
       - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # pin to SHA
         with:
           tool-cache: false
           android: true

@@ -246,7 +246,7 @@ const applyFixImageAssetsMiddleware = (middleware) => {
   return (req, res, next) => {
     console.log('metro-sever: >>>>>', req.url);
     // Android asset path fix
-    const prefixPath = AssetsPaths.find((path) => req.url.startsWith(path));
+    const prefixPath = AssetsPaths.find((p) => req.url.startsWith(p));
     if (prefixPath) {
       req.url = req.url.replace(prefixPath, buildRelativeDirPath(prefixPath));
       console.log(
@@ -282,6 +282,6 @@ config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
 
 module.exports = withRozenite(splitCodePlugin(config, projectRoot), {
   enabled: process.env.WITH_ROZENITE === 'true',
-  // enhanceMetroConfig: (config) => withRozeniteExpoAtlasPlugin(config),
-  enhanceMetroConfig: (config) => config,
+  // enhanceMetroConfig: (cfg) => withRozeniteExpoAtlasPlugin(cfg),
+  enhanceMetroConfig: (cfg) => cfg,
 });

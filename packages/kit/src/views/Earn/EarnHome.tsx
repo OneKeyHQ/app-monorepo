@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useSharedValue } from 'react-native-reanimated';
 
 import {
   HeaderScrollGestureWrapper,
@@ -146,11 +147,44 @@ function BasicEarnHome({
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
 
+  const prefetchEarnAvailableAssets = useCallback(async () => {
+    const types = [
+      EAvailableAssetsTypeEnum.SimpleEarn,
+      EAvailableAssetsTypeEnum.FixedRate,
+      EAvailableAssetsTypeEnum.Staking,
+    ] as const;
+
+    const results = await Promise.all(
+      types.map(async (type) => {
+        try {
+          const assets =
+            await backgroundApiProxy.serviceStaking.getAvailableAssets({
+              type,
+            });
+          return {
+            type,
+            assets,
+          };
+        } catch {
+          return {
+            type,
+            assets: [],
+          };
+        }
+      }),
+    );
+
+    results.forEach(({ type, assets }) => {
+      actions.current.updateAvailableAssetsByType(type, assets);
+    });
+  }, [actions]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+    await prefetchEarnAvailableAssets();
     actions.current.triggerRefresh();
     await refreshEarnDataRaw();
-  }, [actions, refreshEarnDataRaw]);
+  }, [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw]);
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     // Pendle redeem/unstake is recorded as Sell, but it should still trigger
@@ -227,6 +261,10 @@ function BasicEarnHome({
   const isEarnMode = defaultMode === 'earn';
   const isBorrowMode = defaultMode === 'borrow';
 
+  const earnBorrowScrollPosition = useSharedValue(
+    defaultMode === 'borrow' ? 1 : 0,
+  );
+
   const handleModeChange = useCallback(
     (mode: 'earn' | 'borrow') => {
       // Use setParams to update mode without navigation - prevents remount flash
@@ -258,6 +296,8 @@ function BasicEarnHome({
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
+      void prefetchEarnAvailableAssets();
+
       const simpleKey = `availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`;
       const fixedKey = `availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`;
       const stakingKey = `availableAssets-${EAvailableAssetsTypeEnum.Staking}`;
@@ -277,7 +317,7 @@ function BasicEarnHome({
 
       void refetchFAQ();
     },
-    [actions, refetchFAQ],
+    [actions, prefetchEarnAvailableAssets, refetchFAQ],
   );
 
   useListenTabFocusState(
@@ -435,11 +475,16 @@ function BasicEarnHome({
     if (useSwipePager) {
       return (
         <YStack flex={1}>
-          <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
+          <MarketSelector
+            mode={defaultMode}
+            onModeChange={handleModeChange}
+            pageScrollPosition={earnBorrowScrollPosition}
+          />
           <EarnBorrowPagerView
             ref={earnBorrowPagerRef}
             mode={defaultMode}
             onModeChange={handleModeChange}
+            pageScrollPosition={earnBorrowScrollPosition}
             earnContent={
               <>
                 <EarnMainTabs

@@ -123,7 +123,7 @@ class ServiceAppUpdate extends ServiceBase {
   // Schedule a pending task with targetBundleVersion="0" to rollback to
   // the builtin bundle on next cold start.  executeBundleSwitchTask will
   // detect the missing bundle and fall into the existing builtin fallback
-  // path: clearPendingInstallTask → resetToBuiltInBundle → switchBundle.
+  // path: clearPendingInstallTask → resetToBuiltInBundle → restart.
   // Returns true if the task was scheduled, false if skipped.
   private async scheduleRollbackToBuiltinTask({
     reason,
@@ -150,6 +150,10 @@ class ServiceAppUpdate extends ServiceBase {
     defaultLogger.app.appUpdate.log(
       `fetchAppUpdateInfo: ${reason} — scheduling rollback to builtin for next cold start`,
     );
+    const [nativeAppVersion, nativeBuildNumber] = await Promise.all([
+      BundleUpdate.getNativeAppVersion(),
+      BundleUpdate.getNativeBuildNumber(),
+    ]);
     const now = Date.now();
     await setPendingInstallTask({
       taskId: `jsbundle:${appVersion}:builtin`,
@@ -158,8 +162,9 @@ class ServiceAppUpdate extends ServiceBase {
       type: EPendingInstallTaskType.jsBundleSwitch,
       targetAppVersion: appVersion,
       targetBundleVersion: '0',
-      scheduledEnvAppVersion: platformEnv.version || '',
+      scheduledEnvAppVersion: nativeAppVersion || platformEnv.version || '',
       scheduledEnvBundleVersion: String(platformEnv.bundleVersion || ''),
+      scheduledEnvBuildNumber: nativeBuildNumber || '',
       createdAt: now,
       expiresAt: now + timerUtils.getTimeDurationMs({ day: 7 }),
       retryCount: 0,
@@ -988,6 +993,35 @@ class ServiceAppUpdate extends ServiceBase {
       // ignore — proceed with normal flow
     }
 
+    // If a pending install task exists but hasn't been executed yet,
+    // skip the fetch to prevent the atom / pending task from being
+    // overwritten with newer server data before the scheduled task runs.
+    // This avoids a race where:
+    //   1. v101 pending task is waiting for next cold start
+    //   2. fetchAppUpdateInfo gets v102, updates atom to v102
+    //   3. App restarts → v101 task executes, but atom says v102
+    // By blocking the fetch, we ensure the pending task completes first.
+    try {
+      const pendingTask = await getPendingInstallTask();
+      if (
+        pendingTask &&
+        (pendingTask.status === EPendingInstallTaskStatus.pending ||
+          pendingTask.status === EPendingInstallTaskStatus.running)
+      ) {
+        defaultLogger.app.appUpdate.appUpdateFetchResult({
+          traceId,
+          requestSeq,
+          hasReleaseInfo: null,
+          httpStatus: null,
+          reason: 'skip_pending_task_not_executed',
+          finalStatus: (await appUpdatePersistAtom.get()).status,
+        });
+        return await appUpdatePersistAtom.get();
+      }
+    } catch {
+      // ignore — proceed with normal flow
+    }
+
     await this.cleanupUpdateControlState();
     // NOTE: refreshUpdateStatus() was previously called here, but it resets
     // ANY failed status to notify unconditionally — including same-version
@@ -1080,6 +1114,20 @@ class ServiceAppUpdate extends ServiceBase {
       } catch {
         // ignore — default to false
       }
+      // When the server finds appVersion and bundleVersion match the
+      // client's current versions, it returns a response like:
+      //   { version: "5.x.x", jsBundleCount: 3, jsBundleVersion: undefined }
+      // jsBundleCount > 0 indicates bundles exist on server, but
+      // jsBundleVersion is omitted (no newer bundle available).
+      // In this case, don't treat the absent jsBundleVersion as a
+      // rollback signal — the client is already on the latest bundle.
+      if (
+        typeof releaseInfo?.jsBundleCount === 'number' &&
+        releaseInfo.jsBundleCount > 0 &&
+        !releaseInfo.jsBundleVersion
+      ) {
+        hasActiveCustomBundle = false;
+      }
       const decision = resolveUpdateDecision({
         currentAppVersion: platformEnv.version,
         currentBundleVersion: platformEnv.bundleVersion,
@@ -1112,7 +1160,7 @@ class ServiceAppUpdate extends ServiceBase {
       //   1. isBundleExists("X.Y.Z", "0") → false
       //   2. targetBundle(0) < currentBundle → true (rollback)
       //   3. Fall into the existing builtin fallback path:
-      //      clearPendingInstallTask → resetToBuiltInBundle → switchBundle({empty})
+      //      clearPendingInstallTask → resetToBuiltInBundle → restart
       if (decision.decision === 'jsBundleRollbackToBuiltin') {
         await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleRollbackToBuiltin',

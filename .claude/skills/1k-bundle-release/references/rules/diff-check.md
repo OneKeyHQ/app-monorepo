@@ -1,52 +1,32 @@
 # Diff Check Workflow
 
-Pre-release validation with two checks: (1) verify the release branch is a strict subset of `x`, and (2) display the changeset since the last release so the team knows exactly what's shipping.
+Pre-release validation: displays the changeset since the last release so the team knows exactly what's shipping, and checks sync status with `x`.
 
 ## Pre-flight Checks
 
-### 1. On a release branch
+### 1. Read release branch
 
 ```bash
+VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
+RELEASE_BRANCH="release/v${VERSION}"
 current_branch=$(git branch --show-current)
-# Must match: release/v*
 ```
 
-### 2. Extract version
+If current branch is not the expected release branch, offer to switch:
+
+> "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
+
+If yes, run `git checkout $RELEASE_BRANCH`.
+
+### 2. Fetch latest
 
 ```bash
-app_version=$(echo "$current_branch" | sed 's|release/||')
+git fetch origin "$RELEASE_BRANCH" x
 ```
 
-## Diff 1: Subset Verification
+## Check 1: Changeset Since Last Release
 
-This is the most important check. The release branch must be a pure subset of `x` — no commits should exist on release that aren't on `x`.
-
-```bash
-git log release/$app_version --not x --oneline
-```
-
-**If empty → ✅ Pass**
-
-```
-✅ Subset check passed — all release branch commits exist on x
-```
-
-**If not empty → ❌ Fail**
-
-```
-❌ Subset check FAILED — release branch has commits not on x:
-
-  abc1234 fix: conflict resolution for swap component
-  def5678 chore: merge artifact cleanup
-
-These must be reverse cherry-picked to x before publishing.
-```
-
-Explain to the user that these commits need to be cherry-picked to `x` first (they were likely created during conflict resolution on the release branch). After the user resolves this, they should re-run diff-check.
-
-## Diff 2: Changeset Since Last Release
-
-Shows what's changed since the last published release, so the team can scope smoke testing and write release notes.
+Shows what changed since the last published release for smoke testing scope and release notes.
 
 ### Get the baseline commit
 
@@ -61,69 +41,54 @@ Parse the JSON and get the `commit` field from the entry with the highest `seq`.
 If the file doesn't exist or is empty (first release for this branch), fall back to the App Shell tag:
 
 ```bash
-base_sha=$(git rev-parse $app_version)
+base_sha=$(git rev-parse "v${VERSION}")
 ```
 
 ### Show the changeset
 
 ```bash
 # Commit history
-git log $base_sha..release/$app_version --oneline
+git log $base_sha..$RELEASE_BRANCH --oneline
 
 # File change statistics
-git diff --stat $base_sha..release/$app_version
+git diff --stat $base_sha..$RELEASE_BRANCH
 ```
 
 ### Generate GitHub compare link
 
-Build a compare URL so the team can review the full diff in the browser:
-
 ```bash
-# Derive GitHub repo URL from remote
 repo_url=$(git remote get-url origin | sed 's/git@github.com:/https:\/\/github.com\//' | sed 's/\.git$//')
-
-# Compare link: base_sha...release branch HEAD
-echo "${repo_url}/compare/${base_sha}...release/${app_version}"
-```
-
-This produces a link like: `https://github.com/OneKeyHQ/app-monorepo/compare/abc1234...release/v5.20.0`
-
-If the baseline is an App Shell tag (first release), prefer using the tag name for readability:
-
-```
-https://github.com/OneKeyHQ/app-monorepo/compare/v5.20.0...release/v5.20.0
+echo "${repo_url}/compare/${base_sha}...${RELEASE_BRANCH}"
 ```
 
 ### Identify included PRs
 
-Cherry-pick commits created with `-x` contain "(cherry picked from commit ...)" in their message. Extract those original commit SHAs and cross-reference with `gh` to get PR numbers:
+Since PRs are merged directly to the release branch, extract PR numbers from commit messages. GitHub uses two formats depending on merge strategy:
+- Merge commit: `Merge pull request #1234 from user/branch`
+- Squash merge: `feat: description (#1234)`
+
+Extract all PR numbers with:
 
 ```bash
-# Extract original commit SHAs from cherry-pick messages
-git log $base_sha..release/$app_version --grep="cherry picked from" --format="%b" | grep -oP '(?<=cherry picked from commit )[a-f0-9]+'
+git log $base_sha..$RELEASE_BRANCH --format="%s" | grep -oE '#[0-9]+' | sort -u
 ```
 
-## Supplementary: What's on `x` but NOT in release
+## Check 2: Sync Status (Informational)
 
-This helps the team understand what was intentionally left out:
+Show commits on the release branch that have not yet been synced to `x`. This is informational — it does NOT block publishing.
 
 ```bash
-git log x --not release/$app_version --oneline
+# Commits on release not reachable from x
+# Note: after rebase sync, patch-ids match but SHAs differ,
+# so use git cherry for patch-level comparison
+git cherry x "$RELEASE_BRANCH" | grep '^+' | wc -l
 ```
 
-Generate a compare link for this direction too:
+If count > 0:
 
 ```
-${repo_url}/compare/release/${app_version}...x
-```
-
-Cross-reference with PRs:
-- **No `release-ready` label** → intentionally excluded, expected
-- **Has `release-ready` label but not cherry-picked** → might be an oversight, flag it:
-
-```
-⚠️  PRs with 'release-ready' label NOT in this release:
-  - #1280 — feat: add new chain support (merged 2026-03-14, not cherry-picked)
+ℹ️  $count commit(s) on $RELEASE_BRANCH not yet synced to x.
+   Run /1k-bundle-release sync after publishing.
 ```
 
 ## Output Summary
@@ -131,24 +96,12 @@ Cross-reference with PRs:
 ```
 === Release Diff Check Report ===
 
-📋 Subset verification: ✅ Pass
-📦 Changes since last release (seq #2, sha: def5678):
-   - 3 commits, 8 files changed
+📦 Changes since last release (seq #$last_seq, sha: $base_sha):
+   - $commit_count commits, $file_count files changed
    - PRs included: #1270, #1275, #1278
-   - 🔗 Compare: https://github.com/OneKeyHQ/app-monorepo/compare/def5678...release/v5.20.0
+   - 🔗 Compare: $compare_url
 
-📋 Content on x not in this release:
-   - 12 commits without 'release-ready' label (expected)
-   - 1 commit with 'release-ready' label pending ⚠️
-   - 🔗 Compare: https://github.com/OneKeyHQ/app-monorepo/compare/release/v5.20.0...x
+ℹ️  Sync status: $unsync_count commit(s) pending sync to x
 
 Conclusion: ✅ Ready for /1k-bundle-release publish
-```
-
-Or if issues found:
-
-```
-Conclusion: ❌ Issues found — resolve before publishing
-  - Subset check failed (2 commits need reverse cherry-pick to x)
-  - 1 labeled PR not cherry-picked (#1280)
 ```

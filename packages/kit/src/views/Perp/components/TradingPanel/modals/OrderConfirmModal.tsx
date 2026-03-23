@@ -84,15 +84,19 @@ function OrderConfirmContent({
     if (!isTriggerMode) return null;
     switch (formData.triggerOrderType) {
       case ETriggerOrderType.TRIGGER_MARKET:
-        return 'Trigger Market';
+        return intl.formatMessage({
+          id: ETranslations.perp_order_trigger_market,
+        });
       case ETriggerOrderType.TRIGGER_LIMIT:
-        return 'Trigger Limit';
+        return intl.formatMessage({
+          id: ETranslations.perp_order_trigger_limit,
+        });
       default:
         return null;
     }
-  }, [isTriggerMode, formData.triggerOrderType]);
+  }, [isTriggerMode, formData.triggerOrderType, intl]);
 
-  const inferredTpslBadge = useMemo(() => {
+  const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
     const triggerPriceBN = new BigNumber(formData.triggerPrice);
     if (
@@ -231,7 +235,7 @@ function OrderConfirmContent({
           {triggerTypeLabel ? (
             <SizableText size="$bodyMdMedium" color={actionColor}>
               {triggerTypeLabel}
-              {inferredTpslBadge ? ` (${inferredTpslBadge})` : ''} /{' '}
+              {' /'}{' '}
               {intl.formatMessage({
                 id:
                   effectiveSide === 'long'
