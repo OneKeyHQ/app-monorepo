@@ -702,15 +702,28 @@ export interface IEarnTextTooltip {
   data: {
     title?: IEarnText;
     description: IEarnText;
-    items?: {
-      title: IEarnText;
-      description: IEarnText;
-      logo?: {
-        logoURI: string;
-        color: string;
-        percentage: string;
-      };
-    }[];
+    items?: IEarnTooltipComparisonItem[];
+  };
+}
+
+export interface IEarnTooltipComparisonItem {
+  title: IEarnText;
+  description: IEarnText;
+  logo?: {
+    logoURI: string;
+    color?: string;
+    percentage?: string;
+  };
+  color?: string;
+  value?: string;
+}
+
+export interface IEarnFeeComparisonTooltip {
+  type: 'feeComparison';
+  data: {
+    title?: IEarnText;
+    description: IEarnText;
+    items?: IEarnTooltipComparisonItem[];
   };
 }
 
@@ -754,6 +767,7 @@ export interface IEarnRebateDetailsTooltip {
 
 export type IEarnTooltip =
   | IEarnTextTooltip
+  | IEarnFeeComparisonTooltip
   | IEarnRebateTooltip
   | IEarnWithdrawTooltip
   | IEarnRebateDetailsTooltip;
@@ -2467,7 +2481,13 @@ export interface IBorrowTransactionConfirmation {
   slippage?: {
     title: IEarnText;
     description: IEarnText;
+    tooltip?: IEarnTooltip;
     value: number;
+  };
+  fee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
   };
 }
 

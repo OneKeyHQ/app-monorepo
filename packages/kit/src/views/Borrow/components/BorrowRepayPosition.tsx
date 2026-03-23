@@ -27,6 +27,7 @@ import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingD
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { StakingAmountInput } from '@onekeyhq/kit/src/views/Staking/components/StakingAmountInput';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,6 +37,7 @@ import type {
   IBorrowTransactionConfirmation,
   ICheckAmountAlert,
   IEarnText,
+  IEarnTooltip,
   IRepayWithCollateralQuote,
 } from '@onekeyhq/shared/types/staking';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -94,6 +96,21 @@ type IRepayMode = 'wallet' | 'collateral';
 
 const ARROW_OVERLAY_OFFSET = -13;
 const ENABLE_COLLATERAL_REPAY_ENTRY = true;
+
+function BorrowInfoTitle({
+  title,
+  tooltip,
+}: {
+  title: IEarnText;
+  tooltip?: IEarnTooltip;
+}) {
+  return (
+    <XStack ai="center" gap="$1.5">
+      <EarnText text={title} color="$textSubdued" size="$bodyMd" />
+      <EarnTooltip tooltip={tooltip} />
+    </XStack>
+  );
+}
 
 function CollateralSelectContent({
   assets,
@@ -1019,9 +1036,18 @@ function RepayWithCollateralForm({
             ) : null}
 
             <BorrowInfoItem
-              title={intl.formatMessage({
-                id: ETranslations.slippage_tolerance_title,
-              })}
+              title={
+                <BorrowInfoTitle
+                  title={
+                    transactionConfirmation?.slippage?.title ?? {
+                      text: intl.formatMessage({
+                        id: ETranslations.slippage_tolerance_title,
+                      }),
+                    }
+                  }
+                  tooltip={transactionConfirmation?.slippage?.tooltip}
+                />
+              }
             >
               <XStack
                 alignItems="center"
@@ -1039,6 +1065,21 @@ function RepayWithCollateralForm({
                 />
               </XStack>
             </BorrowInfoItem>
+
+            {transactionConfirmation?.fee?.description?.text ? (
+              <BorrowInfoItem
+                title={
+                  <BorrowInfoTitle
+                    title={transactionConfirmation.fee.title}
+                    tooltip={transactionConfirmation.fee.tooltip}
+                  />
+                }
+              >
+                <SizableText size="$bodyMdMedium">
+                  {transactionConfirmation.fee.description.text}
+                </SizableText>
+              </BorrowInfoItem>
+            ) : null}
           </YStack>
         </YStack>
       </StakingFormWrapper>
