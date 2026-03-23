@@ -280,6 +280,7 @@ jobs:
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: Validate MAS for Testflight
+        if: ${{ !github.event.workflow_run || github.event.workflow_run.name == 'daily-build' }}
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -289,6 +290,7 @@ jobs:
           xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: Upload MAS to Testflight
+        if: ${{ !github.event.workflow_run || github.event.workflow_run.name == 'daily-build' }}
         continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
@@ -631,7 +633,7 @@ jobs:
             ./apps/desktop/build-electron/*.snap
 
       - name: Upload Snap to Snap Store
-        if: ${{ github.event.workflow_run }}
+        if: ${{ github.event.workflow_run && github.event.workflow_run.name == 'daily-build' }}
         continue-on-error: true
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
@@ -662,5 +664,5 @@ jobs:
           artifact-version-name: '${{ needs.renderer.outputs.build_app_version }}@${{ needs.renderer.outputs.build_number }}'
           artifact-version-code: '${{ needs.renderer.outputs.build_number }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-skip-gpg: '${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || false }}'
           artifact-bundle-version: '${{ needs.renderer.outputs.build_bundle_version }}'
