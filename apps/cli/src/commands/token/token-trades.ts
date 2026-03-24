@@ -9,6 +9,8 @@ import type { Command } from 'commander';
 interface ITokenDetailPayload {
   symbol: string;
   address: string;
+  networkId?: string;
+  isNative?: boolean;
   trade1mCount?: string;
   trade5mCount?: string;
   trade1hCount?: string;
@@ -50,10 +52,57 @@ interface ITokenDetailResponse {
   token: ITokenDetailPayload;
 }
 
+const STAT_FIELDS: readonly (keyof ITokenDetailPayload)[] = [
+  'trade1mCount',
+  'trade5mCount',
+  'trade1hCount',
+  'trade4hCount',
+  'trade24hCount',
+  'buy1mCount',
+  'buy5mCount',
+  'buy1hCount',
+  'buy4hCount',
+  'buy24hCount',
+  'sell1mCount',
+  'sell5mCount',
+  'sell1hCount',
+  'sell4hCount',
+  'sell24hCount',
+  'volume1m',
+  'volume5m',
+  'volume1h',
+  'volume4h',
+  'volume24h',
+  'vBuy1m',
+  'vBuy5m',
+  'vBuy1h',
+  'vBuy4h',
+  'vBuy24h',
+  'vSell1m',
+  'vSell5m',
+  'vSell1h',
+  'vSell4h',
+  'vSell24h',
+  'uniqueWallet1m',
+  'uniqueWallet5m',
+  'uniqueWallet1h',
+  'uniqueWallet4h',
+  'uniqueWallet24h',
+];
+
 function isValidTokenDetail(v: unknown): v is ITokenDetailPayload {
   if (typeof v !== 'object' || v === null) return false;
   const r = v as Record<string, unknown>;
-  return typeof r.symbol === 'string' && typeof r.address === 'string';
+  if (typeof r.symbol !== 'string' || typeof r.address !== 'string') {
+    return false;
+  }
+  for (const key of STAT_FIELDS) {
+    const val = r[key];
+    if (val !== undefined && val !== null && typeof val !== 'string') {
+      return false;
+    }
+  }
+  return true;
 }
 
 function buildTimeframeStat(
@@ -129,7 +178,7 @@ export function registerTokenTradesCommand(parent: Command): void {
         if (!isValidTokenDetail(t)) {
           throw new AppError(
             ERROR_CODES.NET_HTTP_ERROR.code,
-            'Malformed token detail response: missing required fields',
+            'Malformed token detail response: missing required fields or invalid stat field types',
             'This may indicate an API contract change — check connectivity',
           );
         }
@@ -141,6 +190,22 @@ export function registerTokenTradesCommand(parent: Command): void {
           throw new AppError(
             ERROR_CODES.NET_HTTP_ERROR.code,
             `Token address mismatch: requested ${resolved.contractAddress} but got ${t.address}`,
+            'API may have returned data for a different token',
+          );
+        }
+
+        if (t.networkId && t.networkId !== resolved.networkId) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            `Network mismatch: requested ${resolved.networkId} but got ${t.networkId}`,
+            'API may have returned data for a different network',
+          );
+        }
+
+        if (resolved.isNative && t.isNative === false) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            'Expected native token but API returned a non-native token',
             'API may have returned data for a different token',
           );
         }
