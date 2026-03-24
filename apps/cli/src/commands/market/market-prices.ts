@@ -140,6 +140,13 @@ export function registerMarketPricesCommand(parent: Command): void {
               'API may have returned data for a different token',
             );
           }
+          if (req.isNative && item.isNative !== true) {
+            throw new AppError(
+              ERROR_CODES.NET_HTTP_ERROR.code,
+              `Batch item ${index}: expected native token but API did not confirm isNative=true`,
+              'API may have returned data for a different token',
+            );
+          }
           if (
             !req.isNative &&
             item.address.toLowerCase() !== req.contractAddress.toLowerCase()
