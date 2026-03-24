@@ -464,7 +464,7 @@ function buildSlackPayload(model) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: escapeMrkdwn(model.summary),
+        text: escapeMrkdwn(model.summary).slice(0, 2900),
       },
     },
   ];
@@ -569,9 +569,12 @@ function buildPerfAlertModel({
     failed: `❌ [P1] 任务失败 | ${targetLabel}`,
     recovered: `✅ [INFO] 已恢复 | ${targetLabel}`,
   };
+  const failedErrorSnippet = errorMessage
+    ? String(errorMessage).split('\n').find(Boolean) || String(errorMessage)
+    : '未提供错误详情';
   const summaryMap = {
     regression: buildRegressionSummary(metricDetails),
-    failed: `任务执行失败，${errorMessage || '未提供错误详情'}。`,
+    failed: `任务执行失败，${failedErrorSnippet.slice(0, 200)}。`,
     recovered: buildRecoverySummary(metricDetails, previousState),
   };
 
