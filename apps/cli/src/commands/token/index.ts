@@ -1,3 +1,4 @@
+import { registerTokenInfoCommand } from './token-info';
 import { registerTokenSearchCommand } from './token-search';
 
 import type { Command } from 'commander';
@@ -8,4 +9,5 @@ export function registerTokenCommands(program: Command) {
     .description('Token discovery and analysis');
 
   registerTokenSearchCommand(token);
+  registerTokenInfoCommand(token);
 }

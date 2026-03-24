@@ -62,7 +62,28 @@ describe('token commands (integration)', () => {
     expect(parsed.data).toEqual([]);
   });
 
-  it.todo('token info returns token details');
+  it('token info returns token details', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'token',
+      'info',
+      '--chain',
+      'eth',
+      '--token',
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(parsed.data.symbol).toMatch(/USDC/i);
+    expect(parsed.data.decimals).toBe(6);
+    expect(parsed.data.price).toBeTruthy();
+    expect(parsed.data.networkId).toBe('evm--1');
+    expect(parsed.data.contractAddress).toBe(
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    );
+  });
   it.todo('token price returns price and changes');
   it.todo('token trending returns trending list');
   it.todo('token trades returns trade stats');

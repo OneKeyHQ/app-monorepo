@@ -204,7 +204,9 @@ section_token() {
   echo "--- Token commands ---"
   check_json "token search --query USDC" "success" \
     "$BIN" --json --env test token search --query USDC
-  skip "token info --chain eth --token 0xA0b8..."
+  check_json "token info --chain eth --token USDC" "success" \
+    "$BIN" --json --env test token info --chain eth \
+    --token 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
   skip "token price --chain eth --token 0xA0b8..."
   skip "token trending"
   skip "token trades --chain eth --token 0xA0b8..."
