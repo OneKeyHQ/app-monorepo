@@ -445,6 +445,7 @@ jobs:
           yarn install-app-deps
 
       - name: 'Package Windows NSIS'
+        id: phase1_nsis
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -458,6 +459,7 @@ jobs:
           npx electron-builder build -w --config electron-builder-win.config.js --publish never
 
       - name: Upload x64 Windows exe
+        if: steps.phase1_nsis.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -465,6 +467,7 @@ jobs:
             ./apps/desktop/build-electron/*-x64.exe
 
       - name: Upload arm64 Windows exe
+        if: steps.phase1_nsis.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -472,19 +475,37 @@ jobs:
             ./apps/desktop/build-electron/*-arm64.exe
 
       - name: Upload Windows autoupdate metadata
+        if: steps.phase1_nsis.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
 
+      - name: 'Notify to Slack - Win NSIS'
+        if: always() && github.event_name == 'workflow_run' && steps.phase1_nsis.outcome == 'success'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Win
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
       # ── Phase 2: Windows Microsoft Store ──
 
       - name: Clean build-electron for WinMS
+        if: always()
         shell: pwsh
         run: Remove-Item -Recurse -Force apps/desktop/build-electron -ErrorAction SilentlyContinue
 
       - name: 'Rebuild Main Process (winms, DESK_CHANNEL=ms-store)'
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           DESK_CHANNEL: ms-store
@@ -493,6 +514,8 @@ jobs:
           yarn build:main
 
       - name: 'Package Windows Microsoft Store'
+        id: phase2_winms
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -507,6 +530,7 @@ jobs:
           npx electron-builder build -w --config electron-builder-ms.config.js --publish never
 
       - name: Upload WinMS exe
+        if: always() && steps.phase2_winms.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -514,6 +538,29 @@ jobs:
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
             !./apps/desktop/build-electron/*-arm64.exe
+
+      - name: 'Notify to Slack - WinMS'
+        if: always() && github.event_name == 'workflow_run' && steps.phase2_winms.outcome == 'success'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Win-Store
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
+      - name: Fail if any phase failed
+        if: always()
+        shell: bash
+        run: |
+          [[ "${{ steps.phase1_nsis.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_winms.outcome }}" == "failure" ]] && exit 1
+          exit 0
 
   # ═══════════════════════════════════════════════════
   # Linux runner: AppImage + Snap (amd64 + arm64)
