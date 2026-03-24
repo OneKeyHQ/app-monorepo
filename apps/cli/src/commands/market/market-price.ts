@@ -9,6 +9,7 @@ import type { Command } from 'commander';
 interface ITokenDetailPayload {
   symbol: string;
   address: string;
+  isNative?: boolean;
   price?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
@@ -89,6 +90,14 @@ export function registerMarketPriceCommand(parent: Command): void {
           throw new AppError(
             ERROR_CODES.NET_HTTP_ERROR.code,
             `Token address mismatch: requested ${resolved.contractAddress} but got ${t.address}`,
+            'API may have returned data for a different token',
+          );
+        }
+
+        if (resolved.isNative && t.isNative === false) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            'Expected native token but API returned a non-native token',
             'API may have returned data for a different token',
           );
         }

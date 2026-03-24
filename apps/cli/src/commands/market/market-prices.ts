@@ -114,6 +114,14 @@ export function registerMarketPricesCommand(parent: Command): void {
           );
         }
 
+        if (result.list.length !== tokenAddressList.length) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            `Batch response length mismatch: requested ${tokenAddressList.length} tokens but got ${result.list.length}`,
+            'API may have dropped or duplicated tokens — check parameters',
+          );
+        }
+
         const data = result.list.map((item, index) => {
           if (!isValidBatchItem(item)) {
             throw new AppError(
@@ -122,10 +130,31 @@ export function registerMarketPricesCommand(parent: Command): void {
               'This may indicate an API contract change — check connectivity',
             );
           }
+
+          const req = tokenAddressList[index];
+          const returnedNetwork = item.networkId ?? '';
+          if (returnedNetwork && returnedNetwork !== req.chainId) {
+            throw new AppError(
+              ERROR_CODES.NET_HTTP_ERROR.code,
+              `Batch item ${index} network mismatch: requested ${req.chainId} but got ${returnedNetwork}`,
+              'API may have returned data for a different token',
+            );
+          }
+          if (
+            !req.isNative &&
+            item.address.toLowerCase() !== req.contractAddress.toLowerCase()
+          ) {
+            throw new AppError(
+              ERROR_CODES.NET_HTTP_ERROR.code,
+              `Batch item ${index} address mismatch: requested ${req.contractAddress} but got ${item.address}`,
+              'API may have returned data for a different token',
+            );
+          }
+
           return {
             symbol: item.symbol,
             contractAddress: item.address,
-            networkId: item.networkId ?? tokenAddressList[index].chainId,
+            networkId: item.networkId ?? req.chainId,
             price: item.price ?? null,
             priceChange24hPercent: item.priceChange24hPercent ?? null,
           };
