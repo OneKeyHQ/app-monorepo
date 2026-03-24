@@ -1856,6 +1856,27 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getPortfolioHistory({ address }: { address: string }) {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.portfolio({ user: address as IHex });
+  }
+
+  @backgroundMethod()
+  async getPortfolioNetDeposits({
+    address,
+    startTime,
+  }: {
+    address: string;
+    startTime: number;
+  }) {
+    const { infoClient } = hyperLiquidApiClients;
+    return infoClient.userNonFundingLedgerUpdates({
+      user: address as IHex,
+      startTime,
+    });
+  }
+
+  @backgroundMethod()
   async setTradingviewDisplayPriceScale({
     symbol,
     priceScale,
