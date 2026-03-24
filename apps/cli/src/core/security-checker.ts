@@ -17,6 +17,19 @@ export interface IAuditSummary {
 
 const HONEYPOT_KEYS = new Set(['is_honeypot', 'cannot_buy', 'cannot_sell_all']);
 
+const VALID_RISK_TYPES = new Set(['safe', 'caution', 'normal', 'risk']);
+
+function isValidSecurityItem(v: unknown): v is ISecurityItem {
+  if (typeof v !== 'object' || v === null) return false;
+  const r = v as Record<string, unknown>;
+  return (
+    'value' in r &&
+    typeof r.content === 'string' &&
+    typeof r.riskType === 'string' &&
+    VALID_RISK_TYPES.has(r.riskType)
+  );
+}
+
 function isTruthy(value: boolean | number | string): boolean {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
@@ -47,9 +60,16 @@ export async function auditToken(
   }
 
   const riskItems: string[] = [];
-  for (const [key, item] of Object.entries(data)) {
-    if (item.riskType === 'risk') riskItems.push(key);
-    if (HONEYPOT_KEYS.has(key) && isTruthy(item.value)) riskItems.push(key);
+  for (const [key, raw] of Object.entries(data)) {
+    if (!isValidSecurityItem(raw)) {
+      throw new AppError(
+        ERROR_CODES.NET_HTTP_ERROR.code,
+        `Malformed security item for key "${key}": missing value/content/riskType`,
+        'This may indicate an API contract change',
+      );
+    }
+    if (raw.riskType === 'risk') riskItems.push(key);
+    if (HONEYPOT_KEYS.has(key) && isTruthy(raw.value)) riskItems.push(key);
   }
 
   return {

@@ -1,7 +1,10 @@
 import { CHAINS } from '../../config';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
-import { amountToSmallestUnit } from '../../utils/tx-utils';
+import {
+  amountToSmallestUnit,
+  validateAmountDecimals,
+} from '../../utils/tx-utils';
 
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
@@ -87,6 +90,7 @@ export function registerSecuritySimulateCommand(parent: Command): void {
                 'Provide a valid amount (e.g., 0.1)',
               );
             }
+            validateAmountDecimals(options.value, chainConfig.nativeDecimals);
             const wei = amountToSmallestUnit(
               options.value,
               chainConfig.nativeDecimals,
