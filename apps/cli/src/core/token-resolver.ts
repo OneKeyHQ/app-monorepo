@@ -4,6 +4,9 @@ import { apiClient } from '../infra';
 
 import type { IResolvedToken } from '../types';
 
+/** Valid EVM address: 0x followed by exactly 40 hex characters */
+const EVM_ADDRESS_RE = /^0x[a-f0-9]{40}$/i;
+
 /** V2 Market Search API raw response item — aligned with IMarketSearchV2Token */
 interface IMarketSearchItem {
   name: string;
@@ -20,6 +23,17 @@ interface IMarketSearchItem {
   marketCap?: string;
   priceChange24hPercent?: string;
   communityRecognized?: boolean;
+}
+
+function isValidSearchItem(item: unknown): item is IMarketSearchItem {
+  if (typeof item !== 'object' || item === null) return false;
+  const r = item as Record<string, unknown>;
+  return (
+    typeof r.symbol === 'string' &&
+    typeof r.address === 'string' &&
+    typeof r.network === 'string' &&
+    typeof r.decimals === 'number'
+  );
 }
 
 function buildDegradedResult(
@@ -65,6 +79,24 @@ function mapSearchItemToResolved(
 }
 
 /**
+ * Pick the best match from candidates: prefer communityRecognized, then highest liquidity.
+ */
+function pickBestMatch(candidates: IMarketSearchItem[]): IMarketSearchItem {
+  if (candidates.length === 1) return candidates[0];
+  const sorted = candidates.toSorted((a, b) => {
+    // communityRecognized first
+    const aRec = a.communityRecognized ? 1 : 0;
+    const bRec = b.communityRecognized ? 1 : 0;
+    if (bRec !== aRec) return bRec - aRec;
+    // then by liquidity descending
+    const aLiq = parseFloat(a.liquidity) || 0;
+    const bLiq = parseFloat(b.liquidity) || 0;
+    return bLiq - aLiq;
+  });
+  return sorted[0];
+}
+
+/**
  * Search V2 market API and resolve to IResolvedToken.
  * Contract address input gets graceful degradation on API failure.
  * Symbol input throws BIZ_TOKEN_NOT_FOUND on no match.
@@ -73,11 +105,11 @@ async function searchAndResolve(
   input: string,
   networkId: string,
 ): Promise<IResolvedToken> {
-  const isContractAddress = input.startsWith('0x');
+  const isContractAddress = EVM_ADDRESS_RE.test(input);
 
-  let results: IMarketSearchItem[];
+  let rawResults: unknown;
   try {
-    results = await apiClient.get<IMarketSearchItem[]>(
+    rawResults = await apiClient.get<unknown>(
       'utility',
       '/utility/v2/market/search',
       { query: input },
@@ -89,19 +121,39 @@ async function searchAndResolve(
     throw error;
   }
 
-  // Filter by target networkId
-  const onChain = results.filter((t) => t.network === networkId);
-
-  // For contract address: match by address (case insensitive)
-  // For symbol: exact symbol match (case insensitive)
-  const match = isContractAddress
-    ? onChain.find((t) => t.address.toLowerCase() === input.toLowerCase())
-    : onChain.find((t) => t.symbol.toUpperCase() === input.toUpperCase());
-
-  if (!match) {
+  // Runtime validation: data must be an array with valid items
+  if (!Array.isArray(rawResults)) {
     if (isContractAddress) {
       return buildDegradedResult(input, networkId);
     }
+    throw new AppError(
+      ERROR_CODES.NET_HTTP_ERROR.code,
+      'Malformed V2 market search response: expected array',
+      'This may indicate an API contract change — check connectivity',
+    );
+  }
+
+  const results = rawResults.filter(isValidSearchItem);
+
+  // Filter by target networkId
+  const onChain = results.filter((t) => t.network === networkId);
+
+  if (isContractAddress) {
+    const addressMatches = onChain.filter(
+      (t) => t.address.toLowerCase() === input.toLowerCase(),
+    );
+    if (addressMatches.length === 0) {
+      return buildDegradedResult(input, networkId);
+    }
+    return mapSearchItemToResolved(pickBestMatch(addressMatches), networkId);
+  }
+
+  // Symbol search: exact symbol match (case insensitive)
+  const symbolMatches = onChain.filter(
+    (t) => t.symbol.toUpperCase() === input.toUpperCase(),
+  );
+
+  if (symbolMatches.length === 0) {
     throw new AppError(
       ERROR_CODES.BIZ_TOKEN_NOT_FOUND.code,
       `Token "${input}" not found on network ${networkId}`,
@@ -109,7 +161,7 @@ async function searchAndResolve(
     );
   }
 
-  return mapSearchItemToResolved(match, networkId);
+  return mapSearchItemToResolved(pickBestMatch(symbolMatches), networkId);
 }
 
 /**
@@ -153,6 +205,8 @@ export async function resolveToken(
     };
   }
 
-  // Path 2 + 3: Both contract address and symbol use the same V2 search API
+  // Path 2: Valid EVM contract address → search API with graceful degradation
+  // Path 3: Symbol text → search API, no fallback
+  // Invalid 0x prefix (not a valid EVM address) is treated as symbol search
   return searchAndResolve(input, networkId);
 }

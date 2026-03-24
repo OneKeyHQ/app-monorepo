@@ -233,4 +233,120 @@ describe('token-resolver', () => {
     mockGet.mockRejectedValueOnce(new Error('API down'));
     await expect(resolveToken('USDT', 'eth')).rejects.toThrow('API down');
   });
+
+  // --- P1 fixes: invalid 0x prefix, duplicate symbol, malformed response ---
+
+  it('treats invalid 0x prefix as symbol search (not contract address)', async () => {
+    // "0xabc" is not a valid 40-char hex address — should go through symbol path
+    mockGet.mockResolvedValueOnce([]);
+    await expect(resolveToken('0xabc', 'eth')).rejects.toMatchObject({
+      code: ERROR_CODES.BIZ_TOKEN_NOT_FOUND.code,
+    });
+  });
+
+  it('prefers communityRecognized token when same symbol appears multiple times', async () => {
+    mockGet.mockResolvedValueOnce([
+      {
+        symbol: 'USDT',
+        address: '0xfake_usdt_scam_token_on_eth_not_recognized',
+        network: 'evm--1',
+        decimals: 18,
+        name: 'Fake USDT',
+        price: '0.9',
+        logoUrl: '',
+        isNative: false,
+        liquidity: '50000',
+        communityRecognized: false,
+      },
+      {
+        symbol: 'USDT',
+        address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        network: 'evm--1',
+        decimals: 6,
+        name: 'Tether USD',
+        price: '1.0',
+        logoUrl: '',
+        isNative: false,
+        liquidity: '2000000',
+        communityRecognized: true,
+      },
+    ]);
+    const result = await resolveToken('USDT', 'eth');
+    expect(result.communityRecognized).toBe(true);
+    expect(result.decimals).toBe(6);
+    expect(result.contractAddress).toBe(
+      '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    );
+  });
+
+  it('picks highest liquidity when multiple communityRecognized tokens match', async () => {
+    mockGet.mockResolvedValueOnce([
+      {
+        symbol: 'TEST',
+        address: '0x1111111111111111111111111111111111111111',
+        network: 'evm--1',
+        decimals: 18,
+        name: 'Test A',
+        price: '1.0',
+        logoUrl: '',
+        isNative: false,
+        liquidity: '100',
+        communityRecognized: true,
+      },
+      {
+        symbol: 'TEST',
+        address: '0x2222222222222222222222222222222222222222',
+        network: 'evm--1',
+        decimals: 18,
+        name: 'Test B',
+        price: '1.0',
+        logoUrl: '',
+        isNative: false,
+        liquidity: '999999',
+        communityRecognized: true,
+      },
+    ]);
+    const result = await resolveToken('TEST', 'eth');
+    expect(result.contractAddress).toBe(
+      '0x2222222222222222222222222222222222222222',
+    );
+  });
+
+  it('throws NET_HTTP_ERROR when API returns non-array for symbol search', async () => {
+    mockGet.mockResolvedValueOnce('not an array');
+    await expect(resolveToken('USDT', 'eth')).rejects.toMatchObject({
+      code: ERROR_CODES.NET_HTTP_ERROR.code,
+    });
+  });
+
+  it('graceful degradation when API returns non-array for contract address', async () => {
+    mockGet.mockResolvedValueOnce({ unexpected: true });
+    const result = await resolveToken(
+      '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+      'eth',
+    );
+    expect(result.decimals).toBeNull();
+  });
+
+  it('filters out malformed items from API response', async () => {
+    mockGet.mockResolvedValueOnce([
+      { bad: 'item' },
+      null,
+      {
+        symbol: 'USDT',
+        address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        network: 'evm--1',
+        decimals: 6,
+        name: 'Tether USD',
+        price: '1.0',
+        logoUrl: '',
+        isNative: false,
+        liquidity: '2000',
+        communityRecognized: true,
+      },
+    ]);
+    const result = await resolveToken('USDT', 'eth');
+    expect(result.symbol).toBe('USDT');
+    expect(result.decimals).toBe(6);
+  });
 });
