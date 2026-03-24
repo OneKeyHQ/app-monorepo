@@ -35,6 +35,17 @@ interface ITokenDetailResponse {
   websocket?: { txs: boolean; kline: boolean };
 }
 
+function isValidTokenDetail(v: unknown): v is ITokenDetailPayload {
+  if (typeof v !== 'object' || v === null) return false;
+  const r = v as Record<string, unknown>;
+  return (
+    typeof r.symbol === 'string' &&
+    typeof r.name === 'string' &&
+    typeof r.decimals === 'number' &&
+    typeof r.address === 'string'
+  );
+}
+
 export function registerTokenInfoCommand(parent: Command): void {
   parent
     .command('info')
@@ -71,6 +82,14 @@ export function registerTokenInfoCommand(parent: Command): void {
         );
 
         const t = detail.token;
+
+        if (!isValidTokenDetail(t)) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            'Malformed token detail response: missing required fields',
+            'This may indicate an API contract change — check connectivity',
+          );
+        }
 
         output.success(
           {
