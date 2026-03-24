@@ -8,11 +8,9 @@ import {
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useIsModalPage, useIsOverlayPage } from '../../hocs';
 import { Spinner, Stack, View, YStack } from '../../primitives';
-import { rootNavigationRef } from '../Navigation';
 
 import { useIsIpadModalPage, useTabBarHeight } from './hooks';
 import {
@@ -97,31 +95,26 @@ function AbsoluteContainer({ children }: PropsWithChildren) {
   );
 }
 
-function LoadingScreen({
+// Loading screen for Android only. iOS modal pages use performWithoutAnimation
+// (patched in react-native) to prevent Fabric recycled-view frame animations,
+// so the loading overlay is no longer needed on iOS.
+function LoadingScreenAndroid({
   children,
   fullPage,
 }: PropsWithChildren<{ fullPage: boolean }>) {
   const [showLoading, changeLoadingVisibleStatus] = useState(true);
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
-  const isModalPage = useIsModalPage();
-  const isiOSModalPage = platformEnv.isNativeIOS && isModalPage;
 
   useEffect(() => {
-    setTimeout(
-      () => {
-        changeChildrenVisibleStatus(true);
-        setTimeout(
-          () => {
-            requestIdleCallback(() => {
-              changeLoadingVisibleStatus(false);
-            });
-          },
-          isiOSModalPage ? 380 : 150,
-        );
-      },
-      platformEnv.isNativeAndroid ? 10 : 0,
-    );
-  }, [isiOSModalPage]);
+    setTimeout(() => {
+      changeChildrenVisibleStatus(true);
+      setTimeout(() => {
+        requestIdleCallback(() => {
+          changeLoadingVisibleStatus(false);
+        });
+      }, 150);
+    }, 10);
+  }, []);
 
   const minHeight = useMinHeight(fullPage);
   return (
@@ -138,54 +131,24 @@ function LoadingScreen({
   );
 }
 
-const AbsoluteLoadingContainer = platformEnv.isNativeIOS
-  ? ({ children }: PropsWithChildren) => {
-      const [showLoading, changeLoadingVisibleStatus] = useState(true);
-      const [showChildren, changeChildrenVisibleStatus] = useState(false);
-      const isModalPage = useIsModalPage();
-      const shouldShowLoading = useMemo(() => {
-        if (!isModalPage) {
-          return false;
-        }
-        const rootState = rootNavigationRef.current?.getRootState();
-        const modalRoute = rootState?.routes[rootState.index];
-        if (modalRoute?.name !== ERootRoutes.Modal) {
-          return false;
-        }
+function LoadingScreen({
+  children,
+  fullPage,
+}: PropsWithChildren<{ fullPage: boolean }>) {
+  // iOS: skip loading overlay — performWithoutAnimation fix handles animation artifacts
+  if (platformEnv.isNativeIOS) {
+    return <>{children}</>;
+  }
 
-        // The first modal page pushed hasn't generated its own navigation state yet,
-        // so we show blank loading for a smoother transition animation.
-        if (!modalRoute.state) {
-          return true;
-        }
-        // Pages within the modal's stack (index > 0) don't need blank loading,
-        // only the first modal page (index === 0) requires it.
-        if (modalRoute.state?.index === 0) {
-          return false;
-        }
-        return false;
-      }, [isModalPage]);
-      useEffect(() => {
-        setTimeout(() => {
-          changeChildrenVisibleStatus(true);
-          setTimeout(() => {
-            requestIdleCallback(() => {
-              changeLoadingVisibleStatus(false);
-            });
-          }, 380);
-        }, 1);
-      }, [isModalPage]);
+  return (
+    <LoadingScreenAndroid fullPage={fullPage}>{children}</LoadingScreenAndroid>
+  );
+}
 
-      return shouldShowLoading ? (
-        <>
-          {showChildren ? children : null}
-          {showLoading ? <AbsoluteContainer /> : null}
-        </>
-      ) : (
-        children
-      );
-    }
-  : ({ children }: PropsWithChildren) => children;
+// iOS: no longer needs loading container — performWithoutAnimation fix
+// prevents Fabric recycled-view frame animations during modal transitions.
+// Android: was already a passthrough.
+const AbsoluteLoadingContainer = ({ children }: PropsWithChildren) => children;
 
 export function BasicPage({
   children,
