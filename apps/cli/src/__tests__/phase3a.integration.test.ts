@@ -111,7 +111,30 @@ describe('token commands (integration)', () => {
     expect(parsed.data[0]).toHaveProperty('symbol');
     expect(parsed.data[0]).toHaveProperty('price');
   });
-  it.todo('token trades returns trade stats');
+  it('token trades returns trade stats', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'token',
+      'trades',
+      '--chain',
+      'eth',
+      '--token',
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(parsed.data).toHaveProperty('stats');
+    expect(parsed.data.stats).toHaveProperty('1m');
+    expect(parsed.data.stats).toHaveProperty('5m');
+    expect(parsed.data.stats).toHaveProperty('1h');
+    expect(parsed.data.stats).toHaveProperty('4h');
+    expect(parsed.data.stats).toHaveProperty('24h');
+    expect(parsed.data.stats['24h']).toHaveProperty('trades');
+    expect(parsed.data.stats['24h']).toHaveProperty('volume');
+    expect(parsed.data.stats['24h']).toHaveProperty('uniqueWallets');
+  });
   it.todo('token liquidity returns top holders');
 });
 
