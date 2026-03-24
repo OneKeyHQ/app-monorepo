@@ -33,7 +33,7 @@ export function makeModalOpenAnimationOptions(info: {
 }): IStackNavigationOptions {
   if (platformEnv.isNativeIOS) {
     return {
-      animation: 'slide_from_bottom',
+      animation: 'default',
     };
   }
 
@@ -114,8 +114,7 @@ export function makeModalScreenOptions(info: {
 }): IStackNavigationOptions {
   return {
     headerShown: false,
-    // presentation: platformEnv.isNativeIOS ? 'modal' : 'transparentModal',
-    presentation: 'modal',
+    presentation: platformEnv.isNativeIOS ? 'pageSheet' : 'modal',
     ...makeModalOpenAnimationOptions(info),
   };
 }

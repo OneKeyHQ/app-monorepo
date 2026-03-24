@@ -76,7 +76,11 @@ function ListPage() {
           error={Boolean(!isLoading && !result)}
           unsafe={result?.isSafe === false}
         >
-          <AddressBookListContent items={result?.items ?? []} showActions />
+          <AddressBookListContent
+            items={result?.items ?? []}
+            showActions
+            hideEmptyAddButton={!gtMd}
+          />
         </ContentContainer>
       </Page.Body>
       {gtMd ? null : (

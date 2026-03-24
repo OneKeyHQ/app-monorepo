@@ -25,6 +25,7 @@ export const AddressBookSectionList: FC<IAddressBookSectionListProps> = ({
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListEmptyComponent={ListEmptyComponent}
+      contentContainerStyle={{ flexGrow: 1 }}
       keyExtractor={keyExtractor as any}
       windowSize={40}
       ListFooterComponent={<YStack h={bottom || '$3'} />}

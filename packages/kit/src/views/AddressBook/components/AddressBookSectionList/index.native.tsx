@@ -20,6 +20,7 @@ export const AddressBookSectionList: FC<IAddressBookSectionListProps> = ({
     renderItem={renderItem}
     renderSectionHeader={renderSectionHeader}
     ListEmptyComponent={ListEmptyComponent}
+    contentContainerStyle={{ flexGrow: 1 }}
     SectionSeparatorComponent={null}
     keyExtractor={keyExtractor as any}
   />
