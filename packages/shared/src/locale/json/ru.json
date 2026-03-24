@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "ПТ {symbol} Ценить",
   "defi.redeemable": "Выкупаемый",
   "defi.refundable_fee": "Возвращаемый сбор",
+  "defi.refundable_setup_fee": "Возвращаемая комиссия за настройку",
   "defi.repay": "Погасить",
   "defi.reserve_info": "Инфо резерва",
   "defi.reserve_size": "Размер резерва",

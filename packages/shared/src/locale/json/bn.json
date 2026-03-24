@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} মূল্য",
   "defi.redeemable": "খালাসযোগ্য",
   "defi.refundable_fee": "ফেরতযোগ্য ফি",
+  "defi.refundable_setup_fee": "ফেরতযোগ্য সেটআপ ফি",
   "defi.repay": "পরিশোধ করা",
   "defi.reserve_info": "মজুদ তথ্য",
   "defi.reserve_size": "রিজার্ভ আকার",

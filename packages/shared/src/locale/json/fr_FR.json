@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} Valeur",
   "defi.redeemable": "Rachetable",
   "defi.refundable_fee": "Frais remboursables",
+  "defi.refundable_setup_fee": "Frais de configuration remboursables",
   "defi.repay": "Rembourser",
   "defi.reserve_info": "Reserve Info",
   "defi.reserve_size": "Taille de la réserve",

@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} Giá trị",
   "defi.redeemable": "Có thể đổi được",
   "defi.refundable_fee": "Phí hoàn lại",
+  "defi.refundable_setup_fee": "Phí thiết lập có thể hoàn lại",
   "defi.repay": "Hoàn trả",
   "defi.reserve_info": "TT Dự trữ",
   "defi.reserve_size": "Kích thước dự trữ",

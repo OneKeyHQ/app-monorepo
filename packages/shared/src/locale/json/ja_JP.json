@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} 価値",
   "defi.redeemable": "償還可能",
   "defi.refundable_fee": "返金可能な手数料",
+  "defi.refundable_setup_fee": "返金可能なセットアップ手数料",
   "defi.repay": "返済",
   "defi.reserve_info": "在庫情報",
   "defi.reserve_size": "準備規模",

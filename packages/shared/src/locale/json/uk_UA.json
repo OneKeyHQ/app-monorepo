@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} Значення",
   "defi.redeemable": "Викупний",
   "defi.refundable_fee": "Поворотна плата",
+  "defi.refundable_setup_fee": "Поверненна комісія за налаштування",
   "defi.repay": "Погасити",
   "defi.reserve_info": "Інфо резерву",
   "defi.reserve_size": "Розмір резерву",

@@ -585,6 +585,7 @@
   defi_pt_symbol_price = 'defi.pt_symbol_price',
   defi_redeemable = 'defi.redeemable',
   defi_refundable_fee = 'defi.refundable_fee',
+  defi_refundable_setup_fee = 'defi.refundable_setup_fee',
   defi_repay = 'defi.repay',
   defi_reserve_info = 'defi.reserve_info',
   defi_reserve_size = 'defi.reserve_size',

@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} Wert",
   "defi.redeemable": "Einlösbar",
   "defi.refundable_fee": "Rückzahlbare Gebühr",
+  "defi.refundable_setup_fee": "Erstattungsfähige Einrichtungsgebühr",
   "defi.repay": "Zurückzahlen",
   "defi.reserve_info": "Reserve Info",
   "defi.reserve_size": "Reservegröße",

@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} Value",
   "defi.redeemable": "Redeemable",
   "defi.refundable_fee": "Refundable Fee",
+  "defi.refundable_setup_fee": "Refundable setup fee",
   "defi.repay": "Repay",
   "defi.reserve_info": "Reserve Info",
   "defi.reserve_size": "Reserve size",

@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} ค่า",
   "defi.redeemable": "แลกคืนได้",
   "defi.refundable_fee": "ค่าธรรมเนียมที่ขอคืนได้",
+  "defi.refundable_setup_fee": "ค่าธรรมเนียมการตั้งค่าที่สามารถขอคืนได้",
   "defi.repay": "ชำระคืน",
   "defi.reserve_info": "สต๊อกข้อมูล",
   "defi.reserve_size": "ขนาดสำรอง",

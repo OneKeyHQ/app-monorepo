@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} कीमत",
   "defi.redeemable": "प्रतिदेय",
   "defi.refundable_fee": "वापसी योग्य शुल्क",
+  "defi.refundable_setup_fee": "वापसी योग्य सेटअप शुल्क",
   "defi.repay": "चुकाना",
   "defi.reserve_info": "भंडारण जानकारी",
   "defi.reserve_size": "आरक्षित आकार",

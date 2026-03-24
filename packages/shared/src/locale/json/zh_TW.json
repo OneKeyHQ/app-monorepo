@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} 價值",
   "defi.redeemable": "可贖回",
   "defi.refundable_fee": "可退還費用",
+  "defi.refundable_setup_fee": "可退還的設置費用",
   "defi.repay": "償還",
   "defi.reserve_info": "資金池詳情",
   "defi.reserve_size": "儲備規模",

@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} 값",
   "defi.redeemable": "상환 가능",
   "defi.refundable_fee": "환불 가능한 수수료",
+  "defi.refundable_setup_fee": "환불 가능한 설정 수수료",
   "defi.repay": "갚다",
   "defi.reserve_info": "재고 정보",
   "defi.reserve_size": "준비금 규모",

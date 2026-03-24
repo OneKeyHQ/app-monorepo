@@ -580,6 +580,7 @@
   "defi.pt_symbol_price": "PT {symbol} Nilai",
   "defi.redeemable": "Dapat Ditebus",
   "defi.refundable_fee": "Biaya yang Dapat Dikembalikan",
+  "defi.refundable_setup_fee": "Biaya pengaturan yang dapat dikembalikan",
   "defi.repay": "Bayar Kembali",
   "defi.reserve_info": "Informasi Stok",
   "defi.reserve_size": "Ukuran cadangan",
