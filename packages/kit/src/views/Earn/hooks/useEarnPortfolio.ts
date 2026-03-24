@@ -215,17 +215,24 @@ function normalizeAirdropInvestmentResult(
   params: Pick<IPortfolioFetchRequest, 'symbol' | 'vault'>,
   result: IEarnAirdropInvestmentItemV2,
 ): IFetchInvestmentResult {
+  const resolvedVault = result.protocol.vault || params.vault;
+  const normalizedProtocol = {
+    ...result.protocol,
+    symbol: params.symbol,
+    ...(resolvedVault ? { vault: resolvedVault } : {}),
+  };
+
   const key = createInvestmentKey({
     provider: result.protocol.providerDetail.code,
     symbol: params.symbol,
-    vault: result.protocol.vault || params.vault,
+    vault: resolvedVault,
     networkId: result.network.networkId,
   });
 
   const enrichedAirdropAssets = result.assets.map((asset) => ({
     ...asset,
     metadata: {
-      protocol: result.protocol,
+      protocol: normalizedProtocol,
       network: result.network,
     },
   }));
@@ -236,7 +243,7 @@ function normalizeAirdropInvestmentResult(
       totalFiatValue: '0',
       totalFiatValueUsd: '0',
       earnings24hFiatValue: '0',
-      protocol: { ...result.protocol, symbol: params.symbol },
+      protocol: normalizedProtocol,
       network: result.network,
       assets: [],
       airdropAssets: enrichedAirdropAssets,
