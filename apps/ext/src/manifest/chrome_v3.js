@@ -1,11 +1,11 @@
 const isDev = process.env.NODE_ENV !== 'production';
 
-const excludeMatches = require('../content-script/excludeMatches');
-
-const common = require('./common');
 const {
   KEYLESS_WEB_TAB_URL_PATTERNS,
 } = require('../../../../packages/shared/src/keylessWallet/keylessWebTabUrlPatterns');
+const excludeMatches = require('../content-script/excludeMatches');
+
+const common = require('./common');
 
 module.exports = {
   'manifest_version': 3,

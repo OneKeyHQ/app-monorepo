@@ -233,8 +233,12 @@ function buildRawDataSummary(
   }
 
   return {
-    title: rawDataJson.dataType,
-    details: [shortText(JSON.stringify(rawDataJson.payload), 24, 18)],
+    // @ts-ignore
+    title: rawDataJson?.dataType as string,
+    details: [
+      // @ts-ignore
+      shortText(JSON.stringify(rawDataJson?.payload as unknown), 24, 18),
+    ],
   };
 }
 
@@ -457,7 +461,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
       return filteredItems;
     }
 
-    return [...filteredItems].sort((a, b) => {
+    return [...filteredItems].toSorted((a, b) => {
       if (sortState.field === 'dataType') {
         const compareResult = a.dataType.localeCompare(b.dataType);
         return sortState.order === 'desc' ? -compareResult : compareResult;

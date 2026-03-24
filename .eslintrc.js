@@ -236,40 +236,42 @@ const tsRules = {
       'ignoreDeclarationSort': true,
     },
   ],
-  'import/order': [
-    'warn',
-    {
-      'groups': [
-        'builtin',
-        'internal',
-        'index',
-        'external',
-        'parent',
-        'sibling',
-        'object',
-        'type',
-      ],
-      'pathGroups': [
-        {
-          'pattern': 'react',
-          'group': 'builtin',
-          'position': 'before',
-        },
-        {
-          'pattern': '@onekeyhq/**',
-          'group': 'external',
-          'position': 'after',
-        },
-      ],
-      'alphabetize': {
-        'order': 'asc',
-        'caseInsensitive': true,
-      },
-      'newlines-between': 'always',
-      'pathGroupsExcludedImportTypes': ['builtin'],
-      'warnOnUnassignedImports': true,
-    },
-  ],
+  // Original config kept for reference:
+  // 'import/order': [
+  //   'warn',
+  //   {
+  //     'groups': [
+  //       'builtin',
+  //       'internal',
+  //       'index',
+  //       'external',
+  //       'parent',
+  //       'sibling',
+  //       'object',
+  //       'type',
+  //     ],
+  //     'pathGroups': [
+  //       {
+  //         'pattern': 'react',
+  //         'group': 'builtin',
+  //         'position': 'before',
+  //       },
+  //       {
+  //         'pattern': '@onekeyhq/**',
+  //         'group': 'external',
+  //         'position': 'after',
+  //       },
+  //     ],
+  //     'alphabetize': {
+  //       'order': 'asc',
+  //       'caseInsensitive': true,
+  //     },
+  //     'newlines-between': 'always',
+  //     'pathGroupsExcludedImportTypes': ['builtin'],
+  //     'warnOnUnassignedImports': true,
+  //   },
+  // ],
+  'import/order': 'off',
   'no-restricted-syntax': [
     'error',
     {

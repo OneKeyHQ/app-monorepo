@@ -1,5 +1,5 @@
-/* eslint-disable import/order, import-js/order */
 // eslint-disable-next-line import/order
+// oxlint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/polyfills/polyfillsExtContentScript';
 
 // inject css to dapp web
@@ -25,6 +25,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 // import { startKeepAlivePolling } from '../background/keepAlive';
+// oxlint-disable-next-line import-js/order
 import devToolsButton from '../content-script/devToolsButton';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -160,5 +161,4 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // oxlint-disable-next-line unicorn/require-module-specifiers, @typescript-eslint/no-useless-empty-export
-// oxlint-disable-next-line unicorn/require-module-specifiers oxlint-disable-next-line typescript/no-useless-empty-export
 export {};

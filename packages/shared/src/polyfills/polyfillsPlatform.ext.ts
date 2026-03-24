@@ -1,4 +1,5 @@
-/* eslint-disable import/order, import-js/order */
+/* oxlint-disable import-js/order */
+/* eslint-disable import/order */
 import 'core-js/es7/global';
 import 'globalthis';
 

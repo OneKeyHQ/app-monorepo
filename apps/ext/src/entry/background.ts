@@ -1,4 +1,5 @@
-/* eslint-disable import/order, import-js/order */
+/* oxlint-disable import-js/order */
+/* eslint-disable import/order */
 // fix missing setimmediate
 // eslint-disable-next-line import/order
 import 'setimmediate';
