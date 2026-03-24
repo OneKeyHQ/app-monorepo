@@ -29,6 +29,7 @@ export interface ILightweightChartConfig {
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScaleMargins?: { top: number; bottom: number };
   horzLineColor?: string;
   horzLineStyle?: number;
   priceFormatter?: (price: number) => string;
@@ -52,6 +53,7 @@ export interface ILightweightChartProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
   fontSize?: number;
   seriesType?: 'area' | 'baseline';

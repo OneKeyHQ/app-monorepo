@@ -82,6 +82,9 @@ export type IFill = HL.UserFillsResponse[number];
 export type IUserFees = HL.UserFeesResponse;
 export type IUserRole = HL.UserRoleResponse;
 export type IPortfolio = HL.PortfolioResponse;
+export type IPortfolioMetrics = IPortfolio[number][1];
+export type IUserNonFundingLedgerUpdatesResponse =
+  HL.UserNonFundingLedgerUpdatesResponse;
 export type IReferral = HL.ReferralResponse;
 
 // Request types
