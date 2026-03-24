@@ -779,30 +779,3 @@ jobs:
           [[ "${{ steps.phase1_appimage.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_snap.outcome }}" == "failure" ]] && exit 1
           exit 0
-
-  # ═══════════════════════════════════════════════════
-  # Notify: Send single Slack message after all platforms complete
-  # ═══════════════════════════════════════════════════
-  notify:
-    needs: [renderer, package-mac, package-win, package-linux]
-    if: ${{ github.event.workflow_run }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: 'Setup ENV'
-        run: |
-          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-
-      - name: 'Notify to Slack'
-        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
-        with:
-          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: Desktop
-          artifact-name: OneKey-Desktop-All
-          artifact-bundle-id: 'so.onekey.wallet.desktop'
-          artifact-version-name: '${{ needs.renderer.outputs.build_app_version }}@${{ needs.renderer.outputs.build_number }}'
-          artifact-version-code: '${{ needs.renderer.outputs.build_number }}'
-          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          artifact-skip-gpg: '${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || false }}'
-          artifact-bundle-version: '${{ needs.renderer.outputs.build_bundle_version }}'
