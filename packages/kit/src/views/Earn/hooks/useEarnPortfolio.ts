@@ -253,9 +253,11 @@ function normalizeInvestmentResult(
     // Use request vault as fallback (Pendle PT market address).
     requestVault: params.vault,
   });
-  const normalizedProtocol = resolvedProtocolVault
-    ? { ...result.protocol, vault: resolvedProtocolVault }
-    : result.protocol;
+  const normalizedProtocol = {
+    ...result.protocol,
+    ...(resolvedProtocolVault ? { vault: resolvedProtocolVault } : {}),
+    symbol: params.symbol,
+  };
 
   const key = createInvestmentKey({
     provider: result.protocol.providerDetail.code,
