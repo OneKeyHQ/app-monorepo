@@ -707,6 +707,20 @@ function AppDataSection() {
 export default function PagePrimeCloudSync() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const renderHeaderRight = useCallback(
+    () => (
+      <Button
+        variant="tertiary"
+        onPress={() => {
+          navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+        }}
+      >
+        Debug
+      </Button>
+    ),
+    [navigation],
+  );
+
   useEffect(() => {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
   }, []);
@@ -717,20 +731,7 @@ export default function PagePrimeCloudSync() {
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
         })}
-        headerRight={
-          platformEnv.isDev
-            ? () => (
-                <Button
-                  variant="tertiary"
-                  onPress={() => {
-                    navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-                  }}
-                >
-                  Debug
-                </Button>
-              )
-            : undefined
-        }
+        headerRight={platformEnv.isDev ? renderHeaderRight : undefined}
       />
       <Page.Body>
         <AppDataSection />
