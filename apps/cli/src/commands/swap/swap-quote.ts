@@ -12,6 +12,12 @@ import type { IAuditSummary } from '../../core';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
+/** Token stub from quote response — aligned with ISwapTokenBase */
+interface IQuoteTokenInfo {
+  networkId?: string;
+  contractAddress?: string;
+}
+
 /** Minimal quote info returned from /swap/v1/quote — aligned with IFetchQuoteResult */
 interface IQuoteResultItem {
   info: { provider: string; providerName: string };
@@ -27,6 +33,8 @@ interface IQuoteResultItem {
   minToAmount?: string;
   isBest?: boolean;
   errorMessage?: string;
+  fromTokenInfo?: IQuoteTokenInfo;
+  toTokenInfo?: IQuoteTokenInfo;
 }
 
 function computeOverallRisk(audit: IAuditSummary): 'high' | 'caution' | 'low' {
@@ -129,17 +137,22 @@ export function registerSwapQuoteCommand(parent: Command): void {
             resolveToken(options.to, options.chain),
           ]);
 
-          // fromToken decimals must be known — no default allowed
-          if (fromResolved.decimals === null) {
+          // fromToken decimals must be known and valid — no default allowed
+          if (
+            fromResolved.decimals === null ||
+            !Number.isInteger(fromResolved.decimals) ||
+            fromResolved.decimals < 0 ||
+            fromResolved.decimals > 77
+          ) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_TOKEN.code,
-              `Cannot determine decimals for ${options.from}`,
+              `Cannot determine valid decimals for ${options.from} (got: ${fromResolved.decimals})`,
               'Use contract address instead of symbol, or verify the token exists',
             );
           }
 
           // Validate amount is a valid positive decimal number
-          if (!/^\d+(\.\d+)?$/.test(options.amount) || options.amount === '0') {
+          if (!/^\d+(\.\d+)?$/.test(options.amount)) {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_AMOUNT.code,
               `Invalid amount: "${options.amount}"`,
@@ -154,6 +167,15 @@ export function registerSwapQuoteCommand(parent: Command): void {
             options.amount,
             fromResolved.decimals,
           );
+
+          // Reject zero-value amounts (covers "0", "0.0", "00", "000.000")
+          if (fromTokenAmount === '0') {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_AMOUNT.code,
+              'Amount must be greater than zero',
+              'Provide a positive amount to swap',
+            );
+          }
 
           // Read slippage: CLI flag > config > 0.5
           const config = await new ConfigManager().getConfig();
@@ -231,6 +253,30 @@ export function registerSwapQuoteCommand(parent: Command): void {
               firstError?.errorMessage ?? 'No provider returned a usable quote',
               'Try a different token pair, amount, or slippage',
             );
+          }
+
+          // Validate response token pair matches request (when fields are present)
+          for (const q of usableQuotes) {
+            if (
+              q.fromTokenInfo?.networkId &&
+              q.fromTokenInfo.networkId !== fromResolved.networkId
+            ) {
+              throw new AppError(
+                ERROR_CODES.NET_HTTP_ERROR.code,
+                `Quote fromToken networkId mismatch: expected ${fromResolved.networkId}, got ${q.fromTokenInfo.networkId}`,
+                'API may have returned data for a different token pair',
+              );
+            }
+            if (
+              q.toTokenInfo?.networkId &&
+              q.toTokenInfo.networkId !== toResolved.networkId
+            ) {
+              throw new AppError(
+                ERROR_CODES.NET_HTTP_ERROR.code,
+                `Quote toToken networkId mismatch: expected ${toResolved.networkId}, got ${q.toTokenInfo.networkId}`,
+                'API may have returned data for a different token pair',
+              );
+            }
           }
 
           // Build security output
