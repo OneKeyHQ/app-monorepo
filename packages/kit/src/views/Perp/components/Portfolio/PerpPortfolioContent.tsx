@@ -285,7 +285,7 @@ function PerpPortfolioContentComponent({
   const leverageRaw = useMemo(() => {
     const ntlPos = parseFloat(accountSummary?.totalNtlPos ?? '0');
     const acctVal = parseFloat(accountSummary?.accountValue ?? '0');
-    if (acctVal === 0) return 0;
+    if (acctVal <= 0) return acctVal < 0 ? MAX_LEVERAGE_GAUGE : 0;
     return Math.abs(ntlPos) / acctVal;
   }, [accountSummary]);
   const leverageText = leverageRaw > 0 ? `${leverageRaw.toFixed(2)}x` : '--';
