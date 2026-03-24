@@ -233,6 +233,43 @@ describe('swap commands (integration)', () => {
 });
 
 describe('security commands (integration)', () => {
-  it.todo('security audit returns risk assessment');
-  it.todo('security simulate returns tx simulation');
+  it('security audit returns risk assessment', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'security',
+      'audit',
+      '--chain',
+      'eth',
+      '--token',
+      '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(parsed.data).toHaveProperty('overallRisk');
+    expect(parsed.data).toHaveProperty('checks');
+    expect(parsed.data.checks).toHaveProperty('buy_tax');
+  });
+
+  it('security simulate returns tx simulation', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'security',
+      'simulate',
+      '--chain',
+      'eth',
+      '--to',
+      '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      '--data',
+      '0xa9059cbb0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000a',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(parsed.data).toHaveProperty('type');
+    expect(parsed.data).toHaveProperty('display');
+    expect(parsed.data).toHaveProperty('parsedTx');
+  });
 });

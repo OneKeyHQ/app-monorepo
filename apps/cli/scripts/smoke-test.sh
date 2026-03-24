@@ -258,8 +258,13 @@ should_run swap && section_swap
 section_security() {
   echo ""
   echo "--- Security commands ---"
-  skip "security audit --chain eth --token 0xA0b8..."
-  skip "security simulate --chain eth --tx 0x..."
+  check_json "security audit --chain eth --token USDT" "success" \
+    "$BIN" --json --env test security audit --chain eth \
+    --token 0xdac17f958d2ee523a2206206994597c13d831ec7
+  check_json "security simulate" "success" \
+    "$BIN" --json --env test security simulate --chain eth \
+    --to 0xdac17f958d2ee523a2206206994597c13d831ec7 \
+    --data 0xa9059cbb0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000a
 }
 should_run security && section_security
 
