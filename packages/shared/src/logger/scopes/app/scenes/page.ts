@@ -93,4 +93,15 @@ export class PageScene extends BaseScene {
   public removeUnlockJob() {
     return {};
   }
+
+  @LogToLocal({ level: 'info' })
+  public debugLayout(
+    tag: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) {
+    return { tag, x, y, width, height };
+  }
 }

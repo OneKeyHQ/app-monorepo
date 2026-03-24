@@ -1,49 +1,15 @@
-diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-index 7055a0d..81ee02b 100644
---- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-+++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-@@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
- import com.facebook.react.uimanager.ThemedReactContext
- import com.facebook.react.uimanager.UIManagerHelper
- import com.swmansion.rnscreens.Screen.ActivityState
-+import android.util.Log
- import com.swmansion.rnscreens.events.ScreenDismissedEvent
- import com.swmansion.rnscreens.gamma.common.FragmentProviding
- 
-@@ -291,7 +292,24 @@ open class ScreenContainer(
-         }
- 
-         if (hasFragments) {
--            transaction.commitNowAllowingStateLoss()
-+            // Guard against "FragmentManager is already executing transactions" crash.
-+            // This race condition occurs when onDetachedFromWindow triggers removeMyFragments
-+            // while performUpdates -> onUpdate is already committing a transaction on the same
-+            // FragmentManager within the same UI frame (e.g. during rapid navigation).
-+            // On catch, we defer the removal to the next frame where the FragmentManager
-+            // will no longer be in a transaction.
-+            // See: https://github.com/software-mansion/react-native-screens/issues/2318
-+            // See: https://github.com/software-mansion/react-native-screens/issues/1506
-+            try {
-+                transaction.commitNowAllowingStateLoss()
-+            } catch (e: IllegalStateException) {
-+                Log.w("ScreenContainer", "FragmentManager already executing transactions, deferring fragment removal", e)
-+                post {
-+                    if (!fragmentManager.isDestroyed) {
-+                        removeMyFragments(fragmentManager)
-+                    }
-+                }
-+            }
-         }
-     }
- 
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1c44762..a9cb115 100644
+index 1c44762..13b9b56 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -49,6 +49,104 @@
+@@ -49,6 +49,150 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
++// Global flag: set to YES during modal presentation transition so that
++// Fabric's updateLayoutMetrics can wrap frame changes in performWithoutAnimation.
++BOOL RNSModalTransitionInProgress = NO;
++
 +static NSString *RNSBoolString(BOOL value)
 +{
 +  return value ? @"YES" : @"NO";
@@ -70,6 +36,45 @@ index 1c44762..a9cb115 100644
 +static NSString *RNSClassSummary(id obj)
 +{
 +  return obj == nil ? @"nil" : NSStringFromClass([obj class]);
++}
++
++static NSString *RNSAffineTransformSummary(CGAffineTransform transform)
++{
++  return [NSString stringWithFormat:@"{a=%.3f,b=%.3f,c=%.3f,d=%.3f,tx=%.3f,ty=%.3f}",
++                                    transform.a,
++                                    transform.b,
++                                    transform.c,
++                                    transform.d,
++                                    transform.tx,
++                                    transform.ty];
++}
++
++static NSString *RNSCATransformSummary(CATransform3D transform)
++{
++  return [NSString stringWithFormat:@"{m11=%.3f,m12=%.3f,m21=%.3f,m22=%.3f,m33=%.3f,m41=%.3f,m42=%.3f,m43=%.3f}",
++                                    transform.m11,
++                                    transform.m12,
++                                    transform.m21,
++                                    transform.m22,
++                                    transform.m33,
++                                    transform.m41,
++                                    transform.m42,
++                                    transform.m43];
++}
++
++static NSString *RNSPresentationLayerSummary(UIView *view)
++{
++  CALayer *presentationLayer = view.layer.presentationLayer;
++  if (presentationLayer == nil) {
++    return @"pres=nil";
++  }
++  return [NSString stringWithFormat:@"presFrame=%@ presBounds=%@ presPos={x=%.1f,y=%.1f} presOpacity=%.3f presTransform=%@",
++                                    RNSRectSummary(presentationLayer.frame),
++                                    RNSRectSummary(presentationLayer.bounds),
++                                    presentationLayer.position.x,
++                                    presentationLayer.position.y,
++                                    presentationLayer.opacity,
++                                    RNSCATransformSummary(presentationLayer.transform)];
 +}
 +
 +static NSString *RNSWallTimeString(void)
@@ -104,12 +109,15 @@ index 1c44762..a9cb115 100644
 +static NSString *RNSScreenViewStateSummary(UIView *view, UIViewController *controller)
 +{
 +  UIWindow *window = view.window ?: controller.view.window;
-+  return [NSString stringWithFormat:@"bounds=%@ frame=%@ insets=%@ alpha=%.3f hidden=%@ window=%p parent=%@ presenting=%@ presented=%@ modalStyle=%ld %@",
++  return [NSString stringWithFormat:@"bounds=%@ frame=%@ insets=%@ alpha=%.3f hidden=%@ viewTransform=%@ layerTransform=%@ %@ window=%p parent=%@ presenting=%@ presented=%@ modalStyle=%ld %@",
 +                                    RNSRectSummary(view.bounds),
 +                                    RNSRectSummary(view.frame),
 +                                    RNSInsetsSummary(view.safeAreaInsets),
 +                                    view.alpha,
 +                                    RNSBoolString(view.isHidden),
++                                    RNSAffineTransformSummary(view.transform),
++                                    RNSCATransformSummary(view.layer.transform),
++                                    RNSPresentationLayerSummary(view),
 +                                    window,
 +                                    RNSClassSummary(controller.parentViewController),
 +                                    RNSClassSummary(controller.presentingViewController),
@@ -145,10 +153,11 @@ index 1c44762..a9cb115 100644
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -201,6 +299,24 @@ - (void)updateBounds
+@@ -201,7 +345,33 @@ - (void)updateBounds
          ? 0
          : [_controller calculateHeaderHeightIsModal:self.isPresentedAsNativeModal];
  
+-    auto newState = react::RNSScreenState{RCTSizeFromCGSize(self.bounds.size), {0, effectiveContentOffsetY}};
 +    if (self.isModal || self.isPresentedAsNativeModal) {
 +      NSString *headerConfigSummary =
 +          config == nil
@@ -167,10 +176,19 @@ index 1c44762..a9cb115 100644
 +                           RNSScreenViewStateSummary(self, _controller)]);
 +    }
 +
-     auto newState = react::RNSScreenState{RCTSizeFromCGSize(self.bounds.size), {0, effectiveContentOffsetY}};
++    CGSize boundsSize = self.bounds.size;
++    RNSScreenLogInfo([NSString stringWithFormat:
++        @"updateBounds → Fabric setState bounds={%.1f, %.1f} offsetY=%.1f window=%p safeArea=%@",
++        boundsSize.width, boundsSize.height,
++        effectiveContentOffsetY,
++        self.window,
++        RNSInsetsSummary(self.safeAreaInsets)]);
++
++    auto newState = react::RNSScreenState{RCTSizeFromCGSize(boundsSize), {0, effectiveContentOffsetY}};
  
      _state->updateState(
-@@ -1323,6 +1439,12 @@ - (void)dispatchSafeAreaDidChangeNotification
+         std::move(newState)
+@@ -1323,6 +1493,12 @@ - (void)dispatchSafeAreaDidChangeNotification
  - (void)safeAreaInsetsDidChange
  {
    [super safeAreaInsetsDidChange];
@@ -183,18 +201,253 @@ index 1c44762..a9cb115 100644
    [self dispatchSafeAreaDidChangeNotification];
  }
  
-@@ -1621,6 +1743,7 @@ @implementation RNSScreen {
+@@ -1359,6 +1535,15 @@ + (BOOL)shouldBeRecycled
+ 
+ - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+ {
++  if (self.isModal || self.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString stringWithFormat:
++        @"mountChildComponentView class=%@ index=%ld childFrame=%@ screenBounds=%@ window=%p",
++        NSStringFromClass([childComponentView class]),
++        (long)index,
++        NSStringFromCGRect(childComponentView.frame),
++        NSStringFromCGRect(self.bounds),
++        self.window]);
++  }
+   if ([childComponentView isKindOfClass:RNSScreenContentWrapper.class]) {
+     auto contentWrapper = (RNSScreenContentWrapper *)childComponentView;
+     contentWrapper.delegate = self;
+@@ -1621,6 +1806,7 @@ @implementation RNSScreen {
    BOOL _isSwiping;
    BOOL _shouldNotify;
    BOOL _isRemovedFromParent;
-+  BOOL _shouldApplyDeferredModalBoundsUpdate;
++  BOOL _isModalTransitionDisablingAnimations;
  }
  
  #pragma mark - Common
-@@ -1643,6 +1766,18 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1640,9 +1826,237 @@ - (instancetype)initWithView:(UIView *)view
+ }
+ 
+ // TODO: Find out why this is executed when screen is going out
++// DEBUG: recursively dump views with non-identity transform during modal transition
++- (void)dumpTransformsForView:(UIView *)view depth:(int)depth tag:(NSString *)tag
++{
++  CGAffineTransform t = view.transform;
++  CATransform3D lt = view.layer.transform;
++  BOOL viewTransformIsIdentity = CGAffineTransformIsIdentity(t);
++  BOOL layerTransformIsIdentity = CATransform3DIsIdentity(lt);
++  // Also check presentation layer
++  CALayer *pLayer = view.layer.presentationLayer;
++  CATransform3D pt = pLayer ? pLayer.transform : CATransform3DIdentity;
++  BOOL presTransformIsIdentity = pLayer ? CATransform3DIsIdentity(pt) : YES;
++
++  if (!viewTransformIsIdentity || !layerTransformIsIdentity || !presTransformIsIdentity) {
++    NSString *indent = [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0];
++    RNSScreenLogInfo([NSString stringWithFormat:
++        @"[TransformDump:%@] %@%@ frame=%@ view.transform=[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f] layer3D=[%.3f,%.3f,%.3f,%.3f] pLayer3D=[%.3f,%.3f,%.3f,%.3f] pLayerFrame=%@",
++        tag, indent, NSStringFromClass([view class]),
++        NSStringFromCGRect(view.frame),
++        t.a, t.b, t.c, t.d, t.tx, t.ty,
++        lt.m11, lt.m22, lt.m33, lt.m44,
++        pt.m11, pt.m22, pt.m33, pt.m44,
++        pLayer ? NSStringFromCGRect(pLayer.frame) : @"nil"]);
++  }
++  for (UIView *sub in view.subviews) {
++    [self dumpTransformsForView:sub depth:depth + 1 tag:tag];
++  }
++}
++
++// Hook setFrame: on UIView to track frame changes on views with specific testIDs
++#import <objc/runtime.h>
++
++static BOOL RNSFrameHookInstalled = NO;
++static NSSet<NSString *> *RNSTrackedTestIDs = nil;
++
++static void RNSInstallFrameHook(void) {
++  if (RNSFrameHookInstalled) return;
++  RNSFrameHookInstalled = YES;
++  RNSTrackedTestIDs = [NSSet setWithArray:@[@"ab-search-wrap", @"ab-root", @"ab-empty", @"ab-loading"]];
++
++  Class cls = NSClassFromString(@"RCTViewComponentView");
++  if (!cls) return;
++
++  SEL origSel = @selector(setFrame:);
++  Method origMethod = class_getInstanceMethod(cls, origSel);
++  if (!origMethod) return;
++
++  typedef void (*FrameIMP)(id, SEL, CGRect);
++  __block FrameIMP origIMP = (FrameIMP)method_getImplementation(origMethod);
++
++  FrameIMP newIMP = (FrameIMP)imp_implementationWithBlock(^(UIView *self, CGRect frame) {
++    NSString *testId = self.accessibilityIdentifier;
++    if (testId && [RNSTrackedTestIDs containsObject:testId]) {
++      CGRect oldFrame = self.frame;
++      RNSScreenLogInfo([NSString stringWithFormat:
++          @"[setFrame] id=%@ old=%@ new=%@ delta={dw=%.1f,dh=%.1f}",
++          testId,
++          NSStringFromCGRect(oldFrame),
++          NSStringFromCGRect(frame),
++          frame.size.width - oldFrame.size.width,
++          frame.size.height - oldFrame.size.height]);
++    }
++    origIMP(self, origSel, frame);
++  });
++
++  method_setImplementation(origMethod, (IMP)newIMP);
++}
++
++// Dump child view hierarchy downward (max depth, max children per level)
++static void RNSDumpChildViews(UIView *view, int depth, int maxDepth, NSString *tag) {
++  if (depth > maxDepth) return;
++  NSString *indent = [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0];
++
++  // Check presentation layer for position differences
++  CALayer *pLayer = view.layer.presentationLayer;
++  CGRect pFrame = pLayer ? pLayer.frame : view.frame;
++  BOOL framesDiffer = !CGRectEqualToRect(view.frame, pFrame);
++
++  NSString *testId = view.accessibilityIdentifier ?: @"";
++  RNSScreenLogInfo([NSString stringWithFormat:
++      @"[ChildDump:%@] %@%@ frame=%@ pFrame=%@ diff=%@ subs=%lu id=%@ hidden=%d alpha=%.1f",
++      tag, indent,
++      NSStringFromClass([view class]),
++      NSStringFromCGRect(view.frame),
++      NSStringFromCGRect(pFrame),
++      framesDiffer ? @"YES" : @"no",
++      (unsigned long)view.subviews.count,
++      testId,
++      view.isHidden,
++      view.alpha]);
++
++  NSArray<UIView *> *subs = view.subviews;
++  for (NSUInteger i = 0; i < subs.count; i++) {
++    RNSDumpChildViews(subs[i], depth + 1, maxDepth, tag);
++  }
++}
++
++// Recursively disable implicit animations on all sublayers during modal transition.
++// Fabric mount items update child view frames asynchronously; when these frame changes
++// land inside UIKit's modal presentation CATransaction, they get implicitly animated,
++// causing visible content displacement while borders/containers remain stable.
++static void RNSDisableImplicitAnimationsRecursively(CALayer *layer, BOOL disable) {
++  if (disable) {
++    // Setting actions to @{} with NSNull for common keys suppresses implicit animations
++    layer.actions = @{
++      @"position": [NSNull null],
++      @"bounds": [NSNull null],
++      @"frame": [NSNull null],
++      @"opacity": [NSNull null],
++      @"backgroundColor": [NSNull null],
++    };
++  } else {
++    layer.actions = nil;
++  }
++  for (CALayer *sublayer in layer.sublayers) {
++    RNSDisableImplicitAnimationsRecursively(sublayer, disable);
++  }
++}
++
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
++
++  // Install frame hook once to track setFrame: calls on tracked views
++  RNSInstallFrameHook();
++
++  // Disable implicit animations on ALL sublayers in the content tree during modal
++  // presentation. Re-enable in viewDidAppear after transition completes.
++  if (self.screenView.isPresentedAsNativeModal && animated) {
++    _isModalTransitionDisablingAnimations = YES;
++    RNSModalTransitionInProgress = YES;
++
++    // Dump presentationController / containerView info
++    UIPresentationController *pc = self.presentationController;
++    UIView *containerView = pc.containerView;
++    UIView *presentedView = pc.presentedView;
++    RNSScreenLogInfo([NSString stringWithFormat:
++        @"[ModalPresentation] pcClass=%@ containerView=%p containerFrame=%@ presentedView=%p presentedFrame=%@ self.view=%p selfFrame=%@ selfBounds=%@",
++        NSStringFromClass([pc class]),
++        containerView,
++        containerView ? NSStringFromCGRect(containerView.frame) : @"nil",
++        presentedView,
++        presentedView ? NSStringFromCGRect(presentedView.frame) : @"nil",
++        self.view,
++        NSStringFromCGRect(self.view.frame),
++        NSStringFromCGRect(self.view.bounds)]);
++
++    // Walk presentedView → self.view to see all intermediate containers
++    UIView *walk = self.view;
++    int depth = 0;
++    while (walk && depth < 15) {
++      RNSScreenLogInfo([NSString stringWithFormat:
++          @"[ModalHierarchy] depth=%d class=%@ frame=%@ bounds=%@ transform=[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f] clipsToBounds=%d",
++          depth,
++          NSStringFromClass([walk class]),
++          NSStringFromCGRect(walk.frame),
++          NSStringFromCGRect(walk.bounds),
++          walk.transform.a, walk.transform.b, walk.transform.c, walk.transform.d, walk.transform.tx, walk.transform.ty,
++          walk.clipsToBounds]);
++      walk = walk.superview;
++      depth++;
++    }
++
++    // Also dump at +200ms to see if anything changes
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)),
++                   dispatch_get_main_queue(), ^{
++      UIPresentationController *pc2 = self.presentationController;
++      UIView *cv2 = pc2.containerView;
++      UIView *pv2 = pc2.presentedView;
++      RNSScreenLogInfo([NSString stringWithFormat:
++          @"[ModalPresentation+200ms] containerFrame=%@ presentedFrame=%@ selfFrame=%@ selfBounds=%@",
++          cv2 ? NSStringFromCGRect(cv2.frame) : @"nil",
++          pv2 ? NSStringFromCGRect(pv2.frame) : @"nil",
++          NSStringFromCGRect(self.view.frame),
++          NSStringFromCGRect(self.view.bounds)]);
++
++      UIView *walk2 = self.view;
++      int d2 = 0;
++      while (walk2 && d2 < 15) {
++        RNSScreenLogInfo([NSString stringWithFormat:
++            @"[ModalHierarchy+200ms] depth=%d class=%@ frame=%@ bounds=%@ transform=[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f]",
++            d2,
++            NSStringFromClass([walk2 class]),
++            NSStringFromCGRect(walk2.frame),
++            NSStringFromCGRect(walk2.bounds),
++            walk2.transform.a, walk2.transform.b, walk2.transform.c, walk2.transform.d, walk2.transform.tx, walk2.transform.ty]);
++        walk2 = walk2.superview;
++        d2++;
++      }
++    });
++
++    // Find the innermost RNSScreenView and dump from there
++    void (^dumpInnermost)(NSString *tag) = ^(NSString *tag) {
++      UIView *innermost = self.view;
++      // Walk down to find the deepest RNSScreenView
++      UIView *candidate = self.view;
++      NSMutableArray<UIView *> *stack = [NSMutableArray arrayWithObject:candidate];
++      while (stack.count > 0) {
++        UIView *v = stack.lastObject;
++        [stack removeLastObject];
++        if ([v isKindOfClass:NSClassFromString(@"RNSScreenView")] && v != self.view) {
++          innermost = v;
++        }
++        for (UIView *sub in v.subviews) {
++          [stack addObject:sub];
++        }
++      }
++      RNSScreenLogInfo([NSString stringWithFormat:@"[InnerDump:%@] starting from %@ frame=%@",
++          tag, NSStringFromClass([innermost class]), NSStringFromCGRect(innermost.frame)]);
++      RNSDumpChildViews(innermost, 0, 25, tag);
++    };
++    dumpInnermost(@"t=0");
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.015 * NSEC_PER_SEC)),
++                   dispatch_get_main_queue(), ^{ dumpInnermost(@"t+15ms"); });
++    for (int i = 1; i <= 20; i++) {
++      NSString *label = [NSString stringWithFormat:@"t+%dms", i * 30];
++      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(i * 0.03 * NSEC_PER_SEC)),
++                     dispatch_get_main_queue(), ^{ dumpInnermost(label); });
++    }
++  }
 +
 +  // Workaround for react-native-screens issue #1779 / #2587:
 +  // edgesForExtendedLayout is normally set in the navigationController:willShowViewController:
@@ -210,7 +463,7 @@ index 1c44762..a9cb115 100644
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
-@@ -1659,6 +1794,28 @@ - (void)viewWillAppear:(BOOL)animated
+@@ -1659,6 +2073,28 @@ - (void)viewWillAppear:(BOOL)animated
    // as per documentation of these methods
    _goingForward = [self isBeingPresented] || [self isMovingToParentViewController];
  
@@ -239,7 +492,7 @@ index 1c44762..a9cb115 100644
    [RNSScreenWindowTraits updateWindowTraits];
    if (_shouldNotify) {
      _closing = NO;
-@@ -1697,6 +1854,21 @@ - (void)viewWillDisappear:(BOOL)animated
+@@ -1697,6 +2133,21 @@ - (void)viewWillDisappear:(BOOL)animated
    // as per documentation of these methods
    _goingForward = !([self isBeingDismissed] || [self isMovingFromParentViewController]);
  
@@ -261,37 +514,29 @@ index 1c44762..a9cb115 100644
    if (_shouldNotify) {
      _closing = YES;
      [self notifyTransitionProgress:0.0 closing:_closing goingForward:_goingForward];
-@@ -1719,6 +1891,29 @@ - (void)viewDidAppear:(BOOL)animated
+@@ -1711,6 +2162,13 @@ - (void)viewDidAppear:(BOOL)animated
+     [RNSScreenView.viewInteractionManagerInstance enableInteractionsForLastSubtree];
+   }
+   [super viewDidAppear:animated];
++
++  // Re-enable animations after modal transition completes.
++  if (_isModalTransitionDisablingAnimations) {
++    _isModalTransitionDisablingAnimations = NO;
++    RNSModalTransitionInProgress = NO;
++  }
++
+   if (!_isSwiping || _shouldNotify) {
+     // we are going forward or dismissing without swipe
+     // or successfully swiped back
+@@ -1719,7 +2177,6 @@ - (void)viewDidAppear:(BOOL)animated
    } else {
      [self.screenView notifyGestureCancel];
    }
-+  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
-+    RNSScreenLogInfo([NSString
-+        stringWithFormat:@"viewDidAppear animated=%@ swiping=%@ shouldNotify=%@ deferredPending=%@ controller=%p screen=%p %@",
-+                         RNSBoolString(animated),
-+                         RNSBoolString(_isSwiping),
-+                         RNSBoolString(_shouldNotify),
-+                         RNSBoolString(_shouldApplyDeferredModalBoundsUpdate),
-+                         self,
-+                         self.screenView,
-+                         RNSScreenViewStateSummary(self.screenView, self)]);
-+  }
-+#ifdef RCT_NEW_ARCH_ENABLED
-+  if (_shouldApplyDeferredModalBoundsUpdate && self.screenView.isPresentedAsNativeModal) {
-+    RNSScreenLogInfo([NSString
-+        stringWithFormat:@"viewDidAppear apply deferred update controller=%p screen=%p %@",
-+                         self,
-+                         self.screenView,
-+                         RNSScreenViewStateSummary(self.screenView, self)]);
-+    _shouldApplyDeferredModalBoundsUpdate = NO;
-+    [self calculateAndNotifyHeaderHeightChangeIsModal:YES];
-+    [self.screenView updateBounds];
-+  }
-+#endif
- 
+-
    _isSwiping = NO;
    _shouldNotify = YES;
-@@ -1744,6 +1939,20 @@ - (void)viewDidDisappear:(BOOL)animated
+ }
+@@ -1744,6 +2201,20 @@ - (void)viewDidDisappear:(BOOL)animated
      [self notifyTransitionProgress:1.0 closing:YES goingForward:_goingForward];
    }
  
@@ -312,76 +557,56 @@ index 1c44762..a9cb115 100644
    _isSwiping = NO;
    _shouldNotify = YES;
  
-@@ -1753,6 +1962,19 @@ - (void)viewDidDisappear:(BOOL)animated
+@@ -1753,9 +2224,20 @@ - (void)viewDidDisappear:(BOOL)animated
    }
  }
  
 +- (void)viewWillLayoutSubviews
 +{
 +  [super viewWillLayoutSubviews];
-+  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
-+    RNSScreenLogInfo([NSString
-+        stringWithFormat:@"viewWillLayoutSubviews deferredPending=%@ controller=%p screen=%p %@",
-+                         RNSBoolString(_shouldApplyDeferredModalBoundsUpdate),
-+                         self,
-+                         self.screenView,
-+                         RNSScreenViewStateSummary(self.screenView, self)]);
-+  }
 +}
 +
  - (void)viewDidLayoutSubviews
  {
-   [super viewDidLayoutSubviews];
-@@ -1764,15 +1986,46 @@ - (void)viewDidLayoutSubviews
+-  [super viewDidLayoutSubviews];
++  if (_isModalTransitionDisablingAnimations) {
++    [UIView performWithoutAnimation:^{
++      [super viewDidLayoutSubviews];
++    }];
++  } else {
++    [super viewDidLayoutSubviews];
++  }
+ 
+   // The below code makes the screen view adapt dimensions provided by the system. We take these
+   // into account only when the view is mounted under RNSNavigationController in which case system
+@@ -1764,6 +2246,7 @@ - (void)viewDidLayoutSubviews
    // screen size
    BOOL isDisplayedWithinUINavController = [self.parentViewController isKindOfClass:[RNSNavigationController class]];
    BOOL isTabScreen = [self.parentViewController isKindOfClass:RNSTabBarController.class];
 +  BOOL isModalTransitionInProgress = self.screenView.isPresentedAsNativeModal && self.transitionCoordinator != nil;
-+
-+  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
-+    RNSScreenLogInfo([NSString
-+        stringWithFormat:@"viewDidLayoutSubviews navController=%@ tabScreen=%@ modalTransition=%@ deferredPending=%@ controller=%p screen=%p %@",
-+                         RNSBoolString(isDisplayedWithinUINavController),
-+                         RNSBoolString(isTabScreen),
-+                         RNSBoolString(isModalTransitionInProgress),
-+                         RNSBoolString(_shouldApplyDeferredModalBoundsUpdate),
-+                         self,
-+                         self.screenView,
-+                         RNSScreenViewStateSummary(self.screenView, self)]);
-+  }
  
    // Calculate header height on modal open
--  if (self.screenView.isPresentedAsNativeModal) {
-+  if (self.screenView.isPresentedAsNativeModal && !isModalTransitionInProgress) {
-     [self calculateAndNotifyHeaderHeightChangeIsModal:YES];
-   }
+   if (self.screenView.isPresentedAsNativeModal) {
+@@ -1772,7 +2255,17 @@ - (void)viewDidLayoutSubviews
  
    if (isDisplayedWithinUINavController || isTabScreen || self.screenView.isPresentedAsNativeModal) {
  #ifdef RCT_NEW_ARCH_ENABLED
 -    [self.screenView updateBounds];
-+    if (self.screenView.isPresentedAsNativeModal && isModalTransitionInProgress) {
-+      RNSScreenLogInfo([NSString
-+          stringWithFormat:@"viewDidLayoutSubviews defer updateBounds coordinator=%p controller=%p screen=%p %@",
-+                           self.transitionCoordinator,
-+                           self,
-+                           self.screenView,
-+                           RNSScreenViewStateSummary(self.screenView, self)]);
-+      _shouldApplyDeferredModalBoundsUpdate = YES;
-+    } else {
-+      if (self.screenView.isPresentedAsNativeModal) {
-+        RNSScreenLogInfo([NSString
-+            stringWithFormat:@"viewDidLayoutSubviews immediate updateBounds controller=%p screen=%p %@",
-+                             self,
-+                             self.screenView,
-+                             RNSScreenViewStateSummary(self.screenView, self)]);
-+      }
++    // During modal presentation transition, subview layout changes get caught
++    // by UIKit's implicit animation CATransaction, causing visible scale/shift
++    // artifacts. Disable implicit animations so layout snaps to final state.
++    if (isModalTransitionInProgress) {
++      [CATransaction begin];
++      [CATransaction setDisableActions:YES];
 +      [self.screenView updateBounds];
-+      _shouldApplyDeferredModalBoundsUpdate = NO;
++      [CATransaction commit];
++    } else {
++      [self.screenView updateBounds];
 +    }
  #else
      if (!CGRectEqualToRect(_lastViewFrame, self.screenView.frame)) {
        _lastViewFrame = self.screenView.frame;
-@@ -1864,6 +2117,22 @@ - (CGFloat)calculateHeaderHeightIsModal:(BOOL)isModal
+@@ -1864,6 +2357,22 @@ - (CGFloat)calculateHeaderHeightIsModal:(BOOL)isModal
  - (void)calculateAndNotifyHeaderHeightChangeIsModal:(BOOL)isModal
  {
    CGFloat totalHeight = [self calculateHeaderHeightIsModal:isModal];
@@ -404,7 +629,7 @@ index 1c44762..a9cb115 100644
    [self.screenView notifyHeaderHeightChange:totalHeight];
  }
  
-@@ -1927,8 +2196,16 @@ - (BOOL)isRemovedFromParent
+@@ -1927,8 +2436,16 @@ - (BOOL)isRemovedFromParent
  
  - (void)setupProgressNotification
  {
@@ -421,7 +646,7 @@ index 1c44762..a9cb115 100644
        // If the transition is not animated, there is no point to set up animation
        // and completion callbacks. This helps prevent issues with dismissed modals having
        // "artifical animation duration" instead of being removed instantly.
-@@ -1938,7 +2215,24 @@ - (void)setupProgressNotification
+@@ -1938,7 +2455,24 @@ - (void)setupProgressNotification
  
      _fakeView.alpha = 0.0;
  
@@ -446,7 +671,7 @@ index 1c44762..a9cb115 100644
        [[context containerView] addSubview:self->_fakeView];
        self->_fakeView.alpha = 1.0;
        self->_animationTimer = [CADisplayLink displayLinkWithTarget:self selector:@selector(handleAnimation)];
-@@ -1948,10 +2242,25 @@ - (void)setupProgressNotification
+@@ -1948,10 +2482,25 @@ - (void)setupProgressNotification
      [self.transitionCoordinator
          animateAlongsideTransition:animation
                          completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
@@ -472,7 +697,7 @@ index 1c44762..a9cb115 100644
    }
  }
  
-@@ -1969,9 +2278,22 @@ - (void)handleAnimation
+@@ -1969,9 +2518,22 @@ - (void)handleAnimation
  - (void)notifyTransitionProgress:(double)progress closing:(BOOL)closing goingForward:(BOOL)goingForward
  {
    if ([self.view isKindOfClass:[RNSScreenView class]]) {

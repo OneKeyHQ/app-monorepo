@@ -1,7 +1,15 @@
-import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
+import type { LayoutChangeEvent } from 'react-native';
 
 import {
   Empty,
@@ -14,6 +22,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -134,9 +143,24 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const emptyLayoutCountRef = useRef(0);
   return (
     <Empty
       flex={1}
+      borderWidth={2}
+      borderColor="yellow"
+      testID="ab-empty"
+      onLayout={(e: LayoutChangeEvent) => {
+        emptyLayoutCountRef.current += 1;
+        const { x, y, width, height } = e.nativeEvent.layout;
+        defaultLogger.app.page.debugLayout(
+          `Empty #${emptyLayoutCountRef.current}`,
+          x,
+          y,
+          width,
+          height,
+        );
+      }}
       illustration="SearchDocument"
       title={intl.formatMessage({
         id: ETranslations.address_book_no_results_title_migration,
@@ -305,9 +329,23 @@ export const AddressBookListContent = ({
 
   const estimatedItemSize = useMemo(() => (media.md ? 80 : 60), [media.md]);
 
+  // DEBUG: track initial layout dimensions for modal shift investigation
+  const layoutCountRef = useRef(0);
+  const handleRootLayout = useCallback((e: LayoutChangeEvent) => {
+    layoutCountRef.current += 1;
+    const { x, y, width, height } = e.nativeEvent.layout;
+    defaultLogger.app.page.debugLayout(
+      `AddressBook #${layoutCountRef.current}`,
+      x,
+      y,
+      width,
+      height,
+    );
+  }, []);
+
   return (
-    <Stack flex={1}>
-      <Stack px="$5" pb="$2">
+    <Stack flex={1} onLayout={handleRootLayout} borderWidth={2} borderColor="blue" testID="ab-root">
+      <Stack px="$5" pb="$2" borderWidth={1} borderColor="green" testID="ab-search-wrap">
         <SearchBar
           placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={searchKey}

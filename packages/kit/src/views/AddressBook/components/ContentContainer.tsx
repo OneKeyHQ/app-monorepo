@@ -18,7 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const ContentSpinner = () => (
-  <Stack h="100%" justifyContent="center" alignItems="center">
+  <Stack h="100%" justifyContent="center" alignItems="center" testID="ab-loading">
     <Spinner size="large" />
   </Stack>
 );

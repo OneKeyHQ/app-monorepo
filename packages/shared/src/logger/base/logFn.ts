@@ -34,7 +34,9 @@ export const logFn = ({
   setTimeout(async () => {
     const config = await defaultLoggerConfig.savedLoggerConfigAsync;
     const shouldLogToConsole =
-      !platformEnv.isDev || !!config?.enabled?.[scopeName]?.[sceneName];
+      !platformEnv.isDev ||
+      !!config?.enabled?.[scopeName]?.[sceneName] ||
+      methodName === 'debugLayout';
     const prefix = `${scopeName} => ${sceneName} => ${methodName} : `;
     let msg = `${prefix} ${rawMsg}`;
     if (metadata.type === 'local') {

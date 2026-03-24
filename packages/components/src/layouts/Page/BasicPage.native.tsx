@@ -7,6 +7,7 @@ import {
   AnimatePresence,
   useThemeName,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsModalPage, useIsOverlayPage } from '../../hocs';
@@ -150,9 +151,40 @@ export function BasicPage({
 }: IBasicPageProps) {
   const { layout, onPageLayout } = useIPadModalPageSizeChange();
   const isIpadModalPage = useIsIpadModalPage();
+  const isModalPage = useIsModalPage();
   const content = useMemo(() => {
     return (
-      <Stack bg="$bgApp" flex={1}>
+      <Stack
+        bg="$bgApp"
+        flex={1}
+        {...(platformEnv.isNativeIOS && isModalPage && {
+          borderWidth: 2,
+          borderColor: 'red',
+        })}
+        onLayout={
+          platformEnv.isNativeIOS && isModalPage
+            ? (e: {
+                nativeEvent: {
+                  layout: {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                  };
+                };
+              }) => {
+                const { x, y, width, height } = e.nativeEvent.layout;
+                defaultLogger.app.page.debugLayout(
+                  'BasicPage',
+                  x,
+                  y,
+                  width,
+                  height,
+                );
+              }
+            : undefined
+        }
+      >
         {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
         {lazyLoad ? (
           <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
@@ -161,7 +193,7 @@ export function BasicPage({
         )}
       </Stack>
     );
-  }, [children, lazyLoad, fullPage]);
+  }, [children, lazyLoad, fullPage, isModalPage]);
   return isIpadModalPage ? (
     <YStack flex={1} onLayout={onPageLayout}>
       <iPadModalPageContext.Provider value={layout}>
