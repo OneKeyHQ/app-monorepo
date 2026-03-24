@@ -18,7 +18,7 @@ const os = require('os');
 const { spawn } = require('child_process');
 const { execCmd } = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
-const { postSlackWebhook } = require('./lib/slack');
+const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
 
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { deriveSession, defaultDerivedOutPath } = require('./lib/derive');
@@ -270,41 +270,6 @@ async function requireCommand(cmd, hint) {
   }
 }
 
-function buildSlackText({ status, meta, runs, agg, thresholds, outputDir }) {
-  const lines = [];
-  const mode = meta?.mode || 'release';
-  lines.push(`${status}: Android ${mode} Perf Regression Guard`);
-  if (meta?.git?.sha) lines.push(`commit: ${meta.git.sha}`);
-  if (meta?.startedAt) lines.push(`time: ${meta.startedAt}`);
-  lines.push(`output: ${outputDir}`);
-  lines.push('');
-  lines.push('runs:');
-  for (const r of runs) {
-    const m = r.metrics || {};
-    lines.push(
-      `#${r.runIndex} session=${r.sessionId} start=${
-        m.tokensStartMs ?? 'n/a'
-      }ms span=${m.tokensSpanMs ?? 'n/a'}ms functionCalls=${
-        m.functionCallCount ?? 'n/a'
-      }`,
-    );
-  }
-  lines.push('');
-  lines.push(
-    `median: start=${agg.tokensStartMs ?? 'n/a'}ms span=${
-      agg.tokensSpanMs ?? 'n/a'
-    }ms functionCalls=${agg.functionCallCount ?? 'n/a'}`,
-  );
-  lines.push(
-    `thresholds: start=${thresholds.tokensStartMs ?? 'n/a'}ms span=${
-      thresholds.tokensSpanMs ?? 'n/a'
-    }ms functionCalls=${thresholds.functionCallCount ?? 'n/a'} (strategy=${
-      thresholds.strategy || 'median'
-    })`,
-  );
-  return lines.join('\n');
-}
-
 async function main() {
   const repoRoot = path.join(__dirname, '..', '..');
 
@@ -361,11 +326,14 @@ async function main() {
 
   const meta = {
     startedAt,
+    jobId,
     sessionsDir,
     serverUrl,
     markName,
     runCount,
     mode,
+    targetKey: `android.${mode}`,
+    targetLabel: `Android ${mode === 'release' ? 'Release' : 'Debug'}`,
     git: {},
   };
 
@@ -375,6 +343,33 @@ async function main() {
       cwd: repoRoot,
     });
     if (r.code === 0) meta.git.sha = String(r.stdout).trim();
+  }
+  {
+    const rb = await execCmd(
+      'bash',
+      ['-lc', 'git rev-parse --abbrev-ref HEAD'],
+      {
+        cwd: repoRoot,
+      },
+    );
+    if (rb.code === 0) meta.git.branch = String(rb.stdout).trim();
+  }
+
+  // Read app version: prefer BUILD_APP_VERSION env (set by release CI), fall back to package.json
+  if (process.env.BUILD_APP_VERSION) {
+    meta.appVersion = process.env.BUILD_APP_VERSION;
+  } else {
+    try {
+      const pkg = JSON.parse(
+        fs.readFileSync(
+          path.join(repoRoot, 'apps', 'mobile', 'package.json'),
+          'utf8',
+        ),
+      );
+      if (pkg.version) meta.appVersion = pkg.version;
+    } catch (_) {
+      // ignore read errors
+    }
   }
 
   const jobState = { meta, status: 'running' };
@@ -539,23 +534,26 @@ async function main() {
       thresholds,
       derivedDir,
       runs: runResults,
+      values,
       agg,
       regression: exceed,
     };
 
     writeJson(path.join(outputDir, 'report.json'), report);
 
-    if (exceed.triggered && slackWebhookUrl) {
-      const text = buildSlackText({
-        status: 'REGRESSION',
-        meta,
-        runs: runResults,
-        agg,
-        thresholds,
-        outputDir,
-      });
-      await postSlackWebhook(slackWebhookUrl, { text });
-    }
+    await notifyPerfResult({
+      report,
+      outputRoot,
+      slackWebhookUrl,
+      localConfig,
+      derivedSessions: derived.map((d) => ({
+        sessionId: d.sessionId,
+        derived: d.derived,
+        jobId,
+        sessionsDir,
+        platform: meta.targetKey,
+      })),
+    });
 
     writeJson(path.join(outputDir, 'job-result.json'), {
       status: exceed.triggered ? 'regression' : 'ok',
@@ -572,11 +570,14 @@ async function main() {
     const message = err?.stack || err?.message || String(err);
     writeJson(path.join(outputDir, 'job-error.json'), { error: message });
 
-    if (slackWebhookUrl) {
-      await postSlackWebhook(slackWebhookUrl, {
-        text: `FAILED: Android ${mode} Perf Regression Guard\n${message}\noutput: ${outputDir}`,
-      }).catch(() => {});
-    }
+    await notifyPerfFailure({
+      meta,
+      outputDir,
+      outputRoot,
+      slackWebhookUrl,
+      localConfig,
+      errorMessage: message,
+    }).catch(() => {});
 
     jobState.status = 'failed';
     jobState.meta.finishedAt = new Date().toISOString();

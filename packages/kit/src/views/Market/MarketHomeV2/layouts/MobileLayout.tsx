@@ -34,6 +34,7 @@ import {
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
+import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
 
 import { useMarketTabsLogic } from './hooks';
@@ -61,6 +62,7 @@ interface ITabBarDynamicContext {
   watchlistFilter: IWatchlistFilterType;
   onSelectWatchlistFilter: (filter: IWatchlistFilterType) => void;
   isWatchlistEmpty: boolean;
+  isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
@@ -114,12 +116,14 @@ function MarketHomeTabBar({
                 }}
               />
             </XStack>
-            <IconButton
-              icon="PencilOutline"
-              size="small"
-              variant="tertiary"
-              onPress={ctx.onEditWatchlist}
-            />
+            {ctx.isTokenCacheReady ? (
+              <IconButton
+                icon="PencilOutline"
+                size="small"
+                variant="tertiary"
+                onPress={ctx.onEditWatchlist}
+              />
+            ) : null}
           </XStack>
           <MarketListColumnHeader />
         </>
@@ -165,6 +169,7 @@ function MobileLayoutComponent({
   nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
+  const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
     spotTabName,
@@ -293,6 +298,7 @@ function MobileLayoutComponent({
       watchlistFilter,
       onSelectWatchlistFilter: setWatchlistFilter,
       isWatchlistEmpty,
+      isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
@@ -303,6 +309,7 @@ function MobileLayoutComponent({
       filterBarProps,
       watchlistFilter,
       isWatchlistEmpty,
+      isTokenCacheReady,
       openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
