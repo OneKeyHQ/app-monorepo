@@ -1,6 +1,7 @@
 const isDev = process.env.NODE_ENV !== 'production';
 
 const excludeMatches = require('../content-script/excludeMatches');
+
 const common = require('./common');
 
 module.exports = {

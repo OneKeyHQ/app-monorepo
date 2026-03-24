@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions, import/order */
 import '@onekeyhq/shared/src/polyfills';
-
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
 import { startKeepAlivePolling } from '../background/keepAlive';
 import { offscreenSetup } from '../offscreen/offscreenSetup';
 

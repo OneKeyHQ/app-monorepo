@@ -1,13 +1,15 @@
-const webpack = require('webpack');
 const fs = require('fs');
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpackManifestPlugin = require('webpack-manifest-plugin');
-const ProgressBarPlugin = require('progress-bar-webpack-plugin');
-const notifier = require('node-notifier');
 const { exit } = require('process');
-const { createResolveExtensions } = require('./utils');
+
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const notifier = require('node-notifier');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const webpack = require('webpack');
+const webpackManifestPlugin = require('webpack-manifest-plugin');
+
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
+const { createResolveExtensions } = require('./utils');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 

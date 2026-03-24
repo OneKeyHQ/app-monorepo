@@ -19,12 +19,12 @@ const path = require('path');
 
 const { chromium } = require('playwright-core');
 
-const { execCmd } = require('./lib/exec');
-const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
+const { findChromiumExecutable } = require('./lib/chromium');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
+const { execCmd } = require('./lib/exec');
+const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
-const { findChromiumExecutable } = require('./lib/chromium');
 const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
 const {
   ensurePerfServerRunning,
@@ -32,18 +32,17 @@ const {
   stopChild,
 } = require('./lib/perfServer');
 const {
+  aggregateRuns,
+  checkRegression,
+  extractDerivedDebugMetrics,
+} = require('./lib/regression');
+const {
   listSessionIds,
   waitForNewSessionId,
   waitForMark,
   readSessionMetrics,
   ensureSessionsDirWritable,
 } = require('./lib/session');
-const {
-  aggregateRuns,
-  checkRegression,
-  extractDerivedDebugMetrics,
-} = require('./lib/regression');
-
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
 }

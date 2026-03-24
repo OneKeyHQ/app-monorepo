@@ -1,9 +1,9 @@
 const path = require('path');
 
+const { postJobAnalytics, postSessionAnalytics } = require('./analytics');
 const { fileExists, readJson, writeJson } = require('./fs');
 const { postSlackWebhook } = require('./slack');
 const { buildPerfAlertModel, buildSlackPayload } = require('./slackPayload');
-const { postJobAnalytics, postSessionAnalytics } = require('./analytics');
 
 function trimTrailingSlash(value) {
   return String(value || '').replace(/\/+$/, '');

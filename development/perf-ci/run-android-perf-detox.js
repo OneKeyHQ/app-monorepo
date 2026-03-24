@@ -12,32 +12,31 @@
  * - Slack webhook notification on regression or failure
  */
 
-const path = require('path');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
-const { spawn } = require('child_process');
-const { execCmd } = require('./lib/exec');
-const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
-const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
+const path = require('path');
 
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { deriveSession, defaultDerivedOutPath } = require('./lib/derive');
+const { execCmd } = require('./lib/exec');
+const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
+const { notifyPerfFailure, notifyPerfResult } = require('./lib/notify');
 const {
   ensurePerfServerRunning,
   checkPerfServer,
   stopChild,
 } = require('./lib/perfServer');
 const {
-  ensureSessionsDirWritable,
-  readSessionMetrics,
-} = require('./lib/session');
-const {
   aggregateRuns,
   checkRegression,
   extractDerivedDebugMetrics,
 } = require('./lib/regression');
-
+const {
+  ensureSessionsDirWritable,
+  readSessionMetrics,
+} = require('./lib/session');
 function hasFlag(name) {
   return process.argv.includes(name);
 }

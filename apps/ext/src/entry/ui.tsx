@@ -1,3 +1,4 @@
+/* eslint-disable import-js/order */
 // eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/polyfills';
 
