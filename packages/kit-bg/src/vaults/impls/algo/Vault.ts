@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isArray, isEmpty, isNil } from 'lodash';
 
+import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
 import type {
   IEncodedTxAlgo,
   IEncodedTxGroupAlgo,
@@ -79,7 +80,6 @@ import type {
 } from '../../types';
 /* eslint-disable import/order */
 import type { FailedAttemptError } from 'p-retry';
-import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
 /* eslint-enable import/order */
 
 export default class Vault extends VaultBase {

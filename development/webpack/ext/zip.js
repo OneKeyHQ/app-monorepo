@@ -1,6 +1,7 @@
 require('../../env');
 const fs = require('fs');
 const path = require('path');
+
 const devUtils = require('./devUtils');
 
 const extFolder = path.resolve(__dirname, '../../../apps/ext');

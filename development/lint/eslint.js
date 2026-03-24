@@ -1,6 +1,6 @@
 const { execSync } = require('child_process');
-const { exit } = require('process');
 const os = require('os');
+const { exit } = require('process');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 

@@ -226,7 +226,8 @@
     ],
     "react/jsx-curly-brace-presence": ["error", { "props": "never", "children": "never" }],
     // Prevent inline functions as props — causes unnecessary re-renders and state loss
-    "react_perf/jsx-no-new-function-as-prop": "error",
+    // warn for now (2527 existing violations), lint:staged --deny-warnings blocks new ones
+    "react_perf/jsx-no-new-function-as-prop": "warn",
     // Disabled: too noisy in React Native with tamagui styled components
     "react_perf/jsx-no-new-object-as-prop": "off",
     "react_perf/jsx-no-new-array-as-prop": "off",
@@ -564,6 +565,22 @@
             ]
           }
         ]
+      }
+    },
+    {
+      // Development scripts, test tooling, and native modules — OneKeyLocalError doesn't apply
+      "files": [
+        "development/**/*.js",
+        "development/**/*.ts",
+        "development/**/*.mjs",
+        "apps/*/e2e/**/*.js",
+        "apps/*/harness/**/*.ts",
+        "apps/*/harness/**/*.mjs",
+        "apps/*/plugins/**/*.js",
+        "apps/desktop/native-modules/**/*.js"
+      ],
+      "rules": {
+        "onekey/no-raw-error": "off"
       }
     },
     {

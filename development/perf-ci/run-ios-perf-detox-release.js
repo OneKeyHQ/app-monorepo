@@ -6,9 +6,9 @@
  * - Runs Detox Release (no Metro).
  */
 
+const { spawn } = require('child_process');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
 
 function main() {
   const repoRoot = path.join(__dirname, '..', '..');
