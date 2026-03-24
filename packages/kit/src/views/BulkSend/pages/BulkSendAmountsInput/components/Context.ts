@@ -4,8 +4,10 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAmountInputMode,
   EBulkSendMode,
+  EIntervalMode,
   type IAmountInputError,
   type IAmountInputValues,
+  type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -80,6 +82,9 @@ export type IBulkSendAmountsInputContext = {
   currentModeData: IMobileModeData;
   // Minimum transfer amount per address (from vault settings)
   minTransferAmount: string;
+  // Interval settings (ManyToOne/ManyToMany only)
+  intervalSettings: IIntervalSettings;
+  setIntervalSettings: (settings: IIntervalSettings) => void;
 };
 
 const defaultModeData: IMobileModeData = {
@@ -146,6 +151,12 @@ export const BulkSendAmountsInputContext =
     updateCurrentModeData: () => {},
     currentModeData: { ...defaultModeData },
     minTransferAmount: '0',
+    intervalSettings: {
+      mode: EIntervalMode.None,
+      minSeconds: '',
+      maxSeconds: '',
+    },
+    setIntervalSettings: () => {},
   });
 
 export const useBulkSendAmountsInputContext = () =>

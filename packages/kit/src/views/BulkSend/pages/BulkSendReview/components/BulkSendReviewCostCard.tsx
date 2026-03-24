@@ -16,6 +16,10 @@ import type { IActionListItemProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import {
+  EIntervalMode,
+  type IIntervalSettings,
+} from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendReviewContext } from './Context';
 
@@ -27,6 +31,7 @@ type Props = {
   editFeeEnabled?: boolean;
   transferTxCount?: number;
   isTransferSplit?: boolean;
+  intervalSettings?: IIntervalSettings;
 };
 
 function BulkSendReviewCostCard({
@@ -36,6 +41,7 @@ function BulkSendReviewCostCard({
   editFeeEnabled,
   transferTxCount,
   isTransferSplit,
+  intervalSettings,
 }: Props) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -196,6 +202,20 @@ function BulkSendReviewCostCard({
             )}
           </YStack>
         </XStack>
+
+        {/* Interval Row */}
+        {intervalSettings?.mode === EIntervalMode.Specified ? (
+          <XStack gap="$2" px="$4" py="$2" alignItems="center">
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_interval_title,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {`${intervalSettings.minSeconds || '0'} - ${intervalSettings.maxSeconds || '0'} Seconds`}
+            </SizableText>
+          </XStack>
+        ) : null}
 
         {/* ATA Rent Row (Solana SPL token transfers) */}
         {showAtaRent ? (

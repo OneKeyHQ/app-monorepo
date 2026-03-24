@@ -4,13 +4,14 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
-import type { EBulkSendMode } from '../../types/bulkSend';
+import type { EBulkSendMode, IIntervalSettings } from '../../types/bulkSend';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalBulkSendRoutes {
   BulkSendAddressesInput = 'bulkSendAddressesInput',
   BulkSendAmountsInput = 'BulkSendAmountsInput',
+  BulkSendIntervalInput = 'BulkSendIntervalInput',
   BulkSendReview = 'BulkSendReview',
   BulkSendProcess = 'BulkSendProcess',
 }
@@ -37,6 +38,21 @@ export type IModalBulkSendParamList = {
     bulkSendMode: EBulkSendMode;
     isInModal?: boolean;
   };
+  [EModalBulkSendRoutes.BulkSendIntervalInput]: {
+    networkId: string;
+    accountId: string | undefined;
+    unsignedTxs: IUnsignedTxPro[];
+    approvesInfo: IApproveInfo[];
+    tokenInfo: IToken;
+    transfersInfo: ITransferInfo[];
+    bulkSendMode: EBulkSendMode;
+    totalTokenAmount: string;
+    totalFiatAmount: string;
+    isInModal?: boolean;
+    ataCount?: number;
+    onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+    onFail?: (error: Error) => void;
+  };
   [EModalBulkSendRoutes.BulkSendReview]: {
     networkId: string;
     accountId: string | undefined;
@@ -49,6 +65,7 @@ export type IModalBulkSendParamList = {
     totalFiatAmount: string;
     isInModal?: boolean;
     ataCount?: number;
+    intervalSettings?: IIntervalSettings;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };

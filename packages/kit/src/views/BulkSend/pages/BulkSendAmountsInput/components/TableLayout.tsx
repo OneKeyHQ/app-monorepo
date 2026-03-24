@@ -6,6 +6,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
+  Dialog,
   Icon,
   IconButton,
   Input,
@@ -25,17 +26,80 @@ import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   EBulkSendMode,
+  EIntervalMode,
+  type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 
 import { filterNumericInput, validateRangeInput } from '../../../utils';
 
+import { IntervalSettingsContent } from '../../../components/IntervalSettingsContent';
+
 import { useBulkSendAmountsInputContext } from './Context';
 import { useAmountPreview } from './useAmountPreview';
 import { useTransferInfoActions } from './useTransferInfoActions';
 
+function IntervalDialogContent({
+  initialSettings,
+  onConfirm,
+}: {
+  initialSettings: IIntervalSettings;
+  onConfirm: (settings: IIntervalSettings) => void;
+}) {
+  const intl = useIntl();
+  const [settings, setSettings] = useState<IIntervalSettings>(initialSettings);
+
+  const handleConfirm = useCallback(() => {
+    onConfirm(settings);
+  }, [settings, onConfirm]);
+
+  return (
+    <YStack>
+      <IntervalSettingsContent value={settings} onChange={setSettings} />
+      <Dialog.Footer
+        onConfirm={handleConfirm}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_confirm,
+        })}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.global_cancel,
+        })}
+      />
+    </YStack>
+  );
+}
+
 function IntervalCard() {
   const intl = useIntl();
+  const { intervalSettings, setIntervalSettings } =
+    useBulkSendAmountsInputContext();
+
+  const handlePress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_interval_title,
+      }),
+      showFooter: false,
+      renderContent: (
+        <IntervalDialogContent
+          initialSettings={intervalSettings}
+          onConfirm={setIntervalSettings}
+        />
+      ),
+    });
+  }, [intl, intervalSettings, setIntervalSettings]);
+
+  const intervalSummary = useMemo(() => {
+    if (intervalSettings.mode === EIntervalMode.Specified) {
+      const min = intervalSettings.minSeconds || '0';
+      const max = intervalSettings.maxSeconds || '0';
+      return `${min} - ${max} Seconds`;
+    }
+    return intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_interval_none,
+    });
+  }, [intl, intervalSettings]);
+
   return (
     <YStack
       flex={1}
@@ -44,8 +108,12 @@ function IntervalCard() {
       bg="$bgSubdued"
       borderRadius="$3"
       p="$5"
+      cursor="pointer"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={handlePress}
     >
-      {/* Header: Title + Disabled Select */}
+      {/* Header: Title + Summary */}
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">
           {intl.formatMessage({
@@ -56,11 +124,9 @@ function IntervalCard() {
           variant="tertiary"
           size="small"
           iconAfter="ChevronDownSmallOutline"
-          disabled
+          onPress={handlePress}
         >
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_interval_none,
-          })}
+          {intervalSummary}
         </Button>
       </XStack>
 
@@ -947,11 +1013,14 @@ function TransferInfoListSection() {
 }
 
 function TableLayout() {
+  const { bulkSendMode } = useBulkSendAmountsInputContext();
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+
   return (
     <YStack gap="$8">
       <XStack gap="$4">
         <AmountCard />
-        <IntervalCard />
+        {isOneToMany ? null : <IntervalCard />}
       </XStack>
       <TransferInfoListSection />
     </YStack>

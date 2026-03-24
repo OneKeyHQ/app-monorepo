@@ -39,8 +39,10 @@ import {
 import {
   EAmountInputMode,
   EBulkSendMode,
+  EIntervalMode,
   type IAmountInputError,
   type IAmountInputValues,
+  type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -88,6 +90,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     updateCurrentModeData,
     isMaxMode,
     setIsMaxMode,
+    intervalSettings,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -288,12 +291,31 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         ataCount,
       };
 
-      if (isInModal) {
-        navigation.push(EModalBulkSendRoutes.BulkSendReview, params);
+      // Mobile non-OneToMany: navigate to interval page first
+      const shouldShowInterval = !media.gtMd && !isOneToMany;
+      // Desktop: pass interval settings directly to review
+      const reviewParams = media.gtMd
+        ? { ...params, intervalSettings }
+        : params;
+
+      if (shouldShowInterval) {
+        if (isInModal) {
+          navigation.push(
+            EModalBulkSendRoutes.BulkSendIntervalInput,
+            params,
+          );
+        } else {
+          navigation.pushModal(EModalRoutes.BulkSendModal, {
+            screen: EModalBulkSendRoutes.BulkSendIntervalInput,
+            params,
+          });
+        }
+      } else if (isInModal) {
+        navigation.push(EModalBulkSendRoutes.BulkSendReview, reviewParams);
       } else {
         navigation.pushModal(EModalRoutes.BulkSendModal, {
           screen: EModalBulkSendRoutes.BulkSendReview,
-          params,
+          params: reviewParams,
         });
       }
     } catch (error) {
@@ -323,6 +345,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     currentModeData.totalTokenAmount,
     currentModeData.totalFiatAmount,
     previewState.rangePreviewAmounts,
+    intervalSettings,
+    isOneToMany,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
@@ -778,6 +802,12 @@ function BulkSendAmountsInput() {
 
   const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
 
+  const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
+    mode: EIntervalMode.None,
+    minSeconds: '',
+    maxSeconds: '',
+  });
+
   const { totalTokenAmount, totalFiatAmount } = useMemo(
     () =>
       calculateTotalAmounts({
@@ -978,6 +1008,8 @@ function BulkSendAmountsInput() {
       updateCurrentModeData,
       currentModeData,
       minTransferAmount,
+      intervalSettings,
+      setIntervalSettings,
     }),
     [
       networkId,
@@ -1003,6 +1035,7 @@ function BulkSendAmountsInput() {
       updateCurrentModeData,
       currentModeData,
       minTransferAmount,
+      intervalSettings,
     ],
   );
 

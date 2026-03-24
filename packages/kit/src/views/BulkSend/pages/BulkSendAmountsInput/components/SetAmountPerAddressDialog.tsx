@@ -9,6 +9,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EAmountInputMode,
   EBulkSendMode,
+  EIntervalMode,
   type IAmountInputError,
   type IAmountInputValues,
 } from '@onekeyhq/shared/types/bulkSend';
@@ -131,6 +132,12 @@ function SetAmountPerAddressDialogContent({
       isInsufficientBalance: false,
       hasCustomAmounts: false,
       minTransferAmount: minTransferAmountProp ?? '0',
+      intervalSettings: {
+        mode: EIntervalMode.None,
+        minSeconds: '',
+        maxSeconds: '',
+      },
+      setIntervalSettings: () => {},
       previewState: {
         specifiedPreviewed: false,
         rangePreviewed: false,

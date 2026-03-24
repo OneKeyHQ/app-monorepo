@@ -9,6 +9,12 @@ const BulkSendAddressesInput = LazyLoad(
 const BulkSendAmountsInput = LazyLoad(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAmountsInput'),
 );
+const BulkSendIntervalInput = LazyLoad(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/BulkSend/pages/BulkSendIntervalInput/BulkSendIntervalInput'
+    ),
+);
 const BulkSendReview = LazyLoad(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendReview'),
 );
@@ -26,6 +32,10 @@ export const BulkSendModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalBulkSendRoutes.BulkSendAmountsInput,
     component: BulkSendAmountsInput,
+  },
+  {
+    name: EModalBulkSendRoutes.BulkSendIntervalInput,
+    component: BulkSendIntervalInput,
   },
   {
     name: EModalBulkSendRoutes.BulkSendReview,

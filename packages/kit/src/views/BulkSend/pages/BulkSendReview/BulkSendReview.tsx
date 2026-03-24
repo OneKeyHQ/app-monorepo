@@ -555,6 +555,7 @@ function BaseBulkSendReview({
               editFeeEnabled={vaultSettings?.editFeeEnabled}
               transferTxCount={transferTxCount}
               isTransferSplit={isTransferSplit}
+              intervalSettings={intervalSettings}
             />
           </YStack>
 
@@ -602,6 +603,7 @@ function BulkSendReview() {
     totalFiatAmount,
     isInModal,
     ataCount,
+    intervalSettings,
     onSuccess,
     onFail,
   } = route.params ?? {};

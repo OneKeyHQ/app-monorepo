@@ -36,3 +36,14 @@ export type ITransferInfoError = {
 };
 
 export type ITransferInfoErrors = Record<number, ITransferInfoError>;
+
+export enum EIntervalMode {
+  Specified = 'specified',
+  None = 'none',
+}
+
+export type IIntervalSettings = {
+  mode: EIntervalMode;
+  minSeconds: string;
+  maxSeconds: string;
+};
