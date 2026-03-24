@@ -132,7 +132,9 @@ const ManagePositionPage = () => {
   const { result: protocols, isLoading: isProtocolListLoading } =
     usePromiseResult(
       async () => {
-        if (!enableProtocolSwitch || !accountId) {
+        // Protocol switching is symbol-based and can still work for HD/HW
+        // accounts where only indexedAccountId is available.
+        if (!enableProtocolSwitch) {
           return [];
         }
 
