@@ -53,7 +53,7 @@ index 1c44762..11a2e04 100644
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -1643,6 +1649,16 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1643,6 +1649,17 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -71,7 +71,7 @@ index 1c44762..11a2e04 100644
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
-@@ -1711,6 +1727,11 @@ - (void)viewDidAppear:(BOOL)animated
+@@ -1711,6 +1728,11 @@ - (void)viewDidAppear:(BOOL)animated
      [RNSScreenView.viewInteractionManagerInstance enableInteractionsForLastSubtree];
    }
    [super viewDidAppear:animated];
