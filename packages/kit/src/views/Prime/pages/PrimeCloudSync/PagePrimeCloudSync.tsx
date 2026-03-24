@@ -28,13 +28,13 @@ import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
   EOnboardingV2Routes,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
@@ -341,11 +341,13 @@ function AppDataSection() {
           noDebounceUpload: true,
         });
         // Enable KW first, then disable ID — safer order to avoid stuck middle state
-        await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
-          enabled: true,
-          silentEnable: true,
-          forceEnable: true,
-        });
+        await backgroundApiProxy.serviceKeylessCloudSync.toggleCloudSyncKeyless(
+          {
+            enabled: true,
+            forceEnable: true,
+            silentEnable: false,
+          },
+        );
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
           enabled: false,
         });
@@ -406,7 +408,7 @@ function AppDataSection() {
     if (isSubmittingRef.current) return;
     try {
       isSubmittingRef.current = true;
-      await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless({
+      await backgroundApiProxy.serviceKeylessCloudSync.toggleCloudSyncKeyless({
         enabled: value,
       });
     } finally {
