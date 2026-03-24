@@ -282,7 +282,8 @@ describe('swap commands (integration)', () => {
         '--amount',
         '1',
         '--provider',
-        '1inch',
+        'Swap1inch',
+        '--force',
       );
     } catch (err: unknown) {
       const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };

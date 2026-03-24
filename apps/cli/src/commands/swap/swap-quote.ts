@@ -15,13 +15,13 @@ import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 /** Token stub from quote response — aligned with ISwapTokenBase */
-interface IQuoteTokenInfo {
+export interface IQuoteTokenInfo {
   networkId?: string;
   contractAddress?: string;
 }
 
 /** Minimal quote info returned from SSE — aligned with IFetchQuoteResult */
-interface IQuoteResultItem {
+export interface IQuoteResultItem {
   info: { provider: string; providerName: string };
   toAmount?: string;
   estimatedTime?: string | number;
@@ -112,7 +112,7 @@ function buildSSEUrl(
  * Consume SSE stream from /swap/v1/quote/events using native fetch.
  * Collects all quote results until the stream closes.
  */
-async function fetchQuotesViaSSE(
+export async function fetchQuotesViaSSE(
   env: IEndpointEnv,
   params: Record<string, string | number>,
 ): Promise<IQuoteResultItem[]> {

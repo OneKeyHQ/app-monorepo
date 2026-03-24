@@ -270,7 +270,7 @@ section_swap() {
   sb_output=$("$BIN" --json --env test swap build --chain eth \
     --from 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 \
     --to 0xdac17f958d2ee523a2206206994597c13d831ec7 \
-    --amount 1 --provider "1inch" 2>/dev/null) || true
+    --amount 1 --provider "Swap1inch" --force 2>/dev/null) || true
   local sb_status
   sb_status=$(echo "$sb_output" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
   if [ "$sb_status" = "success" ] || [ "$sb_status" = "error" ]; then

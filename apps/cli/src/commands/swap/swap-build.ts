@@ -10,6 +10,8 @@ import {
   validateAmountDecimals,
 } from '../../utils/tx-utils';
 
+import { fetchQuotesViaSSE } from './swap-quote';
+
 import type { IEndpointEnv } from '../../config';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
@@ -22,6 +24,8 @@ interface IBuildTxResultInfo {
 interface IBuildTxResult {
   info: IBuildTxResultInfo;
   allowanceResult?: unknown;
+  fromTokenInfo?: { networkId?: string; contractAddress?: string };
+  toTokenInfo?: { networkId?: string; contractAddress?: string };
   [key: string]: unknown;
 }
 
@@ -57,7 +61,7 @@ export function registerSwapBuildCommand(parent: Command): void {
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
     .requiredOption(
       '--provider <provider>',
-      'Swap provider ID from quote output (e.g., 1inch)',
+      'Swap provider ID from quote output (e.g., Swap1inch)',
     )
     .option('--slippage <percent>', 'Slippage tolerance percentage')
     .option('--force', 'Override high-risk token security check')
@@ -191,7 +195,43 @@ export function registerSwapBuildCommand(parent: Command): void {
           ) as IEndpointEnv;
           apiClient.setEnv(env);
 
-          // POST /swap/v1/build-tx
+          // Step 1: Internal quote to get toTokenAmount and validate provider
+          const quoteParams: Record<string, string | number> = {
+            fromTokenAddress: fromResolved.contractAddress,
+            toTokenAddress: toResolved.contractAddress,
+            fromTokenAmount,
+            fromNetworkId: fromResolved.networkId,
+            toNetworkId: toResolved.networkId,
+            slippagePercentage: slippage,
+            protocol: 'Swap',
+            kind: 'sell',
+            userAddress: walletAddress,
+            receivingAddress: walletAddress,
+          };
+
+          const quotes = await fetchQuotesViaSSE(env, quoteParams);
+
+          // Find the quote matching the requested provider (case-insensitive)
+          const matchedQuote = quotes.find(
+            (q) =>
+              q.info.provider.toLowerCase() ===
+                options.provider.toLowerCase() && q.toAmount,
+          );
+
+          if (!matchedQuote || !matchedQuote.toAmount) {
+            const available = quotes
+              .filter((q) => q.toAmount)
+              .map((q) => q.info.provider);
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Provider "${options.provider}" not available for this pair`,
+              available.length > 0
+                ? `Available providers: ${available.join(', ')}`
+                : 'No providers returned quotes for this pair',
+            );
+          }
+
+          // Step 2: POST /swap/v1/build-tx with toTokenAmount from quote
           const buildTxResponse = await apiClient.post<IBuildTxResponse>(
             'swap',
             '/swap/v1/build-tx',
@@ -199,9 +239,10 @@ export function registerSwapBuildCommand(parent: Command): void {
               fromTokenAddress: fromResolved.contractAddress,
               toTokenAddress: toResolved.contractAddress,
               fromTokenAmount,
+              toTokenAmount: matchedQuote.toAmount,
               fromNetworkId: fromResolved.networkId,
               toNetworkId: toResolved.networkId,
-              provider: options.provider,
+              provider: matchedQuote.info.provider,
               userAddress: walletAddress,
               receivingAddress: walletAddress,
               slippagePercentage: slippage,
@@ -235,13 +276,7 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // Validate response token info matches request (if present)
-          const resultObj = buildTxResponse.result as Record<string, unknown>;
-          const fromTokenInfo = resultObj.fromTokenInfo as
-            | { networkId?: string; contractAddress?: string }
-            | undefined;
-          const toTokenInfo = resultObj.toTokenInfo as
-            | { networkId?: string; contractAddress?: string }
-            | undefined;
+          const { fromTokenInfo, toTokenInfo } = buildTxResponse.result;
           if (
             fromTokenInfo?.networkId &&
             fromTokenInfo.networkId !== fromResolved.networkId
@@ -308,7 +343,7 @@ export function registerSwapBuildCommand(parent: Command): void {
             },
             amount: options.amount,
             txData: buildTxResponse as Record<string, unknown>,
-            provider: options.provider,
+            provider: matchedQuote.info.provider,
           });
 
           // Determine if allowance approval is required
@@ -318,7 +353,8 @@ export function registerSwapBuildCommand(parent: Command): void {
           output.success(
             {
               orderId,
-              provider: options.provider,
+              provider: matchedQuote.info.provider,
+              providerName: matchedQuote.info.providerName,
               chain: options.chain,
               from: {
                 symbol: fromResolved.symbol,
