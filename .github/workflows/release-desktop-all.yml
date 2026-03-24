@@ -678,6 +678,7 @@ jobs:
           yarn install-app-deps
 
       - name: 'Package AppImage'
+        id: phase1_appimage
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -699,12 +700,29 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*.yml
 
+      - name: 'Notify to Slack - Linux AppImage'
+        if: always() && github.event_name == 'workflow_run' && steps.phase1_appimage.outcome == 'success' && matrix.arch == 'amd64'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Linux-AppImage
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
       # ── Phase 2: Snap ──
 
       - name: Clean build-electron for Snap
+        if: always()
         run: rm -rf apps/desktop/build-electron
 
       - name: 'Rebuild Main Process (Snap, SNAP=true)'
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           SNAP: true
@@ -713,6 +731,8 @@ jobs:
           yarn build:main
 
       - name: 'Package Snap'
+        id: phase2_snap
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -722,6 +742,7 @@ jobs:
           npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Upload Snap
+        if: always() && steps.phase2_snap.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -729,12 +750,35 @@ jobs:
             ./apps/desktop/build-electron/*.snap
 
       - name: Upload Snap to Snap Store
-        if: ${{ github.event.workflow_run && github.event.workflow_run.name == 'daily-build' }}
+        if: always() && steps.phase2_snap.outcome == 'success' && github.event_name == 'workflow_run' && github.event.workflow_run.name == 'daily-build'
         continue-on-error: true
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
         run: |
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
+
+      - name: 'Notify to Slack - Linux Snap'
+        if: always() && github.event_name == 'workflow_run' && steps.phase2_snap.outcome == 'success' && matrix.arch == 'amd64'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Linux-Snap
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
+      - name: Fail if any phase failed
+        if: always()
+        shell: bash
+        run: |
+          [[ "${{ steps.phase1_appimage.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_snap.outcome }}" == "failure" ]] && exit 1
+          exit 0
 
   # ═══════════════════════════════════════════════════
   # Notify: Send single Slack message after all platforms complete
