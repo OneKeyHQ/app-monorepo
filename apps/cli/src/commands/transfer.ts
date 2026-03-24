@@ -399,7 +399,7 @@ export function registerTransferCommand(program: Command): void {
             account: {
               address: fromAddress,
               path: addressInfo.path ?? "m/44'/60'/0'/0/0",
-              pub: addressInfo.pub,
+              pub: addressInfo.publicKey,
             },
             unsignedTx: {
               encodedTx: encodedTxWithGas,

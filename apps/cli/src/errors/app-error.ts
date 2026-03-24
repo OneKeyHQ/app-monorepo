@@ -54,7 +54,7 @@ export class AppError extends Error {
         const message = firstIssue?.message ?? error.message;
         const path = firstIssue?.path ?? [];
 
-        let code = ERROR_CODES.PARAM_MISSING_REQUIRED.code;
+        let code: string = ERROR_CODES.PARAM_MISSING_REQUIRED.code;
         if (path.some((p) => p === 'to' || p === 'token')) {
           code = ERROR_CODES.PARAM_INVALID_ADDRESS.code;
         } else if (path.some((p) => p === 'amount')) {
