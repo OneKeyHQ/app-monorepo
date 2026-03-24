@@ -227,15 +227,23 @@ function MarketBannerDetailContent({ title }: { title: string }) {
           {isPerps ? (
             <PerpsTokenListSection tokenListId={tokenListId} />
           ) : (
-            <MarketTokenListBase
-              result={listResult}
-              onItemPress={handleItemPress}
-              hideTokenAge
-              clientSort
-              watchlistFrom={EWatchlistFrom.BannerList}
-              copyFrom={ECopyFrom.BannerList}
-              showEndReachedIndicator
-            />
+            <Stack
+              flex={1}
+              className="normal-scrollbar"
+              style={{ overflowX: 'auto' }}
+            >
+              <Stack flex={1} minWidth={900}>
+                <MarketTokenListBase
+                  result={listResult}
+                  onItemPress={handleItemPress}
+                  hideTokenAge
+                  clientSort
+                  watchlistFrom={EWatchlistFrom.BannerList}
+                  copyFrom={ECopyFrom.BannerList}
+                  showEndReachedIndicator
+                />
+              </Stack>
+            </Stack>
           )}
         </Stack>
       </Page.Body>
