@@ -211,6 +211,14 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*-universal.dmg
 
+      - name: Upload all Mac ZIPs
+        if: steps.phase1_dmg.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-mac-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*.zip
+
       - name: Upload x64 Mac DMG
         if: steps.phase1_dmg.outcome == 'success'
         uses: actions/upload-artifact@v4
