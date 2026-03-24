@@ -1,41 +1,44 @@
-diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-index 7055a0d..81ee02b 100644
---- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-+++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
-@@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
- import com.facebook.react.uimanager.ThemedReactContext
- import com.facebook.react.uimanager.UIManagerHelper
- import com.swmansion.rnscreens.Screen.ActivityState
-+import android.util.Log
- import com.swmansion.rnscreens.events.ScreenDismissedEvent
- import com.swmansion.rnscreens.gamma.common.FragmentProviding
+diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
+index 1c44762..11a2e04 100644
+--- a/node_modules/react-native-screens/ios/RNSScreen.mm
++++ b/node_modules/react-native-screens/ios/RNSScreen.mm
+@@ -49,6 +49,12 @@
+ constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
+ constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
-@@ -291,7 +292,24 @@ open class ScreenContainer(
-         }
- 
-         if (hasFragments) {
--            transaction.commitNowAllowingStateLoss()
-+            // Guard against "FragmentManager is already executing transactions" crash.
-+            // This race condition occurs when onDetachedFromWindow triggers removeMyFragments
-+            // while performUpdates -> onUpdate is already committing a transaction on the same
-+            // FragmentManager within the same UI frame (e.g. during rapid navigation).
-+            // On catch, we defer the removal to the next frame where the FragmentManager
-+            // will no longer be in a transaction.
-+            // See: https://github.com/software-mansion/react-native-screens/issues/2318
-+            // See: https://github.com/software-mansion/react-native-screens/issues/1506
-+            try {
-+                transaction.commitNowAllowingStateLoss()
-+            } catch (e: IllegalStateException) {
-+                Log.w("ScreenContainer", "FragmentManager already executing transactions, deferring fragment removal", e)
-+                post {
-+                    if (!fragmentManager.isDestroyed) {
-+                        removeMyFragments(fragmentManager)
-+                    }
-+                }
-+            }
-         }
-     }
- 
++// Global flag set during modal presentation transitions. Consumed by
++// UIView+ComponentViewProtocol (React Native Fabric) to wrap frame
++// changes in performWithoutAnimation, preventing UIKit from capturing
++// recycled-view frame corrections as implicit animations.
++BOOL RNSModalTransitionInProgress = NO;
++
+ struct ContentWrapperBox {
+   __weak RNSScreenContentWrapper *contentWrapper{nil};
+   float contentHeightErrata{0.f};
+@@ -1643,6 +1649,11 @@ - (instancetype)initWithView:(UIView *)view
+ - (void)viewWillAppear:(BOOL)animated
+ {
+   [super viewWillAppear:animated];
++
++  if (self.screenView.isPresentedAsNativeModal && animated) {
++    RNSModalTransitionInProgress = YES;
++  }
++
+   if (!_isSwiping) {
+     [self.screenView notifyWillAppear];
+     if (self.transitionCoordinator.isInteractive) {
+@@ -1711,6 +1722,11 @@ - (void)viewDidAppear:(BOOL)animated
+     [RNSScreenView.viewInteractionManagerInstance enableInteractionsForLastSubtree];
+   }
+   [super viewDidAppear:animated];
++
++  if (self.screenView.isPresentedAsNativeModal) {
++    RNSModalTransitionInProgress = NO;
++  }
++
+   if (!_isSwiping || _shouldNotify) {
+     // we are going forward or dismissing without swipe
+     // or successfully swiped back
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 index e37e40a..1e95f36 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
