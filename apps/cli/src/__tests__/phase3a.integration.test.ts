@@ -248,6 +248,7 @@ describe('security commands (integration)', () => {
     const parsed = JSON.parse(output);
     expect(parsed.status).toBe('success');
     expect(parsed.data).toHaveProperty('overallRisk');
+    expect(parsed.data).toHaveProperty('cautionItems');
     expect(parsed.data).toHaveProperty('checks');
     expect(parsed.data.checks).toHaveProperty('buy_tax');
   });

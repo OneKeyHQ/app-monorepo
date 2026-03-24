@@ -94,7 +94,7 @@ export function registerMarketPriceCommand(parent: Command): void {
           );
         }
 
-        if (resolved.isNative && t.isNative !== true) {
+        if (resolved.isNative && t.isNative === false) {
           throw new AppError(
             ERROR_CODES.NET_HTTP_ERROR.code,
             'Expected native token but API did not confirm isNative=true',

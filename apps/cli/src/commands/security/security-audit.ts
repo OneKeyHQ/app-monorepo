@@ -2,8 +2,15 @@ import { CHAINS } from '../../config';
 import { auditToken, resolveToken } from '../../core';
 import { AppError, ERROR_CODES } from '../../errors';
 
+import type { IAuditSummary } from '../../core';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
+
+function computeOverallRisk(audit: IAuditSummary): 'high' | 'caution' | 'low' {
+  if (audit.isHighRisk) return 'high';
+  if (audit.cautionItems.length > 0) return 'caution';
+  return 'low';
+}
 
 export function registerSecurityAuditCommand(parent: Command): void {
   parent
@@ -37,8 +44,9 @@ export function registerSecurityAuditCommand(parent: Command): void {
             symbol: resolved.symbol,
             contractAddress: resolved.contractAddress,
             networkId: resolved.networkId,
-            overallRisk: audit.isHighRisk ? 'high' : 'low',
+            overallRisk: computeOverallRisk(audit),
             riskItems: audit.riskItems,
+            cautionItems: audit.cautionItems,
             checks: audit.data,
           },
           { chain: options.chain },

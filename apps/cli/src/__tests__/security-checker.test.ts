@@ -23,6 +23,7 @@ describe('auditToken', () => {
 
     expect(result.isHighRisk).toBe(false);
     expect(result.riskItems).toEqual([]);
+    expect(result.cautionItems).toEqual([]);
     expect(result.data).toHaveProperty('buy_tax');
     expect(mockPost).toHaveBeenCalledWith(
       'utility',
@@ -49,6 +50,25 @@ describe('auditToken', () => {
     expect(result.riskItems).toContain('buy_tax');
   });
 
+  it('returns cautionItems for caution riskType', async () => {
+    mockPost.mockResolvedValueOnce({
+      '0xabc': {
+        owner_change: {
+          value: '1',
+          content: 'Owner can change',
+          riskType: 'caution',
+        },
+        buy_tax: { value: '0', content: 'No buy tax', riskType: 'safe' },
+      },
+    });
+
+    const result = await auditToken('evm--1', '0xABC');
+
+    expect(result.isHighRisk).toBe(false);
+    expect(result.cautionItems).toContain('owner_change');
+    expect(result.riskItems).toEqual([]);
+  });
+
   it('returns isHighRisk=true for honeypot keys with truthy value', async () => {
     mockPost.mockResolvedValueOnce({
       '0xabc': {
@@ -70,6 +90,7 @@ describe('auditToken', () => {
     expect(result.isHighRisk).toBe(true);
     expect(result.riskItems).toContain('is_honeypot');
     expect(result.riskItems).toContain('cannot_buy');
+    expect(result.cautionItems).toContain('is_honeypot');
   });
 
   it('deduplicates riskItems when key has both riskType=risk and is honeypot', async () => {
@@ -103,5 +124,38 @@ describe('auditToken', () => {
     await expect(auditToken('evm--1', '0xABC')).rejects.toThrow(
       'Security audit returned no data for 0xABC',
     );
+  });
+
+  it('throws when audit data is empty object (fail-closed)', async () => {
+    mockPost.mockResolvedValueOnce({ '0xabc': {} });
+
+    await expect(auditToken('evm--1', '0xABC')).rejects.toThrow(
+      'Security audit returned empty result for 0xABC',
+    );
+  });
+
+  it('throws on malformed security item', async () => {
+    mockPost.mockResolvedValueOnce({
+      '0xabc': {
+        buy_tax: { value: '0' },
+      },
+    });
+
+    await expect(auditToken('evm--1', '0xABC')).rejects.toThrow(
+      'Malformed security item',
+    );
+  });
+
+  it('resolves address with original case when API returns checksum key', async () => {
+    mockPost.mockResolvedValueOnce({
+      '0xAbC': {
+        buy_tax: { value: '0', content: 'No buy tax', riskType: 'safe' },
+      },
+    });
+
+    const result = await auditToken('evm--1', '0xAbC');
+
+    expect(result.isHighRisk).toBe(false);
+    expect(result.data).toHaveProperty('buy_tax');
   });
 });

@@ -115,11 +115,13 @@ export function registerSecuritySimulateCommand(parent: Command): void {
           if (
             typeof result !== 'object' ||
             result === null ||
-            !('display' in result)
+            !('display' in result) ||
+            typeof result.type !== 'string' ||
+            !('parsedTx' in result)
           ) {
             throw new AppError(
               ERROR_CODES.NET_HTTP_ERROR.code,
-              'Malformed parse-transaction response: missing display field',
+              'Malformed parse-transaction response: missing required fields',
               'This may indicate an API contract change — check connectivity',
             );
           }

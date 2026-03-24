@@ -13,6 +13,7 @@ export interface IAuditSummary {
   data: ISecurityAuditResult;
   isHighRisk: boolean;
   riskItems: string[];
+  cautionItems: string[];
 }
 
 const HONEYPOT_KEYS = new Set(['is_honeypot', 'cannot_buy', 'cannot_sell_all']);
@@ -50,7 +51,9 @@ export async function auditToken(
     },
   );
 
-  const data = response[contractAddress.toLowerCase()];
+  // Try original case first, then lowercase (API may return either)
+  const data =
+    response[contractAddress] ?? response[contractAddress.toLowerCase()];
   if (!data || typeof data !== 'object') {
     throw new AppError(
       ERROR_CODES.NET_HTTP_ERROR.code,
@@ -59,7 +62,17 @@ export async function auditToken(
     );
   }
 
+  // Empty audit result = no security data available, fail-closed
+  if (Object.keys(data).length === 0) {
+    throw new AppError(
+      ERROR_CODES.NET_HTTP_ERROR.code,
+      `Security audit returned empty result for ${contractAddress}`,
+      'The token may not have security data available',
+    );
+  }
+
   const riskItems: string[] = [];
+  const cautionItems: string[] = [];
   for (const [key, raw] of Object.entries(data)) {
     if (!isValidSecurityItem(raw)) {
       throw new AppError(
@@ -69,6 +82,7 @@ export async function auditToken(
       );
     }
     if (raw.riskType === 'risk') riskItems.push(key);
+    if (raw.riskType === 'caution') cautionItems.push(key);
     if (HONEYPOT_KEYS.has(key) && isTruthy(raw.value)) riskItems.push(key);
   }
 
@@ -76,5 +90,6 @@ export async function auditToken(
     data,
     isHighRisk: riskItems.length > 0,
     riskItems: [...new Set(riskItems)],
+    cautionItems: [...new Set(cautionItems)],
   };
 }
