@@ -37,10 +37,52 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1c44762..3ed576d 100644
+index 1c44762..d9d24a9 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -1621,6 +1621,7 @@ @implementation RNSScreen {
+@@ -49,6 +49,24 @@
+ constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
+ constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
+ 
++static void RNSScreenLogInfo(NSString *message)
++{
++  Class logClass = NSClassFromString(@"ReactNativeNativeLogger.OneKeyLog");
++  if (logClass == nil) {
++    logClass = NSClassFromString(@"OneKeyLog");
++  }
++  if (logClass == nil) {
++    return;
++  }
++  SEL sel = NSSelectorFromString(@"info::");
++  if (![logClass respondsToSelector:sel]) {
++    return;
++  }
++  typedef void (*LogFunc)(id, SEL, NSString *, NSString *);
++  LogFunc func = (LogFunc)[logClass methodForSelector:sel];
++  func(logClass, sel, @"RNSScreen", message);
++}
++
+ struct ContentWrapperBox {
+   __weak RNSScreenContentWrapper *contentWrapper{nil};
+   float contentHeightErrata{0.f};
+@@ -201,6 +219,16 @@ - (void)updateBounds
+         ? 0
+         : [_controller calculateHeaderHeightIsModal:self.isPresentedAsNativeModal];
+ 
++    if (self.isPresentedAsNativeModal) {
++      RNSScreenLogInfo([NSString
++          stringWithFormat:@"updateBounds modal bounds=(%.1f,%.1f) contentOffsetY=%.1f controller=%p view=%p",
++                           self.bounds.size.width,
++                           self.bounds.size.height,
++                           effectiveContentOffsetY,
++                           _controller,
++                           self]);
++    }
++
+     auto newState = react::RNSScreenState{RCTSizeFromCGSize(self.bounds.size), {0, effectiveContentOffsetY}};
+ 
+     _state->updateState(
+@@ -1621,6 +1649,7 @@ @implementation RNSScreen {
    BOOL _isSwiping;
    BOOL _shouldNotify;
    BOOL _isRemovedFromParent;
@@ -48,7 +90,7 @@ index 1c44762..3ed576d 100644
  }
  
  #pragma mark - Common
-@@ -1643,6 +1644,18 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1643,6 +1672,18 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -67,12 +109,18 @@ index 1c44762..3ed576d 100644
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
-@@ -1719,6 +1732,13 @@ - (void)viewDidAppear:(BOOL)animated
+@@ -1719,6 +1760,19 @@ - (void)viewDidAppear:(BOOL)animated
    } else {
      [self.screenView notifyGestureCancel];
    }
 +#ifdef RCT_NEW_ARCH_ENABLED
 +  if (_shouldApplyDeferredModalBoundsUpdate && self.screenView.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"viewDidAppear apply deferred update bounds=(%.1f,%.1f) controller=%p screen=%p",
++                         self.screenView.bounds.size.width,
++                         self.screenView.bounds.size.height,
++                         self,
++                         self.screenView]);
 +    _shouldApplyDeferredModalBoundsUpdate = NO;
 +    [self calculateAndNotifyHeaderHeightChangeIsModal:YES];
 +    [self.screenView updateBounds];
@@ -81,7 +129,7 @@ index 1c44762..3ed576d 100644
  
    _isSwiping = NO;
    _shouldNotify = YES;
-@@ -1764,15 +1784,21 @@ - (void)viewDidLayoutSubviews
+@@ -1764,15 +1818,34 @@ - (void)viewDidLayoutSubviews
    // screen size
    BOOL isDisplayedWithinUINavController = [self.parentViewController isKindOfClass:[RNSNavigationController class]];
    BOOL isTabScreen = [self.parentViewController isKindOfClass:RNSTabBarController.class];
@@ -97,8 +145,21 @@ index 1c44762..3ed576d 100644
  #ifdef RCT_NEW_ARCH_ENABLED
 -    [self.screenView updateBounds];
 +    if (self.screenView.isPresentedAsNativeModal && isModalTransitionInProgress) {
++      RNSScreenLogInfo([NSString
++          stringWithFormat:@"viewDidLayoutSubviews defer updateBounds bounds=(%.1f,%.1f) coordinator=%p controller=%p",
++                           self.screenView.bounds.size.width,
++                           self.screenView.bounds.size.height,
++                           self.transitionCoordinator,
++                           self]);
 +      _shouldApplyDeferredModalBoundsUpdate = YES;
 +    } else {
++      if (self.screenView.isPresentedAsNativeModal) {
++        RNSScreenLogInfo([NSString
++            stringWithFormat:@"viewDidLayoutSubviews immediate updateBounds bounds=(%.1f,%.1f) controller=%p",
++                             self.screenView.bounds.size.width,
++                             self.screenView.bounds.size.height,
++                             self]);
++      }
 +      [self.screenView updateBounds];
 +      _shouldApplyDeferredModalBoundsUpdate = NO;
 +    }
