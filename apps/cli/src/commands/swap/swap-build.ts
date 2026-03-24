@@ -14,8 +14,19 @@ import type { IEndpointEnv } from '../../config';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
+interface IBuildTxResultInfo {
+  provider: string;
+  providerName: string;
+}
+
+interface IBuildTxResult {
+  info: IBuildTxResultInfo;
+  allowanceResult?: unknown;
+  [key: string]: unknown;
+}
+
 interface IBuildTxResponse {
-  result?: Record<string, unknown>;
+  result: IBuildTxResult;
   tx?: Record<string, unknown> | string;
   orderId?: string;
   [key: string]: unknown;
@@ -44,7 +55,10 @@ export function registerSwapBuildCommand(parent: Command): void {
       'Destination token (contract address or symbol)',
     )
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
-    .requiredOption('--provider <provider>', 'Swap provider name (e.g., 1inch)')
+    .requiredOption(
+      '--provider <provider>',
+      'Swap provider ID from quote output (e.g., 1inch)',
+    )
     .option('--slippage <percent>', 'Slippage tolerance percentage')
     .option('--force', 'Override high-risk token security check')
     .action(
@@ -191,10 +205,24 @@ export function registerSwapBuildCommand(parent: Command): void {
               userAddress: walletAddress,
               receivingAddress: walletAddress,
               slippagePercentage: slippage,
-              protocol: 'swap',
+              protocol: 'Swap',
               kind: 'sell',
             },
           );
+
+          // Validate build-tx response contains usable result
+          if (
+            !buildTxResponse.result ||
+            typeof buildTxResponse.result !== 'object' ||
+            !buildTxResponse.result.info ||
+            typeof buildTxResponse.result.info.provider !== 'string'
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              'Build-tx returned no usable result (missing result.info.provider)',
+              'Try a different provider or check token pair availability',
+            );
+          }
 
           // Generate orderId and save pending order
           const orderId = randomUUID();
@@ -224,11 +252,7 @@ export function registerSwapBuildCommand(parent: Command): void {
 
           // Determine if allowance approval is required
           const allowanceRequired =
-            buildTxResponse.result &&
-            typeof buildTxResponse.result === 'object' &&
-            'allowanceResult' in buildTxResponse.result
-              ? buildTxResponse.result.allowanceResult
-              : null;
+            buildTxResponse.result.allowanceResult ?? null;
 
           output.success(
             {

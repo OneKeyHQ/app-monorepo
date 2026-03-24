@@ -82,7 +82,8 @@ function isValidQuoteItem(v: unknown): v is IQuoteResultItem {
 
 function formatQuoteItem(q: IQuoteResultItem) {
   return {
-    provider: q.info.providerName || q.info.provider,
+    provider: q.info.provider,
+    providerName: q.info.providerName || q.info.provider,
     toAmount: q.toAmount ?? null,
     fromAmount: q.fromAmount ?? null,
     minToAmount: q.minToAmount ?? null,
