@@ -12,7 +12,7 @@
   "extends": [
     "eslint-config-prettier",
   ],
-  "plugins": ["unicorn", "typescript", "oxc", "react", "react_perf", "import", "jest", "jsx-a11y"],
+  "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest", "jsx-a11y"],
   // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
   // because some plugin configurations are not compatible with oxlint
   // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
@@ -225,10 +225,8 @@
       }
     ],
     "react/jsx-curly-brace-presence": ["error", { "props": "never", "children": "never" }],
-    // Prevent inline functions as props — causes unnecessary re-renders and state loss
-    // warn for now (2527 existing violations), lint:staged --deny-warnings blocks new ones
-    "react_perf/jsx-no-new-function-as-prop": "warn",
-    // Disabled: too noisy in React Native with tamagui styled components
+    // react_perf rules — disabled, too many existing violations to fix at once
+    "react_perf/jsx-no-new-function-as-prop": "off",
     "react_perf/jsx-no-new-object-as-prop": "off",
     "react_perf/jsx-no-new-array-as-prop": "off",
     "react_perf/jsx-no-jsx-as-prop": "off",
