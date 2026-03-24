@@ -411,6 +411,11 @@ class ServiceAccount extends ServiceBase {
 
     const wallets: IDBWallet[] = r.wallets;
 
+    await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
+      wallets,
+      { whenNoKeyless: 'skip' },
+    );
+
     return {
       ...r,
       wallets,

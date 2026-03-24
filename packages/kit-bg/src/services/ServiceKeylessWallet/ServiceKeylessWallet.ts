@@ -804,7 +804,7 @@ class ServiceKeylessWallet extends ServiceBase {
     });
 
     // Remove persisted credential before wallet deletion
-    await keylessSyncCredentialStorage.removeCredential(walletId);
+    await keylessSyncCredentialStorage.removeAllCredentials();
     this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache(
       { keylessWalletId: walletId },
     );

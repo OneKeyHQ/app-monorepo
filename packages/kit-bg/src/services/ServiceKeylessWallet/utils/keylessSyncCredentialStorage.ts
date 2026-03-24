@@ -83,12 +83,6 @@ async function getCredential(
   return credential;
 }
 
-async function removeCredential(keylessWalletId: string): Promise<void> {
-  const map = await readMap();
-  delete map[keylessWalletId];
-  await writeMap(map);
-}
-
 async function removeAllCredentials(): Promise<void> {
   await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
 }
@@ -96,6 +90,5 @@ async function removeAllCredentials(): Promise<void> {
 export default {
   saveCredential,
   getCredential,
-  removeCredential,
   removeAllCredentials,
 };

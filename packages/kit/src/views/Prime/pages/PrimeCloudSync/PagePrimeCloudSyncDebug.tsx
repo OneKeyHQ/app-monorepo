@@ -534,7 +534,7 @@ function ScenarioPanel() {
       <Button
         size="small"
         onPress={async () => {
-          await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSyncKeyless(
+          await backgroundApiProxy.serviceKeylessCloudSync.toggleCloudSyncKeyless(
             { enabled: !config.isCloudSyncEnabledKeyless },
           );
           Toast.success({
