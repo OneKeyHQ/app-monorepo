@@ -1417,7 +1417,11 @@ function formatPerpsCompactUsd(value: number): string {
  * Return a theme color token based on PnL sign.
  * Positive → '$green11', Negative → '$red11', Zero/null → '$text'.
  */
-function getPerpsValueColor(value: number | null | undefined): string {
+type IPerpsValueColor = '$text' | '$green11' | '$red11';
+
+function getPerpsValueColor(
+  value: number | null | undefined,
+): IPerpsValueColor {
   if (value === null || value === undefined || value === 0) return '$text';
   return value > 0 ? '$green11' : '$red11';
 }
@@ -1425,6 +1429,9 @@ function getPerpsValueColor(value: number | null | undefined): string {
 /**
  * Compact USD formatter for chart Y-axis labels (lightweight-charts priceFormatter).
  * Output: "$1.2M", "$45K", "$120", "$3.14" etc.
+ *
+ * NOTE: Keep in sync with `usdPriceFormatter` in LightweightChart/utils/htmlTemplate.ts
+ * (native WebView cannot use TS functions, so the logic is duplicated as inline JS).
  */
 function formatChartUsdPrice(price: number): string {
   const abs = Math.abs(price);

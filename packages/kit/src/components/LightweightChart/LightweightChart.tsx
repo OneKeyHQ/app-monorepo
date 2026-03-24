@@ -25,6 +25,7 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  priceScaleMargins,
   priceFormatter,
   fontSize,
   seriesType,
@@ -50,6 +51,7 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    priceScaleMargins,
     priceFormatter,
     fontSize,
     seriesType,
@@ -66,6 +68,7 @@ export function LightweightChart({
       chartConfig.theme,
       chartConfig.showPriceScale,
       chartConfig.fontSize,
+      chartConfig.priceScaleMargins,
     );
     const gridOptions = {
       vertLines: { visible: false },

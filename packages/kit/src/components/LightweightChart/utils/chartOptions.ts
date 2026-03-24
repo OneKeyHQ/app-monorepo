@@ -12,6 +12,7 @@ export function createChartOptions(
   theme: ILightweightChartTheme,
   showPriceScale = false,
   fontSize?: number,
+  priceScaleMargins?: { top: number; bottom: number },
 ): DeepPartial<ChartOptions> {
   return {
     layout: {
@@ -43,10 +44,7 @@ export function createChartOptions(
     rightPriceScale: {
       visible: showPriceScale,
       borderVisible: false,
-      scaleMargins: {
-        top: 0.12,
-        bottom: 0.12,
-      },
+      ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
     },
     leftPriceScale: {
       visible: false,

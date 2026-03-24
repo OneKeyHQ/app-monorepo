@@ -20,6 +20,7 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
   fontSize?: number;
   seriesType?: 'area' | 'baseline';
@@ -37,6 +38,7 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  priceScaleMargins,
   priceFormatter,
   fontSize,
   seriesType,
@@ -57,6 +59,7 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScaleMargins,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
       data: data.map(([time, value]: [number, number]) => ({
@@ -91,6 +94,7 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      priceScaleMargins,
       priceFormatter,
       fontSize,
       seriesType,
