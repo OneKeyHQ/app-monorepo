@@ -20,6 +20,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -431,6 +432,7 @@ function AppDataSection() {
       await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
         callerName: 'Manual Cloud Sync OneKey ID',
         noDebounceUpload: true,
+        forceSync: true,
       });
       await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
         syncMode: ECloudSyncMode.OnekeyId,
@@ -464,6 +466,7 @@ function AppDataSection() {
     if (manualSyncingRef.current) return;
     manualSyncingRef.current = true;
     try {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
           id: ETranslations.global_syncing,
@@ -472,6 +475,7 @@ function AppDataSection() {
       await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
         callerName: 'Manual Cloud Sync Keyless',
         noDebounceUpload: true,
+        forceSync: true,
       });
     } finally {
       manualSyncingRef.current = false;
@@ -735,6 +739,14 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <AppDataSection />
+        <MultipleClickStack
+          flex={1}
+          h="$10"
+          showDevBgColor
+          onPress={() => {
+            navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+          }}
+        />
       </Page.Body>
     </Page>
   );
