@@ -7,7 +7,7 @@
     "eslint-plugin-ban",
     "eslint-plugin-prettier",
     { "name": "import-js", "specifier": "eslint-plugin-import" },
-    "./development/lint/eslint-plugin-onekey.js"
+    "./development/plugins/eslint-plugin-onekey.js"
   ],
   "extends": [
     "eslint-config-prettier",
