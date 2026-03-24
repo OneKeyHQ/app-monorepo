@@ -29,9 +29,10 @@ function IntervalRangeInputs({
   }, []);
 
   return (
-    <XStack gap="$2" alignItems="center" mt="$3">
+    <XStack gap="$2" alignItems="center" mt="$3" w="100%">
       <Input
         flex={1}
+        minWidth={0}
         value={minSeconds}
         onChangeText={(v) => onMinChange(filterIntegerInput(v))}
         placeholder="0"
@@ -43,6 +44,7 @@ function IntervalRangeInputs({
       </SizableText>
       <Input
         flex={1}
+        minWidth={0}
         value={maxSeconds}
         onChangeText={(v) => onMaxChange(filterIntegerInput(v))}
         placeholder="Max (sec)"

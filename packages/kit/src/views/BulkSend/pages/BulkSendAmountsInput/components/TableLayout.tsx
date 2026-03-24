@@ -132,10 +132,8 @@ function IntervalCard() {
 
       {/* Content */}
       <YStack flex={1} justifyContent="center" alignItems="center">
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_interval_desc,
-          })}
+        <SizableText size="$heading3xl" textAlign="center">
+          {intervalSummary}
         </SizableText>
       </YStack>
     </YStack>
@@ -769,7 +767,9 @@ function AmountCard() {
             hoverStyle={{ opacity: 0.75 }}
             pressStyle={{ opacity: 0.5 }}
           >
-            {intl.formatMessage({ id: ETranslations.global_max })}
+            {isMaxMode
+              ? `${intl.formatMessage({ id: ETranslations.global_cancel })} ${intl.formatMessage({ id: ETranslations.global_max })}`
+              : intl.formatMessage({ id: ETranslations.global_max })}
           </SizableText>
         ) : null}
       </XStack>

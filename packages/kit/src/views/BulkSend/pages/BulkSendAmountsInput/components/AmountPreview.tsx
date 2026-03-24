@@ -292,7 +292,9 @@ export function AmountPreview({
             onPress={onMaxPress}
             hitSlop={8}
           >
-            {intl.formatMessage({ id: ETranslations.global_max })}
+            {isMaxMode
+              ? `${intl.formatMessage({ id: ETranslations.global_cancel })} ${intl.formatMessage({ id: ETranslations.global_max })}`
+              : intl.formatMessage({ id: ETranslations.global_max })}
           </SizableText>
         </XStack>
       ) : null}
