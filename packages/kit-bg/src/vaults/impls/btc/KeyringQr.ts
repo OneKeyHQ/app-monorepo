@@ -232,7 +232,7 @@ export class KeyringQr extends KeyringQrBase {
 
     return results.map((item) => ({
       address: item.address,
-      path: item.path,
+      path: item.path ?? '',
     }));
   }
 
