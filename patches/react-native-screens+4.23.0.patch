@@ -65,7 +65,19 @@ index 1c44762..11a2e04 100644
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
-@@ -1711,6 +1722,11 @@ - (void)viewDidAppear:(BOOL)animated
+@@ -1681,6 +1692,11 @@ - (void)viewWillAppear:(BOOL)animated
+ - (void)viewWillDisappear:(BOOL)animated
+ {
+   [super viewWillDisappear:animated];
++
++  if (self.screenView.isPresentedAsNativeModal) {
++    RNSModalTransitionInProgress = NO;
++  }
++
+   // self.navigationController might be null when we are dismissing a modal
+   if (!self.transitionCoordinator.isInteractive && self.navigationController != nil) {
+     // user might have long pressed ios 14 back button item,
+@@ -1711,6 +1727,11 @@ - (void)viewDidAppear:(BOOL)animated
      [RNSScreenView.viewInteractionManagerInstance enableInteractionsForLastSubtree];
    }
    [super viewDidAppear:animated];
