@@ -133,7 +133,6 @@ export function makeRootModalStackOptions(params?: {
   }
 
   if (params?.bgColor) {
-    // @ts-expect-error
     options.contentStyle = { backgroundColor: params.bgColor };
   }
 
