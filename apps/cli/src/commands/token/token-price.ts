@@ -82,6 +82,17 @@ export function registerTokenPriceCommand(parent: Command): void {
           );
         }
 
+        if (
+          resolved.contractAddress &&
+          t.address.toLowerCase() !== resolved.contractAddress.toLowerCase()
+        ) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            `Token address mismatch: requested ${resolved.contractAddress} but got ${t.address}`,
+            'API may have returned data for a different token',
+          );
+        }
+
         output.success(
           {
             symbol: t.symbol ?? resolved.symbol,

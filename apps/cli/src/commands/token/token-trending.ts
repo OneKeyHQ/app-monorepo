@@ -67,10 +67,13 @@ export function registerTokenTrendingCommand(parent: Command): void {
           '/utility/v2/market/trending',
         );
 
-        // Runtime validation: API may return non-array on contract drift
+        // Runtime validation: API must return an array
         if (!Array.isArray(rawResults)) {
-          output.success([], options.chain ? { chain: options.chain } : {});
-          return;
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            'Malformed trending response: expected array',
+            'This may indicate an API contract change — check connectivity',
+          );
         }
 
         const results = rawResults.filter(isValidTrendingItem);

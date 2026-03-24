@@ -78,10 +78,13 @@ export function registerTokenSearchCommand(parent: Command): void {
             { query: options.query },
           );
 
-          // Runtime validation: API may return non-array on contract drift
+          // Runtime validation: API must return an array
           if (!Array.isArray(rawResults)) {
-            output.success([], meta);
-            return;
+            throw new AppError(
+              ERROR_CODES.NET_HTTP_ERROR.code,
+              'Malformed search response: expected array',
+              'This may indicate an API contract change — check connectivity',
+            );
           }
 
           const results = rawResults.filter(isValidSearchItem);

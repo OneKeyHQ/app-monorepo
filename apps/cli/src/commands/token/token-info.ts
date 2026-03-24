@@ -103,6 +103,33 @@ export function registerTokenInfoCommand(parent: Command): void {
           );
         }
 
+        if (
+          resolved.contractAddress &&
+          t.address.toLowerCase() !== resolved.contractAddress.toLowerCase()
+        ) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            `Token address mismatch: requested ${resolved.contractAddress} but got ${t.address}`,
+            'API may have returned data for a different token',
+          );
+        }
+
+        if (t.networkId && t.networkId !== resolved.networkId) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            `Network mismatch: requested ${resolved.networkId} but got ${t.networkId}`,
+            'API may have returned data for a different network',
+          );
+        }
+
+        if (resolved.isNative && t.isNative === false) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            'Expected native token but API returned a non-native token',
+            'API may have returned data for a different token',
+          );
+        }
+
         output.success(
           {
             // Basics
