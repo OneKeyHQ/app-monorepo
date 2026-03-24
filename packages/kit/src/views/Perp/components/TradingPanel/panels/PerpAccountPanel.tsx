@@ -287,7 +287,7 @@ function PerpAccountPanel() {
             h={36}
             w={36}
             variant="secondary"
-            icon="ChartLineOutline"
+            icon="ChartLine2Outline"
             iconSize="$4.5"
             title={getPortfolioTitle()}
             onPress={() => {
