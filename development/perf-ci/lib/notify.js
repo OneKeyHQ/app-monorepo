@@ -50,7 +50,13 @@ function readAlertState(filePath) {
 }
 
 function writeAlertState(filePath, state) {
-  writeJson(filePath, state);
+  try {
+    writeJson(filePath, state);
+  } catch (err) {
+    // Non-critical: failing to persist alert state should never crash the runner
+    // or trigger a false "FAILED" Slack notification.
+    console.warn(`[perf] writeAlertState failed: ${err.message}`);
+  }
 }
 
 function getAlertStatePath({ outputRoot, localConfig, targetKey }) {

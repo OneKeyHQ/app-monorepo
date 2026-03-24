@@ -34,8 +34,8 @@
       <!-- Set this on the machine (recommended) -->
       <!-- <key>SLACK_WEBHOOK_URL</key><string>https://hooks.slack.com/services/...</string> -->
 
-      <!-- Perf analytics ingestion — copy development/perf-ci/.env.example to .env instead -->
-      <!-- <key>PERF_ANALYTICS_URL</key><string>https://perf-analytics.kaisheng-cai.workers.dev</string> -->
+      <!-- Perf analytics ingestion — see README for config.local.json setup -->
+      <!-- <key>PERF_ANALYTICS_URL</key><string>https://perf-analytics.example.workers.dev</string> -->
       <!-- <key>PERF_ANALYTICS_SECRET</key><string>your-secret-here</string> -->
     </dict>
 

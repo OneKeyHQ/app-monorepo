@@ -38,9 +38,7 @@ function readAllMarks(sessionsDir, sessionId) {
   for (const rawLine of raw.split('\n')) {
     const line = rawLine.trim();
     const evt = line ? safeParseJsonLine(line) : null;
-    if (!evt) {
-      // skip empty lines and non-JSON entries
-    } else {
+    if (evt) {
       const payload = evt.data && typeof evt.data === 'object' ? evt.data : evt;
       const name = payload?.name ?? evt?.name;
       const ts = evt?.timestamp ?? payload?.timestamp ?? null;
@@ -359,8 +357,6 @@ async function postSessionAnalytics({
 }
 
 module.exports = {
-  buildJobPayload,
-  buildSessionPayload,
   postJobAnalytics,
   postSessionAnalytics,
 };

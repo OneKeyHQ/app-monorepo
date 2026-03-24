@@ -619,7 +619,4 @@ function buildPerfAlertModel({
 module.exports = {
   buildPerfAlertModel,
   buildSlackPayload,
-  formatMetricValue,
-  formatStartedAt,
-  shortSha,
 };
