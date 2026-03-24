@@ -1,7 +1,7 @@
 /**
  * Custom oxlint JS plugin for OneKey-specific lint rules.
  *
- * Usage in .oxlintrc.json:
+ * Usage in oxlint config (cspell:ignore oxlintrc):
  *   "jsPlugins": ["./development/lint/eslint-plugin-onekey.js"]
  *   "rules": { "onekey/no-raw-error": "error" }
  */
