@@ -53,7 +53,7 @@ module.exports = function ({ types: t }) {
 
           // jest.mock('module', factory) ->
           // globalThis.__harness_mock_module__(
-          //   (function(){try{return require('module')}catch(e){console.warn(...);return {}}})(),
+          //   (function(){try{return require('module')}catch(e){console.warn('...',String(e));return {}}})(),
           //   factory
           // )
           // The try-catch prevents crashes when native modules fail to load
@@ -83,13 +83,9 @@ module.exports = function ({ types: t }) {
                             t.stringLiteral(
                               '[babel-plugin-jest-compat] require() failed for mock:',
                             ),
-                            t.logicalExpression(
-                              '||',
-                              t.memberExpression(
-                                t.identifier('_e'),
-                                t.identifier('message'),
-                              ),
-                              t.identifier('_e'),
+                            t.callExpression(
+                              t.identifier('String'),
+                              [t.identifier('_e')],
                             ),
                           ],
                         ),

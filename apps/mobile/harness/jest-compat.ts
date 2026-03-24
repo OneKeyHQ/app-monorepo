@@ -406,12 +406,14 @@ Object.defineProperty(globalThis, 'jest', {
     // Fake timers cannot be safely implemented in the harness because
     // replacing globalThis.setTimeout breaks the harness bridge communication.
     // Tests using fake timers are excluded via jest.harness.config.mjs.
-    // These no-op stubs prevent crashes if a test slips through.
+    // Throw so tests that slip through fail clearly instead of silently
+    // running with real timers and producing misleading results.
     useFakeTimers: () => {
-      console.warn(
-        '[harness-compat] jest.useFakeTimers() is not supported — test excluded from harness?',
+      // eslint-disable-next-line no-restricted-syntax
+      throw new Error(
+        '[harness-compat] jest.useFakeTimers() is not supported in harness mode. ' +
+          'Add this test to testPathIgnorePatterns in jest.harness.config.mjs.',
       );
-      return (globalThis as any).jest;
     },
     useRealTimers: () => (globalThis as any).jest,
     advanceTimersByTime: (_ms: number) => {},
