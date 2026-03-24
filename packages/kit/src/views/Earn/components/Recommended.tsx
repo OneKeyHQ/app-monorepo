@@ -83,25 +83,15 @@ function useRecommendedItemPress(token?: IRecommendAsset) {
     if (token) {
       defaultLogger.staking.page.selectAsset({ tokenSymbol: token.symbol });
       navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.QuickDeposit,
+        screen: EModalStakingRoutes.ManagePosition,
         params: {
           networkId: token.protocols[0].networkId,
           symbol: token.symbol,
           provider: token.protocols[0].provider,
           vault: token.protocols[0].vault,
           tokenImageUri: token.logoURI,
-          // TODO: remove mock - simulate multiple protocols for dropdown testing
-          protocols:
-            token.protocols.length === 1
-              ? [
-                  ...token.protocols,
-                  {
-                    ...token.protocols[0],
-                    provider: 'aave',
-                    vault: 'aave-v3-usdc',
-                  },
-                ]
-              : token.protocols,
+          tab: 'deposit',
+          enableProtocolSwitch: true,
         },
       });
     }
@@ -540,6 +530,92 @@ function RecommendedContainer({
   );
 }
 
+function RecommendedContent({
+  tokens,
+  noWalletConnected,
+  withHeader,
+  recommendedItemContainerProps,
+}: {
+  tokens: IRecommendAsset[];
+  noWalletConnected: boolean;
+  withHeader: boolean;
+  recommendedItemContainerProps?: IYStackProps;
+}) {
+  const media = useMedia();
+  const intl = useIntl();
+  const [showAll, setShowAll] = useState(false);
+
+  // Mobile / small screen: vertical list
+  if (!media.gtMd) {
+    const INITIAL_COUNT = 4;
+    const visibleTokens = showAll ? tokens : tokens.slice(0, INITIAL_COUNT);
+    return (
+      <RecommendedContainer withHeader={withHeader}>
+        <YStack>
+          {visibleTokens.map((token) => (
+            <RecommendedListItem
+              key={token.symbol}
+              token={token}
+              noWalletConnected={noWalletConnected}
+            />
+          ))}
+          {!showAll && tokens.length > INITIAL_COUNT ? (
+            <YStack pt="$4">
+              <Button
+                variant="secondary"
+                size="medium"
+                onPress={() => setShowAll(true)}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_show_more,
+                })}
+              </Button>
+            </YStack>
+          ) : null}
+        </YStack>
+      </RecommendedContainer>
+    );
+  }
+
+  // Desktop / large screen: horizontal card scroll
+  if (platformEnv.isNative) {
+    const cardItems = tokens.map((token) => (
+      <YStack key={token.symbol} minWidth={CARD_WIDTH} flexShrink={0}>
+        <RecommendedItem
+          token={token}
+          noWalletConnected={noWalletConnected}
+          {...recommendedItemContainerProps}
+        />
+      </YStack>
+    ));
+    return (
+      <RecommendedContainer withHeader={withHeader}>
+        <NativeRecommendedScroller itemCount={tokens.length}>
+          {cardItems}
+        </NativeRecommendedScroller>
+      </RecommendedContainer>
+    );
+  }
+
+  const cardItems = tokens.map((token) => (
+    <YStack key={token.symbol} minWidth={CARD_WIDTH} flex={1}>
+      <RecommendedItem
+        token={token}
+        noWalletConnected={noWalletConnected}
+        {...recommendedItemContainerProps}
+      />
+    </YStack>
+  ));
+
+  return (
+    <RecommendedContainer withHeader={withHeader}>
+      <WebRecommendedScroller itemCount={tokens.length}>
+        {cardItems}
+      </WebRecommendedScroller>
+    </RecommendedContainer>
+  );
+}
+
 export function Recommended(
   props:
     | {
@@ -648,90 +724,4 @@ export function Recommended(
     );
   }
   return null;
-}
-
-function RecommendedContent({
-  tokens,
-  noWalletConnected,
-  withHeader,
-  recommendedItemContainerProps,
-}: {
-  tokens: IRecommendAsset[];
-  noWalletConnected: boolean;
-  withHeader: boolean;
-  recommendedItemContainerProps?: IYStackProps;
-}) {
-  const media = useMedia();
-  const intl = useIntl();
-  const [showAll, setShowAll] = useState(false);
-
-  // Mobile / small screen: vertical list
-  if (!media.gtMd) {
-    const INITIAL_COUNT = 4;
-    const visibleTokens = showAll ? tokens : tokens.slice(0, INITIAL_COUNT);
-    return (
-      <RecommendedContainer withHeader={withHeader}>
-        <YStack>
-          {visibleTokens.map((token) => (
-            <RecommendedListItem
-              key={token.symbol}
-              token={token}
-              noWalletConnected={noWalletConnected}
-            />
-          ))}
-          {!showAll && tokens.length > INITIAL_COUNT ? (
-            <YStack pt="$4">
-              <Button
-                variant="secondary"
-                size="medium"
-                onPress={() => setShowAll(true)}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_show_more,
-                })}
-              </Button>
-            </YStack>
-          ) : null}
-        </YStack>
-      </RecommendedContainer>
-    );
-  }
-
-  // Desktop / large screen: horizontal card scroll
-  if (platformEnv.isNative) {
-    const cardItems = tokens.map((token) => (
-      <YStack key={token.symbol} minWidth={CARD_WIDTH} flexShrink={0}>
-        <RecommendedItem
-          token={token}
-          noWalletConnected={noWalletConnected}
-          {...recommendedItemContainerProps}
-        />
-      </YStack>
-    ));
-    return (
-      <RecommendedContainer withHeader={withHeader}>
-        <NativeRecommendedScroller itemCount={tokens.length}>
-          {cardItems}
-        </NativeRecommendedScroller>
-      </RecommendedContainer>
-    );
-  }
-
-  const cardItems = tokens.map((token) => (
-    <YStack key={token.symbol} minWidth={CARD_WIDTH} flex={1}>
-      <RecommendedItem
-        token={token}
-        noWalletConnected={noWalletConnected}
-        {...recommendedItemContainerProps}
-      />
-    </YStack>
-  ));
-
-  return (
-    <RecommendedContainer withHeader={withHeader}>
-      <WebRecommendedScroller itemCount={tokens.length}>
-        {cardItems}
-      </WebRecommendedScroller>
-    </RecommendedContainer>
-  );
 }

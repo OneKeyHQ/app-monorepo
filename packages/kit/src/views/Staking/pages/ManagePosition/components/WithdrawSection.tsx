@@ -54,7 +54,6 @@ export const WithdrawSection = ({
   onSuccess,
   beforeFooter,
   showApyDetail,
-  renderProtocolInfo,
   isInModalContext,
   fallbackTokenImageUri,
   useBorrowApi,
@@ -78,7 +77,6 @@ export const WithdrawSection = ({
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
-  renderProtocolInfo?: () => React.ReactElement | null;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
   useBorrowApi?: boolean;
@@ -923,7 +921,6 @@ export const WithdrawSection = ({
           isDisabled={isDisabled}
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
-          renderProtocolInfo={renderProtocolInfo}
           isInModalContext={isInModalContext}
           receiveInputConfig={effectiveReceiveInputConfig}
           transactionInputTokenAddress={

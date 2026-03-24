@@ -43,6 +43,7 @@ import {
   resolveStakeTokenAddress,
 } from '../../../utils/utils';
 
+import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const StakeSection = ({
@@ -54,9 +55,9 @@ export const StakeSection = ({
   onSuccess,
   beforeFooter,
   showApyDetail,
-  renderProtocolInfo,
   isInModalContext,
   fallbackTokenImageUri,
+  protocolSwitchConfig,
   ongoingValidator,
   useBorrowApi,
   borrowMarketAddress,
@@ -78,9 +79,9 @@ export const StakeSection = ({
   onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
-  renderProtocolInfo?: () => React.ReactElement | null;
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
+  protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   ongoingValidator?: IEarnSelectField;
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
@@ -614,6 +615,7 @@ export const StakeSection = ({
         }}
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
+        protocolSwitchConfig={protocolSwitchConfig}
       />
     );
   }
@@ -681,8 +683,8 @@ export const StakeSection = ({
           }}
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
-          renderProtocolInfo={renderProtocolInfo}
           isInModalContext={isInModalContext}
+          protocolSwitchConfig={protocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           receiveInputConfig={receiveInputConfig}
           inputTitle={

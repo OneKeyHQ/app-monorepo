@@ -32,7 +32,6 @@ export enum EModalStakingRoutes {
   HistoryList = 'HistoryList',
   BorrowHistoryList = 'BorrowHistoryList',
   EarnTokenSelect = 'EarnTokenSelect',
-  QuickDeposit = 'QuickDeposit',
   EarnAssetSearch = 'EarnAssetSearch',
 }
 
@@ -78,6 +77,7 @@ export type IModalStakingParamList = {
     vault?: string;
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
+    enableProtocolSwitch?: boolean;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBaseRouteParams & {
     provider: string;
@@ -162,14 +162,6 @@ export type IModalStakingParamList = {
     action: 'stake' | 'unstake';
     currentTokenAddress?: string;
     onSelect?: (token: IEarnTokenItem) => void;
-  };
-  [EModalStakingRoutes.QuickDeposit]: {
-    networkId: string;
-    symbol: string;
-    provider: string;
-    vault?: string;
-    tokenImageUri?: string;
-    protocols: Array<{ networkId: string; provider: string; vault: string }>;
   };
   [EModalStakingRoutes.EarnAssetSearch]: {
     availableAssetsByType: Partial<

@@ -33,6 +33,8 @@ import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
 
+import type { IManagePositionProtocolSwitchConfig } from './ManagePositionContent';
+
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 type IManageActionData = IEarnManagePageActionData | undefined;
 
@@ -64,8 +66,8 @@ interface INormalManageContentProps {
   isInModalContext: boolean;
   appNavigation: IAppNavigation;
   showApyDetail?: boolean;
-  renderProtocolInfo?: () => React.ReactElement | null;
   fallbackTokenImageUri?: string;
+  stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   ongoingValidator?: IEarnSelectField;
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
@@ -98,8 +100,8 @@ export function NormalManageContent({
   isInModalContext,
   appNavigation,
   showApyDetail,
-  renderProtocolInfo,
   fallbackTokenImageUri,
+  stakeProtocolSwitchConfig,
   ongoingValidator,
   managePageData,
   type = EManagePositionType.Staking,
@@ -564,8 +566,9 @@ export function NormalManageContent({
     if (depositDisabled && selectedTabIndex === 0) {
       setSelectedTabIndex(1);
       focusedTab.value = tabNames[1];
+      onTabChange?.('withdraw');
     }
-  }, [depositDisabled, selectedTabIndex, focusedTab, tabNames]);
+  }, [depositDisabled, selectedTabIndex, focusedTab, tabNames, onTabChange]);
 
   const isWithdrawOrder = useMemo(() => {
     return (
@@ -713,9 +716,9 @@ export function NormalManageContent({
           onSuccess={onSuccess}
           beforeFooter={stakeBeforeFooter}
           showApyDetail={showApyDetail}
-          renderProtocolInfo={renderProtocolInfo}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
+          protocolSwitchConfig={stakeProtocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           useBorrowApi={useBorrowApi}
           borrowMarketAddress={marketAddress}
@@ -740,7 +743,6 @@ export function NormalManageContent({
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
           showApyDetail={showApyDetail}
-          renderProtocolInfo={renderProtocolInfo}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
           useBorrowApi={useBorrowApi}
