@@ -161,10 +161,11 @@ async function fetchQuotesViaSSE(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let streamDone = false;
 
   try {
     // eslint-disable-next-line no-constant-condition
-    while (true) {
+    while (!streamDone) {
       const { done, value } = await reader.read();
       if (done) break;
 
@@ -175,6 +176,7 @@ async function fetchQuotesViaSSE(
       buffer = lines.pop() ?? '';
 
       for (const line of lines) {
+        if (streamDone) break;
         const trimmed = line.trim();
         if (trimmed && trimmed.startsWith('data:')) {
           const jsonStr = trimmed.slice(5).trim();
@@ -199,7 +201,8 @@ async function fetchQuotesViaSSE(
                 typeof asInfo.totalQuoteCount === 'number' &&
                 asInfo.totalQuoteCount === 0
               ) {
-                // No providers support this pair — stop early
+                // No providers support this pair — stop reading
+                streamDone = true;
                 break;
               }
 
@@ -219,6 +222,7 @@ async function fetchQuotesViaSSE(
     }
   } finally {
     clearTimeout(timer);
+    controller.abort();
     reader.releaseLock();
   }
 
@@ -400,7 +404,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
             );
           }
 
-          // Validate response token pair matches request (when fields present)
+          // Validate response token pair matches request (networkId + contractAddress)
           for (const q of usableQuotes) {
             if (
               q.fromTokenInfo?.networkId &&
@@ -420,6 +424,29 @@ export function registerSwapQuoteCommand(parent: Command): void {
                 ERROR_CODES.NET_HTTP_ERROR.code,
                 `Quote toToken networkId mismatch: expected ${toResolved.networkId}, got ${q.toTokenInfo.networkId}`,
                 'API may have returned data for a different token pair',
+              );
+            }
+            // Also check contractAddress (case-insensitive, empty = native)
+            if (
+              q.fromTokenInfo?.contractAddress !== undefined &&
+              q.fromTokenInfo.contractAddress.toLowerCase() !==
+                fromResolved.contractAddress.toLowerCase()
+            ) {
+              throw new AppError(
+                ERROR_CODES.NET_HTTP_ERROR.code,
+                `Quote fromToken address mismatch: expected ${fromResolved.contractAddress || '(native)'}, got ${q.fromTokenInfo.contractAddress || '(native)'}`,
+                'API may have returned data for a different token',
+              );
+            }
+            if (
+              q.toTokenInfo?.contractAddress !== undefined &&
+              q.toTokenInfo.contractAddress.toLowerCase() !==
+                toResolved.contractAddress.toLowerCase()
+            ) {
+              throw new AppError(
+                ERROR_CODES.NET_HTTP_ERROR.code,
+                `Quote toToken address mismatch: expected ${toResolved.contractAddress || '(native)'}, got ${q.toTokenInfo.contractAddress || '(native)'}`,
+                'API may have returned data for a different token',
               );
             }
           }
