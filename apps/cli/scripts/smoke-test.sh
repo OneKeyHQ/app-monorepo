@@ -215,7 +215,9 @@ section_token() {
   check_json "token trades --chain eth --token USDC" "success" \
     "$BIN" --json --env test token trades --chain eth \
     --token 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
-  skip "token liquidity --chain eth --token 0xA0b8..."
+  check_json "token liquidity --chain eth --token WBTC" "success" \
+    "$BIN" --json --env test token liquidity --chain eth \
+    --token 0x2260fac5e5542a773aa44fbcfedf7c193bc2c599
 }
 should_run token && section_token
 

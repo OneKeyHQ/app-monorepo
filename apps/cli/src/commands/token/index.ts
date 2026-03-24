@@ -1,4 +1,5 @@
 import { registerTokenInfoCommand } from './token-info';
+import { registerTokenLiquidityCommand } from './token-liquidity';
 import { registerTokenPriceCommand } from './token-price';
 import { registerTokenSearchCommand } from './token-search';
 import { registerTokenTradesCommand } from './token-trades';
@@ -16,4 +17,5 @@ export function registerTokenCommands(program: Command) {
   registerTokenPriceCommand(token);
   registerTokenTrendingCommand(token);
   registerTokenTradesCommand(token);
+  registerTokenLiquidityCommand(token);
 }

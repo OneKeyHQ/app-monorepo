@@ -135,7 +135,26 @@ describe('token commands (integration)', () => {
     expect(parsed.data.stats['24h']).toHaveProperty('volume');
     expect(parsed.data.stats['24h']).toHaveProperty('uniqueWallets');
   });
-  it.todo('token liquidity returns top holders');
+  it('token liquidity returns top holders', () => {
+    // WBTC has holder data; USDC/USDT return empty lists
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'token',
+      'liquidity',
+      '--chain',
+      'eth',
+      '--token',
+      '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.data.length).toBeGreaterThan(0);
+    expect(parsed.data[0]).toHaveProperty('accountAddress');
+    expect(parsed.data[0]).toHaveProperty('amount');
+  });
 });
 
 describe('market commands (integration)', () => {
