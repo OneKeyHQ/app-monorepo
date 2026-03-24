@@ -43,8 +43,6 @@ const {
   readSessionMetrics,
   ensureSessionsDirWritable,
 } = require('./lib/session');
-const { postSlackWebhook } = require('./lib/slack');
-
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
 }

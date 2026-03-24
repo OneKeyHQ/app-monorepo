@@ -44,7 +44,6 @@ const {
   waitForMark,
   readSessionMetrics,
 } = require('./lib/session');
-const { postSlackWebhook } = require('./lib/slack');
 const { startStaticServer } = require('./lib/staticServer');
 
 function hasFlag(name) {

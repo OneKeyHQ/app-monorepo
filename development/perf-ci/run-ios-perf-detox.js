@@ -35,8 +35,6 @@ const {
   ensureSessionsDirWritable,
   readSessionMetrics,
 } = require('./lib/session');
-const { postSlackWebhook } = require('./lib/slack');
-
 function hasFlag(name) {
   return process.argv.includes(name);
 }
