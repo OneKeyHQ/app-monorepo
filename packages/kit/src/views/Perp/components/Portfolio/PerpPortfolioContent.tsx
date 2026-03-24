@@ -86,6 +86,7 @@ const MAX_LEVERAGE_GAUGE = 20;
 const CHART_HEIGHT_DESKTOP = 480;
 const CHART_HEIGHT_MOBILE = 260;
 const HOVER_TOOLTIP_WIDTH = 148;
+const CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.12 };
 
 function gaugeColor(pct: number): string {
   if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
@@ -465,7 +466,7 @@ function PerpPortfolioContentComponent({
             lineWidth={3}
             showPriceScale
             showHorzGridLines
-            priceScaleMargins={{ top: 0.12, bottom: 0.12 }}
+            priceScaleMargins={CHART_PRICE_SCALE_MARGINS}
             priceFormatter={formatChartUsdPrice}
             fontSize={11}
             seriesType={isPnl ? 'baseline' : 'area'}
