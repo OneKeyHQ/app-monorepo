@@ -84,11 +84,11 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: isWatchlistMode
-        ? watchlistNameWidth
-        : hasStock && showStockSubtitle
-          ? 240
-          : 200,
+      columnWidth: (() => {
+        if (isWatchlistMode) return watchlistNameWidth;
+        if (hasStock && showStockSubtitle) return 240;
+        return 200;
+      })(),
       render: (_: unknown, record: IMarketToken) =>
         record.perpsCoin ? (
           <XStack

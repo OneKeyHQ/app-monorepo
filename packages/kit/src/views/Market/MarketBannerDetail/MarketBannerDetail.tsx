@@ -230,7 +230,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
             <Stack
               flex={1}
               className="normal-scrollbar"
-              style={{ overflowX: 'auto' }}
+              style={{ overflowX: 'auto', overflowY: 'hidden' }}
             >
               <Stack flex={1} minWidth={900}>
                 <MarketTokenListBase
