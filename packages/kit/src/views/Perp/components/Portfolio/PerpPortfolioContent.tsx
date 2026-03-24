@@ -52,13 +52,13 @@ function formatPercent(value: number | null | undefined): string {
 
 function SectionBlock({
   children,
-  gap = '$3.5',
+  gap,
 }: {
   children: React.ReactNode;
-  gap?: string;
+  gap?: '$3' | '$3.5';
 }) {
   return (
-    <YStack bg="$bgSubdued" borderRadius="$3" p="$3.5" gap={gap as any}>
+    <YStack bg="$bgSubdued" borderRadius="$3" p="$3.5" gap={gap ?? '$3.5'}>
       {children}
     </YStack>
   );
@@ -465,6 +465,7 @@ function PerpPortfolioContentComponent({
             lineWidth={3}
             showPriceScale
             showHorzGridLines
+            priceScaleMargins={{ top: 0.12, bottom: 0.12 }}
             priceFormatter={formatChartUsdPrice}
             fontSize={11}
             seriesType={isPnl ? 'baseline' : 'area'}
@@ -483,7 +484,7 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_unrealized_pnl,
               })}
             </SizableText>
-            <SizableText size="$headingSm" color={unrealizedColor as any}>
+            <SizableText size="$headingSm" color={unrealizedColor}>
               {unrealizedPnl}
             </SizableText>
           </YStack>
@@ -493,7 +494,7 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_total_pnl,
               })}
             </SizableText>
-            <SizableText size="$headingSm" color={realizedColor as any}>
+            <SizableText size="$headingSm" color={realizedColor}>
               {realizedPnl}
             </SizableText>
           </YStack>
@@ -729,7 +730,7 @@ function PerpPortfolioContentComponent({
                   id: ETranslations.perp_portfolio_win_rate,
                 })}
               </SizableText>
-              <SizableText size="$headingLg" color={winRateClr as any}>
+              <SizableText size="$headingLg" color={winRateClr}>
                 {winRateVal}
               </SizableText>
             </YStack>

@@ -9,6 +9,10 @@ import {
   usePerpsActiveAccountSummaryAtom,
   usePerpsTradesHistoryDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IPortfolioMetrics,
+  IUserNonFundingLedgerUpdatesResponse,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 export type IPortfolioTimePeriod = 'day' | 'week' | 'month' | 'allTime';
 
@@ -81,11 +85,7 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
       ([key]) => key === PERIOD_KEY_MAP[timePeriod],
     );
     if (!entry) return null;
-    const metrics = entry[1] as {
-      accountValueHistory: [number, string][];
-      pnlHistory: [number, string][];
-      vlm: string;
-    };
+    const metrics: IPortfolioMetrics = entry[1];
     return {
       // portfolio API returns milliseconds; LightweightChart needs UTC seconds
       accountValueHistory: metrics.accountValueHistory.map(
@@ -103,8 +103,7 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
   }, [portfolioData, timePeriod]);
 
   const fillsStats = useMemo(() => {
-    const isMatchingAddress =
-      tradesHistoryData?.accountAddress === address;
+    const isMatchingAddress = tradesHistoryData?.accountAddress === address;
     const fills = isMatchingAddress ? (tradesHistoryData?.fills ?? []) : [];
     const startMs = getStartTimeForPeriod(timePeriod);
 
@@ -185,17 +184,13 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
       realizedPnl,
       totalTrades: filteredFills.length,
     };
-  }, [tradesHistoryData, timePeriod]);
+  }, [tradesHistoryData, timePeriod, address]);
 
   const netDeposits = useMemo(() => {
     if (!netDepositsData) return null;
     return netDepositsData
-      .reduce((sum, update) => {
-        const delta = update.delta as {
-          type: string;
-          usdc?: string;
-          toPerp?: boolean;
-        };
+      .reduce((sum, update: IUserNonFundingLedgerUpdatesResponse[number]) => {
+        const { delta } = update;
         if (delta.type === 'deposit' && delta.usdc) {
           return sum.plus(delta.usdc);
         }

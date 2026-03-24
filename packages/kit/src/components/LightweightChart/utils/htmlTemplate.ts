@@ -14,6 +14,7 @@ function getStyles(): string {
 function getChartInitScript(): string {
   return `
       // Price formatter: use USD formatter when priceFormatterType is set, otherwise default %
+      // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
       function usdPriceFormatter(price) {
         var abs = Math.abs(price);
         var sign = price < 0 ? '-' : '';
@@ -69,11 +70,10 @@ function getChartInitScript(): string {
             return month + ' ' + day;
           },
         },
-        rightPriceScale: {
-          visible: Boolean(config.showPriceScale),
-          borderVisible: false,
-          scaleMargins: { top: 0.12, bottom: 0.12 },
-        },
+        rightPriceScale: Object.assign(
+          { visible: Boolean(config.showPriceScale), borderVisible: false },
+          config.priceScaleMargins ? { scaleMargins: config.priceScaleMargins } : {}
+        ),
         leftPriceScale: { visible: false },
         handleScroll: {
           mouseWheel: false,
