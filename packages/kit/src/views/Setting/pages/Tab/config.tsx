@@ -53,7 +53,6 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
-import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 
 import {
   AutoLockListItem,
@@ -154,7 +153,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = useOneKeyAuth();
   const [settings] = useSettingsPersistAtom();
 
@@ -195,25 +193,23 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : null,
-                isPrimeAvailable
-                  ? {
-                      // OneKey Cloud
-                      icon: 'CloudOutline',
-                      title: intl.formatMessage({
-                        id: ETranslations.global_onekey_cloud,
-                      }),
-                      onPress: (navigation) => {
-                        defaultLogger.prime.subscription.primeEntryClick({
-                          featureName: EPrimeFeatures.OneKeyCloud,
-                          entryPoint: 'settingsPage',
-                        });
+                {
+                  // OneKey Cloud
+                  icon: 'CloudOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_onekey_cloud,
+                  }),
+                  onPress: (navigation) => {
+                    defaultLogger.prime.subscription.primeEntryClick({
+                      featureName: EPrimeFeatures.OneKeyCloud,
+                      entryPoint: 'settingsPage',
+                    });
 
-                        navigation?.pushModal(EModalRoutes.PrimeModal, {
-                          screen: EPrimePages.PrimeCloudSync,
-                        });
-                      },
-                    }
-                  : undefined,
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeCloudSync,
+                    });
+                  },
+                },
               ],
               [
                 !platformEnv.isWebDappMode
@@ -844,7 +840,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       cloudBackupFeatureInfo?.supportCloudBackup,
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,
-      isPrimeAvailable,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,

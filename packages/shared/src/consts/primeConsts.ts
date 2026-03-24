@@ -37,6 +37,7 @@ export enum EPrimeEmailOTPScene {
   GetKeylessAuthShare = 'GetKeylessAuthShare',
 }
 
+export const CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID = 'cloud_sync_id_unavailable';
 export const PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME = 144_000_000; // '1970/01/03'
 export const RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID =
   '180B50C8-E4EC-40E9-9CF3-7DD71F2882F7';

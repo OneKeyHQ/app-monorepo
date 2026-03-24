@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
+  CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
   EPrimeCloudSyncDataType,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -19,7 +20,10 @@ import {
   OneKeyErrorPrimePaidMembershipRequired,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  ECustomCloudSyncError,
+  EOneKeyErrorClassNames,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -108,6 +112,29 @@ class ServicePrimeCloudSync extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private _lastIdSyncUnavailableToastTime = 0;
+
+  private async notifyIfOnekeyIdSyncUnavailable() {
+    const now = Date.now();
+    const ONE_HOUR = timerUtils.getTimeDurationMs({ hour: 1 });
+    if (now - this._lastIdSyncUnavailableToastTime < ONE_HOUR) return;
+
+    const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
+    if (!isCloudSyncEnabled) return;
+
+    this._lastIdSyncUnavailableToastTime = now;
+
+    void this.backgroundApi.serviceApp.showToast({
+      method: 'error',
+      icon: 'CloudDisconnectedSolid',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.cloud_sync_issue_toast_title,
+      }),
+      toastId: CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
+      errorCode: ECustomCloudSyncError.OnekeyIdSyncUnavailable,
+    });
+  }
+
   syncManagers = {
     wallet: new CloudSyncFlowManagerWallet({
       backgroundApi: this.backgroundApi,
@@ -148,10 +175,6 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
     return this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredential();
-  }
-
-  async isKeylessCloudSyncFeatureEnabledInDev(): Promise<boolean> {
-    return this.backgroundApi.serviceKeylessCloudSync.isKeylessCloudSyncFeatureEnabledInDev();
   }
 
   @backgroundMethod()
@@ -1186,6 +1209,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       // const syncMode = await this.getActiveSyncMode();
 
       if (!(await this.isCloudSyncIsAvailable())) {
+        if (!throwError) {
+          void this.notifyIfOnekeyIdSyncUnavailable();
+        }
         return;
       }
       await this.ensureCloudSyncIsAvailable({
@@ -1240,6 +1266,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
+      if (!throwError) {
+        void this.notifyIfOnekeyIdSyncUnavailable();
+      }
       if (throwError) {
         throw error;
       }
@@ -1573,13 +1602,6 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setCloudSyncEnabledKeyless(enabled: boolean): Promise<boolean> {
-    return this.backgroundApi.serviceKeylessCloudSync.setCloudSyncEnabledKeyless(
-      enabled,
-    );
-  }
-
-  @backgroundMethod()
   @toastIfError()
   async toggleCloudSync({ enabled }: { enabled: boolean }) {
     const shouldTrackEnableFlow = enabled;
@@ -1633,29 +1655,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
       void this.backgroundApi.servicePrime.apiFetchPrimeUserInfo();
     }
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async toggleCloudSyncKeyless({
-    enabled,
-    silentEnable = false,
-    forceEnable = false,
-  }: {
-    enabled: boolean;
-    silentEnable?: boolean;
-    forceEnable?: boolean;
-  }) {
-    return this.backgroundApi.serviceKeylessCloudSync.toggleCloudSyncKeyless({
-      enabled,
-      silentEnable,
-      forceEnable,
-    });
-  }
-
-  @backgroundMethod()
-  async autoEnableCloudSyncKeyless() {
-    return this.backgroundApi.serviceKeylessCloudSync.autoEnableCloudSyncKeyless();
   }
 
   @backgroundMethod()

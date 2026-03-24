@@ -511,6 +511,43 @@ function StatusPanel() {
   );
 }
 
+function ScenarioPanel() {
+  const [config] = usePrimeCloudSyncPersistAtom();
+  return (
+    <YStack p="$4" gap="$2">
+      <SizableTextBase size="$bodyMdMedium">
+        Current: isCloudSyncEnabled={String(!!config.isCloudSyncEnabled)},
+        isCloudSyncEnabledKeyless=
+        {String(!!config.isCloudSyncEnabledKeyless)}
+      </SizableTextBase>
+      <Button
+        size="small"
+        onPress={async () => {
+          await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+            enabled: !config.isCloudSyncEnabled,
+          });
+          Toast.success({ title: `ID sync → ${!config.isCloudSyncEnabled}` });
+        }}
+      >
+        Toggle isCloudSyncEnabled (ID)
+      </Button>
+      <Button
+        size="small"
+        onPress={async () => {
+          await backgroundApiProxy.serviceKeylessCloudSync.toggleCloudSyncKeyless(
+            { enabled: !config.isCloudSyncEnabledKeyless },
+          );
+          Toast.success({
+            title: `KW sync → ${!config.isCloudSyncEnabledKeyless}`,
+          });
+        }}
+      >
+        Toggle isCloudSyncEnabledKeyless (KW)
+      </Button>
+    </YStack>
+  );
+}
+
 function DebugPanel() {
   return (
     <YStack p="$4" gap="$2">
@@ -665,6 +702,10 @@ export default function PagePrimeCloudSyncDebug() {
     return <DebugPanel />;
   }, []);
 
+  const scenarioPanel = useCallback(() => {
+    return <ScenarioPanel />;
+  }, []);
+
   const tabs = useMemo(() => {
     return [
       {
@@ -683,8 +724,18 @@ export default function PagePrimeCloudSyncDebug() {
         title: '调试面板',
         page: debugPanel,
       },
+      {
+        title: 'Scenarios',
+        page: scenarioPanel,
+      },
     ];
-  }, [debugPanel, localItemsTable, serverItemsTable, statusPanel]);
+  }, [
+    debugPanel,
+    localItemsTable,
+    scenarioPanel,
+    serverItemsTable,
+    statusPanel,
+  ]);
 
   return (
     <Page scrollEnabled>
