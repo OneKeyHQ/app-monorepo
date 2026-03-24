@@ -168,6 +168,7 @@ jobs:
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
       - name: 'Build Main Process'
+        id: build_main
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
@@ -176,6 +177,7 @@ jobs:
           yarn install-app-deps
 
       - name: 'Package Mac'
+        id: phase1_dmg
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -194,6 +196,7 @@ jobs:
           rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Desktop_DeveloperId.provisionprofile
 
       - name: Upload Mac autoupdate metadata
+        if: steps.phase1_dmg.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -201,6 +204,7 @@ jobs:
             ./apps/desktop/build-electron/*.yml
 
       - name: Upload universal Mac DMG
+        if: steps.phase1_dmg.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -208,6 +212,7 @@ jobs:
             ./apps/desktop/build-electron/*-universal.dmg
 
       - name: Upload x64 Mac DMG
+        if: steps.phase1_dmg.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -215,18 +220,36 @@ jobs:
             ./apps/desktop/build-electron/*-x64.dmg
 
       - name: Upload arm64 Mac DMG
+        if: steps.phase1_dmg.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-arm64.dmg
 
+      - name: 'Notify to Slack - Mac DMG'
+        if: always() && github.event_name == 'workflow_run' && steps.phase1_dmg.outcome == 'success'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-RN
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
       # ── Phase 2: MAS (App Store signing) ──
 
       - name: Clean build-electron for MAS
+        if: always() && steps.build_main.outcome == 'success'
         run: rm -rf apps/desktop/build-electron
 
       - name: Install the Apple certificate and provisioning profile for MAS
+        if: always() && steps.build_main.outcome == 'success'
         env:
           MAC_INSTALL_P12_BASE64: ${{ secrets.MAC_INSTALL_P12_BASE64 }}
           MAC_INSTALL_P12_PASSWORD: ${{ secrets.MAC_INSTALL_P12_PASSWORD }}
@@ -256,6 +279,8 @@ jobs:
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
 
       - name: 'Package MAS'
+        id: phase2_mas
+        if: always() && steps.build_main.outcome == 'success'
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -273,6 +298,7 @@ jobs:
           rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Mac_App.provisionprofile
 
       - name: Upload MAS Artifacts
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -280,7 +306,7 @@ jobs:
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: Validate MAS for Testflight
-        if: ${{ !github.event.workflow_run || github.event.workflow_run.name == 'daily-build' }}
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && (github.event_name != 'workflow_run' || github.event.workflow_run.name == 'daily-build')
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -290,7 +316,7 @@ jobs:
           xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: Upload MAS to Testflight
-        if: ${{ !github.event.workflow_run || github.event.workflow_run.name == 'daily-build' }}
+        if: always() && steps.build_main.outcome == 'success' && steps.phase2_mas.outcome == 'success' && (github.event_name != 'workflow_run' || github.event.workflow_run.name == 'daily-build')
         continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
@@ -299,6 +325,29 @@ jobs:
           PKG_FILE=$(ls ./apps/desktop/build-electron/mas-universal/*.pkg)
           echo "Uploading package: $PKG_FILE"
           xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
+
+      - name: 'Notify to Slack - MAS'
+        if: always() && github.event_name == 'workflow_run' && steps.phase2_mas.outcome == 'success'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-MAS
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
+      - name: Fail if any phase failed
+        if: always()
+        shell: bash
+        run: |
+          [[ "${{ steps.phase1_dmg.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_mas.outcome }}" == "failure" ]] && exit 1
+          exit 0
 
   # ═══════════════════════════════════════════════════
   # Windows runner: Win NSIS + WinMS (Microsoft Store)
@@ -396,6 +445,7 @@ jobs:
           yarn install-app-deps
 
       - name: 'Package Windows NSIS'
+        id: phase1_nsis
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -409,6 +459,7 @@ jobs:
           npx electron-builder build -w --config electron-builder-win.config.js --publish never
 
       - name: Upload x64 Windows exe
+        if: steps.phase1_nsis.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -416,6 +467,7 @@ jobs:
             ./apps/desktop/build-electron/*-x64.exe
 
       - name: Upload arm64 Windows exe
+        if: steps.phase1_nsis.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -423,19 +475,37 @@ jobs:
             ./apps/desktop/build-electron/*-arm64.exe
 
       - name: Upload Windows autoupdate metadata
+        if: steps.phase1_nsis.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-win-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
 
+      - name: 'Notify to Slack - Win NSIS'
+        if: always() && github.event_name == 'workflow_run' && steps.phase1_nsis.outcome == 'success'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Win
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
       # ── Phase 2: Windows Microsoft Store ──
 
       - name: Clean build-electron for WinMS
+        if: always()
         shell: pwsh
         run: Remove-Item -Recurse -Force apps/desktop/build-electron -ErrorAction SilentlyContinue
 
       - name: 'Rebuild Main Process (winms, DESK_CHANNEL=ms-store)'
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           DESK_CHANNEL: ms-store
@@ -444,6 +514,8 @@ jobs:
           yarn build:main
 
       - name: 'Package Windows Microsoft Store'
+        id: phase2_winms
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -458,6 +530,7 @@ jobs:
           npx electron-builder build -w --config electron-builder-ms.config.js --publish never
 
       - name: Upload WinMS exe
+        if: always() && steps.phase2_winms.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -465,6 +538,29 @@ jobs:
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
             !./apps/desktop/build-electron/*-arm64.exe
+
+      - name: 'Notify to Slack - WinMS'
+        if: always() && github.event_name == 'workflow_run' && steps.phase2_winms.outcome == 'success'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Win-Store
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
+      - name: Fail if any phase failed
+        if: always()
+        shell: bash
+        run: |
+          [[ "${{ steps.phase1_nsis.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_winms.outcome }}" == "failure" ]] && exit 1
+          exit 0
 
   # ═══════════════════════════════════════════════════
   # Linux runner: AppImage + Snap (amd64 + arm64)
@@ -582,6 +678,7 @@ jobs:
           yarn install-app-deps
 
       - name: 'Package AppImage'
+        id: phase1_appimage
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -603,12 +700,29 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*.yml
 
+      - name: 'Notify to Slack - Linux AppImage'
+        if: always() && github.event_name == 'workflow_run' && steps.phase1_appimage.outcome == 'success' && matrix.arch == 'amd64'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Linux-AppImage
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
       # ── Phase 2: Snap ──
 
       - name: Clean build-electron for Snap
+        if: always()
         run: rm -rf apps/desktop/build-electron
 
       - name: 'Rebuild Main Process (Snap, SNAP=true)'
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           SNAP: true
@@ -617,6 +731,8 @@ jobs:
           yarn build:main
 
       - name: 'Package Snap'
+        id: phase2_snap
+        if: always()
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -626,6 +742,7 @@ jobs:
           npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
       - name: Upload Snap
+        if: always() && steps.phase2_snap.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
@@ -633,36 +750,32 @@ jobs:
             ./apps/desktop/build-electron/*.snap
 
       - name: Upload Snap to Snap Store
-        if: ${{ github.event.workflow_run && github.event.workflow_run.name == 'daily-build' }}
+        if: always() && steps.phase2_snap.outcome == 'success' && github.event_name == 'workflow_run' && github.event.workflow_run.name == 'daily-build'
         continue-on-error: true
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
         run: |
           snapcraft push ./apps/desktop/build-electron/*.snap --release edge
 
-  # ═══════════════════════════════════════════════════
-  # Notify: Send single Slack message after all platforms complete
-  # ═══════════════════════════════════════════════════
-  notify:
-    needs: [renderer, package-mac, package-win, package-linux]
-    if: ${{ github.event.workflow_run }}
-    runs-on: ubuntu-24.04
-    steps:
-      - name: 'Setup ENV'
-        run: |
-          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-
-      - name: 'Notify to Slack'
-        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+      - name: 'Notify to Slack - Linux Snap'
+        if: always() && github.event_name == 'workflow_run' && steps.phase2_snap.outcome == 'success' && matrix.arch == 'amd64'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-All
+          artifact-name: OneKey-Desktop-Linux-Snap
           artifact-bundle-id: 'so.onekey.wallet.desktop'
-          artifact-version-name: '${{ needs.renderer.outputs.build_app_version }}@${{ needs.renderer.outputs.build_number }}'
-          artifact-version-code: '${{ needs.renderer.outputs.build_number }}'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          artifact-skip-gpg: '${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || false }}'
-          artifact-bundle-version: '${{ needs.renderer.outputs.build_bundle_version }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
+
+      - name: Fail if any phase failed
+        if: always()
+        shell: bash
+        run: |
+          [[ "${{ steps.phase1_appimage.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_snap.outcome }}" == "failure" ]] && exit 1
+          exit 0
