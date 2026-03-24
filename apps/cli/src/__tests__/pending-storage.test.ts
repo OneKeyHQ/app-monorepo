@@ -1,4 +1,11 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -57,13 +64,30 @@ describe('savePending + loadPending', () => {
     expect(existsSync(nested)).toBe(true);
   });
 
-  it('writes atomically via .tmp + rename', () => {
+  it('writes atomically — no leftover .tmp file', () => {
     const order = makeOrder();
     savePending(order.orderId, order);
-    // .tmp file should not remain
-    expect(existsSync(join(tempDir, `${order.orderId}.json.tmp`))).toBe(false);
     // .json file should exist
     expect(existsSync(join(tempDir, `${order.orderId}.json`))).toBe(true);
+  });
+
+  it('rejects orderId mismatch with data.orderId', () => {
+    const order = makeOrder({ orderId: 'actual-id' });
+    expect(() => savePending('different-id', order)).toThrow(
+      expect.objectContaining({
+        code: 'PARAM_MISSING_REQUIRED',
+        message: expect.stringContaining('mismatch'),
+      }),
+    );
+  });
+
+  it('validates data before writing', () => {
+    const bad = { orderId: 'x' } as unknown as IPendingOrder;
+    expect(() => savePending('x', bad)).toThrow(
+      expect.objectContaining({
+        code: 'BIZ_SWAP_FAILED',
+      }),
+    );
   });
 });
 
@@ -127,22 +151,23 @@ describe('updatePendingStatus', () => {
     const beforeUpdate = Date.now();
     updatePendingStatus(order.orderId, 'executed');
 
-    // loadPending checks expiry, so use a fresh order
     const loaded = loadPending(order.orderId);
     expect(loaded.status).toBe('executed');
     expect(loaded.updatedAt).toBeGreaterThanOrEqual(beforeUpdate);
   });
 
-  it('merges extra fields', () => {
+  it('merges allowed extra fields (txHash, provider)', () => {
     const order = makeOrder();
     savePending(order.orderId, order);
 
     updatePendingStatus(order.orderId, 'executed', {
       txHash: '0xDeadBeef',
+      provider: '1inch',
     });
 
     const loaded = loadPending(order.orderId);
     expect(loaded.txHash).toBe('0xDeadBeef');
+    expect(loaded.provider).toBe('1inch');
   });
 
   it('throws for non-existent orderId', () => {
@@ -190,11 +215,34 @@ describe('listPending', () => {
   it('returns empty array when no files exist', () => {
     expect(listPending()).toEqual([]);
   });
+
+  it('skips symlinks in pending directory', () => {
+    savePending('real', makeOrder({ orderId: 'real' }));
+    const target = join(tempDir, 'real.json');
+    symlinkSync(target, join(tempDir, 'linked.json'));
+
+    const list = listPending();
+    expect(list).toHaveLength(1);
+    expect(list[0].orderId).toBe('real');
+  });
+
+  it('skips subdirectories in pending directory', () => {
+    savePending('real', makeOrder({ orderId: 'real' }));
+    mkdirSync(join(tempDir, 'subdir.json'));
+
+    const list = listPending();
+    expect(list).toHaveLength(1);
+  });
 });
 
 describe('orderId validation — path traversal prevention', () => {
   it('rejects orderId with path traversal characters', () => {
-    expect(() => savePending('../../etc/passwd', makeOrder())).toThrow(
+    expect(() =>
+      savePending(
+        '../../etc/passwd',
+        makeOrder({ orderId: '../../etc/passwd' }),
+      ),
+    ).toThrow(
       expect.objectContaining({
         code: 'PARAM_MISSING_REQUIRED',
         message: expect.stringContaining('illegal characters'),
@@ -203,7 +251,9 @@ describe('orderId validation — path traversal prevention', () => {
   });
 
   it('rejects orderId with dots', () => {
-    expect(() => savePending('abc.def', makeOrder())).toThrow(
+    expect(() =>
+      savePending('abc.def', makeOrder({ orderId: 'abc.def' })),
+    ).toThrow(
       expect.objectContaining({
         code: 'PARAM_MISSING_REQUIRED',
       }),
@@ -228,10 +278,24 @@ describe('orderId validation — path traversal prevention', () => {
 describe('corrupted file handling', () => {
   it('loadPending throws BIZ_SWAP_FAILED for corrupted JSON', () => {
     writeFileSync(join(tempDir, 'corrupt.json'), 'not-json', 'utf-8');
-    expect(() => loadPending('corrupt')).toThrow();
+    expect(() => loadPending('corrupt')).toThrow(
+      expect.objectContaining({
+        code: 'BIZ_SWAP_FAILED',
+        message: expect.stringContaining('Corrupted'),
+      }),
+    );
   });
 
-  it('loadPending throws for file missing required fields', () => {
+  it('loadPending throws BIZ_SWAP_FAILED for empty file', () => {
+    writeFileSync(join(tempDir, 'empty.json'), '', 'utf-8');
+    expect(() => loadPending('empty')).toThrow(
+      expect.objectContaining({
+        code: 'BIZ_SWAP_FAILED',
+      }),
+    );
+  });
+
+  it('loadPending throws BIZ_SWAP_FAILED for file missing required fields', () => {
     writeFileSync(
       join(tempDir, 'bad-schema.json'),
       JSON.stringify({ orderId: 'bad-schema' }),
@@ -241,6 +305,19 @@ describe('corrupted file handling', () => {
       expect.objectContaining({
         code: 'BIZ_SWAP_FAILED',
         message: expect.stringContaining('Corrupted'),
+      }),
+    );
+  });
+
+  it('loadPending rejects symlink target', () => {
+    const order = makeOrder({ orderId: 'legit' });
+    savePending('legit', order);
+    symlinkSync(join(tempDir, 'legit.json'), join(tempDir, 'sneaky.json'));
+
+    expect(() => loadPending('sneaky')).toThrow(
+      expect.objectContaining({
+        code: 'BIZ_SWAP_EXPIRED',
+        message: expect.stringContaining('not found'),
       }),
     );
   });

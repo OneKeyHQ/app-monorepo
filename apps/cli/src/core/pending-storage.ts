@@ -1,5 +1,7 @@
+import { randomBytes } from 'node:crypto';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -33,6 +35,7 @@ const VALID_STATUSES = new Set([
   'failed',
 ]);
 const ORDER_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
+const UPDATE_EXTRA_ALLOWLIST = new Set(['txHash', 'provider']);
 
 const DEFAULT_PENDING_DIR = join(homedir(), '.onekey', 'pending');
 const EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
@@ -116,25 +119,88 @@ function filePath(orderId: string): string {
   return join(pendingDir, `${safe}.json`);
 }
 
+function isRegularFile(p: string): boolean {
+  try {
+    return lstatSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function readOrderFile(path: string, orderId: string): IPendingOrder {
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf-8');
+  } catch (err: unknown) {
+    const code =
+      err instanceof Error && 'code' in err
+        ? (err as NodeJS.ErrnoException).code
+        : undefined;
+    if (code === 'ENOENT') {
+      throw new AppError(
+        ERROR_CODES.BIZ_SWAP_EXPIRED.code,
+        `Order "${orderId}" not found`,
+        'Run "onekey swap build" to create a new order',
+      );
+    }
+    throw new AppError(
+      ERROR_CODES.BIZ_SWAP_FAILED.code,
+      `Failed to read order "${orderId}"`,
+      'Check file permissions and try again',
+      { cause: err },
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new AppError(
+      ERROR_CODES.BIZ_SWAP_FAILED.code,
+      `Corrupted pending order file: ${orderId}`,
+      'Delete the file and run "onekey swap build" again',
+    );
+  }
+
+  return validateOrder(parsed, orderId);
+}
+
+function tmpPath(path: string): string {
+  const suffix = randomBytes(4).toString('hex');
+  return `${path}.${process.pid}-${suffix}.tmp`;
+}
+
+function atomicWrite(path: string, data: string): void {
+  const tmp = tmpPath(path);
+  writeFileSync(tmp, data, 'utf-8');
+  renameSync(tmp, path);
+}
+
 export function savePending(orderId: string, data: IPendingOrder): void {
+  validateOrderId(orderId);
+  if (data.orderId !== orderId) {
+    throw new AppError(
+      ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+      `orderId mismatch: argument "${orderId}" vs data.orderId "${data.orderId}"`,
+      'Ensure orderId argument matches the data object',
+    );
+  }
+  validateOrder(data, orderId);
   ensureDir();
   const path = filePath(orderId);
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-  renameSync(tmp, path);
+  atomicWrite(path, JSON.stringify(data, null, 2));
 }
 
 export function loadPending(orderId: string): IPendingOrder {
   const path = filePath(orderId);
-  if (!existsSync(path)) {
+  if (!isRegularFile(path)) {
     throw new AppError(
       ERROR_CODES.BIZ_SWAP_EXPIRED.code,
       `Order "${orderId}" not found`,
       'Run "onekey swap build" to create a new order',
     );
   }
-  const raw = readFileSync(path, 'utf-8');
-  const order = validateOrder(JSON.parse(raw), orderId);
+  const order = readOrderFile(path, orderId);
 
   if (Date.now() - order.createdAt > EXPIRY_MS) {
     throw new AppError(
@@ -150,24 +216,36 @@ export function loadPending(orderId: string): IPendingOrder {
 export function updatePendingStatus(
   orderId: string,
   status: IPendingOrder['status'],
-  extra?: Partial<IPendingOrder>,
+  extra?: Partial<Pick<IPendingOrder, 'txHash' | 'provider'>>,
 ): void {
+  if (!VALID_STATUSES.has(status)) {
+    throw new AppError(
+      ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+      `Invalid status: "${status}"`,
+      `status must be one of: ${[...VALID_STATUSES].join(', ')}`,
+    );
+  }
   const path = filePath(orderId);
-  if (!existsSync(path)) {
+  if (!isRegularFile(path)) {
     throw new AppError(
       ERROR_CODES.BIZ_SWAP_EXPIRED.code,
       `Order "${orderId}" not found`,
       'Run "onekey swap build" to create a new order',
     );
   }
-  const raw = readFileSync(path, 'utf-8');
-  const order = validateOrder(JSON.parse(raw), orderId);
+  const order = readOrderFile(path, orderId);
   order.status = status;
   order.updatedAt = Date.now();
-  if (extra) Object.assign(order, extra);
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, JSON.stringify(order, null, 2), 'utf-8');
-  renameSync(tmp, path);
+  if (extra) {
+    for (const key of Object.keys(extra)) {
+      if (UPDATE_EXTRA_ALLOWLIST.has(key)) {
+        (order as Record<string, unknown>)[key] = (
+          extra as Record<string, unknown>
+        )[key];
+      }
+    }
+  }
+  atomicWrite(path, JSON.stringify(order, null, 2));
 }
 
 export function listPending(options?: {
@@ -175,16 +253,25 @@ export function listPending(options?: {
   limit?: number;
 }): IPendingOrder[] {
   ensureDir();
-  const files = readdirSync(pendingDir).filter((f) => f.endsWith('.json'));
+  const entries = readdirSync(pendingDir, { withFileTypes: true });
   const orders: IPendingOrder[] = [];
 
-  for (const f of files) {
-    try {
-      const raw = readFileSync(join(pendingDir, f), 'utf-8');
-      const order = validateOrder(JSON.parse(raw), f);
-      orders.push(order);
-    } catch {
-      // Skip corrupted files — they remain on disk for audit
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) {
+      // Skip directories, symlinks, and non-json files
+    } else {
+      try {
+        const raw = readFileSync(join(pendingDir, entry.name), 'utf-8');
+        const parsed = JSON.parse(raw);
+        const order = validateOrder(parsed, entry.name);
+        orders.push(order);
+      } catch (err) {
+        if (err instanceof AppError || err instanceof SyntaxError) {
+          // Skip corrupted/invalid files — they remain on disk for audit
+        } else {
+          throw err;
+        }
+      }
     }
   }
 
