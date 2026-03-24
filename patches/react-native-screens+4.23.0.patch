@@ -37,15 +37,82 @@ index 7055a0d..81ee02b 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1c44762..d9d24a9 100644
+index 1c44762..06e7139 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
-@@ -49,6 +49,24 @@
+@@ -49,6 +49,91 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
++static NSString *RNSBoolString(BOOL value)
++{
++  return value ? @"YES" : @"NO";
++}
++
++static NSString *RNSRectSummary(CGRect rect)
++{
++  return [NSString stringWithFormat:@"{x=%.1f,y=%.1f,w=%.1f,h=%.1f}",
++                                    rect.origin.x,
++                                    rect.origin.y,
++                                    rect.size.width,
++                                    rect.size.height];
++}
++
++static NSString *RNSInsetsSummary(UIEdgeInsets insets)
++{
++  return [NSString stringWithFormat:@"{t=%.1f,l=%.1f,b=%.1f,r=%.1f}",
++                                    insets.top,
++                                    insets.left,
++                                    insets.bottom,
++                                    insets.right];
++}
++
++static NSString *RNSClassSummary(id obj)
++{
++  return obj == nil ? @"nil" : NSStringFromClass([obj class]);
++}
++
++static NSString *RNSTransitionSummary(UIViewController *controller)
++{
++  id<UIViewControllerTransitionCoordinator> coordinator = controller.transitionCoordinator;
++  if (coordinator == nil) {
++    return @"tc=nil";
++  }
++  id<UIViewControllerTransitionCoordinatorContext> context =
++      (id<UIViewControllerTransitionCoordinatorContext>)coordinator;
++  return [NSString stringWithFormat:@"tc=%p animated=%@ interactive=%@ cancelled=%@ percent=%.3f velocity=%.3f",
++                                    coordinator,
++                                    RNSBoolString(coordinator.isAnimated),
++                                    RNSBoolString(coordinator.isInteractive),
++                                    RNSBoolString(context.isCancelled),
++                                    context.percentComplete,
++                                    context.completionVelocity];
++}
++
++static NSString *RNSScreenViewStateSummary(UIView *view, UIViewController *controller)
++{
++  UIWindow *window = view.window ?: controller.view.window;
++  return [NSString stringWithFormat:@"bounds=%@ frame=%@ insets=%@ alpha=%.3f hidden=%@ window=%p parent=%@ presenting=%@ presented=%@ modalStyle=%ld %@",
++                                    RNSRectSummary(view.bounds),
++                                    RNSRectSummary(view.frame),
++                                    RNSInsetsSummary(view.safeAreaInsets),
++                                    view.alpha,
++                                    RNSBoolString(view.isHidden),
++                                    window,
++                                    RNSClassSummary(controller.parentViewController),
++                                    RNSClassSummary(controller.presentingViewController),
++                                    RNSClassSummary(controller.presentedViewController),
++                                    (long)controller.modalPresentationStyle,
++                                    RNSTransitionSummary(controller)];
++}
++
 +static void RNSScreenLogInfo(NSString *message)
 +{
++  NSString *fullMessage = [NSString stringWithFormat:@"%@ (ts=%.6f main=%@)",
++                                                     message,
++                                                     CFAbsoluteTimeGetCurrent(),
++                                                     RNSBoolString([NSThread isMainThread])];
++  NSLog(@"[RNSScreen] %@", fullMessage);
 +  Class logClass = NSClassFromString(@"ReactNativeNativeLogger.OneKeyLog");
 +  if (logClass == nil) {
 +    logClass = NSClassFromString(@"OneKeyLog");
@@ -59,30 +126,51 @@ index 1c44762..d9d24a9 100644
 +  }
 +  typedef void (*LogFunc)(id, SEL, NSString *, NSString *);
 +  LogFunc func = (LogFunc)[logClass methodForSelector:sel];
-+  func(logClass, sel, @"RNSScreen", message);
++  func(logClass, sel, @"RNSScreen", fullMessage);
 +}
 +
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -201,6 +219,16 @@ - (void)updateBounds
+@@ -201,6 +286,24 @@ - (void)updateBounds
          ? 0
          : [_controller calculateHeaderHeightIsModal:self.isPresentedAsNativeModal];
  
-+    if (self.isPresentedAsNativeModal) {
++    if (self.isModal || self.isPresentedAsNativeModal) {
++      NSString *headerConfigSummary =
++          config == nil
++          ? @"header=nil"
++          : [NSString stringWithFormat:@"header{visible=%@ translucent=%@ largeTitle=%@}",
++                                     RNSBoolString(config.shouldHeaderBeVisible),
++                                     RNSBoolString(config.translucent),
++                                     RNSBoolString(config.largeTitle)];
 +      RNSScreenLogInfo([NSString
-+          stringWithFormat:@"updateBounds modal bounds=(%.1f,%.1f) contentOffsetY=%.1f controller=%p view=%p",
-+                           self.bounds.size.width,
-+                           self.bounds.size.height,
++          stringWithFormat:@"updateBounds contentOffsetY=%.1f syncShadow=%@ controller=%p view=%p %@ %@",
 +                           effectiveContentOffsetY,
++                           RNSBoolString(_synchronousShadowStateUpdatesEnabled),
 +                           _controller,
-+                           self]);
++                           self,
++                           headerConfigSummary,
++                           RNSScreenViewStateSummary(self, _controller)]);
 +    }
 +
      auto newState = react::RNSScreenState{RCTSizeFromCGSize(self.bounds.size), {0, effectiveContentOffsetY}};
  
      _state->updateState(
-@@ -1621,6 +1649,7 @@ @implementation RNSScreen {
+@@ -1323,6 +1426,12 @@ - (void)dispatchSafeAreaDidChangeNotification
+ - (void)safeAreaInsetsDidChange
+ {
+   [super safeAreaInsetsDidChange];
++  if (self.isModal || self.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString stringWithFormat:@"safeAreaInsetsDidChange controller=%p view=%p %@",
++                                                self.controller,
++                                                self,
++                                                RNSScreenViewStateSummary(self, self.controller)]);
++  }
+   [self dispatchSafeAreaDidChangeNotification];
+ }
+ 
+@@ -1621,6 +1730,7 @@ @implementation RNSScreen {
    BOOL _isSwiping;
    BOOL _shouldNotify;
    BOOL _isRemovedFromParent;
@@ -90,7 +178,7 @@ index 1c44762..d9d24a9 100644
  }
  
  #pragma mark - Common
-@@ -1643,6 +1672,18 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1643,6 +1753,18 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -109,18 +197,79 @@ index 1c44762..d9d24a9 100644
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
-@@ -1719,6 +1760,19 @@ - (void)viewDidAppear:(BOOL)animated
+@@ -1659,6 +1781,28 @@ - (void)viewWillAppear:(BOOL)animated
+   // as per documentation of these methods
+   _goingForward = [self isBeingPresented] || [self isMovingToParentViewController];
+ 
++  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
++    NSString *headerConfigSummary =
++        config == nil
++        ? @"header=nil"
++        : [NSString stringWithFormat:@"header{visible=%@ translucent=%@ largeTitle=%@}",
++                                   RNSBoolString(config.shouldHeaderBeVisible),
++                                   RNSBoolString(config.translucent),
++                                   RNSBoolString(config.largeTitle)];
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"viewWillAppear animated=%@ swiping=%@ shouldNotify=%@ goingForward=%@ beingPresented=%@ movingToParent=%@ controller=%p screen=%p %@ %@",
++                         RNSBoolString(animated),
++                         RNSBoolString(_isSwiping),
++                         RNSBoolString(_shouldNotify),
++                         RNSBoolString(_goingForward),
++                         RNSBoolString([self isBeingPresented]),
++                         RNSBoolString([self isMovingToParentViewController]),
++                         self,
++                         self.screenView,
++                         headerConfigSummary,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
++  }
++
+   [RNSScreenWindowTraits updateWindowTraits];
+   if (_shouldNotify) {
+     _closing = NO;
+@@ -1697,6 +1841,21 @@ - (void)viewWillDisappear:(BOOL)animated
+   // as per documentation of these methods
+   _goingForward = !([self isBeingDismissed] || [self isMovingFromParentViewController]);
+ 
++  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"viewWillDisappear animated=%@ swiping=%@ shouldNotify=%@ goingForward=%@ beingDismissed=%@ movingFromParent=%@ dismissCount=%d controller=%p screen=%p %@",
++                         RNSBoolString(animated),
++                         RNSBoolString(_isSwiping),
++                         RNSBoolString(_shouldNotify),
++                         RNSBoolString(_goingForward),
++                         RNSBoolString([self isBeingDismissed]),
++                         RNSBoolString([self isMovingFromParentViewController]),
++                         _dismissCount,
++                         self,
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
++  }
++
+   if (_shouldNotify) {
+     _closing = YES;
+     [self notifyTransitionProgress:0.0 closing:_closing goingForward:_goingForward];
+@@ -1719,6 +1878,29 @@ - (void)viewDidAppear:(BOOL)animated
    } else {
      [self.screenView notifyGestureCancel];
    }
++  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"viewDidAppear animated=%@ swiping=%@ shouldNotify=%@ deferredPending=%@ controller=%p screen=%p %@",
++                         RNSBoolString(animated),
++                         RNSBoolString(_isSwiping),
++                         RNSBoolString(_shouldNotify),
++                         RNSBoolString(_shouldApplyDeferredModalBoundsUpdate),
++                         self,
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
++  }
 +#ifdef RCT_NEW_ARCH_ENABLED
 +  if (_shouldApplyDeferredModalBoundsUpdate && self.screenView.isPresentedAsNativeModal) {
 +    RNSScreenLogInfo([NSString
-+        stringWithFormat:@"viewDidAppear apply deferred update bounds=(%.1f,%.1f) controller=%p screen=%p",
-+                         self.screenView.bounds.size.width,
-+                         self.screenView.bounds.size.height,
++        stringWithFormat:@"viewDidAppear apply deferred update controller=%p screen=%p %@",
 +                         self,
-+                         self.screenView]);
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
 +    _shouldApplyDeferredModalBoundsUpdate = NO;
 +    [self calculateAndNotifyHeaderHeightChangeIsModal:YES];
 +    [self.screenView updateBounds];
@@ -129,11 +278,64 @@ index 1c44762..d9d24a9 100644
  
    _isSwiping = NO;
    _shouldNotify = YES;
-@@ -1764,15 +1818,34 @@ - (void)viewDidLayoutSubviews
+@@ -1744,6 +1926,20 @@ - (void)viewDidDisappear:(BOOL)animated
+     [self notifyTransitionProgress:1.0 closing:YES goingForward:_goingForward];
+   }
+ 
++  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"viewDidDisappear animated=%@ swiping=%@ shouldNotify=%@ dismissCount=%d preventNativeDismiss=%@ removedFromParent=%@ controller=%p screen=%p %@",
++                         RNSBoolString(animated),
++                         RNSBoolString(_isSwiping),
++                         RNSBoolString(_shouldNotify),
++                         _dismissCount,
++                         RNSBoolString(self.screenView.preventNativeDismiss),
++                         RNSBoolString(_isRemovedFromParent),
++                         self,
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
++  }
++
+   _isSwiping = NO;
+   _shouldNotify = YES;
+ 
+@@ -1753,6 +1949,19 @@ - (void)viewDidDisappear:(BOOL)animated
+   }
+ }
+ 
++- (void)viewWillLayoutSubviews
++{
++  [super viewWillLayoutSubviews];
++  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"viewWillLayoutSubviews deferredPending=%@ controller=%p screen=%p %@",
++                         RNSBoolString(_shouldApplyDeferredModalBoundsUpdate),
++                         self,
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
++  }
++}
++
+ - (void)viewDidLayoutSubviews
+ {
+   [super viewDidLayoutSubviews];
+@@ -1764,15 +1973,46 @@ - (void)viewDidLayoutSubviews
    // screen size
    BOOL isDisplayedWithinUINavController = [self.parentViewController isKindOfClass:[RNSNavigationController class]];
    BOOL isTabScreen = [self.parentViewController isKindOfClass:RNSTabBarController.class];
 +  BOOL isModalTransitionInProgress = self.screenView.isPresentedAsNativeModal && self.transitionCoordinator != nil;
++
++  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"viewDidLayoutSubviews navController=%@ tabScreen=%@ modalTransition=%@ deferredPending=%@ controller=%p screen=%p %@",
++                         RNSBoolString(isDisplayedWithinUINavController),
++                         RNSBoolString(isTabScreen),
++                         RNSBoolString(isModalTransitionInProgress),
++                         RNSBoolString(_shouldApplyDeferredModalBoundsUpdate),
++                         self,
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
++  }
  
    // Calculate header height on modal open
 -  if (self.screenView.isPresentedAsNativeModal) {
@@ -146,19 +348,19 @@ index 1c44762..d9d24a9 100644
 -    [self.screenView updateBounds];
 +    if (self.screenView.isPresentedAsNativeModal && isModalTransitionInProgress) {
 +      RNSScreenLogInfo([NSString
-+          stringWithFormat:@"viewDidLayoutSubviews defer updateBounds bounds=(%.1f,%.1f) coordinator=%p controller=%p",
-+                           self.screenView.bounds.size.width,
-+                           self.screenView.bounds.size.height,
++          stringWithFormat:@"viewDidLayoutSubviews defer updateBounds coordinator=%p controller=%p screen=%p %@",
 +                           self.transitionCoordinator,
-+                           self]);
++                           self,
++                           self.screenView,
++                           RNSScreenViewStateSummary(self.screenView, self)]);
 +      _shouldApplyDeferredModalBoundsUpdate = YES;
 +    } else {
 +      if (self.screenView.isPresentedAsNativeModal) {
 +        RNSScreenLogInfo([NSString
-+            stringWithFormat:@"viewDidLayoutSubviews immediate updateBounds bounds=(%.1f,%.1f) controller=%p",
-+                             self.screenView.bounds.size.width,
-+                             self.screenView.bounds.size.height,
-+                             self]);
++            stringWithFormat:@"viewDidLayoutSubviews immediate updateBounds controller=%p screen=%p %@",
++                             self,
++                             self.screenView,
++                             RNSScreenViewStateSummary(self.screenView, self)]);
 +      }
 +      [self.screenView updateBounds];
 +      _shouldApplyDeferredModalBoundsUpdate = NO;
@@ -166,6 +368,121 @@ index 1c44762..d9d24a9 100644
  #else
      if (!CGRectEqualToRect(_lastViewFrame, self.screenView.frame)) {
        _lastViewFrame = self.screenView.frame;
+@@ -1864,6 +2104,22 @@ - (CGFloat)calculateHeaderHeightIsModal:(BOOL)isModal
+ - (void)calculateAndNotifyHeaderHeightChangeIsModal:(BOOL)isModal
+ {
+   CGFloat totalHeight = [self calculateHeaderHeightIsModal:isModal];
++  if (self.screenView.isModal || self.screenView.isPresentedAsNativeModal) {
++    UINavigationController *navctr = [self getVisibleNavigationControllerIsModal:isModal];
++    CGSize statusBarSize = [self getStatusBarHeightIsModal:isModal];
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"calculateAndNotifyHeaderHeightChange isModal=%@ total=%.1f navController=%p navHidden=%@ navBarFrame=%@ statusBar={w=%.1f,h=%.1f} controller=%p screen=%p %@",
++                         RNSBoolString(isModal),
++                         totalHeight,
++                         navctr,
++                         navctr == nil ? @"nil" : RNSBoolString(navctr.isNavigationBarHidden),
++                         navctr == nil ? @"nil" : RNSRectSummary(navctr.navigationBar.frame),
++                         statusBarSize.width,
++                         statusBarSize.height,
++                         self,
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
++  }
+   [self.screenView notifyHeaderHeightChange:totalHeight];
+ }
+ 
+@@ -1927,8 +2183,16 @@ - (BOOL)isRemovedFromParent
+ 
+ - (void)setupProgressNotification
+ {
++  BOOL shouldLogModalState = self.screenView.isModal || self.screenView.isPresentedAsNativeModal;
+   if (self.transitionCoordinator != nil) {
+     if (!self.transitionCoordinator.isAnimated) {
++      if (shouldLogModalState) {
++        RNSScreenLogInfo([NSString
++            stringWithFormat:@"setupProgressNotification skipped non-animated controller=%p screen=%p %@",
++                             self,
++                             self.screenView,
++                             RNSScreenViewStateSummary(self.screenView, self)]);
++      }
+       // If the transition is not animated, there is no point to set up animation
+       // and completion callbacks. This helps prevent issues with dismissed modals having
+       // "artifical animation duration" instead of being removed instantly.
+@@ -1938,7 +2202,24 @@ - (void)setupProgressNotification
+ 
+     _fakeView.alpha = 0.0;
+ 
++    if (shouldLogModalState) {
++      RNSScreenLogInfo([NSString
++          stringWithFormat:@"setupProgressNotification begin controller=%p screen=%p %@",
++                           self,
++                           self.screenView,
++                           RNSScreenViewStateSummary(self.screenView, self)]);
++    }
++
+     auto animation = ^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
++      if (shouldLogModalState) {
++        RNSScreenLogInfo([NSString
++            stringWithFormat:@"setupProgressNotification animateAlongsideTransition begin cancelled=%@ percent=%.3f controller=%p screen=%p %@",
++                             RNSBoolString(context.isCancelled),
++                             context.percentComplete,
++                             self,
++                             self.screenView,
++                             RNSScreenViewStateSummary(self.screenView, self)]);
++      }
+       [[context containerView] addSubview:self->_fakeView];
+       self->_fakeView.alpha = 1.0;
+       self->_animationTimer = [CADisplayLink displayLinkWithTarget:self selector:@selector(handleAnimation)];
+@@ -1948,10 +2229,25 @@ - (void)setupProgressNotification
+     [self.transitionCoordinator
+         animateAlongsideTransition:animation
+                         completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
++                          if (shouldLogModalState) {
++                            RNSScreenLogInfo([NSString
++                                stringWithFormat:@"setupProgressNotification animateAlongsideTransition completion cancelled=%@ percent=%.3f controller=%p screen=%p %@",
++                                                 RNSBoolString(context.isCancelled),
++                                                 context.percentComplete,
++                                                 self,
++                                                 self.screenView,
++                                                 RNSScreenViewStateSummary(self.screenView, self)]);
++                          }
+                           [self->_animationTimer setPaused:YES];
+                           [self->_animationTimer invalidate];
+                           [self->_fakeView removeFromSuperview];
+                         }];
++  } else if (shouldLogModalState) {
++    RNSScreenLogInfo([NSString
++        stringWithFormat:@"setupProgressNotification skipped coordinator=nil controller=%p screen=%p %@",
++                         self,
++                         self.screenView,
++                         RNSScreenViewStateSummary(self.screenView, self)]);
+   }
+ }
+ 
+@@ -1969,9 +2265,22 @@ - (void)handleAnimation
+ - (void)notifyTransitionProgress:(double)progress closing:(BOOL)closing goingForward:(BOOL)goingForward
+ {
+   if ([self.view isKindOfClass:[RNSScreenView class]]) {
++    RNSScreenView *screenView = (RNSScreenView *)self.view;
++    if (screenView.isModal || screenView.isPresentedAsNativeModal) {
++      RNSScreenLogInfo([NSString
++          stringWithFormat:@"transitionProgress progress=%.3f closing=%@ goingForward=%@ alpha=%.3f bounds=%@ frame=%@ insets=%@ %@",
++                           progress,
++                           RNSBoolString(closing),
++                           RNSBoolString(goingForward),
++                           _currentAlpha,
++                           RNSRectSummary(screenView.bounds),
++                           RNSRectSummary(screenView.frame),
++                           RNSInsetsSummary(screenView.safeAreaInsets),
++                           RNSTransitionSummary(self)]);
++    }
+     // if the view is already snapshot, there is not sense in sending progress since on JS side
+     // the component is already not present
+-    [(RNSScreenView *)self.view notifyTransitionProgress:progress closing:closing goingForward:goingForward];
++    [screenView notifyTransitionProgress:progress closing:closing goingForward:goingForward];
+   }
+ }
+ 
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 index e37e40a..1e95f36 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
