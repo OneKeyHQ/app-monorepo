@@ -1,6 +1,7 @@
 import { CHAINS } from '../../config';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
+import { amountToSmallestUnit } from '../../utils/tx-utils';
 
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
@@ -47,20 +48,50 @@ export function registerSecuritySimulateCommand(parent: Command): void {
             );
           }
 
+          // Validate --to is a valid EVM address
+          if (!/^0x[0-9a-fA-F]{40}$/.test(options.to)) {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_ADDRESS.code,
+              `Invalid --to address: "${options.to}"`,
+              'Provide a valid EVM address (0x + 40 hex chars)',
+            );
+          }
+
+          // Validate --data is hex
+          if (!/^0x[0-9a-fA-F]*$/.test(options.data)) {
+            throw new AppError(
+              ERROR_CODES.PARAM_MISSING_REQUIRED.code,
+              `Invalid --data: must be hex-encoded calldata starting with 0x`,
+              'Example: 0xa9059cbb000....',
+            );
+          }
+
+          // Validate --from if provided
+          if (options.from && !/^0x[0-9a-fA-F]{40}$/.test(options.from)) {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_ADDRESS.code,
+              `Invalid --from address: "${options.from}"`,
+              'Provide a valid EVM address (0x + 40 hex chars)',
+            );
+          }
+
           const encodedTx: Record<string, string> = {
             to: options.to,
             data: options.data,
           };
           if (options.value) {
-            const parsed = parseFloat(options.value);
-            if (Number.isNaN(parsed) || parsed < 0) {
+            if (!/^\d+(\.\d+)?$/.test(options.value)) {
               throw new AppError(
                 ERROR_CODES.PARAM_INVALID_AMOUNT.code,
                 `Invalid value: "${options.value}"`,
-                'Provide a valid ETH amount (e.g., 0.1)',
+                'Provide a valid amount (e.g., 0.1)',
               );
             }
-            encodedTx.value = `0x${BigInt(Math.floor(parsed * 1e18)).toString(16)}`;
+            const wei = amountToSmallestUnit(
+              options.value,
+              chainConfig.nativeDecimals,
+            );
+            encodedTx.value = `0x${BigInt(wei).toString(16)}`;
           }
 
           // accountAddress is required by the API — use --from or a zero address

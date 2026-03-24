@@ -97,13 +97,11 @@ describe('auditToken', () => {
     );
   });
 
-  it('handles missing contract address in response gracefully', async () => {
+  it('throws when response is missing contract address entry (fail-safe)', async () => {
     mockPost.mockResolvedValueOnce({});
 
-    const result = await auditToken('evm--1', '0xABC');
-
-    expect(result.isHighRisk).toBe(false);
-    expect(result.riskItems).toEqual([]);
-    expect(result.data).toEqual({});
+    await expect(auditToken('evm--1', '0xABC')).rejects.toThrow(
+      'Security audit returned no data for 0xABC',
+    );
   });
 });

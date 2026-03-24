@@ -1,3 +1,4 @@
+import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 
 interface ISecurityItem {
@@ -36,7 +37,14 @@ export async function auditToken(
     },
   );
 
-  const data = response[contractAddress.toLowerCase()] ?? {};
+  const data = response[contractAddress.toLowerCase()];
+  if (!data || typeof data !== 'object') {
+    throw new AppError(
+      ERROR_CODES.NET_HTTP_ERROR.code,
+      `Security audit returned no data for ${contractAddress}`,
+      'The token may not be indexed — verify the contract address and chain',
+    );
+  }
 
   const riskItems: string[] = [];
   for (const [key, item] of Object.entries(data)) {
