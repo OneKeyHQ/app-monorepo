@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import { useDebouncedCallback } from 'use-debounce';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
@@ -31,6 +30,8 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
+import { useRouteIsFocused } from '../useRouteIsFocused';
+
 import keylessWebPendingLoginCache from './keylessWebPendingLoginCache';
 import { useConnectExternalWallet } from './useConnectExternalWallet';
 import { useOneKeyWalletDetection } from './useOneKeyWalletDetection';
@@ -40,6 +41,115 @@ const DEFAULT_KEYLESS_WEB_SESSION_STATE: IKeylessWebSessionState = {
   walletExists: false,
   siteConnected: false,
 };
+
+type IKeylessConnectAlertParams = {
+  provider?: EOAuthSocialLoginProvider;
+  nonce?: string;
+};
+
+type IKeylessConnectAlertSubscriber = {
+  instanceId: string;
+  isFocused: boolean;
+  priority: number;
+  executor: (params?: IKeylessConnectAlertParams) => Promise<void>;
+};
+
+const handledKeylessAlertNonceSet = new Set<string>();
+const keylessConnectAlertSubscribers = new Map<
+  string,
+  IKeylessConnectAlertSubscriber
+>();
+let keylessConnectAlertOwnerId: string | undefined;
+let keylessConnectAlertSubscriberPriority = 0;
+let keylessConnectAlertWindowListener: ((event: Event) => void) | undefined;
+
+function syncKeylessConnectAlertOwner() {
+  let nextOwner: IKeylessConnectAlertSubscriber | undefined;
+
+  keylessConnectAlertSubscribers.forEach((subscriber) => {
+    if (
+      !nextOwner ||
+      Number(subscriber.isFocused) > Number(nextOwner.isFocused) ||
+      (subscriber.isFocused === nextOwner.isFocused &&
+        subscriber.priority > nextOwner.priority)
+    ) {
+      nextOwner = subscriber;
+    }
+  });
+
+  keylessConnectAlertOwnerId = nextOwner?.instanceId;
+}
+
+function getKeylessConnectAlertOwner() {
+  if (
+    !keylessConnectAlertOwnerId ||
+    !keylessConnectAlertSubscribers.has(keylessConnectAlertOwnerId)
+  ) {
+    syncKeylessConnectAlertOwner();
+  }
+
+  if (!keylessConnectAlertOwnerId) {
+    return undefined;
+  }
+
+  return keylessConnectAlertSubscribers.get(keylessConnectAlertOwnerId);
+}
+
+function ensureKeylessConnectAlertWindowListener() {
+  if (keylessConnectAlertWindowListener || !platformEnv.isWebDappMode) {
+    return;
+  }
+
+  keylessConnectAlertWindowListener = (event: Event) => {
+    const messageEvent = event as Event & { data?: unknown };
+    if (!isKeylessWebConnectAlertMessage(messageEvent.data)) {
+      return;
+    }
+
+    const activeOwner = getKeylessConnectAlertOwner();
+    if (!activeOwner) {
+      return;
+    }
+
+    const keylessProvider = messageEvent.data.provider;
+    const keylessNonce = messageEvent.data.nonce;
+
+    if (keylessNonce) {
+      if (handledKeylessAlertNonceSet.has(keylessNonce)) {
+        console.log(
+          'connectOneKeyWalletSilently_skip_duplicate_alert',
+          keylessNonce,
+        );
+        return;
+      }
+      handledKeylessAlertNonceSet.add(keylessNonce);
+    }
+
+    console.log('connectOneKeyWalletSilently_on_extension_message');
+    void activeOwner.executor({
+      provider: keylessProvider,
+      nonce: keylessNonce,
+    });
+  };
+
+  globalThis.addEventListener?.('message', keylessConnectAlertWindowListener);
+}
+
+function cleanupKeylessConnectAlertWindowListener() {
+  if (
+    keylessConnectAlertSubscribers.size > 0 ||
+    !keylessConnectAlertWindowListener
+  ) {
+    return;
+  }
+
+  globalThis.removeEventListener?.(
+    'message',
+    keylessConnectAlertWindowListener,
+  );
+  keylessConnectAlertWindowListener = undefined;
+  keylessConnectAlertOwnerId = undefined;
+}
 
 function parseHashState(url: URL) {
   const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
@@ -206,13 +316,25 @@ function buildSessionState({
 }
 
 export function useKeylessWebConnectAlert() {
+  const isFocused = useRouteIsFocused();
   const { isOneKeyInstalled, getOneKeyConnectionInfo } =
     useOneKeyWalletDetection();
   const { connectToWalletForKeylessSilently } = useConnectExternalWallet();
   const isConnectingRef = useRef(false);
+  const instanceIdRef = useRef<string | undefined>(undefined);
 
-  const connectOneKeyWalletSilently = useDebouncedCallback(
-    async () => {
+  if (!instanceIdRef.current) {
+    instanceIdRef.current = generateUUID();
+  }
+
+  const connectOneKeyWalletSilently = useCallback(
+    async ({
+      provider,
+      nonce,
+    }: {
+      provider?: EOAuthSocialLoginProvider;
+      nonce?: string;
+    } = {}) => {
       if (!isOneKeyInstalled) {
         void openUrlExternal(getOneKeyExtensionStoreUrl());
         return;
@@ -225,16 +347,19 @@ export function useKeylessWebConnectAlert() {
 
       isConnectingRef.current = true;
       try {
-        await connectToWalletForKeylessSilently(connectionInfo);
+        await connectToWalletForKeylessSilently(
+          connectionInfo,
+          provider ? { provider, nonce } : undefined,
+        );
       } finally {
         isConnectingRef.current = false;
       }
     },
-    500,
-    {
-      leading: false,
-      trailing: true,
-    },
+    [
+      connectToWalletForKeylessSilently,
+      getOneKeyConnectionInfo,
+      isOneKeyInstalled,
+    ],
   );
 
   useEffect(() => {
@@ -242,20 +367,26 @@ export function useKeylessWebConnectAlert() {
       return;
     }
 
-    const handleMessage = (event: Event) => {
-      const messageEvent = event as Event & { data?: unknown };
-      if (!isKeylessWebConnectAlertMessage(messageEvent.data)) {
-        return;
-      }
-      console.log('connectOneKeyWalletSilently_on_extension_message');
-      void connectOneKeyWalletSilently();
-    };
+    const instanceId = instanceIdRef.current;
+    if (!instanceId) {
+      return;
+    }
 
-    globalThis.addEventListener?.('message', handleMessage);
+    keylessConnectAlertSubscribers.set(instanceId, {
+      instanceId,
+      isFocused,
+      priority: (keylessConnectAlertSubscriberPriority += 1),
+      executor: connectOneKeyWalletSilently,
+    });
+    syncKeylessConnectAlertOwner();
+    ensureKeylessConnectAlertWindowListener();
+
     return () => {
-      globalThis.removeEventListener?.('message', handleMessage);
+      keylessConnectAlertSubscribers.delete(instanceId);
+      syncKeylessConnectAlertOwner();
+      cleanupKeylessConnectAlertWindowListener();
     };
-  }, [connectOneKeyWalletSilently]);
+  }, [connectOneKeyWalletSilently, isFocused]);
 }
 
 export function useKeylessWebFlow() {

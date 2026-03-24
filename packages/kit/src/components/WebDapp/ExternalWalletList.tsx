@@ -304,6 +304,58 @@ function KeylessProviderButtons() {
     [],
   );
 
+  const showInstallOneKeyDialog = useCallback(
+    (provider: EOAuthSocialLoginProvider) => {
+      Dialog.show({
+        title: '安装 OneKey 插件后继续',
+        description: (
+          <FormatHyperlinkText
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="center"
+            actionTextProps={{
+              color: '$textInfo',
+            }}
+            underlineTextProps={{
+              color: '$textInfo',
+            }}
+            onAction={() => {
+              globalThis.location.reload();
+            }}
+          >
+            {
+              '如果你已经安装插件，请<action>reload<underline>点击此处</underline></action>刷新页面'
+            }
+          </FormatHyperlinkText>
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_install,
+        }),
+        onConfirm: async () => {
+          await startKeylessWebFlow(provider);
+          const storeUrl = getOneKeyExtensionStoreUrl();
+          if (keylessStoreWindowRef && !keylessStoreWindowRef.closed) {
+            try {
+              keylessStoreWindowRef.location.href = storeUrl;
+              keylessStoreWindowRef.focus();
+              return;
+            } catch {
+              keylessStoreWindowRef = null;
+            }
+          }
+          keylessStoreWindowRef = window.open(
+            storeUrl,
+            KEYLESS_STORE_URL_TARGET,
+          );
+        },
+        onCancelText: intl.formatMessage({
+          id: ETranslations.global_cancel,
+        }),
+      });
+    },
+    [intl, startKeylessWebFlow],
+  );
+
   const handleKeylessProviderPress = useCallback(
     async (provider: EOAuthSocialLoginProvider) => {
       if (!startProviderLoading(provider)) {
@@ -311,52 +363,7 @@ function KeylessProviderButtons() {
       }
 
       if (!isOneKeyInstalled) {
-        Dialog.show({
-          title: '安装 OneKey 插件后继续',
-          description: (
-            <FormatHyperlinkText
-              size="$bodyMd"
-              color="$textSubdued"
-              textAlign="center"
-              actionTextProps={{
-                color: '$textInfo',
-              }}
-              underlineTextProps={{
-                color: '$textInfo',
-              }}
-              onAction={() => {
-                globalThis.location.reload();
-              }}
-            >
-              {
-                '如果你已经安装插件，请<action>reload<underline>点击此处</underline></action>刷新页面'
-              }
-            </FormatHyperlinkText>
-          ),
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.global_install,
-          }),
-          onConfirm: async () => {
-            await startKeylessWebFlow(provider);
-            const storeUrl = getOneKeyExtensionStoreUrl();
-            if (keylessStoreWindowRef && !keylessStoreWindowRef.closed) {
-              try {
-                keylessStoreWindowRef.location.href = storeUrl;
-                keylessStoreWindowRef.focus();
-                return;
-              } catch {
-                keylessStoreWindowRef = null;
-              }
-            }
-            keylessStoreWindowRef = window.open(
-              storeUrl,
-              KEYLESS_STORE_URL_TARGET,
-            );
-          },
-          onCancelText: intl.formatMessage({
-            id: ETranslations.global_cancel,
-          }),
-        });
+        showInstallOneKeyDialog(provider);
       } else {
         console.log('startKeylessWebFlow: OneKey Extension is installed');
 
@@ -394,16 +401,18 @@ function KeylessProviderButtons() {
           await connectToWalletForKeylessSilently(connectionInfo, {
             provider,
           });
+        } else {
+          showInstallOneKeyDialog(provider);
         }
       }
     },
     [
       connectToWalletForKeylessSilently,
       getOneKeyConnectionInfo,
-      intl,
       isOneKeyInstalled,
-      startProviderLoading,
+      showInstallOneKeyDialog,
       startKeylessWebFlow,
+      startProviderLoading,
     ],
   );
 

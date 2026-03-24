@@ -6,8 +6,8 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Toast, resetAboveMainRoute } from '@onekeyhq/components';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessPendingLogin } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -240,16 +240,21 @@ export function useConnectExternalWallet() {
   const connectToWalletForKeylessSilently = useCallback(
     async (
       connectionInfo: IExternalConnectionInfo,
-      options?: { provider?: EOAuthSocialLoginProvider },
+      options?: {
+        provider?: EOAuthSocialLoginProvider;
+        nonce?: string;
+      },
     ) => {
-      const webKeylessPendingLogin: IKeylessPendingLogin | undefined =
-        keylessWebPendingLoginCache.readKeylessPendingLogin() ??
-        (options?.provider
-          ? keylessWebPendingLoginCache.createKeylessPendingLogin({
-              provider: options.provider,
-              nonce: `silent-${Date.now()}`,
-            })
-          : undefined);
+      let webKeylessPendingLogin: IKeylessPendingLogin | undefined =
+        keylessWebPendingLoginCache.readKeylessPendingLogin();
+      if (!webKeylessPendingLogin && options?.provider) {
+        webKeylessPendingLogin =
+          keylessWebPendingLoginCache.createKeylessPendingLogin({
+            provider: options?.provider,
+            nonce: options?.nonce || `silent-${Date.now()}`,
+          });
+      }
+
       return connectToWallet(connectionInfo, {
         allowEmptyAuthorizedAddresses: true,
         suppressDeniedToast: true,

@@ -271,6 +271,12 @@ class ProviderApiEthereum extends ProviderApiBase {
       if (accounts && accounts.length) {
         return accounts;
       }
+      const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
+        request.origin,
+      );
+      if (_requestOneKeyKeylessAccount && isAllowedKeylessOrigin) {
+        return accounts;
+      }
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
       void this._getConnectedNetworkName(request);
       return this.eth_accounts(request);

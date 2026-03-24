@@ -73,6 +73,8 @@ export type IKeylessWebConnectAlertMessage = {
   type: typeof KEYLESS_WEB_CONNECT_ALERT_MESSAGE_TYPE;
   message: string;
   timestamp: number;
+  provider?: EOAuthSocialLoginProvider;
+  nonce?: string;
 };
 
 export type IKeylessWebOpenSidePanelPayload = {
@@ -106,6 +108,7 @@ export type IAutoConnectParams = {
 export type IStoredPendingWebTab = {
   tabId: number;
   autoConnectParams: IAutoConnectParams;
+  fromInitialInstall?: boolean;
 };
 
 export type IKeylessWebBridgeEventPayload = {

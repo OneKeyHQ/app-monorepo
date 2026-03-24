@@ -5,7 +5,6 @@ import {
   ONBOARDING_GET_STARTED_PATH,
 } from '@onekeyhq/shared/src/consts/onboardingConsts';
 import { KEYLESS_WEB_TAB_URL_PATTERNS } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
-import { isKeylessWebAutoConnectOriginAllowed } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
 import type {
   IAutoConnectParams,
   IKeylessWebConnectAlertMessage,
@@ -16,6 +15,7 @@ import {
   KEYLESS_WEB_HASH_KEYS,
   KEYLESS_WEB_PENDING_TAB_STORAGE_KEY,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
+import { isKeylessWebAutoConnectOriginAllowed } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingAutoConnectOrigin } from '@onekeyhq/shared/src/routes/onboardingv2';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -179,6 +179,7 @@ async function readPendingWebTabStorage(): Promise<
         autoConnectOrigin,
         autoLoginKeylessProvider,
       },
+      fromInitialInstall: parsed?.fromInitialInstall === true,
     };
   } catch {
     return undefined;
@@ -211,14 +212,19 @@ async function clearTabWebHashAndReload(): Promise<
       return undefined;
     }
 
-    await updateTabHashUrl(pendingWebTab.tabId, (params) => {
-      params.delete(KEYLESS_WEB_HASH_KEYS.origin);
-      params.delete(KEYLESS_WEB_HASH_KEYS.provider);
-      params.delete(KEYLESS_WEB_HASH_KEYS.status);
-      params.delete(KEYLESS_WEB_HASH_KEYS.nonce);
-      params.delete(KEYLESS_WEB_HASH_KEYS.at);
-      params.delete(KEYLESS_WEB_HASH_KEYS.error);
-    });
+    // Only reload the web tab when coming from initial extension install.
+    // In setup panel mode (extension already installed), the web page
+    // receives a connect-success message instead and does not need a reload.
+    if (pendingWebTab.fromInitialInstall) {
+      await updateTabHashUrl(pendingWebTab.tabId, (params) => {
+        params.delete(KEYLESS_WEB_HASH_KEYS.origin);
+        params.delete(KEYLESS_WEB_HASH_KEYS.provider);
+        params.delete(KEYLESS_WEB_HASH_KEYS.status);
+        params.delete(KEYLESS_WEB_HASH_KEYS.nonce);
+        params.delete(KEYLESS_WEB_HASH_KEYS.at);
+        params.delete(KEYLESS_WEB_HASH_KEYS.error);
+      });
+    }
 
     latestResolvedKeylessWebTab = pendingWebTab;
     return pendingWebTab.autoConnectParams;
@@ -251,6 +257,8 @@ async function notifyKeylessWebConnectSuccess({
     type: KEYLESS_WEB_CONNECT_ALERT_MESSAGE_TYPE,
     message: 'OneKey extension connected successfully.',
     timestamp: Date.now(),
+    provider: pendingWebTab.autoConnectParams.autoLoginKeylessProvider,
+    nonce: pendingWebTab.autoConnectParams.nonce,
   };
 
   try {
@@ -364,6 +372,7 @@ async function scanWebLoginTabs() {
       await savePendingWebTabStorage({
         tabId: tab.id,
         autoConnectParams,
+        fromInitialInstall: true,
       });
       await openExtensionOnboardingGetStarts(autoConnectParams);
       break;
