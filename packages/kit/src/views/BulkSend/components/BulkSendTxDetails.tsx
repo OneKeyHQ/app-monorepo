@@ -77,6 +77,7 @@ type IProps = {
   onDeleteTransfer?: (index: number) => void;
   onAmountChange?: (index: number, amount: string) => void;
   containerProps?: IYStackProps;
+  isMaxMode?: boolean;
 };
 
 type ITransferListItemProps = {
@@ -92,6 +93,7 @@ type ITransferListItemProps = {
   canDelete?: boolean;
   onDeleteTransfers?: (indices: number[]) => void;
   onAmountChangeByIndex?: (index: number, amount: string) => void;
+  isMaxMode?: boolean;
 };
 
 function TransferListItemBase({
@@ -107,6 +109,7 @@ function TransferListItemBase({
   canDelete,
   onDeleteTransfers,
   onAmountChangeByIndex,
+  isMaxMode,
 }: ITransferListItemProps) {
   const media = useMedia();
   const shortenedAddress = accountUtils.shortenAddress({
@@ -148,6 +151,19 @@ function TransferListItemBase({
   );
 
   const renderAmount = () => {
+    if (isMaxMode) {
+      return (
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textSuccess"
+          textAlign="right"
+          flexShrink={0}
+        >
+          Max
+        </SizableText>
+      );
+    }
+
     if (editMode) {
       return (
         <XStack alignItems="center" gap="$2">
@@ -288,6 +304,7 @@ const TransferListItem = memo(
     prev.canDelete === next.canDelete &&
     prev.onDeleteTransfers === next.onDeleteTransfers &&
     prev.onAmountChangeByIndex === next.onAmountChangeByIndex &&
+    prev.isMaxMode === next.isMaxMode &&
     arraysEqual(prev.indices, next.indices),
 );
 
@@ -320,6 +337,7 @@ function BulkSendTxDetails(props: IProps) {
     onDeleteTransfer,
     onAmountChange,
     containerProps,
+    isMaxMode,
   } = props;
 
   const intl = useIntl();
@@ -450,6 +468,7 @@ function BulkSendTxDetails(props: IProps) {
             }
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
+            isMaxMode={isMaxMode}
           />
         ))}
         {visibleSenders.length < senders.length ? (
@@ -477,6 +496,7 @@ function BulkSendTxDetails(props: IProps) {
             editMode={Boolean(editMode && canEditReceiver)}
             deleteDisabled={isDeleteDisabled}
             indices={receiver.indices}
+            isMaxMode={isMaxMode}
             canDelete={
               !!onDeleteTransfer && canEditReceiver
                 ? !isDeleteDisabled

@@ -86,7 +86,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     setTransfersInfo,
     currentModeData,
     updateCurrentModeData,
+    isMaxMode,
+    setIsMaxMode,
   } = useBulkSendAmountsInputContext();
+
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -404,6 +408,14 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   const handleMaxPress = useCallback(() => {
     if (!tokenInfo) return;
     if (amountInputMode !== EAmountInputMode.Specified) return;
+
+    // Non-OneToMany: toggle Max mode (send full balance per sender)
+    if (!isOneToMany) {
+      setIsMaxMode(!isMaxMode);
+      return;
+    }
+
+    // OneToMany: calculate max amount per address from balance
     const balance = tokenDetails?.balanceParsed ?? '0';
     if (!balance || transfersInfo.length === 0) return;
     const maxAmountPerAddress = new BigNumber(balance)
@@ -420,6 +432,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     });
   }, [
     amountInputMode,
+    isOneToMany,
+    isMaxMode,
+    setIsMaxMode,
     tokenDetails?.balanceParsed,
     transfersInfo.length,
     setAmountInputValues,
@@ -471,26 +486,35 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                   })}
                 </SizableText>
                 <XStack alignItems="center" gap="$1">
-                  <NumberSizeableText
-                    size="$bodyLgMedium"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: tokenInfo?.symbol }}
-                  >
-                    {totalTokenAmount}
-                  </NumberSizeableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    (
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
-                      }}
-                    >
-                      {totalFiatAmount}
-                    </NumberSizeableText>
-                    )
-                  </SizableText>
+                  {isMaxMode &&
+                  amountInputMode === EAmountInputMode.Specified ? (
+                    <SizableText size="$bodyLgMedium" color="$textSuccess">
+                      Max
+                    </SizableText>
+                  ) : (
+                    <>
+                      <NumberSizeableText
+                        size="$bodyLgMedium"
+                        formatter="balance"
+                        formatterOptions={{ tokenSymbol: tokenInfo?.symbol }}
+                      >
+                        {totalTokenAmount}
+                      </NumberSizeableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        (
+                        <NumberSizeableText
+                          size="$bodyMd"
+                          formatter="value"
+                          formatterOptions={{
+                            currency: settings.currencyInfo.symbol,
+                          }}
+                        >
+                          {totalFiatAmount}
+                        </NumberSizeableText>
+                        )
+                      </SizableText>
+                    </>
+                  )}
                 </XStack>
               </YStack>
             ) : (
@@ -521,6 +545,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                     ? currentModeData.isInsufficientBalance
                     : false
                 }
+                isMaxMode={isMaxMode}
+                hideBalance={!isOneToMany}
               />
             )}
           </Page.FooterActions>
@@ -609,12 +635,24 @@ function BulkSendAmountsInput() {
     EAmountInputMode.Specified,
   );
 
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+
+  const [isMaxMode, setIsMaxModeRaw] = useState(false);
+
   const [amountInputValues, setAmountInputValues] =
     useState<IAmountInputValues>({
       specifiedAmount: '',
       rangeMin: '',
       rangeMax: '',
     });
+
+  const setIsMaxMode = useCallback(
+    (value: boolean) => {
+      setIsMaxModeRaw(value);
+      setAmountInputValues((prev) => ({ ...prev, isMaxMode: value }));
+    },
+    [setAmountInputValues],
+  );
 
   const [amountInputErrors, setAmountInputErrors] = useState<IAmountInputError>(
     {},
@@ -917,6 +955,8 @@ function BulkSendAmountsInput() {
       tokenDetailsState,
       setTokenDetailsState,
       bulkSendMode,
+      isMaxMode,
+      setIsMaxMode,
       transfersInfo,
       setTransfersInfo,
       amountInputMode,
@@ -946,6 +986,7 @@ function BulkSendAmountsInput() {
       tokenDetails,
       tokenDetailsState,
       bulkSendMode,
+      isMaxMode,
       transfersInfo,
       setTransfersInfo,
       amountInputMode,

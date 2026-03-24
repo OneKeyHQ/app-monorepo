@@ -355,7 +355,7 @@ function MultiLineSenderInput() {
     selectedNetworkId,
     selectedToken,
     allowAmounts: true,
-    requireAmounts: true,
+    requireAmounts: false,
     checkDuplicates: false,
     checkAllowlist: false,
     selectedAccountId,

@@ -22,6 +22,7 @@ function MobileLayout() {
     currentModeData,
     updateCurrentModeData,
     minTransferAmount,
+    isMaxMode,
   } = useBulkSendAmountsInputContext();
 
   const { transfersInfo: modeTransfersInfo, transferInfoErrors } =
@@ -79,6 +80,7 @@ function MobileLayout() {
           onDeleteTransfer={handleDeleteTransfer}
           onAmountChange={isEditMode ? handleAmountChange : undefined}
           containerProps={{ mt: '$6' }}
+          isMaxMode={isMaxMode}
         />
       ) : null}
     </YStack>

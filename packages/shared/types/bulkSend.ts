@@ -19,6 +19,7 @@ export type IAmountInputValues = {
   specifiedAmount: string;
   rangeMin: string;
   rangeMax: string;
+  isMaxMode?: boolean;
 };
 
 export type IAmountInputError = {

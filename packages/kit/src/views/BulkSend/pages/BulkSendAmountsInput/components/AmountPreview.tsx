@@ -36,6 +36,10 @@ type IAmountPreviewProps = {
   rangePreviewAmounts?: string[];
   onMaxPress?: () => void;
   isInsufficientBalance?: boolean;
+  // Max mode (ManyToOne/ManyToMany): send full balance per sender
+  isMaxMode?: boolean;
+  // Whether to hide the balance display (non-OneToMany modes)
+  hideBalance?: boolean;
 };
 
 export function AmountPreview({
@@ -52,6 +56,8 @@ export function AmountPreview({
   containerProps,
   onMaxPress,
   isInsufficientBalance,
+  isMaxMode,
+  hideBalance,
 }: IAmountPreviewProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -80,6 +86,9 @@ export function AmountPreview({
 
   // Determine if we should show Total amount section
   const showTotalAmount = useMemo(() => {
+    if (isMaxMode && amountInputMode === EAmountInputMode.Specified) {
+      return true;
+    }
     if (inDialog) {
       return amountInputMode === EAmountInputMode.Specified;
     }
@@ -91,14 +100,25 @@ export function AmountPreview({
       return isInPreviewMode || hasRangeValues;
     }
     return true;
-  }, [inDialog, amountInputMode, isInPreviewMode, hasRangeValues]);
+  }, [inDialog, amountInputMode, isInPreviewMode, hasRangeValues, isMaxMode]);
 
   // Determine if we should show Available section
   // In preview mode for Specified/Range, hide Available
-  const showAvailable =
-    inDialog || !isInPreviewMode || amountInputMode === EAmountInputMode.Custom;
+  // Hide for non-OneToMany modes (hideBalance)
+  const showAvailable = useMemo(() => {
+    if (hideBalance) return false;
+    return (
+      inDialog ||
+      !isInPreviewMode ||
+      amountInputMode === EAmountInputMode.Custom
+    );
+  }, [hideBalance, inDialog, isInPreviewMode, amountInputMode]);
 
   const { totalTokenAmount, totalFiatAmount } = useMemo(() => {
+    // Max mode: show "Max" instead of calculated amount
+    if (isMaxMode && amountInputMode === EAmountInputMode.Specified) {
+      return { totalTokenAmount: 'Max', totalFiatAmount: '' };
+    }
     // In preview mode, use pre-calculated values
     if (isInPreviewMode && previewTotalTokenAmount && previewTotalFiatAmount) {
       return {
@@ -156,6 +176,7 @@ export function AmountPreview({
     const totalFiatAmount = total.times(tokenDetails?.price ?? 0).toFixed();
     return { totalTokenAmount, totalFiatAmount };
   }, [
+    isMaxMode,
     isInPreviewMode,
     previewTotalTokenAmount,
     previewTotalFiatAmount,
@@ -168,6 +189,8 @@ export function AmountPreview({
     rangePreviewAmounts,
   ]);
 
+  const isMaxDisplay = totalTokenAmount === 'Max';
+
   return (
     <YStack {...containerProps}>
       {showTotalAmount ? (
@@ -179,7 +202,11 @@ export function AmountPreview({
               })}
             </SizableText>
             <XStack alignItems="center" gap="$1">
-              {totalTokenAmount === '--' ? (
+              {isMaxDisplay ? (
+                <SizableText size="$bodyLgMedium" color="$textSuccess">
+                  Max
+                </SizableText>
+              ) : totalTokenAmount === '--' ? (
                 <SizableText size="$bodyLgMedium">--</SizableText>
               ) : (
                 <>
@@ -247,6 +274,20 @@ export function AmountPreview({
               {intl.formatMessage({ id: ETranslations.global_max })}
             </SizableText>
           ) : null}
+        </XStack>
+      ) : null}
+      {/* Max button for non-OneToMany (when balance is hidden) */}
+      {hideBalance && onMaxPress ? (
+        <XStack py="$0.5" alignItems="center" justifyContent="flex-end">
+          <SizableText
+            size="$bodyMdMedium"
+            color={isMaxMode ? '$textSuccess' : '$textInteractive'}
+            cursor="default"
+            onPress={onMaxPress}
+            hitSlop={8}
+          >
+            {intl.formatMessage({ id: ETranslations.global_max })}
+          </SizableText>
         </XStack>
       ) : null}
     </YStack>

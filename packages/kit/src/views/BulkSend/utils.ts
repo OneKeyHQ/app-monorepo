@@ -37,6 +37,10 @@ export function calculateIsAmountValid({
 }): boolean {
   switch (amountInputMode) {
     case EAmountInputMode.Specified: {
+      // Max mode is always valid (send full balance per sender)
+      if (amountInputValues.isMaxMode) {
+        return true;
+      }
       const specifiedAmountBN = new BigNumber(
         amountInputValues.specifiedAmount || '0',
       );
@@ -345,19 +349,31 @@ export function validateRangeInput({
 }: {
   rangeMin: string;
   rangeMax: string;
-  balance: string;
+  balance?: string;
   minTransferAmount?: string;
   tokenSymbol?: string;
 }): string | undefined {
   const minBN = new BigNumber(rangeMin || '0');
   const maxBN = new BigNumber(rangeMax || '0');
-  const balanceBN = new BigNumber(balance);
 
-  // When balance is zero, no valid non-zero range can be generated
-  if (balanceBN.isZero()) {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.swap_page_button_insufficient_balance,
-    });
+  // Balance checks only when balance is provided
+  if (balance !== undefined) {
+    const balanceBN = new BigNumber(balance);
+
+    // When balance is zero, no valid non-zero range can be generated
+    if (balanceBN.isZero()) {
+      return appLocale.intl.formatMessage({
+        id: ETranslations.swap_page_button_insufficient_balance,
+      });
+    }
+
+    // Only check if min exceeds balance (min must be achievable)
+    // max > balance is allowed - generation logic will use balance/count as effective max
+    if (minBN.isGreaterThan(balanceBN)) {
+      return appLocale.intl.formatMessage({
+        id: ETranslations.swap_page_button_insufficient_balance,
+      });
+    }
   }
 
   // Check if range min is below chain minimum transfer amount
@@ -374,14 +390,6 @@ export function validateRangeInput({
         { amount: minTransferAmount, token: tokenSymbol ?? '' },
       );
     }
-  }
-
-  // Only check if min exceeds balance (min must be achievable)
-  // max > balance is allowed - generation logic will use balance/count as effective max
-  if (minBN.isGreaterThan(balanceBN)) {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.swap_page_button_insufficient_balance,
-    });
   }
 
   // Check if min >= max (invalid range)

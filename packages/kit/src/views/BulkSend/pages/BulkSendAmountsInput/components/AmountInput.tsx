@@ -22,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
+  EBulkSendMode,
   type IAmountInputError,
 } from '@onekeyhq/shared/types/bulkSend';
 
@@ -48,9 +49,12 @@ export function SpecifiedAmountInput() {
     previewState,
     setPreviewState,
     minTransferAmount,
+    bulkSendMode,
+    isMaxMode,
   } = useBulkSendAmountsInputContext();
 
   const isInPreviewMode = previewState.specifiedPreviewed;
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
   const { network } = useAccountData({ networkId });
 
@@ -94,7 +98,7 @@ export function SpecifiedAmountInput() {
         amount: new BigNumber(value || '0')
           .times(transfersInfo.length)
           .toFixed(),
-        maxAmount: balance ?? '0',
+        maxAmount: isOneToMany ? balance : undefined,
         allowZero: false,
         customErrorMessages: {
           maxAmount: intl.formatMessage({
@@ -121,6 +125,7 @@ export function SpecifiedAmountInput() {
       amountInputValues,
       setAmountInputValues,
       tokenInfo,
+      isOneToMany,
       balance,
       transfersInfo.length,
       amountInputErrors,
@@ -136,6 +141,25 @@ export function SpecifiedAmountInput() {
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
   }, [amountInputValues.specifiedAmount, tokenDetails?.price]);
+
+  if (isMaxMode) {
+    return (
+      <YStack
+        w="100%"
+        borderRadius="$3"
+        borderWidth={1}
+        borderColor="$borderStrong"
+        px="$3.5"
+        py="$3"
+        justifyContent="center"
+        minHeight={80}
+      >
+        <SizableText size="$heading3xl" color="$textSuccess">
+          Max
+        </SizableText>
+      </YStack>
+    );
+  }
 
   return (
     <YStack gap="$1.5" w="100%">
@@ -181,10 +205,12 @@ export function RangeAmountInput() {
     setAmountInputErrors,
     setPreviewState,
     minTransferAmount: ctxMinTransferAmount,
+    bulkSendMode,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
 
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
   const balance = tokenDetails?.balanceParsed ?? '0';
 
   // Local display values for immediate UI feedback
@@ -209,13 +235,13 @@ export function RangeAmountInput() {
       const error = validateRangeInput({
         rangeMin: min,
         rangeMax: max,
-        balance,
+        balance: isOneToMany ? balance : undefined,
         minTransferAmount: ctxMinTransferAmount,
         tokenSymbol: tokenInfo.symbol,
       });
       return error ? { rangeError: error } : {};
     },
-    [balance, ctxMinTransferAmount, tokenInfo.symbol],
+    [isOneToMany, balance, ctxMinTransferAmount, tokenInfo.symbol],
   );
 
   const generatePreviewAmounts = useCallback(
@@ -226,10 +252,10 @@ export function RangeAmountInput() {
         rangeMin: min,
         rangeMax: max,
         decimals: tokenInfo.decimals,
-        balance: [balance],
+        balance: isOneToMany ? [balance] : undefined,
       });
     },
-    [transfersInfo, tokenInfo, balance],
+    [transfersInfo, tokenInfo, balance, isOneToMany],
   );
 
   // Use refs to avoid stale closures in useEffect
@@ -494,7 +520,12 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     amountInputValues,
     hasCustomAmounts,
     minTransferAmount,
+    bulkSendMode,
+    isMaxMode,
+    setIsMaxMode,
   } = useBulkSendAmountsInputContext();
+
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
   // Only show Custom option if receivers have custom amounts from address input
   const segmentOptions = useMemo(() => {
@@ -546,7 +577,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       amount: new BigNumber(amountInputValues.specifiedAmount || '0')
         .times(transfersInfo.length)
         .toFixed(),
-      maxAmount: balance,
+      maxAmount: isOneToMany ? balance : undefined,
       allowZero: false,
       customErrorMessages: {
         maxAmount: intl.formatMessage({
@@ -571,6 +602,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     amountInputValues.specifiedAmount,
     transfersInfo.length,
     minTransferAmount,
+    isOneToMany,
   ]);
 
   const validateRangeAmount = useCallback((): IAmountInputError => {
@@ -578,7 +610,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     const error = validateRangeInput({
       rangeMin: amountInputValues.rangeMin,
       rangeMax: amountInputValues.rangeMax,
-      balance,
+      balance: isOneToMany ? balance : undefined,
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
     });
@@ -589,12 +621,18 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     amountInputValues.rangeMax,
     minTransferAmount,
     tokenInfo.symbol,
+    isOneToMany,
   ]);
 
   const handleModeChange = useCallback(
     (value: string | number) => {
       const newMode = value as EAmountInputMode;
       setAmountInputMode(newMode);
+
+      // Reset Max mode when switching away from Specified
+      if (newMode !== EAmountInputMode.Specified && isMaxMode) {
+        setIsMaxMode(false);
+      }
 
       // Only re-validate in Dialog mode (Desktop)
       // MobileLayout has independent data for each mode, so no need to re-validate
@@ -627,6 +665,8 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       setPreviewState,
       validateSpecifiedAmount,
       validateRangeAmount,
+      isMaxMode,
+      setIsMaxMode,
     ],
   );
 

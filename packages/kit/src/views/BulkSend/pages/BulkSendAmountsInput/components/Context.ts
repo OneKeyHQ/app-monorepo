@@ -47,6 +47,9 @@ export type IBulkSendAmountsInputContext = {
     isRefreshing: boolean;
   }) => void;
   bulkSendMode: EBulkSendMode;
+  // Max mode: send entire balance per sender (ManyToOne/ManyToMany only)
+  isMaxMode: boolean;
+  setIsMaxMode: (isMaxMode: boolean) => void;
   // Desktop uses these directly
   transfersInfo: ITransferInfo[];
   setTransfersInfo: (transfersInfo: ITransferInfo[]) => void;
@@ -109,6 +112,8 @@ export const BulkSendAmountsInputContext =
     },
     setTokenDetailsState: () => {},
     bulkSendMode: EBulkSendMode.OneToMany,
+    isMaxMode: false,
+    setIsMaxMode: () => {},
     amountInputMode: EAmountInputMode.Specified,
     setAmountInputMode: () => {},
     amountInputValues: {

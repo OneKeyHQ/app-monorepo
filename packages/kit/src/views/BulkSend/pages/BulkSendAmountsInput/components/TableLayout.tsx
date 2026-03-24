@@ -24,6 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
+  EBulkSendMode,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 
@@ -94,11 +95,15 @@ function AmountCard() {
     setPreviewState,
     hasCustomAmounts,
     minTransferAmount,
+    bulkSendMode,
+    isMaxMode,
+    setIsMaxMode,
   } = useBulkSendAmountsInputContext();
 
   const [settings] = useSettingsPersistAtom();
   const { network } = useAccountData({ networkId });
 
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
   const balance = tokenDetails?.balanceParsed ?? '0';
 
   const { updateTransfersInfoWithAmounts } = useAmountPreview({
@@ -142,6 +147,10 @@ function AmountCard() {
     (value: EAmountInputMode) => {
       if (!tokenInfo) return;
       setAmountInputMode(value);
+      // Reset Max mode when switching away from Specified
+      if (value !== EAmountInputMode.Specified && isMaxMode) {
+        setIsMaxMode(false);
+      }
       updateTransfersInfoWithAmounts(value, amountInputValues);
       if (value === EAmountInputMode.Custom) {
         const errors: ITransferInfoErrors = {};
@@ -185,6 +194,8 @@ function AmountCard() {
     [
       intl,
       setAmountInputMode,
+      isMaxMode,
+      setIsMaxMode,
       updateTransfersInfoWithAmounts,
       amountInputValues,
       transfersInfo,
@@ -224,7 +235,7 @@ function AmountCard() {
       const { error } = validateTokenAmount({
         token: tokenInfo,
         amount: valueBN.times(transfersInfo.length).toFixed(),
-        maxAmount: balance,
+        maxAmount: isOneToMany ? balance : undefined,
         allowZero: false,
         customErrorMessages: {
           maxAmount: intl.formatMessage({
@@ -252,6 +263,7 @@ function AmountCard() {
       tokenInfo,
       transfersInfo.length,
       balance,
+      isOneToMany,
       amountInputErrors,
       setAmountInputErrors,
       updateTransfersInfoWithAmounts,
@@ -304,7 +316,7 @@ function AmountCard() {
       const error = validateRangeInput({
         rangeMin: newValues.rangeMin,
         rangeMax: newValues.rangeMax,
-        balance,
+        balance: isOneToMany ? balance : undefined,
         minTransferAmount,
         tokenSymbol: tokenInfo?.symbol,
       });
@@ -345,43 +357,53 @@ function AmountCard() {
   // Handle Max button press
   const handleMaxPress = useCallback(() => {
     if (!tokenInfo) return;
-    if (amountInputMode === EAmountInputMode.Specified) {
-      if (!balance || transfersInfo.length === 0) return;
-      const maxAmountPerAddress = new BigNumber(balance)
-        .dividedBy(transfersInfo.length)
-        .decimalPlaces(tokenInfo.decimals, BigNumber.ROUND_DOWN)
-        .toFixed();
-      const newValues = {
-        ...amountInputValues,
-        specifiedAmount: maxAmountPerAddress,
-      };
-      setAmountInputValues(newValues);
-      // Validate against minTransferAmount
-      const maxAmountBN = new BigNumber(maxAmountPerAddress);
-      const minTransferAmountBN = new BigNumber(minTransferAmount);
-      if (
-        !minTransferAmountBN.isZero() &&
-        !maxAmountBN.isZero() &&
-        maxAmountBN.isLessThan(minTransferAmountBN)
-      ) {
-        setAmountInputErrors({
-          ...amountInputErrors,
-          specifiedAmount: intl.formatMessage(
-            { id: ETranslations.send_error_minimum_amount },
-            { amount: minTransferAmount, token: tokenInfo.symbol },
-          ),
-        });
-      } else {
-        setAmountInputErrors({
-          ...amountInputErrors,
-          specifiedAmount: undefined,
-        });
-      }
-      updateTransfersInfoWithAmounts(amountInputMode, newValues);
+    if (amountInputMode !== EAmountInputMode.Specified) return;
+
+    // Non-OneToMany: toggle Max mode (send full balance per sender)
+    if (!isOneToMany) {
+      setIsMaxMode(!isMaxMode);
+      return;
     }
+
+    // OneToMany: calculate max amount per address from balance
+    if (!balance || transfersInfo.length === 0) return;
+    const maxAmountPerAddress = new BigNumber(balance)
+      .dividedBy(transfersInfo.length)
+      .decimalPlaces(tokenInfo.decimals, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const newValues = {
+      ...amountInputValues,
+      specifiedAmount: maxAmountPerAddress,
+    };
+    setAmountInputValues(newValues);
+    // Validate against minTransferAmount
+    const maxAmountBN = new BigNumber(maxAmountPerAddress);
+    const minTransferAmountBN = new BigNumber(minTransferAmount);
+    if (
+      !minTransferAmountBN.isZero() &&
+      !maxAmountBN.isZero() &&
+      maxAmountBN.isLessThan(minTransferAmountBN)
+    ) {
+      setAmountInputErrors({
+        ...amountInputErrors,
+        specifiedAmount: intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          { amount: minTransferAmount, token: tokenInfo.symbol },
+        ),
+      });
+    } else {
+      setAmountInputErrors({
+        ...amountInputErrors,
+        specifiedAmount: undefined,
+      });
+    }
+    updateTransfersInfoWithAmounts(amountInputMode, newValues);
   }, [
     intl,
     amountInputMode,
+    isOneToMany,
+    isMaxMode,
+    setIsMaxMode,
     balance,
     transfersInfo.length,
     tokenInfo,
@@ -424,6 +446,24 @@ function AmountCard() {
   const renderAmountInput = () => {
     switch (amountInputMode) {
       case EAmountInputMode.Specified:
+        if (isMaxMode) {
+          return (
+            <YStack
+              bg="$bgApp"
+              borderRadius="$3"
+              borderWidth={1}
+              borderColor="$borderStrong"
+              px="$3.5"
+              py="$3"
+              justifyContent="center"
+              minHeight={80}
+            >
+              <SizableText size="$heading3xl" color="$textSuccess">
+                Max
+              </SizableText>
+            </YStack>
+          );
+        }
         return (
           <BaseAmountInput
             bg="$bgApp"
@@ -633,25 +673,29 @@ function AmountCard() {
 
       {/* Available + Max */}
       <XStack alignItems="center" justifyContent="space-between">
-        <XStack gap="$1" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.wallet_bulk_send_available,
-            })}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodySm"
-            color="$text"
-            formatter="balance"
-            formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
-          >
-            {tokenDetails?.balanceParsed ?? '-'}
-          </NumberSizeableText>
-        </XStack>
+        {isOneToMany ? (
+          <XStack gap="$1" alignItems="center">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_available,
+              })}
+            </SizableText>
+            <NumberSizeableText
+              size="$bodySm"
+              color="$text"
+              formatter="balance"
+              formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+            >
+              {tokenDetails?.balanceParsed ?? '-'}
+            </NumberSizeableText>
+          </XStack>
+        ) : (
+          <Stack />
+        )}
         {amountInputMode === EAmountInputMode.Specified ? (
           <SizableText
             size="$bodySmMedium"
-            color="$textInteractive"
+            color={isMaxMode ? '$textSuccess' : '$textInteractive'}
             cursor="default"
             userSelect="none"
             onPress={handleMaxPress}
@@ -677,6 +721,7 @@ function TransferInfoListSection() {
     transferInfoErrors,
     setTransferInfoErrors,
     minTransferAmount,
+    isMaxMode,
   } = useBulkSendAmountsInputContext();
 
   const { handleDeleteTransfer, handleAmountChange } = useTransferInfoActions({
@@ -835,7 +880,18 @@ function TransferInfoListSection() {
 
             {/* AMOUNT */}
             <Stack width={100} alignItems="flex-end" flexWrap="wrap">
-              {isCustomMode ? (
+              {isMaxMode &&
+              amountInputMode === EAmountInputMode.Specified ? (
+                <SizableText
+                  size="$bodyMdMedium"
+                  width="100%"
+                  flex={1}
+                  textAlign="right"
+                  color="$textSuccess"
+                >
+                  Max
+                </SizableText>
+              ) : isCustomMode ? (
                 <Input
                   value={transfer.amount}
                   onChangeText={(value) => handleAmountChange(index, value)}
