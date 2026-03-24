@@ -9,10 +9,10 @@ index 7055a0d..81ee02b 100644
 +import android.util.Log
  import com.swmansion.rnscreens.events.ScreenDismissedEvent
  import com.swmansion.rnscreens.gamma.common.FragmentProviding
-
+ 
 @@ -291,7 +292,24 @@ open class ScreenContainer(
          }
-
+ 
          if (hasFragments) {
 -            transaction.commitNowAllowingStateLoss()
 +            // Guard against "FragmentManager is already executing transactions" crash.
@@ -35,9 +35,9 @@ index 7055a0d..81ee02b 100644
 +            }
          }
      }
-
+ 
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 1c44762..11a2e04 100644
+index 1c44762..582527c 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -49,6 +49,12 @@
