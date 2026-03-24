@@ -195,7 +195,7 @@ function isErrorByClassName({
 
 function getCurrentCallStackV1() {
   try {
-    // oxlint-disable-next-line onekey/no-raw-error -- intentional: capturing raw stack trace
+    // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- intentional: capturing raw stack trace
     throw new Error();
   } catch (e) {
     autoPrintErrorIgnore(e);
@@ -204,7 +204,7 @@ function getCurrentCallStackV1() {
 }
 
 function getCurrentCallStack() {
-  // oxlint-disable-next-line onekey/no-raw-error -- intentional: capturing raw stack trace
+  // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- intentional: capturing raw stack trace
   const e = new Error();
   const stack = e.stack;
   return stack;

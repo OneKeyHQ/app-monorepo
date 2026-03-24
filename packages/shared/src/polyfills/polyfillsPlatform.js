@@ -149,7 +149,7 @@ try {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
-        // oxlint-disable-next-line onekey/no-raw-error -- polyfill runs before OneKeyLocalError is available
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- polyfill runs before OneKeyLocalError is available
         throw new Error('InvalidStateError');
       }
       this._setReadyState(this.LOADING);
