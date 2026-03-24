@@ -202,7 +202,8 @@ should_run transfer && section_transfer
 section_token() {
   echo ""
   echo "--- Token commands ---"
-  skip "token search --query USDC --chain eth"
+  check_json "token search --query USDC" "success" \
+    "$BIN" --json --env test token search --query USDC
   skip "token info --chain eth --token 0xA0b8..."
   skip "token price --chain eth --token 0xA0b8..."
   skip "token trending"

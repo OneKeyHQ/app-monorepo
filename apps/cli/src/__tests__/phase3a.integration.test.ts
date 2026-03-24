@@ -10,11 +10,58 @@ function run(...args: string[]): string {
   }).trim();
 }
 
-// Suppress unused-variable lint — run() will be used when todos become real tests
-void run;
-
 describe('token commands (integration)', () => {
-  it.todo('token search returns matching tokens');
+  it('token search returns matching tokens', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'token',
+      'search',
+      '--query',
+      'USDC',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.data.length).toBeGreaterThan(0);
+    expect(parsed.data[0].symbol).toMatch(/USDC/i);
+  });
+
+  it('token search with --chain filters by network', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'token',
+      'search',
+      '--query',
+      'USDC',
+      '--chain',
+      'eth',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    for (const item of parsed.data) {
+      expect(item.networkId).toBe('evm--1');
+    }
+  });
+
+  it('token search returns empty array for unknown token', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'token',
+      'search',
+      '--query',
+      'ZZZZNONEXISTENT',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(parsed.data).toEqual([]);
+  });
+
   it.todo('token info returns token details');
   it.todo('token price returns price and changes');
   it.todo('token trending returns trending list');
