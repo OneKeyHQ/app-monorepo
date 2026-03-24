@@ -25,3 +25,4 @@ export interface IErrorResponse {
 }
 
 export type { IErrorDetail } from '../errors/app-error';
+export type { IResolvedToken } from './token';
