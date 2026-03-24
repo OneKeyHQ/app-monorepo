@@ -264,7 +264,23 @@ section_swap() {
     fail=$((fail + 1))
   fi
 
-  skip "swap build"
+  # Swap build depends on external swap API + wallet being imported.
+  # Accept either success or a structured API error as "working".
+  local sb_output
+  sb_output=$("$BIN" --json --env test swap build --chain eth \
+    --from 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 \
+    --to 0xdac17f958d2ee523a2206206994597c13d831ec7 \
+    --amount 1 --provider "1inch" 2>/dev/null) || true
+  local sb_status
+  sb_status=$(echo "$sb_output" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+  if [ "$sb_status" = "success" ] || [ "$sb_status" = "error" ]; then
+    echo -e "  ${GREEN}✓${NC} swap build USDC→USDT on eth (status=${sb_status})"
+    pass=$((pass + 1))
+  else
+    echo -e "  ${RED}✗${NC} swap build USDC→USDT on eth (expected valid JSON, got=${sb_status:-empty})"
+    echo -e "     output: ${sb_output:0:200}"
+    fail=$((fail + 1))
+  fi
   skip "swap execute"
   skip "swap status"
 }

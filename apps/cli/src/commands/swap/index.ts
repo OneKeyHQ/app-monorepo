@@ -1,3 +1,4 @@
+import { registerSwapBuildCommand } from './swap-build';
 import { registerSwapQuoteCommand } from './swap-quote';
 
 import type { Command } from 'commander';
@@ -8,4 +9,5 @@ export function registerSwapCommands(program: Command) {
     .description('Token swap quotes and execution');
 
   registerSwapQuoteCommand(swap);
+  registerSwapBuildCommand(swap);
 }
