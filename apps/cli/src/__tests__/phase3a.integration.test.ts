@@ -84,7 +84,24 @@ describe('token commands (integration)', () => {
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     );
   });
-  it.todo('token price returns price and changes');
+  it('token price returns price and changes', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'token',
+      'price',
+      '--chain',
+      'eth',
+      '--token',
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(parsed.data.price).toBeTruthy();
+    expect(parsed.data.symbol).toMatch(/USDC/i);
+    expect(parsed.data).toHaveProperty('priceChange24hPercent');
+  });
   it.todo('token trending returns trending list');
   it.todo('token trades returns trade stats');
   it.todo('token liquidity returns top holders');
