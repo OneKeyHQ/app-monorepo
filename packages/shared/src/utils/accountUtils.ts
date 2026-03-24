@@ -982,10 +982,10 @@ function isEnabledBtcFreshAddress({
     return false;
   }
   if (accountId) {
-    return isHdAccount({ accountId }) || isHwAccount({ accountId });
+    return isHdAccount({ accountId }) || isHwAccount({ accountId }) || isQrAccount({ accountId });
   }
   if (walletId) {
-    return isHdWallet({ walletId }) || isHwWallet({ walletId });
+    return isHdWallet({ walletId }) || isHwWallet({ walletId }) || isQrWallet({ walletId });
   }
   return false;
 }
