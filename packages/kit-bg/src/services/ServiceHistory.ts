@@ -535,13 +535,13 @@ class ServiceHistory extends ServiceBase {
     ]);
 
     const localHistoryConfirmedTxs =
-      await this.getAccountLocalHistoryPendingTxs({
+      await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
         accountAddress,
         xpub,
       });
     const localHistoryPendingTxs =
-      await this.getAccountLocalHistoryConfirmedTxs({
+      await this.getAccountLocalHistoryPendingTxs({
         networkId,
         accountAddress,
         xpub,
