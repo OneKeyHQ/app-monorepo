@@ -116,18 +116,18 @@ async function ensurePerfServerRunning({
 
   while (Date.now() < deadline) {
     try {
-      const health = await checkPerfServer(serverUrl);
-      const actualDir = health?.outputDir
-        ? normalizePath(health.outputDir)
+      const serverHealth = await checkPerfServer(serverUrl);
+      const actualDir = serverHealth?.outputDir
+        ? normalizePath(serverHealth.outputDir)
         : null;
       if (actualDir && actualDir !== desiredDir) {
         throw new Error(
           `Started performance-server but outputDir differs.\n` +
-            `- server outputDir: ${health.outputDir}\n` +
+            `- server outputDir: ${serverHealth.outputDir}\n` +
             `- job sessionsDir: ${sessionsDir}`,
         );
       }
-      return { started: true, health, ...started };
+      return { started: true, health: serverHealth, ...started };
     } catch (e) {
       lastErr = e;
     }

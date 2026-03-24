@@ -555,6 +555,73 @@ export default class VaultBtc extends VaultBase {
     });
   }
 
+  override async buildBulkSendEncodedTxs(params: {
+    transfersInfo: ITransferInfo[];
+  }): Promise<{
+    encodedTxs: IEncodedTxBtc[];
+    transfersInfoChunks: ITransferInfo[][];
+    ataCount?: number;
+  }> {
+    const { transfersInfo } = params;
+
+    if (!transfersInfo || transfersInfo.length === 0) {
+      throw new OneKeyLocalError('transfersInfo is required');
+    }
+
+    const MAX_OUTPUTS_PER_TX = 200;
+    const encodedTxs: IEncodedTxBtc[] = [];
+    const transfersInfoChunks: ITransferInfo[][] = [];
+
+    for (let i = 0; i < transfersInfo.length; i += MAX_OUTPUTS_PER_TX) {
+      const chunk = transfersInfo.slice(i, i + MAX_OUTPUTS_PER_TX);
+      transfersInfoChunks.push(chunk);
+
+      const encodedTx = await this._buildEncodedTxFromBatchTransfer({
+        transfersInfo: chunk,
+      });
+      encodedTxs.push(encodedTx);
+    }
+
+    return { encodedTxs, transfersInfoChunks };
+  }
+
+  override async refreshUnsignedTxBeforeBatchSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    // Rebuild the transaction with fresh UTXOs from the network
+    // to avoid double-spend when sending multiple chunked BTC transactions
+    if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
+      return unsignedTx;
+    }
+    // Preserve the user-selected fee rate from the existing encoded tx
+    // fee/txSize gives sat/vbyte, must convert to BTC/vbyte for _buildTransferParamsWithCoinSelector
+    const network = await this.getNetwork();
+    let specifiedFeeRate: string | undefined;
+    const existingEncodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+    if (existingEncodedTx?.fee && existingEncodedTx?.txSize) {
+      specifiedFeeRate = new BigNumber(existingEncodedTx.fee)
+        .div(existingEncodedTx.txSize)
+        .shiftedBy(-network.feeMeta.decimals)
+        .toFixed();
+    }
+    // Clear the UTXO cache to ensure fresh UTXOs are fetched
+    this._collectUTXOsInfoByApiWithCache.clear();
+    const encodedTx = await this._buildEncodedTxFromBatchTransfer({
+      transfersInfo: unsignedTx.transfersInfo,
+      specifiedFeeRate,
+    });
+    const newUnsignedTx = await this._buildUnsignedTxFromEncodedTx({
+      encodedTx,
+      transfersInfo: unsignedTx.transfersInfo,
+    });
+    // Preserve transfersInfo, uuid, accountId, networkId, indexedAccountId
+    // from the original unsignedTx, as _buildUnsignedTxFromEncodedTx returns a new object
+    return {
+      ...unsignedTx,
+      ...newUnsignedTx,
+    };
+  }
+
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {

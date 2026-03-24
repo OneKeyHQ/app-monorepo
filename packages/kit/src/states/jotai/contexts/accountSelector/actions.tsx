@@ -909,7 +909,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
           }
           if (wallet.isKeyless) {
-            void backgroundApiProxy.servicePrimeCloudSync.autoEnableCloudSyncKeyless();
+            void backgroundApiProxy.serviceKeylessCloudSync.autoEnableCloudSyncKeyless();
           }
         },
       }),

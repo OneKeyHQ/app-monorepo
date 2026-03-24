@@ -159,6 +159,8 @@ import {
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import ServiceBase from '../ServiceBase';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
@@ -408,6 +410,11 @@ class ServiceAccount extends ServiceBase {
     const r = await localDb.getWallets(options);
 
     const wallets: IDBWallet[] = r.wallets;
+
+    await this.backgroundApi.serviceKeylessCloudSync.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
+      wallets,
+      { whenNoKeyless: 'skip' },
+    );
 
     return {
       ...r,
@@ -3255,6 +3262,29 @@ class ServiceAccount extends ServiceBase {
     });
 
     if (result.wallet?.keylessDetailsInfo?.keylessOwnerId) {
+      // Derive and persist keyless cloud sync credential from wallet seed
+      try {
+        const revealableSeed = await decryptRevealableSeed({
+          rs,
+          password,
+        });
+        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
+        const keylessWalletId = result.wallet.id;
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId,
+        });
+        await keylessSyncCredentialStorage.saveCredential(credential);
+        this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+          credential,
+        );
+      } catch (error) {
+        console.error(
+          '[ServiceAccount] Failed to derive and save keyless credential:',
+          error,
+        );
+      }
+
       await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
       await this.backgroundApi.serviceKeylessCloudSync.setPersistedCurrentCloudSyncKeylessWalletId(
         result.wallet.id,
@@ -3263,7 +3293,6 @@ class ServiceAccount extends ServiceBase {
         .syncNowKeyless({
           callerName: 'Keyless Wallet Login Success',
           noDebounceUpload: true,
-          password,
         })
         .catch((error) => {
           errorUtils.autoPrintErrorIgnore(error);

@@ -132,6 +132,7 @@ const settings: IVaultSettings = {
   maxRetryBroadcastTxCount: 5,
   minRetryBroadcastTxInterval: timerUtils.getTimeDurationMs({ seconds: 1 }),
   enabledInternalSignAndVerify: true,
+  nativeBatchTransferEnabled: true,
 };
 
 export default Object.freeze(settings);

@@ -12,6 +12,7 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/shared/src/utils/feeUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EFeeType,
@@ -27,12 +28,18 @@ import {
 
 import type { IBulkSendFeeState } from '../components/Context';
 
+// Rent cost per ATA creation on Solana (from kit-bg/src/vaults/impls/sol/utils.ts)
+const SOL_CREATE_TOKEN_ACCOUNT_RENT = '0.00203928';
+// Rent-exempt minimum for a basic system account (0 data bytes) = 890880 lamports
+const SOL_ACCOUNT_RENT_EXEMPT_MIN = '0.00089088';
+
 type IUseBulkSendFeeEstimationParams = {
   networkId: string;
   accountId: string | undefined;
   unsignedTxs: IUnsignedTxPro[];
   feeState: IBulkSendFeeState;
   setFeeState: React.Dispatch<React.SetStateAction<IBulkSendFeeState>>;
+  ataCount?: number;
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
@@ -75,6 +82,7 @@ export function useBulkSendFeeEstimation({
   unsignedTxs,
   feeState,
   setFeeState,
+  ataCount,
 }: IUseBulkSendFeeEstimationParams) {
   const intl = useIntl();
   const isEstimating = useRef(false);
@@ -300,6 +308,41 @@ export function useBulkSendFeeEstimation({
           });
         }
 
+        // Calculate ATA rent and check SOL balance for Solana transfers
+        let ataRentFeeNative: string | undefined;
+        let insufficientSol: boolean | undefined;
+        let solBalanceNeeded: string | undefined;
+
+        if (networkUtils.isSolanaNetworkByNetworkId(networkId)) {
+          if (ataCount && ataCount > 0) {
+            ataRentFeeNative = new BigNumber(SOL_CREATE_TOKEN_ACCOUNT_RENT)
+              .times(ataCount)
+              .toFixed();
+          }
+
+          const totalSolNeeded = totalNative
+            .plus(ataRentFeeNative ?? '0')
+            .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+            .toFixed();
+          solBalanceNeeded = totalSolNeeded;
+
+          try {
+            const accountDetails =
+              await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
+                {
+                  accountId: accountId ?? '',
+                  networkId,
+                  withNetWorth: false,
+                },
+              );
+            const solBalance = accountDetails?.balanceParsed ?? '0';
+            insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
+          } catch {
+            // If balance fetch fails, don't block the user
+            insufficientSol = undefined;
+          }
+        }
+
         setFeeState((prev) => ({
           ...prev,
           feeStatus: ESendFeeStatus.Success,
@@ -315,6 +358,9 @@ export function useBulkSendFeeEstimation({
           nativeSymbol: txFee.common?.nativeSymbol ?? '',
           feeInfos,
           perTxFeeInfos,
+          ataRentFeeNative,
+          insufficientSol,
+          solBalanceNeeded,
         }));
 
         return {
@@ -351,6 +397,7 @@ export function useBulkSendFeeEstimation({
     },
     [
       accountId,
+      ataCount,
       feeState.isInitialized,
       feeState.selectedFee.presetIndex,
       intl,
