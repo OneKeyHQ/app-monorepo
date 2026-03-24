@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { useMedia } from '@tamagui/core';
+import { useMedia } from '../../hooks/useStyle';
 
 import { Popover } from '../../actions/Popover';
 import { Tooltip } from '../../actions/Tooltip';
