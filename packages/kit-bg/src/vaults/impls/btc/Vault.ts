@@ -1393,7 +1393,8 @@ export default class VaultBtc extends VaultBase {
       xpubSegwit &&
       isEnabledBtcFreshAddress &&
       (accountUtils.isHdAccount({ accountId: account.id }) ||
-        accountUtils.isHwAccount({ accountId: account.id }))
+        accountUtils.isHwAccount({ accountId: account.id }) ||
+        accountUtils.isQrAccount({ accountId: account.id }))
     ) {
       const currentAddress = account.address;
       const freshAddressesMap =

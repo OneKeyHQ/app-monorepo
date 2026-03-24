@@ -831,6 +831,12 @@ class ServiceAccount extends ServiceBase {
       prepareParams = hdParams;
     }
 
+    // QR wallets go through HD path (isHardware=false) but need chainExtraParams
+    // for fresh address verification via batchGetAddresses
+    if (accountUtils.isQrWallet({ walletId }) && chainExtraParams) {
+      (prepareParams as any).chainExtraParams = chainExtraParams;
+    }
+
     prepareParams.isVerifyAddressAction = isVerifyAddressAction;
 
     return {
