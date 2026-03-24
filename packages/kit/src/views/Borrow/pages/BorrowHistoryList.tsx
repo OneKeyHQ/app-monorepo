@@ -36,6 +36,7 @@ import {
   isLoadingState,
 } from '../../Staking/components/PageFrame';
 import { capitalizeString } from '../../Staking/utils/utils';
+import { buildBorrowHistoryListItemKey } from './borrowHistoryList.utils';
 
 type IHistoryItemProps = {
   item: IBorrowHistory['list'][number] & {
@@ -209,10 +210,7 @@ const keyExtractor = (
     token: IBorrowHistory['tokens'][number];
     network: IBorrowHistory['networks'][number];
   },
-) => {
-  const key = item?.txHash;
-  return key;
-};
+) => buildBorrowHistoryListItemKey(item);
 
 const HistoryContent = ({
   sections,
