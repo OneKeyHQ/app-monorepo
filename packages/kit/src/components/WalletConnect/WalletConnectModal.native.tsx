@@ -1,4 +1,4 @@
-/* eslint-disable import/order */
+/* eslint-disable import/order, import-js/order */
 import '@walletconnect/react-native-compat'; // polyfill for react-native
 
 import {
@@ -9,11 +9,9 @@ import {
   useRef,
   useState,
 } from 'react';
-
 import type { ErrorInfo, ReactNode } from 'react';
 
 import { ConstantsUtil } from '@reown/appkit-common-react-native';
-
 import {
   AppKit as AppKitModalNative,
   createAppKit,
@@ -26,6 +24,7 @@ import {
   StorageUtil,
 } from '@reown/appkit-scaffold-utils-react-native';
 
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -37,14 +36,14 @@ import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,
 } from '@onekeyhq/shared/src/walletConnect/constant';
-
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IWalletConnectSession } from '@onekeyhq/shared/src/walletConnect/types';
-import type { IWalletConnectModalShared } from './types';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { ConstantsUtil as ConstantsUtilCore } from '@reown/appkit/core';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { ConstantsUtil as ConstantsUtilCore } from '@reown/appkit/core';
+
+import type { IWalletConnectModalShared } from './types';
 
 /*
 WalletConnect SDK Deeplink Auto-Handling Mechanism:

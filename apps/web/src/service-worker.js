@@ -1,5 +1,6 @@
 /* eslint-disable no-restricted-globals */
 /* eslint-disable unicorn/prefer-global-this */
+import { ExpirationPlugin } from 'workbox-expiration';
 import { precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import {
@@ -7,7 +8,6 @@ import {
   NetworkFirst,
   StaleWhileRevalidate,
 } from 'workbox-strategies';
-import { ExpirationPlugin } from 'workbox-expiration';
 
 // Skip waiting immediately on install so existing users with old SW get
 // the fix without needing to confirm the update prompt or close all tabs.

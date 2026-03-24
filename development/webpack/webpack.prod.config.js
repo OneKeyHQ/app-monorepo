@@ -1,9 +1,12 @@
-const TerserPlugin = require('terser-webpack-plugin');
-const { RetryChunkLoadPlugin } = require('webpack-retry-chunk-load-plugin');
 const path = require('path');
+
 const { sentryWebpackPlugin } = require('@sentry/webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+const { RetryChunkLoadPlugin } = require('webpack-retry-chunk-load-plugin');
+
 const babelTools = require('../babelTools');
+
 const utils = require('./utils');
 
 const FILES_TO_DELETE_AFTER_UPLOAD = [

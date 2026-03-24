@@ -87,6 +87,7 @@ if (platformEnv.isNative) {
             hashHex = await rnAes.sha1(hexData);
             break;
           default:
+            // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- polyfill runs before OneKeyLocalError is available
             throw new Error(
               `crypto.subtle.digest: Unsupported algorithm "${algorithm}"`,
             );

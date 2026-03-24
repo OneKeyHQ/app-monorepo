@@ -1,11 +1,12 @@
 /* eslint-disable import/no-dynamic-require */
-const path = require('path');
-const fs = require('fs-extra');
 const crypto = require('crypto');
+const path = require('path');
 
+const { default: generate } = require('@babel/generator');
 const parser = require('@babel/parser');
 const { default: traverse } = require('@babel/traverse');
-const { default: generate } = require('@babel/generator');
+const fs = require('fs-extra');
+
 const { fileToIdMap } = require('./map');
 
 const baseJSBundle = require(

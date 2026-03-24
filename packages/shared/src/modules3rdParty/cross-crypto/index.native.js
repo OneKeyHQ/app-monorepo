@@ -27,9 +27,8 @@ if (process.env.NODE_ENV !== 'production') {
   };
 }
 
-const crypto = require('react-native-crypto');
-
 const { randomBytes } = require('@noble/hashes/utils');
+const crypto = require('react-native-crypto');
 const _uuid = require('react-native-uuid');
 
 // TODO polyfill randomUUID may cause RevenueCat not ready

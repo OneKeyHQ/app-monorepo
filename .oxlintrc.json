@@ -5,7 +5,9 @@
     "eslint-plugin-import-path",
     "eslint-plugin-props-checker",
     "eslint-plugin-ban",
-    "eslint-plugin-prettier"
+    "eslint-plugin-prettier",
+    { "name": "import-js", "specifier": "eslint-plugin-import" },
+    "./development/lint/eslint-plugin-onekey.js"
   ],
   "extends": [
     "eslint-config-prettier",
@@ -223,6 +225,11 @@
       }
     ],
     "react/jsx-curly-brace-presence": ["error", { "props": "never", "children": "never" }],
+    // react_perf rules — disabled, too many existing violations to fix at once
+    "react_perf/jsx-no-new-function-as-prop": "off",
+    "react_perf/jsx-no-new-object-as-prop": "off",
+    "react_perf/jsx-no-new-array-as-prop": "off",
+    "react_perf/jsx-no-jsx-as-prop": "off",
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/no-unnecessary-boolean-literal-compare": "off",
     // ============================================
@@ -308,6 +315,41 @@
     "import/no-duplicates": "error",
     "import/no-mutable-exports": "error",
     "import/no-self-import": "error",
+    // Import declaration ordering (via eslint-plugin-import JS plugin)
+    "import-js/order": [
+      "error",
+      {
+        "groups": [
+          "builtin",
+          "internal",
+          "index",
+          "external",
+          "parent",
+          "sibling",
+          "object",
+          "type"
+        ],
+        "pathGroups": [
+          {
+            "pattern": "react",
+            "group": "builtin",
+            "position": "before"
+          },
+          {
+            "pattern": "@onekeyhq/**",
+            "group": "external",
+            "position": "after"
+          }
+        ],
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        },
+        "newlines-between": "always",
+        "pathGroupsExcludedImportTypes": ["builtin"],
+        "warnOnUnassignedImports": true
+      }
+    ],
 
     // ============================================
     // Jest rules (for test files) - keep off as in ESLint config
@@ -391,7 +433,13 @@
     // namespace import issues - too many false positives
     "import/namespace": "off",
     // Allow using Object.assign instead of spread syntax
-    "prefer-object-spread": "off"
+    "prefer-object-spread": "off",
+
+    // ============================================
+    // Custom OneKey rules (JS plugin)
+    // ============================================
+    // Enforce OneKeyLocalError/OneKeyError instead of raw Error
+    "onekey/no-raw-error": "error"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [
@@ -515,6 +563,22 @@
             ]
           }
         ]
+      }
+    },
+    {
+      // Development scripts, test tooling, and native modules — OneKeyLocalError doesn't apply
+      "files": [
+        "development/**/*.js",
+        "development/**/*.ts",
+        "development/**/*.mjs",
+        "apps/*/e2e/**/*.js",
+        "apps/*/harness/**/*.ts",
+        "apps/*/harness/**/*.mjs",
+        "apps/*/plugins/**/*.js",
+        "apps/desktop/native-modules/**/*.js"
+      ],
+      "rules": {
+        "onekey/no-raw-error": "off"
       }
     },
     {
