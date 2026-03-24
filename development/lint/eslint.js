@@ -21,20 +21,31 @@ try {
       ? Math.min(os.cpus().length, 4)
       : os.cpus().length;
   const fixFlag = isCI ? '' : ' --fix';
+  // In CI, use github format for inline PR annotations with file/line/rule info
+  const formatFlag = isCI ? ' --format github' : '';
   console.log(
     `Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`,
   );
   const oxlintResult = execSync(
-    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} .${fixFlag}`,
+    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} .${fixFlag}${formatFlag}`,
     { encoding: 'utf-8', stdio: 'pipe' },
   );
 
-  // Parse oxlint output for warnings/errors
-  // Example output: "Found 33 warnings and 0 errors."
-  const warningMatch = oxlintResult.match(/Found (\d+) warning/);
-  const errorMatch = oxlintResult.match(/(\d+) error/);
-  const warnings = warningMatch ? Number(warningMatch[1]) : 0;
-  const errors = errorMatch ? Number(errorMatch[1]) : 0;
+  let warnings = 0;
+  let errors = 0;
+
+  if (isCI) {
+    // github format: count ::error and ::warning lines
+    const lines = oxlintResult.split('\n');
+    errors = lines.filter((l) => l.startsWith('::error ')).length;
+    warnings = lines.filter((l) => l.startsWith('::warning ')).length;
+  } else {
+    // default format: parse summary line "Found 33 warnings and 0 errors."
+    const warningMatch = oxlintResult.match(/Found (\d+) warning/);
+    const errorMatch = oxlintResult.match(/(\d+) error/);
+    warnings = warningMatch ? Number(warningMatch[1]) : 0;
+    errors = errorMatch ? Number(errorMatch[1]) : 0;
+  }
 
   const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(2);
 
