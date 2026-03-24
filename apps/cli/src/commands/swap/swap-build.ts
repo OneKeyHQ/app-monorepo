@@ -224,6 +224,67 @@ export function registerSwapBuildCommand(parent: Command): void {
             );
           }
 
+          // Validate response provider matches request
+          const resultProvider = buildTxResponse.result.info.provider;
+          if (resultProvider.toLowerCase() !== options.provider.toLowerCase()) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Build-tx provider mismatch: requested "${options.provider}", got "${resultProvider}"`,
+              'API returned data for a different provider',
+            );
+          }
+
+          // Validate response token info matches request (if present)
+          const resultObj = buildTxResponse.result as Record<string, unknown>;
+          const fromTokenInfo = resultObj.fromTokenInfo as
+            | { networkId?: string; contractAddress?: string }
+            | undefined;
+          const toTokenInfo = resultObj.toTokenInfo as
+            | { networkId?: string; contractAddress?: string }
+            | undefined;
+          if (
+            fromTokenInfo?.networkId &&
+            fromTokenInfo.networkId !== fromResolved.networkId
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Build-tx fromToken networkId mismatch: expected ${fromResolved.networkId}, got ${fromTokenInfo.networkId}`,
+              'API returned data for a different token pair',
+            );
+          }
+          if (
+            toTokenInfo?.networkId &&
+            toTokenInfo.networkId !== toResolved.networkId
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Build-tx toToken networkId mismatch: expected ${toResolved.networkId}, got ${toTokenInfo.networkId}`,
+              'API returned data for a different token pair',
+            );
+          }
+          if (
+            fromTokenInfo?.contractAddress !== undefined &&
+            fromTokenInfo.contractAddress.toLowerCase() !==
+              fromResolved.contractAddress.toLowerCase()
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Build-tx fromToken address mismatch: expected ${fromResolved.contractAddress || '(native)'}, got ${fromTokenInfo.contractAddress || '(native)'}`,
+              'API returned data for a different token',
+            );
+          }
+          if (
+            toTokenInfo?.contractAddress !== undefined &&
+            toTokenInfo.contractAddress.toLowerCase() !==
+              toResolved.contractAddress.toLowerCase()
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Build-tx toToken address mismatch: expected ${toResolved.contractAddress || '(native)'}, got ${toTokenInfo.contractAddress || '(native)'}`,
+              'API returned data for a different token',
+            );
+          }
+
           // Generate orderId and save pending order
           const orderId = randomUUID();
           const now = Date.now();
