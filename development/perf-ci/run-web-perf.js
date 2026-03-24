@@ -26,7 +26,6 @@ const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
 const { execCmd } = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
-const { postSlackWebhook } = require('./lib/slack');
 const {
   ensurePerfServerRunning,
   checkPerfServer,
@@ -44,6 +43,7 @@ const {
   waitForMark,
   readSessionMetrics,
 } = require('./lib/session');
+const { postSlackWebhook } = require('./lib/slack');
 const { startStaticServer } = require('./lib/staticServer');
 
 function hasFlag(name) {

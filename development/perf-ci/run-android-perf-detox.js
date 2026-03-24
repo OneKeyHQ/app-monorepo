@@ -22,7 +22,6 @@ const { deriveSession, defaultDerivedOutPath } = require('./lib/derive');
 const { execCmd } = require('./lib/exec');
 const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
-const { postSlackWebhook } = require('./lib/slack');
 const {
   ensurePerfServerRunning,
   checkPerfServer,
@@ -37,6 +36,7 @@ const {
   ensureSessionsDirWritable,
   readSessionMetrics,
 } = require('./lib/session');
+const { postSlackWebhook } = require('./lib/slack');
 function hasFlag(name) {
   return process.argv.includes(name);
 }
