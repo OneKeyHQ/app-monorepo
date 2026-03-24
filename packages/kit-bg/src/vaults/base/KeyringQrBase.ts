@@ -248,10 +248,12 @@ export abstract class KeyringQrBase extends KeyringBase {
       walletId: this.walletId,
     });
 
-    const fullPath = customFullPath ?? accountUtils.buildPathFromTemplate({
-      template: params.deriveInfo.template,
-      index: indexes[0],
-    });
+    const fullPath =
+      customFullPath ??
+      accountUtils.buildPathFromTemplate({
+        template: params.deriveInfo.template,
+        index: indexes[0],
+      });
 
     const requestQR = new OneKeyRequestDeviceQR({
       requestId: generateUUID(),
