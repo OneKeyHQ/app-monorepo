@@ -236,7 +236,7 @@ function normalizeAirdropInvestmentResult(
       totalFiatValue: '0',
       totalFiatValueUsd: '0',
       earnings24hFiatValue: '0',
-      protocol: result.protocol,
+      protocol: { ...result.protocol, symbol: params.symbol },
       network: result.network,
       assets: [],
       airdropAssets: enrichedAirdropAssets,
