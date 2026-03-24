@@ -7,6 +7,11 @@ on:
         description: 'PR number to build (optional, builds from PR merge ref)'
         required: false
         type: string
+      build_web:
+        description: 'Build Web bundle'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -174,7 +179,7 @@ jobs:
 
   web-bundle:
     needs: prepare-params
-    if: ${{ !cancelled() && !failure() }}
+    if: ${{ inputs.build_web && !cancelled() && !failure() }}
     uses: ./.github/workflows/release-web.yml
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
