@@ -78,6 +78,7 @@ export type IModalStakingParamList = {
     vault?: string;
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
+    enableProtocolSwitch?: boolean;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBaseRouteParams & {
     provider: string;

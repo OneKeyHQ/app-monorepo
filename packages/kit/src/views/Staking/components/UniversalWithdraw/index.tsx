@@ -141,7 +141,6 @@ type IUniversalWithdrawProps = {
   }) => Promise<void>;
   beforeFooter?: ReactElement | null;
   showApyDetail?: boolean;
-  renderProtocolInfo?: () => React.ReactElement | null;
   isInModalContext?: boolean;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   transactionInputTokenAddress?: string;
@@ -276,7 +275,6 @@ export function UniversalWithdraw({
   onConfirm,
   beforeFooter,
   showApyDetail = false,
-  renderProtocolInfo,
   isInModalContext = false,
   receiveInputConfig,
   transactionInputTokenAddress,
@@ -1329,7 +1327,7 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
-      {!renderProtocolInfo && shouldShowSummaryCard ? (
+      {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}
