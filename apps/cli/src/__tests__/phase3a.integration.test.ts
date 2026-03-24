@@ -102,7 +102,15 @@ describe('token commands (integration)', () => {
     expect(parsed.data.symbol).toMatch(/USDC/i);
     expect(parsed.data).toHaveProperty('priceChange24hPercent');
   });
-  it.todo('token trending returns trending list');
+  it('token trending returns trending list', () => {
+    const output = run('--json', '--env', 'test', 'token', 'trending');
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.data.length).toBeGreaterThan(0);
+    expect(parsed.data[0]).toHaveProperty('symbol');
+    expect(parsed.data[0]).toHaveProperty('price');
+  });
   it.todo('token trades returns trade stats');
   it.todo('token liquidity returns top holders');
 });
