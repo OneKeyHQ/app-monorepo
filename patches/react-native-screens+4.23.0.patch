@@ -1,3 +1,41 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+index 7055a0d..81ee02b 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
+@@ -17,6 +17,7 @@ import com.facebook.react.modules.core.ReactChoreographer
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.facebook.react.uimanager.UIManagerHelper
+ import com.swmansion.rnscreens.Screen.ActivityState
++import android.util.Log
+ import com.swmansion.rnscreens.events.ScreenDismissedEvent
+ import com.swmansion.rnscreens.gamma.common.FragmentProviding
+
+@@ -291,7 +292,24 @@ open class ScreenContainer(
+         }
+
+         if (hasFragments) {
+-            transaction.commitNowAllowingStateLoss()
++            // Guard against "FragmentManager is already executing transactions" crash.
++            // This race condition occurs when onDetachedFromWindow triggers removeMyFragments
++            // while performUpdates -> onUpdate is already committing a transaction on the same
++            // FragmentManager within the same UI frame (e.g. during rapid navigation).
++            // On catch, we defer the removal to the next frame where the FragmentManager
++            // will no longer be in a transaction.
++            // See: https://github.com/software-mansion/react-native-screens/issues/2318
++            // See: https://github.com/software-mansion/react-native-screens/issues/1506
++            try {
++                transaction.commitNowAllowingStateLoss()
++            } catch (e: IllegalStateException) {
++                Log.w("ScreenContainer", "FragmentManager already executing transactions, deferring fragment removal", e)
++                post {
++                    if (!fragmentManager.isDestroyed) {
++                        removeMyFragments(fragmentManager)
++                    }
++                }
++            }
+         }
+     }
+
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
 index 1c44762..11a2e04 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
