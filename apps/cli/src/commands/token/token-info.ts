@@ -81,6 +81,18 @@ export function registerTokenInfoCommand(parent: Command): void {
           },
         );
 
+        if (
+          typeof detail !== 'object' ||
+          detail === null ||
+          !('token' in detail)
+        ) {
+          throw new AppError(
+            ERROR_CODES.NET_HTTP_ERROR.code,
+            'Malformed token detail response: missing token envelope',
+            'This may indicate an API contract change — check connectivity',
+          );
+        }
+
         const t = detail.token;
 
         if (!isValidTokenDetail(t)) {
