@@ -154,36 +154,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     return addresses[networkId];
   }, [networkId]);
 
-  const handleSubmit = useCallback(async () => {
-    if (bulkSendMode !== EBulkSendMode.OneToMany) return;
-    if (
-      !accountId ||
-      !networkId ||
-      !tokenInfo ||
-      (!bulkSendContractAddress && !isNativeBatchTransfer)
-    )
-      return;
-
-    // Mobile: Specified/Range mode requires a preview step before review
-    if (
-      !media.gtMd &&
-      amountInputMode !== EAmountInputMode.Custom &&
-      !shouldShowTxDetails(amountInputMode)
-    ) {
-      Keyboard.dismiss();
-      handlePreview(
-        amountInputMode,
-        amountInputValues,
-        amountInputMode === EAmountInputMode.Range
-          ? previewState.rangePreviewAmounts
-          : undefined,
-      );
-      return;
-    }
-
-    setIsBuilding(true);
-
-    // Mobile uses mode-specific data; desktop uses shared data
+  // Helper: get effective data based on platform (mobile uses mode-specific data)
+  const getEffectiveData = useCallback(() => {
     const effectiveTransfersInfo = !media.gtMd
       ? currentModeData.transfersInfo
       : transfersInfo;
@@ -193,6 +165,81 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     const effectiveTotalFiatAmount = !media.gtMd
       ? currentModeData.totalFiatAmount
       : totalFiatAmount;
+    return {
+      effectiveTransfersInfo,
+      effectiveTotalTokenAmount,
+      effectiveTotalFiatAmount,
+    };
+  }, [
+    media.gtMd,
+    currentModeData.transfersInfo,
+    currentModeData.totalTokenAmount,
+    currentModeData.totalFiatAmount,
+    transfersInfo,
+    totalTokenAmount,
+    totalFiatAmount,
+  ]);
+
+  // Helper: navigate to review or interval page
+  const navigateToReviewOrInterval = useCallback(
+    (params: {
+      networkId: string;
+      accountId: string | undefined;
+      unsignedTxs: IUnsignedTxPro[];
+      approvesInfo: IApproveInfo[];
+      tokenInfo: IToken;
+      transfersInfo: ITransferInfo[];
+      bulkSendMode: EBulkSendMode;
+      isInModal?: boolean;
+      totalTokenAmount: string;
+      totalFiatAmount: string;
+      ataCount?: number;
+    }) => {
+      // Mobile non-OneToMany: navigate to interval page first
+      const shouldShowInterval = !media.gtMd && !isOneToMany;
+      // Desktop: pass interval settings directly to review
+      const reviewParams = media.gtMd
+        ? { ...params, intervalSettings }
+        : params;
+
+      if (shouldShowInterval) {
+        if (isInModal) {
+          navigation.push(EModalBulkSendRoutes.BulkSendIntervalInput, params);
+        } else {
+          navigation.pushModal(EModalRoutes.BulkSendModal, {
+            screen: EModalBulkSendRoutes.BulkSendIntervalInput,
+            params,
+          });
+        }
+      } else if (isInModal) {
+        navigation.push(EModalBulkSendRoutes.BulkSendReview, reviewParams);
+      } else {
+        navigation.pushModal(EModalRoutes.BulkSendModal, {
+          screen: EModalBulkSendRoutes.BulkSendReview,
+          params: reviewParams,
+        });
+      }
+    },
+    [media.gtMd, isOneToMany, intervalSettings, isInModal, navigation],
+  );
+
+  // Submit handler for OneToMany mode
+  const handleSubmitOneToMany = useCallback(async () => {
+    if (
+      !accountId ||
+      !networkId ||
+      !tokenInfo ||
+      (!bulkSendContractAddress && !isNativeBatchTransfer)
+    )
+      return;
+
+    setIsBuilding(true);
+
+    const {
+      effectiveTransfersInfo,
+      effectiveTotalTokenAmount,
+      effectiveTotalFiatAmount,
+    } = getEffectiveData();
 
     try {
       const sender = effectiveTransfersInfo[0]?.from;
@@ -277,7 +324,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         );
       }
 
-      const params = {
+      navigateToReviewOrInterval({
         networkId,
         accountId,
         unsignedTxs,
@@ -289,61 +336,112 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         totalTokenAmount: effectiveTotalTokenAmount,
         totalFiatAmount: effectiveTotalFiatAmount,
         ataCount,
-      };
-
-      // Mobile non-OneToMany: navigate to interval page first
-      const shouldShowInterval = !media.gtMd && !isOneToMany;
-      // Desktop: pass interval settings directly to review
-      const reviewParams = media.gtMd
-        ? { ...params, intervalSettings }
-        : params;
-
-      if (shouldShowInterval) {
-        if (isInModal) {
-          navigation.push(EModalBulkSendRoutes.BulkSendIntervalInput, params);
-        } else {
-          navigation.pushModal(EModalRoutes.BulkSendModal, {
-            screen: EModalBulkSendRoutes.BulkSendIntervalInput,
-            params,
-          });
-        }
-      } else if (isInModal) {
-        navigation.push(EModalBulkSendRoutes.BulkSendReview, reviewParams);
-      } else {
-        navigation.pushModal(EModalRoutes.BulkSendModal, {
-          screen: EModalBulkSendRoutes.BulkSendReview,
-          params: reviewParams,
-        });
-      }
+      });
     } catch (error) {
-      console.error('Failed to build transactions:', error);
+      console.error('Failed to build OneToMany transactions:', error);
     } finally {
       setIsBuilding(false);
     }
   }, [
-    bulkSendMode,
     accountId,
     networkId,
     tokenInfo,
     bulkSendContractAddress,
     isNativeBatchTransfer,
-    transfersInfo,
     needsApproval,
-    totalTokenAmount,
-    totalFiatAmount,
+    bulkSendMode,
     isInModal,
-    navigation,
+    getEffectiveData,
+    navigateToReviewOrInterval,
+  ]);
+
+  // Submit handler for ManyToOne / ManyToMany modes
+  const handleSubmitManyToManyOrManyToOne = useCallback(async () => {
+    if (!accountId || !networkId || !tokenInfo) return;
+
+    setIsBuilding(true);
+
+    const {
+      effectiveTransfersInfo,
+      effectiveTotalTokenAmount,
+      effectiveTotalFiatAmount,
+    } = getEffectiveData();
+
+    try {
+      // Each sender creates an independent transaction
+      const unsignedTxs: IUnsignedTxPro[] = [];
+
+      for (const transfer of effectiveTransfersInfo) {
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            networkId,
+            accountId,
+            transfersInfo: [transfer],
+          });
+        unsignedTxs.push(unsignedTx);
+      }
+
+      navigateToReviewOrInterval({
+        networkId,
+        accountId,
+        unsignedTxs,
+        approvesInfo: [],
+        tokenInfo,
+        transfersInfo: effectiveTransfersInfo,
+        bulkSendMode,
+        isInModal,
+        totalTokenAmount: effectiveTotalTokenAmount,
+        totalFiatAmount: effectiveTotalFiatAmount,
+      });
+    } catch (error) {
+      console.error('Failed to build ManyToMany/ManyToOne transactions:', error);
+    } finally {
+      setIsBuilding(false);
+    }
+  }, [
+    accountId,
+    networkId,
+    tokenInfo,
+    bulkSendMode,
+    isInModal,
+    getEffectiveData,
+    navigateToReviewOrInterval,
+  ]);
+
+  // Main submit dispatcher
+  const handleSubmit = useCallback(async () => {
+    // Mobile: Specified/Range mode requires a preview step before review
+    if (
+      !media.gtMd &&
+      amountInputMode !== EAmountInputMode.Custom &&
+      !shouldShowTxDetails(amountInputMode)
+    ) {
+      Keyboard.dismiss();
+      handlePreview(
+        amountInputMode,
+        amountInputValues,
+        amountInputMode === EAmountInputMode.Range
+          ? previewState.rangePreviewAmounts
+          : undefined,
+      );
+      return;
+    }
+
+    if (bulkSendMode === EBulkSendMode.OneToMany) {
+      await handleSubmitOneToMany();
+    } else {
+      await handleSubmitManyToManyOrManyToOne();
+    }
+  }, [
+    bulkSendMode,
+    media.gtMd,
     amountInputMode,
     amountInputValues,
     shouldShowTxDetails,
     handlePreview,
-    media.gtMd,
-    currentModeData.transfersInfo,
-    currentModeData.totalTokenAmount,
-    currentModeData.totalFiatAmount,
     previewState.rangePreviewAmounts,
-    intervalSettings,
-    isOneToMany,
+    handleSubmitOneToMany,
+    handleSubmitManyToManyOrManyToOne,
   ]);
 
   const isSubmitDisabled = useMemo(() => {
@@ -351,7 +449,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       !tokenDetailsState.initialized ||
       (tokenDetailsState.isRefreshing && !tokenDetails) ||
       isBuilding ||
-      (!bulkSendContractAddress && !isNativeBatchTransfer);
+      (isOneToMany && !bulkSendContractAddress && !isNativeBatchTransfer);
 
     if (baseConditions) return true;
 
@@ -387,6 +485,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isAmountValid,
     isInsufficientBalance,
     isBuilding,
+    isOneToMany,
     bulkSendContractAddress,
     isNativeBatchTransfer,
     media.gtMd,
