@@ -155,6 +155,28 @@ describe('feeToWeiHex', () => {
   it('converts with feeDecimals=18 (already wei)', () => {
     expect(feeToWeiHex('1', 18)).toBe('0xde0b6b3a7640000');
   });
+
+  it('accepts gas price with exactly feeDecimals precision', () => {
+    expect(() => feeToWeiHex('1.123456789', 9)).not.toThrow();
+    expect(feeToWeiHex('1.123456789', 9)).toMatch(/^0x[0-9a-f]+$/);
+  });
+
+  it('accepts gas price with fewer than feeDecimals decimal places', () => {
+    expect(() => feeToWeiHex('1.5', 9)).not.toThrow();
+  });
+
+  it('explicitly truncates excess precision (real-world Sepolia gas price)', () => {
+    // API returns 10 decimal places, feeDecimals=9 — must not throw;
+    // excess digit is sub-wei and has no effect on the signed fee.
+    expect(() => feeToWeiHex('0.0016863484', 9)).not.toThrow();
+    // 0.001686348 Gwei (truncated) = 1_686_348 wei
+    expect(feeToWeiHex('0.0016863484', 9)).toBe(feeToWeiHex('0.001686348', 9));
+  });
+
+  it('truncation is deterministic for feeDecimals=6 excess precision', () => {
+    // 0.1234567 truncated to 6 dp = 0.123456
+    expect(feeToWeiHex('0.1234567', 6)).toBe(feeToWeiHex('0.123456', 6));
+  });
 });
 
 describe('buildNativeEncodedTx', () => {

@@ -39,4 +39,23 @@ describe('onekey CLI (integration)', () => {
     expect(output).toContain('version');
     expect(output).toContain('status');
   });
+
+  it('rejects invalid --env value with PARAM_INVALID_CONFIG', () => {
+    let caughtError: (NodeJS.ErrnoException & { stdout?: string }) | null =
+      null;
+    try {
+      run('--json', '--env', 'invalid', 'version');
+    } catch (e) {
+      caughtError = e as NodeJS.ErrnoException & { stdout?: string };
+    }
+    expect(caughtError).not.toBeNull();
+    const parsed = JSON.parse(caughtError!.stdout ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    expect(parsed.status).toBe('error');
+    expect((parsed.error as Record<string, unknown>).code).toBe(
+      'PARAM_INVALID_CONFIG',
+    );
+  });
 });
