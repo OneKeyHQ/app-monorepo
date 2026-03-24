@@ -84,6 +84,10 @@ export const ERROR_CODES = {
     exitCode: EXIT_CODES.NET,
   },
   AUTH_NO_WALLET: { code: 'AUTH_NO_WALLET', exitCode: EXIT_CODES.AUTH },
+  AUTH_WALLET_EXISTS: {
+    code: 'AUTH_WALLET_EXISTS',
+    exitCode: EXIT_CODES.AUTH,
+  },
   SEC_KEYCHAIN_LOCKED: {
     code: 'SEC_KEYCHAIN_LOCKED',
     exitCode: EXIT_CODES.SEC,

@@ -45,6 +45,47 @@ export class AppError extends Error {
   static from(error: unknown): AppError {
     if (error instanceof AppError) return error;
     if (error instanceof Error) {
+      // Zod validation errors — map to the appropriate PARAM code
+      if (error.name === 'ZodError') {
+        const zodErr = error as Error & {
+          errors?: Array<{ path: (string | number)[]; message: string }>;
+        };
+        const firstIssue = zodErr.errors?.[0];
+        const message = firstIssue?.message ?? error.message;
+        const path = firstIssue?.path ?? [];
+
+        let code = ERROR_CODES.PARAM_MISSING_REQUIRED.code;
+        if (path.some((p) => p === 'to' || p === 'token')) {
+          code = ERROR_CODES.PARAM_INVALID_ADDRESS.code;
+        } else if (path.some((p) => p === 'amount')) {
+          code = ERROR_CODES.PARAM_INVALID_AMOUNT.code;
+        } else if (path.some((p) => p === 'chain')) {
+          code = ERROR_CODES.PARAM_INVALID_CHAIN.code;
+        }
+
+        return new AppError(
+          code,
+          message,
+          'Check the input parameters and retry',
+          {
+            cause: error,
+          },
+        );
+      }
+
+      // Mnemonic validation errors
+      if (
+        error.message.includes('InvalidMnemonic') ||
+        error.message.includes('invalid_phrases')
+      ) {
+        return new AppError(
+          ERROR_CODES.PARAM_INVALID_MNEMONIC.code,
+          'Invalid BIP39 mnemonic phrase',
+          'Verify all words are correct and in the right order',
+          { cause: error },
+        );
+      }
+
       return new AppError(
         ERROR_CODES.BIZ_UNKNOWN.code,
         error.message,

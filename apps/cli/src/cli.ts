@@ -5,15 +5,22 @@ import {
   registerBalanceCommand,
   registerImportCommand,
   registerLogoutCommand,
+  registerMarketCommands,
+  registerSecurityCommands,
   registerStatusCommand,
+  registerSwapCommands,
+  registerTokenCommands,
   registerTransferCommand,
   registerVersionCommand,
 } from './commands';
 import { secureCache } from './core';
+import { ERROR_CODES } from './errors';
 import { apiClient } from './infra';
 import { OutputFormatter } from './output';
 import { createLogger } from './utils/logger';
 import { detectOutputMode } from './utils/mode-detector';
+
+import type { IEndpointEnv } from './config';
 
 const program = new Command();
 
@@ -37,10 +44,22 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
     interactive: opts.interactive,
     quiet: opts.quiet,
   });
-  actionCommand.setOptionValue('_outputFormatter', new OutputFormatter(mode));
+  const output = new OutputFormatter(mode);
+
+  const env = (opts.env ?? 'test') as string;
+  if (env !== 'test' && env !== 'prod') {
+    output.error({
+      code: ERROR_CODES.PARAM_INVALID_CONFIG.code,
+      message: `Invalid --env value: "${env}"`,
+      suggestion: 'Valid values: test | prod',
+    });
+    process.exit(ERROR_CODES.PARAM_INVALID_CONFIG.exitCode);
+  }
+
+  actionCommand.setOptionValue('_outputFormatter', output);
   const logger = createLogger({ verbose: opts.verbose, quiet: opts.quiet });
   actionCommand.setOptionValue('_logger', logger);
-  apiClient.setEnv(opts.env ?? 'test');
+  apiClient.setEnv(env as IEndpointEnv);
   apiClient.setLogger(logger);
 });
 
@@ -51,12 +70,24 @@ registerLogoutCommand(program);
 registerBalanceCommand(program);
 registerTransferCommand(program);
 
-const cleanup = () => {
+// Phase 3A command groups
+registerTokenCommands(program);
+registerMarketCommands(program);
+registerSwapCommands(program);
+registerSecurityCommands(program);
+
+// Signal handlers: use Unix-conventional exit codes (128 + signal number)
+process.on('SIGINT', () => {
   secureCache.clearAll();
-  process.exit(0);
-};
-process.on('SIGINT', cleanup);
-process.on('SIGTERM', cleanup);
-process.on('SIGHUP', cleanup);
+  process.exit(130); // 128 + 2
+});
+process.on('SIGTERM', () => {
+  secureCache.clearAll();
+  process.exit(143); // 128 + 15
+});
+process.on('SIGHUP', () => {
+  secureCache.clearAll();
+  process.exit(129); // 128 + 1
+});
 
 program.parse();

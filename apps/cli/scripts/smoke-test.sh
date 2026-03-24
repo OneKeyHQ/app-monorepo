@@ -99,7 +99,8 @@ echo "--- Wallet lifecycle ---"
 "$BIN" --json --env test logout > /dev/null 2>&1 || true
 
 # Import and capture wallet address for self-transfer
-IMPORT_OUTPUT=$(sh -c "echo '${TEST_MNEMONIC}' | ${BIN} --json --env test import --mnemonic --force" 2>/dev/null)
+# Use here-string so mnemonic is passed via stdin and never appears in any process argv
+IMPORT_OUTPUT=$("${BIN}" --json --env test import --mnemonic --force <<< "${TEST_MNEMONIC}" 2>/dev/null)
 IMPORT_STATUS=$(echo "$IMPORT_OUTPUT" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
 WALLET_ADDR=$(echo "$IMPORT_OUTPUT" | grep -o '"address":"[^"]*"' | head -1 | cut -d'"' -f4)
 

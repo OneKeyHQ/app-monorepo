@@ -29,7 +29,8 @@ export function registerStatusCommand(program: Command): void {
       } catch (error) {
         const appError =
           error instanceof AppError ? error : AppError.from(error);
-        if (appError.exitCode <= 1) {
+        if (appError.code.startsWith('BIZ_')) {
+          // Server responded with a business error — API is reachable
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           const statusOpts = command.optsWithGlobals() as Record<
             string,

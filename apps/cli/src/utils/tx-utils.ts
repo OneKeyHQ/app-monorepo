@@ -51,18 +51,21 @@ export function estimateGasCostDisplay(
   feeSymbol: string,
   nativeDecimals: number,
 ): string {
-  const limitNum = Number(gasLimit);
-  const priceNum = Number(gasPrice);
-
-  if (!Number.isFinite(limitNum) || !Number.isFinite(priceNum)) {
+  // Validate inputs are parseable before doing any arithmetic
+  if (!/^\d+$/.test(gasLimit) || !/^\d+\.?\d*$/.test(gasPrice)) {
     return `unknown ${feeSymbol}`;
   }
 
-  // gasLimit * gasPrice = cost in API units (e.g. Gwei)
-  // Convert to wei by shifting, then display in native token
-  const costInApiUnits = limitNum * priceNum;
-  const costWei = amountToSmallestUnit(costInApiUnits.toString(), feeDecimals);
-  return `${smallestUnitToDisplay(costWei, nativeDecimals)} ${feeSymbol}`;
+  try {
+    // Convert gasPrice from feeDecimals units to wei (integer string) via string
+    // arithmetic, then multiply by gasLimit using BigInt — no floating-point anywhere.
+    // e.g. 20 Gwei (feeDecimals=9) → "20000000000" wei; × 21000 = "420000000000000" wei
+    const gasPriceWei = amountToSmallestUnit(gasPrice, feeDecimals);
+    const costWei = (BigInt(gasPriceWei) * BigInt(gasLimit)).toString();
+    return `${smallestUnitToDisplay(costWei, nativeDecimals)} ${feeSymbol}`;
+  } catch {
+    return `unknown ${feeSymbol}`;
+  }
 }
 
 /**
@@ -71,7 +74,16 @@ export function estimateGasCostDisplay(
  * Core library expects wei as hex. Mirrors App's: toBigIntHex(new BigNumber(val).shiftedBy(feeDecimals))
  */
 export function feeToWeiHex(value: string, feeDecimals: number): string {
-  const shifted = amountToSmallestUnit(value, feeDecimals);
+  // If the API returns more decimal places than feeDecimals (floating-point
+  // representation artifact), truncate explicitly so the caller always gets a
+  // deterministic result. This is intentional — gas precision beyond feeDecimals
+  // is sub-wei and has no effect on the signed fee.
+  const [whole, frac = ''] = value.split('.');
+  const normalized =
+    frac.length > feeDecimals
+      ? `${whole}.${frac.slice(0, feeDecimals)}`
+      : value;
+  const shifted = amountToSmallestUnit(normalized, feeDecimals);
   return `0x${BigInt(shifted).toString(16)}`;
 }
 

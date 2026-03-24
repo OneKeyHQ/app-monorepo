@@ -54,7 +54,11 @@ export class ApiClient {
       (error: {
         code?: string;
         message?: string;
-        response?: { status: number; statusText: string };
+        response?: {
+          status: number;
+          statusText: string;
+          data?: { code?: number; message?: string };
+        };
       }) => {
         if (
           error.code === 'ECONNABORTED' ||
@@ -74,11 +78,21 @@ export class ApiClient {
           );
         }
         if (error.response) {
+          const upstreamCode = error.response.data?.code;
+          const upstreamMessage = error.response.data?.message;
           throw new AppError(
             ERROR_CODES.NET_HTTP_ERROR.code,
-            `HTTP ${error.response.status}: ${error.response.statusText}`,
+            upstreamMessage
+              ? `HTTP ${error.response.status}: ${upstreamMessage}`
+              : `HTTP ${error.response.status}: ${error.response.statusText}`,
             'Check request parameters',
-            { details: { statusCode: error.response.status } },
+            {
+              details: {
+                statusCode: error.response.status,
+                ...(upstreamCode !== undefined && { upstreamCode }),
+                ...(upstreamMessage !== undefined && { upstreamMessage }),
+              },
+            },
           );
         }
         throw new AppError(
@@ -118,6 +132,22 @@ export class ApiClient {
   }
 
   private unwrap<T>(response: IOneKeyApiResponse<T>, method: string): T {
+    // Guard against proxy pages, protocol drift, or non-JSON responses being
+    // coerced into a typed object. A malformed envelope must throw a NET error
+    // (not BIZ) so callers that check for BIZ_ (e.g. status command) don't
+    // falsely treat a bad gateway as "API reachable".
+    if (
+      typeof response !== 'object' ||
+      response === null ||
+      typeof response.code !== 'number'
+    ) {
+      throw new AppError(
+        ERROR_CODES.NET_HTTP_ERROR.code,
+        `Malformed API response for ${method}: expected {code, data, message}`,
+        'This may indicate a proxy or protocol mismatch — check API connectivity',
+      );
+    }
+
     if (response.code === 0) {
       this.logger?.debug(`[API] ${method} success`);
       return response.data;

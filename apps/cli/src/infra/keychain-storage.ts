@@ -47,7 +47,9 @@ function spawnWithStdin(
         resolve({ stdout, stderr });
       }
     });
-    child.stdin.write(input);
+    // Append newline so `read -r secret` in the shell script exits 0
+    // (POSIX read exits non-zero on EOF without a trailing newline)
+    child.stdin.write(`${input}\n`);
     child.stdin.end();
   });
 }

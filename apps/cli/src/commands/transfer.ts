@@ -138,6 +138,39 @@ export function registerTransferCommand(program: Command): void {
                 'Verify the token contract address is correct',
               );
             }
+            // Validate address field is a non-empty string before calling toLowerCase()
+            if (
+              typeof tokenInfo.address !== 'string' ||
+              tokenInfo.address.length === 0
+            ) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                `Token info is missing address field for ${validated.token}`,
+                'Verify the token contract address is correct',
+              );
+            }
+            // Guard against API returning a different token than requested
+            if (
+              tokenInfo.address.toLowerCase() !== validated.token.toLowerCase()
+            ) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                `Token address mismatch: expected ${validated.token}, got ${tokenInfo.address}`,
+                'Verify the token contract address is correct',
+              );
+            }
+            // Validate decimals is a safe integer in a reasonable ERC-20 range (0–77)
+            if (
+              !Number.isInteger(tokenInfo.decimals) ||
+              tokenInfo.decimals < 0 ||
+              tokenInfo.decimals > 77
+            ) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_TOKEN.code,
+                `Token has invalid decimals value: ${tokenInfo.decimals}`,
+                'Verify the token contract address is correct',
+              );
+            }
             validateAmountDecimals(validated.amount, tokenInfo.decimals);
             encodedTx = buildErc20EncodedTx(
               fromAddress,
@@ -200,6 +233,27 @@ export function registerTransferCommand(program: Command): void {
                 'API did not return gasLimit/maxFeePerGas/maxPriorityFeePerGas',
               );
             }
+            if (!/^\d+$/.test(eipGas.gasLimit)) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                `Invalid gasLimit from API: ${eipGas.gasLimit}`,
+                'API returned a non-integer gasLimit',
+              );
+            }
+            if (!/^\d+\.?\d*$/.test(eipGas.maxFeePerGas)) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                `Invalid maxFeePerGas from API: ${eipGas.maxFeePerGas}`,
+                'API returned a non-numeric maxFeePerGas',
+              );
+            }
+            if (!/^\d+\.?\d*$/.test(eipGas.maxPriorityFeePerGas)) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                `Invalid maxPriorityFeePerGas from API: ${eipGas.maxPriorityFeePerGas}`,
+                'API returned a non-numeric maxPriorityFeePerGas',
+              );
+            }
             gasLimit = eipGas.gasLimit;
             gasPriceDisplay = eipGas.maxFeePerGas;
           } else {
@@ -209,6 +263,20 @@ export function registerTransferCommand(program: Command): void {
                 ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
                 'Legacy fee estimation incomplete',
                 'API did not return gasLimit/gasPrice',
+              );
+            }
+            if (!/^\d+$/.test(legacyGas.gasLimit)) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                `Invalid gasLimit from API: ${legacyGas.gasLimit}`,
+                'API returned a non-integer gasLimit',
+              );
+            }
+            if (!/^\d+\.?\d*$/.test(legacyGas.gasPrice)) {
+              throw new AppError(
+                ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+                `Invalid gasPrice from API: ${legacyGas.gasPrice}`,
+                'API returned a non-numeric gasPrice',
               );
             }
             gasLimit = legacyGas.gasLimit;
@@ -222,6 +290,13 @@ export function registerTransferCommand(program: Command): void {
             nativeSymbol,
             nativeDecimals,
           );
+          if (estimatedGasDisplay.startsWith('unknown')) {
+            throw new AppError(
+              ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+              'Gas cost estimation failed — cannot proceed safely',
+              'API returned gas values that could not be computed',
+            );
+          }
 
           // Dry run — just show preview
           if (validated.dryRun) {
@@ -276,6 +351,16 @@ export function registerTransferCommand(program: Command): void {
             throw new AppError(
               ERROR_CODES.NET_REQUEST_FAILED.code,
               'API did not return nonce (withNonce=true). Cannot sign safely.',
+              'Check API connectivity or retry',
+            );
+          }
+          if (
+            !Number.isSafeInteger(accountInfo.nonce) ||
+            accountInfo.nonce < 0
+          ) {
+            throw new AppError(
+              ERROR_CODES.NET_REQUEST_FAILED.code,
+              `API returned invalid nonce value: ${accountInfo.nonce}`,
               'Check API connectivity or retry',
             );
           }

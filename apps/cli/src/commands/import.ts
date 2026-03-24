@@ -112,7 +112,7 @@ export function registerImportCommand(program: Command): void {
               }
             } else {
               throw new AppError(
-                ERROR_CODES.AUTH_NO_WALLET.code,
+                ERROR_CODES.AUTH_WALLET_EXISTS.code,
                 'Wallet already exists. Use --force to overwrite.',
                 'Run: onekey import --mnemonic --force',
               );

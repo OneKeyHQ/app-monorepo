@@ -40,6 +40,12 @@ export function registerBalanceCommand(program: Command): void {
           const signer = await getSignerByImpl(chainConfig.impl);
           const addrInfo = await signer.getAddress(chainConfig.networkId);
           address = addrInfo.address;
+        } else if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+          throw new AppError(
+            ERROR_CODES.PARAM_INVALID_ADDRESS.code,
+            `Invalid address format: ${address}`,
+            'Provide a valid 0x-prefixed EVM address (42 chars)',
+          );
         }
 
         const account = await apiClient.get<IAccountResponse>(
@@ -52,12 +58,17 @@ export function registerBalanceCommand(program: Command): void {
           },
         );
 
+        const balanceDisplay = account.balanceParsed ?? account.balance;
+        if (balanceDisplay === null || balanceDisplay === undefined) {
+          throw new AppError(
+            ERROR_CODES.BIZ_UNKNOWN.code,
+            'API response is missing balance data',
+            'This may indicate an API contract change — please report this issue',
+          );
+        }
+
         output.success(
-          {
-            address,
-            chain: chainName,
-            balance: account.balanceParsed ?? account.balance ?? '-',
-          },
+          { address, chain: chainName, balance: balanceDisplay },
           { chain: chainName },
         );
       } catch (error) {
