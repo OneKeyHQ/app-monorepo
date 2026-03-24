@@ -26,6 +26,7 @@ interface IQuoteResultItem {
   fromAmount?: string;
   minToAmount?: string;
   isBest?: boolean;
+  errorMessage?: string;
 }
 
 function computeOverallRisk(audit: IAuditSummary): 'high' | 'caution' | 'low' {
@@ -54,6 +55,7 @@ function formatQuoteItem(q: IQuoteResultItem) {
     instantRate: q.instantRate ?? null,
     isBest: q.isBest ?? false,
     fee: q.fee ?? null,
+    ...(q.errorMessage ? { errorMessage: q.errorMessage } : {}),
   };
 }
 
@@ -66,9 +68,15 @@ async function tryGetWalletAddress(
     const addressInfo = await signer.getAddress(networkId);
     return addressInfo.address;
   } catch (error) {
-    // Only silently degrade for "no wallet" — expected when user hasn't imported
+    // Degrade to no-address mode for expected wallet-unavailable scenarios.
+    // Quote still works without userAddress (just no gas estimation).
     const appErr = AppError.from(error);
-    if (appErr.code === ERROR_CODES.AUTH_NO_WALLET.code) {
+    const degradeCodes = new Set([
+      ERROR_CODES.AUTH_NO_WALLET.code,
+      ERROR_CODES.SEC_KEYCHAIN_LOCKED.code,
+      ERROR_CODES.SEC_KEYCHAIN_ACCESS_DENIED.code,
+    ]);
+    if (degradeCodes.has(appErr.code)) {
       return undefined;
     }
     throw error;
@@ -127,6 +135,15 @@ export function registerSwapQuoteCommand(parent: Command): void {
               ERROR_CODES.PARAM_INVALID_TOKEN.code,
               `Cannot determine decimals for ${options.from}`,
               'Use contract address instead of symbol, or verify the token exists',
+            );
+          }
+
+          // Validate amount is a valid positive decimal number
+          if (!/^\d+(\.\d+)?$/.test(options.amount) || options.amount === '0') {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_AMOUNT.code,
+              `Invalid amount: "${options.amount}"`,
+              'Amount must be a positive decimal number (e.g., "100", "0.5")',
             );
           }
 
@@ -195,6 +212,26 @@ export function registerSwapQuoteCommand(parent: Command): void {
           }
 
           const validQuotes = rawQuotes.filter(isValidQuoteItem);
+
+          // If API returned items but none passed validation, the response is malformed
+          if (rawQuotes.length > 0 && validQuotes.length === 0) {
+            throw new AppError(
+              ERROR_CODES.NET_HTTP_ERROR.code,
+              'All quote items failed validation — API response may have changed',
+              'Check API connectivity or report this issue',
+            );
+          }
+
+          // If all valid quotes only have errorMessage and no toAmount, report failure
+          const usableQuotes = validQuotes.filter((q) => q.toAmount);
+          if (validQuotes.length > 0 && usableQuotes.length === 0) {
+            const firstError = validQuotes.find((q) => q.errorMessage);
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              firstError?.errorMessage ?? 'No provider returned a usable quote',
+              'Try a different token pair, amount, or slippage',
+            );
+          }
 
           // Build security output
           let security: {
