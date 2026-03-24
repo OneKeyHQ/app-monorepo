@@ -545,8 +545,10 @@ class ServiceAccount extends ServiceBase {
     connectId: string;
     deviceId: string;
   }) {
+    // Query by featuresDeviceId only (not connectId) because on iOS BLE,
+    // the connectId can change between sessions, causing the lookup to fail
+    // even though the same physical device has already created a standard wallet.
     const device = await this.backgroundApi.localDb.getDeviceByQuery({
-      connectId,
       featuresDeviceId: deviceId,
     });
     if (!device) {
