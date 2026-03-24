@@ -65,8 +65,13 @@ async function tryGetWalletAddress(
     const signer = await getSignerByImpl(impl);
     const addressInfo = await signer.getAddress(networkId);
     return addressInfo.address;
-  } catch {
-    return undefined;
+  } catch (error) {
+    // Only silently degrade for "no wallet" — expected when user hasn't imported
+    const appErr = AppError.from(error);
+    if (appErr.code === ERROR_CODES.AUTH_NO_WALLET.code) {
+      return undefined;
+    }
+    throw error;
   }
 }
 
