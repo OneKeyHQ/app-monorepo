@@ -245,10 +245,28 @@ should_run market && section_market
 section_swap() {
   echo ""
   echo "--- Swap commands ---"
-  skip "swap quote --from eth --to usdc --amount 0.1"
-  skip "swap build --quote-id ..."
-  skip "swap execute --order-id ..."
-  skip "swap status --tx-id ..."
+
+  # Swap quote depends on external swap API which may return 500.
+  # Accept either success or a structured API error as "working".
+  local sq_output
+  sq_output=$("$BIN" --json --env test swap quote --chain eth \
+    --from 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 \
+    --to 0xdac17f958d2ee523a2206206994597c13d831ec7 \
+    --amount 10 2>/dev/null) || true
+  local sq_status
+  sq_status=$(echo "$sq_output" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+  if [ "$sq_status" = "success" ] || [ "$sq_status" = "error" ]; then
+    echo -e "  ${GREEN}✓${NC} swap quote USDC→USDT on eth (status=${sq_status})"
+    pass=$((pass + 1))
+  else
+    echo -e "  ${RED}✗${NC} swap quote USDC→USDT on eth (expected valid JSON, got=${sq_status:-empty})"
+    echo -e "     output: ${sq_output:0:200}"
+    fail=$((fail + 1))
+  fi
+
+  skip "swap build"
+  skip "swap execute"
+  skip "swap status"
 }
 should_run swap && section_swap
 

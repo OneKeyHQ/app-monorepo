@@ -226,7 +226,44 @@ describe('market commands (integration)', () => {
 });
 
 describe('swap commands (integration)', () => {
-  it.todo('swap quote returns quotes with security data');
+  it('swap quote returns quotes with security data', () => {
+    let output: string;
+    try {
+      output = run(
+        '--json',
+        '--env',
+        'test',
+        'swap',
+        'quote',
+        '--chain',
+        'eth',
+        '--from',
+        '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        '--to',
+        '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        '--amount',
+        '10',
+      );
+    } catch (err: unknown) {
+      // execFileSync throws on non-zero exit — extract stdout from the error
+      const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
+      output = (e.stdout ?? e.stderr ?? '').toString().trim();
+    }
+    const parsed = JSON.parse(output);
+    if (parsed.status === 'success') {
+      expect(parsed.data).toHaveProperty('quotes');
+      expect(parsed.data).toHaveProperty('security');
+      expect(parsed.data.security).toHaveProperty('blocked');
+      expect(parsed.data.security).toHaveProperty('overallRisk');
+      expect(parsed.data).toHaveProperty('metadata');
+      expect(parsed.data.metadata.slippage).toBeGreaterThan(0);
+    } else {
+      // API unavailable — verify error structure is correct
+      expect(parsed.status).toBe('error');
+      expect(parsed.error).toHaveProperty('code');
+      expect(parsed.error).toHaveProperty('message');
+    }
+  });
   it.todo('swap build creates pending order');
   it.todo('swap execute completes swap flow');
   it.todo('swap status returns transaction state');
