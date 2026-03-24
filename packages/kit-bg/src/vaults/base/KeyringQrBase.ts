@@ -232,8 +232,10 @@ export abstract class KeyringQrBase extends KeyringBase {
     params: IPrepareQrAccountsParams,
     {
       indexes,
+      customFullPath,
     }: {
       indexes: number[];
+      customFullPath?: string;
     },
   ): Promise<ICoreApiGetAddressItem[]> {
     const ret: ICoreApiGetAddressItem[] = [];
@@ -246,7 +248,7 @@ export abstract class KeyringQrBase extends KeyringBase {
       walletId: this.walletId,
     });
 
-    const fullPath = accountUtils.buildPathFromTemplate({
+    const fullPath = customFullPath ?? accountUtils.buildPathFromTemplate({
       template: params.deriveInfo.template,
       index: indexes[0],
     });
