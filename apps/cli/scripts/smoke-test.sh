@@ -281,7 +281,30 @@ section_swap() {
     echo -e "     output: ${sb_output:0:200}"
     fail=$((fail + 1))
   fi
-  skip "swap execute"
+  # Swap execute: conditional on build success (needs wallet + funds)
+  if [ "$sb_status" = "success" ]; then
+    local sb_orderId
+    sb_orderId=$(echo "$sb_output" | grep -o '"orderId":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ -n "$sb_orderId" ]; then
+      local se_output
+      se_output=$("$BIN" --json --env test --yes swap execute --chain eth \
+        --order "$sb_orderId" 2>/dev/null) || true
+      local se_status
+      se_status=$(echo "$se_output" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+      if [ "$se_status" = "success" ] || [ "$se_status" = "error" ]; then
+        echo -e "  ${GREEN}✓${NC} swap execute on eth (status=${se_status})"
+        pass=$((pass + 1))
+      else
+        echo -e "  ${RED}✗${NC} swap execute on eth (expected valid JSON, got=${se_status:-empty})"
+        echo -e "     output: ${se_output:0:200}"
+        fail=$((fail + 1))
+      fi
+    else
+      skip "swap execute (no orderId in build output)"
+    fi
+  else
+    skip "swap execute (build failed)"
+  fi
   skip "swap status"
 }
 should_run swap && section_swap

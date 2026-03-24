@@ -1,0 +1,448 @@
+import { CHAINS } from '../../config';
+import { loadPending, secureCache, updatePendingStatus } from '../../core';
+import { AppError, ERROR_CODES } from '../../errors';
+import { apiClient } from '../../infra';
+import { getSignerByImpl } from '../../signer';
+import { confirmTransaction } from '../../utils/confirm-transaction';
+import { feeToWeiHex } from '../../utils/tx-utils';
+
+import type { IEndpointEnv } from '../../config';
+import type { OutputFormatter } from '../../output';
+import type { EvmSigner } from '../../signer/impls/evm/EvmSigner';
+import type { Command } from 'commander';
+
+// --- API response types (aligned with transfer.ts) ---
+
+interface IAccountResponse {
+  address: string;
+  nonce?: number;
+}
+
+interface IGasLegacy {
+  gasPrice: string;
+  gasLimit: string;
+}
+
+interface IGasEIP1559 {
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+  gasLimit: string;
+}
+
+interface IEstimateGasResp {
+  isEIP1559: boolean;
+  feeDecimals: number;
+  feeSymbol: string;
+  nativeDecimals: number;
+  nativeSymbol: string;
+  gas?: IGasLegacy[];
+  gasEIP1559?: IGasEIP1559[];
+}
+
+interface ISendTransactionResult {
+  result: string;
+}
+
+// ERC-20 approve(address,uint256) function selector
+const APPROVE_SELECTOR = '095ea7b3';
+
+// MaxUint256 — unlimited approval
+const MAX_UINT256_HEX =
+  'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
+function buildApproveEncodedTx(
+  from: string,
+  tokenContract: string,
+  spender: string,
+): Record<string, string> {
+  const paddedSpender = spender.slice(2).toLowerCase().padStart(64, '0');
+  const data = `0x${APPROVE_SELECTOR}${paddedSpender}${MAX_UINT256_HEX}`;
+  return {
+    from,
+    to: tokenContract,
+    data,
+    value: '0x0',
+  };
+}
+
+/**
+ * Estimate gas, fetch nonce, and produce a fully-populated encodedTx
+ * ready for signing. Mirrors the gas logic in transfer.ts.
+ */
+async function buildSignableTx(
+  networkId: string,
+  fromAddress: string,
+  encodedTx: Record<string, string>,
+  feeDecimals: number,
+): Promise<Record<string, unknown>> {
+  const feeResp = await apiClient.post<IEstimateGasResp>(
+    'wallet',
+    '/wallet/v1/account/estimate-fee',
+    { networkId, accountAddress: fromAddress, encodedTx },
+  );
+
+  if (feeResp.feeDecimals !== feeDecimals) {
+    throw new AppError(
+      ERROR_CODES.BIZ_UNKNOWN.code,
+      `feeDecimals mismatch: API=${feeResp.feeDecimals}, config=${feeDecimals}`,
+      'Chain config may be outdated',
+    );
+  }
+
+  const accountInfo = await apiClient.get<IAccountResponse>(
+    'wallet',
+    '/wallet/v1/account/get-account',
+    { networkId, accountAddress: fromAddress, withNonce: true },
+  );
+
+  if (accountInfo.nonce === undefined || accountInfo.nonce === null) {
+    throw new AppError(
+      ERROR_CODES.NET_REQUEST_FAILED.code,
+      'API did not return nonce (withNonce=true)',
+      'Check API connectivity or retry',
+    );
+  }
+  if (!Number.isSafeInteger(accountInfo.nonce) || accountInfo.nonce < 0) {
+    throw new AppError(
+      ERROR_CODES.NET_REQUEST_FAILED.code,
+      `API returned invalid nonce value: ${accountInfo.nonce}`,
+      'Check API connectivity or retry',
+    );
+  }
+
+  const chainId = networkId.split('--')[1];
+
+  if (feeResp.isEIP1559) {
+    const eipGas = feeResp.gasEIP1559?.[1] ?? feeResp.gasEIP1559?.[0];
+    if (
+      !eipGas?.gasLimit ||
+      !eipGas.maxFeePerGas ||
+      !eipGas.maxPriorityFeePerGas
+    ) {
+      throw new AppError(
+        ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+        'EIP-1559 fee estimation incomplete',
+        'API did not return gasLimit/maxFeePerGas/maxPriorityFeePerGas',
+      );
+    }
+    if (!/^\d+$/.test(eipGas.gasLimit)) {
+      throw new AppError(
+        ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+        `Invalid gasLimit from API: ${eipGas.gasLimit}`,
+        'API returned a non-integer gasLimit',
+      );
+    }
+    if (!/^\d+\.?\d*$/.test(eipGas.maxFeePerGas)) {
+      throw new AppError(
+        ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+        `Invalid maxFeePerGas from API: ${eipGas.maxFeePerGas}`,
+        'API returned a non-numeric maxFeePerGas',
+      );
+    }
+    if (!/^\d+\.?\d*$/.test(eipGas.maxPriorityFeePerGas)) {
+      throw new AppError(
+        ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+        `Invalid maxPriorityFeePerGas from API: ${eipGas.maxPriorityFeePerGas}`,
+        'API returned a non-numeric maxPriorityFeePerGas',
+      );
+    }
+    return {
+      ...encodedTx,
+      nonce: accountInfo.nonce,
+      chainId,
+      gasLimit: eipGas.gasLimit,
+      maxFeePerGas: feeToWeiHex(eipGas.maxFeePerGas, feeDecimals),
+      maxPriorityFeePerGas: feeToWeiHex(
+        eipGas.maxPriorityFeePerGas,
+        feeDecimals,
+      ),
+    };
+  }
+
+  const legacyGas = feeResp.gas?.[1] ?? feeResp.gas?.[0];
+  if (!legacyGas?.gasLimit || !legacyGas.gasPrice) {
+    throw new AppError(
+      ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+      'Legacy fee estimation incomplete',
+      'API did not return gasLimit/gasPrice',
+    );
+  }
+  if (!/^\d+$/.test(legacyGas.gasLimit)) {
+    throw new AppError(
+      ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+      `Invalid gasLimit from API: ${legacyGas.gasLimit}`,
+      'API returned a non-integer gasLimit',
+    );
+  }
+  if (!/^\d+\.?\d*$/.test(legacyGas.gasPrice)) {
+    throw new AppError(
+      ERROR_CODES.BIZ_GAS_ESTIMATION_FAILED.code,
+      `Invalid gasPrice from API: ${legacyGas.gasPrice}`,
+      'API returned a non-numeric gasPrice',
+    );
+  }
+  return {
+    ...encodedTx,
+    nonce: accountInfo.nonce,
+    chainId,
+    gasLimit: legacyGas.gasLimit,
+    gasPrice: feeToWeiHex(legacyGas.gasPrice, feeDecimals),
+  };
+}
+
+export function registerSwapExecuteCommand(parent: Command): void {
+  parent
+    .command('execute')
+    .description('Execute a pending swap order (sign + broadcast)')
+    .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
+    .requiredOption('--order <orderId>', 'Order ID from swap build output')
+    .action(
+      async (
+        options: {
+          chain: string;
+          order: string;
+        },
+        command,
+      ) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const globalOpts = command.optsWithGlobals() as Record<string, unknown>;
+        const output = globalOpts._outputFormatter as OutputFormatter;
+        const skipConfirmation = Boolean(globalOpts.yes);
+
+        try {
+          // Validate chain
+          const chainConfig = CHAINS[options.chain];
+          if (!chainConfig) {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_CHAIN.code,
+              `Unsupported chain: "${options.chain}"`,
+              `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
+            );
+          }
+
+          // Resolve env
+          const env = (
+            (globalOpts.env as string) === 'prod' ? 'prod' : 'test'
+          ) as IEndpointEnv;
+          apiClient.setEnv(env);
+
+          // Load pending order (includes 5-minute expiry check)
+          const order = loadPending(options.order);
+
+          // Verify chain matches order
+          if (order.chain !== options.chain) {
+            throw new AppError(
+              ERROR_CODES.PARAM_INVALID_CHAIN.code,
+              `Order chain "${order.chain}" does not match --chain "${options.chain}"`,
+              `Use --chain ${order.chain}`,
+            );
+          }
+
+          // Only pending orders can be executed
+          if (order.status !== 'pending') {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Order "${options.order}" status is "${order.status}", expected "pending"`,
+              'Only pending orders can be executed',
+            );
+          }
+
+          // Validate tx data exists in the pending order
+          const txData = order.txData as {
+            result?: {
+              allowanceResult?: { isEnough?: boolean };
+            };
+            tx?: Record<string, string>;
+          };
+
+          if (!txData.tx || typeof txData.tx !== 'object') {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              'Order does not contain a valid transaction object',
+              'Run "onekey swap build" to create a new order',
+            );
+          }
+
+          // Confirm execution (prompts in human mode, rejects JSON without --yes)
+          await confirmTransaction({
+            info: {
+              action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
+              to: order.provider ?? 'swap provider',
+              value: `${order.amount} ${order.fromToken.symbol}`,
+              network: options.chain,
+            },
+            output,
+            skipConfirmation,
+          });
+
+          // Get wallet signer and address
+          const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
+          const addressInfo = await signer.getAddress(chainConfig.networkId);
+          const fromAddress = addressInfo.address;
+
+          // Prepare sign credentials once for both approve + swap
+          const hdCredential = await signer.getHdCredential();
+          const encodedPassword = await signer.getEncodedPassword();
+          const networkInfo = signer.buildNetworkInfo(chainConfig.networkId);
+          const accountForSign = {
+            address: fromAddress,
+            path: addressInfo.path ?? "m/44'/60'/0'/0/0",
+            pub: addressInfo.publicKey,
+          };
+
+          let approveTxHash: string | undefined;
+
+          // Check if token approval is required
+          const needsApprove =
+            txData.result?.allowanceResult !== undefined &&
+            txData.result.allowanceResult !== null &&
+            txData.result.allowanceResult.isEnough === false;
+
+          if (needsApprove) {
+            if (!order.fromToken.contractAddress) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'Approve required but fromToken has no contract address (native token)',
+                'This should not happen — rebuild the order',
+              );
+            }
+
+            // Spender is the swap router contract (the tx.to field)
+            const spender = txData.tx.to;
+            if (!spender) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'Cannot determine approve spender from swap tx data',
+                'Run "onekey swap build" to create a new order',
+              );
+            }
+
+            output.info('Approving token allowance...');
+
+            const approveEncodedTx = buildApproveEncodedTx(
+              fromAddress,
+              order.fromToken.contractAddress,
+              spender,
+            );
+
+            const approveWithGas = await buildSignableTx(
+              chainConfig.networkId,
+              fromAddress,
+              approveEncodedTx,
+              chainConfig.feeDecimals,
+            );
+
+            const approveSignedTx = await signer.signTransaction({
+              networkInfo,
+              password: encodedPassword,
+              credentials: { hd: hdCredential },
+              account: accountForSign,
+              unsignedTx: { encodedTx: approveWithGas },
+            });
+
+            const approveResult = await apiClient.post<ISendTransactionResult>(
+              'wallet',
+              '/wallet/v1/account/send-transaction',
+              {
+                networkId: chainConfig.networkId,
+                accountAddress: fromAddress,
+                tx: approveSignedTx.rawTx,
+              },
+            );
+
+            if (!approveResult?.result) {
+              throw new AppError(
+                ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                'Approve broadcast did not return txid',
+                'Check the transaction on chain explorer manually',
+              );
+            }
+
+            approveTxHash = approveResult.result;
+            output.info(`Approve tx broadcast: ${approveTxHash}`);
+          }
+
+          // Sign and broadcast swap tx
+          try {
+            const swapEncodedTx: Record<string, string> = {
+              ...txData.tx,
+              from: fromAddress,
+            };
+
+            const swapWithGas = await buildSignableTx(
+              chainConfig.networkId,
+              fromAddress,
+              swapEncodedTx,
+              chainConfig.feeDecimals,
+            );
+
+            const swapSignedTx = await signer.signTransaction({
+              networkInfo,
+              password: encodedPassword,
+              credentials: { hd: hdCredential },
+              account: accountForSign,
+              unsignedTx: { encodedTx: swapWithGas },
+            });
+
+            const swapResult = await apiClient.post<ISendTransactionResult>(
+              'wallet',
+              '/wallet/v1/account/send-transaction',
+              {
+                networkId: chainConfig.networkId,
+                accountAddress: fromAddress,
+                tx: swapSignedTx.rawTx,
+              },
+            );
+
+            if (!swapResult?.result) {
+              throw new AppError(
+                ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                'Swap broadcast did not return txid',
+                'Check the transaction on chain explorer manually',
+              );
+            }
+
+            // Update pending status to executed
+            updatePendingStatus(options.order, 'executed', {
+              txHash: swapResult.result,
+            });
+
+            output.success(
+              {
+                orderId: options.order,
+                status: 'executed',
+                txHash: swapResult.result,
+                ...(approveTxHash ? { approveTxHash } : {}),
+                chain: options.chain,
+                from: order.fromToken.symbol,
+                to: order.toToken.symbol,
+                amount: order.amount,
+              },
+              { chain: options.chain },
+            );
+          } catch (swapError) {
+            // Approve succeeded but swap failed — mark as approve_only
+            if (approveTxHash) {
+              updatePendingStatus(options.order, 'approve_only');
+              const swapAppError = AppError.from(swapError);
+              output.error({
+                code: ERROR_CODES.BIZ_SWAP_FAILED.code,
+                message: `Approve succeeded (tx: ${approveTxHash}) but swap failed: ${swapAppError.message}. Token allowance has been granted.`,
+                suggestion:
+                  'Run "onekey swap build" then "onekey swap execute" to retry the swap',
+              });
+              process.exitCode = swapAppError.exitCode;
+              return;
+            }
+            throw swapError;
+          }
+        } catch (error) {
+          const appError = AppError.from(error);
+          output.error(appError.toErrorDetail());
+          process.exitCode = appError.exitCode;
+        } finally {
+          secureCache.clearAll();
+        }
+      },
+    );
+}
