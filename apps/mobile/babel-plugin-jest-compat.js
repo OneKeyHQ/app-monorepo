@@ -83,10 +83,9 @@ module.exports = function ({ types: t }) {
                             t.stringLiteral(
                               '[babel-plugin-jest-compat] require() failed for mock:',
                             ),
-                            t.callExpression(
-                              t.identifier('String'),
-                              [t.identifier('_e')],
-                            ),
+                            t.callExpression(t.identifier('String'), [
+                              t.identifier('_e'),
+                            ]),
                           ],
                         ),
                       ),
