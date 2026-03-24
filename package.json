@@ -12,6 +12,7 @@
   },
   "scripts": {
     "setup:env": "node -e \"const fs=require('fs');if(!fs.existsSync('.env'))fs.copyFileSync('.env.example','.env');\"",
+    "skills:sync": "node development/scripts/skillshare/install.js",
     "postinstall": "node development/scripts/postinstall.js",
     "copy:inject": "node development/scripts/copy-injected.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
@@ -307,8 +308,8 @@
     "metro": "0.83.2",
     "node-notifier": "^10.0.1",
     "oxfmt": "^0.24.0",
-    "oxlint": "1.43.0",
-    "oxlint-tsgolint": "^0.11.2",
+    "oxlint": "1.56.0",
+    "oxlint-tsgolint": "^0.17.1",
     "patch-package": "8.0.0",
     "playwright-core": "^1.50.0",
     "prettier": "3.8.1",

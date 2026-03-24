@@ -2,6 +2,7 @@ import { EBulkSendMode } from '../../types/bulkSend';
 import { getNetworkIdsMap } from '../config/networkIds';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
+import platformEnv from '../platformEnv';
 
 import networkUtils from './networkUtils';
 
@@ -23,7 +24,16 @@ function getBulkSendSupportedEVMNetworkIds() {
 function getBulkSendSupportedNetworkIds() {
   const networkIdsMap = getNetworkIdsMap();
   const supportedEVMNetworkIds = getBulkSendSupportedEVMNetworkIds();
-  return [...supportedEVMNetworkIds, networkIdsMap.trx];
+  const ids = [
+    ...supportedEVMNetworkIds,
+    networkIdsMap.trx,
+    networkIdsMap.sol,
+    networkIdsMap.btc,
+  ];
+  if (platformEnv.isDev) {
+    ids.push(networkIdsMap.sbtc);
+  }
+  return ids;
 }
 
 function fixBulkSendSupportedNetworkId({ networkId }: { networkId: string }) {

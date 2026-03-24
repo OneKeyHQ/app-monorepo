@@ -521,7 +521,7 @@ function TokenDetailsView() {
       const baseName = token.networkName || token.networkId || token.$key;
       nameCount.set(baseName, (nameCount.get(baseName) ?? 0) + 1);
     }
-    const result = new Map<string, string>();
+    const nameMap = new Map<string, string>();
     const usedNames = new Set<string>();
     for (const token of tokens) {
       const baseName = token.networkName || token.networkId || token.$key;
@@ -536,9 +536,9 @@ function TokenDetailsView() {
         name = `${name} ${i}`;
       }
       usedNames.add(name);
-      result.set(token.$key, name);
+      nameMap.set(token.$key, name);
     }
-    return result;
+    return nameMap;
   }, [tokens]);
 
   const tabs = useMemo(() => {

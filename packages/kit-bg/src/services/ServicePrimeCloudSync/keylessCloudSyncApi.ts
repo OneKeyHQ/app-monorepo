@@ -35,12 +35,22 @@ class KeylessCloudSyncApi {
       });
       return response;
     } catch (error) {
+      const safeInfo: Record<string, unknown> = { url };
+      if (error && typeof error === 'object') {
+        const e = error as Record<string, any>;
+        if (e.response) {
+          safeInfo.status = e.response.status;
+        }
+        if (e.code) {
+          safeInfo.code = e.code;
+        }
+        if (e.message) {
+          safeInfo.message = e.message;
+        }
+      }
       console.warn(
         '[CloudSyncAPI] Cloud sync server unavailable, fallback to memory.',
-        {
-          url,
-          error,
-        },
+        safeInfo,
       );
       throw error;
     }

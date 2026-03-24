@@ -75,6 +75,8 @@ export type IBulkSendAmountsInputContext = {
   updateCurrentModeData: (data: Partial<IMobileModeData>) => void;
   // Get current mode's data for mobile
   currentModeData: IMobileModeData;
+  // Minimum transfer amount per address (from vault settings)
+  minTransferAmount: string;
 };
 
 const defaultModeData: IMobileModeData = {
@@ -138,6 +140,7 @@ export const BulkSendAmountsInputContext =
     setMobileModeData: () => {},
     updateCurrentModeData: () => {},
     currentModeData: { ...defaultModeData },
+    minTransferAmount: '0',
   });
 
 export const useBulkSendAmountsInputContext = () =>

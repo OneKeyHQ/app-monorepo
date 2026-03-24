@@ -28,6 +28,7 @@ type ISetAmountPerAddressDialogProps = {
   transfersInfo: ITransferInfo[];
   initialMode: EAmountInputMode;
   initialValues: IAmountInputValues;
+  minTransferAmount?: string;
   onConfirm: (mode: EAmountInputMode, values: IAmountInputValues) => void;
 };
 
@@ -63,6 +64,7 @@ function SetAmountPerAddressDialogContent({
   transfersInfo,
   initialMode,
   initialValues,
+  minTransferAmount: minTransferAmountProp,
   onConfirm,
 }: ISetAmountPerAddressDialogProps) {
   const intl = useIntl();
@@ -128,6 +130,7 @@ function SetAmountPerAddressDialogContent({
       totalFiatAmount,
       isInsufficientBalance: false,
       hasCustomAmounts: false,
+      minTransferAmount: minTransferAmountProp ?? '0',
       previewState: {
         specifiedPreviewed: false,
         rangePreviewed: false,
@@ -180,6 +183,7 @@ function SetAmountPerAddressDialogContent({
       isAmountValid,
       totalTokenAmount,
       totalFiatAmount,
+      minTransferAmountProp,
     ],
   );
 

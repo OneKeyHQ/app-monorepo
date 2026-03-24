@@ -4,10 +4,16 @@ name: release-desktop-all
 #   1. Build renderer once on ubuntu (fastest)
 #   2. Fan out to 3 platform jobs (mac, win, linux) — each packages multiple variants
 #
-# This does NOT replace the existing per-platform workflows.
-# It is a new, optimized alternative that can be triggered independently.
+# Triggered by daily-build / daily-build-dev completion, or manually via workflow_dispatch.
+# This is the single source of truth for all desktop packaging.
 
 on:
+  workflow_run:
+    workflows:
+      - daily-build
+      - daily-build-dev
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       build_number:
@@ -37,6 +43,7 @@ jobs:
   # Stage 1: Build renderer once on ubuntu
   # ──────────────────────────────────────────────────
   renderer:
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     uses: ./.github/workflows/build-desktop-renderer.yml
     with:
       build_number: ${{ github.event.inputs.build_number || '' }}
@@ -58,7 +65,7 @@ jobs:
   # ──────────────────────────────────────────────────
 
   # ═══════════════════════════════════════════════════
-  # macOS runner: mac DMG + MAS
+  # macOS runner: Mac DMG + MAS
   # ═══════════════════════════════════════════════════
   package-mac:
     needs: renderer
@@ -145,7 +152,7 @@ jobs:
           cd apps/desktop
           bash scripts/verify-icon-compatibility.sh
 
-      # ── Phase 1: Mac + Linux (Developer ID) ──
+      # ── Phase 1: Mac DMG (Developer ID) ──
 
       - name: Setup Developer ID Code Signing
         run: |
@@ -186,43 +193,33 @@ jobs:
         run: |
           rm -f ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Desktop_DeveloperId.provisionprofile
 
-      - name: Upload Artifacts latest.yml
+      - name: Upload Mac autoupdate metadata
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-mac-yml-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-mac-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
 
       - name: Upload universal Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-universal.dmg
 
       - name: Upload x64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-x64.dmg
 
       - name: Upload arm64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-arm64.dmg
-
-      - name: Upload Mac Release Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-all-mac-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
-          path: |
-            ./apps/desktop/build-electron/*
-            !./apps/desktop/build-electron/mac-arm64
-            !./apps/desktop/build-electron/mac
-            !./apps/desktop/build-electron/builder-debug.yml
 
       # ── Phase 2: MAS (App Store signing) ──
 
@@ -278,11 +275,12 @@ jobs:
       - name: Upload MAS Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
       - name: Validate MAS for Testflight
+        if: ${{ !github.event.workflow_run || github.event.workflow_run.name == 'daily-build' }}
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
@@ -292,6 +290,7 @@ jobs:
           xcrun altool --validate-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
       - name: Upload MAS to Testflight
+        if: ${{ !github.event.workflow_run || github.event.workflow_run.name == 'daily-build' }}
         continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
@@ -302,7 +301,7 @@ jobs:
           xcrun altool --upload-app --file "$PKG_FILE" -t macOS -u "$APPLEID" -p "$APPLEIDPASS" --show-progress
 
   # ═══════════════════════════════════════════════════
-  # Windows runner: win NSIS + winms (Microsoft Store)
+  # Windows runner: Win NSIS + WinMS (Microsoft Store)
   # ═══════════════════════════════════════════════════
   package-win:
     needs: renderer
@@ -412,36 +411,23 @@ jobs:
       - name: Upload x64 Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-x64.exe
 
       - name: Upload arm64 Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-arm64.exe
 
-      - name: Upload Artifacts latest.yml
+      - name: Upload Windows autoupdate metadata
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-win-yml-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-win-autoupdate-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
-
-      - name: Upload Windows NSIS Release Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-all-win-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
-          path: |
-            ./apps/desktop/build-electron/*
-            !./apps/desktop/build-electron/win-unpacked
-            !./apps/desktop/build-electron/win-arm64-unpacked
-            !./apps/desktop/build-electron/mac-arm64
-            !./apps/desktop/build-electron/mac
-            !./apps/desktop/build-electron/linux-unpacked
-            !./apps/desktop/build-electron/builder-debug.yml
 
       # ── Phase 2: Windows Microsoft Store ──
 
@@ -471,10 +457,10 @@ jobs:
           cd apps/desktop
           npx electron-builder build -w --config electron-builder-ms.config.js --publish never
 
-      - name: Upload WinMS universal exe
+      - name: Upload WinMS exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-winms-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-winms-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
@@ -585,7 +571,7 @@ jobs:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
 
-      # ── Phase 1: AppImage (no SNAP) ──
+      # ── Phase 1: AppImage ──
 
       - name: 'Build Main Process (AppImage)'
         env:
@@ -603,14 +589,21 @@ jobs:
           cd apps/desktop
           npx electron-builder build -l --config electron-builder.config.js ${{ matrix.build-flag }} --publish never
 
-      - name: Upload AppImage Artifacts
+      - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-linux-appimage-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.AppImage
 
-      # ── Phase 2: Snap (SNAP=true) ──
+      - name: Upload Linux autoupdate metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-linux-autoupdate-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*.yml
+
+      # ── Phase 2: Snap ──
 
       - name: Clean build-electron for Snap
         run: rm -rf apps/desktop/build-electron
@@ -632,12 +625,44 @@ jobs:
           cd apps/desktop
           npx electron-builder build -l --config electron-builder-snap.config.js ${{ matrix.build-flag }} --publish never
 
-      - name: Upload Snap Artifacts
+      - name: Upload Snap
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-all-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          name: onekey-desktop-snap-${{ matrix.arch }}-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
-            ./apps/desktop/build-electron/*
-            !./apps/desktop/build-electron/linux-unpacked
-            !./apps/desktop/build-electron/linux-arm64-unpacked
-            !./apps/desktop/build-electron/builder-debug.yml
+            ./apps/desktop/build-electron/*.snap
+
+      - name: Upload Snap to Snap Store
+        if: ${{ github.event.workflow_run && github.event.workflow_run.name == 'daily-build' }}
+        continue-on-error: true
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        run: |
+          snapcraft push ./apps/desktop/build-electron/*.snap --release edge
+
+  # ═══════════════════════════════════════════════════
+  # Notify: Send single Slack message after all platforms complete
+  # ═══════════════════════════════════════════════════
+  notify:
+    needs: [renderer, package-mac, package-win, package-linux]
+    if: ${{ github.event.workflow_run }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 'Setup ENV'
+        run: |
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
+      - name: 'Notify to Slack'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-All
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ needs.renderer.outputs.build_app_version }}@${{ needs.renderer.outputs.build_number }}'
+          artifact-version-code: '${{ needs.renderer.outputs.build_number }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || false }}'
+          artifact-bundle-version: '${{ needs.renderer.outputs.build_bundle_version }}'

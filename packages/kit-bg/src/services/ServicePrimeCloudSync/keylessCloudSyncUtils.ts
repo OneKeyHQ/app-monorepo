@@ -6,25 +6,20 @@
  */
 
 import {
-  batchGetPrivateKeys,
   decryptStringAsync,
   encryptStringAsync,
-  publicFromPrivate,
-  sign,
 } from '@onekeyhq/core/src/secret';
-import {
-  decryptAsync,
-  encryptAsync,
-} from '@onekeyhq/core/src/secret/encryptors/aes256';
-import type { ICoreHdCredentialEncryptHex } from '@onekeyhq/core/src/types';
+import { secp256k1 } from '@onekeyhq/core/src/secret/curves';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { EAppCryptoAesEncryptionMode } from '@onekeyhq/shared/src/appCrypto/consts';
 import {
   KEYLESS_PWDHASH_CONTEXT,
   KEYLESS_PWDHASH_PREFIX,
-  KEYLESS_SYNC_DERIVATION_PATH_PREFIX,
+  KEYLESS_SYNC_DATA_GCM_AAD,
   KEYLESS_SYNC_ENCRYPTION_CONTEXT,
+  KEYLESS_SYNC_ENCRYPTION_SALT,
+  KEYLESS_SYNC_SIGNING_SALT,
 } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
@@ -64,62 +59,41 @@ function isKeylessPwdHash(pwdHash: string | undefined): boolean {
 /**
  * Derive sync credentials from Keyless wallet
  *
- * @param hdCredential - Keyless wallet credential (from localDb.getCredential(keylessWalletId))
- * @param password - Wallet password
+ * Uses SHA256-based key derivation from seed bytes with domain-separated salts.
+ *
+ * @param seed - Keyless wallet seed bytes
  * @param keylessWalletId - Keyless wallet ID
  * @returns Keyless sync credentials containing signing and encryption keys
  */
 async function deriveKeylessCredential({
-  hdCredential,
-  password,
+  seed,
   keylessWalletId,
 }: {
-  hdCredential: ICoreHdCredentialEncryptHex;
-  password: string;
+  seed: Buffer;
   keylessWalletId: string;
 }): Promise<IKeylessCloudSyncCredential> {
-  // Batch derive private keys for two paths
-  // 0/0 = signing key, 0/1 = encryption key
-  const keys = await batchGetPrivateKeys(
-    'secp256k1',
-    hdCredential,
-    password,
-    KEYLESS_SYNC_DERIVATION_PATH_PREFIX, // "m/44'/38716591'/98351420'"
-    ['0/0', '0/1'],
-  );
+  // Derive signing key: SHA256(seed + signing_salt)
+  const signingInput = Buffer.concat([
+    seed,
+    bufferUtils.toBuffer(KEYLESS_SYNC_SIGNING_SALT, 'utf8'),
+  ]);
+  const signingKeyBytes = appCrypto.hash.sha256Sync(signingInput);
 
-  const signingKey = keys.find((k) => k.path.endsWith('0/0'));
-  const encryptionKeyInfo = keys.find((k) => k.path.endsWith('0/1'));
+  // Derive encryption key: SHA256(seed + encryption_salt)
+  const encryptionInput = Buffer.concat([
+    seed,
+    bufferUtils.toBuffer(KEYLESS_SYNC_ENCRYPTION_SALT, 'utf8'),
+  ]);
+  const encryptionKeyBytes = appCrypto.hash.sha256Sync(encryptionInput);
 
-  if (!signingKey || !encryptionKeyInfo) {
-    throw new OneKeyLocalError('Failed to derive keyless sync keys');
-  }
+  // Derive public key from raw signing private key
+  const signingPublicKey = secp256k1.publicFromPrivate(signingKeyBytes);
 
-  // Derive public key from private key
-  const signingPublicKey = await publicFromPrivate(
-    'secp256k1',
-    signingKey.extendedKey.key,
-    password,
-  );
-
-  // Decrypt private keys to get deterministic hex values
-  // batchGetPrivateKeys returns encrypted keys with random salt/IV,
-  // so we decrypt them to ensure consistent values across sessions
-  const decryptedSigningPrivateKey = await decryptAsync({
-    password,
-    data: signingKey.extendedKey.key,
-  });
-
-  const decryptedEncryptionKey = await decryptAsync({
-    password,
-    data: encryptionKeyInfo.extendedKey.key,
-  });
-
-  const encryptionKeyHex = bufferUtils.bytesToHex(decryptedEncryptionKey);
+  const encryptionKeyHex = bufferUtils.bytesToHex(encryptionKeyBytes);
 
   return {
     keylessWalletId,
-    signingPrivateKey: bufferUtils.bytesToHex(decryptedSigningPrivateKey),
+    signingPrivateKey: bufferUtils.bytesToHex(signingKeyBytes),
     signingPublicKey: bufferUtils.bytesToHex(signingPublicKey),
     encryptionKey: encryptionKeyHex,
     pwdHash: computeKeylessPwdHash(encryptionKeyHex),
@@ -127,42 +101,56 @@ async function deriveKeylessCredential({
 }
 
 /**
- * Encrypt data using Keyless derived key
+ * Encrypt data using Keyless derived key with AES-GCM
  *
  * @param rawData - Raw data to encrypt (JSON string)
  * @param encryptionKey - Encryption key (hex)
+ * @param itemId - Unique item identifier for AAD binding
+ * @param dataType - Data type identifier for AAD binding
  * @returns Encrypted data (hex string)
  */
 async function encryptWithKeylessKey({
   rawData,
   encryptionKey,
+  itemId,
+  dataType,
 }: {
   rawData: string;
   encryptionKey: string;
+  itemId: string;
+  dataType: string;
 }): Promise<string> {
-  // Build password using encryption key and context identifier
   const password = `${encryptionKey}:${KEYLESS_SYNC_ENCRYPTION_CONTEXT}`;
   return encryptStringAsync({
     password,
     data: rawData,
     dataEncoding: 'utf8',
     allowRawPassword: true,
+    iterations: 1,
+    mode: EAppCryptoAesEncryptionMode.gcm,
+    aad: `${KEYLESS_SYNC_DATA_GCM_AAD}:${itemId}:${dataType}`,
   });
 }
 
 /**
- * Decrypt data using Keyless derived key
+ * Decrypt data using Keyless derived key with AES-GCM
  *
  * @param encryptedData - Encrypted data (hex string)
  * @param encryptionKey - Encryption key (hex)
+ * @param itemId - Unique item identifier for AAD binding
+ * @param dataType - Data type identifier for AAD binding
  * @returns Decrypted raw data (UTF8 string)
  */
 async function decryptWithKeylessKey({
   encryptedData,
   encryptionKey,
+  itemId,
+  dataType,
 }: {
   encryptedData: string;
   encryptionKey: string;
+  itemId: string;
+  dataType: string;
 }): Promise<string> {
   const password = `${encryptionKey}:${KEYLESS_SYNC_ENCRYPTION_CONTEXT}`;
   return decryptStringAsync({
@@ -171,6 +159,9 @@ async function decryptWithKeylessKey({
     dataEncoding: 'hex',
     resultEncoding: 'utf8',
     allowRawPassword: true,
+    iterations: 1,
+    mode: EAppCryptoAesEncryptionMode.gcm,
+    aad: `${KEYLESS_SYNC_DATA_GCM_AAD}:${itemId}:${dataType}`,
   });
 }
 
@@ -182,10 +173,7 @@ function generateNonce(): string {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(randomBytes);
   } else {
-    // Fallback for environments without crypto
-    for (let i = 0; i < 16; i += 1) {
-      randomBytes[i] = Math.floor(Math.random() * 256);
-    }
+    throw new Error('Secure random number generator not available');
   }
   return bufferUtils.bytesToHex(randomBytes);
 }
@@ -196,55 +184,40 @@ function generateNonce(): string {
  * IMPORTANT: dataHash MUST be provided for all requests to ensure signature
  * is bound to the specific request payload and prevent tampering/replay attacks.
  *
- * @param signingPrivateKey - Signing private key (decrypted, hex format)
+ * @param signingPrivateKey - Signing private key (raw hex format)
  * @param signingPublicKey - Signing public key (hex)
- * @param password - Wallet password (for encrypting private key before signing)
  * @param dataHash - SHA256 hash of request data (REQUIRED for security)
  * @returns Base64 encoded signature Header value
  */
-async function buildKeylessSignatureHeader({
+function buildKeylessSignatureHeader({
   signingPrivateKey,
   signingPublicKey,
-  password,
   dataHash,
 }: {
   signingPrivateKey: string;
   signingPublicKey: string;
-  password: string;
-  dataHash: string; // REQUIRED - not optional!
-}): Promise<string> {
+  dataHash: string;
+}): string {
   const timestamp = Date.now();
   const nonce = generateNonce();
 
-  // Construct sign message with dataHash to bind signature to request data
   const signMessage: IKeylessCloudSyncSignMessage = {
     timestamp,
     nonce,
     dataHash,
   };
 
-  // Compute message hash
-  // Use stableStringify to ensure consistent serialization regardless of property order
   const messageString = stringUtils.stableStringify(signMessage);
   const messageHash = appCrypto.hash.sha256Sync(
     bufferUtils.toBuffer(messageString, 'utf8'),
   );
 
-  // Encrypt private key before signing (sign function expects encrypted key)
-  const encryptedPrivateKey = await encryptAsync({
-    password,
-    data: bufferUtils.toBuffer(signingPrivateKey, 'hex'),
-  });
-
-  // Sign using encrypted private key
-  const signature = await sign(
-    'secp256k1',
-    encryptedPrivateKey,
+  // Sign directly with raw private key bytes (no password encrypt/decrypt)
+  const signature = secp256k1.sign(
+    bufferUtils.toBuffer(signingPrivateKey, 'hex'),
     Buffer.from(messageHash),
-    password,
   );
 
-  // Construct Header payload
   const headerPayload: IKeylessCloudSyncSignaturePayload = {
     publicKey: signingPublicKey,
     signature: bufferUtils.bytesToHex(signature),
@@ -252,7 +225,6 @@ async function buildKeylessSignatureHeader({
     nonce,
   };
 
-  // Base64 encode
   return bufferUtils.bytesToBase64(
     bufferUtils.toBuffer(stringUtils.stableStringify(headerPayload), 'utf8'),
   );

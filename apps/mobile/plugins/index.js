@@ -89,10 +89,10 @@ module.exports = (config, projectRoot) => {
     //     true;
     // })();
 
-    config.serializer.createModuleIdFactory = () => (path) => {
-      const id = fileToIdMap.get(path);
+    config.serializer.createModuleIdFactory = () => (filePath) => {
+      const id = fileToIdMap.get(filePath);
       if (typeof id !== 'number') {
-        return fileToIdMap.safeSet(path);
+        return fileToIdMap.safeSet(filePath);
       }
       return id;
     };
