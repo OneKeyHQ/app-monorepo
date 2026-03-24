@@ -28,6 +28,7 @@ import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
+import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,

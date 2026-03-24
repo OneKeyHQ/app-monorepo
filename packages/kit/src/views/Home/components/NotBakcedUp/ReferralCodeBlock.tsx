@@ -11,7 +11,6 @@ import {
 import { isNil } from 'lodash';
 // eslint-disable-next-line import/order
 import { useIntl } from 'react-intl';
-
 import {
   scrollTo,
   useAnimatedReaction,

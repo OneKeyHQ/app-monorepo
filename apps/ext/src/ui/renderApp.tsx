@@ -1,3 +1,4 @@
+/* eslint-disable import-js/order */
 // fix missing setimmediate on react-dom
 // eslint-disable-next-line import/order
 import 'setimmediate';

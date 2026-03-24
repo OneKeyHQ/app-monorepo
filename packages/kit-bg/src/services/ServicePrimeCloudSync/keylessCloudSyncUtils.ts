@@ -182,10 +182,7 @@ function generateNonce(): string {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(randomBytes);
   } else {
-    // Fallback for environments without crypto
-    for (let i = 0; i < 16; i += 1) {
-      randomBytes[i] = Math.floor(Math.random() * 256);
-    }
+    throw new OneKeyLocalError('Secure random number generator not available');
   }
   return bufferUtils.bytesToHex(randomBytes);
 }
