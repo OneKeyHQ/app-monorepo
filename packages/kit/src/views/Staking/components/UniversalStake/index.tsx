@@ -18,6 +18,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -39,6 +40,8 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
@@ -633,18 +636,74 @@ export function UniversalStake({
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
-  const onMax = useCallback(() => {
+  const maxAmountValue = useMemo(() => {
     const balanceBN = new BigNumber(balance);
-    const remainBN = balanceBN.minus(minTransactionFee);
-    if (remainBN.gt(0)) {
-      onChangeAmountValue(remainBN.toFixed());
-    } else {
-      onChangeAmountValue(balance);
+    if (balanceBN.isNaN()) {
+      return balance;
     }
-  }, [onChangeAmountValue, balance, minTransactionFee]);
+
+    const maxAmountBN = tokenInfo?.token?.isNative
+      ? BigNumber.max(0, balanceBN.minus(minTransactionFee))
+      : balanceBN;
+
+    return typeof decimals === 'number'
+      ? maxAmountBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
+      : maxAmountBN.toFixed();
+  }, [balance, decimals, minTransactionFee, tokenInfo?.token?.isNative]);
+
+  const reserveGasFormatter: INumberFormatProps = useMemo(
+    () => ({
+      formatter: 'balance',
+      formatterOptions: {
+        tokenSymbol: tokenSymbol || tokenInfo?.token.symbol,
+      },
+    }),
+    [tokenInfo?.token.symbol, tokenSymbol],
+  );
+
+  const showNativeTokenMaxToast = useCallback(() => {
+    if (!tokenInfo?.token?.isNative) {
+      return;
+    }
+
+    const reserveFeeBN = new BigNumber(minTransactionFee || 0);
+    const reserveFeeFormatted =
+      reserveFeeBN.gt(0) && !reserveFeeBN.isNaN()
+        ? numberFormat(reserveFeeBN.toFixed(), reserveGasFormatter)
+        : undefined;
+
+    const message = intl.formatMessage(
+      {
+        id: reserveFeeFormatted
+          ? ETranslations.swap_native_token_max_tip_already
+          : ETranslations.swap_native_token_max_tip,
+      },
+      {
+        num_token: reserveFeeFormatted,
+      },
+    );
+
+    Toast.message({
+      title: message,
+    });
+  }, [
+    intl,
+    minTransactionFee,
+    reserveGasFormatter,
+    tokenInfo?.token?.isNative,
+  ]);
+
+  const onMax = useCallback(() => {
+    showNativeTokenMaxToast();
+    onChangeAmountValue(maxAmountValue);
+  }, [maxAmountValue, onChangeAmountValue, showNativeTokenMaxToast]);
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
+      if (percent === 100) {
+        onMax();
+        return;
+      }
       onChangeAmountValue(
         calcPercentBalance({
           balance,
@@ -653,7 +712,7 @@ export function UniversalStake({
         }),
       );
     },
-    [balance, decimals, onChangeAmountValue],
+    [balance, decimals, onChangeAmountValue, onMax],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
