@@ -46,11 +46,6 @@ import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { BorrowInfoItem } from './BorrowInfoItem';
-import { ManagePosition } from './ManagePosition';
-import { useAmountInput } from './ManagePosition/hooks/useAmountInput';
-import { useTokenSelector } from './ManagePosition/hooks/useTokenSelector';
-import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/HealthFactorInfo';
-import { PositionInfo } from './ManagePosition/modules/InfoDisplaySection/PositionInfo';
 import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
@@ -58,6 +53,11 @@ import {
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
+import { ManagePosition } from './ManagePosition';
+import { useAmountInput } from './ManagePosition/hooks/useAmountInput';
+import { useTokenSelector } from './ManagePosition/hooks/useTokenSelector';
+import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/HealthFactorInfo';
+import { PositionInfo } from './ManagePosition/modules/InfoDisplaySection/PositionInfo';
 
 import type { IManagePositionProps } from './ManagePosition';
 
@@ -1199,7 +1199,7 @@ function RepayWithCollateralForm({
               <Stack pl="$5" $md={{ pt: '$5' }}>
                 <StakeProgress
                   currentStep={setupProgressStep}
-                  step1LabelId={ETranslations.earn_pending_activation}
+                  step1LabelId={ETranslations.defi_refundable_setup_fee}
                   step2LabelId={ETranslations.defi_repay}
                 />
               </Stack>
@@ -1236,7 +1236,7 @@ function RepayWithCollateralForm({
             <Stack>
               <StakeProgress
                 currentStep={setupProgressStep}
-                step1LabelId={ETranslations.earn_pending_activation}
+                step1LabelId={ETranslations.defi_refundable_setup_fee}
                 step2LabelId={ETranslations.defi_repay}
               />
             </Stack>

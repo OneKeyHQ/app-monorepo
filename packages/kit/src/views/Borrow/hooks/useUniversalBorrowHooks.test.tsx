@@ -103,7 +103,7 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     (Toast.error as jest.Mock).mockReset();
   });
 
-  it('revalidates manage data after setup LUT finalizes even if repay confirm is cancelled', async () => {
+  it('advances to repay after setup LUT finalizes even if repay confirm is cancelled', async () => {
     backgroundMock.serviceStaking.borrowBuildSetupLutTransaction.mockResolvedValue(
       {
         tx: JSON.stringify({}),
@@ -161,7 +161,6 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const onSetupLutFinalized = jest.fn().mockResolvedValue(undefined);
     const onSetupLutReadyForRepay = jest.fn();
     const onSuccess = jest.fn();
 
@@ -184,13 +183,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
         reserveAddress: 'reserve-address',
         collateralReserveAddress: 'collateral-reserve-address',
         needsSetupLut: true,
-        onSetupLutFinalized,
         onSetupLutReadyForRepay,
         onSuccess,
       });
     });
 
-    expect(onSetupLutFinalized).toHaveBeenCalledTimes(1);
     expect(onSetupLutReadyForRepay).toHaveBeenCalledTimes(1);
     expect(onSuccess).not.toHaveBeenCalled();
     expect(
@@ -474,8 +471,6 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const onSetupLutFinalized = jest.fn().mockResolvedValue(undefined);
-
     const { result } = renderHook(
       () =>
         useUniversalBorrowRepayWithCollateral({
@@ -495,11 +490,9 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
         reserveAddress: 'reserve-address',
         collateralReserveAddress: 'collateral-reserve-address',
         needsSetupLut: true,
-        onSetupLutFinalized,
       });
     });
 
-    expect(onSetupLutFinalized).toHaveBeenCalledTimes(2);
     expect(
       backgroundMock.serviceStaking.updateOrderStatusByTxId,
     ).toHaveBeenCalledWith({

@@ -63,7 +63,7 @@ describe('borrowRepayPosition utils', () => {
     expect(
       getBorrowRepayProgressStep({
         progressKey,
-        needsSetupLut: false,
+        needsSetupLut: true,
         setupReadyProgressKey: progressKey,
       }),
     ).toBe(EStakeProgressStep.deposit);

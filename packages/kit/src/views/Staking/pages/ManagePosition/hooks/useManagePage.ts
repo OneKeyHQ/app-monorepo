@@ -34,6 +34,7 @@ export const useManagePage = ({
   type = EManagePositionType.Staking,
   reserveAddress,
   marketAddress,
+  revalidateOnFocus = true,
 }: {
   accountId: string;
   indexedAccountId: string | undefined;
@@ -44,6 +45,7 @@ export const useManagePage = ({
   type?: EManagePositionType;
   reserveAddress?: string;
   marketAddress?: string;
+  revalidateOnFocus?: boolean;
 }) => {
   const {
     result,
@@ -117,7 +119,7 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
     ],
-    { watchLoading: true, revalidateOnFocus: true },
+    { watchLoading: true, revalidateOnFocus },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};

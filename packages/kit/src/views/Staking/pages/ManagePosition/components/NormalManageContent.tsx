@@ -688,7 +688,7 @@ export function NormalManageContent({
           stakeTag={stakeTag || protocolInfo?.stakeTag}
           historyAction={historyAction}
           onHistory={onHistory}
-          onRefresh={onIndicatorRefresh}
+          onRefresh={isInModalContext ? undefined : onIndicatorRefresh}
           onRefreshPending={(refreshFn) => {
             if (onRefreshPendingRef) {
               onRefreshPendingRef.current = refreshFn;
@@ -734,7 +734,6 @@ export function NormalManageContent({
           tokenInfo={withdrawTokenInfo}
           protocolInfo={protocolInfo}
           isDisabled={withdrawDisabled}
-          onIndicatorRefresh={onIndicatorRefresh}
           onSuccess={onSuccess}
           beforeFooter={withdrawBeforeFooter}
           showApyDetail={showApyDetail}

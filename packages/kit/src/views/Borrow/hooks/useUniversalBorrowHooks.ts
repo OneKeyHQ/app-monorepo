@@ -8,7 +8,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -174,7 +173,6 @@ type IBorrowBuildTxParams = {
   slippageBps?: number;
   routeKey?: string;
   stakingInfo?: IStakingInfo;
-  onSetupLutFinalized?: () => void | Promise<void>;
   onSetupLutReadyForRepay?: () => void;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
   onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -466,7 +464,6 @@ export function useUniversalBorrowRepayWithCollateral({
       slippageBps,
       routeKey,
       stakingInfo,
-      onSetupLutFinalized,
       onSetupLutReadyForRepay,
       onSuccess,
       onFail,
@@ -477,18 +474,6 @@ export function useUniversalBorrowRepayWithCollateral({
           | 'failed'
           | 'timeout'
           | undefined;
-
-        const revalidateManagePageAfterSetup = async () => {
-          try {
-            await onSetupLutFinalized?.();
-          } catch (error) {
-            defaultLogger.app.error.log(
-              `[useUniversalBorrowRepayWithCollateral] setup LUT revalidation failed: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-          }
-        };
 
         if (!collateralReserveAddress) {
           throw new OneKeyLocalError('collateralReserveAddress is required');
@@ -568,7 +553,6 @@ export function useUniversalBorrowRepayWithCollateral({
           }
 
           await timerUtils.wait(LUT_PROPAGATION_BUFFER_MS);
-          await revalidateManagePageAfterSetup();
         }
 
         if (needsSetupLut) {
@@ -610,10 +594,6 @@ export function useUniversalBorrowRepayWithCollateral({
               routeKey: needsSetupLut ? freshQuote?.routeKey : routeKey,
             },
           );
-
-        if (setupLutFinalizationResult === 'timeout') {
-          await revalidateManagePageAfterSetup();
-        }
 
         const stakingInfoWithOrderId = attachBorrowOrderId({
           stakingInfo: attachRepayWithCollateralAmount({

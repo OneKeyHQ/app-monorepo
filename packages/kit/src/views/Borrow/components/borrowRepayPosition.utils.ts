@@ -65,12 +65,12 @@ export function getBorrowRepayProgressStep({
     return undefined;
   }
 
-  if (needsSetupLut) {
-    return EStakeProgressStep.approve;
-  }
-
   if (setupReadyProgressKey === progressKey) {
     return EStakeProgressStep.deposit;
+  }
+
+  if (needsSetupLut) {
+    return EStakeProgressStep.approve;
   }
 
   return undefined;
