@@ -233,7 +233,9 @@ section_market() {
   check_json "market prices (batch)" "success" \
     "$BIN" --json --env test market prices \
     --tokens "eth:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48,base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-  skip "market kline --chain eth --token USDC"
+  check_json "market kline --chain eth --token USDC" "success" \
+    "$BIN" --json --env test market kline --chain eth \
+    --token 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 --interval 1H --limit 6
 }
 should_run market && section_market
 

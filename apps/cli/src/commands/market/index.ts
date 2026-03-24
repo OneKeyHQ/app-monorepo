@@ -1,3 +1,4 @@
+import { registerMarketKlineCommand } from './market-kline';
 import { registerMarketPriceCommand } from './market-price';
 import { registerMarketPricesCommand } from './market-prices';
 
@@ -8,6 +9,7 @@ export function registerMarketCommands(program: Command) {
     .command('market')
     .description('Market data and price feeds');
 
+  registerMarketKlineCommand(market);
   registerMarketPriceCommand(market);
   registerMarketPricesCommand(market);
 }

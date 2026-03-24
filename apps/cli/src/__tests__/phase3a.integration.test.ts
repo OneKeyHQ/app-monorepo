@@ -195,7 +195,34 @@ describe('market commands (integration)', () => {
     expect(parsed.data[1].price).toBeTruthy();
   });
 
-  it.todo('market kline returns OHLCV data');
+  it('market kline returns OHLCV data', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'market',
+      'kline',
+      '--chain',
+      'eth',
+      '--token',
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      '--interval',
+      '1H',
+      '--limit',
+      '6',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.data.length).toBeGreaterThan(0);
+    const point = parsed.data[0];
+    expect(point).toHaveProperty('o');
+    expect(point).toHaveProperty('h');
+    expect(point).toHaveProperty('l');
+    expect(point).toHaveProperty('c');
+    expect(point).toHaveProperty('v');
+    expect(point).toHaveProperty('t');
+  });
 });
 
 describe('swap commands (integration)', () => {
