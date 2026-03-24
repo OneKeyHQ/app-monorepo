@@ -103,7 +103,9 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
   }, [portfolioData, timePeriod]);
 
   const fillsStats = useMemo(() => {
-    const fills = tradesHistoryData?.fills ?? [];
+    const isMatchingAddress =
+      tradesHistoryData?.accountAddress === address;
+    const fills = isMatchingAddress ? (tradesHistoryData?.fills ?? []) : [];
     const startMs = getStartTimeForPeriod(timePeriod);
 
     const filteredFills = fills.filter((fill) => {

@@ -41,7 +41,6 @@ import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 import { showPerpPortfolioDialog } from '../../Portfolio/PerpPortfolioModal';
-import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
 
@@ -116,13 +115,6 @@ function DepositButton() {
       size="medium"
       variant={isEmptyAccount ? 'primary' : 'secondary'}
       onPress={() => {
-        if (isEmptyAccount) {
-          void showDepositWithdrawDialog(
-            { actionType: 'deposit' },
-            dialogInTab,
-          );
-          return;
-        }
         if (gtMd) {
           showPerpPortfolioDialog(dialogInTab);
         } else {
