@@ -53,30 +53,24 @@ index 1c44762..11a2e04 100644
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -1643,6 +1649,11 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1643,6 +1649,16 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
 +
 +  if (self.screenView.isPresentedAsNativeModal && animated) {
 +    RNSModalTransitionInProgress = YES;
++    // Clear the flag when the transition finishes — whether it completed
++    // normally or was cancelled/interrupted. This avoids the stacking issue
++    // where another modal's viewWillDisappear could prematurely clear it.
++    [self.transitionCoordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> _Nonnull context) {
++      RNSModalTransitionInProgress = NO;
++    }];
 +  }
 +
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
-@@ -1681,6 +1692,11 @@ - (void)viewWillAppear:(BOOL)animated
- - (void)viewWillDisappear:(BOOL)animated
- {
-   [super viewWillDisappear:animated];
-+
-+  if (self.screenView.isPresentedAsNativeModal) {
-+    RNSModalTransitionInProgress = NO;
-+  }
-+
-   // self.navigationController might be null when we are dismissing a modal
-   if (!self.transitionCoordinator.isInteractive && self.navigationController != nil) {
-     // user might have long pressed ios 14 back button item,
 @@ -1711,6 +1727,11 @@ - (void)viewDidAppear:(BOOL)animated
      [RNSScreenView.viewInteractionManagerInstance enableInteractionsForLastSubtree];
    }
