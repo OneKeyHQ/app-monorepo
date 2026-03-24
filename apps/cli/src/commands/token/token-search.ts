@@ -23,6 +23,17 @@ interface IMarketSearchItem {
   communityRecognized?: boolean;
 }
 
+function isValidSearchItem(item: unknown): item is IMarketSearchItem {
+  if (typeof item !== 'object' || item === null) return false;
+  const r = item as Record<string, unknown>;
+  return (
+    typeof r.symbol === 'string' &&
+    typeof r.address === 'string' &&
+    typeof r.network === 'string' &&
+    typeof r.decimals === 'number'
+  );
+}
+
 export function registerTokenSearchCommand(parent: Command): void {
   parent
     .command('search')
@@ -58,13 +69,22 @@ export function registerTokenSearchCommand(parent: Command): void {
             1,
             Math.min(100, parseInt(options.limit, 10) || 10),
           );
+          const meta = options.chain ? { chain: options.chain } : {};
 
           // Call V2 market search — aligns with ServiceMarket.searchV2Token()
-          const results = await apiClient.get<IMarketSearchItem[]>(
+          const rawResults = await apiClient.get<unknown>(
             'utility',
             '/utility/v2/market/search',
             { query: options.query },
           );
+
+          // Runtime validation: API may return non-array on contract drift
+          if (!Array.isArray(rawResults)) {
+            output.success([], meta);
+            return;
+          }
+
+          const results = rawResults.filter(isValidSearchItem);
 
           // Filter by chain if specified
           let filtered = networkId
@@ -89,7 +109,6 @@ export function registerTokenSearchCommand(parent: Command): void {
             communityRecognized: t.communityRecognized ?? false,
           }));
 
-          const meta = options.chain ? { chain: options.chain } : {};
           output.success(data, meta);
         } catch (error) {
           const appError = AppError.from(error);
