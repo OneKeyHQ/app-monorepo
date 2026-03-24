@@ -38,21 +38,24 @@ export const SellOrBuyContent = memo(
       if (!networkUtils.isAllNetwork({ networkId })) {
         return tokens;
       }
-      let result = tokens.map((token) => ({
-        ...token,
-        fiatValue: getTokenFiatValue({
-          networkId: token.networkId,
-          tokenAddress: token.address.toLowerCase(),
-        })?.fiatValue,
-        balanceParsed: getTokenFiatValue({
-          networkId: token.networkId,
-          tokenAddress: token.address.toLowerCase(),
-        })?.balanceParsed,
-      }));
+      let result: IFiatCryptoToken[];
       if (type === 'sell') {
+        result = tokens.map((token) => {
+          const tokenFiat = getTokenFiatValue({
+            networkId: token.networkId,
+            tokenAddress: token.address.toLowerCase(),
+          });
+          return {
+            ...token,
+            fiatValue: tokenFiat?.fiatValue,
+            balanceParsed: tokenFiat?.balanceParsed,
+          };
+        });
         result = result.filter(
           (o) => o.balanceParsed && Number(o.balanceParsed) !== 0,
         );
+      } else {
+        result = tokens;
       }
       if (account && accountUtils.isOthersAccount({ accountId: account.id })) {
         result = result.filter((o) =>
@@ -109,6 +112,7 @@ export const SellOrBuyContent = memo(
       <NetworkContainer networkIds={networkIds}>
         <TokenList
           items={fiatValueTokens}
+          type={type}
           isLoading={isLoading}
           onPress={onPress}
         />
