@@ -75,6 +75,7 @@ function BaseBulkSendReview({
     setIsSubmitting,
     isInModal,
     ataCount,
+    intervalSettings,
   } = useBulkSendReviewContext();
 
   const intl = useIntl();
@@ -663,6 +664,7 @@ function BulkSendReview() {
       totalFiatAmount,
       isInModal,
       ataCount,
+      intervalSettings,
       networkImageUri: networkInfo?.logoURI,
       initialApprovesInfoRef,
       approvesInfo,
@@ -684,6 +686,7 @@ function BulkSendReview() {
       totalFiatAmount,
       isInModal,
       ataCount,
+      intervalSettings,
       networkInfo?.logoURI,
       approvesInfo,
       unsignedTxs,

@@ -946,53 +946,63 @@ function TransferInfoListSection() {
 
             {/* AMOUNT */}
             <Stack width={100} alignItems="flex-end" flexWrap="wrap">
-              {isMaxMode &&
-              amountInputMode === EAmountInputMode.Specified ? (
-                <SizableText
-                  size="$bodyMdMedium"
-                  width="100%"
-                  flex={1}
-                  textAlign="right"
-                  color="$textSuccess"
-                >
-                  Max
-                </SizableText>
-              ) : isCustomMode ? (
-                <Input
-                  value={transfer.amount}
-                  onChangeText={(value) => handleAmountChange(index, value)}
-                  placeholder="0"
-                  keyboardType="decimal-pad"
-                  textAlign="right"
-                  size="small"
-                  error={hasAmountError}
-                  leftAddOnProps={
-                    hasAmountError
-                      ? {
-                          iconName: 'ErrorOutline',
-                          iconColor: '$iconCritical',
-                          tooltipProps: {
-                            placement: 'top',
-                            renderContent: errors?.amount,
-                          },
-                        }
-                      : undefined
-                  }
-                  containerProps={{
-                    width: '100%',
-                    backgroundColor: '$bgSubdued',
-                  }}
-                />
-              ) : (
-                <SizableText
-                  size="$bodyMdMedium"
-                  width="100%"
-                  flex={1}
-                  textAlign="right"
-                >
-                  {transfer.amount || '-'}
-                </SizableText>
-              )}
+              {(() => {
+                if (
+                  isMaxMode &&
+                  amountInputMode === EAmountInputMode.Specified
+                ) {
+                  return (
+                    <SizableText
+                      size="$bodyMdMedium"
+                      width="100%"
+                      flex={1}
+                      textAlign="right"
+                      color="$textSuccess"
+                    >
+                      Max
+                    </SizableText>
+                  );
+                }
+                if (isCustomMode) {
+                  return (
+                    <Input
+                      value={transfer.amount}
+                      onChangeText={(value) => handleAmountChange(index, value)}
+                      placeholder="0"
+                      keyboardType="decimal-pad"
+                      textAlign="right"
+                      size="small"
+                      error={hasAmountError}
+                      leftAddOnProps={
+                        hasAmountError
+                          ? {
+                              iconName: 'ErrorOutline',
+                              iconColor: '$iconCritical',
+                              tooltipProps: {
+                                placement: 'top',
+                                renderContent: errors?.amount,
+                              },
+                            }
+                          : undefined
+                      }
+                      containerProps={{
+                        width: '100%',
+                        backgroundColor: '$bgSubdued',
+                      }}
+                    />
+                  );
+                }
+                return (
+                  <SizableText
+                    size="$bodyMdMedium"
+                    width="100%"
+                    flex={1}
+                    textAlign="right"
+                  >
+                    {transfer.amount || '-'}
+                  </SizableText>
+                );
+              })()}
             </Stack>
 
             {/* ACTION */}

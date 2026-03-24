@@ -300,10 +300,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
       if (shouldShowInterval) {
         if (isInModal) {
-          navigation.push(
-            EModalBulkSendRoutes.BulkSendIntervalInput,
-            params,
-          );
+          navigation.push(EModalBulkSendRoutes.BulkSendIntervalInput, params);
         } else {
           navigation.pushModal(EModalRoutes.BulkSendModal, {
             screen: EModalBulkSendRoutes.BulkSendIntervalInput,
@@ -658,8 +655,6 @@ function BulkSendAmountsInput() {
   const [amountInputMode, setAmountInputMode] = useState<EAmountInputMode>(
     EAmountInputMode.Specified,
   );
-
-  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
   const [isMaxMode, setIsMaxModeRaw] = useState(false);
 
@@ -1019,6 +1014,7 @@ function BulkSendAmountsInput() {
       tokenDetailsState,
       bulkSendMode,
       isMaxMode,
+      setIsMaxMode,
       transfersInfo,
       setTransfersInfo,
       amountInputMode,

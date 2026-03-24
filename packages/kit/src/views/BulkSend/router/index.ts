@@ -11,9 +11,7 @@ const BulkSendAmountsInput = LazyLoad(
 );
 const BulkSendIntervalInput = LazyLoad(
   () =>
-    import(
-      '@onekeyhq/kit/src/views/BulkSend/pages/BulkSendIntervalInput/BulkSendIntervalInput'
-    ),
+    import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendIntervalInput/BulkSendIntervalInput'),
 );
 const BulkSendReview = LazyLoad(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendReview'),

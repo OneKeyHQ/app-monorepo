@@ -116,6 +116,8 @@ function SetAmountPerAddressDialogContent({
       },
       setTokenDetailsState: () => {},
       bulkSendMode: EBulkSendMode.OneToMany,
+      isMaxMode: false,
+      setIsMaxMode: () => {},
       transfersInfo,
       setTransfersInfo: () => {},
       amountInputMode,

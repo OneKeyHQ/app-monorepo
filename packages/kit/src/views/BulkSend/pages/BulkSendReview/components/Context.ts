@@ -5,7 +5,10 @@ import type {
   IApproveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import {
+  EBulkSendMode,
+  type IIntervalSettings,
+} from '@onekeyhq/shared/types/bulkSend';
 import type {
   EFeeType,
   ESendFeeStatus,
@@ -49,6 +52,7 @@ export type IBulkSendReviewContext = {
   totalFiatAmount: string;
   isInModal?: boolean;
   ataCount?: number;
+  intervalSettings?: IIntervalSettings;
 
   // Fetched data
   networkImageUri: string | undefined;
@@ -87,6 +91,7 @@ export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
   totalFiatAmount: '0',
   isInModal: undefined,
   ataCount: undefined,
+  intervalSettings: undefined,
 
   networkImageUri: undefined,
 

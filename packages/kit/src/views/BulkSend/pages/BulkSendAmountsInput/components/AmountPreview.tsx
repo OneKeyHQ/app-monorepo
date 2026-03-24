@@ -202,38 +202,44 @@ export function AmountPreview({
               })}
             </SizableText>
             <XStack alignItems="center" gap="$1">
-              {isMaxDisplay ? (
-                <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  Max
-                </SizableText>
-              ) : totalTokenAmount === '--' ? (
-                <SizableText size="$bodyLgMedium">--</SizableText>
-              ) : (
-                <>
-                  <NumberSizeableText
-                    size="$bodyLgMedium"
-                    formatter="balance"
-                    formatterOptions={{
-                      tokenSymbol: tokenDetails?.info.symbol,
-                    }}
-                  >
-                    {totalTokenAmount}
-                  </NumberSizeableText>
-                  <SizableText size="$bodyLgMedium" color="$textSubdued">
-                    (
+              {(() => {
+                if (isMaxDisplay) {
+                  return (
+                    <SizableText size="$bodyLgMedium" color="$textSuccess">
+                      Max
+                    </SizableText>
+                  );
+                }
+                if (totalTokenAmount === '--') {
+                  return <SizableText size="$bodyLgMedium">--</SizableText>;
+                }
+                return (
+                  <>
                     <NumberSizeableText
                       size="$bodyLgMedium"
-                      formatter="value"
+                      formatter="balance"
                       formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
+                        tokenSymbol: tokenDetails?.info.symbol,
                       }}
                     >
-                      {totalFiatAmount}
+                      {totalTokenAmount}
                     </NumberSizeableText>
-                    )
-                  </SizableText>
-                </>
-              )}
+                    <SizableText size="$bodyLgMedium" color="$textSubdued">
+                      (
+                      <NumberSizeableText
+                        size="$bodyLgMedium"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settings.currencyInfo.symbol,
+                        }}
+                      >
+                        {totalFiatAmount}
+                      </NumberSizeableText>
+                      )
+                    </SizableText>
+                  </>
+                );
+              })()}
             </XStack>
           </YStack>
           {showAvailable ? (

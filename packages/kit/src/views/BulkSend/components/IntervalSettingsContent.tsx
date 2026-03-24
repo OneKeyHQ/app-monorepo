@@ -1,6 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
-import { Input, Radio, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Input,
+  Radio,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import {
   EIntervalMode,
   type IIntervalSettings,
@@ -100,16 +106,18 @@ function IntervalSettingsContent({
         value: EIntervalMode.None,
       },
     ],
-    [value.mode, value.minSeconds, value.maxSeconds, handleMinChange, handleMaxChange],
+    [
+      value.mode,
+      value.minSeconds,
+      value.maxSeconds,
+      handleMinChange,
+      handleMaxChange,
+    ],
   );
 
   return (
     <YStack>
-      <Radio
-        value={value.mode}
-        onChange={handleModeChange}
-        options={options}
-      />
+      <Radio value={value.mode} onChange={handleModeChange} options={options} />
     </YStack>
   );
 }
