@@ -1,13 +1,15 @@
-import { CHAINS, ConfigManager } from '../../config';
+import { randomUUID } from 'node:crypto';
+
+import { CHAINS, ConfigManager, getHost } from '../../config';
 import { auditToken, resolveToken } from '../../core';
 import { AppError, ERROR_CODES } from '../../errors';
-import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
 import {
   amountToSmallestUnit,
   validateAmountDecimals,
 } from '../../utils/tx-utils';
 
+import type { IEndpointEnv } from '../../config';
 import type { IAuditSummary } from '../../core';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
@@ -18,11 +20,11 @@ interface IQuoteTokenInfo {
   contractAddress?: string;
 }
 
-/** Minimal quote info returned from /swap/v1/quote — aligned with IFetchQuoteResult */
+/** Minimal quote info returned from SSE — aligned with IFetchQuoteResult */
 interface IQuoteResultItem {
   info: { provider: string; providerName: string };
   toAmount?: string;
-  estimatedTime?: string;
+  estimatedTime?: string | number;
   fee?: {
     percentageFee: number;
     protocolFees?: number;
@@ -35,6 +37,31 @@ interface IQuoteResultItem {
   errorMessage?: string;
   fromTokenInfo?: IQuoteTokenInfo;
   toTokenInfo?: IQuoteTokenInfo;
+}
+
+/** SSE event data types — aligned with ISwapQuoteEventData */
+interface ISseEventInfo {
+  totalQuoteCount: number;
+  eventId: string;
+}
+
+interface ISseEventQuoteResult {
+  data: IQuoteResultItem[];
+}
+
+interface ISseEventError {
+  errorMessage?: string;
+  eventId?: string;
+}
+
+const SSE_TIMEOUT_MS = 30_000;
+
+function safeParse(jsonStr: string): unknown {
+  try {
+    return JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
 }
 
 function computeOverallRisk(audit: IAuditSummary): 'high' | 'caution' | 'low' {
@@ -65,6 +92,137 @@ function formatQuoteItem(q: IQuoteResultItem) {
     fee: q.fee ?? null,
     ...(q.errorMessage ? { errorMessage: q.errorMessage } : {}),
   };
+}
+
+function buildSSEUrl(
+  env: IEndpointEnv,
+  params: Record<string, string | number>,
+): string {
+  const host = getHost(env);
+  const base = `https://swap.${host}/swap/v1/quote/events`;
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    qs.set(k, String(v));
+  }
+  return `${base}?${qs.toString()}`;
+}
+
+/**
+ * Consume SSE stream from /swap/v1/quote/events using native fetch.
+ * Collects all quote results until the stream closes.
+ */
+async function fetchQuotesViaSSE(
+  env: IEndpointEnv,
+  params: Record<string, string | number>,
+): Promise<IQuoteResultItem[]> {
+  const url = buildSSEUrl(env, params);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SSE_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'X-Onekey-Request-ID': randomUUID(),
+        'X-Onekey-Request-Platform': 'cli',
+        'X-Onekey-Request-Version': '0.1.0',
+      },
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timer);
+    if ((error as Error).name === 'AbortError') {
+      throw new AppError(
+        ERROR_CODES.NET_RPC_TIMEOUT.code,
+        'Quote SSE request timed out',
+        'Check network connectivity or try again',
+      );
+    }
+    throw new AppError(
+      ERROR_CODES.NET_REQUEST_FAILED.code,
+      `Quote SSE request failed: ${(error as Error).message}`,
+      'Check network connectivity',
+    );
+  }
+
+  if (!response.ok || !response.body) {
+    clearTimeout(timer);
+    throw new AppError(
+      ERROR_CODES.NET_HTTP_ERROR.code,
+      `Quote SSE HTTP ${response.status}: ${response.statusText}`,
+      'Check API connectivity',
+    );
+  }
+
+  const quotes: IQuoteResultItem[] = [];
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE lines: "data: {...}\n\n"
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && trimmed.startsWith('data:')) {
+          const jsonStr = trimmed.slice(5).trim();
+          if (jsonStr) {
+            const parsed = safeParse(jsonStr);
+            if (typeof parsed === 'object' && parsed !== null) {
+              const obj = parsed as Record<string, unknown>;
+
+              // Check for error event
+              const asError = obj as unknown as ISseEventError;
+              if (asError.errorMessage) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_SWAP_FAILED.code,
+                  asError.errorMessage,
+                  'Try a different token pair or amount',
+                );
+              }
+
+              // Check for totalQuoteCount info event
+              const asInfo = obj as unknown as ISseEventInfo;
+              if (
+                typeof asInfo.totalQuoteCount === 'number' &&
+                asInfo.totalQuoteCount === 0
+              ) {
+                // No providers support this pair — stop early
+                break;
+              }
+
+              // Check for quote result data
+              const asQuoteResult = obj as unknown as ISseEventQuoteResult;
+              if (Array.isArray(asQuoteResult.data)) {
+                for (const item of asQuoteResult.data) {
+                  if (isValidQuoteItem(item)) {
+                    quotes.push(item);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } finally {
+    clearTimeout(timer);
+    reader.releaseLock();
+  }
+
+  return quotes;
 }
 
 async function tryGetWalletAddress(
@@ -199,50 +357,37 @@ export function registerSwapQuoteCommand(parent: Command): void {
             chainConfig.networkId,
           );
 
-          // Build quote params
-          const quoteParams: Record<string, unknown> = {
+          // Build SSE quote params — protocol must be "Swap" (capital S)
+          const quoteParams: Record<string, string | number> = {
             fromTokenAddress: fromResolved.contractAddress,
             toTokenAddress: toResolved.contractAddress,
             fromTokenAmount,
             fromNetworkId: fromResolved.networkId,
             toNetworkId: toResolved.networkId,
             slippagePercentage: slippage,
-            protocol: 'swap',
+            protocol: 'Swap',
+            kind: 'sell',
           };
           if (walletAddress) {
             quoteParams.userAddress = walletAddress;
+            quoteParams.receivingAddress = walletAddress;
           }
 
-          // Parallel: quote API + security audit on toToken
+          // Resolve env from apiClient state
+          const env = (
+            (globalOpts.env as string) === 'prod' ? 'prod' : 'test'
+          ) as IEndpointEnv;
+
+          // Parallel: quote SSE + security audit on toToken
           // Skip security audit if toToken is native (empty contractAddress)
           const securityPromise = toResolved.contractAddress
             ? auditToken(chainConfig.networkId, toResolved.contractAddress)
             : null;
 
-          const [rawQuotes, securityResult] = await Promise.all([
-            apiClient.get<unknown[]>('swap', '/swap/v1/quote', quoteParams),
+          const [validQuotes, securityResult] = await Promise.all([
+            fetchQuotesViaSSE(env, quoteParams),
             securityPromise,
           ]);
-
-          // Validate quote response
-          if (!Array.isArray(rawQuotes)) {
-            throw new AppError(
-              ERROR_CODES.NET_HTTP_ERROR.code,
-              'Malformed quote response: expected array',
-              'This may indicate an API contract change',
-            );
-          }
-
-          const validQuotes = rawQuotes.filter(isValidQuoteItem);
-
-          // If API returned items but none passed validation, the response is malformed
-          if (rawQuotes.length > 0 && validQuotes.length === 0) {
-            throw new AppError(
-              ERROR_CODES.NET_HTTP_ERROR.code,
-              'All quote items failed validation — API response may have changed',
-              'Check API connectivity or report this issue',
-            );
-          }
 
           // If all valid quotes only have errorMessage and no toAmount, report failure
           const usableQuotes = validQuotes.filter((q) => q.toAmount);
@@ -255,7 +400,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
             );
           }
 
-          // Validate response token pair matches request (when fields are present)
+          // Validate response token pair matches request (when fields present)
           for (const q of usableQuotes) {
             if (
               q.fromTokenInfo?.networkId &&
