@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -192,21 +192,65 @@ describe('listPending', () => {
   });
 });
 
-describe('orderId sanitization — path traversal prevention', () => {
-  it('strips path traversal characters', () => {
-    const order = makeOrder({ orderId: '../../etc/passwd' });
-    savePending('../../etc/passwd', order);
-
-    // Traversal chars stripped: "../../etc/passwd" → "etc" + "passwd"
-    expect(existsSync(join(tempDir, 'etcpasswd.json'))).toBe(true);
-  });
-
-  it('throws for orderId that becomes empty after sanitization', () => {
-    expect(() => savePending('/../..', makeOrder())).toThrow(
+describe('orderId validation — path traversal prevention', () => {
+  it('rejects orderId with path traversal characters', () => {
+    expect(() => savePending('../../etc/passwd', makeOrder())).toThrow(
       expect.objectContaining({
         code: 'PARAM_MISSING_REQUIRED',
-        message: expect.stringContaining('empty after sanitization'),
+        message: expect.stringContaining('illegal characters'),
       }),
     );
+  });
+
+  it('rejects orderId with dots', () => {
+    expect(() => savePending('abc.def', makeOrder())).toThrow(
+      expect.objectContaining({
+        code: 'PARAM_MISSING_REQUIRED',
+      }),
+    );
+  });
+
+  it('rejects empty orderId', () => {
+    expect(() => savePending('', makeOrder())).toThrow(
+      expect.objectContaining({
+        code: 'PARAM_MISSING_REQUIRED',
+      }),
+    );
+  });
+
+  it('accepts valid orderId with alphanumeric, hyphens, underscores', () => {
+    const order = makeOrder({ orderId: 'abc-123_DEF' });
+    savePending('abc-123_DEF', order);
+    expect(existsSync(join(tempDir, 'abc-123_DEF.json'))).toBe(true);
+  });
+});
+
+describe('corrupted file handling', () => {
+  it('loadPending throws BIZ_SWAP_FAILED for corrupted JSON', () => {
+    writeFileSync(join(tempDir, 'corrupt.json'), 'not-json', 'utf-8');
+    expect(() => loadPending('corrupt')).toThrow();
+  });
+
+  it('loadPending throws for file missing required fields', () => {
+    writeFileSync(
+      join(tempDir, 'bad-schema.json'),
+      JSON.stringify({ orderId: 'bad-schema' }),
+      'utf-8',
+    );
+    expect(() => loadPending('bad-schema')).toThrow(
+      expect.objectContaining({
+        code: 'BIZ_SWAP_FAILED',
+        message: expect.stringContaining('Corrupted'),
+      }),
+    );
+  });
+
+  it('listPending skips corrupted files', () => {
+    savePending('good', makeOrder({ orderId: 'good' }));
+    writeFileSync(join(tempDir, 'broken.json'), '{bad', 'utf-8');
+
+    const list = listPending();
+    expect(list).toHaveLength(1);
+    expect(list[0].orderId).toBe('good');
   });
 });
