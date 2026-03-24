@@ -121,13 +121,20 @@ export class ApiClient {
     return this.unwrap(response.data, `GET ${path}`);
   }
 
-  async post<T>(service: string, path: string, body?: unknown): Promise<T> {
+  async post<T>(
+    service: string,
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T> {
     const client = this.createClient(service);
     this.logger?.debug(
       `[API] POST ${service}${path}`,
       JSON.stringify(body ?? {}),
     );
-    const response = await client.post<IOneKeyApiResponse<T>>(path, body);
+    const response = await client.post<IOneKeyApiResponse<T>>(path, body, {
+      headers,
+    });
     return this.unwrap(response.data, `POST ${path}`);
   }
 

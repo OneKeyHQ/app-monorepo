@@ -158,8 +158,43 @@ describe('token commands (integration)', () => {
 });
 
 describe('market commands (integration)', () => {
-  it.todo('market price returns single token price');
-  it.todo('market prices returns batch prices');
+  it('market price returns single token price', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'market',
+      'price',
+      '--chain',
+      'eth',
+      '--token',
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(parsed.data.price).toBeTruthy();
+    expect(parsed.data.symbol).toMatch(/USDC/i);
+    expect(parsed.data).toHaveProperty('priceChange24hPercent');
+  });
+
+  it('market prices returns batch prices', () => {
+    const output = run(
+      '--json',
+      '--env',
+      'test',
+      'market',
+      'prices',
+      '--tokens',
+      'eth:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48,base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('success');
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.data.length).toBe(2);
+    expect(parsed.data[0].price).toBeTruthy();
+    expect(parsed.data[1].price).toBeTruthy();
+  });
+
   it.todo('market kline returns OHLCV data');
 });
 

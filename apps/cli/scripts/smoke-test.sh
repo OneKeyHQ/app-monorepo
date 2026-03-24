@@ -227,9 +227,13 @@ should_run token && section_token
 section_market() {
   echo ""
   echo "--- Market commands ---"
-  skip "market price --token btc"
-  skip "market prices --tokens btc,eth"
-  skip "market kline --token btc --period 1d"
+  check_json "market price --chain eth --token USDC" "success" \
+    "$BIN" --json --env test market price --chain eth \
+    --token 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+  check_json "market prices (batch)" "success" \
+    "$BIN" --json --env test market prices \
+    --tokens "eth:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48,base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+  skip "market kline --chain eth --token USDC"
 }
 should_run market && section_market
 
