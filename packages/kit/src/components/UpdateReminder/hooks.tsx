@@ -664,6 +664,9 @@ export const useDownloadPackage = () => {
 };
 
 let isFirstLaunch = true;
+// Module-level guard: silent-ready dialog should fire at most once per app
+// session even if useAppUpdateInfo is mounted in multiple components.
+let silentReadyDialogShown = false;
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -957,6 +960,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
           );
         }
       } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+        // Consume the module-level guard shared with the silent-ready
+        // watcher effect below, so the watcher skips on the same render
+        // tick (prevents duplicate dialog via throttle trailing edge when
+        // the persisted atom is already hydrated on first launch).
+        silentReadyDialogShown = true;
         showSilentUpdateDialog();
       } else {
         showUpdateDialog();
@@ -985,6 +993,29 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     installPackage,
     appUpdateInfo,
   ]);
+
+  // Silent‐ready watcher — independent of isFirstLaunch.
+  // The main effect above is gated by isFirstLaunch (module‐level flag),
+  // so it cannot react to status changes that arrive after the first run
+  // (e.g. silent download completes in-session, or persist‐atom hydrates
+  // after the initial render on restart).  This dedicated effect covers
+  // both cases.  silentReadyDialogShown (module‐level) ensures only the
+  // first mounted instance triggers the dialog per app session, even when
+  // useAppUpdateInfo is used by multiple components simultaneously.
+  useEffect(() => {
+    if (!autoCheck) return;
+    if (silentReadyDialogShown) return;
+    if (appUpdateInfo.updateStrategy !== EUpdateStrategy.silent) return;
+    if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
+    if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
+    silentReadyDialogShown = true;
+    showSilentUpdateDialog();
+    // deps: only re-run when status or updateStrategy changes.
+    // appUpdateInfo is omitted intentionally — including the object ref
+    // would re-fire on every unrelated field mutation.
+    // showSilentUpdateDialog is a stable throttled ref, safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCheck, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
