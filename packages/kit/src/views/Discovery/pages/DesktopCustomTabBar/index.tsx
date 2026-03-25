@@ -47,6 +47,10 @@ import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
+// Persist the last active tab ID across component mount/unmount cycles
+// so that returning to MultiTabBrowser restores the previously viewed dApp.
+let savedActiveTabId = '';
+
 function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
   const intl = useIntl();
   const isCollapsed = !(isExpanded ?? false);
@@ -133,9 +137,22 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
   const [isDiscoveryFocused, setIsDiscoveryFocused] = useState(false);
   useListenTabFocusState(ETabRoutes.Discovery, setIsDiscoveryFocused);
 
+  // Use a ref so the useListenTabFocusState callback (captured on mount)
+  // always reads the current activeTabId value.
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
+
   useListenTabFocusState(ETabRoutes.MultiTabBrowser, (isFocus: boolean) => {
     if (!isFocus) {
+      // Save active tab before clearing so it can be restored when returning
+      if (activeTabIdRef.current) {
+        savedActiveTabId = activeTabIdRef.current;
+      }
       setCurrentWebTab('');
+    } else if (savedActiveTabId) {
+      // Restore the previously active tab when MultiTabBrowser regains focus
+      setCurrentWebTab(savedActiveTabId);
+      savedActiveTabId = '';
     }
   });
 
@@ -154,6 +171,8 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
 
   const onTabPress = useCallback(
     (id: string) => {
+      // Clear saved tab so the restore callback won't overwrite this explicit selection
+      savedActiveTabId = '';
       navigation.switchTab(ETabRoutes.MultiTabBrowser);
       setCurrentWebTab(id);
     },
@@ -165,6 +184,7 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
       switch (eventName) {
         case EShortcutEvents.ReOpenLastClosedTab:
           if (reOpenLastClosedTab()) {
+            savedActiveTabId = '';
             navigation.switchTab(ETabRoutes.MultiTabBrowser);
           }
           break;
@@ -286,6 +306,7 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
           onPress={(e) => {
             e.stopPropagation();
             if (platformEnv.isDesktop) {
+              savedActiveTabId = '';
               addBrowserHomeTab();
               navigation.switchTab(ETabRoutes.MultiTabBrowser);
             } else {

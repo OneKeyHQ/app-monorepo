@@ -41,6 +41,8 @@ import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 // Estimated height per tab item (icon ~40px + gap + label ~16-30px + padding 12px)
 const ESTIMATED_TAB_ITEM_HEIGHT = 70;
 
+let lastBrowserRoute: string = ETabRoutes.Discovery;
+
 function DesktopWinSidebarTop() {
   return (
     <XStack h={52} ai="center" jc="center" px="$4" className="app-region-drag">
@@ -470,6 +472,15 @@ export function DesktopLeftSideBar({
   // Current focused route for browser submenu
   const focusedRouteName = state.routes[state.index]?.name;
 
+  // Track last active browser route (Discovery or MultiTabBrowser)
+  useEffect(() => {
+    if (focusedRouteName === ETabRoutes.Discovery) {
+      lastBrowserRoute = ETabRoutes.Discovery;
+    } else if (extraConfig?.name && focusedRouteName === extraConfig.name) {
+      lastBrowserRoute = extraConfig.name;
+    }
+  }, [focusedRouteName, extraConfig?.name]);
+
   const [maxVisibleCount, setMaxVisibleCount] = useState(0);
   const handleTabsContainerLayout = useCallback((event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
@@ -588,7 +599,20 @@ export function DesktopLeftSideBar({
                   <TabItemView
                     key={route.key}
                     route={route}
-                    onPress={() => handleTabPress(route, isActive)}
+                    onPress={() => {
+                      // When clicking the Discovery sidebar icon, restore the last
+                      // active browser route (Discovery or MultiTabBrowser) so that
+                      // switching to another tab and back preserves the dApp page.
+                      if (
+                        route.name === ETabRoutes.Discovery &&
+                        !isActive &&
+                        lastBrowserRoute !== ETabRoutes.Discovery
+                      ) {
+                        switchTab(lastBrowserRoute as ETabRoutes);
+                      } else {
+                        handleTabPress(route, isActive);
+                      }
+                    }}
                     isActive={isActive}
                     options={descriptors[route.key].options}
                   />
