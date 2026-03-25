@@ -5118,10 +5118,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       };
       if (connectId) {
         // Match any of the connectId fields (legacy behavior + new fields)
+        // Use case-insensitive comparison because iOS BLE (CBPeripheral UUID)
+        // may return different casing across sessions
+        const connId = connectId.toLowerCase();
         mergePredicate(
-          item.connectId === connectId ||
-            item.usbConnectId === connectId ||
-            item.bleConnectId === connectId,
+          item.connectId?.toLowerCase() === connId ||
+            item.usbConnectId?.toLowerCase() === connId ||
+            item.bleConnectId?.toLowerCase() === connId,
         );
       }
       if (featuresDeviceId) {
