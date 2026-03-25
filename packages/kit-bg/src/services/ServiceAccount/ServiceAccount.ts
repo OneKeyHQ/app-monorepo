@@ -549,7 +549,6 @@ class ServiceAccount extends ServiceBase {
       connectId,
       featuresDeviceId: deviceId,
     });
-
     if (!device) {
       return false;
     }
