@@ -1105,6 +1105,10 @@ function BulkSendAmountsInputContent({
   // Per-sender balance validation for ManyToOne/ManyToMany
   useEffect(() => {
     if (bulkSendMode === EBulkSendMode.OneToMany) return;
+    if (isMaxMode) {
+      setIsInsufficientBalance(false);
+      return;
+    }
     if (Object.keys(senderBalances).length === 0) return;
 
     let anyInsufficient = false;
@@ -1120,7 +1124,7 @@ function BulkSendAmountsInputContent({
     }
 
     setIsInsufficientBalance(anyInsufficient);
-  }, [bulkSendMode, senderBalances, transfersInfo]);
+  }, [bulkSendMode, isMaxMode, senderBalances, transfersInfo]);
 
   useEffect(() => {
     const generateTransfersInfo = (): ITransferInfo[] => {

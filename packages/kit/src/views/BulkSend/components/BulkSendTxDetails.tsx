@@ -85,7 +85,7 @@ type IProps = {
 
 type ITransferListItemProps = {
   address: string;
-  amount: string;
+  amount?: string;
   tokenSymbol: string;
   type: 'send' | 'receive';
   addressError?: string;
@@ -96,7 +96,6 @@ type ITransferListItemProps = {
   canDelete?: boolean;
   onDeleteTransfers?: (indices: number[]) => void;
   onAmountChangeByIndex?: (index: number, amount: string) => void;
-  isMaxMode?: boolean;
   balance?: string;
   balanceLoading?: boolean;
   balanceFailed?: boolean;
@@ -115,7 +114,6 @@ function TransferListItemBase({
   canDelete,
   onDeleteTransfers,
   onAmountChangeByIndex,
-  isMaxMode,
   balance,
   balanceLoading,
   balanceFailed,
@@ -162,19 +160,6 @@ function TransferListItemBase({
   );
 
   const renderAmount = () => {
-    if (isMaxMode) {
-      return (
-        <SizableText
-          size="$bodyMdMedium"
-          color="$textSuccess"
-          textAlign="right"
-          flexShrink={0}
-        >
-          Max
-        </SizableText>
-      );
-    }
-
     if (editMode) {
       return (
         <XStack alignItems="center" gap="$2">
@@ -208,19 +193,42 @@ function TransferListItemBase({
       );
     }
 
-    const displayAmount = isSend ? `-${amount}` : `+${amount}`;
+    if (!amount) {
+      return (
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textSubdued"
+          textAlign="right"
+          flexShrink={0}
+          numberOfLines={1}
+        >
+          -
+        </SizableText>
+      );
+    }
+
     const textColor = isSend ? '$text' : '$textSuccess';
+    const displayAmount = isSend
+      ? new BigNumber(amount).negated().toFixed()
+      : amount;
 
     return (
-      <SizableText
+      <NumberSizeableText
         size="$bodyMdMedium"
         color={textColor}
         textAlign="right"
-        flexShrink={0}
+        minWidth={0}
+        flexShrink={1}
         numberOfLines={1}
+        ellipsizeMode="tail"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol,
+          showPlusMinusSigns: true,
+        }}
       >
-        {`${displayAmount} ${tokenSymbol}`}
-      </SizableText>
+        {displayAmount}
+      </NumberSizeableText>
     );
   };
 
@@ -259,12 +267,7 @@ function TransferListItemBase({
   };
 
   return (
-    <XStack
-      gap="$3"
-      py="$2"
-      minWidth={0}
-      alignItems={editMode ? 'center' : 'flex-start'}
-    >
+    <XStack gap="$3" py="$2" minWidth={0} alignItems="center">
       <YStack
         justifyContent="center"
         minWidth={0}
@@ -407,7 +410,6 @@ const TransferListItem = memo(
     prev.canDelete === next.canDelete &&
     prev.onDeleteTransfers === next.onDeleteTransfers &&
     prev.onAmountChangeByIndex === next.onAmountChangeByIndex &&
-    prev.isMaxMode === next.isMaxMode &&
     prev.balance === next.balance &&
     prev.balanceLoading === next.balanceLoading &&
     prev.balanceFailed === next.balanceFailed &&
@@ -459,6 +461,8 @@ function BulkSendTxDetails(props: IProps) {
   const canEditReceiver =
     bulkSendMode === EBulkSendMode.OneToMany ||
     bulkSendMode === EBulkSendMode.ManyToMany;
+  const shouldResolveMaxAmounts =
+    Boolean(isMaxMode) && bulkSendMode !== EBulkSendMode.OneToMany;
 
   const tokenSymbol = tokenInfo.symbol;
 
@@ -466,38 +470,57 @@ function BulkSendTxDetails(props: IProps) {
   const { senders, receivers } = useMemo(() => {
     const senderMap = new Map<
       string,
-      { address: string; amount: string; indices: number[] }
+      { address: string; amount?: string; indices: number[] }
     >();
     const receiverMap = new Map<
       string,
-      { address: string; amount: string; indices: number[] }
+      { address: string; amount?: string; indices: number[] }
     >();
 
+    const mergeAmounts = (
+      currentAmount: string | undefined,
+      nextAmount: string | undefined,
+    ): string | undefined => {
+      if (currentAmount === undefined || nextAmount === undefined) {
+        return undefined;
+      }
+
+      return new BigNumber(currentAmount || '0')
+        .plus(nextAmount || '0')
+        .toFixed();
+    };
+
     transfersInfo.forEach((transfer, index) => {
+      const resolvedAmount = shouldResolveMaxAmounts
+        ? senderBalances?.[transfer.from]
+        : transfer.amount;
+
       const existingSender = senderMap.get(transfer.from);
       if (existingSender) {
-        existingSender.amount = new BigNumber(existingSender.amount || '0')
-          .plus(transfer.amount || '0')
-          .toFixed();
+        existingSender.amount = mergeAmounts(
+          existingSender.amount,
+          resolvedAmount,
+        );
         existingSender.indices.push(index);
       } else {
         senderMap.set(transfer.from, {
           address: transfer.from,
-          amount: transfer.amount ?? '',
+          amount: resolvedAmount,
           indices: [index],
         });
       }
 
       const existingReceiver = receiverMap.get(transfer.to);
       if (existingReceiver) {
-        existingReceiver.amount = new BigNumber(existingReceiver.amount || '0')
-          .plus(transfer.amount || '0')
-          .toFixed();
+        existingReceiver.amount = mergeAmounts(
+          existingReceiver.amount,
+          resolvedAmount,
+        );
         existingReceiver.indices.push(index);
       } else {
         receiverMap.set(transfer.to, {
           address: transfer.to,
-          amount: transfer.amount ?? '',
+          amount: resolvedAmount,
           indices: [index],
         });
       }
@@ -507,7 +530,7 @@ function BulkSendTxDetails(props: IProps) {
       senders: Array.from(senderMap.values()),
       receivers: Array.from(receiverMap.values()),
     };
-  }, [transfersInfo]);
+  }, [transfersInfo, shouldResolveMaxAmounts, senderBalances]);
 
   const visibleSenders = useProgressiveList(senders);
   const visibleReceivers = useProgressiveList(receivers);
@@ -577,7 +600,6 @@ function BulkSendTxDetails(props: IProps) {
             }
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
-            isMaxMode={isMaxMode}
             balance={senderBalances?.[sender.address]}
             balanceLoading={senderBalancesLoading}
             balanceFailed={senderBalancesFailed?.has(sender.address)}
@@ -608,7 +630,6 @@ function BulkSendTxDetails(props: IProps) {
             editMode={Boolean(editMode && canEditReceiver)}
             deleteDisabled={isDeleteDisabled}
             indices={receiver.indices}
-            isMaxMode={isMaxMode}
             canDelete={
               !!onDeleteTransfer && canEditReceiver
                 ? !isDeleteDisabled

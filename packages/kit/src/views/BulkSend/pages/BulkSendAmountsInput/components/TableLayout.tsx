@@ -890,6 +890,10 @@ function TransferInfoListSection() {
         const hasFromError = !!errors?.from;
         const hasToError = !!errors?.to;
         const hasAmountError = !!errors?.amount;
+        const displayAmount =
+          !isOneToMany && isMaxMode
+            ? senderBalances[transfer.from]
+            : transfer.amount;
 
         return (
           <XStack
@@ -953,8 +957,8 @@ function TransferInfoListSection() {
                         size="$bodySm"
                         color={
                           senderBalances[transfer.from] &&
-                          transfer.amount &&
-                          new BigNumber(transfer.amount).gt(
+                          displayAmount &&
+                          new BigNumber(displayAmount).gt(
                             senderBalances[transfer.from],
                           )
                             ? '$textCritical'
@@ -1011,22 +1015,6 @@ function TransferInfoListSection() {
             {/* AMOUNT */}
             <Stack width={100} alignItems="flex-end" flexWrap="wrap">
               {(() => {
-                if (
-                  isMaxMode &&
-                  amountInputMode === EAmountInputMode.Specified
-                ) {
-                  return (
-                    <SizableText
-                      size="$bodyMdMedium"
-                      width="100%"
-                      flex={1}
-                      textAlign="right"
-                      color="$textSuccess"
-                    >
-                      Max
-                    </SizableText>
-                  );
-                }
                 if (isCustomMode) {
                   return (
                     <Input
@@ -1057,14 +1045,17 @@ function TransferInfoListSection() {
                   );
                 }
                 return (
-                  <SizableText
+                  <NumberSizeableText
                     size="$bodyMdMedium"
                     width="100%"
                     flex={1}
                     textAlign="right"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    formatter="balance"
                   >
-                    {transfer.amount || '-'}
-                  </SizableText>
+                    {displayAmount || '-'}
+                  </NumberSizeableText>
                 );
               })()}
             </Stack>
