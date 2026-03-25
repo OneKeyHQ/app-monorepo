@@ -28,6 +28,13 @@ import type {
 import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
 
+const scrollSnapStyle = { scrollSnapType: 'x' } as const;
+const childDivStyle = {
+  width: '100%',
+  flexShrink: 0,
+  scrollSnapAlign: 'center',
+} as const;
+
 export function ContainerChild({
   children,
   listContainerRef,
@@ -64,16 +71,12 @@ export function ContainerChild({
         ref={listContainerRef as any}
         width={containerWidth || props.width}
         overflow="hidden"
-        style={{ scrollSnapType: 'x' }}
+        style={scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
           return (
             <div
-              style={{
-                width: '100%',
-                flexShrink: 0,
-                scrollSnapAlign: 'center',
-              }}
+              style={childDivStyle}
               key={index}
             >
               {child}
@@ -389,7 +392,7 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={disableScroll ? undefined : { overflowY: 'scroll' }}
+      style={disableScroll ? undefined : overflowYScrollStyle}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (

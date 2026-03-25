@@ -100,6 +100,27 @@ export const FIX_SHEET_PROPS: IYStackProps = {
 
 const MAX_CONTENT_WIDTH = 400;
 
+const DIALOG_ENTER_STYLE_OPACITY = { opacity: 0 } as any;
+const DIALOG_EXIT_STYLE_OPACITY = { opacity: 0 } as any;
+const DIALOG_ANIMATE_ONLY_OPACITY = ['opacity'] as string[];
+const DIALOG_ANIMATE_ONLY_TRANSFORM_OPACITY = [
+  'transform',
+  'opacity',
+] as string[];
+const DIALOG_CONTENT_ANIMATION: [
+  string,
+  { opacity: { overshootClamping: boolean } },
+] = ['quick', { opacity: { overshootClamping: true } }];
+const DIALOG_CONTENT_ENTER_EXIT_STYLE = { opacity: 0, scale: 0.85 };
+const DIALOG_THEME_DARK = { outlineColor: '$neutral5' } as const;
+const DIALOG_OUTLINE_STYLE = { outlineStyle: 'solid' } as const;
+const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
+  outlineStyle: 'solid',
+  contentVisibility: 'hidden',
+} as any;
+const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
+const EMPTY_DIALOG_STYLE = {} as const;
+
 const DEFAULT_KEYBOARD_HEIGHT = 330;
 const useSafeKeyboardAnimationStyle = () => {
   const keyboardHeightValue = useSharedValue(0);
@@ -286,8 +307,8 @@ function DialogFrame({
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
           animation="quick"
-          enterStyle={{ opacity: 0 } as any}
-          exitStyle={{ opacity: 0 } as any}
+          enterStyle={DIALOG_ENTER_STYLE_OPACITY}
+          exitStyle={DIALOG_EXIT_STYLE_OPACITY}
           backgroundColor="$bgBackdrop"
           zIndex={sheetProps?.zIndex || zIndex}
           {...sheetOverlayProps}
@@ -341,21 +362,17 @@ function DialogFrame({
             <TMDialog.Overlay
               key="overlay"
               backgroundColor="$bgBackdrop"
-              animateOnly={['opacity']}
+              animateOnly={DIALOG_ANIMATE_ONLY_OPACITY}
               animation="quick"
               forceMount={forceMount || undefined}
-              enterStyle={{
-                opacity: 0,
-              }}
-              exitStyle={{
-                opacity: 0,
-              }}
+              enterStyle={DIALOG_ENTER_STYLE_OPACITY}
+              exitStyle={DIALOG_EXIT_STYLE_OPACITY}
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex || zIndex}
               style={
                 !platformEnv.isNative && !open && forceMount
-                  ? ({ contentVisibility: 'hidden' } as any)
-                  : {}
+                  ? DIALOG_HIDDEN_STYLE
+                  : EMPTY_DIALOG_STYLE
               }
             />
             {/* /* fix missing title warnings in html dialog element on Web */}

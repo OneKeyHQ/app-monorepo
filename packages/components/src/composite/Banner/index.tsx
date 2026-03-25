@@ -138,6 +138,21 @@ function PaginationDot({
   );
 }
 
+function BannerCloseButtonWrapper({
+  onBannerClose,
+  bannerId,
+  isHovering,
+}: {
+  onBannerClose?: (bannerId: string) => void;
+  bannerId: string;
+  isHovering: boolean;
+}) {
+  const handleClose = useCallback(() => {
+    onBannerClose?.(bannerId);
+  }, [onBannerClose, bannerId]);
+  return <CloseButton onPress={handleClose} isHovering={isHovering} />;
+}
+
 export function Banner<T extends IBannerData>({
   data,
   onItemPress,
@@ -208,27 +223,12 @@ export function Banner<T extends IBannerData>({
             {...indicatorContainerStyle}
           >
             {data.map((_, index) => (
-              <Stack
+              <PaginationDot
                 key={index}
-                p="$1"
-                borderRadius="$full"
-                onPress={(event) => {
-                  event?.stopPropagation?.();
-                  goToIndex(index);
-                }}
-              >
-                <Stack
-                  shadowColor="$blackA1"
-                  shadowOpacity={0.1}
-                  shadowRadius={3}
-                  w="$3"
-                  $gtMd={paginationDotGtMdStyle}
-                  h="$1"
-                  borderRadius="$full"
-                  bg="$whiteA12"
-                  opacity={currentIndex === index ? 1 : 0.5}
-                />
-              </Stack>
+                index={index}
+                currentIndex={currentIndex}
+                goToIndex={goToIndex}
+              />
             ))}
           </XStack>
         ) : null}
@@ -254,10 +254,9 @@ export function Banner<T extends IBannerData>({
         ) : null}
 
         {showCloseButton ? (
-          <CloseButton
-            onPress={() => {
-              onBannerClose?.(data[currentIndex]?.bannerId ?? '');
-            }}
+          <BannerCloseButtonWrapper
+            onBannerClose={onBannerClose}
+            bannerId={data[currentIndex]?.bannerId ?? ''}
             isHovering={isHovering}
           />
         ) : null}
