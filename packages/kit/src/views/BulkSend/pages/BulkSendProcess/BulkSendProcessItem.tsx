@@ -231,23 +231,14 @@ function BulkSendProcessItem(props: IProps) {
   }, [status, networkId, copyText, intl, onFillUp]);
 
   return (
-    <XStack
-      py="$4"
-      px="$5"
-      justifyContent="space-between"
-      alignItems="center"
-    >
+    <XStack py="$4" px="$5" justifyContent="space-between" alignItems="center">
       {/* Left: sender + receiver */}
       <YStack gap="$1.5" flex={1} mr="$5" justifyContent="center" minWidth={0}>
         <SizableText size="$bodyMdMedium" numberOfLines={1}>
           {shortenedFromAddress}
         </SizableText>
         <XStack alignItems="center" gap="$2">
-          <Icon
-            name="ArrowRightCircleOutline"
-            size="$4"
-            color="$iconSubdued"
-          />
+          <Icon name="ArrowRightCircleOutline" size="$4" color="$iconSubdued" />
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
             {shortenedToAddress}
           </SizableText>
