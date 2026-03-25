@@ -1,6 +1,8 @@
 /* eslint-disable no-restricted-syntax */
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 export const getJsBundlePath = () => {
-  throw new Error('getJsBundlePath is not supported on desktop');
+  throw new OneKeyLocalError('getJsBundlePath is not supported on desktop');
 };
 
 export const getJsBundlePathAsync = async () => {
@@ -8,7 +10,7 @@ export const getJsBundlePathAsync = async () => {
 };
 
 export const useJsBundle = () => {
-  throw new Error('useJsBundle is not supported on desktop');
+  throw new OneKeyLocalError('useJsBundle is not supported on desktop');
 };
 
 export const useJsBundleAsync = async () => {

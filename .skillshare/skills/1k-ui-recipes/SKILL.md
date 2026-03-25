@@ -1,6 +1,6 @@
 ---
 name: 1k-ui-recipes
-description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, keyboard avoidance for input fields, iOS overlay navigation freeze prevention (resetAboveMainRoute), and web keyboardDismissMode cross-tab input blur prevention.
+description: UI recipes for scroll offset (useScrollContentTabBarOffset), view transitions (startViewTransition), horizontal scroll in collapsible tab headers (CollapsibleTabContext), Android bottom tab touch interception workaround, keyboard avoidance for input fields, iOS overlay navigation freeze prevention (resetAboveMainRoute), web keyboardDismissMode cross-tab input blur prevention, and iOS modal Fabric frame animation fix (performWithoutAnimation for recycled views).
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -19,6 +19,7 @@ Bite-sized solutions for common UI issues.
 | Keyboard Avoidance for Input Fields | [keyboard-avoidance.md](references/rules/keyboard-avoidance.md) | `KeyboardAwareScrollView` auto-scroll, Footer animated padding, `useKeyboardHeight` / `useKeyboardEvent` hooks |
 | iOS Overlay Navigation Freeze | [ios-overlay-navigation-freeze.md](references/rules/ios-overlay-navigation-freeze.md) | Use `resetAboveMainRoute()` instead of sequential `goBack()` to close overlays before navigating |
 | Web keyboardDismissMode Cross-Tab Blur | — | Never use `on-drag` on web; it globally blurs inputs via `TextInputState` |
+| iOS Modal Fabric Frame Animation | [ios-modal-fabric-frame-animation.md](references/rules/ios-modal-fabric-frame-animation.md) | Fabric recycled views retain stale frames; wrap `updateLayoutMetrics` in `performWithoutAnimation` during modal transition |
 
 ## Critical Rules Summary
 
@@ -176,6 +177,27 @@ On web, `react-native-web`'s `keyboardDismissMode="on-drag"` calls `dismissKeybo
 ```
 
 > **Key files**: `packages/components/src/composite/Carousel/pager.tsx`, `packages/components/src/composite/Carousel/index.tsx`
+
+### 8. iOS Modal Content Displacement During Presentation (Fabric)
+
+On iOS with Fabric (New Architecture), modal pages (pageSheet/formSheet) show content flying in from wrong positions during the slide-up animation. Root cause: Fabric recycles native views that retain stale frames; when mounted during modal transition, UIKit captures the frame correction as an implicit animation.
+
+**Fix**: Wrap Fabric's `updateLayoutMetrics` and `invalidateLayer` in `UIView.performWithoutAnimation:` during modal transitions using a global `RNSModalTransitionInProgress` flag.
+
+```objc
+// In UIView+ComponentViewProtocol.mm updateLayoutMetrics:
+extern BOOL RNSModalTransitionInProgress;
+if (RNSModalTransitionInProgress) {
+    [UIView performWithoutAnimation:^{
+        self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
+        self.bounds = CGRect{CGPointZero, frame.size};
+        [self layoutIfNeeded];
+    }];
+}
+```
+
+> **Key files**: `patches/react-native-screens+4.23.0.patch`, `patches/react-native+0.81.5.patch`
+> **Reference**: [ios-modal-fabric-frame-animation.md](references/rules/ios-modal-fabric-frame-animation.md)
 
 ---
 

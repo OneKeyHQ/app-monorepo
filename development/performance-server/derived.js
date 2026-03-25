@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const storage = require('./storage');
+
 const analyzer = require('../scripts/analyze-func-perf');
+
+const storage = require('./storage');
 
 const CALLBACKISH_FUNCTION_NAME_PATTERNS = [
   /^anonymous$/i,

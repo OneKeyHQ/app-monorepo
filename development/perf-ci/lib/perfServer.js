@@ -1,6 +1,7 @@
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
+
 const { ensureDir } = require('./fs');
 
 async function checkPerfServer(serverUrl) {
