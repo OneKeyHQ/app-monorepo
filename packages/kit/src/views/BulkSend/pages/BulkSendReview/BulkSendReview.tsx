@@ -74,11 +74,14 @@ function BaseBulkSendReview({
     isSubmitting,
     setIsSubmitting,
     isInModal,
+    ataCount,
   } = useBulkSendReviewContext();
 
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isMultiTxs = unsignedTxs.length > 1;
+  const transferTxCount = unsignedTxs.length - approvesInfo.length;
+  const isTransferSplit = transferTxCount > 1;
 
   // Use fee estimation hook
   const { feeLabel, handleFeeChange, vaultSettings, forceRefreshFee } =
@@ -88,6 +91,7 @@ function BaseBulkSendReview({
       unsignedTxs,
       feeState,
       setFeeState,
+      ataCount,
     });
 
   // Approval recheck hook - polls allowance after partial batch failure
@@ -513,6 +517,7 @@ function BaseBulkSendReview({
     (feeState.feeStatus === ESendFeeStatus.Loading &&
       !feeState.isInitialized) ||
     feeState.feeStatus === ESendFeeStatus.Error ||
+    feeState.insufficientSol ||
     isSubmitting ||
     isRecheckingApproval;
 
@@ -541,6 +546,8 @@ function BaseBulkSendReview({
               isMultiTxs={isMultiTxs}
               onFeeChange={handleFeeChange}
               editFeeEnabled={vaultSettings?.editFeeEnabled}
+              transferTxCount={transferTxCount}
+              isTransferSplit={isTransferSplit}
             />
           </YStack>
 
@@ -587,6 +594,7 @@ function BulkSendReview() {
     totalTokenAmount,
     totalFiatAmount,
     isInModal,
+    ataCount,
     onSuccess,
     onFail,
   } = route.params ?? {};
@@ -645,6 +653,7 @@ function BulkSendReview() {
       totalTokenAmount,
       totalFiatAmount,
       isInModal,
+      ataCount,
       networkImageUri: networkInfo?.logoURI,
       initialApprovesInfoRef,
       approvesInfo,
@@ -665,6 +674,7 @@ function BulkSendReview() {
       totalTokenAmount,
       totalFiatAmount,
       isInModal,
+      ataCount,
       networkInfo?.logoURI,
       approvesInfo,
       unsignedTxs,

@@ -6,6 +6,9 @@ import { SizableText, Stack, XStack } from '../../primitives';
 
 import type { ICalendarHeaderProps } from './type';
 
+const mdStyle = { marginTop: '$2' } as const;
+const hoverSubduedStyle = { color: '$textSubdued' } as const;
+
 function NavSpacer() {
   return <Stack width="$10" height="$6" />;
 }
@@ -38,7 +41,7 @@ export const CalendarHeader = memo(
     const yearClickable = showMonthYear && onYearClick;
 
     return (
-      <Stack paddingHorizontal="$2" marginBottom="$3" $md={{ marginTop: '$2' }}>
+      <Stack paddingHorizontal="$2" marginBottom="$3" $md={mdStyle}>
         {/* Title - absolute center */}
         <XStack
           position="absolute"
@@ -59,7 +62,7 @@ export const CalendarHeader = memo(
               userSelect="none"
               pointerEvents="auto"
               onPress={onMonthClick}
-              hoverStyle={onMonthClick ? { color: '$textSubdued' } : undefined}
+              hoverStyle={onMonthClick ? hoverSubduedStyle : undefined}
             >
               {month}
             </SizableText>
@@ -71,7 +74,7 @@ export const CalendarHeader = memo(
             userSelect="none"
             pointerEvents="auto"
             onPress={yearClickable ? onYearClick : undefined}
-            hoverStyle={yearClickable ? { color: '$textSubdued' } : undefined}
+            hoverStyle={yearClickable ? hoverSubduedStyle : undefined}
           >
             {year}
           </SizableText>

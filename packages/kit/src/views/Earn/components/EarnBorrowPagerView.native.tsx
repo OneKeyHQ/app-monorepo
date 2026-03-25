@@ -63,6 +63,7 @@ function usePageScrollHandler(
       event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent'],
     ) => {
       'worklet';
+
       const { onPageScroll } = handlers;
       if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
         onPageScroll(event, context);
@@ -150,6 +151,7 @@ function EarnBorrowPagerViewComponent(
   const pageScrollHandler = usePageScrollHandler({
     onPageScroll: (e) => {
       'worklet';
+
       if (pageScrollPosition) {
         pageScrollPosition.value = e.position + e.offset;
       }

@@ -114,6 +114,7 @@ type IMarketTokenListBaseProps = {
     position?: { x: number; y: number },
   ) => void;
   onScrollBegin?: () => void;
+  showStockSubtitle?: boolean;
 };
 
 function MarketTokenListBase({
@@ -136,19 +137,12 @@ function MarketTokenListBase({
   onItemLongPress,
   onItemContextMenu,
   onScrollBegin,
+  showStockSubtitle = true,
 }: IMarketTokenListBaseProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
-
-  const marketTokenColumns = useMarketTokenColumns(
-    networkId,
-    isWatchlistMode,
-    hideTokenAge,
-    watchlistFrom,
-    copyFrom,
-  );
 
   const {
     data: rawData,
@@ -164,6 +158,21 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+
+  const hasStock = useMemo(
+    () => rawData.some((item) => !!item.stock),
+    [rawData],
+  );
+
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    isWatchlistMode,
+    hideTokenAge,
+    watchlistFrom,
+    copyFrom,
+    hasStock,
+    showStockSubtitle,
+  );
 
   // Client-side sorting: sort data locally when clientSort is enabled
   const data = useMemo(() => {

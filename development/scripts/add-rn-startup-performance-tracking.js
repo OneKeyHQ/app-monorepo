@@ -122,10 +122,10 @@ export {};
     // Modify original file
     const importStatement = `import './${fileNameWithoutExt}.perfReady';\n`;
 
-    // Check if file starts with eslint-disable import/order
+    // Check if file starts with eslint-disable import-js/order
     let newContent;
     const eslintDisablePattern =
-      /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
+      /^\/\*\s*eslint-disable\s+import-js\/order\s*\*\/\s*\n/;
 
     if (eslintDisablePattern.test(content)) {
       // Insert after eslint-disable comment
@@ -135,7 +135,7 @@ export {};
       );
     } else {
       // Add eslint-disable and import at the beginning
-      newContent = `/* eslint-disable import/order */\n${importStatement}${content}`;
+      newContent = `/* eslint-disable import-js/order */\n${importStatement}${content}`;
     }
 
     // Add end tracking code

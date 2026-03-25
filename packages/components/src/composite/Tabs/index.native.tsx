@@ -1,4 +1,4 @@
-import { type PropsWithChildren, forwardRef } from 'react';
+import { type PropsWithChildren, forwardRef, useMemo } from 'react';
 
 import { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
@@ -11,23 +11,35 @@ interface IExtendedContainerProps extends CollapsibleProps {
   useNativeHeaderAnimation?: boolean;
 }
 
+const renderTabBarDefault = (tabProps: any) => <TabBar {...tabProps} />;
+
 const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
   ({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
+    const mergedHeaderContainerStyle = useMemo(
+      () =>
+        ({
+          shadowOpacity: 0,
+          elevation: 0,
+          ...(headerContainerStyle as Record<string, unknown>),
+        }) as typeof headerContainerStyle,
+      [headerContainerStyle],
+    );
+
+    const mergedPagerProps = useMemo(
+      () =>
+        ({
+          scrollSensitivity: 4,
+          ...pagerProps,
+        }) as typeof pagerProps,
+      [pagerProps],
+    );
+
     return (
       <NativeTabs.Container
         ref={ref}
-        headerContainerStyle={{
-          shadowOpacity: 0,
-          elevation: 0,
-          ...(headerContainerStyle as any),
-        }}
-        pagerProps={
-          {
-            scrollSensitivity: 4,
-            ...pagerProps,
-          } as any
-        }
-        renderTabBar={(tabProps: any) => <TabBar {...tabProps} />}
+        headerContainerStyle={mergedHeaderContainerStyle}
+        pagerProps={mergedPagerProps}
+        renderTabBar={renderTabBarDefault}
         {...props}
       >
         {children}

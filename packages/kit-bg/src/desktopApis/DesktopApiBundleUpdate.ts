@@ -825,13 +825,15 @@ class DesktopApiAppBundleUpdate {
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
     store.setUpdateBundleData(updateBundleData);
-    // Destroy window first to ensure renderer process is fully terminated
-    // before relaunch, preventing webview custom element double registration
-    this.getMainWindow()?.destroy();
-    if (!process.mas) {
-      app.relaunch();
+    if (updateBundleData.appVersion && updateBundleData.bundleVersion) {
+      // Destroy window first to ensure renderer process is fully terminated
+      // before relaunch, preventing webview custom element double registration
+      this.getMainWindow()?.destroy();
+      if (!process.mas) {
+        app.relaunch();
+      }
+      app.exit(0);
     }
-    app.exit(0);
   }
 
   async clearBundleExtract() {
@@ -858,6 +860,14 @@ class DesktopApiAppBundleUpdate {
     logger.info(
       'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
     );
+  }
+
+  async restart() {
+    this.getMainWindow()?.destroy();
+    if (!process.mas) {
+      app.relaunch();
+    }
+    app.exit(0);
   }
 
   async clearAllJSBundleData() {

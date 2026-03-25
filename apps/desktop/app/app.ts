@@ -53,10 +53,12 @@ import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
+// eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+// Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
 import { createRecoveryWindow } from './recoveryWindow';
@@ -67,6 +69,7 @@ import {
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
+// eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 
 initSentry();

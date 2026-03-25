@@ -47,6 +47,8 @@ import type {
 import type {
   DragStart,
   DraggableProvided,
+  DraggableRubric,
+  DraggableStateSnapshot,
   DropResult,
 } from 'react-beautiful-dnd';
 import type {
@@ -107,15 +109,15 @@ function Item<T>({
     ...provided.draggableProps,
     ...dragHandleProps,
   };
+  const mergedStyle = useMemo(
+    () => ({
+      ...draggableProps.style,
+      ...style,
+    }),
+    [draggableProps.style, style],
+  );
   return (
-    <div
-      ref={provided.innerRef}
-      {...draggableProps}
-      style={{
-        ...draggableProps.style,
-        ...style,
-      }}
-    >
+    <div ref={provided.innerRef} {...draggableProps} style={mergedStyle}>
       {renderItem({
         item,
         drag,
@@ -158,14 +160,24 @@ function CellContainer<T>({
     }
   }, [height, index, ref]);
 
+  const animatedViewStyle = useMemo(
+    () =>
+      height
+        ? {
+            ...((props as Record<string, unknown>).style as Record<
+              string,
+              unknown
+            >),
+            height,
+          }
+        : props.style,
+    [height, props.style],
+  );
+
   return (
     <Animated.View
       {...(props as Record<string, any>)}
-      style={
-        height
-          ? { ...(props as Record<string, any>).style, height }
-          : props.style
-      }
+      style={animatedViewStyle}
     >
       <div ref={containerRef as any}>{children}</div>
     </Animated.View>
@@ -175,6 +187,17 @@ function CellContainer<T>({
 // Auto-scroll edge zone size (px) and max speed (px per frame)
 const AUTOSCROLL_EDGE_PX = 80;
 const AUTOSCROLL_MAX_SPEED_PX = 15;
+
+const LIST_CONTAINER_STYLE = {
+  display: 'flex',
+  flex: 1,
+  flexDirection: 'column',
+  minHeight: 0,
+} as const;
+const EMPTY_OBJECT = {} as Record<string, any>;
+const EMPTY_STYLE = {} as const;
+const EMPTY_CONTENT_CONTAINER_STYLE = {} as Record<string, unknown>;
+const EMPTY_STICKY_INDICES: number[] = [];
 
 function findScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
   let current = el?.parentElement ?? null;
@@ -201,8 +224,8 @@ function BaseSortableListView<T>(
     keyExtractor,
     useFlashList,
     getItemLayout,
-    contentContainerStyle = {},
-    stickyHeaderIndices = [],
+    contentContainerStyle = EMPTY_CONTENT_CONTAINER_STYLE,
+    stickyHeaderIndices = EMPTY_STICKY_INDICES,
     ListHeaderComponent,
     getItemDragDisabled,
     scrollEnabled = true,
@@ -376,23 +399,25 @@ function BaseSortableListView<T>(
                   <div
                     style={
                       layout
-                        ? {
+                        ? // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+                          {
                             height: layout.length + insertHeight,
                           }
-                        : {}
+                        : EMPTY_STYLE
                     }
                   />
                 ) : null}
                 <Item
                   style={
                     !isSticky
-                      ? {
+                      ? // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+                        {
                           position: useFlashList ? undefined : 'absolute',
                           top: (layout?.offset ?? 0) + (contentPaddingTop ?? 0),
                           height: useFlashList ? undefined : layout?.length,
                           width: '100%',
                         }
-                      : {}
+                      : EMPTY_STYLE
                   }
                   drag={noop}
                   dragProps={Object.keys(dragHandleProps).reduce(
@@ -405,6 +430,7 @@ function BaseSortableListView<T>(
                   )}
                   isDragging={false}
                   item={item}
+                  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
                   getIndex={() => index}
                   renderItem={renderItem as any}
                   provided={provided}
@@ -431,16 +457,44 @@ function BaseSortableListView<T>(
   // Cleanup auto-scroll on unmount
   useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
+  const renderClone = useCallback(
+    (
+      provided: DraggableProvided,
+      snapshot: DraggableStateSnapshot,
+      rubric: DraggableRubric,
+    ) => {
+      const isDropping = snapshot.isDropAnimating;
+      return (
+        <Item
+          isDragging={!isDropping}
+          dragProps={EMPTY_OBJECT}
+          drag={noop}
+          item={data[rubric.source.index]}
+          renderItem={renderItem}
+          provided={provided}
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+          getIndex={() => rubric.source.index}
+          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+          style={{
+            boxShadow: isDropping ? 'none' : '0 4px 24px rgba(0, 0, 0, 0.12)',
+            borderRadius: 12,
+            // Ensure clone renders above Dialog/Sheet overlays
+            zIndex: DRAG_CLONE_Z_INDEX,
+            // Speed up drop animation
+            ...(isDropping
+              ? {
+                  transition: 'transform 0.08s ease, box-shadow 0.08s ease',
+                }
+              : {}),
+          }}
+        />
+      );
+    },
+    [data, renderItem],
+  );
+
   return (
-    <div
-      ref={listContainerRef}
-      style={{
-        display: 'flex',
-        flex: 1,
-        flexDirection: 'column',
-        minHeight: 0,
-      }}
-    >
+    <div ref={listContainerRef} style={LIST_CONTAINER_STYLE as any}>
       <DragDropContext
         onDragStart={reloadOnDragStart}
         onDragEnd={reloadOnDragEnd}
@@ -453,35 +507,7 @@ function BaseSortableListView<T>(
           isDropDisabled={false}
           isCombineEnabled={false}
           ignoreContainerClipping={!scrollEnabled}
-          renderClone={(provided, snapshot, rubric) => {
-            const isDropping = snapshot.isDropAnimating;
-            return (
-              <Item
-                isDragging={!isDropping}
-                dragProps={{}}
-                drag={noop}
-                item={data[rubric.source.index]}
-                renderItem={renderItem}
-                provided={provided}
-                getIndex={() => rubric.source.index}
-                style={{
-                  boxShadow: isDropping
-                    ? 'none'
-                    : '0 4px 24px rgba(0, 0, 0, 0.12)',
-                  borderRadius: 12,
-                  // Ensure clone renders above Dialog/Sheet overlays
-                  zIndex: DRAG_CLONE_Z_INDEX,
-                  // Speed up drop animation
-                  ...(isDropping
-                    ? {
-                        transition:
-                          'transform 0.08s ease, box-shadow 0.08s ease',
-                      }
-                    : {}),
-                }}
-              />
-            );
-          }}
+          renderClone={renderClone}
           getContainerForClone={getBody}
         >
           {(provided, snapshot) => {
@@ -500,6 +526,7 @@ function BaseSortableListView<T>(
             const ListViewComponent = useFlashList ? FlashList : ListView;
             return (
               <ListViewComponent
+                // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
                 ref={(_ref: any) => {
                   if (_ref) {
                     if (typeof ref === 'function') {
@@ -540,6 +567,7 @@ function BaseSortableListView<T>(
                   }
                 }}
                 data={data}
+                // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
                 contentContainerStyle={{
                   ...rawContentContainerStyle,
                   paddingBottom: overridePaddingBottom,

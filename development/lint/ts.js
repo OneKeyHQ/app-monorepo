@@ -1,7 +1,8 @@
 const { execSync, execFileSync } = require('child_process');
-const { exit } = require('process');
-const { parse } = require('@aivenio/tsc-output-parser');
 const path = require('path');
+const { exit } = require('process');
+
+const { parse } = require('@aivenio/tsc-output-parser');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();

@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
+  CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
   EPrimeCloudSyncDataType,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -19,7 +20,10 @@ import {
   OneKeyErrorPrimePaidMembershipRequired,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  ECustomCloudSyncError,
+  EOneKeyErrorClassNames,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -108,6 +112,29 @@ class ServicePrimeCloudSync extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private _lastIdSyncUnavailableToastTime = 0;
+
+  private async notifyIfOnekeyIdSyncUnavailable() {
+    const now = Date.now();
+    const ONE_HOUR = timerUtils.getTimeDurationMs({ hour: 1 });
+    if (now - this._lastIdSyncUnavailableToastTime < ONE_HOUR) return;
+
+    const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
+    if (!isCloudSyncEnabled) return;
+
+    this._lastIdSyncUnavailableToastTime = now;
+
+    void this.backgroundApi.serviceApp.showToast({
+      method: 'error',
+      icon: 'CloudDisconnectedSolid',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.cloud_sync_issue_toast_title,
+      }),
+      toastId: CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
+      errorCode: ECustomCloudSyncError.OnekeyIdSyncUnavailable,
+    });
+  }
+
   syncManagers = {
     wallet: new CloudSyncFlowManagerWallet({
       backgroundApi: this.backgroundApi,
@@ -148,10 +175,6 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
     return this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredential();
-  }
-
-  async isKeylessCloudSyncFeatureEnabledInDev(): Promise<boolean> {
-    return this.backgroundApi.serviceKeylessCloudSync.isKeylessCloudSyncFeatureEnabledInDev();
   }
 
   @backgroundMethod()
@@ -344,9 +367,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     let pwdHash: string | undefined;
 
     if ((await this.getActiveSyncMode()) === ECloudSyncMode.Keyless) {
-      data = await this.apiDownloadItemsKeyless({
+      const keylessResult = await this.apiDownloadItemsKeyless({
         postData,
       });
+      data = keylessResult.data;
+      pwdHash = keylessResult.pwdHash;
     } else {
       const client = await this.backgroundApi.servicePrime.getPrimeClient();
       const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
@@ -805,7 +830,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async syncToSceneByAllPendingItems() {
+  async syncToSceneByAllPendingItems({
+    forceSync,
+  }: {
+    forceSync?: boolean;
+  } = {}) {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
     }
@@ -819,11 +848,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       cloudSyncItemBuilder.canLocalItemSyncToScene({
         item,
         syncCredential,
+        forceSync,
       }),
     );
     return this.syncToSceneWithLocalSyncItems({
       items: pendingItems,
       syncCredential,
+      forceSync,
     });
   }
 
@@ -831,9 +862,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncToSceneWithLocalSyncItems({
     items,
     syncCredential,
+    forceSync,
   }: {
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential;
+    forceSync?: boolean;
   }) {
     if (!syncCredential) {
       return;
@@ -844,6 +877,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     return this._syncToSceneWithLocalSyncItems({
       items,
       syncCredential,
+      forceSync,
     });
   }
 
@@ -1143,6 +1177,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow,
     callerName,
     noDebounceUpload,
+    forceSync,
   }: Omit<IStartServerSyncFlowParams, 'throwError'> = {}) {
     await this.startServerSyncFlowSilently({
       isFlush,
@@ -1151,6 +1186,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       throwError: true,
       callerName,
       noDebounceUpload,
+      forceSync,
     });
   }
 
@@ -1181,11 +1217,15 @@ class ServicePrimeCloudSync extends ServiceBase {
     throwError,
     callerName,
     noDebounceUpload,
+    forceSync,
   }: IStartServerSyncFlowParams = {}) {
     try {
       // const syncMode = await this.getActiveSyncMode();
 
       if (!(await this.isCloudSyncIsAvailable())) {
+        if (!throwError) {
+          void this.notifyIfOnekeyIdSyncUnavailable();
+        }
         return;
       }
       await this.ensureCloudSyncIsAvailable({
@@ -1240,6 +1280,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
+      if (!throwError) {
+        void this.notifyIfOnekeyIdSyncUnavailable();
+      }
       if (throwError) {
         throw error;
       }
@@ -1247,7 +1290,9 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     // the server data has been downloaded, but it may not have been updated to the business scenario, so it needs to be executed again
     // checked by localSceneUpdated field
-    await this.syncToSceneByAllPendingItems();
+    await this.syncToSceneByAllPendingItems({
+      forceSync,
+    });
 
     return true;
   }
@@ -1502,9 +1547,6 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   async buildSyncCredentialForKeyless(): Promise<ICloudSyncCredential> {
-    if (!(await this.backgroundApi.servicePassword.getCachedPassword())) {
-      throw new OneKeyError('No password in memory');
-    }
     const keylessCredential =
       (await this.getKeylessCloudSyncCredentialCache()) ||
       (await this.getKeylessCloudSyncCredential());
@@ -1523,18 +1565,20 @@ class ServicePrimeCloudSync extends ServiceBase {
       activeMode: ECloudSyncMode;
       keylessWalletId?: string | null;
     }): Promise<ICloudSyncCredential> => {
-      const password =
-        await this.backgroundApi.servicePassword.getCachedPassword();
-
-      if (!password) {
-        throw new OneKeyError('No password in memory');
-      }
-
+      // Keyless mode does not need password
       if (activeMode === ECloudSyncMode.Keyless) {
         if (!keylessWalletId) {
           throw new OneKeyError('Failed to get current keyless wallet id');
         }
         return this.buildSyncCredentialForKeyless();
+      }
+
+      // OneKey ID mode still requires password
+      const password =
+        await this.backgroundApi.servicePassword.getCachedPassword();
+
+      if (!password) {
+        throw new OneKeyError('No password in memory');
       }
 
       return this.buildSyncCredentialForOneKeyId({ password });
@@ -1571,13 +1615,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       isCloudSyncEnabledKeyless: enabled ? false : v.isCloudSyncEnabledKeyless,
     }));
     await this.clearCachedSyncCredential();
-  }
-
-  @backgroundMethod()
-  async setCloudSyncEnabledKeyless(enabled: boolean): Promise<boolean> {
-    return this.backgroundApi.serviceKeylessCloudSync.setCloudSyncEnabledKeyless(
-      enabled,
-    );
   }
 
   @backgroundMethod()
@@ -1637,37 +1674,14 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
-  async toggleCloudSyncKeyless({
-    enabled,
-    silentEnable = false,
-    forceEnable = false,
-  }: {
-    enabled: boolean;
-    silentEnable?: boolean;
-    forceEnable?: boolean;
-  }) {
-    return this.backgroundApi.serviceKeylessCloudSync.toggleCloudSyncKeyless({
-      enabled,
-      silentEnable,
-      forceEnable,
-    });
-  }
-
-  @backgroundMethod()
-  async autoEnableCloudSyncKeyless() {
-    return this.backgroundApi.serviceKeylessCloudSync.autoEnableCloudSyncKeyless();
-  }
-
-  @backgroundMethod()
   async syncNowKeyless({
     callerName = 'Manual Cloud Sync Keyless',
     noDebounceUpload = true,
-    password,
+    forceSync,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
-    password?: string;
+    forceSync?: boolean;
   } = {}): Promise<boolean> {
     const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabledKeyless) {
@@ -1679,11 +1693,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     }
     await this.initLocalSyncItemsDB({
       syncCredential,
-      password,
     });
     await this.startServerSyncFlow({
       callerName,
       noDebounceUpload,
+      forceSync,
     });
     await this.updateLastSyncTime({
       syncMode: ECloudSyncMode.Keyless,
@@ -2384,21 +2398,32 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
     const localItems: IDBCloudSyncItem[] = [];
     for (const item of items) {
-      const localItem = await this.convertServerItemToLocalItem({
-        serverItem: item,
-        shouldDecrypt: true,
-        syncCredential,
-        serverPwdHash: pwdHash,
-      });
-      if (localItem) {
-        localItems.push(localItem);
-      }
-      if (localItem) {
-        console.log(
-          'decryptAllServerSyncItems: ',
-          localItem?.rawDataJson?.payload,
-          localItem,
-        );
+      try {
+        const localItem = await this.convertServerItemToLocalItem({
+          serverItem: item,
+          shouldDecrypt: true,
+          syncCredential,
+          serverPwdHash: pwdHash,
+        });
+        if (localItem) {
+          localItems.push(localItem);
+          console.log(
+            'decryptAllServerSyncItems: ',
+            localItem?.rawDataJson?.payload,
+            localItem,
+          );
+        }
+      } catch (error) {
+        console.error('decryptAllServerSyncItems error', error, item);
+        const localItem = await this.convertServerItemToLocalItem({
+          serverItem: item,
+          shouldDecrypt: false,
+          syncCredential,
+          serverPwdHash: pwdHash,
+        });
+        if (localItem) {
+          localItems.push(localItem);
+        }
       }
     }
     return localItems.toSorted((a, b) => a.id.localeCompare(b.id));

@@ -147,11 +147,44 @@ function BasicEarnHome({
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
 
+  const prefetchEarnAvailableAssets = useCallback(async () => {
+    const types = [
+      EAvailableAssetsTypeEnum.SimpleEarn,
+      EAvailableAssetsTypeEnum.FixedRate,
+      EAvailableAssetsTypeEnum.Staking,
+    ] as const;
+
+    const results = await Promise.all(
+      types.map(async (type) => {
+        try {
+          const assets =
+            await backgroundApiProxy.serviceStaking.getAvailableAssets({
+              type,
+            });
+          return {
+            type,
+            assets,
+          };
+        } catch {
+          return {
+            type,
+            assets: [],
+          };
+        }
+      }),
+    );
+
+    results.forEach(({ type, assets }) => {
+      actions.current.updateAvailableAssetsByType(type, assets);
+    });
+  }, [actions]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+    await prefetchEarnAvailableAssets();
     actions.current.triggerRefresh();
     await refreshEarnDataRaw();
-  }, [actions, refreshEarnDataRaw]);
+  }, [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw]);
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     // Pendle redeem/unstake is recorded as Sell, but it should still trigger
@@ -263,6 +296,8 @@ function BasicEarnHome({
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
+      void prefetchEarnAvailableAssets();
+
       const simpleKey = `availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`;
       const fixedKey = `availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`;
       const stakingKey = `availableAssets-${EAvailableAssetsTypeEnum.Staking}`;
@@ -282,7 +317,7 @@ function BasicEarnHome({
 
       void refetchFAQ();
     },
-    [actions, refetchFAQ],
+    [actions, prefetchEarnAvailableAssets, refetchFAQ],
   );
 
   useListenTabFocusState(

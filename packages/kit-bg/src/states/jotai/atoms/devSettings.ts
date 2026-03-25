@@ -46,8 +46,6 @@ export interface IDevSettings {
   allowDeleteKeylessKey?: boolean;
   // show Keyless-related debug dialogs/logs in UI (dev only)
   enableKeylessDebugInfo?: boolean;
-  // show Keyless cloud sync switch in OneKey Cloud page (dev only)
-  enableKeylessCloudSyncFeature?: boolean;
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
@@ -108,7 +106,6 @@ export const {
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
       enableKeylessDebugInfo: false,
-      enableKeylessCloudSyncFeature: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
       showPerformanceMonitor: true,

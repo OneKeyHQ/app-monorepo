@@ -21,7 +21,11 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingV2OneKeyIDLoginMode,
+} from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -242,6 +246,21 @@ function WalletEditButtonView({
             <AddHiddenWalletButton
               wallet={wallet}
               onClose={handleActionListClose}
+            />
+          ) : null}
+
+          {isKeyless ? (
+            <ActionList.Item
+              icon="CloudOutline"
+              label={intl.formatMessage({
+                id: ETranslations.global_onekey_cloud,
+              })}
+              onClose={handleActionListClose}
+              onPress={() => {
+                navigation.pushModal(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.PrimeCloudSync,
+                });
+              }}
             />
           ) : null}
 
