@@ -16,11 +16,13 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type {
+  IEarnFeeComparisonTooltip,
   IEarnHistoryActionIcon,
   IEarnRebateDetailsTooltip,
   IEarnRebateTooltip,
   IEarnTextTooltip,
   IEarnTooltip,
+  IEarnTooltipComparisonItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from './EarnText';
@@ -147,7 +149,40 @@ function RebateDetailsPopoverContent({
   ) : null;
 }
 
-function FeeComparisonContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
+function FeeComparisonContent({
+  tooltip,
+}: {
+  tooltip: IEarnTextTooltip | IEarnFeeComparisonTooltip;
+}) {
+  const items = tooltip.data.items ?? [];
+  const totalValue = items.reduce((sum, item) => {
+    const percentage = Number(item.logo?.percentage);
+    if (Number.isFinite(percentage)) {
+      return sum;
+    }
+
+    const value = Number(item.value);
+    return Number.isFinite(value) ? sum + value : sum;
+  }, 0);
+
+  const normalizedItems = items.map((item) => {
+    const percentage = Number(item.logo?.percentage);
+    const value = Number(item.value);
+    let resolvedPercentage = 0;
+
+    if (Number.isFinite(percentage)) {
+      resolvedPercentage = percentage;
+    } else if (totalValue > 0 && Number.isFinite(value)) {
+      resolvedPercentage = value / totalValue;
+    }
+
+    return {
+      ...item,
+      barColor: item.logo?.color ?? item.color ?? '$bgStrong',
+      barPercentage: Math.max(Math.min(resolvedPercentage * 100, 100), 0),
+    };
+  });
+
   return (
     <YStack gap="$2">
       <EarnText
@@ -156,7 +191,7 @@ function FeeComparisonContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
         color="$textSubdued"
       />
       <YStack gap="$2" pt="$2">
-        {tooltip.data.items?.map((item, index) => (
+        {normalizedItems.map((item, index) => (
           <XStack key={index} gap="$3" ai="center">
             <Image
               src={item.logo?.logoURI ?? ''}
@@ -168,8 +203,8 @@ function FeeComparisonContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
               <Stack
                 h="$1"
                 borderRadius="$full"
-                bg={item.logo?.color ?? '$bgStrong'}
-                width={`${Math.max(Number(item.logo?.percentage ?? 0) * 100, 0)}%`}
+                bg={item.barColor}
+                width={`${item.barPercentage}%`}
               />
             </Stack>
             <SizableText
@@ -195,6 +230,32 @@ export function EarnTooltip({
   tooltip?: IEarnTooltip;
 }) {
   const { onHistory } = useShareEvents();
+  const isTextLikeTooltip = useCallback(
+    (
+      value?: IEarnTooltip,
+    ): value is IEarnTextTooltip | IEarnFeeComparisonTooltip =>
+      value?.type === 'text' || value?.type === 'feeComparison',
+    [],
+  );
+  const isFeeComparisonTooltip = useCallback(
+    (value?: IEarnTooltip) => {
+      if (!isTextLikeTooltip(value)) {
+        return false;
+      }
+
+      if (value.type === 'feeComparison') {
+        return true;
+      }
+
+      return Boolean(
+        value.data.items?.some(
+          (item: IEarnTooltipComparisonItem) =>
+            item.logo || item.color || item.value,
+        ),
+      );
+    },
+    [isTextLikeTooltip],
+  );
 
   const tooltipTitle = useMemo(() => {
     if (tooltip?.type === 'withdraw') {
@@ -203,12 +264,12 @@ export function EarnTooltip({
     if (tooltip?.type === 'rebateDetails') {
       return tooltip.data.title.text;
     }
-    if (tooltip?.type === 'text' && tooltip?.data?.title?.text) {
+    if (isTextLikeTooltip(tooltip) && tooltip?.data?.title?.text) {
       return tooltip.data.title.text;
     }
 
     return title || '';
-  }, [tooltip, title]);
+  }, [isTextLikeTooltip, title, tooltip]);
   const tooltipContent = useMemo(() => {
     if (!tooltip) {
       return null;
@@ -245,9 +306,8 @@ export function EarnTooltip({
       return <RebateDetailsPopoverContent tooltip={tooltip} />;
     }
 
-    if (tooltip.type === 'text' && tooltip.data.items?.length) {
-      const hasLogo = tooltip.data.items.some((item) => item.logo);
-      if (hasLogo) {
+    if (isTextLikeTooltip(tooltip) && tooltip.data.items?.length) {
+      if (isFeeComparisonTooltip(tooltip)) {
         return <FeeComparisonContent tooltip={tooltip} />;
       }
       return (
@@ -263,8 +323,10 @@ export function EarnTooltip({
       );
     }
 
-    return <EarnText text={tooltip?.data?.description} />;
-  }, [onHistory, tooltip]);
+    return isTextLikeTooltip(tooltip) ? (
+      <EarnText text={tooltip.data.description} />
+    ) : null;
+  }, [isFeeComparisonTooltip, isTextLikeTooltip, onHistory, tooltip]);
   return tooltip ? (
     <Popover
       placement="top"
