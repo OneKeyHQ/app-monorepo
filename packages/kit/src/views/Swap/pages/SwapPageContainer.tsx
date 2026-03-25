@@ -2,7 +2,10 @@ import { useMemo } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import type { ETabSwapRoutes, ITabSwapParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabSwapRoutes,
+  ITabSwapParamList,
+} from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
