@@ -35,6 +35,11 @@ import type {
 } from '@react-navigation/bottom-tabs';
 import type { RouteProp } from '@react-navigation/native';
 
+const tabBarRowStyle = {
+  flexDirection: 'row' as const,
+  justifyContent: 'space-around' as const,
+};
+
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
   trackId?: string;
@@ -167,12 +172,7 @@ export default function MobileBottomTabBar({
       borderTopColor="$borderSubdued"
       pb={bottom}
     >
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-around',
-        }}
-      >
+      <View style={tabBarRowStyle}>
         {tabs}
       </View>
     </Stack>

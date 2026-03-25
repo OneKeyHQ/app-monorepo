@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { SizableText, Stack, YStack } from '../../primitives';
@@ -18,6 +20,16 @@ export function DayGrid({
   const { calendars, weekDays } = data;
   const { dayButton } = propGetters;
   const cal = calendars[calendarIndex];
+
+  const handleDayPress = useCallback(
+    (dateStr: string) => {
+      const matchedDay = cal?.days.find((d) => d.$date.toString() === dateStr);
+      if (matchedDay) {
+        callOnClick(dayButton(matchedDay));
+      }
+    },
+    [cal, dayButton],
+  );
 
   if (!cal) return null;
 
@@ -57,7 +69,7 @@ export function DayGrid({
                 disabled: dayButton(day).disabled || false,
                 range: day.range || undefined,
               }}
-              onPress={() => callOnClick(dayButton(day))}
+              onPress={handleDayPress}
             />
           );
         })}

@@ -20,6 +20,8 @@ import {
 
 import type { IBasicPageProps } from './type';
 
+const exitStyleFadeOut = { opacity: 0 };
+
 function Loading() {
   return (
     <Stack flex={1} alignContent="center" justifyContent="center">
@@ -86,9 +88,7 @@ function AbsoluteContainer({ children }: PropsWithChildren) {
       opacity={1}
       flex={1}
       animation="quick"
-      exitStyle={{
-        opacity: 0,
-      }}
+      exitStyle={exitStyleFadeOut}
     >
       {children}
     </Stack>

@@ -10,6 +10,10 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import type { IBaseSliderProps } from './type';
 import type { LayoutChangeEvent } from 'react-native';
 
+const thumbFocusVisibleStyle = {
+  outlineColor: '$borderActive' as const,
+};
+
 function SliderSegment({
   onPress,
   isActive,
@@ -123,9 +127,7 @@ export const Slider = ({
           borderWidth="$px"
           borderColor="$borderStrong"
           elevation={1}
-          focusVisibleStyle={{
-            outlineColor: '$borderActive',
-          }}
+          focusVisibleStyle={thumbFocusVisibleStyle}
         />
       </TMSlider>
     );
@@ -141,6 +143,36 @@ export const Slider = ({
     segments,
     value,
   ]);
+  const handleMinPress = useCallback(() => {
+    handleValueChange([min]);
+  }, [handleValueChange, min]);
+
+  const handleMaxPress = useCallback(() => {
+    handleValueChange([max]);
+  }, [handleValueChange, max]);
+
+  const segmentItems = useMemo(
+    () =>
+      segments
+        ? Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => ({
+            index,
+            isActive: value
+              ? ((index + 1) / segments) * (max - min) + min <= value
+              : false,
+            segmentValue: min + ((max - min) * (index + 1)) / segments,
+          }))
+        : [],
+    [segments, value, max, min],
+  );
+
+  const segmentPressHandlers = useMemo(
+    () =>
+      segmentItems.map((item) => () => {
+        handleValueChange([item.segmentValue]);
+      }),
+    [segmentItems, handleValueChange],
+  );
+
   return segments ? (
     <YStack position="relative" onLayout={handleLayout}>
       {sliderContent}
@@ -155,31 +187,19 @@ export const Slider = ({
           <SliderSegment
             key={-1}
             isActive
-            onPress={() => {
-              handleValueChange([min]);
-            }}
+            onPress={handleMinPress}
           />
-          {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
+          {segmentItems.map((item, index) => (
             <SliderSegment
-              key={index}
-              isActive={
-                value
-                  ? ((index + 1) / segments) * (max - min) + min <= value
-                  : false
-              }
-              onPress={() => {
-                handleValueChange([
-                  min + ((max - min) * (index + 1)) / segments,
-                ]);
-              }}
+              key={item.index}
+              isActive={item.isActive}
+              onPress={segmentPressHandlers[index]}
             />
           ))}
           <SliderSegment
             key={segments ?? 1}
             isActive={value === max}
-            onPress={() => {
-              handleValueChange([max]);
-            }}
+            onPress={handleMaxPress}
           />
         </XStack>
       ) : null}

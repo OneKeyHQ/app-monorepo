@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import { Animated, Easing } from 'react-native';
 
@@ -27,8 +27,10 @@ function BasicPulseContainer({
     }).start();
   }, [isActive, activeOpacity, duration, opacityAnim]);
 
+  const animatedStyle = useMemo(() => ({ opacity: opacityAnim }), [opacityAnim]);
+
   return (
-    <Animated.View style={{ opacity: opacityAnim }}>{children}</Animated.View>
+    <Animated.View style={animatedStyle}>{children}</Animated.View>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { FormattedMessage } from 'react-intl';
 
@@ -34,42 +34,47 @@ export function RichSizeableText({
       openUrlExternal(link?.url ?? '');
     }
   }, []);
+
+  const formattedMessageValues = useMemo(
+    () =>
+      ({
+        ...(linkList
+          ? Object.keys(linkList).reduce(
+              (values, key) => {
+                // eslint-disable-next-line react/no-unstable-nested-components
+                values[key] = (text) => {
+                  const link = linkList[key];
+                  return (
+                    <SizableText
+                      color="$textInfo"
+                      cursor="pointer"
+                      onPress={() => onLinkDidPress(link)}
+                      {...link}
+                    >
+                      {text}
+                    </SizableText>
+                  );
+                };
+                return values;
+              },
+              {} as Record<
+                string,
+                string | ((value: any) => React.JSX.Element)
+              >,
+            )
+          : {}),
+        ...i18NValues,
+      }) as Record<string, any>,
+    [linkList, i18NValues, onLinkDidPress],
+  );
+
   return (
     <SizableText size="$bodyLg" color="$textSubdued" {...rest}>
       {linkList || i18NValues ? (
         <FormattedMessage
           id={children as ETranslations}
           defaultMessage={children}
-          values={
-            {
-              ...(linkList
-                ? Object.keys(linkList).reduce(
-                    (values, key) => {
-                      // eslint-disable-next-line react/no-unstable-nested-components
-                      values[key] = (text) => {
-                        const link = linkList[key];
-                        return (
-                          <SizableText
-                            color="$textInfo"
-                            cursor="pointer"
-                            onPress={() => onLinkDidPress(link)}
-                            {...link}
-                          >
-                            {text}
-                          </SizableText>
-                        );
-                      };
-                      return values;
-                    },
-                    {} as Record<
-                      string,
-                      string | ((value: any) => React.JSX.Element)
-                    >,
-                  )
-                : {}),
-              ...i18NValues,
-            } as Record<string, any>
-          }
+          values={formattedMessageValues}
         />
       ) : (
         children

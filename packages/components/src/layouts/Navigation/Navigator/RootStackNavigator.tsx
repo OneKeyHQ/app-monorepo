@@ -110,18 +110,23 @@ export function RootStackNavigator<
     [config, getOptionsWithType],
   );
 
+  const mergedScreenOptions = useMemo(
+    () => ({
+      ...presetScreenOptions,
+      ...screenOptions,
+    }),
+    [presetScreenOptions, screenOptions],
+  );
+
   return useMemo(
     () => (
       <RootStack.Navigator
         initialRouteName={initialRouteName}
-        screenOptions={{
-          ...presetScreenOptions,
-          ...screenOptions,
-        }}
+        screenOptions={mergedScreenOptions}
       >
         {renderedScreens}
       </RootStack.Navigator>
     ),
-    [initialRouteName, presetScreenOptions, renderedScreens, screenOptions],
+    [initialRouteName, mergedScreenOptions, renderedScreens],
   );
 }

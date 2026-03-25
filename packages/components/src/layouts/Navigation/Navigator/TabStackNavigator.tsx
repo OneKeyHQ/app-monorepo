@@ -63,6 +63,14 @@ export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const Tab = createBottomTabNavigator();
 
+const emptyTabBar = () => null;
+
+const tabScreenOptions = {
+  headerShown: false,
+  freezeOnBlur: true,
+  lazy: false,
+};
+
 const useTabBarPosition = platformEnv.isNative
   ? () => 'bottom' as const
   : () => {
@@ -153,12 +161,8 @@ export function TabStackNavigator<RouteName extends string>({
 
   return (
     <Tab.Navigator
-      tabBar={showTabBar ? tabBarCallback : () => null}
-      screenOptions={{
-        headerShown: false,
-        freezeOnBlur: true,
-        lazy: false,
-      }}
+      tabBar={showTabBar ? tabBarCallback : emptyTabBar}
+      screenOptions={tabScreenOptions}
     >
       {tabScreens}
     </Tab.Navigator>

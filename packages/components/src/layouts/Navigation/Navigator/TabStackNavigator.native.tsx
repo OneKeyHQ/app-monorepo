@@ -73,6 +73,16 @@ export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const NativeTab = createNativeBottomTabNavigator();
 
+const extraScreenOptions = {
+  tabBarItemHidden: true,
+};
+
+const nativeTabScreenOptions = {
+  freezeOnBlur: true,
+  preventsDefault: false,
+  lazy: false,
+};
+
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
@@ -117,24 +127,28 @@ export function TabStackNavigator<RouteName extends string>({
           <TabSubStackNavigator config={children} />
         );
 
+        const options = {
+          // Type assertion needed because our INativeTabBarIcon uses string for sfSymbol
+          // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
+          tabBarIcon: nativeTabBarIcon as any,
+          tabBarLabel: intl.formatMessage({ id: translationId }),
+        };
+
+        const listeners = {
+          tabPress: () => {
+            handleTabPress(name);
+            if (trackId) {
+              defaultLogger.app.page.tabBarClick(trackId);
+            }
+          },
+        };
+
         return (
           <NativeTab.Screen
             key={name}
             name={name}
-            options={{
-              // Type assertion needed because our INativeTabBarIcon uses string for sfSymbol
-              // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
-              tabBarIcon: nativeTabBarIcon as any,
-              tabBarLabel: intl.formatMessage({ id: translationId }),
-            }}
-            listeners={{
-              tabPress: () => {
-                handleTabPress(name);
-                if (trackId) {
-                  defaultLogger.app.page.tabBarClick(trackId);
-                }
-              },
-            }}
+            options={options}
+            listeners={listeners}
           >
             {ScreenComponent}
           </NativeTab.Screen>
@@ -152,9 +166,7 @@ export function TabStackNavigator<RouteName extends string>({
         <NativeTab.Screen
           key={extraConfig.name}
           name={extraConfig.name}
-          options={{
-            tabBarItemHidden: true,
-          }}
+          options={extraScreenOptions}
         >
           {ExtraScreenComponent}
         </NativeTab.Screen>,
@@ -176,6 +188,14 @@ export function TabStackNavigator<RouteName extends string>({
         return tabBarHidden;
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
+  const tabBarStyle = useMemo(
+    () =>
+      platformEnv.isNativeAndroid
+        ? { backgroundColor: theme.bg.val }
+        : undefined,
+    [theme.bg.val],
+  );
+
   return (
     <NativeTab.Navigator
       labeled
@@ -186,16 +206,8 @@ export function TabStackNavigator<RouteName extends string>({
       tabBarHidden={hidden}
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
-      tabBarStyle={
-        platformEnv.isNativeAndroid
-          ? { backgroundColor: theme.bg.val }
-          : undefined
-      }
-      screenOptions={{
-        freezeOnBlur: true,
-        preventsDefault: false,
-        lazy: false,
-      }}
+      tabBarStyle={tabBarStyle}
+      screenOptions={nativeTabScreenOptions}
     >
       {tabScreens}
     </NativeTab.Navigator>

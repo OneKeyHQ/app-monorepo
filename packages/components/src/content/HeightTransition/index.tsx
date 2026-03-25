@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -76,13 +76,18 @@ function HeightTransition({
     [hide, measuredHeight, isMounted],
   );
 
+  const handleLayout = useCallback(
+    ({ nativeEvent }: { nativeEvent: { layout: { height: number } } }) => {
+      measuredHeight.value = Math.ceil(nativeEvent.layout.height);
+    },
+    [measuredHeight],
+  );
+
   return (
     <Animated.View style={[styles.hidden, style, containerStyle]}>
       <Animated.View
         style={[StyleSheet.absoluteFill, styles.autoBottom, childStyle]}
-        onLayout={({ nativeEvent }) => {
-          measuredHeight.value = Math.ceil(nativeEvent.layout.height);
-        }}
+        onLayout={handleLayout}
       >
         {children}
       </Animated.View>

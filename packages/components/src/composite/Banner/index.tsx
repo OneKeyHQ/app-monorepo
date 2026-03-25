@@ -22,6 +22,10 @@ import type {
   IXStackProps,
 } from '../../primitives';
 
+const paginationDotGtMdStyle = {
+  w: '$4' as const,
+};
+
 export interface IBannerData {
   title?: string;
   titleTextProps?: ISizableTextProps;
@@ -96,6 +100,44 @@ function BannerItem<T extends IBannerData>({
   );
 }
 
+function PaginationDot({
+  index,
+  currentIndex,
+  goToIndex,
+}: {
+  index: number;
+  currentIndex: number;
+  goToIndex: (index: number) => void;
+}) {
+  const handlePress = useCallback(
+    (event: any) => {
+      event?.stopPropagation?.();
+      goToIndex(index);
+    },
+    [goToIndex, index],
+  );
+  return (
+    <Stack
+      key={index}
+      p="$1"
+      borderRadius="$full"
+      onPress={handlePress}
+    >
+      <Stack
+        shadowColor="$blackA1"
+        shadowOpacity={0.1}
+        shadowRadius={3}
+        w="$3"
+        $gtMd={paginationDotGtMdStyle}
+        h="$1"
+        borderRadius="$full"
+        bg="$whiteA12"
+        opacity={currentIndex === index ? 1 : 0.5}
+      />
+    </Stack>
+  );
+}
+
 export function Banner<T extends IBannerData>({
   data,
   onItemPress,
@@ -141,6 +183,11 @@ export function Banner<T extends IBannerData>({
     [data, itemContainerStyle, itemTitleContainerStyle, onItemPress],
   );
 
+  const handlePaginationMouseEnter = useCallback(
+    () => setIsHoveringThrottled(true),
+    [setIsHoveringThrottled],
+  );
+
   const renderPagination = useCallback(
     ({
       currentIndex,
@@ -175,9 +222,7 @@ export function Banner<T extends IBannerData>({
                   shadowOpacity={0.1}
                   shadowRadius={3}
                   w="$3"
-                  $gtMd={{
-                    w: '$4',
-                  }}
+                  $gtMd={paginationDotGtMdStyle}
                   h="$1"
                   borderRadius="$full"
                   bg="$whiteA12"
@@ -195,7 +240,7 @@ export function Banner<T extends IBannerData>({
               direction="previous"
               onPress={gotToPrevIndex}
               theme="light"
-              onMouseEnter={() => setIsHoveringThrottled(true)}
+              onMouseEnter={handlePaginationMouseEnter}
             />
 
             <PaginationButton
@@ -203,7 +248,7 @@ export function Banner<T extends IBannerData>({
               direction="next"
               onPress={goToNextIndex}
               theme="light"
-              onMouseEnter={() => setIsHoveringThrottled(true)}
+              onMouseEnter={handlePaginationMouseEnter}
             />
           </>
         ) : null}
@@ -226,11 +271,32 @@ export function Banner<T extends IBannerData>({
       showCloseButton,
       showPaginationButton,
       hoverOpacity,
-      setIsHoveringThrottled,
+      handlePaginationMouseEnter,
     ],
   );
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
+
+  const handlePointerMoveTrue = useCallback(
+    () => setIsHoveringThrottled(true),
+    [setIsHoveringThrottled],
+  );
+  const handleMouseEnterTrue = useCallback(
+    () => setIsHoveringThrottled(true),
+    [setIsHoveringThrottled],
+  );
+  const handleMouseLeaveFalse = useCallback(
+    () => setIsHoveringThrottled(false),
+    [setIsHoveringThrottled],
+  );
+  const handlePointerEnterTrue = useCallback(
+    () => setIsHoveringThrottled(true),
+    [setIsHoveringThrottled],
+  );
+  const handlePointerLeaveFalse = useCallback(
+    () => setIsHoveringThrottled(false),
+    [setIsHoveringThrottled],
+  );
 
   const isFocused = useIsFocused();
 
@@ -240,9 +306,9 @@ export function Banner<T extends IBannerData>({
 
   return (
     <Stack
-      onPointerMove={() => setIsHoveringThrottled(true)}
-      onMouseEnter={() => setIsHoveringThrottled(true)}
-      onMouseLeave={() => setIsHoveringThrottled(false)}
+      onPointerMove={handlePointerMoveTrue}
+      onMouseEnter={handleMouseEnterTrue}
+      onMouseLeave={handleMouseLeaveFalse}
       w="100%"
     >
       <Swiper
@@ -257,12 +323,8 @@ export function Banner<T extends IBannerData>({
         renderPagination={renderPagination}
         overflow="hidden"
         borderRadius="$3"
-        onPointerEnter={() => {
-          setIsHoveringThrottled(true);
-        }}
-        onPointerLeave={() => {
-          setIsHoveringThrottled(false);
-        }}
+        onPointerEnter={handlePointerEnterTrue}
+        onPointerLeave={handlePointerLeaveFalse}
         {...(props as any)}
       />
     </Stack>

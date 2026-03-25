@@ -45,6 +45,8 @@ import type {
   ViewStyle,
 } from 'react-native';
 
+const emptyFragment = <></>;
+
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
   size?: 'small' | 'medium';
@@ -78,21 +80,25 @@ function BasicDesktopTabItemImage({
   avatarSrc?: string;
   selected?: boolean;
 }) {
+  const fallbackElement = useMemo(
+    () => (
+      <Image.Fallback bg="$bgSidebar" delayMs={180}>
+        <Icon
+          size="$4.5"
+          name="GlobusOutline"
+          color={selected ? '$iconActive' : '$iconSubdued'}
+        />
+      </Image.Fallback>
+    ),
+    [selected],
+  );
   return (
     <Image
       borderRadius="$1"
       size="$4.5"
       m="$px"
       source={avatarSrc}
-      fallback={
-        <Image.Fallback bg="$bgSidebar" delayMs={180}>
-          <Icon
-            size="$4.5"
-            name="GlobusOutline"
-            color={selected ? '$iconActive' : '$iconSubdued'}
-          />
-        </Image.Fallback>
-      }
+      fallback={fallbackElement}
     />
   );
 }
@@ -176,6 +182,21 @@ export function DesktopTabItem(
       }
     },
     [onPress, selected, trackId, onPressWhenSelected],
+  );
+  const handleRenderItems = useCallback(
+    ({ handleActionListOpen }: { handleActionListOpen: () => void }) => {
+      openActionList.current = handleActionListOpen;
+      return undefined;
+    },
+    [],
+  );
+  const handleActionListOpenChange = useCallback(
+    (isOpened: boolean) => {
+      reportPopoverOpen(isOpened);
+      setIsContextMenuOpened(isOpened);
+      setIsHovered(isOpened);
+    },
+    [reportPopoverOpen],
   );
   const trigger = useMemo(
     () => (
@@ -280,16 +301,9 @@ export function DesktopTabItem(
             title=""
             placement="right-start"
             sections={actionList}
-            renderTrigger={<></>}
-            renderItems={({ handleActionListOpen }) => {
-              openActionList.current = handleActionListOpen;
-              return undefined;
-            }}
-            onOpenChange={(isOpened) => {
-              reportPopoverOpen(isOpened);
-              setIsContextMenuOpened(isOpened);
-              setIsHovered(isOpened);
-            }}
+            renderTrigger={emptyFragment}
+            renderItems={handleRenderItems}
+            onOpenChange={handleActionListOpenChange}
           />
         ) : null}
         {children}
@@ -318,7 +332,8 @@ export function DesktopTabItem(
       closeButtonIcon,
       closeButtonTitle,
       actionList,
-      reportPopoverOpen,
+      handleRenderItems,
+      handleActionListOpenChange,
       intl,
       onClose,
       children,

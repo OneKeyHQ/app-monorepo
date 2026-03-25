@@ -59,6 +59,64 @@ type IProps = DefaultNavigatorOptions<
   IModalNavigationConfig;
 
 const backdropId = 'app-modal-stacks-backdrop';
+
+const backdropStyle = {
+  opacity: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'opacity',
+};
+
+const dragRegionStyle = {
+  WebkitAppRegion: 'drag',
+} as any;
+
+const modalStyleGtMd = {
+  transition:
+    'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+  willChange: 'opacity, transform',
+};
+
+const modalStyleMd = {
+  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform',
+};
+
+const routeStyleFirst = {
+  transform: [{ translateX: 0 }],
+  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform',
+  shadowColor: 'black',
+  shadowOpacity: 0.3,
+  shadowRadius: 10,
+  shadowOffset: { width: -5, height: 0 },
+};
+
+const containerGtMdStyle = {
+  justifyContent: 'center',
+  alignItems: 'center',
+};
+
+const modalScreenGtMdStyle = {
+  width: '90%',
+  height: '90%',
+  maxWidth: '$160',
+  maxHeight: '$160',
+  borderRadius: '$4',
+  outlineWidth: '$px',
+  outlineStyle: 'solid',
+  outlineColor: '$borderSubdued',
+};
+
+const routeStyleNonFirst = {
+  transform: [{ translateX: 640 }],
+  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform',
+  shadowColor: 'black',
+  shadowOpacity: 0.3,
+  shadowRadius: 10,
+  shadowOffset: { width: -5, height: 0 },
+};
 function WebModalNavigator({
   initialRouteName,
   children,
@@ -272,6 +330,21 @@ function WebModalNavigator({
     isPagePressIn.current = true;
   }, []);
 
+  const backdropRefCallback = useCallback((ref: TamaguiElement | null) => {
+    if (ref) {
+      MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
+    }
+  }, []);
+
+  const modalScreenRefCallback = useCallback(
+    (ref: TamaguiElement | null) => {
+      if (ref) {
+        MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+      }
+    },
+    [currentRouteIndex],
+  );
+
   state.routes.forEach((route, routeIndex) => {
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -285,15 +358,7 @@ function WebModalNavigator({
         }}
         flex={1}
         bg="$bg"
-        style={{
-          transform: [{ translateX: routeIndex !== 0 ? 640 : 0 }],
-          transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-          willChange: 'transform',
-          shadowColor: 'black',
-          shadowOpacity: 0.3,
-          shadowRadius: 10,
-          shadowOffset: { width: -5, height: 0 },
-        }}
+        style={routeIndex !== 0 ? routeStyleNonFirst : routeStyleFirst}
       >
         {render()}
       </Stack>
@@ -319,10 +384,7 @@ function WebModalNavigator({
         <>
           <Stack
             flex={1}
-            $gtMd={{
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
+            $gtMd={containerGtMdStyle}
             onPress={platformEnv.isNative ? handleBackdropClick : undefined}
             onPressIn={
               platformEnv.isNative ? undefined : onPageContainerPressIn
@@ -334,26 +396,13 @@ function WebModalNavigator({
             {hasModalRoute && !isExistBackdrop ? (
               <YStack
                 testID={backdropId}
-                ref={(ref) => {
-                  if (ref) {
-                    MODAL_ANIMATED_BACKDROP_VIEW_REF = ref;
-                  }
-                }}
+                ref={backdropRefCallback}
                 fullscreen
-                style={{
-                  opacity: 0,
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                  willChange: 'opacity',
-                }}
+                style={backdropStyle}
               >
                 {platformEnv.isDesktopMac ? (
                   <XStack
-                    style={
-                      {
-                        WebkitAppRegion: 'drag',
-                      } as any
-                    }
+                    style={dragRegionStyle}
                     position="absolute"
                     top={0}
                     h={48}
@@ -375,33 +424,9 @@ function WebModalNavigator({
               height="100%"
               borderTopStartRadius="$6"
               borderTopEndRadius="$6"
-              $gtMd={{
-                width: '90%',
-                height: '90%',
-                maxWidth: '$160',
-                maxHeight: '$160',
-                borderRadius: '$4',
-                outlineWidth: '$px',
-                outlineStyle: 'solid',
-                outlineColor: '$borderSubdued',
-              }}
-              ref={(ref) => {
-                if (ref) {
-                  MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
-                }
-              }}
-              style={
-                media.gtMd
-                  ? {
-                      transition:
-                        'opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                      willChange: 'opacity, transform',
-                    }
-                  : {
-                      transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                      willChange: 'transform',
-                    }
-              }
+              $gtMd={modalScreenGtMdStyle}
+              ref={modalScreenRefCallback}
+              style={media.gtMd ? modalStyleGtMd : modalStyleMd}
             >
               <StackView
                 {...rest}

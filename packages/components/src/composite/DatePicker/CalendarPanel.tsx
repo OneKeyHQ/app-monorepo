@@ -4,6 +4,9 @@ import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { YStack } from '../../primitives';
 
+const dualPanelStyle = { flex: 1, flexBasis: 0 } as const;
+const emptyStyle = {} as const;
+
 import { CalendarHeader } from './CalendarHeader';
 import { DayGrid } from './DayGrid';
 import { MonthGrid } from './MonthGrid';
@@ -88,6 +91,9 @@ export function CalendarPanel({
   const isRangeDualPanel = mode === 'range' && isDualPanel;
 
   const [viewMode, setViewMode] = useState<IViewMode>('day');
+  const setViewModeToDay = useCallback(() => setViewMode('day'), []);
+  const setViewModeToMonth = useCallback(() => setViewMode('month'), []);
+  const setViewModeToYear = useCallback(() => setViewMode('year'), []);
 
   const {
     isPrevDisabled,
@@ -123,7 +129,7 @@ export function CalendarPanel({
   const showNextNav = showNav === 'both' || showNav === 'next';
 
   return (
-    <YStack {...(isDualPanel ? { flex: 1, flexBasis: 0 } : {})}>
+    <YStack {...(isDualPanel ? dualPanelStyle : emptyStyle)}>
       {viewMode === 'year' ? (
         <YearRangeHeader />
       ) : (
@@ -144,11 +150,11 @@ export function CalendarPanel({
           isNextYearDisabled={showNextNav ? isNextYearDisabled : undefined}
           onMonthClick={
             viewMode === 'day' && !isRangeDualPanel
-              ? () => setViewMode('month')
+              ? setViewModeToMonth
               : undefined
           }
           onYearClick={
-            !isRangeDualPanel ? () => setViewMode('year') : undefined
+            !isRangeDualPanel ? setViewModeToYear : undefined
           }
           mode={mode}
         />
@@ -163,13 +169,13 @@ export function CalendarPanel({
       ) : null}
       {viewMode === 'month' ? (
         <MonthGrid
-          onSelect={() => setViewMode('day')}
+          onSelect={setViewModeToDay}
           onMonthSelect={onMonthSelect}
         />
       ) : null}
       {viewMode === 'year' ? (
         <YearGrid
-          onSelect={() => setViewMode('month')}
+          onSelect={setViewModeToMonth}
           onYearSelect={onYearSelect}
         />
       ) : null}

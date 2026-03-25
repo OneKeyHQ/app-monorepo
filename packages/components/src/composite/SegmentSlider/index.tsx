@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
 import { Slider } from 'react-native-awesome-slider';
@@ -35,18 +35,21 @@ const Mark = ({
   borderColor?: string;
   onPress?: () => void;
 }) => {
+  const markStyle = useMemo(
+    () => ({
+      width: markWidth,
+      height: markWidth,
+      backgroundColor: slideOver ? markColor : backgroundColor,
+      borderWidth: 1,
+      borderColor: slideOver ? markColor : borderColor,
+      borderRadius: markWidth / 2,
+    }),
+    [slideOver, markColor, backgroundColor, borderColor],
+  );
+
   return (
     <TouchableWithoutFeedback onPress={onPress}>
-      <View
-        style={{
-          width: markWidth,
-          height: markWidth,
-          backgroundColor: slideOver ? markColor : backgroundColor,
-          borderWidth: 1,
-          borderColor: slideOver ? markColor : borderColor,
-          borderRadius: markWidth / 2,
-        }}
-      />
+      <View style={markStyle} />
     </TouchableWithoutFeedback>
   );
 };
@@ -58,18 +61,19 @@ const Thumb = ({
   backgroundColor?: string;
   borderColor?: string;
 }) => {
-  return (
-    <View
-      style={{
-        width: thumbWidth,
-        height: thumbWidth,
-        backgroundColor,
-        borderWidth: 1,
-        borderColor,
-        borderRadius: thumbWidth / 2,
-      }}
-    />
+  const thumbStyle = useMemo(
+    () => ({
+      width: thumbWidth,
+      height: thumbWidth,
+      backgroundColor,
+      borderWidth: 1,
+      borderColor,
+      borderRadius: thumbWidth / 2,
+    }),
+    [backgroundColor, borderColor],
   );
+
+  return <View style={thumbStyle} />;
 };
 
 const MarkWithAnimatedView = ({
@@ -123,8 +127,13 @@ const MarkWithAnimatedView = ({
       opacity: index <= progressStep ? 1 : 0,
     };
   });
+  const combinedStyle = useMemo(
+    () => [{ ...StyleSheet.absoluteFillObject }, style],
+    [style],
+  );
+
   return (
-    <Animated.View style={[{ ...StyleSheet.absoluteFillObject }, style]}>
+    <Animated.View style={combinedStyle}>
       <Mark
         slideOver
         onPress={onPress}

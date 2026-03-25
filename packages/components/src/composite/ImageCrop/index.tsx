@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { type ChangeEvent, useCallback, useRef, useState } from 'react';
+import { type ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
@@ -91,6 +91,37 @@ function BasicImageCrop({
     }
   }, []);
 
+  const stencilProps = useMemo(
+    () => ({
+      aspectRatio: defaultSize.width / defaultSize.height,
+    }),
+    [defaultSize.width, defaultSize.height],
+  );
+
+  const handleConfirm = useCallback(async () => {
+    if (cropperRef.current && cropperRef.current.getCanvas()) {
+      const canvas = cropperRef.current.getCanvas();
+      if (canvas) {
+        const { width, height } = defaultSize;
+        const imageWidth = cropRectRef.current.width;
+        const imageHeight = cropRectRef.current.height;
+        let base64String = canvas.toDataURL(MINE_TYPE, 1.0);
+        if (imageHeight > height || imageWidth > width) {
+          base64String = await resizeImage(base64String, width, height);
+        }
+        onConfirm({
+          data: base64String,
+          cropRect: cropRectRef.current,
+          path: '',
+          size: base64String.length,
+          width: Math.min(imageWidth, width),
+          height: Math.min(imageHeight, height),
+          mime: MINE_TYPE,
+        });
+      }
+    }
+  }, [defaultSize, onConfirm]);
+
   return (
     <>
       <Stack
@@ -102,37 +133,13 @@ function BasicImageCrop({
           src={src}
           onChange={onChange}
           ref={cropperRef}
-          stencilProps={{
-            aspectRatio: defaultSize.width / defaultSize.height,
-          }}
+          stencilProps={stencilProps}
           className="onekey-img-cropper"
         />
       </Stack>
       <Dialog.Footer
         onCancel={onCancel}
-        onConfirm={async () => {
-          if (cropperRef.current && cropperRef.current.getCanvas()) {
-            const canvas = cropperRef.current.getCanvas();
-            if (canvas) {
-              const { width, height } = defaultSize;
-              const imageWidth = cropRectRef.current.width;
-              const imageHeight = cropRectRef.current.height;
-              let base64String = canvas.toDataURL(MINE_TYPE, 1.0);
-              if (imageHeight > height || imageWidth > width) {
-                base64String = await resizeImage(base64String, width, height);
-              }
-              onConfirm({
-                data: base64String,
-                cropRect: cropRectRef.current,
-                path: '',
-                size: base64String.length,
-                width: Math.min(imageWidth, width),
-                height: Math.min(imageHeight, height),
-                mime: MINE_TYPE,
-              });
-            }
-          }
-        }}
+        onConfirm={handleConfirm}
       />
     </>
   );
