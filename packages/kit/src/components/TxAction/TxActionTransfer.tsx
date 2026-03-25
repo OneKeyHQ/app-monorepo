@@ -408,8 +408,12 @@ function TxActionTransferListView(props: ITxActionProps) {
         tokenSymbol: changeSymbol,
         showPlusMinusSigns: true,
       }}
+      minWidth={0}
+      maxWidth="100%"
       numberOfLines={1}
       size="$bodyLgMedium"
+      textAlign="right"
+      flexShrink={1}
       {...((change as string)?.includes('+') && {
         color: '$textSuccess',
       })}
@@ -436,8 +440,11 @@ function TxActionTransferListView(props: ITxActionProps) {
       }}
       size="$bodyMd"
       color="$textSubdued"
+      minWidth={0}
+      maxWidth="100%"
       numberOfLines={1}
-      maxWidth="$40"
+      textAlign="right"
+      flexShrink={1}
     >
       {changeDescription as string}
     </NumberSizeableTextWrapper>
@@ -447,6 +454,10 @@ function TxActionTransferListView(props: ITxActionProps) {
       size="$bodyMd"
       color="$textSubdued"
       formatter="value"
+      minWidth={0}
+      maxWidth="100%"
+      textAlign="right"
+      flexShrink={1}
     >
       -
     </NumberSizeableTextWrapper>
