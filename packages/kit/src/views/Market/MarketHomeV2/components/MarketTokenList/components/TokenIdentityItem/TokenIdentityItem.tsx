@@ -7,6 +7,7 @@ import {
   NumberSizeableText,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   useClipboard,
   useMedia,
@@ -93,6 +94,10 @@ interface ITokenIdentityItemProps {
    * Subtitle for perpetual tokens (e.g. Chinese name tag).
    */
   perpsSubtitle?: string;
+  /**
+   * Whether to show the stock subtitle. Defaults to true.
+   */
+  showStockSubtitle?: boolean;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -111,6 +116,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   stock,
   maxLeverage,
   perpsSubtitle,
+  showStockSubtitle = true,
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
@@ -158,6 +164,29 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     return tokenLogoURI;
   };
 
+  const symbolText = (
+    <SizableText
+      size="$bodyLgMedium"
+      numberOfLines={1}
+      ellipsizeMode="tail"
+      maxWidth="$32"
+      flexShrink={1}
+    >
+      {symbol}
+    </SizableText>
+  );
+
+  const symbolElement =
+    !showStockSubtitle && stock?.subtitle ? (
+      <Tooltip
+        placement="top"
+        renderTrigger={symbolText}
+        renderContent={stock.subtitle}
+      />
+    ) : (
+      symbolText
+    );
+
   return (
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
@@ -170,21 +199,13 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
 
       <Stack flex={1} minWidth={0}>
         <XStack alignItems="center" gap="$1">
-          <SizableText
-            size="$bodyLgMedium"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            maxWidth="$32"
-            flexShrink={1}
-          >
-            {symbol}
-          </SizableText>
+          {symbolElement}
           {maxLeverage ? <LeverageBadge leverage={maxLeverage} /> : null}
           {gtMd ? (
             <>
               <StockSourceLogo stock={stock} />
               {communityRecognized ? <CommunityRecognizedBadge /> : null}
-              {stock?.subtitle ? (
+              {showStockSubtitle && stock?.subtitle ? (
                 <SubtitleBadge subtitle={stock.subtitle} />
               ) : null}
             </>
@@ -194,7 +215,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
                 communityRecognized={communityRecognized}
                 stock={stock}
               />
-              {stock?.subtitle ? (
+              {showStockSubtitle && stock?.subtitle ? (
                 <SubtitleBadge subtitle={stock.subtitle} />
               ) : null}
             </>

@@ -59,6 +59,7 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.ConnectionModal,
     component: ConnectionModal,
+    dismissOnOverlayPress: false,
   },
   {
     name: EDAppConnectionModal.ConnectionList,

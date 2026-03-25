@@ -1,5 +1,6 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
+import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
@@ -41,6 +42,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN = [
   'https://onekey.so',
   'https://onekeytest.com',
   ...(platformEnv.isDev ? [TRADING_VIEW_LOCALHOST_ORIGIN] : []),
+  ...KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN,
   ...WEB_EMBED_API_WHITE_LIST_ORIGIN,
 ].filter(Boolean);
 
@@ -74,17 +76,35 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_lineDragCommit',
 ];
 
+export const PROVIDER_API_PRIVATE_KEYLESS_METHOD = [
+  'wallet_keylessGetStatus',
+  'wallet_keylessOpenSidePanel',
+  'wallet_keylessStartLogin',
+  'wallet_keylessConfirmPin',
+  'wallet_keylessSelectAccount',
+  'wallet_keylessDisconnectSite',
+];
+
 // white list method which can be called from any origin
 //      so these method should NOT return sensitive data
 export function isProviderApiPrivateAllowedMethod(method?: string) {
   return !!method && PROVIDER_API_PRIVATE_WHITE_LIST_METHOD.includes(method);
 }
 
+export function isProviderApiPrivateKeylessMethod(method?: string) {
+  return method && PROVIDER_API_PRIVATE_KEYLESS_METHOD.includes(method || '');
+}
+
 export function isProviderApiPrivateAllowedOrigin(origin?: string) {
+  const isDevLocalhostOrigin =
+    platformEnv.isDev &&
+    (origin?.startsWith('http://localhost') ||
+      origin?.startsWith('http://127.0.0.1'));
   return (
     origin &&
     (origin?.endsWith('.onekey.so') ||
       origin?.endsWith('.onekeytest.com') ||
+      isDevLocalhostOrigin ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );
 }

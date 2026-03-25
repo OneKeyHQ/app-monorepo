@@ -157,7 +157,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
     });
-    return response.data.data;
+    return {
+      data: response.data.data,
+      pwdHash: auth.pwdHash,
+    };
   }
 
   async apiUploadItemsKeyless({

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef } from 'react';
 
@@ -146,11 +147,14 @@ const useDesktopEvents = platformEnv.isDesktop
               const route = routeState.routes[routeState.routes.length - 1];
               if (
                 route &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
                 (route.params as { screen: string })?.screen ===
                   EModalRoutes.SettingModal
               ) {
                 if (
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
                   route.name === ERootRoutes.Modal ||
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
                   route.name === ERootRoutes.iOSFullScreen
                 ) {
                   const routeLength =
@@ -359,6 +363,7 @@ const useAboutVersion =
               renderContent: (
                 <YStack gap={4} alignItems="center" pt="$4">
                   <Image
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     source={require('../../assets/logo.png')}
                     size={72}
                     borderRadius="$full"
@@ -425,7 +430,7 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
       await backgroundApiProxy.serviceSetting.isShowFloatingButton();
     const launchTimesLastReset =
       await backgroundApiProxy.serviceApp.getLaunchTimesLastReset();
-    if (!isShowFloatingButton && launchTimesLastReset === 5) {
+    if (!isShowFloatingButton && launchTimesLastReset >= 5) {
       Dialog.show({
         title: '',
         showExitButton: false,
@@ -440,6 +445,7 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
                 w: 360,
                 h: 163,
               }}
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
             />
             <YStack gap="$1">
@@ -518,7 +524,10 @@ export const useLaunchEvents = (): void => {
         hasLaunchEventsExecutedRef.current = true;
         setTimeout(async () => {
           await backgroundApiProxy.serviceApp.updateLaunchTimes();
-          if (platformEnv.isExtension) {
+          if (
+            platformEnv.isExtensionUiPopup ||
+            platformEnv.isExtensionUiSidePanel
+          ) {
             await launchFloatingIconEvent(intl);
           }
         }, 250);

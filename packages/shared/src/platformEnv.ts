@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 

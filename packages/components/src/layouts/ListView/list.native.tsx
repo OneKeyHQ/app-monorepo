@@ -1,5 +1,5 @@
 import type { ForwardedRef, MutableRefObject } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
 
@@ -82,12 +82,15 @@ function BaseListView<T>(
     },
   );
 
+  const wrapperStyle = useMemo(
+    () => [{ flex: 1, minHeight: 2 }, style as StyleProp<ViewStyle>],
+    [style],
+  );
+
   return (
     // FlashList doesn't support the style, so we have to wrap it,
     // and we set default flex = 1 just like FlatList
-    <OptimizationView
-      style={[{ flex: 1, minHeight: 2 }, style as StyleProp<ViewStyle>]}
-    >
+    <OptimizationView style={wrapperStyle}>
       <FlashList<T>
         ref={ref as any}
         ListHeaderComponentStyle={listHeaderStyle}

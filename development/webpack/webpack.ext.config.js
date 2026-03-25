@@ -1,12 +1,10 @@
-const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 const path = require('path');
-const webpack = require('webpack');
 
-const baseConfig = require('./webpack.base.config');
-const analyzerConfig = require('./webpack.analyzer.config');
-const developmentConfig = require('./webpack.development.config');
-const productionConfig = require('./webpack.prod.config');
+const webpack = require('webpack');
+const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
+
 const babelTools = require('../babelTools');
+
 const {
   WEB_PORT,
   isManifestV3,
@@ -14,12 +12,16 @@ const {
   isManifestV2,
   ENABLE_ANALYZER,
 } = require('./constant');
-const devUtils = require('./ext/devUtils');
-const utils = require('./utils');
-const codeSplit = require('./ext/codeSplit');
-const pluginsHtml = require('./ext/pluginsHtml');
-const pluginsCopy = require('./ext/pluginsCopy');
 const ChromeExtensionV3ViolationPlugin = require('./ext/ChromeExtensionV3ViolationPlugin');
+const codeSplit = require('./ext/codeSplit');
+const devUtils = require('./ext/devUtils');
+const pluginsCopy = require('./ext/pluginsCopy');
+const pluginsHtml = require('./ext/pluginsHtml');
+const utils = require('./utils');
+const analyzerConfig = require('./webpack.analyzer.config');
+const baseConfig = require('./webpack.base.config');
+const developmentConfig = require('./webpack.development.config');
+const productionConfig = require('./webpack.prod.config');
 // const htmlLazyScript = require('./ext/htmlLazyScript');
 
 const IS_DEV = isDev;

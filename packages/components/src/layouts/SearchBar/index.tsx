@@ -1,5 +1,5 @@
 import type { CompositionEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -117,6 +117,30 @@ export function SearchBar({
     [onSearchTextChange],
   );
   const intl = useIntl();
+
+  const clearAddOns = useMemo(
+    () => [
+      {
+        iconName: 'XCircleOutline' as const,
+        onPress: handleClearValue,
+        testID: `${testID || ''}-clear`,
+      },
+    ],
+    [handleClearValue, testID],
+  );
+
+  const resolvedContainerProps = useMemo(
+    () => ({
+      w: '100%' as const,
+      borderRadius: '$full' as const,
+      bg: '$bgStrong' as const,
+      borderColor: '$transparent' as const,
+      overflow: 'hidden' as const,
+      ...containerProps,
+    }),
+    [containerProps],
+  );
+
   return (
     <Input
       ref={inputRef}
@@ -137,24 +161,11 @@ export function SearchBar({
       {...rest}
       {...(value?.length &&
         !rest.addOns?.length && {
-          addOns: [
-            {
-              iconName: 'XCircleOutline',
-              onPress: handleClearValue,
-              testID: `${testID || ''}-clear`,
-            },
-          ],
+          addOns: clearAddOns,
         })}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
-      containerProps={{
-        w: '100%',
-        borderRadius: '$full',
-        bg: '$bgStrong',
-        borderColor: '$transparent',
-        overflow: 'hidden',
-        ...containerProps,
-      }}
+      containerProps={resolvedContainerProps}
     />
   );
 }

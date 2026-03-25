@@ -52,7 +52,7 @@ Warnings typically fall into these categories:
 | Unused vars | `@typescript-eslint/no-unused-vars` | Remove import or prefix with `_` |
 | Non-null assertion | `@typescript-eslint/no-non-null-assertion` | Add type guard or cast |
 | Nested components | `react/no-unstable-nested-components` | Extract component |
-| Import order | `import/order` | Fix import ordering |
+| Import order | `import-js/order` | Fix import ordering |
 
 ### Step 3: Fix Each Category
 

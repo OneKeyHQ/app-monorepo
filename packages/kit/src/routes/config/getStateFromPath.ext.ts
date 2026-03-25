@@ -6,7 +6,7 @@
 /* oxlint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable no-param-reassign */
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
-/* eslint-disable import/order */
+/* eslint-disable import-js/order */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable no-plusplus */
 /* eslint-disable prefer-template */
@@ -21,20 +21,22 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable prefer-const */
 /* eslint-disable no-cond-assign */
-import type {
-  InitialState,
-  NavigationState,
-  ParamListBase,
-  PartialState,
-} from '@react-navigation/routers';
+import {  arrayStartsWith, findFocusedRoute, getPatternParts, isArrayEqual, validatePathConfig } from '@react-navigation/core';
 import escape from 'escape-string-regexp';
 import * as queryString from 'query-string';
 
 
 // ---CHANGED Begin----: import from core instead of relative path
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import type { PathConfig, PathConfigMap, PatternPart } from '@react-navigation/core';
-import {  arrayStartsWith, findFocusedRoute, getPatternParts, isArrayEqual, validatePathConfig } from '@react-navigation/core';
+import type {
+  InitialState,
+  NavigationState,
+  ParamListBase,
+  PartialState,
+} from '@react-navigation/routers';
+
 // ---CHANGED end----
 
 type Options<ParamList extends {}> = {
