@@ -14,6 +14,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
@@ -59,9 +62,6 @@ import {
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;

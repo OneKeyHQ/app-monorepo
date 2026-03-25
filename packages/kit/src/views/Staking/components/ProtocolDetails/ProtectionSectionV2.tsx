@@ -10,13 +10,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function AutoRiskControlContent() {
   const intl = useIntl();

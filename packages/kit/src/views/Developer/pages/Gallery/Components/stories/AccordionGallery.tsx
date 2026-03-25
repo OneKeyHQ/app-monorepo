@@ -6,11 +6,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-import { Layout } from './utils/Layout';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { Layout } from './utils/Layout';
 
 const AccordionGallery = () => (
   <Layout

@@ -10,9 +10,9 @@ import {
   useThemeName,
   withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';

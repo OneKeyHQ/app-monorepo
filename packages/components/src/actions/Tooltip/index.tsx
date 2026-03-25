@@ -21,14 +21,13 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SizableText, XStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Shortcut } from '../Shortcut';
 
 import { TooltipContext } from './context';
 
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
-
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 const tooltipEnterStyle = { scale: 0.95, opacity: 0 } as const;
 const tooltipExitStyle = { scale: 0.95, opacity: 0 } as const;

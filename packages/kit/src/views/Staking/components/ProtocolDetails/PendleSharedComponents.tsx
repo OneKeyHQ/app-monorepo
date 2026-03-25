@@ -11,6 +11,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   IEarnText,
   IEarnTooltip,
@@ -24,9 +27,6 @@ import { EarnAmountText } from './EarnAmountText';
 import { EarnSwapRoute } from './EarnSwapRoute';
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 // --- PendleRewardRow ---
 

@@ -13,13 +13,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IProviderFoldProps {
   providerInfo: ISwapProviderInfo;

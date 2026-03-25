@@ -13,6 +13,10 @@ import {
   View,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
   batchGetPublicKeys,
@@ -39,10 +43,6 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Layout } from './utils/Layout';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function PartContainer({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -20,11 +20,11 @@ import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { usePageWidth } from '../../hooks/usePage';
 import { useOverlayZIndex } from '../../hooks/useStyle';
 import { Stack, ThemeableStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Trigger } from '../Trigger';
 
 import type { GestureResponderEvent } from 'react-native';
 
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 const toastEnterStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
 const toastExitStyle = { opacity: 0, scale: 0.8, y: -20 } as const;

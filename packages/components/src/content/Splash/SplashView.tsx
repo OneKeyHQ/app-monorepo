@@ -5,9 +5,9 @@ import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 import { Image } from '../../primitives/Image';
 import { Stack } from '../../primitives/Stack';
 
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 import type { ISplashViewProps } from './type';
 
-import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
 const exitStyle = { opacity: 0 };
 

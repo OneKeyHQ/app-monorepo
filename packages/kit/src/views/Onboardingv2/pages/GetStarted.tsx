@@ -31,6 +31,9 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
+import {
   useKeylessWallet,
   useKeylessWalletFeatureIsEnabled,
 } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
@@ -53,9 +56,6 @@ import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvide
 
 import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 const DEVICE_SIZE = 24;
 

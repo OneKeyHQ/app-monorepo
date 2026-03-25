@@ -14,11 +14,11 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 // ==================== Types ====================
 

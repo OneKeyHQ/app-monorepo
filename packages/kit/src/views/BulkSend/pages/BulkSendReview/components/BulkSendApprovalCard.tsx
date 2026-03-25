@@ -15,6 +15,10 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -23,10 +27,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useBulkSendReviewContext } from './Context';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IApprovalItemProps = {
   approveInfo: IApproveInfo;

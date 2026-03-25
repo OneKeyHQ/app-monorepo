@@ -1,9 +1,9 @@
 import type { IYStackProps } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function PageContainer({ children, ...rest }: IYStackProps) {
   return (

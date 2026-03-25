@@ -14,6 +14,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -25,9 +28,6 @@ import { TabSettingsListItem, TabSettingsSection } from '../Tab/ListItem';
 import { useIsTabNavigator } from '../Tab/useIsTabNavigator';
 
 import { OneKeyIdAvatar } from './OneKeyIdAvatar';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function OneKeyIdUserProfile() {
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();

@@ -9,15 +9,15 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';

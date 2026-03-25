@@ -15,13 +15,13 @@ import {
   YStack,
   usePageWidth,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface ISecureQRToastBaseProps {
   title?: string;

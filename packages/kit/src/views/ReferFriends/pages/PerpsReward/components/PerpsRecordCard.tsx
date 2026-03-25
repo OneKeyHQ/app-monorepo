@@ -12,13 +12,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsInviteItem } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IPerpsRecordCardProps {
   item: IPerpsInviteItem;

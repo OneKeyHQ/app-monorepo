@@ -24,6 +24,10 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   IDBIndexedAccount,
   IDBWallet,
@@ -68,10 +72,6 @@ import {
 import MatrixBackground from './MatrixBackground';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 

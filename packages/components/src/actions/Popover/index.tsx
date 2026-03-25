@@ -43,14 +43,14 @@ import {
 } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
-import { IconButton } from '../IconButton';
-import { Trigger } from '../Trigger';
-
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '../../utils/animationConstants';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
+import { IconButton } from '../IconButton';
+import { Trigger } from '../Trigger';
+
 import { PopoverContent } from './PopoverContent';
 
 import type { IPopoverTooltip } from './type';

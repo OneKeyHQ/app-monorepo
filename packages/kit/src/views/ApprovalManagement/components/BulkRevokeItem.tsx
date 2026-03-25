@@ -18,6 +18,10 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,10 +41,6 @@ import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { openTransactionDetailsUrl } from '../../../utils/explorerUtils';
 
 import type { IntlShape } from 'react-intl';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IProps = {
   unsignedTx: IUnsignedTxPro;

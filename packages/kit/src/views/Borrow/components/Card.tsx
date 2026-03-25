@@ -8,9 +8,7 @@ import {
   View,
   XStack,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 
 const CARD_ACCORDION_VALUE = 'card';
 

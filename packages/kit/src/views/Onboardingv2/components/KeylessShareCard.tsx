@@ -12,6 +12,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { EOnboardingV2KeylessWalletCreationMode } from '@onekeyhq/shared/src/routes/onboardingv2';
 
 import {
@@ -19,9 +22,6 @@ import {
   type IKeylessKeyStepCardProps,
 } from './keylessOnboardingTypes';
 import { SecurityKeyIcon } from './SecurityKeyIcon';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function StepStatusIcon(props: { state: ECreationStepState | undefined }) {
   const { state } = props;

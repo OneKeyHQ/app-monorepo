@@ -7,12 +7,12 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
 export function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
   const intl = useIntl();

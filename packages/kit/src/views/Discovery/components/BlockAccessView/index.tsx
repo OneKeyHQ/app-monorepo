@@ -3,11 +3,11 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, YStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 import {
   ANIMATE_ONLY_OPACITY,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 function BlockAccessView({
   urlValidateState,

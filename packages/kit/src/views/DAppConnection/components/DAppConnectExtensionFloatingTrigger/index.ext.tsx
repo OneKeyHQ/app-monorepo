@@ -11,6 +11,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerAddressSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
@@ -32,9 +35,6 @@ import useActiveTabDAppInfo from '../../hooks/useActiveTabDAppInfo';
 import { useDappAccountSwitch } from '../../hooks/useDappAccountSwitch';
 
 import type { IExtensionActiveTabDAppInfo } from '../../hooks/useActiveTabDAppInfo';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function SingleAccountAddressSelectorTrigger({
   num,

@@ -2,11 +2,11 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Accordion, Icon, SizableText, YStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
   children: React.ReactNode;

@@ -1,11 +1,11 @@
 import type { ComponentProps, ReactNode } from 'react';
 
 import { Accordion, Icon, SizableText, XStack } from '@onekeyhq/components';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ANIMATE_ONLY_OPACITY,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 interface IReferFriendsAccordionItemProps {
   value: string;

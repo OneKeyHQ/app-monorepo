@@ -10,14 +10,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
-import type { IApyHistoryItem } from '@onekeyhq/shared/types/staking';
-
-import type { UTCTimestamp } from 'lightweight-charts';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import type { IApyHistoryItem } from '@onekeyhq/shared/types/staking';
+
+import type { UTCTimestamp } from 'lightweight-charts';
 
 interface IApyChartBaseProps {
   data: IApyHistoryItem[] | undefined;

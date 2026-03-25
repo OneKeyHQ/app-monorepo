@@ -10,6 +10,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
@@ -27,9 +30,6 @@ import { ReferAFriendIntroPhase } from './components/ReferAFriendIntroPhase';
 import { ReferAFriendPhaseActions } from './components/ReferAFriendPhaseActions';
 import { useReferAFriendData } from './hooks/useReferAFriendData';
 import { EPhaseState } from './types';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IReferAFriendPageProps {
   postConfig: IInvitePostConfig;

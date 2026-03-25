@@ -4,9 +4,7 @@ import type {
   IYStackProps,
 } from '@onekeyhq/components';
 import { Popover, SizableText, XStack, YStack } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 
 function CalculationList({ children }: IYStackProps) {
   return <YStack gap="$4">{children}</YStack>;

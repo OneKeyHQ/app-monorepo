@@ -13,6 +13,9 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
+import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -22,9 +25,6 @@ import WebContent from '../../components/WebContent/WebContent';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;

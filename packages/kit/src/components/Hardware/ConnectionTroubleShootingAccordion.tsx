@@ -16,13 +16,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 // Define stable components outside of render function to avoid React warnings
 function LinkComponent({

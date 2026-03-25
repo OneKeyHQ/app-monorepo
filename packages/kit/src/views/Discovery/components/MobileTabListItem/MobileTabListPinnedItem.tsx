@@ -1,11 +1,11 @@
 import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
 
-import { useWebTabDataById } from '../../hooks/useWebTabs';
-
-import type { IWebTab } from '../../types';
 import {
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { useWebTabDataById } from '../../hooks/useWebTabs';
+
+import type { IWebTab } from '../../types';
 
 function MobileTabListPinnedItem({
   id,

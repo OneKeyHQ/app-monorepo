@@ -10,10 +10,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 import {
   ANIMATE_ONLY_BORDER_COLOR,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
 
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;

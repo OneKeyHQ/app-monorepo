@@ -2,10 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 
 import type { IFormFieldProps } from '../types';
-
-import { ANIMATE_ONLY_TRANSFORM } from '../../../utils/animationConstants';
 
 export enum ESwitchSize {
   'small' = 'small',

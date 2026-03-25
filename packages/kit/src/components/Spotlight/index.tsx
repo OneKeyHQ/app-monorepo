@@ -34,6 +34,9 @@ import type {
   IElement,
   IStackStyle,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -43,9 +46,6 @@ import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { View as NativeView } from 'react-native';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 export type ISpotlightViewProps = PropsWithChildren<{
   containerProps?: IStackStyle;

@@ -7,12 +7,12 @@ import {
 } from 'react-native-draggable-flatlist';
 
 import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   GetProps,
   StackProps,
   TamaguiElement,
 } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions/IconButton';

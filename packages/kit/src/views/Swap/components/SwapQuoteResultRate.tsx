@@ -13,14 +13,14 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-
-import SwapRefreshButton from './SwapRefreshButton';
 import {
   ANIMATE_ONLY_OPACITY_TRANSFORM,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+
+import SwapRefreshButton from './SwapRefreshButton';
 
 interface ISwapQuoteResultRateProps {
   rate?: string;

@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useIsModalPage, useIsOverlayPage } from '../../hocs';
 import { Spinner, Stack, View, YStack } from '../../primitives';
 
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 import { useIsIpadModalPage, useTabBarHeight } from './hooks';
 import {
   iPadModalPageContext,
@@ -20,7 +21,6 @@ import {
 
 import type { IBasicPageProps } from './type';
 
-import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
 const exitStyleFadeOut = { opacity: 0 };
 

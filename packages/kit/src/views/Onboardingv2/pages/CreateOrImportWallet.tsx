@@ -18,6 +18,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { generateMnemonic } from '@onekeyhq/core/src/secret';
 import { EKeylessWalletEnableScene } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -43,11 +48,6 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 import { AnimatedDeviceAvatar } from './GetStarted';
 
 import type { RouteProp } from '@react-navigation/native';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function CardHeader({ children }: { children: React.ReactNode }) {
   return (

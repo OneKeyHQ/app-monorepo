@@ -25,6 +25,10 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -96,10 +100,6 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 let correctDevOnlyPwd = '';
 

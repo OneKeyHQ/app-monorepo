@@ -22,6 +22,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -50,9 +53,6 @@ import UploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 

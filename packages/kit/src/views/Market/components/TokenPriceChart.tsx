@@ -18,6 +18,9 @@ import type {
   IDeferredPromise,
   ISegmentControlProps,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -32,9 +35,6 @@ import { TradingView } from '../../../components/TradingView';
 import { PriceChart } from './Chart';
 
 import type { ITradingViewProps } from '../../../components/TradingView';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IChartProps {
   coinGeckoId: string;

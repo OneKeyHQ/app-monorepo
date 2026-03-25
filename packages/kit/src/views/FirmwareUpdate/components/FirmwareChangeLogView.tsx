@@ -18,6 +18,10 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
@@ -39,10 +43,6 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function ChangeLogMarkdown({
   changelog,

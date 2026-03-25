@@ -13,6 +13,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,10 +26,6 @@ import { TabSettingsListGrid, TabSettingsSection } from './ListItem';
 import type { ISubSettingConfig } from './config';
 import type { ISettingsSearchResult } from './useSearch';
 import type { FuseResult } from 'fuse.js';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 export function SearchView({
   sections,

@@ -19,6 +19,10 @@ import {
   useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import {
   useSignatureConfirmActions,
@@ -38,10 +42,6 @@ import {
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 const showResourceRentalDetailsDialog = ({
   title,

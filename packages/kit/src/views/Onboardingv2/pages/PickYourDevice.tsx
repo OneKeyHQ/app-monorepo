@@ -12,6 +12,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_BACKGROUND_COLOR,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -20,10 +24,6 @@ import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import {
-  ANIMATE_ONLY_BACKGROUND_COLOR,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 export default function PickYourDevice() {
   const intl = useIntl();

@@ -25,6 +25,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -48,10 +52,6 @@ import {
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 
 import type { GestureResponderEvent } from 'react-native';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IDBWalletExtended = Omit<
   IDBWallet,

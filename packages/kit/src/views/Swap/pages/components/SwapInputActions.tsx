@@ -10,6 +10,10 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,10 +24,6 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 const SwapInputActions = ({
   showPercentageInput,

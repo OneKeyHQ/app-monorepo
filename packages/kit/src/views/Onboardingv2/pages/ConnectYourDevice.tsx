@@ -29,6 +29,9 @@ import {
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -93,9 +96,6 @@ import {
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 enum EConnectionStatus {
   init = 'init',

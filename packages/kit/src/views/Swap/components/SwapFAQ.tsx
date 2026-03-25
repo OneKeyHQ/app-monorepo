@@ -10,12 +10,12 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { SWAP_FAQ_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
+import { SWAP_FAQ_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function SwapFAQ() {
   const intl = useIntl();

@@ -20,6 +20,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
@@ -84,10 +88,6 @@ import {
 import StakingFormWrapper from '../StakingFormWrapper';
 
 import type { FontSizeTokens } from 'tamagui';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IUniversalWithdrawProps = {
   accountAddress: string;

@@ -10,6 +10,9 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -17,9 +20,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   const intl = useIntl();

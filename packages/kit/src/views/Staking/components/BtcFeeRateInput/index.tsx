@@ -16,13 +16,13 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 
 import { CalculationListItem } from '../CalculationList';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IFeeRateType = 'slow' | 'normal' | 'fast' | 'custom';
 

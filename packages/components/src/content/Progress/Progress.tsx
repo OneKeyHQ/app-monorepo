@@ -10,9 +10,9 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
+import { ANIMATE_ONLY_TRANSFORM } from '../../utils/animationConstants';
 import type { LayoutChangeEvent } from 'react-native';
 
-import { ANIMATE_ONLY_TRANSFORM } from '../../utils/animationConstants';
 
 const PROGRESS_NAME = 'Progress';
 

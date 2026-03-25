@@ -11,6 +11,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
@@ -19,9 +22,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();

@@ -16,6 +16,9 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,9 +36,6 @@ import {
 import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (

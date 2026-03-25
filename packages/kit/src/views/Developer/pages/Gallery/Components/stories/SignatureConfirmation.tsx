@@ -18,6 +18,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { NetworkAvatar } from '../../../../../../components/NetworkAvatar';
 import { Token } from '../../../../../../components/Token';
 import { DAppSiteMark } from '../../../../../DAppConnection/components/DAppRequestLayout';
@@ -25,10 +29,6 @@ import { DAppSiteMark } from '../../../../../DAppConnection/components/DAppReque
 import { Layout } from './utils/Layout';
 
 import type { ITokenProps } from '../../../../../../components/Token';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
 
 /* 
   do not use this demo-only component
