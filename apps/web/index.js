@@ -1,6 +1,7 @@
 // oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
+/* eslint-disable import-js/order */
 import '@onekeyhq/shared/src/performance/init';
 
 if (typeof globalThis !== 'undefined') {
@@ -8,15 +9,17 @@ if (typeof globalThis !== 'undefined') {
 }
 
 import '@onekeyhq/shared/src/polyfills';
+
 import { registerRootComponent } from 'expo';
 
+import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
+import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
-import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
 import App from './App';
 
 if (process.env.NODE_ENV !== 'production') {

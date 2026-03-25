@@ -1,6 +1,7 @@
 // oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
+/* eslint-disable import-js/order */
 
 import '@onekeyhq/shared/src/performance/init';
 

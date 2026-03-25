@@ -5,6 +5,8 @@
 import { ipcMain } from 'electron';
 import Store from 'electron-store';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 const IPC_CHANNEL = 'mmkv:sync';
 const PERSISTENT_IDS = new Set(['onekey-app-setting']);
 
@@ -127,8 +129,7 @@ class MMKV {
   }
 
   recrypt(_key: string | undefined): void {
-    // eslint-disable-next-line no-restricted-syntax
-    throw new Error('Method not implemented.');
+    throw new OneKeyLocalError('Method not implemented.');
   }
 
   remove(key: string): boolean {

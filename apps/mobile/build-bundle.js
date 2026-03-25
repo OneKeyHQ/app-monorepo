@@ -1,8 +1,9 @@
 require('../../development/env');
 
-const crypto = require('crypto');
 const { execSync } = require('child_process');
+const crypto = require('crypto');
 const path = require('path');
+
 const fs = require('fs-extra');
 
 const mobileDirPath = __dirname;
