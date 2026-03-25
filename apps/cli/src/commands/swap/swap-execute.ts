@@ -644,7 +644,9 @@ export function registerSwapExecuteCommand(parent: Command): void {
               const swapAppError = AppError.from(swapError);
               let statusWarning = '';
               try {
-                updatePendingStatus(options.order, 'approve_only');
+                updatePendingStatus(options.order, 'approve_only', {
+                  txHash: approveTxHash,
+                });
               } catch {
                 statusWarning =
                   ' Warning: failed to update local order status to approve_only.';
