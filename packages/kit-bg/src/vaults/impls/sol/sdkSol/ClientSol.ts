@@ -22,6 +22,7 @@ export enum ERpcMethods {
   GET_TRANSACTION = 'getTransaction',
   GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION = 'getMinimumBalanceForRentExemption',
   GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
+  GET_SIGNATURE_STATUSES = 'getSignatureStatuses',
 }
 
 export const MIN_PRIORITY_FEE = 1_000_000;
@@ -181,6 +182,38 @@ class ClientSol {
       });
 
     return response;
+  }
+
+  async getSignatureStatuses(signatures: string[]): Promise<
+    ({
+      slot: number;
+      confirmations: number | null;
+      err: unknown;
+      confirmationStatus: 'processed' | 'confirmed' | 'finalized' | null;
+    } | null)[]
+  > {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        value: ({
+          slot: number;
+          confirmations: number | null;
+          err: unknown;
+          confirmationStatus: 'processed' | 'confirmed' | 'finalized' | null;
+        } | null)[];
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.GET_SIGNATURE_STATUSES,
+              params: [signatures, { searchTransactionHistory: true }],
+            },
+          },
+        ],
+      });
+
+    return response.value;
   }
 
   async getRecentMaxPrioritizationFees(accountAddress: string[]) {

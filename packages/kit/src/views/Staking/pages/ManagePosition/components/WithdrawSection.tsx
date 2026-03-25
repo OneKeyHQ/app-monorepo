@@ -713,9 +713,10 @@ export const WithdrawSection = ({
       routeKey,
       collateralAmount,
       collateralAsset,
+      onSetupReadyForRepay,
     }: IRepayWithCollateralConfirmParams) => {
       if (!borrowApiCtx.isBorrow) {
-        return;
+        return false;
       }
 
       const { provider, marketAddress } = borrowApiCtx.borrowApiParams;
@@ -729,12 +730,13 @@ export const WithdrawSection = ({
         tags.push(protocolInfo.stakeTag);
       }
 
-      await handleBorrowRepayWithCollateral({
+      return handleBorrowRepayWithCollateral({
         amount,
         provider,
         marketAddress,
         reserveAddress,
         collateralReserveAddress,
+        needsSetupLut: protocolInfo?.needsSetupLut,
         repayAll,
         slippageBps,
         routeKey,
@@ -754,6 +756,7 @@ export const WithdrawSection = ({
           },
           tags,
         },
+        onSetupLutReadyForRepay: onSetupReadyForRepay,
         onSuccess: () => {
           onSuccess?.();
         },
@@ -766,6 +769,7 @@ export const WithdrawSection = ({
       networkId,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.needsSetupLut,
       protocolInfo?.stakeTag,
     ],
   );
@@ -849,6 +853,7 @@ export const WithdrawSection = ({
           collateralAssets={collateralAssets}
           collateralLoading={!!collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          needsSetupLut={protocolInfo?.needsSetupLut}
           debtBalance={
             protocolInfo?.debtBalance !== undefined
               ? (selectedAsset?.borrowed?.title?.text ??
