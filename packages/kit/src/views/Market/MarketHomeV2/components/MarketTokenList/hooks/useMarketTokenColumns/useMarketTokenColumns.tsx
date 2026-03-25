@@ -18,6 +18,8 @@ export const useMarketTokenColumns = (
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
+  hasStock?: boolean,
+  showStockSubtitle?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const desktopColumns = useColumnsDesktop(
     networkId,
@@ -25,6 +27,8 @@ export const useMarketTokenColumns = (
     hideTokenAge,
     watchlistFrom,
     copyFrom,
+    hasStock,
+    showStockSubtitle,
   );
   const mobileColumns = useColumnsMobile();
 
