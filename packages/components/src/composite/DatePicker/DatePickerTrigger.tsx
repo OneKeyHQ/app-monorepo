@@ -105,6 +105,20 @@ export const DatePickerTrigger = memo(
       [onClear],
     );
 
+    const addOns = useMemo(
+      () => [
+        hasValue && onClear
+          ? {
+              iconName: 'XCircleOutline' as const,
+              onPress: handleClearPress,
+            }
+          : {
+              iconName: 'CalendarOutline' as const,
+            },
+      ],
+      [hasValue, onClear, handleClearPress],
+    );
+
     return (
       <Input
         value={hasValue ? displayValue : ''}
@@ -112,16 +126,7 @@ export const DatePickerTrigger = memo(
         placeholder={placeholder || displayValue}
         readonly
         size="small"
-        addOns={[
-          hasValue && onClear
-            ? {
-                iconName: 'XCircleOutline' as const,
-                onPress: handleClearPress,
-              }
-            : {
-                iconName: 'CalendarOutline' as const,
-              },
-        ]}
+        addOns={addOns}
       />
     );
   },

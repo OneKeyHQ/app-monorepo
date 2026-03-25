@@ -150,6 +150,17 @@ interface IAvailableAssetsResponseV2 {
   };
 }
 
+interface IEarnBatchInvestmentDetailError {
+  vault: string;
+  symbol: string;
+  errorCode: string;
+}
+
+interface IEarnBatchInvestmentDetailResponse {
+  items: IEarnInvestmentItemV2[];
+  errors: IEarnBatchInvestmentDetailError[];
+}
+
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -319,6 +330,7 @@ class ServiceStaking extends ServiceBase {
       permitSignature,
       unsignedMessage,
       message,
+      effectiveApy,
       validatorPublicKey,
       ...rest
     } = params;
@@ -366,6 +378,7 @@ class ServiceStaking extends ServiceBase {
       unsignedMessage:
         approveType === EApproveType.Permit ? unsignedMessage : undefined,
       message,
+      effectiveApy,
       ...rest,
     };
 
@@ -392,7 +405,8 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, protocolVault, ...rest } = params;
+    const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
+      params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -417,6 +431,7 @@ class ServiceStaking extends ServiceBase {
         accountId,
       }),
       vault: isVaultBased ? protocolVault : undefined,
+      effectiveApy,
       ...rest,
     });
     return resp.data.data;
@@ -1077,7 +1092,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.push({
           accountAddress: account?.apiAddress,
           networkId: earnNetworkId,
-          publicKey: account?.pub,
+          publicKey: account?.pub?.trim() || undefined,
         });
       }
     });
@@ -1236,6 +1251,29 @@ class ServiceStaking extends ServiceBase {
           }),
       },
     );
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchInvestmentBatchDetail(params: {
+    publicKey?: string | undefined;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    accountId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const { accountId, ...rest } = params;
+
+    const response = await client.post<{
+      data: IEarnBatchInvestmentDetailResponse;
+    }>(`/earn/v1/investment/batch/detail`, rest, {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
 
     return response.data.data;
   }

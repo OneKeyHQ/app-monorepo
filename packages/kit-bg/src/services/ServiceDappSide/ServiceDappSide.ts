@@ -7,6 +7,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
+  IConnectToWalletOptions,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
   IExternalConnector,
@@ -59,8 +60,10 @@ class ServiceDappSide extends ServiceBase {
   // @toastIfError() // use Dialog show loading or error
   async connectExternalWallet({
     connectionInfo,
+    connectToWalletOptions,
   }: {
     connectionInfo: IExternalConnectionInfo;
+    connectToWalletOptions?: IConnectToWalletOptions;
   }): Promise<IExternalConnectWalletResult> {
     const ctrl = await externalWalletFactory.getController({
       connectionInfo,
@@ -68,9 +71,11 @@ class ServiceDappSide extends ServiceBase {
     const { connector } = await this.getConnectorCached({
       connectionInfo,
       newConnection: true,
+      connectToWalletOptions,
     });
     const connectResult = await ctrl.connectWallet({
       connector,
+      connectToWalletOptions,
     });
     // reassign connectionInfo from connectResult to connector
     connector.connectionInfo =
@@ -163,9 +168,11 @@ class ServiceDappSide extends ServiceBase {
   async getConnectorCached({
     connectionInfo,
     newConnection,
+    connectToWalletOptions,
   }: {
     connectionInfo: IExternalConnectionInfo;
     newConnection?: boolean;
+    connectToWalletOptions?: IConnectToWalletOptions;
   }) {
     let accountId: string | undefined = '';
     let cachedKey = '';
@@ -183,9 +190,11 @@ class ServiceDappSide extends ServiceBase {
       this.connectorCache[cachedKey]?.connector;
 
     if (currentConnector && newConnection) {
-      // disconnect first to off events if create new connection
-      await currentConnector.disconnect();
-      await this.destroyConnector({ connectionInfo });
+      if (!connectToWalletOptions?.skipDisconnectConnector) {
+        // disconnect first to off events if create new connection
+        await currentConnector.disconnect();
+      }
+      await this.destroyConnector({ connectionInfo, connectToWalletOptions });
       currentConnector = undefined;
     }
 
@@ -245,20 +254,25 @@ class ServiceDappSide extends ServiceBase {
 
   async destroyConnector({
     connectionInfo,
+    connectToWalletOptions,
   }: {
     connectionInfo: IExternalConnectionInfo;
+    connectToWalletOptions?: IConnectToWalletOptions;
   }) {
     const ctrl = await externalWalletFactory.getController({
       connectionInfo,
     });
     const { connector } = await this.getConnectorCached({
       connectionInfo,
+      connectToWalletOptions,
     });
     const { accountId, cachedKey } = this.buildConnectorCacheKey({
       connectionInfo,
     });
     ctrl.removeEventListeners({ connector, accountId });
-    await connector.disconnect();
+    if (!connectToWalletOptions?.skipDisconnectConnector) {
+      await connector.disconnect();
+    }
     delete this.connectorCache[cachedKey];
   }
 

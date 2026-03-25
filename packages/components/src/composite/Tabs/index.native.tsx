@@ -1,6 +1,4 @@
-// eslint-disable-next-line no-restricted-syntax
-import React from 'react';
-import type { PropsWithChildren } from 'react';
+import { type PropsWithChildren, forwardRef, useMemo } from 'react';
 
 import { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
@@ -13,31 +11,42 @@ interface IExtendedContainerProps extends CollapsibleProps {
   useNativeHeaderAnimation?: boolean;
 }
 
-const Container = React.forwardRef<
-  any,
-  PropsWithChildren<IExtendedContainerProps>
->(({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
-  return (
-    <NativeTabs.Container
-      ref={ref}
-      headerContainerStyle={{
-        shadowOpacity: 0,
-        elevation: 0,
-        ...(headerContainerStyle as any),
-      }}
-      pagerProps={
-        {
+const renderTabBarDefault = (tabProps: any) => <TabBar {...tabProps} />;
+
+const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
+  ({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
+    const mergedHeaderContainerStyle = useMemo(
+      () =>
+        ({
+          shadowOpacity: 0,
+          elevation: 0,
+          ...(headerContainerStyle as Record<string, unknown>),
+        }) as typeof headerContainerStyle,
+      [headerContainerStyle],
+    );
+
+    const mergedPagerProps = useMemo(
+      () =>
+        ({
           scrollSensitivity: 4,
           ...pagerProps,
-        } as any
-      }
-      renderTabBar={(tabProps: any) => <TabBar {...tabProps} />}
-      {...props}
-    >
-      {children}
-    </NativeTabs.Container>
-  );
-});
+        }) as typeof pagerProps,
+      [pagerProps],
+    );
+
+    return (
+      <NativeTabs.Container
+        ref={ref}
+        headerContainerStyle={mergedHeaderContainerStyle}
+        pagerProps={mergedPagerProps}
+        renderTabBar={renderTabBarDefault}
+        {...props}
+      >
+        {children}
+      </NativeTabs.Container>
+    );
+  },
+);
 Container.displayName = 'NativeTabsContainer';
 
 export const Tabs = {

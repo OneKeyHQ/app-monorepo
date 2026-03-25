@@ -29,7 +29,6 @@ import {
 import {
   APP_STORE_LINK,
   BRIDGE_STATUS_URL,
-  EXT_RATE_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -46,6 +45,7 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -53,7 +53,6 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
-import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
 
 import {
   AutoLockListItem,
@@ -154,7 +153,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = useOneKeyAuth();
   const [settings] = useSettingsPersistAtom();
 
@@ -195,25 +193,23 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : null,
-                isPrimeAvailable
-                  ? {
-                      // OneKey Cloud
-                      icon: 'CloudOutline',
-                      title: intl.formatMessage({
-                        id: ETranslations.global_onekey_cloud,
-                      }),
-                      onPress: (navigation) => {
-                        defaultLogger.prime.subscription.primeEntryClick({
-                          featureName: EPrimeFeatures.OneKeyCloud,
-                          entryPoint: 'settingsPage',
-                        });
+                {
+                  // OneKey Cloud
+                  icon: 'CloudOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_onekey_cloud,
+                  }),
+                  onPress: (navigation) => {
+                    defaultLogger.prime.subscription.primeEntryClick({
+                      featureName: EPrimeFeatures.OneKeyCloud,
+                      entryPoint: 'settingsPage',
+                    });
 
-                        navigation?.pushModal(EModalRoutes.PrimeModal, {
-                          screen: EPrimePages.PrimeCloudSync,
-                        });
-                      },
-                    }
-                  : undefined,
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeCloudSync,
+                    });
+                  },
+                },
               ],
               [
                 !platformEnv.isWebDappMode
@@ -722,10 +718,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   isExternalLink: true,
                   onPress: () => {
                     if (platformEnv.isExtension) {
-                      let url = EXT_RATE_URL.chrome;
-                      if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
                       window.open(
-                        url,
+                        getOneKeyExtensionStoreUrl(),
                         intl.formatMessage({
                           id: ETranslations.settings_rate_app,
                         }),
@@ -844,7 +838,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       cloudBackupFeatureInfo?.supportCloudBackup,
       cloudBackupFeatureInfo?.icon,
       cloudBackupFeatureInfo?.title,
-      isPrimeAvailable,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,

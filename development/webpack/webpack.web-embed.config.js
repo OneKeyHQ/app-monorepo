@@ -1,11 +1,13 @@
+const path = require('path');
+
 const { merge } = require('webpack-merge');
 
-const path = require('path');
-const developmentConfig = require('./webpack.development.config');
-const productionConfig = require('./webpack.prod.config');
 const babelTools = require('../babelTools');
+
 const { PUBLIC_URL, NODE_ENV } = require('./constant');
 const baseConfig = require('./webpack.base.config');
+const developmentConfig = require('./webpack.development.config');
+const productionConfig = require('./webpack.prod.config');
 
 module.exports = ({
   basePath,

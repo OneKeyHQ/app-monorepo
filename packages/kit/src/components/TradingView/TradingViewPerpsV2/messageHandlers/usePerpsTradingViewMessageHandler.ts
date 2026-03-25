@@ -46,14 +46,17 @@ export function usePerpsTradingViewMessageHandler({
   webRef,
   onChartLinesReady,
   onOrderCancel,
+  onTouchScroll,
 }: {
   symbol: string;
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
+  onTouchScroll?: (deltaY: number) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
+  const marksRequestIdRef = useRef(0);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
   const actions = useHyperliquidActions();
@@ -65,6 +68,11 @@ export function usePerpsTradingViewMessageHandler({
   // Update refs on every render
   symbolRef.current = symbol;
   userAddressRef.current = userAddress;
+
+  const normalizeAddress = useCallback(
+    (address: string | undefined | null) => address?.toLowerCase() || null,
+    [],
+  );
 
   // Shared utility to convert fill data to TradingView mark
   const convertFillToMark = useCallback((fill: IFill): ITradingMark => {
@@ -144,23 +152,50 @@ export function usePerpsTradingViewMessageHandler({
   );
 
   const refreshWebviewMarksByApi = useCallback(async () => {
-    const currentUserAddress = userAddress;
+    const currentUserAddress = normalizeAddress(userAddress);
+    const currentSymbol = symbolRef.current;
+    const requestId = marksRequestIdRef.current + 1;
+    marksRequestIdRef.current = requestId;
+
     if (!currentUserAddress) {
+      sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
       return;
     }
+
     await fetchAndFormatMarks(
-      symbolRef.current,
-      currentUserAddress,
+      currentSymbol,
+      currentUserAddress as IHex,
       showTradeMarks ?? true,
     )
       .then((marks) => {
+        const latestUserAddress = normalizeAddress(userAddressRef.current);
+        const isStaleRequest =
+          marksRequestIdRef.current !== requestId ||
+          latestUserAddress !== currentUserAddress ||
+          symbolRef.current !== currentSymbol;
+
+        if (isStaleRequest) {
+          return;
+        }
+
         sendMarksUpdate(marks, EMarksUpdateOperationEnum.REPLACE);
       })
       .catch((error) => {
         console.error('Error fetching marks on user change:', error);
+
+        if (marksRequestIdRef.current !== requestId) {
+          return;
+        }
+
         sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
       });
-  }, [fetchAndFormatMarks, sendMarksUpdate, userAddress, showTradeMarks]);
+  }, [
+    fetchAndFormatMarks,
+    normalizeAddress,
+    sendMarksUpdate,
+    showTradeMarks,
+    userAddress,
+  ]);
 
   // Handle legacy MARKS_RESPONSE for backward compatibility
   const handleGetMarks = useCallback(
@@ -179,11 +214,29 @@ export function usePerpsTradingViewMessageHandler({
       }
 
       try {
+        const requestUserAddress = normalizeAddress(userAddressRef.current);
+        const requestSymbol = symbolRef.current;
         const marks = await fetchAndFormatMarks(
-          symbolRef.current,
-          userAddressRef.current,
+          requestSymbol,
+          requestUserAddress as IHex,
           showTradeMarks ?? true,
         );
+
+        const latestUserAddress = normalizeAddress(userAddressRef.current);
+        if (
+          !requestUserAddress ||
+          latestUserAddress !== requestUserAddress ||
+          symbolRef.current !== requestSymbol
+        ) {
+          webRef.current?.sendMessageViaInjectedScript({
+            type: 'MARKS_RESPONSE',
+            payload: {
+              marks: [],
+              requestId,
+            },
+          });
+          return;
+        }
 
         const response: IGetMarksResponse = {
           marks,
@@ -205,7 +258,7 @@ export function usePerpsTradingViewMessageHandler({
         });
       }
     },
-    [webRef, fetchAndFormatMarks, showTradeMarks],
+    [webRef, fetchAndFormatMarks, normalizeAddress, showTradeMarks],
   );
 
   // Handle HyperLiquid price scale requests
@@ -326,6 +379,14 @@ export function usePerpsTradingViewMessageHandler({
           // User clicked cancel button on order line in TradingView chart
           onOrderCancel?.(messageData.data as ITVOrderCancelPayload);
           break;
+        case 'tradingview_touchScroll': {
+          const touchData = messageData.data as { deltaY?: number } | undefined;
+          const deltaY = Number(touchData?.deltaY ?? 0);
+          if (Number.isFinite(deltaY) && deltaY !== 0) {
+            onTouchScroll?.(deltaY);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -335,6 +396,7 @@ export function usePerpsTradingViewMessageHandler({
       handleGetHyperliquidPriceScale,
       onChartLinesReady,
       onOrderCancel,
+      onTouchScroll,
     ],
   );
 
@@ -351,10 +413,12 @@ export function usePerpsTradingViewMessageHandler({
 
     // User address changed
     if (previousUserAddress !== currentUserAddress) {
+      marksRequestIdRef.current += 1;
+      sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
+
       if (!currentUserAddress) {
         // User logged out, clear marks
         console.log('[MarksHandler] User logged out, clear marks');
-        sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
       } else {
         // User changed or logged in, fetch fresh data
         void refreshWebviewMarksByApi();

@@ -8,11 +8,10 @@ import {
   Stack,
   Toast,
   ToastContent,
-  popActionCenterPages,
-  popScanModalPages,
   resetAboveMainRoute,
+  resetScanModalRoute,
+  resetToRoute,
   useClipboard,
-  waitForScanModalClosed,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -36,6 +35,7 @@ import {
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -172,11 +172,14 @@ const useParseQRCode = () => {
             resetAboveMainRoute();
             await timerUtils.wait(100);
           } else {
-            // Preserve caller route for manual scan flows (e.g. onboarding
-            // import): only dismiss scan/action-center overlays.
-            await popScanModalPages();
-            await popActionCenterPages();
-            await waitForScanModalClosed();
+            // Atomically remove ScanQrCodeModal and ActionCenter routes,
+            // preserving caller routes (e.g. onboarding). This avoids
+            // goBack() animated dismiss which causes RNSScreenStack
+            // window=NIL and blocks Fabric commits on the underlying page.
+            resetScanModalRoute();
+            if (!platformEnv.isNativeIOS) {
+              await timerUtils.wait(100);
+            }
           }
         }
       };
@@ -407,12 +410,19 @@ const useParseQRCode = () => {
                         variant="primary"
                         size="small"
                         onPressIn={async () => {
-                          await closeScanPage();
                           await toast.close();
-                          navigation.pushModal(EModalRoutes.OnboardingModal, {
-                            screen: EOnboardingPages.ConnectYourDevice,
+                          // Use resetToRoute to atomically replace all
+                          // overlay routes (scan modal, etc.) with the
+                          // target route in a single dispatch. This avoids
+                          // the stale navigation reference after
+                          // resetAboveMainRoute() (OK-51748).
+                          resetToRoute(ERootRoutes.Modal, {
+                            screen: EModalRoutes.OnboardingModal,
                             params: {
-                              channel: EConnectDeviceChannel.qr,
+                              screen: EOnboardingPages.ConnectYourDevice,
+                              params: {
+                                channel: EConnectDeviceChannel.qr,
+                              },
                             },
                           });
                         }}

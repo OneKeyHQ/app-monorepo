@@ -22,7 +22,8 @@ import networkUtils, {
 
 export function BatchCreateAccountButton({
   focusedWalletInfo,
-  activeAccount: _activeAccount,
+  activeAccount,
+  currentNetworkId,
   onClose,
 }: {
   focusedWalletInfo:
@@ -32,6 +33,7 @@ export function BatchCreateAccountButton({
       }
     | undefined;
   activeAccount: IAccountSelectorActiveAccountInfo;
+  currentNetworkId?: string;
   onClose: () => void;
 }) {
   const intl = useIntl();
@@ -68,16 +70,29 @@ export function BatchCreateAccountButton({
       });
 
     let defaultNetworkId: string | undefined;
+    const preferredNetworkId = currentNetworkId ?? activeAccount.network?.id;
 
-    // 1. Prefer Ethereum if compatible and enabled
+    // 1. In single-chain mode, keep the manager aligned with the current network.
+    // The current network may be outside the portfolio-enabled list, but if the
+    // user is already on that chain we should still use it as the default.
     if (
+      preferredNetworkId &&
+      !networkUtils.isAllNetwork({ networkId: preferredNetworkId }) &&
+      networkIdsCompatible?.includes(preferredNetworkId)
+    ) {
+      defaultNetworkId = preferredNetworkId;
+    }
+
+    // 2. Prefer Ethereum if compatible and enabled
+    if (
+      !defaultNetworkId &&
       networkIdsCompatible?.includes(ethNetworkId) &&
       isNetworkEnabled(ethNetworkId)
     ) {
       defaultNetworkId = ethNetworkId;
     }
 
-    // 2. Fall back to first enabled EVM network
+    // 3. Fall back to first enabled EVM network
     if (!defaultNetworkId) {
       defaultNetworkId = networkIdsCompatible?.find(
         (id) =>
@@ -85,7 +100,7 @@ export function BatchCreateAccountButton({
       );
     }
 
-    // 3. Fall back to first enabled compatible network of any type
+    // 4. Fall back to first enabled compatible network of any type
     if (!defaultNetworkId) {
       defaultNetworkId =
         networkIdsCompatible?.find((id) => isNetworkEnabled(id)) ??
@@ -103,7 +118,12 @@ export function BatchCreateAccountButton({
         networkId: defaultNetworkId,
       },
     });
-  }, [focusedWalletInfo, navigation]);
+  }, [
+    activeAccount.network?.id,
+    currentNetworkId,
+    focusedWalletInfo,
+    navigation,
+  ]);
 
   return (
     <ActionList.Item

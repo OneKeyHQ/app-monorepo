@@ -28,9 +28,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm } from '../../hooks';
 import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculationsForSide';
+import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -68,6 +70,7 @@ function SideButtonInternal({
   const [activeAsset] = usePerpsActiveAssetAtom();
 
   const { handleConfirm } = useOrderConfirm();
+  const { midPriceBN } = useTradingPrice();
 
   const szDecimals = useMemo(
     () => activeAsset?.universe?.szDecimals ?? 2,
@@ -178,6 +181,28 @@ function SideButtonInternal({
   ]);
 
   const isLong = side === 'long';
+  const isTriggerMode = formData.orderMode === 'trigger';
+
+  const renderLiquidationPrice = () => {
+    if (liquidationPrice) {
+      return (
+        <NumberSizeableText
+          size="$bodySm"
+          color="$text"
+          formatter="price"
+          formatterOptions={{ currency: '$' }}
+        >
+          {liquidationPrice.toNumber()}
+        </NumberSizeableText>
+      );
+    }
+    return (
+      <SizableText size="$bodySm" color="$text">
+        --
+      </SizableText>
+    );
+  };
+
   const buttonStyles = useMemo(() => {
     const colors = PERP_TRADE_BUTTON_COLORS;
     const getBgColor = () => {
@@ -210,15 +235,53 @@ function SideButtonInternal({
 
   const handlePress = useDebouncedCallback(
     (): void => {
+      // ── Trigger mode validation ──
+      if (isTriggerMode && formData.triggerOrderType) {
+        const tp = formData.triggerPrice?.trim();
+        if (!tp || new BigNumber(tp).lte(0)) {
+          Toast.message({
+            title: intl.formatMessage({
+              id: ETranslations.perps_input_trigger_price,
+            }),
+          });
+          return;
+        }
+        const isLimitTrigger =
+          formData.triggerOrderType === ETriggerOrderType.TRIGGER_LIMIT;
+        if (isLimitTrigger) {
+          const ep = formData.executionPrice?.trim();
+          if (!ep || new BigNumber(ep).lte(0)) {
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.perp_trade_price_place_holder,
+              }),
+            });
+            return;
+          }
+        }
+        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+          Toast.error({ title: 'Market price unavailable, please try again' });
+          return;
+        }
+        // Trigger price must differ from current price for TP/SL inference
+        if (new BigNumber(tp).eq(midPriceBN)) {
+          Toast.error({
+            title: 'Trigger price must differ from current price',
+          });
+          return;
+        }
+      }
+
       // Validate empty inputs - show toast instead of disabling button
-      // For limit orders, check price first
+      // For limit orders (standard mode), check price first
       if (
+        !isTriggerMode &&
         formData.type === 'limit' &&
         (!formData.price || formData.price.trim() === '')
       ) {
         Toast.message({
           title: intl.formatMessage({
-            id: ETranslations.limit_enter_price,
+            id: ETranslations.perp_trade_price_place_holder,
           }),
         });
         return;
@@ -228,15 +291,11 @@ function SideButtonInternal({
       const hasSizeEmpty = isSliderMode
         ? !formData.sizePercent || formData.sizePercent <= 0
         : !formData.size || formData.size.trim() === '';
-      if (hasSizeEmpty || !computedSizeForSide.gt(0)) {
-        Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.perp_trade_amount_place_holder,
-          }),
-        });
-        return;
-      }
-      if (isMinimumOrderNotMetForSide) {
+      if (
+        hasSizeEmpty ||
+        !computedSizeForSide.gt(0) ||
+        isMinimumOrderNotMetForSide
+      ) {
         let minAmount = '$10';
         if (effectivePriceBN.gt(0)) {
           // minimum token size that satisfies orderValue >= $10
@@ -281,7 +340,7 @@ function SideButtonInternal({
       const hasTpValue = Boolean(tpValue);
       const hasSlValue = Boolean(slValue);
 
-      if (formData.hasTpsl && (hasTpValue || hasSlValue)) {
+      if (!isTriggerMode && formData.hasTpsl && (hasTpValue || hasSlValue)) {
         // Calculate trigger prices based on type
         let tpTriggerPrice: BigNumber | null = null;
         let slTriggerPrice: BigNumber | null = null;
@@ -482,20 +541,7 @@ function SideButtonInternal({
               }
             />
 
-            {liquidationPrice ? (
-              <NumberSizeableText
-                size="$bodySm"
-                color="$text"
-                formatter="price"
-                formatterOptions={{ currency: '$' }}
-              >
-                {liquidationPrice.toNumber()}
-              </NumberSizeableText>
-            ) : (
-              <SizableText size="$bodySm" color="$text">
-                --
-              </SizableText>
-            )}
+            {renderLiquidationPrice()}
           </XStack>
         </YStack>
 
@@ -522,6 +568,7 @@ function SideButtonInternal({
               size="$bodyMdMedium"
               lineHeight={18}
               color="$textOnColor"
+              numberOfLines={1}
             >
               {buttonText}
             </SizableText>
@@ -532,6 +579,7 @@ function SideButtonInternal({
                 color="$textOnColor"
                 opacity={0.8}
                 lineHeight={11}
+                numberOfLines={1}
               >
                 {buttonSecondaryText}
               </SizableText>
@@ -559,6 +607,7 @@ function SideButtonInternal({
             size="$bodyMdMedium"
             lineHeight={18}
             color="$textOnColor"
+            numberOfLines={1}
           >
             {buttonText}
           </SizableText>
@@ -568,6 +617,7 @@ function SideButtonInternal({
               color="$textOnColor"
               opacity={0.8}
               lineHeight={11}
+              numberOfLines={1}
             >
               {buttonSecondaryText}
             </SizableText>
@@ -641,20 +691,7 @@ function SideButtonInternal({
             }
           />
 
-          {liquidationPrice ? (
-            <NumberSizeableText
-              size="$bodySm"
-              color="$text"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-            >
-              {liquidationPrice.toNumber()}
-            </NumberSizeableText>
-          ) : (
-            <SizableText size="$bodySm" color="$text">
-              --
-            </SizableText>
-          )}
+          {renderLiquidationPrice()}
         </XStack>
       </YStack>
     </YStack>

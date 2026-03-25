@@ -9,9 +9,9 @@ if (platformEnv.isRuntimeFirefox) {
   // @ts-ignore
   browser.$$isPolyfill = true;
   // @ts-ignore
-  global.chromeLegacy = global.chrome;
+  globalThis.chromeLegacy = globalThis.chrome;
   // @ts-ignore
-  global.chrome = browser;
+  globalThis.chrome = browser;
 } else {
-  global.browser = global.browser || browser;
+  globalThis.browser = globalThis.browser || browser;
 }

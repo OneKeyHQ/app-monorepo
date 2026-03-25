@@ -20,12 +20,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   ECopyFrom,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -100,6 +100,7 @@ type IMarketTokenListBaseProps = {
   watchlistFrom?: EWatchlistFrom;
   copyFrom?: ECopyFrom;
   draggable?: boolean;
+  showTableHeader?: boolean;
   tabIntegrated?: boolean;
   tabName?: string;
   listContainerProps?: {
@@ -113,6 +114,7 @@ type IMarketTokenListBaseProps = {
     position?: { x: number; y: number },
   ) => void;
   onScrollBegin?: () => void;
+  showStockSubtitle?: boolean;
 };
 
 function MarketTokenListBase({
@@ -127,6 +129,7 @@ function MarketTokenListBase({
   watchlistFrom,
   copyFrom,
   draggable = false,
+  showTableHeader = true,
   tabIntegrated,
   tabName,
   listContainerProps,
@@ -134,19 +137,12 @@ function MarketTokenListBase({
   onItemLongPress,
   onItemContextMenu,
   onScrollBegin,
+  showStockSubtitle = true,
 }: IMarketTokenListBaseProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
-
-  const marketTokenColumns = useMarketTokenColumns(
-    networkId,
-    isWatchlistMode,
-    hideTokenAge,
-    watchlistFrom,
-    copyFrom,
-  );
 
   const {
     data: rawData,
@@ -162,6 +158,21 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+
+  const hasStock = useMemo(
+    () => rawData.some((item) => !!item.stock),
+    [rawData],
+  );
+
+  const marketTokenColumns = useMarketTokenColumns(
+    networkId,
+    isWatchlistMode,
+    hideTokenAge,
+    watchlistFrom,
+    copyFrom,
+    hasStock,
+    showStockSubtitle,
+  );
 
   // Client-side sorting: sort data locally when clientSort is enabled
   const data = useMemo(() => {
@@ -345,13 +356,25 @@ function MarketTokenListBase({
       );
     }
 
-    // Show end indicator when no more data to load
-    if (showEndReachedIndicator && !canLoadMore && data.length > 0) {
+    // End indicator is rendered outside the Table when draggable,
+    // so it doesn't participate in absolute positioning during drag.
+    if (
+      !draggable &&
+      showEndReachedIndicator &&
+      !canLoadMore &&
+      data.length > 0
+    ) {
       return <ListEndIndicator />;
     }
 
     return null;
-  }, [isLoadingMore, showEndReachedIndicator, canLoadMore, data.length]);
+  }, [
+    isLoadingMore,
+    showEndReachedIndicator,
+    canLoadMore,
+    data.length,
+    draggable,
+  ]);
   const tabBarHeight = useScrollContentTabBarOffset();
 
   // On web with tabIntegrated, disable FlatList's own scroll so the outer
@@ -423,6 +446,12 @@ function MarketTokenListBase({
         style={{
           paddingTop: 4,
           overflowX: 'auto',
+          // Explicitly set overflowY to prevent browsers from implicitly
+          // changing it to 'auto' (CSS spec: setting one overflow axis to
+          // non-visible forces the other to auto). Without this, drag
+          // auto-scroll would bind to this horizontal wrapper instead of
+          // the real vertical scroll container (Tabs.Container).
+          overflowY: 'hidden',
           ...(md ? { marginLeft: 8, marginRight: 8 } : {}),
         }}
       >
@@ -459,7 +488,7 @@ function MarketTokenListBase({
                     }
               }
               stickyHeader
-              showHeader={!useDesktopPortal}
+              showHeader={showTableHeader ? !useDesktopPortal : false}
               scrollEnabled={!webTabIntegrated}
               draggable={draggable}
               tabIntegrated={tabIntegrated}
@@ -478,6 +507,14 @@ function MarketTokenListBase({
           )}
           {webTabIntegrated ? (
             <div ref={endSentinelRef} style={{ height: 1 }} />
+          ) : null}
+          {/* Render end indicator outside the Table for draggable lists
+              so it doesn't participate in absolute positioning during drag. */}
+          {draggable &&
+          showEndReachedIndicator &&
+          !canLoadMore &&
+          data.length > 0 ? (
+            <ListEndIndicator />
           ) : null}
         </Stack>
       </Stack>

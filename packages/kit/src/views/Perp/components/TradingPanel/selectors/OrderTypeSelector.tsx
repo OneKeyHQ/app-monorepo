@@ -54,7 +54,7 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
             justifyContent="space-between"
             px="$3"
             flex={1}
-            cursor="default"
+            cursor="pointer"
           >
             <SizableText size="$bodyMdMedium">{label}</SizableText>
             <Icon

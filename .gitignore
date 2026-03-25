@@ -14,6 +14,9 @@ __generated__
 .claude/settings.json
 .claude/settings.local.json
 .clauderc
+.skillshare/.gitignore
+.skillshare/logs/
+.skillshare/skills/.gitignore
 .tmp/
 # Keyless cloud sync mock server data
 .tmp/keyless-cloud-sync-mock-data.json
@@ -104,6 +107,7 @@ apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy
 /apps/mobile/out-dir-bundle-zip
 /apps/mobile/ios/go-install
 /apps/mobile/ios/tmp-oc-test
+/apps/mobile/ios/OneKeyWallet/Fonts
 
 debug.log
 

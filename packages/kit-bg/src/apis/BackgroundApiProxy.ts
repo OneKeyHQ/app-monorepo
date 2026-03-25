@@ -65,6 +65,7 @@ import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
+import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
@@ -278,6 +279,10 @@ class BackgroundApiProxy
   serviceAppUpdate = this._createProxyService(
     'serviceAppUpdate',
   ) as ServiceAppUpdate;
+
+  servicePendingInstallTask = this._createProxyService(
+    'servicePendingInstallTask',
+  ) as ServicePendingInstallTask;
 
   serviceSpotlight = this._createProxyService(
     'serviceSpotlight',

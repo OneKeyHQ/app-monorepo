@@ -278,6 +278,15 @@ export const BundleUpdate: IBundleUpdate = {
     }, 2500);
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
+  clearDownload: () => ReactNativeBundleUpdate.clearDownload(),
+  resetToBuiltInBundle: async () => {
+    await ReactNativeBundleUpdate.resetToBuiltInBundle();
+  },
+  restart: () => {
+    setTimeout(() => {
+      RNRestart.restart();
+    }, 2500);
+  },
   isSkipGpgVerificationAllowed: () =>
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
@@ -305,12 +314,16 @@ export const BundleUpdate: IBundleUpdate = {
   listLocalBundles: () => ReactNativeBundleUpdate.listLocalBundles(),
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
-    setTimeout(() => {
-      RNRestart.restart();
-    }, 2500);
+    if (params.appVersion && params.bundleVersion) {
+      setTimeout(() => {
+        RNRestart.restart();
+      }, 2500);
+    }
   },
   getNativeAppVersion: () => ReactNativeBundleUpdate.getNativeAppVersion(),
-  getNativeBuildNumber: () => Promise.resolve(''),
+  getNativeBuildNumber: () => ReactNativeBundleUpdate.getNativeBuildNumber(),
+  getBuiltinBundleVersion: () =>
+    ReactNativeBundleUpdate.getBuiltinBundleVersion(),
   getJsBundlePath: () => ReactNativeBundleUpdate.getJsBundlePathAsync(),
   getSha256FromFilePath: (filePath) =>
     ReactNativeBundleUpdate.getSha256FromFilePath(filePath),

@@ -18,6 +18,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { encodeBundleVersionForDisplay } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -34,17 +35,21 @@ import type { RouteProp } from '@react-navigation/core';
 
 const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
 
-type IBundleInfo = {
-  bundleVersion: string;
+export type IBundleInfo = {
+  bundleVersion?: string;
+  ciBundleVersion: string;
   downloadUrl: string;
   sha256: string;
   signature?: string;
   fileSize: number;
   commitHash?: string;
+  branch?: string;
+  prTitle?: string;
   changeLog?: string;
+  buildNumber?: string;
 };
 
-function normalizeCommitHash(commitHash?: string) {
+export function normalizeCommitHash(commitHash?: string) {
   return String(commitHash || '')
     .trim()
     .toLowerCase();
@@ -56,7 +61,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function BundleItem({
+export function BundleItem({
   bundle,
   version,
   isCurrentBundle,
@@ -97,7 +102,7 @@ function BundleItem({
     setErrorMessage('');
     defaultLogger.app.jsBundleDev.downloadBundle({
       version,
-      bundleVersion: bundle.bundleVersion,
+      bundleVersion: bundle.ciBundleVersion,
       downloadUrl: bundle.downloadUrl,
       fileSize: bundle.fileSize,
     });
@@ -105,7 +110,7 @@ function BundleItem({
       const result = await BundleUpdate.downloadBundle({
         downloadUrl: bundle.downloadUrl,
         latestVersion: version,
-        bundleVersion: bundle.bundleVersion,
+        bundleVersion: bundle.ciBundleVersion,
         fileSize: bundle.fileSize,
         sha256: bundle.sha256,
         skipGPGVerification,
@@ -114,7 +119,7 @@ function BundleItem({
         await BundleUpdate.verifyBundleASC({
           ...result,
           latestVersion: version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           sha256: bundle.sha256,
           signature: bundle.signature || PLACEHOLDER_SIGNATURE,
           skipGPGVerification,
@@ -127,7 +132,7 @@ function BundleItem({
         setStatus('downloaded');
         defaultLogger.app.jsBundleDev.downloadBundleResult({
           version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           success: true,
         });
       } else {
@@ -135,7 +140,7 @@ function BundleItem({
         setErrorMessage('Download returned empty result');
         defaultLogger.app.jsBundleDev.downloadBundleResult({
           version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           success: false,
           error: 'Download returned empty result',
         });
@@ -146,7 +151,7 @@ function BundleItem({
       setErrorMessage(errMsg);
       defaultLogger.app.jsBundleDev.downloadBundleResult({
         version,
-        bundleVersion: bundle.bundleVersion,
+        bundleVersion: bundle.ciBundleVersion,
         success: false,
         error: errMsg,
       });
@@ -165,21 +170,31 @@ function BundleItem({
   const handleInstall = useCallback(async () => {
     const skipGPGVerification = skipGpgVerificationAllowed && gpgSkipped;
     setStatus('installing');
+    // Enable ignore toggle so auto-rollback doesn't undo the dev switch
+    await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+      'ignoreServerBundleUpdate',
+      true,
+    );
+    // await backgroundApiProxy.serviceAppUpdate.reset();
+    await backgroundApiProxy.servicePendingInstallTask.clearPendingInstallTask();
     defaultLogger.app.jsBundleDev.installBundle({
       version,
-      bundleVersion: bundle.bundleVersion,
+      bundleVersion: bundle.ciBundleVersion,
     });
     try {
       if (alreadyDownloaded && !downloadedEventRef.current) {
-        await BundleUpdate.verifyExtractedBundle(version, bundle.bundleVersion);
+        await BundleUpdate.verifyExtractedBundle(
+          version,
+          bundle.ciBundleVersion,
+        );
         defaultLogger.app.jsBundleDev.installBundleResult({
           version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           success: true,
         });
         await BundleUpdate.installBundle({
           latestVersion: version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           signature: bundle.signature || PLACEHOLDER_SIGNATURE,
           skipGPGVerification,
         });
@@ -192,7 +207,7 @@ function BundleItem({
         await BundleUpdate.verifyBundleASC({
           ...downloadedEventRef.current,
           latestVersion: version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           sha256: bundle.sha256,
           signature: bundle.signature || PLACEHOLDER_SIGNATURE,
           skipGPGVerification,
@@ -201,20 +216,20 @@ function BundleItem({
         await BundleUpdate.verifyBundle({
           ...downloadedEventRef.current,
           latestVersion: version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           sha256: bundle.sha256,
           skipGPGVerification,
         });
 
         defaultLogger.app.jsBundleDev.installBundleResult({
           version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           success: true,
         });
         await BundleUpdate.installBundle({
           ...downloadedEventRef.current,
           latestVersion: version,
-          bundleVersion: bundle.bundleVersion,
+          bundleVersion: bundle.ciBundleVersion,
           signature: bundle.signature || PLACEHOLDER_SIGNATURE,
           skipGPGVerification,
         });
@@ -225,7 +240,7 @@ function BundleItem({
       setErrorMessage(errMsg);
       defaultLogger.app.jsBundleDev.installBundleResult({
         version,
-        bundleVersion: bundle.bundleVersion,
+        bundleVersion: bundle.ciBundleVersion,
         success: false,
         error: errMsg,
       });
@@ -241,48 +256,29 @@ function BundleItem({
   const downloadDisabled = isDownloading && status !== 'downloading';
 
   return (
-    <YStack px="$4" py="$3" gap="$2.5">
+    <YStack px="$4" py="$3" gap="$2">
+      {/* Row 1: bundleVersion + branch badge + status badges + action */}
       <XStack alignItems="center" justifyContent="space-between">
-        <XStack alignItems="center" gap="$2" flex={1}>
-          <Stack
-            w="$8"
-            h="$8"
-            borderRadius="$2"
-            bg={isCurrentBundle ? '$bgSuccessStrong' : '$bgStrong'}
-            alignItems="center"
-            justifyContent="center"
-          >
-            {isCurrentBundle ? (
-              <Icon name="CheckRadioSolid" size="$4.5" color="$iconInverse" />
-            ) : (
-              <SizableText size="$bodySmMedium" color="$text">
-                {`#${bundle.bundleVersion}`}
-              </SizableText>
-            )}
-          </Stack>
-          <YStack flex={1}>
-            <XStack alignItems="center" gap="$1.5">
-              <SizableText size="$bodyMdMedium">
-                {`Bundle ${bundle.bundleVersion}`}
-              </SizableText>
-              {isCurrentBundle ? (
-                <Badge badgeType="success" badgeSize="sm">
-                  <Badge.Text>Active</Badge.Text>
-                </Badge>
-              ) : null}
-              {status === 'downloaded' && !isCurrentBundle ? (
-                <Badge badgeType="info" badgeSize="sm">
-                  <Badge.Text>Ready</Badge.Text>
-                </Badge>
-              ) : null}
-            </XStack>
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$bodyXs" color="$textSubdued" flex={1}>
-                {formatFileSize(bundle.fileSize)}
-                {bundle.changeLog ? ` · ${bundle.changeLog}` : ''}
-              </SizableText>
-            </XStack>
-          </YStack>
+        <XStack alignItems="center" gap="$2" flex={1} overflow="hidden" mr="$2">
+          {isCurrentBundle ? (
+            <Icon name="CheckRadioSolid" size="$4.5" color="$iconSuccess" />
+          ) : null}
+          <SizableText size="$bodyMdMedium" flexShrink={0}>
+            {`#${bundle.ciBundleVersion}`}
+          </SizableText>
+          <Badge badgeType="default" badgeSize="sm" flexShrink={1}>
+            <Badge.Text numberOfLines={1}>{bundle.branch || '-'}</Badge.Text>
+          </Badge>
+          {isCurrentBundle ? (
+            <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
+              <Badge.Text>Active</Badge.Text>
+            </Badge>
+          ) : null}
+          {status === 'downloaded' && !isCurrentBundle ? (
+            <Badge badgeType="info" badgeSize="sm" flexShrink={0}>
+              <Badge.Text>Ready</Badge.Text>
+            </Badge>
+          ) : null}
         </XStack>
 
         {!isCurrentBundle && (status === 'idle' || status === 'error') ? (
@@ -292,12 +288,39 @@ function BundleItem({
             variant="tertiary"
             disabled={downloadDisabled}
             onPress={handleDownload}
+            flexShrink={0}
           />
         ) : null}
       </XStack>
 
+      {/* Row 2: buildNumber + ciBundleVersion (encoded) + fileSize */}
+      <SizableText size="$bodySm" color="$textSubdued">
+        {[
+          bundle.buildNumber,
+          encodeBundleVersionForDisplay(bundle.ciBundleVersion),
+          formatFileSize(bundle.fileSize),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </SizableText>
+
+      {/* Row 3: commitHash */}
+      {bundle.commitHash ? (
+        <SizableText size="$bodyXs" color="$textSubdued">
+          {bundle.commitHash.slice(0, 8)}
+        </SizableText>
+      ) : null}
+
+      {/* Row 4: prTitle (least prominent) */}
+      {bundle.prTitle ? (
+        <SizableText size="$bodyXs" color="$textDisabled">
+          {bundle.prTitle}
+        </SizableText>
+      ) : null}
+
+      {/* Status: downloading */}
       {status === 'downloading' ? (
-        <YStack gap="$1" pl="$10">
+        <YStack gap="$1">
           <Progress value={downloadPercent} />
           <SizableText size="$bodyXs" color="$textSubdued">
             {`Downloading... ${downloadPercent}%`}
@@ -305,8 +328,9 @@ function BundleItem({
         </YStack>
       ) : null}
 
+      {/* Status: error */}
       {status === 'error' ? (
-        <XStack pl="$10" alignItems="center" gap="$1.5">
+        <XStack alignItems="center" gap="$1.5">
           <Icon name="XCircleOutline" size="$3.5" color="$iconCritical" />
           <SizableText size="$bodyXs" color="$textCritical">
             {errorMessage}
@@ -314,8 +338,9 @@ function BundleItem({
         </XStack>
       ) : null}
 
+      {/* Status: installing */}
       {status === 'installing' ? (
-        <XStack pl="$10" alignItems="center" gap="$2">
+        <XStack alignItems="center" gap="$2">
           <Spinner size="small" />
           <SizableText size="$bodyXs" color="$textSubdued">
             Installing & restarting...
@@ -323,8 +348,9 @@ function BundleItem({
         </XStack>
       ) : null}
 
+      {/* Action: install */}
       {!isCurrentBundle && status === 'downloaded' ? (
-        <XStack pl="$10" justifyContent="flex-end">
+        <XStack justifyContent="flex-end">
           <Button
             variant="primary"
             size="small"
@@ -334,14 +360,6 @@ function BundleItem({
           >
             Switch
           </Button>
-        </XStack>
-      ) : null}
-
-      {bundle.commitHash ? (
-        <XStack pl="$10" justifyContent="flex-end">
-          <SizableText size="$bodyXs" color="$textSubdued">
-            {bundle.commitHash.slice(0, 8)}
-          </SizableText>
         </XStack>
       ) : null}
     </YStack>
@@ -368,10 +386,9 @@ export default function SettingDevBundleList() {
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const currentAppVersion = String(platformEnv.version);
   const currentCommitHash = normalizeCommitHash(platformEnv.githubSHA);
-  const currentBundleLabel =
-    skipGpgVerificationAllowed && currentCommitHash
-      ? currentCommitHash.slice(0, 8)
-      : `#${currentBundleVersion}`;
+  const currentBundleLabel = currentCommitHash
+    ? `#${currentBundleVersion} ${currentCommitHash.slice(0, 8)}`
+    : `#${currentBundleVersion}`;
 
   useEffect(() => {
     let isMounted = true;
@@ -398,19 +415,29 @@ export default function SettingDevBundleList() {
         );
 
         const existsChecks = await Promise.all(
-          data.map(async (b) => ({
-            bundleVersion: b.bundleVersion,
-            exists: await BundleUpdate.isBundleExists(version, b.bundleVersion),
-          })),
+          data.map(async (b) => {
+            if (!b.ciBundleVersion) {
+              return { ciBundleVersion: b.ciBundleVersion, exists: false };
+            }
+            try {
+              const exists = await BundleUpdate.isBundleExists(
+                version,
+                b.ciBundleVersion,
+              );
+              return { ciBundleVersion: b.ciBundleVersion, exists };
+            } catch {
+              return { ciBundleVersion: b.ciBundleVersion, exists: false };
+            }
+          }),
         );
         for (const check of existsChecks) {
           defaultLogger.app.jsBundleDev.checkBundleExists({
             version,
-            bundleVersion: check.bundleVersion,
+            bundleVersion: check.ciBundleVersion,
             exists: check.exists,
           });
           if (check.exists) {
-            downloaded.add(check.bundleVersion);
+            downloaded.add(check.ciBundleVersion);
           }
         }
         if (isMounted) {
@@ -473,7 +500,7 @@ export default function SettingDevBundleList() {
             >
               {bundles.map((bundle, index) => (
                 <YStack
-                  key={`${bundle.bundleVersion}-${bundle.commitHash || index}`}
+                  key={`${bundle.ciBundleVersion}-${bundle.commitHash || index}`}
                 >
                   {index > 0 ? (
                     <XStack mx="$4">
@@ -495,9 +522,11 @@ export default function SettingDevBundleList() {
                           return bundleCommitHash === currentCommitHash;
                         }
                       }
-                      return bundle.bundleVersion === currentBundleVersion;
+                      return bundle.ciBundleVersion === currentBundleVersion;
                     })()}
-                    alreadyDownloaded={downloadedSet.has(bundle.bundleVersion)}
+                    alreadyDownloaded={downloadedSet.has(
+                      bundle.ciBundleVersion,
+                    )}
                     isDownloading={isDownloading}
                     onDownloadStart={handleDownloadStart}
                     onDownloadEnd={handleDownloadEnd}

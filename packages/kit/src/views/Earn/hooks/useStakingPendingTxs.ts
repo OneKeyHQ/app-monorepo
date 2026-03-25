@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -310,6 +311,28 @@ export const useStakingPendingTxsByInfo = ({
       } catch {
         // Best-effort account resolution; keep whatever we have
       }
+
+      // For BTC networks in Earn, ensure taproot (BIP86) account is used
+      await Promise.all(
+        Object.keys(map).map(async (netId) => {
+          if (networkUtils.isBTCNetwork(netId)) {
+            try {
+              const earnAccount =
+                await backgroundApiProxy.serviceStaking.getEarnAccount({
+                  accountId: map[netId],
+                  networkId: netId,
+                  indexedAccountId: indexedAccount.id,
+                  btcOnlyTaproot: true,
+                });
+              if (earnAccount?.accountId) {
+                map[netId] = earnAccount.accountId;
+              }
+            } catch {
+              // Keep existing account if taproot resolution fails
+            }
+          }
+        }),
+      );
 
       return map;
     },

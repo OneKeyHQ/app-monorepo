@@ -148,7 +148,21 @@ export async function safePushToEarnRoute(
       // updates only the tab selection. This avoids the iOS Release issue
       // where simultaneous selectedPage + children changes caused the native
       // tab bar to drop the selectedPage update.
-      const { topRoute } = preQueryState;
+      const { topRoute, tabState } = preQueryState;
+
+      // Prevent route stack accumulation when navigating between earn
+      // pages repeatedly (e.g. search → detail → positions → search).
+      // Pop to the base route first so the stack never grows beyond
+      // depth 2 (base + one earn page). Without this, 2-3 cycles
+      // cause iOS to freeze (OK-51746).
+      if (tabState && tabState.routes.length > 1 && topRoute?.name !== route) {
+        dispatchToTargetStack({
+          action: StackActions.popToTop(),
+          rootNavigation,
+          targetKey,
+        });
+      }
+
       if (topRoute?.name === route) {
         dispatchToTargetStack({
           action: StackActions.replace(route, params),
@@ -199,6 +213,33 @@ export async function safePushToEarnRoute(
   const topRoute = targetStack?.topRoute;
 
   if (targetKey) {
+    // Prevent route stack accumulation (OK-51746)
+    if (
+      targetStack?.tabState &&
+      targetStack.tabState.routes.length > 1 &&
+      topRoute?.name !== route
+    ) {
+      dispatchToTargetStack({
+        action: StackActions.popToTop(),
+        rootNavigation,
+        targetKey,
+      });
+      // Re-query stack state after popToTop — the old topRoute is stale
+      const updatedStack = findTargetStack(
+        rootNavigation.getRootState?.(),
+        targetTab,
+      );
+      const updatedTopRoute = updatedStack?.topRoute;
+      if (updatedTopRoute?.name === route) {
+        dispatchToTargetStack({
+          action: StackActions.replace(route, params),
+          rootNavigation,
+          targetKey,
+        });
+        return;
+      }
+    }
+
     if (topRoute?.name === route) {
       dispatchToTargetStack({
         action: StackActions.replace(route, params),

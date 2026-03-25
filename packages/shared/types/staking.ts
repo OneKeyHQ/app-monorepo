@@ -169,6 +169,7 @@ export type IStakeBaseParams = {
   inputTokenAddress?: string;
   outputTokenAddress?: string;
   slippage?: number;
+  effectiveApy?: string | number;
 
   term?: number; // Babylon
   feeRate?: number;
@@ -202,6 +203,7 @@ export type IWithdrawBaseParams = {
   inputTokenAddress?: string;
   outputTokenAddress?: string;
   slippage?: number;
+  effectiveApy?: string | number;
 
   identity?: string; // sol pubkey
   signature?: string; // lido unstake, stakefish withdraw all
@@ -1355,6 +1357,7 @@ export interface IStakeTransactionConfirmation {
   title?: IEarnText;
   tooltip?: IEarnTooltip;
   apyDetail?: IStakeEarnDetail['apyDetail'];
+  effectiveApy?: string | number;
   rewards?: Array<{
     title: IEarnText;
     description: IEarnText;
@@ -1939,6 +1942,7 @@ export type IApproveConfirmFnParams = {
   unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
+  effectiveApy?: string | number;
   // Stakefish ETH validator
   validatorPubkey?: string;
 };

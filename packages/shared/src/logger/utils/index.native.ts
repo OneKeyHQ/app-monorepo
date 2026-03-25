@@ -100,6 +100,7 @@ const getDeviceInfo = () =>
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,
+    `bundleVersion: ${platformEnv.bundleVersion ?? ''}`,
     `version: ${platformEnv.version ?? ''}`,
   ].join(',');
 

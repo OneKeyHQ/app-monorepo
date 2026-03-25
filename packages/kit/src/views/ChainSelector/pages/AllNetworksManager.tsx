@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Page, SizableText, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -19,6 +18,7 @@ import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -27,6 +27,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { AllNetworksManagerContext } from '../components/AllNetworksManager/AllNetworksManagerContext';
 import NetworksSectionList from '../components/AllNetworksManager/NetworksSectionList';
+import { useFindNetworksWithoutAccount } from '../hooks/useFindNetworksWithoutAccount';
 
 import type { IServerNetworkMatch } from '../types';
 import type { RouteProp } from '@react-navigation/core';
@@ -35,6 +36,7 @@ function AllNetworksManager() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { createAddress } = useAccountSelectorCreateAddress();
+  const { findNetworksWithoutAccount } = useFindNetworksWithoutAccount();
 
   const route =
     useRoute<
@@ -204,83 +206,52 @@ function AllNetworksManager() {
 
   const handleEnableAllNetworks = useCallback(async () => {
     setIsCreatingEnabledAddresses(true);
+    try {
+      if (!accountUtils.isOthersWallet({ walletId })) {
+        // 1. Find networks missing addresses
+        const networksWithoutAccount = await findNetworksWithoutAccount({
+          accountId: accountId ?? '',
+          indexedAccountId,
+          enabledNetworks,
+        });
 
-    const { accountsInfo } =
-      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId: accountId ?? '',
-        indexedAccountId,
-        networkId: getNetworkIdsMap().onekeyall,
-        deriveType: undefined,
-        excludeTestNetwork: true,
+        setEnabledNetworksWithoutAccount(networksWithoutAccount);
+
+        // 2. Create missing addresses if any
+        if (networksWithoutAccount.length > 0) {
+          await createAddress({
+            num: 0,
+            account: {
+              walletId,
+              networkId: getNetworkIdsMap().onekeyall,
+              indexedAccountId,
+              deriveType: 'default',
+            },
+            customNetworks: networksWithoutAccount,
+          });
+        }
+      } else {
+        setEnabledNetworksWithoutAccount([]);
+      }
+
+      await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+        enabledNetworks: networksState.enabledNetworks,
+        disabledNetworks: networksState.disabledNetworks,
       });
 
-    const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
-    for (let i = 0; i < accountsInfo.length; i += 1) {
-      const item = accountsInfo[i];
-      const { networkId, deriveType, dbAccount } = item;
-      if (dbAccount) {
-        networkAccountMap[`${networkId}_${deriveType ?? ''}`] = item;
-      }
+      appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
+
+      navigation.pop();
+
+      void onNetworksChanged?.();
+    } finally {
+      setIsCreatingEnabledAddresses(false);
     }
-
-    const enabledNetworksWithoutAccountTemp: {
-      networkId: string;
-      deriveType: IAccountDeriveTypes;
-    }[] = [];
-
-    for (let i = 0; i < enabledNetworks.length; i += 1) {
-      const network = enabledNetworks[i];
-
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: network.id,
-        });
-
-      const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
-      if (!networkAccount) {
-        enabledNetworksWithoutAccountTemp.push({
-          networkId: network.id,
-          deriveType,
-        });
-      }
-    }
-
-    setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
-
-    if (enabledNetworksWithoutAccountTemp.length > 0) {
-      try {
-        await createAddress({
-          num: 0,
-          account: {
-            walletId,
-            networkId: getNetworkIdsMap().onekeyall,
-            indexedAccountId,
-            deriveType: 'default',
-          },
-          customNetworks: enabledNetworksWithoutAccountTemp,
-        });
-      } catch (error) {
-        setIsCreatingEnabledAddresses(false);
-        throw error;
-      }
-    }
-
-    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-      enabledNetworks: networksState.enabledNetworks,
-      disabledNetworks: networksState.disabledNetworks,
-    });
-
-    appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
-
-    navigation.pop();
-
-    void onNetworksChanged?.();
-
-    setIsCreatingEnabledAddresses(false);
   }, [
     accountId,
     createAddress,
     enabledNetworks,
+    findNetworksWithoutAccount,
     indexedAccountId,
     navigation,
     networksState.disabledNetworks,

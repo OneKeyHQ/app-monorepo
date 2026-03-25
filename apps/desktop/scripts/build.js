@@ -1,9 +1,11 @@
 require('../../../development/env');
 
-const path = require('path');
 const childProcess = require('child_process');
+const path = require('path');
+
 const { build } = require('esbuild');
 const glob = require('glob');
+
 const pkg = require('../app/package.json');
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -54,7 +56,7 @@ build({
     ),
     'react-native-mmkv': path.join(
       __dirname,
-      '../../desktop/app/libs/react-native-mmkv-mock',
+      '../../desktop/app/libs/react-native-mmkv-desktop-main',
     ),
     '@sentry/react-native': path.join(
       __dirname,
@@ -128,6 +130,19 @@ build({
   },
 })
   .then(() => {
+    // Copy static assets (recovery.html) to dist
+    const fs = require('fs');
+    const recoveryHtmlSrc = path.join(electronSource, 'recovery.html');
+    const recoveryHtmlDst = path.join(
+      __dirname,
+      '..',
+      'app/dist',
+      'recovery.html',
+    );
+    if (fs.existsSync(recoveryHtmlSrc)) {
+      fs.copyFileSync(recoveryHtmlSrc, recoveryHtmlDst);
+      console.log('[Electron Build] Copied recovery.html to dist');
+    }
     const hrend = process.hrtime(hrstart);
     console.log(
       '[Electron Build] Finished in %dms',

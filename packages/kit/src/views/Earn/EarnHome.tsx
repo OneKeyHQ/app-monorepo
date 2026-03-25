@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { View } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 
-import { RefreshControl, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  HeaderScrollGestureWrapper,
+  RefreshControl,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabEarnRoutes,
@@ -140,11 +147,44 @@ function BasicEarnHome({
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
 
+  const prefetchEarnAvailableAssets = useCallback(async () => {
+    const types = [
+      EAvailableAssetsTypeEnum.SimpleEarn,
+      EAvailableAssetsTypeEnum.FixedRate,
+      EAvailableAssetsTypeEnum.Staking,
+    ] as const;
+
+    const results = await Promise.all(
+      types.map(async (type) => {
+        try {
+          const assets =
+            await backgroundApiProxy.serviceStaking.getAvailableAssets({
+              type,
+            });
+          return {
+            type,
+            assets,
+          };
+        } catch {
+          return {
+            type,
+            assets: [],
+          };
+        }
+      }),
+    );
+
+    results.forEach(({ type, assets }) => {
+      actions.current.updateAvailableAssetsByType(type, assets);
+    });
+  }, [actions]);
+
   const refreshEarnData = useCallback(async () => {
     await backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+    await prefetchEarnAvailableAssets();
     actions.current.triggerRefresh();
     await refreshEarnDataRaw();
-  }, [actions, refreshEarnDataRaw]);
+  }, [actions, prefetchEarnAvailableAssets, refreshEarnDataRaw]);
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     // Pendle redeem/unstake is recorded as Sell, but it should still trigger
@@ -221,6 +261,10 @@ function BasicEarnHome({
   const isEarnMode = defaultMode === 'earn';
   const isBorrowMode = defaultMode === 'borrow';
 
+  const earnBorrowScrollPosition = useSharedValue(
+    defaultMode === 'borrow' ? 1 : 0,
+  );
+
   const handleModeChange = useCallback(
     (mode: 'earn' | 'borrow') => {
       // Use setParams to update mode without navigation - prevents remount flash
@@ -252,6 +296,8 @@ function BasicEarnHome({
       setIsEarnTabFocused(actualFocus);
       if (!actualFocus) return;
 
+      void prefetchEarnAvailableAssets();
+
       const simpleKey = `availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`;
       const fixedKey = `availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`;
       const stakingKey = `availableAssets-${EAvailableAssetsTypeEnum.Staking}`;
@@ -271,7 +317,7 @@ function BasicEarnHome({
 
       void refetchFAQ();
     },
-    [actions, refetchFAQ],
+    [actions, prefetchEarnAvailableAssets, refetchFAQ],
   );
 
   useListenTabFocusState(
@@ -346,6 +392,25 @@ function BasicEarnHome({
     [earnBanners, onBannerPress, isEarnTabFocused],
   );
 
+  const defaultModeRef = useRef(defaultMode);
+  defaultModeRef.current = defaultMode;
+
+  const handleHeaderHorizontalSwipe = useCallback(
+    (direction: 'left' | 'right') => {
+      const currentMode = defaultModeRef.current;
+      if (direction === 'left' && currentMode === 'earn') {
+        handleModeChange('borrow');
+      } else if (direction === 'right' && currentMode === 'borrow') {
+        handleModeChange('earn');
+      } else if (direction === 'right' && currentMode === 'earn') {
+        appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
+          tab: ETranslations.global_market,
+        });
+      }
+    },
+    [handleModeChange],
+  );
+
   const mobileContainerProps = useMemo(
     () => ({
       contentContainerStyle: {
@@ -353,27 +418,23 @@ function BasicEarnHome({
       },
       allowHeaderOverscroll: true,
       renderHeader: () => (
-        <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
-          <YStack gap="$7.5">
-            <YStack px="$pagePadding">
-              <Overview
-                onRefresh={refreshEarnData}
-                isLoading={isLoading}
-                filteredTotalFiatValue={filteredTotalFiatValue}
-                filteredEarnings24h={filteredEarnings24h}
-              />
+        <HeaderScrollGestureWrapper
+          onHorizontalSwipe={handleHeaderHorizontalSwipe}
+        >
+          <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
+            <YStack gap="$7.5">
+              <YStack px="$pagePadding">
+                <Overview
+                  onRefresh={refreshEarnData}
+                  isLoading={isLoading}
+                  filteredTotalFiatValue={filteredTotalFiatValue}
+                  filteredEarnings24h={filteredEarnings24h}
+                />
+              </YStack>
+              {banners ? <YStack width="100%">{banners}</YStack> : null}
             </YStack>
-            {banners ? (
-              <View
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => e.stopPropagation()}
-              >
-                <YStack width="100%">{banners}</YStack>
-              </View>
-            ) : null}
           </YStack>
-        </YStack>
+        </HeaderScrollGestureWrapper>
       ),
     }),
     [
@@ -383,6 +444,7 @@ function BasicEarnHome({
       filteredTotalFiatValue,
       filteredEarnings24h,
       banners,
+      handleHeaderHorizontalSwipe,
     ],
   );
 
@@ -413,11 +475,16 @@ function BasicEarnHome({
     if (useSwipePager) {
       return (
         <YStack flex={1}>
-          <MarketSelector mode={defaultMode} onModeChange={handleModeChange} />
+          <MarketSelector
+            mode={defaultMode}
+            onModeChange={handleModeChange}
+            pageScrollPosition={earnBorrowScrollPosition}
+          />
           <EarnBorrowPagerView
             ref={earnBorrowPagerRef}
             mode={defaultMode}
             onModeChange={handleModeChange}
+            pageScrollPosition={earnBorrowScrollPosition}
             earnContent={
               <>
                 <EarnMainTabs

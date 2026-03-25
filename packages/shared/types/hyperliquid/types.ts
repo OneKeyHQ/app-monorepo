@@ -154,6 +154,25 @@ export interface IPositionTpslOrderParams {
   slippage?: number;
 }
 
+// ── Standalone Trigger Order Types ──
+
+export enum ETriggerOrderType {
+  TRIGGER_MARKET = 'triggerMarket',
+  TRIGGER_LIMIT = 'triggerLimit',
+}
+
+export interface ITriggerOrderParams {
+  assetId: number;
+  isBuy: boolean;
+  size: string;
+  triggerPx: string;
+  triggerOrderType: ETriggerOrderType;
+  tpsl: 'tp' | 'sl';
+  executionPx?: string; // required for limit triggers
+  reduceOnly: boolean;
+  slippage?: number;
+}
+
 export interface IL2BookOptions {
   nSigFigs?: 2 | 3 | 4 | 5 | null;
   mantissa?: 2 | 5 | null;

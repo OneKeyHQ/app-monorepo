@@ -25,6 +25,7 @@ import {
   StockSourceLogo,
   SubtitleBadge,
 } from '../../../components/PerpsBadges';
+import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
@@ -135,12 +136,21 @@ export function TokenDetailHeaderLeft({
             >
               {symbol}
             </SizableText>
-            <StockSourceLogo stock={stock} />
-            {communityRecognized ? <CommunityRecognizedBadge /> : null}
+            {md ? (
+              <TokenTagsPopover
+                communityRecognized={communityRecognized}
+                stock={stock}
+              />
+            ) : (
+              <>
+                <StockSourceLogo stock={stock} />
+                {communityRecognized ? <CommunityRecognizedBadge /> : null}
+              </>
+            )}
             {stock?.subtitle ? (
               <SubtitleBadge subtitle={stock.subtitle} />
             ) : null}
-            {stock ? <StockIsOpenBadge isOpen={stock.isOpen} /> : null}
+            {stock ? <StockIsOpenBadge stock={stock} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">

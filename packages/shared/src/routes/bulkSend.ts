@@ -47,6 +47,7 @@ export type IModalBulkSendParamList = {
     totalTokenAmount: string;
     totalFiatAmount: string;
     isInModal?: boolean;
+    ataCount?: number;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };

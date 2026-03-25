@@ -49,6 +49,8 @@ export class SwapEstimateFeeScene extends BaseScene {
     encodedTx: string;
     isBatch?: boolean;
   }) {
+    void accountId;
+    void encodedTx;
     return {
       status,
       orderId,
@@ -65,8 +67,6 @@ export class SwapEstimateFeeScene extends BaseScene {
       provider,
       providerName,
       networkId,
-      accountId,
-      encodedTx,
       isBatch,
     };
   }

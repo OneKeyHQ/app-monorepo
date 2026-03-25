@@ -1,7 +1,7 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 
 import externalWalletFactory from '../connectors/externalWalletFactory';
 import localDb from '../dbs/local/localDb';
@@ -499,6 +499,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceAppUpdate', { value });
+    return value;
+  }
+
+  get servicePendingInstallTask() {
+    const ServicePendingInstallTask =
+      require('../services/servicePendingInstallTask') as typeof import('../services/servicePendingInstallTask');
+    const value = new ServicePendingInstallTask.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePendingInstallTask', { value });
     return value;
   }
 

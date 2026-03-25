@@ -27,7 +27,11 @@ import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdPa
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EFullScreenPushRoutes,
+  EModalRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import mmkvStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvStorageInstance';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -236,19 +240,82 @@ export const popModalPagesOnNative = (maxRetryTimes = 10) => {
   }
 };
 
-export const popToMainRoute = async (maxRetryTimes = 99) => {
-  if (maxRetryTimes <= 0) {
+/**
+ * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
+ * using CommonActions.reset. No transition animation, but avoids the native
+ * UITabBarController window-nil race condition where RNSScreenStack retries
+ * exhaust when goBack() is called on a stack inside a detached tab view.
+ *
+ * Prefer this over sequential goBack() calls when you need to dismiss multiple
+ * overlay routes and the intermediate animation is not important.
+ */
+export function resetAboveMainRoute() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
     return;
   }
-  const rootState = rootNavigationRef.current?.getRootState();
-  if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Main) {
+  const mainRoutes = state.routes.filter(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
     return;
   }
-  if (rootNavigationRef.current?.canGoBack()) {
-    rootNavigationRef.current?.goBack?.();
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: mainRoutes,
+      index: mainRoutes.length - 1,
+    }),
+  );
+}
+
+/**
+ * Atomically remove ScanQrCodeModal and ActionCenter (FullScreenPush) routes
+ * from the navigation state via CommonActions.reset, preserving all other
+ * routes (e.g. onboarding). This avoids the goBack() animated dismiss that
+ * causes RNSScreenStack window=NIL and blocks Fabric commits on the
+ * underlying page.
+ */
+export function resetScanModalRoute() {
+  const state = rootNavigationRef.current?.getRootState();
+  if (!state) {
+    return;
   }
-  await timerUtils.wait(150);
-  await popToMainRoute(maxRetryTimes - 1);
+  const filteredRoutes = state.routes.filter((route) => {
+    const screenName =
+      (route.params as { screen?: string })?.screen ||
+      route.state?.routes?.[route.state?.index || 0]?.name;
+    // Remove ScanQrCodeModal routes
+    if (
+      route.name === ERootRoutes.Modal &&
+      screenName === EModalRoutes.ScanQrCodeModal
+    ) {
+      return false;
+    }
+    // Remove ActionCenter routes only (not other FullScreenPush pages)
+    if (
+      route.name === ERootRoutes.FullScreenPush &&
+      screenName === EFullScreenPushRoutes.ActionCenter
+    ) {
+      return false;
+    }
+    return true;
+  });
+  if (filteredRoutes.length === state.routes.length) {
+    return;
+  }
+  rootNavigationRef.current?.dispatch(
+    CommonActions.reset({
+      ...state,
+      routes: filteredRoutes,
+      index: filteredRoutes.length - 1,
+    }),
+  );
+}
+
+export const popToMainRoute = async () => {
+  resetAboveMainRoute();
+  await timerUtils.wait(100);
 };
 
 function isScanModalCurrentRoute(): boolean {
@@ -330,15 +397,17 @@ export const popActionCenterPages = async (maxRetryTimes = 99) => {
 };
 
 /**
- * Atomically remove all routes above the Main route (Modal, FullScreenPush, etc.)
- * using CommonActions.reset. No transition animation, but avoids the native
- * UITabBarController window-nil race condition where RNSScreenStack retries
- * exhaust when goBack() is called on a stack inside a detached tab view.
+ * Atomically replace all overlay routes with a target route in a single
+ * CommonActions.reset dispatch. This avoids the race condition where
+ * resetAboveMainRoute() triggers a native modal dismiss animation, and a
+ * subsequent navigate() gets popped when the dismiss completes.
  *
- * Prefer this over sequential goBack() calls when you need to dismiss multiple
- * overlay routes and the intermediate animation is not important.
+ * State transition: [Main, Modal, ...] → [Main, targetRoute]
  */
-export const resetAboveMainRoute = () => {
+export const resetToRoute = (
+  routeName: string,
+  params?: Record<string, unknown>,
+) => {
   const state = rootNavigationRef.current?.getRootState();
   if (!state) {
     return;
@@ -346,14 +415,15 @@ export const resetAboveMainRoute = () => {
   const mainRoutes = state.routes.filter(
     (route) => route.name === ERootRoutes.Main,
   );
-  if (mainRoutes.length === 0 || mainRoutes.length === state.routes.length) {
+  if (mainRoutes.length === 0) {
     return;
   }
+  const targetRoute = { name: routeName, params };
   rootNavigationRef.current?.dispatch(
     CommonActions.reset({
       ...state,
-      routes: mainRoutes,
-      index: mainRoutes.length - 1,
+      routes: [...mainRoutes, targetRoute],
+      index: mainRoutes.length,
     }),
   );
 };

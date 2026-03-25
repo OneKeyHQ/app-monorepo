@@ -98,6 +98,7 @@ export enum EAppEventBusNames {
   doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
   UnlockApp = 'UnlockApp',
+  LockApp = 'LockApp',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -136,5 +137,6 @@ export enum EAppEventBusNames {
   RefreshNativeTokenInfo = 'RefreshNativeTokenInfo',
   ShowInAppPushNotification = 'ShowInAppPushNotification',
   ExecuteNotificationCommand = 'ExecuteNotificationCommand',
+  ShowRookieShare = 'ShowRookieShare',
   CreateNewBrowserTab = 'CreateNewBrowserTab',
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useRef } from 'react';
 
@@ -38,6 +39,11 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -141,11 +147,14 @@ const useDesktopEvents = platformEnv.isDesktop
               const route = routeState.routes[routeState.routes.length - 1];
               if (
                 route &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
                 (route.params as { screen: string })?.screen ===
                   EModalRoutes.SettingModal
               ) {
                 if (
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
                   route.name === ERootRoutes.Modal ||
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
                   route.name === ERootRoutes.iOSFullScreen
                 ) {
                   const routeLength =
@@ -287,6 +296,7 @@ const useDesktopEvents = platformEnv.isDesktop
             break;
           case EShortcutEvents.TabPerps:
             ensureModalClosedAndNavigate(() => {
+              setPerpPageEnterSource(EPerpPageEnterSource.Shortcut);
               navigation.switchTab(ETabRoutes.Perp);
             });
             break;
@@ -353,6 +363,7 @@ const useAboutVersion =
               renderContent: (
                 <YStack gap={4} alignItems="center" pt="$4">
                   <Image
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     source={require('../../assets/logo.png')}
                     size={72}
                     borderRadius="$full"
@@ -419,7 +430,7 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
       await backgroundApiProxy.serviceSetting.isShowFloatingButton();
     const launchTimesLastReset =
       await backgroundApiProxy.serviceApp.getLaunchTimesLastReset();
-    if (!isShowFloatingButton && launchTimesLastReset === 5) {
+    if (!isShowFloatingButton && launchTimesLastReset >= 5) {
       Dialog.show({
         title: '',
         showExitButton: false,
@@ -434,6 +445,7 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
                 w: 360,
                 h: 163,
               }}
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
             />
             <YStack gap="$1">
@@ -475,6 +487,15 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
   }
 };
 
+const useLogVersionInfo = () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void defaultLogger.setting.device.logFullVersionInfo();
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, []);
+};
+
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
 
@@ -503,7 +524,10 @@ export const useLaunchEvents = (): void => {
         hasLaunchEventsExecutedRef.current = true;
         setTimeout(async () => {
           await backgroundApiProxy.serviceApp.updateLaunchTimes();
-          if (platformEnv.isExtension) {
+          if (
+            platformEnv.isExtensionUiPopup ||
+            platformEnv.isExtensionUiSidePanel
+          ) {
             await launchFloatingIconEvent(intl);
           }
         }, 250);
@@ -755,6 +779,39 @@ export function Bootstrap() {
       performance.stop();
     };
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+
+  // === Boot Recovery: mark boot success after 5s stability window ===
+  useEffect(() => {
+    if (!platformEnv.isNative && !platformEnv.isDesktop) return;
+    const timer = setTimeout(() => {
+      try {
+        BootRecovery.markBootSuccess();
+      } catch {
+        // Silently fail — don't let recovery mechanism crash the app
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useLogVersionInfo();
+
+  // === Boot Recovery: check if we recovered from recovery page → report to Sentry ===
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    const checkRecoveryFlag = async () => {
+      try {
+        const action = await BootRecovery.getAndClearRecoveryAction();
+        if (action) {
+          defaultLogger.app.error.log(
+            `recovery_page_shown: action=${action}, platform=${platformEnv.isNativeIOS ? 'ios' : 'android'}`,
+          );
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    void checkRecoveryFlag();
+  }, []);
 
   useFetchCurrencyList();
   useFetchMarketBasicConfig();

@@ -29,6 +29,10 @@ import type {
 } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
@@ -40,6 +44,8 @@ import type {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+
+const emptyFragment = <></>;
 
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
@@ -62,6 +68,9 @@ export interface IDesktopTabItemProps {
   showDot?: boolean;
   isContainerHovered?: boolean;
   onPressWhenSelected?: () => void; // New: Click event when already selected
+  closeButtonIcon?: IKeyOfIcons;
+  closeButtonTitle?: React.ReactNode;
+  alwaysShowCloseButton?: boolean;
 }
 
 function BasicDesktopTabItemImage({
@@ -71,21 +80,25 @@ function BasicDesktopTabItemImage({
   avatarSrc?: string;
   selected?: boolean;
 }) {
+  const fallbackElement = useMemo(
+    () => (
+      <Image.Fallback bg="$bgSidebar" delayMs={180}>
+        <Icon
+          size="$4.5"
+          name="GlobusOutline"
+          color={selected ? '$iconActive' : '$iconSubdued'}
+        />
+      </Image.Fallback>
+    ),
+    [selected],
+  );
   return (
     <Image
       borderRadius="$1"
       size="$4.5"
       m="$px"
       source={avatarSrc}
-      fallback={
-        <Image.Fallback bg="$bgSidebar" delayMs={180}>
-          <Icon
-            size="$4.5"
-            name="GlobusOutline"
-            color={selected ? '$iconActive' : '$iconSubdued'}
-          />
-        </Image.Fallback>
-      }
+      fallback={fallbackElement}
     />
   );
 }
@@ -117,6 +130,9 @@ export function DesktopTabItem(
     isContainerHovered = false,
     hideCloseButton = false,
     onPressWhenSelected,
+    closeButtonIcon,
+    closeButtonTitle,
+    alwaysShowCloseButton = false,
     ...rest
   } = props;
 
@@ -158,11 +174,49 @@ export function DesktopTabItem(
       } else {
         onPress?.(e);
       }
+      if (trackId === 'global-perp' && !selected) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
+      }
       if (trackId) {
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
     [onPress, selected, trackId, onPressWhenSelected],
+  );
+  const handleRenderItems = useCallback(
+    ({ handleActionListOpen }: { handleActionListOpen: () => void }) => {
+      openActionList.current = handleActionListOpen;
+      return undefined;
+    },
+    [],
+  );
+  const handleActionListOpenChange = useCallback(
+    (isOpened: boolean) => {
+      reportPopoverOpen(isOpened);
+      setIsContextMenuOpened(isOpened);
+      setIsHovered(isOpened);
+    },
+    [reportPopoverOpen],
+  );
+  const tabItemGtMdStyle = useMemo(
+    () =>
+      ({
+        flexDirection: 'row',
+        px: '$2',
+        bg: selected ? '$bgActive' : undefined,
+        borderRadius: '$2',
+      }) as IStackStyle,
+    [selected],
+  );
+  const defaultCloseButtonTitle = useMemo(
+    () => (
+      <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+        {intl.formatMessage({
+          id: ETranslations.global_close,
+        })}
+      </Tooltip.Text>
+    ),
+    [intl],
   );
   const trigger = useMemo(
     () => (
@@ -170,14 +224,7 @@ export function DesktopTabItem(
         {...tabBarItemStyle}
         alignItems="center"
         py="$2"
-        $gtMd={
-          {
-            flexDirection: 'row',
-            px: '$2',
-            bg: selected ? '$bgActive' : undefined,
-            borderRadius: '$2',
-          } as any
-        }
+        $gtMd={tabItemGtMdStyle}
         userSelect="none"
         {...((!selected && {
           pressStyle: {
@@ -237,21 +284,18 @@ export function DesktopTabItem(
           </SizableText>
         ) : null}
         {!hideCloseButton &&
-        (selected || isHovered || isContainerHovered) &&
+        (alwaysShowCloseButton ||
+          selected ||
+          isHovered ||
+          isContainerHovered) &&
         actionList ? (
           <IconButton
             size="small"
-            icon="CrossedSmallOutline"
+            icon={closeButtonIcon ?? 'CrossedSmallOutline'}
+            {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
             variant="tertiary"
             focusVisibleStyle={undefined}
-            title={
-              <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
-                {intl.formatMessage({
-                  id: ETranslations.global_close,
-                })}
-              </Tooltip.Text>
-            }
-            p="$0.5"
+            title={closeButtonTitle ?? defaultCloseButtonTitle}
             m={-3}
             testID="browser-bar-options"
             onPress={onClose}
@@ -262,16 +306,9 @@ export function DesktopTabItem(
             title=""
             placement="right-start"
             sections={actionList}
-            renderTrigger={<></>}
-            renderItems={({ handleActionListOpen }) => {
-              openActionList.current = handleActionListOpen;
-              return undefined;
-            }}
-            onOpenChange={(isOpened) => {
-              reportPopoverOpen(isOpened);
-              setIsContextMenuOpened(isOpened);
-              setIsHovered(isOpened);
-            }}
+            renderTrigger={emptyFragment}
+            renderItems={handleRenderItems}
+            onOpenChange={handleActionListOpenChange}
           />
         ) : null}
         {children}
@@ -279,6 +316,7 @@ export function DesktopTabItem(
     ),
     [
       tabBarItemStyle,
+      tabItemGtMdStyle,
       selected,
       isContextMenuOpened,
       isHovered,
@@ -296,9 +334,13 @@ export function DesktopTabItem(
       label,
       tabBarLabelStyle,
       hideCloseButton,
+      alwaysShowCloseButton,
+      closeButtonIcon,
+      closeButtonTitle,
+      defaultCloseButtonTitle,
       actionList,
-      reportPopoverOpen,
-      intl,
+      handleRenderItems,
+      handleActionListOpenChange,
       onClose,
       children,
     ],

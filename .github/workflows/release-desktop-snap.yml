@@ -1,15 +1,10 @@
 name: release-desktop-snap
 
 on:
-  workflow_run:
-    workflows:
-      - daily-build
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION:
-        description: "Allow skipping GPG verification for bundle updates (default: false)"
+        description: 'Allow skipping GPG verification for bundle updates (default: false)'
         required: false
         type: boolean
         default: false
@@ -20,7 +15,6 @@ env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
-  
   release-desktop-snap:
     strategy:
       matrix:
@@ -48,11 +42,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev 
-      - name: Run Shared Env Setup  
+          sudo apt-get install -y libudev-dev
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
-          env_file_name: ".env"
+          env_file_name: '.env'
           sentry_project: 'desktop-snap'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -69,12 +63,17 @@ jobs:
         run: |
           echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
-
       - name: Install Snapcraft
         uses: samuelmeuli/action-snapcraft@v2
 
-      - name: Configure Snapcraft destructive mode for arm64
-        if: ${{ matrix.arch == 'arm64' }}
+      - name: Install snap dependencies for snapcraft build
+        run: |
+          sudo snap install core24
+          sudo snap install gnome-46-2404
+          sudo snap install mesa-2404
+          sudo snap install gtk-common-themes
+
+      - name: Configure Snapcraft destructive mode
         run: |
           echo "SNAP_DESTRUCTIVE_MODE=true" >> $GITHUB_ENV
 
@@ -86,7 +85,6 @@ jobs:
 
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -142,7 +140,7 @@ jobs:
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
-        uses: onekeyhq/actions/slack-notify-webhook@main
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
@@ -152,3 +150,5 @@ jobs:
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+          artifact-skip-gpg: '${{ env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION }}'
+          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
