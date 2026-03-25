@@ -211,12 +211,28 @@ function BasicDatePicker({
     [selectedDates, handleDatesChange, minDate, maxDate, locale],
   );
 
+  const mergedFloatingPanelProps = useMemo(
+    () => ({ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }),
+    [floatingPanelProps],
+  );
+
+  const pickerContent = useMemo(
+    () => (
+      <YStack padding="$3" minWidth={280}>
+        <DatePickerProvider config={config}>
+          <Calendar mode="date" />
+        </DatePickerProvider>
+      </YStack>
+    ),
+    [config],
+  );
+
   return (
     <PickerPopover
       title={title}
       isOpen={isOpen}
       onOpenChange={handleOpenChange}
-      floatingPanelProps={{ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }}
+      floatingPanelProps={mergedFloatingPanelProps}
       sheetProps={sheetProps}
       renderTrigger={renderPickerTrigger({
         renderTrigger,
@@ -226,13 +242,7 @@ function BasicDatePicker({
         disabled,
         onClear: () => onChange?.(null),
       })}
-      renderContent={
-        <YStack padding="$3" minWidth={280}>
-          <DatePickerProvider config={config}>
-            <Calendar mode="date" />
-          </DatePickerProvider>
-        </YStack>
-      }
+      renderContent={pickerContent}
     />
   );
 }
@@ -361,16 +371,37 @@ function RangePicker({
 
   const panelWidth = hasPresets ? 780 : 624;
 
+  const rangeFloatingPanelProps = useMemo(
+    () => ({
+      w: panelWidth,
+      maxWidth: panelWidth,
+      ...floatingPanelProps,
+    }),
+    [panelWidth, floatingPanelProps],
+  );
+
+  const rangeContent = useMemo(
+    () => (
+      <RangePickerContent
+        config={config}
+        minDate={minDate}
+        maxDate={maxDate}
+        showPreviousMonth={showPreviousMonth}
+        presets={presets}
+        value={value}
+        onChange={onChange}
+        close={close}
+      />
+    ),
+    [config, minDate, maxDate, showPreviousMonth, presets, value, onChange, close],
+  );
+
   return (
     <PickerPopover
       title={title}
       isOpen={isOpen}
       onOpenChange={handleOpenChange}
-      floatingPanelProps={{
-        w: panelWidth,
-        maxWidth: panelWidth,
-        ...floatingPanelProps,
-      }}
+      floatingPanelProps={rangeFloatingPanelProps}
       sheetProps={sheetProps}
       renderTrigger={renderPickerTrigger({
         renderTrigger,
@@ -380,18 +411,7 @@ function RangePicker({
         disabled,
         onClear: () => onChange?.({ start: null, end: null }),
       })}
-      renderContent={
-        <RangePickerContent
-          config={config}
-          minDate={minDate}
-          maxDate={maxDate}
-          showPreviousMonth={showPreviousMonth}
-          presets={presets}
-          value={value}
-          onChange={onChange}
-          close={close}
-        />
-      }
+      renderContent={rangeContent}
     />
   );
 }

@@ -4,9 +4,6 @@ import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { YStack } from '../../primitives';
 
-const dualPanelStyle = { flex: 1, flexBasis: 0 } as const;
-const emptyStyle = {} as const;
-
 import { CalendarHeader } from './CalendarHeader';
 import { DayGrid } from './DayGrid';
 import { MonthGrid } from './MonthGrid';
@@ -14,6 +11,9 @@ import { callOnClick } from './utils';
 import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
+
+const dualPanelStyle = { flex: 1, flexBasis: 0 } as const;
+const emptyStyle = {} as const;
 
 type IViewMode = 'day' | 'month' | 'year';
 

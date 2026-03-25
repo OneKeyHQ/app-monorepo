@@ -32,6 +32,7 @@ import type {
 } from 'react-native';
 
 const DEFAULT_ROW_HEIGHT = 60;
+const defaultEstimatedListSize = { width: 370, height: 525 };
 
 const renderContent = (text?: string) => (
   <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
@@ -286,7 +287,7 @@ function BasicTable<T>({
   onDragEnd,
   showHeader = true,
   estimatedItemSize = DEFAULT_ROW_HEIGHT,
-  estimatedListSize = { width: 370, height: 525 },
+  estimatedListSize = defaultEstimatedListSize,
   stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,

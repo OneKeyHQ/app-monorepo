@@ -39,10 +39,13 @@ export function PaginationButton({
   const defaultIcon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
   const icon = iconSize === 'small' ? smallIcon : defaultIcon;
-  const positionStyle =
-    direction === 'previous'
-      ? { left: positionOffset }
-      : { right: positionOffset };
+  const positionStyle = useMemo(
+    () =>
+      direction === 'previous'
+        ? { left: positionOffset }
+        : { right: positionOffset },
+    [direction, positionOffset],
+  );
   const hoverOpacity = useHoverOpacity(isHovering);
 
   const opacity = useSharedValue(isVisible ? 1 : 0);
