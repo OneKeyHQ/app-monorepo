@@ -819,6 +819,7 @@ function TransferInfoListSection() {
     bulkSendMode,
     senderBalances,
     senderBalancesLoading,
+    senderBalancesFailed,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -948,28 +949,48 @@ function TransferInfoListSection() {
                     })}
                     :
                   </SizableText>
-                  {senderBalancesLoading && !senderBalances[transfer.from] ? (
-                    <Skeleton.BodySm width="$16" />
-                  ) : (
-                    <NumberSizeableText
-                      size="$bodySm"
-                      color={
-                        senderBalances[transfer.from] &&
-                        transfer.amount &&
-                        new BigNumber(transfer.amount).gt(
-                          senderBalances[transfer.from],
-                        )
-                          ? '$textCritical'
-                          : '$textSubdued'
-                      }
-                      formatter="balance"
-                      formatterOptions={{
-                        tokenSymbol: tokenInfo?.symbol,
-                      }}
-                    >
-                      {senderBalances[transfer.from] ?? '-'}
-                    </NumberSizeableText>
-                  )}
+                  {(() => {
+                    if (
+                      senderBalancesLoading &&
+                      !senderBalances[transfer.from]
+                    ) {
+                      return <Skeleton.BodySm width="$16" />;
+                    }
+                    if (senderBalancesFailed.has(transfer.from)) {
+                      return (
+                        <XStack gap="$1" alignItems="center">
+                          <Icon
+                            name="XCircleOutline"
+                            size="$3.5"
+                            color="$iconCaution"
+                          />
+                          <SizableText size="$bodySm" color="$textCaution">
+                            -
+                          </SizableText>
+                        </XStack>
+                      );
+                    }
+                    return (
+                      <NumberSizeableText
+                        size="$bodySm"
+                        color={
+                          senderBalances[transfer.from] &&
+                          transfer.amount &&
+                          new BigNumber(transfer.amount).gt(
+                            senderBalances[transfer.from],
+                          )
+                            ? '$textCritical'
+                            : '$textSubdued'
+                        }
+                        formatter="balance"
+                        formatterOptions={{
+                          tokenSymbol: tokenInfo?.symbol,
+                        }}
+                      >
+                        {senderBalances[transfer.from] ?? '-'}
+                      </NumberSizeableText>
+                    );
+                  })()}
                 </XStack>
               ) : null}
               {hasFromError ? (

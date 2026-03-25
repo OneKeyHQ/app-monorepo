@@ -90,6 +90,9 @@ export type IBulkSendAmountsInputContext = {
   setSenderBalances: (balances: Record<string, string>) => void;
   senderBalancesLoading: boolean;
   setSenderBalancesLoading: (loading: boolean) => void;
+  // Addresses whose balance fetch failed
+  senderBalancesFailed: Set<string>;
+  setSenderBalancesFailed: (failed: Set<string>) => void;
   // Per-sender accountId map (address -> accountId)
   senderAccountIdMap: Map<string, string>;
 };
@@ -168,6 +171,8 @@ export const BulkSendAmountsInputContext =
     setSenderBalances: () => {},
     senderBalancesLoading: false,
     setSenderBalancesLoading: () => {},
+    senderBalancesFailed: new Set<string>(),
+    setSenderBalancesFailed: () => {},
     senderAccountIdMap: new Map(),
   });
 

@@ -82,6 +82,7 @@ type IProps = {
   isMaxMode?: boolean;
   senderBalances?: Record<string, string>;
   senderBalancesLoading?: boolean;
+  senderBalancesFailed?: Set<string>;
 };
 
 type ITransferListItemProps = {
@@ -100,6 +101,7 @@ type ITransferListItemProps = {
   isMaxMode?: boolean;
   balance?: string;
   balanceLoading?: boolean;
+  balanceFailed?: boolean;
 };
 
 function TransferListItemBase({
@@ -118,6 +120,7 @@ function TransferListItemBase({
   isMaxMode,
   balance,
   balanceLoading,
+  balanceFailed,
 }: ITransferListItemProps) {
   const media = useMedia();
   const shortenedAddress = accountUtils.shortenAddress({
@@ -263,25 +266,31 @@ function TransferListItemBase({
       >
         {renderAddress()}
         {(() => {
-          if (type === 'send' && balance !== undefined) {
+          if (type !== 'send') return null;
+          if (balance !== undefined) {
             return (
-              <XStack gap="$1" alignItems="center">
-                <NumberSizeableText
-                  size="$bodySm"
-                  color={
-                    amount && new BigNumber(amount).gt(balance)
-                      ? '$textCritical'
-                      : '$textSubdued'
-                  }
-                  formatter="balance"
-                  formatterOptions={{ tokenSymbol }}
-                >
-                  {balance}
-                </NumberSizeableText>
-              </XStack>
+              <NumberSizeableText
+                size="$bodySm"
+                color={
+                  amount && new BigNumber(amount).gt(balance)
+                    ? '$textCritical'
+                    : '$textSubdued'
+                }
+                formatter="balance"
+                formatterOptions={{ tokenSymbol }}
+              >
+                {balance}
+              </NumberSizeableText>
             );
           }
-          if (type === 'send' && balanceLoading) {
+          if (balanceFailed) {
+            return (
+              <SizableText size="$bodySm" color="$textCaution">
+                -
+              </SizableText>
+            );
+          }
+          if (balanceLoading) {
             return <Skeleton.BodySm width="$12" />;
           }
           return null;
@@ -339,6 +348,7 @@ const TransferListItem = memo(
     prev.isMaxMode === next.isMaxMode &&
     prev.balance === next.balance &&
     prev.balanceLoading === next.balanceLoading &&
+    prev.balanceFailed === next.balanceFailed &&
     arraysEqual(prev.indices, next.indices),
 );
 
@@ -374,6 +384,7 @@ function BulkSendTxDetails(props: IProps) {
     isMaxMode,
     senderBalances,
     senderBalancesLoading,
+    senderBalancesFailed,
   } = props;
 
   const intl = useIntl();
@@ -507,6 +518,7 @@ function BulkSendTxDetails(props: IProps) {
             isMaxMode={isMaxMode}
             balance={senderBalances?.[sender.address]}
             balanceLoading={senderBalancesLoading}
+            balanceFailed={senderBalancesFailed?.has(sender.address)}
           />
         ))}
         {visibleSenders.length < senders.length ? (

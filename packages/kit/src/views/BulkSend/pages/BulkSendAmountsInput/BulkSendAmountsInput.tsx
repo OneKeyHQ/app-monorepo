@@ -94,6 +94,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     intervalSettings,
     senderBalances,
     senderBalancesLoading,
+    senderBalancesFailed,
     senderAccountIdMap,
   } = useBulkSendAmountsInputContext();
 
@@ -488,8 +489,13 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     if (baseConditions) return true;
 
-    // Max mode requires sender balances to be loaded
-    if (!isOneToMany && isMaxMode && senderBalancesLoading) return true;
+    // Max mode requires all sender balances to be loaded successfully
+    if (
+      !isOneToMany &&
+      isMaxMode &&
+      (senderBalancesLoading || senderBalancesFailed.size > 0)
+    )
+      return true;
 
     if (!media.gtMd) {
       // In preview mode, only check mode-specific insufficient balance
@@ -528,6 +534,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isNativeBatchTransfer,
     isMaxMode,
     senderBalancesLoading,
+    senderBalancesFailed.size,
     media.gtMd,
     isInPreviewMode,
     amountInputMode,
@@ -950,6 +957,9 @@ function BulkSendAmountsInput() {
     {},
   );
   const [senderBalancesLoading, setSenderBalancesLoading] = useState(false);
+  const [senderBalancesFailed, setSenderBalancesFailed] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Per-sender accountId map (address -> accountId) from route params
   const senderAccountIdMap = useMemo(() => {
@@ -1055,6 +1065,7 @@ function BulkSendAmountsInput() {
       setSenderBalancesLoading(true);
 
       const balanceMap: Record<string, string> = {};
+      const failedSet = new Set<string>();
       const limit = pLimit(5);
 
       try {
@@ -1073,15 +1084,18 @@ function BulkSendAmountsInput() {
                   });
                 if (resp[0]) {
                   balanceMap[sender.address] = resp[0].balanceParsed;
+                } else {
+                  failedSet.add(sender.address);
                 }
               } catch (_e) {
-                // Individual fetch failure is non-fatal
+                failedSet.add(sender.address);
               }
             }),
           ),
         );
       } finally {
         setSenderBalances(balanceMap);
+        setSenderBalancesFailed(failedSet);
         setSenderBalancesLoading(false);
       }
     },
@@ -1236,6 +1250,8 @@ function BulkSendAmountsInput() {
       setSenderBalances,
       senderBalancesLoading,
       setSenderBalancesLoading,
+      senderBalancesFailed,
+      setSenderBalancesFailed,
       senderAccountIdMap,
     }),
     [
@@ -1266,6 +1282,7 @@ function BulkSendAmountsInput() {
       intervalSettings,
       senderBalances,
       senderBalancesLoading,
+      senderBalancesFailed,
       senderAccountIdMap,
     ],
   );

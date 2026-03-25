@@ -183,6 +183,8 @@ function SetAmountPerAddressDialogContent({
       setSenderBalances: () => {},
       senderBalancesLoading: false,
       setSenderBalancesLoading: () => {},
+      senderBalancesFailed: new Set<string>(),
+      setSenderBalancesFailed: () => {},
       senderAccountIdMap: new Map(),
     }),
     [

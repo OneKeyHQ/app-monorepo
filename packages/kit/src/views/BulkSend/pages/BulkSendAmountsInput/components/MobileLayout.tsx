@@ -28,6 +28,7 @@ function MobileLayout() {
     isMaxMode,
     senderBalances,
     senderBalancesLoading,
+    senderBalancesFailed,
   } = useBulkSendAmountsInputContext();
 
   const { transfersInfo: modeTransfersInfo, transferInfoErrors } =
@@ -91,6 +92,7 @@ function MobileLayout() {
           isMaxMode={isMaxMode}
           senderBalances={senderBalances}
           senderBalancesLoading={senderBalancesLoading}
+          senderBalancesFailed={senderBalancesFailed}
         />
       ) : null}
     </YStack>
