@@ -49,6 +49,30 @@ import { AprText } from './AprText';
 const CARD_WIDTH = 240;
 const CARD_GAP = 12;
 const CARD_PADDING_H = 20;
+const INITIAL_VISIBLE_COUNT = 4;
+
+const RecommendedBadges = memo(({ token }: { token: IRecommendAsset }) => {
+  if (!token.badges?.length) {
+    return null;
+  }
+
+  return (
+    <XStack gap="$1.5" flexWrap="wrap" justifyContent="flex-end" flexShrink={1}>
+      {token.badges.map((badge, index) => (
+        <Badge
+          key={`${badge.badgeType}-${badge.tag}-${index}`}
+          badgeType={badge.badgeType}
+          badgeSize="sm"
+          userSelect="none"
+        >
+          <Badge.Text>{badge.tag}</Badge.Text>
+        </Badge>
+      ))}
+    </XStack>
+  );
+});
+
+RecommendedBadges.displayName = 'RecommendedBadges';
 
 function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (
@@ -147,11 +171,7 @@ const RecommendedItem = memo(
           <SizableText size="$bodyLgMedium" flex={1} numberOfLines={1}>
             {token.symbol}
           </SizableText>
-          {token.badge?.text ? (
-            <Badge badgeType="success" badgeSize="sm">
-              <Badge.Text>{token.badge.text}</Badge.Text>
-            </Badge>
-          ) : null}
+          <RecommendedBadges token={token} />
         </XStack>
         <YStack alignItems="flex-start" width="100%">
           <SizableText size="$headingXl">
@@ -212,11 +232,7 @@ const RecommendedListItem = memo(
           primary={
             <XStack gap="$2" ai="center">
               <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-              {token.badge?.text ? (
-                <Badge badgeType="success" badgeSize="sm" userSelect="none">
-                  <Badge.Text>{token.badge.text}</Badge.Text>
-                </Badge>
-              ) : null}
+              <RecommendedBadges token={token} />
             </XStack>
           }
           secondary={
@@ -544,11 +560,27 @@ function RecommendedContent({
   const media = useMedia();
   const intl = useIntl();
   const [showAll, setShowAll] = useState(false);
+  const shouldShowMore = !showAll && tokens.length > INITIAL_VISIBLE_COUNT;
+  const visibleTokens = showAll
+    ? tokens
+    : tokens.slice(0, INITIAL_VISIBLE_COUNT);
+
+  const showMoreButton = shouldShowMore ? (
+    <YStack pt="$4" px="$pagePadding" alignItems="flex-start">
+      <Button
+        variant="secondary"
+        size="medium"
+        onPress={() => setShowAll(true)}
+      >
+        {intl.formatMessage({
+          id: ETranslations.global_show_more,
+        })}
+      </Button>
+    </YStack>
+  ) : null;
 
   // Mobile / small screen: vertical list
   if (!media.gtMd) {
-    const INITIAL_COUNT = 4;
-    const visibleTokens = showAll ? tokens : tokens.slice(0, INITIAL_COUNT);
     return (
       <RecommendedContainer withHeader={withHeader}>
         <YStack>
@@ -559,19 +591,7 @@ function RecommendedContent({
               noWalletConnected={noWalletConnected}
             />
           ))}
-          {!showAll && tokens.length > INITIAL_COUNT ? (
-            <YStack pt="$4">
-              <Button
-                variant="secondary"
-                size="medium"
-                onPress={() => setShowAll(true)}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_show_more,
-                })}
-              </Button>
-            </YStack>
-          ) : null}
+          {showMoreButton}
         </YStack>
       </RecommendedContainer>
     );
@@ -579,7 +599,7 @@ function RecommendedContent({
 
   // Desktop / large screen: horizontal card scroll
   if (platformEnv.isNative) {
-    const cardItems = tokens.map((token) => (
+    const cardItems = visibleTokens.map((token) => (
       <YStack key={token.symbol} minWidth={CARD_WIDTH} flexShrink={0}>
         <RecommendedItem
           token={token}
@@ -590,15 +610,18 @@ function RecommendedContent({
     ));
     return (
       <RecommendedContainer withHeader={withHeader}>
-        <NativeRecommendedScroller itemCount={tokens.length}>
-          {cardItems}
-        </NativeRecommendedScroller>
+        <YStack>
+          <NativeRecommendedScroller itemCount={visibleTokens.length}>
+            {cardItems}
+          </NativeRecommendedScroller>
+          {showMoreButton}
+        </YStack>
       </RecommendedContainer>
     );
   }
 
-  const cardItems = tokens.map((token) => (
-    <YStack key={token.symbol} minWidth={CARD_WIDTH} flex={1}>
+  const cardItems = visibleTokens.map((token) => (
+    <YStack key={token.symbol} width={CARD_WIDTH} flexShrink={0}>
       <RecommendedItem
         token={token}
         noWalletConnected={noWalletConnected}
@@ -609,9 +632,12 @@ function RecommendedContent({
 
   return (
     <RecommendedContainer withHeader={withHeader}>
-      <WebRecommendedScroller itemCount={tokens.length}>
-        {cardItems}
-      </WebRecommendedScroller>
+      <YStack>
+        <WebRecommendedScroller itemCount={visibleTokens.length}>
+          {cardItems}
+        </WebRecommendedScroller>
+        {showMoreButton}
+      </YStack>
     </RecommendedContainer>
   );
 }
@@ -702,7 +728,7 @@ export function Recommended(
         ) : (
           <WebRecommendedScroller itemCount={4}>
             {Array.from({ length: 4 }).map((_, index) => (
-              <YStack key={index} minWidth={CARD_WIDTH} flex={1}>
+              <YStack key={index} width={CARD_WIDTH} flexShrink={0}>
                 <RecommendedSkeletonItem />
               </YStack>
             ))}
