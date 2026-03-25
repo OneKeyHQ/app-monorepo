@@ -126,3 +126,5 @@ debug.log
 # Local documentation files
 .local_docs/
 /.claude/worktrees
+/.worktree
+.skillshare/logs/operations.log

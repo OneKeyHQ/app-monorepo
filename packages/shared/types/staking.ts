@@ -517,6 +517,8 @@ export type IProtocolInfo = {
   maxRepayBalance?: string;
   // Debt balance for collateral repay (from debt field in manage page response)
   debtBalance?: string;
+  // Whether repay with collateral needs a setup LUT transaction first
+  needsSetupLut?: boolean;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
 };
@@ -700,15 +702,28 @@ export interface IEarnTextTooltip {
   data: {
     title?: IEarnText;
     description: IEarnText;
-    items?: {
-      title: IEarnText;
-      description: IEarnText;
-      logo?: {
-        logoURI: string;
-        color: string;
-        percentage: string;
-      };
-    }[];
+    items?: IEarnTooltipComparisonItem[];
+  };
+}
+
+export interface IEarnTooltipComparisonItem {
+  title: IEarnText;
+  description: IEarnText;
+  logo?: {
+    logoURI: string;
+    color?: string;
+    percentage?: string;
+  };
+  color?: string;
+  value?: string;
+}
+
+export interface IEarnFeeComparisonTooltip {
+  type: 'feeComparison';
+  data: {
+    title?: IEarnText;
+    description: IEarnText;
+    items?: IEarnTooltipComparisonItem[];
   };
 }
 
@@ -752,6 +767,7 @@ export interface IEarnRebateDetailsTooltip {
 
 export type IEarnTooltip =
   | IEarnTextTooltip
+  | IEarnFeeComparisonTooltip
   | IEarnRebateTooltip
   | IEarnWithdrawTooltip
   | IEarnRebateDetailsTooltip;
@@ -1121,6 +1137,7 @@ export interface IEarnManagePageResponse {
   repay?: IEarnRepayActionData;
   debt?: IEarnManagePageActionData;
   collateral?: IEarnManagePageActionData;
+  needsSetupLut?: boolean;
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
   receive?: IEarnReceiveActionIcon;
@@ -2464,7 +2481,13 @@ export interface IBorrowTransactionConfirmation {
   slippage?: {
     title: IEarnText;
     description: IEarnText;
+    tooltip?: IEarnTooltip;
     value: number;
+  };
+  fee?: {
+    title: IEarnText;
+    description: IEarnText;
+    tooltip?: IEarnTooltip;
   };
 }
 

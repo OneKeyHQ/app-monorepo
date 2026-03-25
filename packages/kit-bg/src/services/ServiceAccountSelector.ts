@@ -905,6 +905,45 @@ class ServiceAccountSelector extends ServiceBase {
   }
 
   @backgroundMethod()
+  async buildAccountAddressMap({
+    focusedWallet,
+    indexedAccountIds,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+    indexedAccountIds: string[];
+  }): Promise<Record<string, string[]> | undefined> {
+    if (
+      !accountUtils.isIndexedAccountWallet({ walletId: focusedWallet }) ||
+      !indexedAccountIds.length
+    ) {
+      return undefined;
+    }
+
+    try {
+      const relevantIds = new Set(indexedAccountIds);
+      const { allDbAccounts } =
+        await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
+          { indexedAccountId: indexedAccountIds[0] },
+        );
+      const accountAddressMap: Record<string, string[]> = {};
+      for (const dbAccount of allDbAccounts) {
+        const key = dbAccount.indexedAccountId;
+        if (key && relevantIds.has(key) && dbAccount.address) {
+          const addr = dbAccount.address.toLowerCase();
+          accountAddressMap[key] ??= [];
+          if (!accountAddressMap[key].includes(addr)) {
+            accountAddressMap[key].push(addr);
+          }
+        }
+      }
+      return accountAddressMap;
+    } catch (error) {
+      // silently fail — address search degrades to name-only
+      return {};
+    }
+  }
+
+  @backgroundMethod()
   async buildAccountSelectorAccountsValuesData({
     accounts,
   }: {
