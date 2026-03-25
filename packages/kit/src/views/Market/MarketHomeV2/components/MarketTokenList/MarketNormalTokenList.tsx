@@ -45,6 +45,7 @@ function MarketNormalTokenList({
       tabIntegrated={tabIntegrated}
       tabName={tabName}
       listContainerProps={listContainerProps}
+      showStockSubtitle={false}
     />
   );
 }
