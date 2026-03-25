@@ -1357,6 +1357,8 @@ ONESHOT
 Hotspots
 podfile
 Podfile
+prefs
+Prefs
 pids
 UDID
 Udid
@@ -1364,6 +1366,7 @@ jsbundle
 avd
 AVD
 oxlint
+oxlintrc
 serviceworker
 newtab
 hrstart
