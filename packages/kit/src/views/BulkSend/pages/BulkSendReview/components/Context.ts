@@ -31,6 +31,10 @@ export type IBulkSendFeeState = {
   feeInfos: ISendSelectedFeeInfo[];
   // Per-tx gas info from batch estimation (each tx may have different gas limits)
   perTxFeeInfos?: { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[];
+  // ATA rent for Solana SPL token transfers
+  ataRentFeeNative?: string;
+  insufficientSol?: boolean;
+  solBalanceNeeded?: string;
 };
 
 export type IBulkSendReviewContext = {
@@ -43,6 +47,7 @@ export type IBulkSendReviewContext = {
   totalTokenAmount: string;
   totalFiatAmount: string;
   isInModal?: boolean;
+  ataCount?: number;
 
   // Fetched data
   networkImageUri: string | undefined;
@@ -80,6 +85,7 @@ export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
   totalTokenAmount: '0',
   totalFiatAmount: '0',
   isInModal: undefined,
+  ataCount: undefined,
 
   networkImageUri: undefined,
 

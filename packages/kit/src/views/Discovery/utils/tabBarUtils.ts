@@ -10,8 +10,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const isNative = platformEnv.isNative;
 
+let showTabBarTimer: ReturnType<typeof setTimeout> | null = null;
+
+const cancelPendingShowTabBar = () => {
+  if (showTabBarTimer) {
+    clearTimeout(showTabBarTimer);
+    showTabBarTimer = null;
+  }
+};
+
 export const showTabBar = () => {
-  setTimeout(() => {
+  cancelPendingShowTabBar();
+  showTabBarTimer = setTimeout(() => {
+    showTabBarTimer = null;
     appEventBus.emit(EAppEventBusNames.HideTabBar, false);
   }, 100);
 };
@@ -27,6 +38,9 @@ export const useNotifyTabBarDisplay = isNative
       useEffect(() => {
         if (isTablet && isLandscape) {
           return;
+        }
+        if (hideTabBar) {
+          cancelPendingShowTabBar();
         }
         appEventBus.emit(EAppEventBusNames.HideTabBar, hideTabBar);
       }, [hideTabBar, isLandscape, isTablet]);

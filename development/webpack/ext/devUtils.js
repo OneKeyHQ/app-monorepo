@@ -1,11 +1,13 @@
-const fse = require('fs-extra');
 // const fs = require('fs');
-const lodash = require('lodash');
 const childProcess = require('child_process');
 const path = require('path');
+
+const fse = require('fs-extra');
 // const util = require('util');
 const stringify = require('json-stringify-safe');
+const lodash = require('lodash');
 const prettier = require('prettier');
+
 const manifest = require('../../../apps/ext/src/manifest');
 
 // TODO move to developmentConsts.js
@@ -124,8 +126,7 @@ function cleanBrowserBuild() {
 }
 
 function isManifestV3() {
-  const isManifestV3 = manifest.manifest_version >= 3;
-  return isManifestV3;
+  return manifest.manifest_version >= 3;
 }
 
 function isManifestV2() {

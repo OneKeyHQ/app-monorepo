@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
@@ -35,6 +35,29 @@ export function Switch({
 
   const checked = isUncontrolled ? stateChecked : value;
 
+  const handleCheckedChange = useCallback(
+    (v: boolean) => {
+      if (isUncontrolled) {
+        setStateChecked(v);
+      }
+      onChange?.(v);
+    },
+    [isUncontrolled, onChange],
+  );
+
+  const nativeProps = useMemo(
+    () => ({
+      disabled,
+      ios_backgroundColor: theme.neutral5.val,
+      trackColor: {
+        false: theme.neutral5.val,
+        true: theme.bgPrimary.val,
+      },
+      thumbColor: theme.bg.val,
+    }),
+    [disabled, theme.neutral5.val, theme.bgPrimary.val, theme.bg.val],
+  );
+
   return (
     <TMSwitch
       tag="span"
@@ -42,12 +65,7 @@ export function Switch({
       unstyled
       checked={checked}
       defaultChecked={defaultChecked}
-      onCheckedChange={(v) => {
-        if (isUncontrolled) {
-          setStateChecked(v);
-        }
-        onChange?.(v);
-      }}
+      onCheckedChange={handleCheckedChange}
       native
       w={size === 'small' ? 38 : 54}
       h={size === 'small' ? '$6' : '$8'}
@@ -59,15 +77,7 @@ export function Switch({
       borderColor="$transparent"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
-      nativeProps={{
-        disabled,
-        ios_backgroundColor: theme.neutral5.val,
-        trackColor: {
-          false: theme.neutral5.val,
-          true: theme.bgPrimary.val,
-        },
-        thumbColor: theme.bg.val,
-      }}
+      nativeProps={nativeProps}
       {...restProps}
     >
       <TMSwitch.Thumb

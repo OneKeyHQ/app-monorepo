@@ -1,23 +1,23 @@
 import type { PropsWithChildren } from 'react';
 
 import {
-  ScrollGuardDirection,
+  ScrollGuardDirection as EScrollGuardDirection,
   ScrollGuardView,
 } from '@onekeyfe/react-native-scroll-guard';
 
 import type { ViewStyle } from 'react-native';
 
-export { ScrollGuardDirection };
+export { EScrollGuardDirection as ScrollGuardDirection };
 
 export interface IScrollGuardProps {
   style?: ViewStyle;
-  direction?: ScrollGuardDirection;
+  direction?: EScrollGuardDirection;
 }
 
 export function ScrollGuard({
   children,
   style,
-  direction = ScrollGuardDirection.HORIZONTAL,
+  direction = EScrollGuardDirection.HORIZONTAL,
 }: PropsWithChildren<IScrollGuardProps>) {
   return (
     <ScrollGuardView direction={direction} style={style}>

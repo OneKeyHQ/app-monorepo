@@ -19,6 +19,13 @@ import { Stack, XStack } from '../../primitives/Stack';
 
 import type { PressableProps, View } from 'react-native';
 
+const enterStyleAnimated = platformEnv.isNativeAndroid
+  ? undefined
+  : {
+      opacity: 0,
+      scale: 0,
+    };
+
 export type ISortableCellProps = StackProps & {
   isEditing?: boolean;
   shadowProps?: Omit<GetProps<typeof ShadowDecorator>, 'children'>;
@@ -54,14 +61,7 @@ function BaseSortableCell(
                 variant="destructive"
                 animation="quick"
                 animateOnly={['opacity', 'transform']}
-                enterStyle={
-                  platformEnv.isNativeAndroid
-                    ? undefined
-                    : {
-                        opacity: 0,
-                        scale: 0,
-                      }
-                }
+                enterStyle={enterStyleAnimated}
               />
             ) : null}
           </AnimatePresence>
@@ -76,14 +76,7 @@ function BaseSortableCell(
                 onPressIn={drag}
                 animation="quick"
                 animateOnly={['opacity', 'transform']}
-                enterStyle={
-                  platformEnv.isNativeAndroid
-                    ? undefined
-                    : {
-                        opacity: 0,
-                        scale: 0,
-                      }
-                }
+                enterStyle={enterStyleAnimated}
               />
             ) : null}
           </AnimatePresence>

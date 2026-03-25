@@ -465,6 +465,61 @@ index 577bebe..ad0f253 100644
  #pragma mark - RCTBackedTextInputDelegate
  
  - (BOOL)textInputShouldBeginEditing
+diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
+index a99f103..27865c2 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
+@@ -828,6 +828,19 @@ - (UIView *)currentContainerView
+ }
+ 
+ - (void)invalidateLayer
++{
++  // During modal transition, prevent backgroundColor and layer changes from being animated.
++  extern BOOL RNSModalTransitionInProgress;
++  if (RNSModalTransitionInProgress) {
++    [UIView performWithoutAnimation:^{
++      [self _invalidateLayerImpl];
++    }];
++  } else {
++    [self _invalidateLayerImpl];
++  }
++}
++
++- (void)_invalidateLayerImpl
+ {
+   CALayer *layer = self.layer;
+ 
+diff --git a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
+index 9f50554..23eaaa8 100644
+--- a/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
++++ b/node_modules/react-native/React/Fabric/Mounting/UIView+ComponentViewProtocol.mm
+@@ -103,8 +103,24 @@ - (void)updateLayoutMetrics:(const LayoutMetrics &)layoutMetrics
+     } else {
+       // Note: Changing `frame` when `layer.transform` is not the `identity transform` is undefined behavior.
+       // Therefore, we must use `center` and `bounds`.
+-      self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
+-      self.bounds = CGRect{CGPointZero, frame.size};
++      //
++      // When a modal transition is in progress, Fabric may mount recycled views
++      // whose stale frames differ from the new layout. Without performWithoutAnimation,
++      // UIKit captures the center/bounds change as an implicit animation within the
++      // modal presentation's animation block, causing visible content displacement.
++      extern BOOL RNSModalTransitionInProgress;
++      if (RNSModalTransitionInProgress) {
++        [UIView performWithoutAnimation:^{
++          self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
++          self.bounds = CGRect{CGPointZero, frame.size};
++          // Force immediate layout so that subviews (e.g. RCTParagraphTextView)
++          // also get their frames set within performWithoutAnimation scope.
++          [self layoutIfNeeded];
++        }];
++      } else {
++        self.center = CGPoint{CGRectGetMidX(frame), CGRectGetMidY(frame)};
++        self.bounds = CGRect{CGPointZero, frame.size};
++      }
+     }
+   }
+ 
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
 index 89b666d..246c9cf 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
@@ -482,7 +537,7 @@ index 89b666d..246c9cf 100644
 +      // Tracking: https://github.com/software-mansion/react-native-reanimated/issues/8422
 +    }
    }
- 
+
    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
 diff --git a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
 index 2a67797..57f7c7a 100644
