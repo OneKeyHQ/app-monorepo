@@ -43,6 +43,15 @@ interface ISendTransactionResult {
   result: string;
 }
 
+// Validate tx hash: 0x + 64 hex chars
+const TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
+
+// Validate EVM address: 0x + 40 hex chars
+const EVM_ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/i;
+
+// Validate hex data string
+const HEX_DATA_PATTERN = /^0x[a-fA-F0-9]*$/i;
+
 // ERC-20 approve(address,uint256) function selector
 const APPROVE_SELECTOR = '095ea7b3';
 
@@ -68,13 +77,18 @@ function buildApproveEncodedTx(
 /**
  * Estimate gas, fetch nonce, and produce a fully-populated encodedTx
  * ready for signing. Mirrors the gas logic in transfer.ts.
+ *
+ * @param nonceOverride - If provided, skip nonce fetch and use this value.
+ *   Useful when chaining approve → swap to ensure sequential nonces.
+ * @returns The signed-ready encodedTx and the nonce used.
  */
 async function buildSignableTx(
   networkId: string,
   fromAddress: string,
   encodedTx: Record<string, string>,
   feeDecimals: number,
-): Promise<Record<string, unknown>> {
+  nonceOverride?: number,
+): Promise<{ encodedTx: Record<string, unknown>; nonce: number }> {
   const feeResp = await apiClient.post<IEstimateGasResp>(
     'wallet',
     '/wallet/v1/account/estimate-fee',
@@ -89,25 +103,31 @@ async function buildSignableTx(
     );
   }
 
-  const accountInfo = await apiClient.get<IAccountResponse>(
-    'wallet',
-    '/wallet/v1/account/get-account',
-    { networkId, accountAddress: fromAddress, withNonce: true },
-  );
+  let nonce: number;
+  if (nonceOverride !== undefined) {
+    nonce = nonceOverride;
+  } else {
+    const accountInfo = await apiClient.get<IAccountResponse>(
+      'wallet',
+      '/wallet/v1/account/get-account',
+      { networkId, accountAddress: fromAddress, withNonce: true },
+    );
 
-  if (accountInfo.nonce === undefined || accountInfo.nonce === null) {
-    throw new AppError(
-      ERROR_CODES.NET_REQUEST_FAILED.code,
-      'API did not return nonce (withNonce=true)',
-      'Check API connectivity or retry',
-    );
-  }
-  if (!Number.isSafeInteger(accountInfo.nonce) || accountInfo.nonce < 0) {
-    throw new AppError(
-      ERROR_CODES.NET_REQUEST_FAILED.code,
-      `API returned invalid nonce value: ${accountInfo.nonce}`,
-      'Check API connectivity or retry',
-    );
+    if (accountInfo.nonce === undefined || accountInfo.nonce === null) {
+      throw new AppError(
+        ERROR_CODES.NET_REQUEST_FAILED.code,
+        'API did not return nonce (withNonce=true)',
+        'Check API connectivity or retry',
+      );
+    }
+    if (!Number.isSafeInteger(accountInfo.nonce) || accountInfo.nonce < 0) {
+      throw new AppError(
+        ERROR_CODES.NET_REQUEST_FAILED.code,
+        `API returned invalid nonce value: ${accountInfo.nonce}`,
+        'Check API connectivity or retry',
+      );
+    }
+    nonce = accountInfo.nonce;
   }
 
   const chainId = networkId.split('--')[1];
@@ -147,15 +167,18 @@ async function buildSignableTx(
       );
     }
     return {
-      ...encodedTx,
-      nonce: accountInfo.nonce,
-      chainId,
-      gasLimit: eipGas.gasLimit,
-      maxFeePerGas: feeToWeiHex(eipGas.maxFeePerGas, feeDecimals),
-      maxPriorityFeePerGas: feeToWeiHex(
-        eipGas.maxPriorityFeePerGas,
-        feeDecimals,
-      ),
+      encodedTx: {
+        ...encodedTx,
+        nonce,
+        chainId,
+        gasLimit: eipGas.gasLimit,
+        maxFeePerGas: feeToWeiHex(eipGas.maxFeePerGas, feeDecimals),
+        maxPriorityFeePerGas: feeToWeiHex(
+          eipGas.maxPriorityFeePerGas,
+          feeDecimals,
+        ),
+      },
+      nonce,
     };
   }
 
@@ -182,11 +205,14 @@ async function buildSignableTx(
     );
   }
   return {
-    ...encodedTx,
-    nonce: accountInfo.nonce,
-    chainId,
-    gasLimit: legacyGas.gasLimit,
-    gasPrice: feeToWeiHex(legacyGas.gasPrice, feeDecimals),
+    encodedTx: {
+      ...encodedTx,
+      nonce,
+      chainId,
+      gasLimit: legacyGas.gasLimit,
+      gasPrice: feeToWeiHex(legacyGas.gasPrice, feeDecimals),
+    },
+    nonce,
   };
 }
 
@@ -263,6 +289,36 @@ export function registerSwapExecuteCommand(parent: Command): void {
             );
           }
 
+          // Runtime validation: tx fields must be well-formed before signing
+          const swapTxTo = txData.tx.to;
+          if (!swapTxTo || !EVM_ADDRESS_PATTERN.test(swapTxTo)) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Invalid tx.to in order: "${swapTxTo ?? ''}" is not a valid EVM address`,
+              'Run "onekey swap build" to create a new order',
+            );
+          }
+          if (
+            txData.tx.data !== undefined &&
+            !HEX_DATA_PATTERN.test(txData.tx.data)
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              'Invalid tx.data in order: not a valid hex string',
+              'Run "onekey swap build" to create a new order',
+            );
+          }
+          if (
+            txData.tx.value !== undefined &&
+            !HEX_DATA_PATTERN.test(txData.tx.value)
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              'Invalid tx.value in order: not a valid hex string',
+              'Run "onekey swap build" to create a new order',
+            );
+          }
+
           // Confirm execution (prompts in human mode, rejects JSON without --yes)
           await confirmTransaction({
             info: {
@@ -291,6 +347,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
           };
 
           let approveTxHash: string | undefined;
+          let approveNonce: number | undefined;
 
           // Check if token approval is required
           const needsApprove =
@@ -325,19 +382,20 @@ export function registerSwapExecuteCommand(parent: Command): void {
               spender,
             );
 
-            const approveWithGas = await buildSignableTx(
+            const approveBuilt = await buildSignableTx(
               chainConfig.networkId,
               fromAddress,
               approveEncodedTx,
               chainConfig.feeDecimals,
             );
+            approveNonce = approveBuilt.nonce;
 
             const approveSignedTx = await signer.signTransaction({
               networkInfo,
               password: encodedPassword,
               credentials: { hd: hdCredential },
               account: accountForSign,
-              unsignedTx: { encodedTx: approveWithGas },
+              unsignedTx: { encodedTx: approveBuilt.encodedTx },
             });
 
             const approveResult = await apiClient.post<ISendTransactionResult>(
@@ -350,10 +408,13 @@ export function registerSwapExecuteCommand(parent: Command): void {
               },
             );
 
-            if (!approveResult?.result) {
+            if (
+              !approveResult?.result ||
+              !TX_HASH_PATTERN.test(approveResult.result)
+            ) {
               throw new AppError(
                 ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
-                'Approve broadcast did not return txid',
+                `Approve broadcast returned invalid txid: "${approveResult?.result ?? ''}"`,
                 'Check the transaction on chain explorer manually',
               );
             }
@@ -369,11 +430,16 @@ export function registerSwapExecuteCommand(parent: Command): void {
               from: fromAddress,
             };
 
-            const swapWithGas = await buildSignableTx(
+            // If approve was sent, use approveNonce+1 to ensure sequential ordering
+            const swapNonceOverride =
+              approveNonce !== undefined ? approveNonce + 1 : undefined;
+
+            const swapBuilt = await buildSignableTx(
               chainConfig.networkId,
               fromAddress,
               swapEncodedTx,
               chainConfig.feeDecimals,
+              swapNonceOverride,
             );
 
             const swapSignedTx = await signer.signTransaction({
@@ -381,7 +447,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               password: encodedPassword,
               credentials: { hd: hdCredential },
               account: accountForSign,
-              unsignedTx: { encodedTx: swapWithGas },
+              unsignedTx: { encodedTx: swapBuilt.encodedTx },
             });
 
             const swapResult = await apiClient.post<ISendTransactionResult>(
@@ -394,10 +460,13 @@ export function registerSwapExecuteCommand(parent: Command): void {
               },
             );
 
-            if (!swapResult?.result) {
+            if (
+              !swapResult?.result ||
+              !TX_HASH_PATTERN.test(swapResult.result)
+            ) {
               throw new AppError(
                 ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
-                'Swap broadcast did not return txid',
+                `Swap broadcast returned invalid txid: "${swapResult?.result ?? ''}"`,
                 'Check the transaction on chain explorer manually',
               );
             }
@@ -426,7 +495,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               updatePendingStatus(options.order, 'approve_only');
               const swapAppError = AppError.from(swapError);
               output.error({
-                code: ERROR_CODES.BIZ_SWAP_FAILED.code,
+                code: swapAppError.code,
                 message: `Approve succeeded (tx: ${approveTxHash}) but swap failed: ${swapAppError.message}. Token allowance has been granted.`,
                 suggestion:
                   'Run "onekey swap build" then "onekey swap execute" to retry the swap',
