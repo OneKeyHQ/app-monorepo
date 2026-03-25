@@ -41,47 +41,6 @@ const ModalStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createWebModalNavigator();
 
-function ModalFlowScreen<RouteName extends string, P extends ParamListBase>({
-  name,
-  component,
-  options,
-  translationId,
-  shouldPopOnClickBackdrop,
-  dismissOnOverlayPress,
-  intl,
-}: IModalFlowNavigatorConfig<RouteName, P> & {
-  intl: ReturnType<typeof useIntl>;
-}) {
-  const customOptions: IModalNavigationOptions = useMemo(
-    () => ({
-      ...(typeof options === 'function' ? {} : options),
-      shouldPopOnClickBackdrop,
-      dismissOnOverlayPress,
-      title: translationId
-        ? intl.formatMessage({
-            id: translationId as ETranslations,
-          })
-        : '',
-    }),
-    [
-      options,
-      shouldPopOnClickBackdrop,
-      dismissOnOverlayPress,
-      translationId,
-      intl,
-    ],
-  );
-  const key = `Modal-Flow-${name as string}`;
-  return (
-    <ModalStack.Screen
-      key={key}
-      name={name}
-      component={component}
-      options={customOptions}
-    />
-  );
-}
-
 const OnBoardingStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createOnBoardingNavigator();
@@ -143,13 +102,36 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   return (
     <PageTypeContext.Provider value={contextValue}>
       <ModalStackComponent.Navigator screenOptions={makeScreenOptions}>
-        {config.map((screenConfig) => (
-          <ModalFlowScreen
-            key={`Modal-Flow-${screenConfig.name as string}`}
-            {...screenConfig}
-            intl={intl}
-          />
-        ))}
+        {config.map(
+          ({
+            name,
+            component,
+            options,
+            translationId,
+            shouldPopOnClickBackdrop,
+            dismissOnOverlayPress,
+          }) => {
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+            const customOptions: IModalNavigationOptions = {
+              ...(typeof options === 'function' ? {} : options),
+              shouldPopOnClickBackdrop,
+              dismissOnOverlayPress,
+              title: translationId
+                ? intl.formatMessage({
+                    id: translationId as ETranslations,
+                  })
+                : '',
+            };
+            return (
+              <ModalStack.Screen
+                key={`Modal-Flow-${name as string}`}
+                name={name}
+                component={component}
+                options={customOptions}
+              />
+            );
+          },
+        )}
       </ModalStackComponent.Navigator>
     </PageTypeContext.Provider>
   );
