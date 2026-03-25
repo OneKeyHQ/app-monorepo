@@ -711,26 +711,27 @@ export default function PagePrimeCloudSync() {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
   }, []);
 
+  const renderDebugHeaderRight = useCallback(
+    () => (
+      <Button
+        variant="tertiary"
+        onPress={() => {
+          navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+        }}
+      >
+        Debug
+      </Button>
+    ),
+    [navigation],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
         })}
-        headerRight={
-          platformEnv.isDev
-            ? () => (
-                <Button
-                  variant="tertiary"
-                  onPress={() => {
-                    navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-                  }}
-                >
-                  Debug
-                </Button>
-              )
-            : undefined
-        }
+        headerRight={platformEnv.isDev ? renderDebugHeaderRight : undefined}
       />
       <Page.Body>
         <AppDataSection />
