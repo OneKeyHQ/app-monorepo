@@ -2474,22 +2474,14 @@ class ServiceStaking extends ServiceBase {
     intervalMs?: number;
   }): Promise<'finalized' | 'failed' | 'timeout'> {
     const { networkId, txId, maxAttempts = 40, intervalMs = 3000 } = params;
-
-    const ClientSol = (
-      await import('@onekeyhq/kit-bg/src/vaults/impls/sol/sdkSol/ClientSol')
-    ).default;
-
-    const client = new ClientSol({
-      networkId,
-      backgroundApi: this.backgroundApi,
-    });
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
 
     return pollSolTxFinalization({
       txId,
       maxAttempts,
       intervalMs,
       getSignatureStatuses: async (signatures) => {
-        const statuses = await client.getSignatureStatuses(signatures);
+        const statuses = await vault.getSignatureStatuses(signatures);
         return statuses?.map((status) =>
           status
             ? {

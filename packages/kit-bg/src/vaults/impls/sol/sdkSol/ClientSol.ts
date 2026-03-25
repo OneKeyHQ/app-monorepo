@@ -184,7 +184,14 @@ class ClientSol {
     return response;
   }
 
-  async getSignatureStatuses(signatures: string[]) {
+  async getSignatureStatuses(signatures: string[]): Promise<
+    ({
+      slot: number;
+      confirmations: number | null;
+      err: unknown;
+      confirmationStatus: 'processed' | 'confirmed' | 'finalized' | null;
+    } | null)[]
+  > {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         value: ({
