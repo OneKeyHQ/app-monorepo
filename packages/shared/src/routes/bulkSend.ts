@@ -82,6 +82,7 @@ export type IModalBulkSendParamList = {
     isMaxMode?: boolean;
     unsignedTxs: IUnsignedTxPro[];
     feeInfo?: ISendSelectedFeeInfo;
+    feePresetIndex?: number;
     tokenInfo: IToken;
     transfersInfo: ITransferInfo[];
     bulkSendMode: EBulkSendMode;

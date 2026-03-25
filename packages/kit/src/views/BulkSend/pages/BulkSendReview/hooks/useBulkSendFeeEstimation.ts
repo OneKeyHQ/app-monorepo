@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import {
   calculateFeeForSend,
@@ -45,6 +46,7 @@ type IUseBulkSendFeeEstimationParams = {
   tokenInfo?: IToken;
   totalTokenAmount?: string;
   bulkSendMode?: EBulkSendMode;
+  isSubmitting?: boolean;
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
@@ -91,9 +93,12 @@ export function useBulkSendFeeEstimation({
   tokenInfo,
   totalTokenAmount,
   bulkSendMode,
+  isSubmitting = false,
 }: IUseBulkSendFeeEstimationParams) {
   const intl = useIntl();
   const isEstimating = useRef(false);
+  const isFocused = useIsFocused();
+  const shouldPollFeeRef = useRef(isFocused && !isSubmitting);
 
   // Get vault settings for polling interval
   const { result: vaultSettings } = usePromiseResult(
@@ -102,6 +107,10 @@ export function useBulkSendFeeEstimation({
     [networkId],
   );
 
+  useEffect(() => {
+    shouldPollFeeRef.current = isFocused && !isSubmitting;
+  }, [isFocused, isSubmitting]);
+
   // Estimate fee function
   // forceLoading: true for initial load or tx update, false for polling
   const estimateFee = useCallback(
@@ -109,6 +118,10 @@ export function useBulkSendFeeEstimation({
       const { forceLoading = false } = options ?? {};
 
       if (!unsignedTxs || unsignedTxs.length === 0 || !accountId) {
+        return null;
+      }
+
+      if (!shouldPollFeeRef.current && !forceLoading) {
         return null;
       }
 
@@ -131,6 +144,8 @@ export function useBulkSendFeeEstimation({
         }
 
         const isMultiTxs = unsignedTxs.length > 1;
+        const isManyToManyOrManyToOne =
+          bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
 
         let txFee: IFeesInfoUnit | undefined;
         let estimateFeeParams: IEstimateFeeParams | undefined;
@@ -140,7 +155,7 @@ export function useBulkSendFeeEstimation({
           | undefined;
 
         // Try batch estimate for multi-txs
-        if (isMultiTxs) {
+        if (isMultiTxs && !isManyToManyOrManyToOne) {
           const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
@@ -277,8 +292,6 @@ export function useBulkSendFeeEstimation({
         let totalFiat = new BigNumber(0);
 
         // ManyToMany/ManyToOne: only calculate fee for the first tx, then multiply
-        const isManyToManyOrManyToOne =
-          bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
         const txCountForLoop = isManyToManyOrManyToOne ? 1 : unsignedTxs.length;
 
         for (let i = 0; i < txCountForLoop; i += 1) {
@@ -382,6 +395,10 @@ export function useBulkSendFeeEstimation({
           }
         }
 
+        if (!shouldPollFeeRef.current && !forceLoading) {
+          return null;
+        }
+
         setFeeState((prev) => ({
           ...prev,
           feeStatus: ESendFeeStatus.Success,
@@ -422,7 +439,10 @@ export function useBulkSendFeeEstimation({
 
         // For polling errors when already initialized, don't show error state
         // Just keep the current fee data
-        if (!forceLoading && feeState.isInitialized) {
+        if (
+          (!shouldPollFeeRef.current && !forceLoading) ||
+          (!forceLoading && feeState.isInitialized)
+        ) {
           // Silently fail for polling updates
           return null;
         }
@@ -464,6 +484,10 @@ export function useBulkSendFeeEstimation({
       return;
     }
 
+    if (!isFocused || isSubmitting) {
+      return;
+    }
+
     const pollingInterval = timerUtils.getTimeDurationMs({
       seconds: vaultSettings.estimatedFeePollingInterval,
     });
@@ -476,7 +500,12 @@ export function useBulkSendFeeEstimation({
     return () => {
       clearInterval(intervalId);
     };
-  }, [estimateFee, vaultSettings?.estimatedFeePollingInterval]);
+  }, [
+    estimateFee,
+    isFocused,
+    isSubmitting,
+    vaultSettings?.estimatedFeePollingInterval,
+  ]);
 
   // Handle fee level change
   const handleFeeChange = useCallback(

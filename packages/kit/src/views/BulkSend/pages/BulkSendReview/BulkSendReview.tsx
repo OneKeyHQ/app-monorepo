@@ -100,6 +100,7 @@ function BaseBulkSendReview({
       tokenInfo,
       totalTokenAmount,
       bulkSendMode,
+      isSubmitting,
     });
 
   // Approval recheck hook - polls allowance after partial batch failure
@@ -408,6 +409,7 @@ function BaseBulkSendReview({
         isMaxMode,
         unsignedTxs: newUnsignedTxs,
         feeInfo: feeState.feeInfos[0],
+        feePresetIndex: feeState.selectedFee.presetIndex,
         tokenInfo,
         transfersInfo,
         bulkSendMode,
@@ -546,11 +548,12 @@ function BaseBulkSendReview({
   }, [
     accountId,
     networkId,
-    unsignedTxs,
-    feeState.feeInfos,
-    setIsSubmitting,
-    onFail,
-    onSuccess,
+      unsignedTxs,
+      feeState.feeInfos,
+      feeState.selectedFee.presetIndex,
+      setIsSubmitting,
+      onFail,
+      onSuccess,
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     intl,

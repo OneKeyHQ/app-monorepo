@@ -50,7 +50,9 @@ import {
   type IBulkSendTxStatus,
 } from '@onekeyhq/shared/types/bulkSend';
 import type {
+  IEstimateFeeParams,
   IFeeInfoUnit,
+  IFeesInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -88,6 +90,49 @@ function getIntervalDelay(intervalSettings?: {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function normalizeGasEIP1559Presets(
+  presets?: IFeesInfoUnit['gasEIP1559'],
+): IFeesInfoUnit['gasEIP1559'] {
+  if (!presets) return undefined;
+  if (presets.length === 5) {
+    return [presets[0], presets[2], presets[4]];
+  }
+  return presets.length > 3 ? presets.slice(0, 3) : presets;
+}
+
+function pickPresetItem<T>(
+  presets: T[] | undefined,
+  presetIndex: number,
+): T | undefined {
+  if (!presets?.length) return undefined;
+  return presets[presetIndex] ?? presets[presets.length - 1] ?? presets[0];
+}
+
+function buildFeeInfoByPreset({
+  feesInfo,
+  presetIndex,
+}: {
+  feesInfo: IFeesInfoUnit;
+  presetIndex: number;
+}): IFeeInfoUnit {
+  return {
+    common: feesInfo.common,
+    gas: pickPresetItem(feesInfo.gas, presetIndex),
+    gasEIP1559: pickPresetItem(
+      normalizeGasEIP1559Presets(feesInfo.gasEIP1559),
+      presetIndex,
+    ),
+    feeUTXO: pickPresetItem(feesInfo.feeUTXO, presetIndex),
+    feeTron: pickPresetItem(feesInfo.feeTron, presetIndex),
+    feeSol: pickPresetItem(feesInfo.feeSol, presetIndex),
+    feeCkb: pickPresetItem(feesInfo.feeCkb, presetIndex),
+    feeAlgo: pickPresetItem(feesInfo.feeAlgo, presetIndex),
+    feeDot: pickPresetItem(feesInfo.feeDot, presetIndex),
+    feeBudget: pickPresetItem(feesInfo.feeBudget, presetIndex),
+    feeNeoN3: pickPresetItem(feesInfo.feeNeoN3, presetIndex),
+  };
+}
+
 type IBulkSendProcessRouteParams =
   IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendProcess];
 
@@ -96,6 +141,7 @@ function BulkSendProcessContent({
   accountId,
   isInModal,
   isMaxMode,
+  feePresetIndex = 1,
   unsignedTxs: initialUnsignedTxs,
   tokenInfo,
   transfersInfo,
@@ -180,10 +226,76 @@ function BulkSendProcessContent({
   const FEE_CACHE_TTL_MS = 30_000;
   const feeCacheRef = useRef<{
     feeInfo: IFeeInfoUnit;
-    estimateFeeParams: any;
+    estimateFeeParams: IEstimateFeeParams | undefined;
     nativeTokenPrice: number;
     timestamp: number;
   } | null>(null);
+
+  const getCachedFeeContext = useCallback(
+    async ({
+      txAccountId,
+      accountAddress,
+      encodedTx,
+    }: {
+      txAccountId: string;
+      accountAddress: string;
+      encodedTx: IUnsignedTxPro['encodedTx'];
+    }) => {
+      const cached = feeCacheRef.current;
+      if (cached && Date.now() - cached.timestamp < FEE_CACHE_TTL_MS) {
+        return cached;
+      }
+
+      const buildResult =
+        await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+          accountId: txAccountId,
+          networkId,
+          encodedTx,
+        });
+
+      const resp = await backgroundApiProxy.serviceGas.estimateFee({
+        accountId: txAccountId,
+        networkId,
+        encodedTx: buildResult.encodedTx,
+        accountAddress,
+      });
+
+      const feesInfo: IFeesInfoUnit = {
+        common: {
+          baseFee: resp.common.baseFee,
+          feeDecimals: resp.common.feeDecimals,
+          feeSymbol: resp.common.feeSymbol,
+          nativeDecimals: resp.common.nativeDecimals,
+          nativeSymbol: resp.common.nativeSymbol,
+          nativeTokenPrice: resp.common.nativeTokenPrice,
+        },
+        gas: resp.gas,
+        gasEIP1559: normalizeGasEIP1559Presets(resp.gasEIP1559),
+        feeUTXO: resp.feeUTXO,
+        feeTron: resp.feeTron,
+        feeSol: resp.feeSol,
+        feeCkb: resp.feeCkb,
+        feeAlgo: resp.feeAlgo,
+        feeDot: resp.feeDot,
+        feeBudget: resp.feeBudget,
+        feeNeoN3: resp.feeNeoN3,
+      };
+
+      const nextFeeContext = {
+        feeInfo: buildFeeInfoByPreset({
+          feesInfo,
+          presetIndex: feePresetIndex,
+        }),
+        estimateFeeParams: buildResult.estimateFeeParams,
+        nativeTokenPrice: resp.common.nativeTokenPrice ?? 0,
+        timestamp: Date.now(),
+      };
+
+      feeCacheRef.current = nextFeeContext;
+      return nextFeeContext;
+    },
+    [feePresetIndex, networkId],
+  );
 
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (
@@ -309,54 +421,12 @@ function BulkSendProcessContent({
         }));
 
         // Estimate fees (cached with TTL refresh)
-        let feeInfo: IFeeInfoUnit;
-        let estimateFeeParams: any;
-        let nativeTokenPrice: number;
-
-        const now = Date.now();
-        const cached = feeCacheRef.current;
-        if (cached && now - cached.timestamp < FEE_CACHE_TTL_MS) {
-          feeInfo = cached.feeInfo;
-          estimateFeeParams = cached.estimateFeeParams;
-          nativeTokenPrice = cached.nativeTokenPrice;
-        } else {
-          const buildResult =
-            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-              accountId: txAccountId,
-              networkId,
-              encodedTx: tx.encodedTx,
-            });
-
-          const resp = await backgroundApiProxy.serviceGas.estimateFee({
-            accountId: txAccountId,
-            networkId,
-            encodedTx: buildResult.encodedTx,
-            accountAddress,
-          });
-
-          feeInfo = {
-            common: {
-              baseFee: resp.common.baseFee,
-              feeDecimals: resp.common.feeDecimals,
-              feeSymbol: resp.common.feeSymbol,
-              nativeDecimals: resp.common.nativeDecimals,
-              nativeSymbol: resp.common.nativeSymbol,
-              nativeTokenPrice: resp.common.nativeTokenPrice,
-            },
-            gas: resp.gas?.[1] ?? resp.gas?.[0],
-            gasEIP1559: resp.gasEIP1559?.[1] ?? resp.gasEIP1559?.[0],
-            feeTron: resp.feeTron?.[1] ?? resp.feeTron?.[0],
-          };
-          estimateFeeParams = buildResult.estimateFeeParams;
-          nativeTokenPrice = resp.common.nativeTokenPrice ?? 0;
-
-          feeCacheRef.current = {
-            feeInfo,
-            estimateFeeParams,
-            nativeTokenPrice,
-            timestamp: now,
-          };
-        }
+        const feeContext = await getCachedFeeContext({
+          txAccountId,
+          accountAddress,
+          encodedTx: tx.encodedTx,
+        });
+        const { feeInfo, estimateFeeParams, nativeTokenPrice } = feeContext;
 
         const feeResult = calculateFeeForSend({
           feeInfo,
@@ -627,7 +697,7 @@ function BulkSendProcessContent({
       onFail?.(new Error(`All ${unsignedTxs.length} transactions failed`));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unsignedTxs, waitUntilInProgress, intl]);
+  }, [getCachedFeeContext, unsignedTxs, waitUntilInProgress, intl]);
 
   // Sync progressStateRef
   useEffect(() => {
