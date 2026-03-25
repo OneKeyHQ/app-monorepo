@@ -1,4 +1,5 @@
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+
 const manifestBuilder = require('./manifestBuilder');
 
 CopyWebpackPlugin.prototype.pluginName = 'CopyWebpackPlugin';

@@ -1,6 +1,7 @@
 const path = require('path');
-const fs = require('fs-extra');
 const { exit } = require('process');
+
+const fs = require('fs-extra');
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 const startTime = Date.now();
