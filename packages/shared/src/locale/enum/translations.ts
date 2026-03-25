@@ -782,6 +782,7 @@
   dexmarket_stock_ps = 'dexmarket_stock.ps',
   dexmarket_stock_ps_desc = 'dexmarket_stock.ps_desc',
   dexmarket_stock_roa = 'dexmarket_stock.roa',
+  dexmarket_stock_roa_desc = 'dexmarket_stock.roa_desc',
   dexmarket_stock_roe = 'dexmarket_stock.roe',
   dexmarket_stock_roe_desc = 'dexmarket_stock.roe_desc',
   dexmarket_stock_shares_per_token = 'dexmarket_stock.shares_per_token',
@@ -2877,6 +2878,9 @@
   perp_portfolio_chart_type_pnl = 'perp_portfolio_chart_type_pnl',
   perp_portfolio_chart_type_value = 'perp_portfolio_chart_type_value',
   perp_portfolio_fees_paid = 'perp_portfolio_fees_paid',
+  perp_portfolio_health_status_healthy = 'perp_portfolio_health_status_healthy',
+  perp_portfolio_health_status_high_risk = 'perp_portfolio_health_status_high_risk',
+  perp_portfolio_health_status_moderate = 'perp_portfolio_health_status_moderate',
   perp_portfolio_margin_used = 'perp_portfolio_margin_used',
   perp_portfolio_margin_used_tooltip = 'perp_portfolio_margin_used_tooltip',
   perp_portfolio_mmr_tooltip = 'perp_portfolio_mmr_tooltip',
@@ -4793,5 +4797,4 @@
   watch_only_desc_manage = 'watch_only_desc_manage',
   watch_only_desc_transactions = 'watch_only_desc_transactions',
   word = 'word',
-  xmarket_stock_roa_desc = 'xmarket_stock.roa_desc',
 }

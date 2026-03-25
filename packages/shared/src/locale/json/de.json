@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "KUV",
   "dexmarket_stock.ps_desc": "Kurs-Umsatz-Verhältnis, nützlich zur Bewertung von Unternehmen, die noch nicht profitabel sind.",
   "dexmarket_stock.roa": "GKR",
+  "dexmarket_stock.roa_desc": "Gesamtkapitalrendite, misst, wie effizient das Unternehmen das Gesamtkapital in Gewinn umwandelt.",
   "dexmarket_stock.roe": "EKR",
   "dexmarket_stock.roe_desc": "Eigenkapitalrendite, misst, wie effizient das Unternehmen das Eigenkapital der Aktionäre in Gewinn umwandelt.",
   "dexmarket_stock.shares_per_token": "Aktien pro Token",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "GuV",
   "perp_portfolio_chart_type_value": "Wert",
   "perp_portfolio_fees_paid": "Gezahlte Gebühren",
+  "perp_portfolio_health_status_healthy": "Gesund",
+  "perp_portfolio_health_status_high_risk": "Hohes Risiko",
+  "perp_portfolio_health_status_moderate": "Moderat",
   "perp_portfolio_margin_used": "Verwendete Margin",
   "perp_portfolio_margin_used_tooltip": "Gesamte Margin, die für offene Positionen reserviert ist.",
   "perp_portfolio_mmr_tooltip": "Wartungsmargenanforderung — die Mindestmarge, um Positionen offen zu halten. Liquidation erfolgt, wenn dies 100% übersteigt.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "Wie kann ich in OneKey mit Kryptowährungen handeln?",
   "watch_only_desc_manage": "Sie können die Wallet nicht verwalten.",
   "watch_only_desc_transactions": "Beobachte die Transaktionen anderer.",
-  "word": "Wort",
-  "xmarket_stock.roa_desc": "Gesamtkapitalrendite, misst, wie effizient das Unternehmen das Gesamtkapital in Gewinn umwandelt."
+  "word": "Wort"
 }
