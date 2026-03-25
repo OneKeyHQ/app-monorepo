@@ -1423,6 +1423,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (!dbDevice) {
       // throw new OneKeyLocalError('device not found');
     }
+    // Set running flag in background service (defense-in-depth alongside front-end set)
+    await firmwareUpdateWorkflowRunningAtom.set(true);
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
@@ -1558,8 +1560,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         } finally {
           // Always clear transport type lock when firmware update completes (success or failure)
           await this.backgroundApi.serviceHardware.clearForceTransportType();
+          // Reset workflow running flag to prevent lockApp from being blocked
+          await firmwareUpdateWorkflowRunningAtom.set(false);
           serviceHardwareUtils.hardwareLog(
-            'startUpdateWorkflow: cleared transport type lock',
+            'startUpdateWorkflow: cleared transport type lock and workflow running flag',
           );
         }
       },
@@ -1587,6 +1591,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async startUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
+    // Set running flag in background service (defense-in-depth alongside front-end set)
+    await firmwareUpdateWorkflowRunningAtom.set(true);
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
@@ -1656,8 +1662,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         } finally {
           // Always clear transport type lock when firmware update completes
           await this.backgroundApi.serviceHardware.clearForceTransportType();
+          // Reset workflow running flag to prevent lockApp from being blocked
+          await firmwareUpdateWorkflowRunningAtom.set(false);
           serviceHardwareUtils.hardwareLog(
-            'startUpdateWorkflowV2: cleared transport type lock',
+            'startUpdateWorkflowV2: cleared transport type lock and workflow running flag',
           );
         }
       },
