@@ -181,6 +181,15 @@ function BulkSendProcess() {
   // Fee overflow only needs to be checked once (same network for all txs)
   const feeOverflowCheckedRef = useRef(false);
 
+  // Fee estimation cache — same network/structure, refresh every 30s
+  const FEE_CACHE_TTL_MS = 30_000;
+  const feeCacheRef = useRef<{
+    feeInfo: IFeeInfoUnit;
+    estimateFeeParams: any;
+    nativeTokenPrice: number;
+    timestamp: number;
+  } | null>(null);
+
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
     if (
       progressStateRef.current === EBulkSendProgressState.InProgress ||
@@ -321,38 +330,59 @@ function BulkSendProcess() {
           [i]: { status: EBulkSendTxStatus.Processing },
         }));
 
-        // Estimate fees
-        const { encodedTx, estimateFeeParams } =
-          await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+        // Estimate fees (cached with TTL refresh)
+        let feeInfo: IFeeInfoUnit;
+        let estimateFeeParams: any;
+        let nativeTokenPrice: number;
+
+        const now = Date.now();
+        const cached = feeCacheRef.current;
+        if (cached && now - cached.timestamp < FEE_CACHE_TTL_MS) {
+          feeInfo = cached.feeInfo;
+          estimateFeeParams = cached.estimateFeeParams;
+          nativeTokenPrice = cached.nativeTokenPrice;
+        } else {
+          const buildResult =
+            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+              accountId: txAccountId,
+              networkId,
+              encodedTx: tx.encodedTx,
+            });
+
+          const resp = await backgroundApiProxy.serviceGas.estimateFee({
             accountId: txAccountId,
             networkId,
-            encodedTx: tx.encodedTx,
+            encodedTx: buildResult.encodedTx,
+            accountAddress,
           });
 
-        const resp = await backgroundApiProxy.serviceGas.estimateFee({
-          accountId: txAccountId,
-          networkId,
-          encodedTx,
-          accountAddress,
-        });
+          feeInfo = {
+            common: {
+              baseFee: resp.common.baseFee,
+              feeDecimals: resp.common.feeDecimals,
+              feeSymbol: resp.common.feeSymbol,
+              nativeDecimals: resp.common.nativeDecimals,
+              nativeSymbol: resp.common.nativeSymbol,
+              nativeTokenPrice: resp.common.nativeTokenPrice,
+            },
+            gas: resp.gas?.[1] ?? resp.gas?.[0],
+            gasEIP1559: resp.gasEIP1559?.[1] ?? resp.gasEIP1559?.[0],
+            feeTron: resp.feeTron?.[1] ?? resp.feeTron?.[0],
+          };
+          estimateFeeParams = buildResult.estimateFeeParams;
+          nativeTokenPrice = resp.common.nativeTokenPrice ?? 0;
 
-        const feeInfo: IFeeInfoUnit = {
-          common: {
-            baseFee: resp.common.baseFee,
-            feeDecimals: resp.common.feeDecimals,
-            feeSymbol: resp.common.feeSymbol,
-            nativeDecimals: resp.common.nativeDecimals,
-            nativeSymbol: resp.common.nativeSymbol,
-            nativeTokenPrice: resp.common.nativeTokenPrice,
-          },
-          gas: resp.gas?.[1] ?? resp.gas?.[0],
-          gasEIP1559: resp.gasEIP1559?.[1] ?? resp.gasEIP1559?.[0],
-          feeTron: resp.feeTron?.[1] ?? resp.feeTron?.[0],
-        };
+          feeCacheRef.current = {
+            feeInfo,
+            estimateFeeParams,
+            nativeTokenPrice,
+            timestamp: now,
+          };
+        }
 
         const feeResult = calculateFeeForSend({
           feeInfo,
-          nativeTokenPrice: resp.common.nativeTokenPrice ?? 0,
+          nativeTokenPrice,
           txSize: tx.txSize,
           estimateFeeParams,
         });
@@ -519,7 +549,7 @@ function BulkSendProcess() {
             status: EBulkSendTxStatus.Succeeded,
             txId: result[0].signedTx.txid,
             feeNative: feeResult.totalNativeForDisplay,
-            feeSymbol: resp.common.nativeSymbol,
+            feeSymbol: feeInfo.common.nativeSymbol,
             feeFiat: feeResult.totalFiatForDisplay,
           },
         }));
@@ -716,6 +746,7 @@ function BulkSendProcess() {
       );
       setTxStatusMap({});
       feeOverflowCheckedRef.current = false;
+      feeCacheRef.current = null;
       resultsRef.current = [];
       return;
     }
