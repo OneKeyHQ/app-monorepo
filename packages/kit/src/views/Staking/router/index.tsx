@@ -8,10 +8,13 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
-import ManagePosition from '../pages/ManagePosition';
 
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
+);
+
+const ManagePosition = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
 );
 
 const ProtocolDetails = LazyLoad(
