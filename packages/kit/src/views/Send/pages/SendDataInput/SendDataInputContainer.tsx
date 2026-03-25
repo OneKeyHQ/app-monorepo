@@ -331,14 +331,14 @@ function SendDataInputContainer() {
   const handleNavigateToAmountInput = useCallback(async () => {
     try {
       if (isNavigatingRef.current) return;
+      isNavigatingRef.current = true;
+
       // Use already-watched toResolved instead of re-getting from form
       if (!toResolved) return;
 
       // Validate memo/paymentId/note fields before navigating
       const isValid = await form.trigger();
       if (!isValid) return;
-
-      isNavigatingRef.current = true;
 
       defaultLogger.transaction.send.addressInput({
         addressInputMethod: addressInputChangeType.current,
