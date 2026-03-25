@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Dialog, Icon, YStack } from '@onekeyhq/components';
+import { Dialog, Icon, Stack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
@@ -22,6 +22,21 @@ const BULK_SEND_MODE_OPTIONS = [
   },
 ];
 
+function BulkSendModeIcon() {
+  return (
+    <Stack
+      w="$9"
+      h="$9"
+      alignSelf="flex-start"
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={0}
+    >
+      <Icon name="PlaceholderOutline" size="$5" color="$iconSubdued" />
+    </Stack>
+  );
+}
+
 export function useBulkSendModeDialog() {
   const showBulkSendModeDialog = useCallback(
     ({ onSelect }: { onSelect: (mode: EBulkSendMode) => void }) => {
@@ -37,13 +52,7 @@ export function useBulkSendModeDialog() {
                 drillIn
                 title={option.title}
                 subtitle={option.subtitle}
-                renderIcon={
-                  <Icon
-                    name="PlaceholderOutline"
-                    size="$6"
-                    color="$iconSubdued"
-                  />
-                }
+                renderIcon={<BulkSendModeIcon />}
                 onPress={() => {
                   void dialog.close();
                   onSelect(option.mode);
