@@ -15,7 +15,7 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobilePerpMarket]: undefined;
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
-  [EModalPerpRoutes.MobileDepositWithdrawModal]: undefined;
+  [EModalPerpRoutes.MobileDepositWithdrawModal]: { actionType?: 'deposit' | 'withdraw' };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;
 };

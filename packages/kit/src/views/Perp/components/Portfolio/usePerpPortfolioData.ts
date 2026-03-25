@@ -186,6 +186,13 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
     };
   }, [tradesHistoryData, timePeriod, address]);
 
+  // Use the portfolio API's pnlHistory for Total P&L (includes fees & funding)
+  const totalPnl = useMemo(() => {
+    if (!chartData?.pnlHistory?.length) return null;
+    const lastEntry = chartData.pnlHistory[chartData.pnlHistory.length - 1];
+    return lastEntry?.[1] ?? null;
+  }, [chartData]);
+
   const netDeposits = useMemo(() => {
     if (!netDepositsData) return null;
     return netDepositsData
@@ -214,6 +221,7 @@ export function usePerpPortfolioData(timePeriod: IPortfolioTimePeriod) {
     fillsStats,
     netDeposits,
     accountSummary,
+    totalPnl,
     isLoading: isChartLoading,
   };
 }
