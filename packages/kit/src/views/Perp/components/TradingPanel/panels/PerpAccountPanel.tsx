@@ -74,7 +74,13 @@ function PerpAccountMMRView() {
         />
         <SizableText
           size="$bodySmMedium"
-          color={parseFloat(mmrPercent) <= 50 ? '$green11' : '$red11'}
+          color={
+            parseFloat(mmrPercent) <= 40
+              ? '$green11'
+              : parseFloat(mmrPercent) <= 70
+                ? '$yellow11'
+                : '$red11'
+          }
         >
           {mmrPercent}%
         </SizableText>

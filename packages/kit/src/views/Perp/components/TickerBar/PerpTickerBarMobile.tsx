@@ -42,10 +42,12 @@ const PerpTickerBarMMRInfoMobileView = memo(
     crossMaintenanceMarginUsed: string;
   }) => {
     const intl = useIntl();
-    const color = useMemo(
-      () => (parseFloat(mmrPercent) <= 50 ? '$green11' : '$red11'),
-      [mmrPercent],
-    );
+    const color = useMemo(() => {
+      const pct = parseFloat(mmrPercent);
+      if (pct <= 40) return '$green11';
+      if (pct <= 70) return '$yellow11';
+      return '$red11';
+    }, [mmrPercent]);
     return (
       <Popover
         title={intl.formatMessage({
