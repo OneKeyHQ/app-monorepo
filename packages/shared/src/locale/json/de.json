@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "KUV",
   "dexmarket_stock.ps_desc": "Kurs-Umsatz-Verhältnis, nützlich zur Bewertung von Unternehmen, die noch nicht profitabel sind.",
   "dexmarket_stock.roa": "GKR",
+  "dexmarket_stock.roa_desc": "Gesamtkapitalrendite, misst, wie effizient das Unternehmen das Gesamtkapital in Gewinn umwandelt.",
   "dexmarket_stock.roe": "EKR",
   "dexmarket_stock.roe_desc": "Eigenkapitalrendite, misst, wie effizient das Unternehmen das Eigenkapital der Aktionäre in Gewinn umwandelt.",
   "dexmarket_stock.shares_per_token": "Aktien pro Token",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "Perpetuals",
   "perps.token_selector_stocks": "Aktien",
   "perps.trade_reward": "Handelsbelohnung",
+  "perps__claim_failed__msg": "Gebührenrabatt konnte nicht beansprucht werden. Bitte versuchen Sie es später erneut",
+  "perps__claim_fee_discount__desc": "Einmal kostenlos unterschreiben und dauerhaft 4% Perps-Handelsgebührenrabatt genießen. Kein Gas erforderlich, sofort wirksam.",
+  "perps__claim_fee_discount__title": "4% Perps-Gebührenrabatt beanspruchen",
+  "perps__claim_fee_discount_short__desc": "Einmal unterschreiben, 4% sparen",
+  "perps__claim_now__action": "Jetzt beanspruchen",
+  "perps__fee_discount_activated__msg": "Gebührenrabatt aktiviert",
+  "perps__snooze_remind_later__action": "Nicht jetzt, später erinnern",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "Auslösepreis muss sich vom aktuellen Preis unterscheiden",
   "pick_your_device": "Wähle dein Gerät aus",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "Wie kann ich in OneKey mit Kryptowährungen handeln?",
   "watch_only_desc_manage": "Sie können die Wallet nicht verwalten.",
   "watch_only_desc_transactions": "Beobachte die Transaktionen anderer.",
-  "word": "Wort",
-  "xmarket_stock.roa_desc": "Gesamtkapitalrendite, misst, wie effizient das Unternehmen das Gesamtkapital in Gewinn umwandelt."
+  "word": "Wort"
 }

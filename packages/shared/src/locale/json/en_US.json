@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Price-to-Sales Ratio, useful for valuing companies that aren't yet profitable.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Return on Assets, measures how efficiently the company turns total assets into profit.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Return on Equity, measures how efficiently the company turns shareholder equity into profit.",
   "dexmarket_stock.shares_per_token": "Shares Per Token",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "Perps",
   "perps.token_selector_stocks": "Stocks",
   "perps.trade_reward": "Trade reward",
+  "perps__claim_failed__msg": "Failed to claim fee discount, please try again later",
+  "perps__claim_fee_discount__desc": "Sign once for free to permanently enjoy a 4% Perps trading fee discount. No gas required, effective immediately.",
+  "perps__claim_fee_discount__title": "Claim 4% Perps Fee Discount",
+  "perps__claim_fee_discount_short__desc": "Sign once, save 4%",
+  "perps__claim_now__action": "Claim Now",
+  "perps__fee_discount_activated__msg": "Fee discount activated",
+  "perps__snooze_remind_later__action": "Not now, remind me later",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "Trigger price must differ from current price",
   "pick_your_device": "Pick your device",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "How can I trade cryptos in OneKey?",
   "watch_only_desc_manage": "You cannot manage the wallet.",
   "watch_only_desc_transactions": "Watch others' transactions.",
-  "word": "Word",
-  "xmarket_stock.roa_desc": "Return on Assets, measures how efficiently the company turns total assets into profit."
+  "word": "Word"
 }

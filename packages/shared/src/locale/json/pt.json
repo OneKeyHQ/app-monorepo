@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Relação Preço-Vendas, útil para avaliar empresas que ainda não são lucrativas.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Retorno sobre Ativos, mede quão eficientemente a empresa transforma os ativos totais em lucro.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Retorno sobre o Patrimônio, mede quão eficientemente a empresa transforma o patrimônio dos acionistas em lucro.",
   "dexmarket_stock.shares_per_token": "Ações por Token",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "Perpétuos",
   "perps.token_selector_stocks": "Ações",
   "perps.trade_reward": "Recompensa comercial",
+  "perps__claim_failed__msg": "Falha ao reivindicar o desconto. Tente novamente mais tarde",
+  "perps__claim_fee_discount__desc": "Assine uma vez gratuitamente para aproveitar permanentemente 4% de desconto nas taxas de negociação Perps. Sem gas, efeito imediato.",
+  "perps__claim_fee_discount__title": "Reivindicar 4% de desconto na taxa Perps",
+  "perps__claim_fee_discount_short__desc": "Assine uma vez, poupe 4%",
+  "perps__claim_now__action": "Reivindicar agora",
+  "perps__fee_discount_activated__msg": "Desconto de taxa ativado",
+  "perps__snooze_remind_later__action": "Agora não, lembrar mais tarde",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "O preço de gatilho deve ser diferente do preço atual",
   "pick_your_device": "Escolha o seu dispositivo",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "Como posso negociar criptomoedas no OneKey?",
   "watch_only_desc_manage": "Você não pode gerenciar a carteira.",
   "watch_only_desc_transactions": "Veja as transações de outros.",
-  "word": "Palavra",
-  "xmarket_stock.roa_desc": "Retorno sobre Ativos, mede quão eficientemente a empresa transforma os ativos totais em lucro."
+  "word": "Palavra"
 }

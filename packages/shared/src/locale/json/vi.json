@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Tỷ lệ Giá trên Doanh thu, hữu ích cho việc định giá các công ty chưa có lợi nhuận.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Lợi nhuận trên Tài sản, đo lường hiệu quả công ty chuyển đổi tổng tài sản thành lợi nhuận.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Lợi nhuận trên Vốn chủ sở hữu, đo lường hiệu quả công ty chuyển đổi vốn chủ sở hữu thành lợi nhuận.",
   "dexmarket_stock.shares_per_token": "Cổ phần mỗi token",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "Vĩnh cửu",
   "perps.token_selector_stocks": "Cổ phiếu",
   "perps.trade_reward": "Phần thưởng thương mại",
+  "perps__claim_failed__msg": "Không thể nhận giảm phí, vui lòng thử lại sau",
+  "perps__claim_fee_discount__desc": "Ký một lần miễn phí để vĩnh viễn hưởng giảm 4% phí giao dịch Perps. Không cần gas, có hiệu lực ngay.",
+  "perps__claim_fee_discount__title": "Nhận giảm 4% phí Perps",
+  "perps__claim_fee_discount_short__desc": "Ký một lần, giảm 4%",
+  "perps__claim_now__action": "Nhận ngay",
+  "perps__fee_discount_activated__msg": "Đã kích hoạt giảm phí",
+  "perps__snooze_remind_later__action": "Không phải bây giờ, nhắc tôi sau",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "Giá kích hoạt phải khác với giá hiện tại",
   "pick_your_device": "Chọn thiết bị của bạn",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "Làm thế nào để tôi giao dịch tiền mã hóa trong OneKey?",
   "watch_only_desc_manage": "Bạn không thể quản lý ví.",
   "watch_only_desc_transactions": "Xem giao dịch của người khác.",
-  "word": "Từ",
-  "xmarket_stock.roa_desc": "Lợi nhuận trên Tài sản, đo lường hiệu quả công ty chuyển đổi tổng tài sản thành lợi nhuận."
+  "word": "Từ"
 }

@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Ratio cours/chiffre d'affaires, utile pour évaluer les entreprises qui ne sont pas encore rentables.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Retour sur actifs, mesure l'efficacité avec laquelle l'entreprise transforme les actifs totaux en bénéfices.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Retour sur capitaux propres, mesure l'efficacité avec laquelle l'entreprise transforme les capitaux propres des actionnaires en bénéfices.",
   "dexmarket_stock.shares_per_token": "Actions par jeton",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "Perpétuels",
   "perps.token_selector_stocks": "Actions",
   "perps.trade_reward": "Récompense commerciale",
+  "perps__claim_failed__msg": "Échec de la réclamation de la réduction. Veuillez réessayer plus tard",
+  "perps__claim_fee_discount__desc": "Signez une fois gratuitement pour bénéficier en permanence de 4% de réduction sur les frais de trading Perps. Pas de gas requis, effectif immédiatement.",
+  "perps__claim_fee_discount__title": "Réclamer 4% de réduction sur les frais Perps",
+  "perps__claim_fee_discount_short__desc": "Signez une fois, économisez 4%",
+  "perps__claim_now__action": "Réclamer maintenant",
+  "perps__fee_discount_activated__msg": "Réduction des frais activée",
+  "perps__snooze_remind_later__action": "Pas maintenant, me rappeler plus tard",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "Le prix déclencheur doit être différent du prix actuel",
   "pick_your_device": "Choisissez votre appareil",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "Comment puis-je échanger des cryptos dans OneKey ?",
   "watch_only_desc_manage": "Vous ne pouvez pas gérer le portefeuille.",
   "watch_only_desc_transactions": "Regardez les transactions des autres.",
-  "word": "Mot",
-  "xmarket_stock.roa_desc": "Retour sur actifs, mesure l'efficacité avec laquelle l'entreprise transforme les actifs totaux en bénéfices."
+  "word": "Mot"
 }

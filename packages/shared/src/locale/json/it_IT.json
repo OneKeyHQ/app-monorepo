@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Rapporto prezzo/vendite, utile per valutare le aziende che non sono ancora redditizie.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Rendimento delle attività, misura quanto efficacemente l'azienda trasforma il totale delle attività in profitto.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Rendimento del capitale proprio, misura quanto efficacemente l'azienda trasforma il capitale degli azionisti in profitto.",
   "dexmarket_stock.shares_per_token": "Azioni per token",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "Perpetui",
   "perps.token_selector_stocks": "Azioni",
   "perps.trade_reward": "Ricompensa commerciale",
+  "perps__claim_failed__msg": "Impossibile richiedere lo sconto. Riprova più tardi",
+  "perps__claim_fee_discount__desc": "Firma una volta gratuitamente per godere permanentemente del 4% di sconto sulle commissioni di trading Perps. Nessun gas richiesto, effetto immediato.",
+  "perps__claim_fee_discount__title": "Richiedi il 4% di sconto sulle commissioni Perps",
+  "perps__claim_fee_discount_short__desc": "Firma una volta, risparmia il 4%",
+  "perps__claim_now__action": "Richiedi ora",
+  "perps__fee_discount_activated__msg": "Sconto commissioni attivato",
+  "perps__snooze_remind_later__action": "Non ora, ricordamelo dopo",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "Il prezzo trigger deve differire dal prezzo attuale",
   "pick_your_device": "Scegli il tuo dispositivo",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "Come posso fare trading di criptovalute su OneKey?",
   "watch_only_desc_manage": "Non puoi gestire il wallet.",
   "watch_only_desc_transactions": "Guarda le transazioni degli altri.",
-  "word": "Parola",
-  "xmarket_stock.roa_desc": "Rendimento delle attività, misura quanto efficacemente l'azienda trasforma il totale delle attività in profitto."
+  "word": "Parola"
 }

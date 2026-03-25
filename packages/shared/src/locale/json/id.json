@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Rasio Harga terhadap Penjualan, berguna untuk menilai perusahaan yang belum menguntungkan.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Pengembalian atas Aset, mengukur seberapa efisien perusahaan mengubah total aset menjadi keuntungan.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Pengembalian atas Ekuitas, mengukur seberapa efisien perusahaan mengubah ekuitas pemegang saham menjadi keuntungan.",
   "dexmarket_stock.shares_per_token": "Saham Per Token",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "Perpetual",
   "perps.token_selector_stocks": "Saham",
   "perps.trade_reward": "Hadiah perdagangan",
+  "perps__claim_failed__msg": "Gagal mengklaim diskon biaya, silakan coba lagi nanti",
+  "perps__claim_fee_discount__desc": "Tanda tangani sekali secara gratis untuk menikmati diskon 4% biaya trading Perps secara permanen. Tanpa gas, langsung berlaku.",
+  "perps__claim_fee_discount__title": "Klaim diskon 4% biaya Perps",
+  "perps__claim_fee_discount_short__desc": "Tanda tangan sekali, hemat 4%",
+  "perps__claim_now__action": "Klaim sekarang",
+  "perps__fee_discount_activated__msg": "Diskon biaya diaktifkan",
+  "perps__snooze_remind_later__action": "Nanti saja, ingatkan lagi nanti",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "Harga trigger harus berbeda dari harga saat ini",
   "pick_your_device": "Pilih perangkat Anda",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "Bagaimana cara saya memperdagangkan kripto di OneKey?",
   "watch_only_desc_manage": "Anda tidak dapat mengelola dompet.",
   "watch_only_desc_transactions": "Lihat transaksi orang lain.",
-  "word": "Kata",
-  "xmarket_stock.roa_desc": "Pengembalian atas Aset, mengukur seberapa efisien perusahaan mengubah total aset menjadi keuntungan."
+  "word": "Kata"
 }

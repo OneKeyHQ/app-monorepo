@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "市销率",
   "dexmarket_stock.ps_desc": "市销率，对尚未盈利的公司估值有用。",
   "dexmarket_stock.roa": "总资产收益率",
+  "dexmarket_stock.roa_desc": "总资产收益率，衡量公司将总资产转化为利润的效率。",
   "dexmarket_stock.roe": "净资产收益率",
   "dexmarket_stock.roe_desc": "净资产收益率，衡量公司将股东权益转化为利润的效率。",
   "dexmarket_stock.shares_per_token": "币股比例",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "永续合约",
   "perps.token_selector_stocks": "股票",
   "perps.trade_reward": "交易奖励",
+  "perps__claim_failed__msg": "领取失败，请稍后再试",
+  "perps__claim_fee_discount__desc": "仅需一次免费签名，即可永久享受永续合约交易 4% 手续费折扣。无需支付 Gas，签名即刻生效。",
+  "perps__claim_fee_discount__title": "领取永续合约 4% 手续费优惠",
+  "perps__claim_fee_discount_short__desc": "免费签名，立享 4% 折扣",
+  "perps__claim_now__action": "立即领取",
+  "perps__fee_discount_activated__msg": "手续费优惠已生效",
+  "perps__snooze_remind_later__action": "暂不需要，下次再提醒我",
   "perps_footer.help_us_better": "合约社区",
   "perps_trigger_price_equal_current": "触发价不能等于当前价格",
   "pick_your_device": "选择您的设备",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "如何在 OneKey 中交易加密货币?",
   "watch_only_desc_manage": "您无法管理该钱包。",
   "watch_only_desc_transactions": "查看他人的交易。",
-  "word": "助记词",
-  "xmarket_stock.roa_desc": "总资产收益率，衡量公司将总资产转化为利润的效率。"
+  "word": "助记词"
 }

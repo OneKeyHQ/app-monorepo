@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "市銷率",
   "dexmarket_stock.ps_desc": "市銷率，對於尚未盈利的公司估值很有用。",
   "dexmarket_stock.roa": "總資產報酬率",
+  "dexmarket_stock.roa_desc": "總資產報酬率，衡量公司將總資產轉化為利潤的效率。",
   "dexmarket_stock.roe": "淨資產報酬率",
   "dexmarket_stock.roe_desc": "淨資產報酬率，衡量公司將股東權益轉化為利潤的效率。",
   "dexmarket_stock.shares_per_token": "幣股比例",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "永續合約",
   "perps.token_selector_stocks": "股票",
   "perps.trade_reward": "交易獎勵",
+  "perps__claim_failed__msg": "領取失敗，請稍後再試",
+  "perps__claim_fee_discount__desc": "僅需一次免費簽名，即可永久享受永續合約交易 4% 手續費折扣。無需支付 Gas，簽名即刻生效。",
+  "perps__claim_fee_discount__title": "領取永續合約 4% 手續費優惠",
+  "perps__claim_fee_discount_short__desc": "免費簽名，立享 4% 折扣",
+  "perps__claim_now__action": "立即領取",
+  "perps__fee_discount_activated__msg": "手續費優惠已生效",
+  "perps__snooze_remind_later__action": "暫不需要，下次再提醒我",
   "perps_footer.help_us_better": "合約社区",
   "perps_trigger_price_equal_current": "觸發價不能等於當前價格",
   "pick_your_device": "選擇您的裝置",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "如何在 OneKey 中交易加密貨幣?",
   "watch_only_desc_manage": "您無法管理此錢包。",
   "watch_only_desc_transactions": "觀看其他人的交易。",
-  "word": "助記詞",
-  "xmarket_stock.roa_desc": "總資產報酬率，衡量公司將總資產轉化為利潤的效率。"
+  "word": "助記詞"
 }

@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "株価売上高倍率、まだ利益を出していない企業を評価するのに役立ちます。",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "総資産利益率、会社が総資産をどれだけ効率的に利益に変えているかを測定します。",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "自己資本利益率、会社が株主資本をどれだけ効率的に利益に変えているかを測定します。",
   "dexmarket_stock.shares_per_token": "トークンあたりの株式数",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "無期限先物",
   "perps.token_selector_stocks": "株式",
   "perps.trade_reward": "取引報酬",
+  "perps__claim_failed__msg": "手数料割引の受け取りに失敗しました。後でもう一度お試しください",
+  "perps__claim_fee_discount__desc": "無料の署名1回で、Perps取引手数料の4%割引を永久に享受できます。ガス不要、即時有効。",
+  "perps__claim_fee_discount__title": "Perps手数料4%割引を受け取る",
+  "perps__claim_fee_discount_short__desc": "署名1回で4%割引",
+  "perps__claim_now__action": "今すぐ受け取る",
+  "perps__fee_discount_activated__msg": "手数料割引が有効になりました",
+  "perps__snooze_remind_later__action": "今はいい、後でもう一度",
   "perps_footer.help_us_better": "改善にご協力ください",
   "perps_trigger_price_equal_current": "トリガー価格は現在の価格と異なる必要があります",
   "pick_your_device": "デバイスを選択",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "OneKeyで暗号資産を取引するにはどうすればよいですか？",
   "watch_only_desc_manage": "ウォレットを管理することはできません。",
   "watch_only_desc_transactions": "他人の取引を閲覧する。",
-  "word": "ワード",
-  "xmarket_stock.roa_desc": "総資産利益率、会社が総資産をどれだけ効率的に利益に変えているかを測定します。"
+  "word": "ワード"
 }

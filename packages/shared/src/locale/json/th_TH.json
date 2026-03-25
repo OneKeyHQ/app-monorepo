@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "อัตราส่วนราคาต่อการขาย มีประโยชน์ในการประเมินมูลค่าบริษัทที่ยังไม่มีกำไร",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "ผลตอบแทนต่อสินทรัพย์ วัดว่าบริษัทใช้สินทรัพย์รวมในการทำกำไรได้อย่างมีประสิทธิภาพเพียงใด",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "ผลตอบแทนต่อส่วนของผู้ถือหุ้น วัดว่าบริษัทใช้ส่วนของผู้ถือหุ้นในการทำกำไรได้อย่างมีประสิทธิภาพเพียงใด",
   "dexmarket_stock.shares_per_token": "หุ้นต่อโทเค็น",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "สัญญถวร",
   "perps.token_selector_stocks": "หุ้น",
   "perps.trade_reward": "ผลตอบแทนการค้า",
+  "perps__claim_failed__msg": "ไม่สามารถรับส่วนลดค่าธรรมเนียมได้ กรุณาลองใหม่ภายหลัง",
+  "perps__claim_fee_discount__desc": "ลงนามฟรีครั้งเดียวเพื่อรับส่วนลด 4% ค่าธรรมเนียมการซื้อขาย Perps อย่างถาวร ไม่ต้องจ่ายแก๊ส มีผลทันที",
+  "perps__claim_fee_discount__title": "รับส่วนลด 4% ค่าธรรมเนียม Perps",
+  "perps__claim_fee_discount_short__desc": "ลงนามครั้งเดียว ลด 4%",
+  "perps__claim_now__action": "รับเลย",
+  "perps__fee_discount_activated__msg": "ส่วนลดค่าธรรมเนียมเปิดใช้งานแล้ว",
+  "perps__snooze_remind_later__action": "ยังไม่ต้อง เตือนฉันทีหลัง",
   "perps_footer.help_us_better": "Perps Community",
   "perps_trigger_price_equal_current": "ราคาทริกเกอร์ต้องแตกต่างจากราคาปัจจุบัน",
   "pick_your_device": "เลือกอุปกรณ์ของคุณ",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "ฉันจะเทรดคริปโตใน OneKey ได้อย่างไร?",
   "watch_only_desc_manage": "คุณไม่สามารถจัดการกระเป๋าเงินได้",
   "watch_only_desc_transactions": "ดูธุรกรรมของผู้อื่น",
-  "word": "คำ",
-  "xmarket_stock.roa_desc": "ผลตอบแทนต่อสินทรัพย์ วัดว่าบริษัทใช้สินทรัพย์รวมในการทำกำไรได้อย่างมีประสิทธิภาพเพียงใด"
+  "word": "คำ"
 }

@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "पी/एस",
   "dexmarket_stock.ps_desc": "प्राइस-टू-सेल्स अनुपात, उन कंपनियों के मूल्यांकन के लिए उपयोगी है जो अभी तक लाभदायक नहीं हैं।",
   "dexmarket_stock.roa": "आरओए",
+  "dexmarket_stock.roa_desc": "रिटर्न ऑन एसेट्स, यह मापता है कि कंपनी कुल संपत्तियों को कितनी कुशलता से लाभ में बदलती है।",
   "dexmarket_stock.roe": "आरओई",
   "dexmarket_stock.roe_desc": "रिटर्न ऑन इक्विटी, यह मापता है कि कंपनी शेयरधारक इक्विटी को कितनी कुशलता से लाभ में बदलती है।",
   "dexmarket_stock.shares_per_token": "प्रति टोकन शेयर",
@@ -2964,6 +2965,13 @@
   "perps.token_selector_perps": "पर्प्स",
   "perps.token_selector_stocks": "शेयरों",
   "perps.trade_reward": "व्यापार पुरस्कार",
+  "perps__claim_failed__msg": "शुल्क छूट प्राप्त करने में विफल, कृपया बाद में पुनः प्रयास करें",
+  "perps__claim_fee_discount__desc": "Perps ट्रेडिंग शुल्क पर 4% छूट का स्थायी लाभ उठाने के लिए एक बार मुफ्त में साइन करें। गैस की आवश्यकता नहीं, तुरंत प्रभावी।",
+  "perps__claim_fee_discount__title": "Perps शुल्क पर 4% छूट प्राप्त करें",
+  "perps__claim_fee_discount_short__desc": "एक बार साइन करें, 4% बचाएं",
+  "perps__claim_now__action": "अभी प्राप्त करें",
+  "perps__fee_discount_activated__msg": "शुल्क छूट सक्रिय हो गई",
+  "perps__snooze_remind_later__action": "अभी नहीं, बाद में याद दिलाएं",
   "perps_footer.help_us_better": "हमें बेहतर बनाने में मदद करें",
   "perps_trigger_price_equal_current": "ट्रिगर मूल्य वर्तमान मूल्य से अलग होना चाहिए",
   "pick_your_device": "अपना डिवाइस चुनें",
@@ -4780,6 +4788,5 @@
   "wallet_empty_article_trade": "मैं OneKey में क्रिप्टो का ट्रेड कैसे कर सकता/सकती हूँ?",
   "watch_only_desc_manage": "आप वॉलेट का प्रबंधन नहीं कर सकते।",
   "watch_only_desc_transactions": "दूसरों के लेन-देन देखें।",
-  "word": "शब्द",
-  "xmarket_stock.roa_desc": "रिटर्न ऑन एसेट्स, यह मापता है कि कंपनी कुल संपत्तियों को कितनी कुशलता से लाभ में बदलती है।"
+  "word": "शब्द"
 }
