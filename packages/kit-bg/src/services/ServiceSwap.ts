@@ -2404,6 +2404,56 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchSpeedMarketQuote({
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    userAddress,
+    receivingAddress,
+    slippagePercentage,
+    accountId,
+  }: {
+    fromToken: ISwapToken;
+    toToken: ISwapToken;
+    fromTokenAmount: string;
+    userAddress: string;
+    receivingAddress: string;
+    slippagePercentage: number;
+    accountId?: string;
+  }): Promise<IFetchQuoteResult | undefined> {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const params = {
+      fromTokenAddress: fromToken.contractAddress,
+      toTokenAddress: toToken.contractAddress,
+      fromTokenAmount,
+      fromNetworkId: fromToken.networkId,
+      toNetworkId: toToken.networkId,
+      userAddress,
+      receivingAddress,
+      slippagePercentage,
+    };
+    const headers =
+      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      });
+    try {
+      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
+        '/swap/v1/quote-market/speed',
+        {
+          params,
+          headers,
+        },
+      );
+      if (data?.code === 0 && data?.data?.length) {
+        return data.data[0];
+      }
+    } catch (e) {
+      console.error('fetchSpeedMarketQuote error', e);
+    }
+    return undefined;
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async fetchBuildSpeedSwapTx({
     fromToken,
@@ -2416,6 +2466,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     protocol,
     kind,
+    quoteResultCtx,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -2428,6 +2479,7 @@ export default class ServiceSwap extends ServiceBase {
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
     walletType?: string;
+    quoteResultCtx?: any;
   }): Promise<IFetchBuildTxResponse | undefined> {
     let headers = await getRequestHeaders();
     const walletType =
@@ -2455,6 +2507,7 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
       kind,
       walletType,
+      quoteResultCtx,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
