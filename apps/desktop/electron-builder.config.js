@@ -93,6 +93,6 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
-    'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
+    'target': ['AppImage'],
   },
 };
