@@ -85,6 +85,7 @@ jobs:
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
           env_file_name: '.env'
           sentry_project: 'web'
           covalent_key: ${{ secrets.COVALENT_KEY }}
@@ -217,6 +218,7 @@ jobs:
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
           env_file_name: '.env'
           sentry_project: 'web'
           covalent_key: ${{ secrets.COVALENT_KEY }}
@@ -334,6 +336,7 @@ jobs:
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
           env_file_name: '.env'
           sentry_project: 'web'
           covalent_key: ${{ secrets.COVALENT_KEY }}
