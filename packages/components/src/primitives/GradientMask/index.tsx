@@ -1,5 +1,5 @@
-import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
+import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 
 import { LinearGradient } from '../../content/LinearGradient';
 

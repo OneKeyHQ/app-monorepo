@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'PR number to build (optional, builds from PR merge ref)'
+        description: 'PR number to build (optional, builds from PR head ref)'
         required: false
         type: string
       build_web:
@@ -21,21 +21,29 @@ jobs:
   validate-pr:
     if: ${{ inputs.pr_number }}
     runs-on: ubuntu-24.04
+    outputs:
+      head_sha: ${{ steps.pr-info.outputs.head_sha }}
+      head_ref: ${{ steps.pr-info.outputs.head_ref }}
     steps:
-      - name: Validate PR author is trusted
+      - name: Validate PR and extract metadata
+        id: pr-info
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ inputs.pr_number }}
           TRUSTED_PR_AUTHORS: ${{ vars.TRUSTED_PR_AUTHORS }}
         run: |
           PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
-            --jq '{head_repo: .head.repo.full_name, base_repo: .base.repo.full_name, author: .user.login}')
+            --jq '{head_repo: .head.repo.full_name, base_repo: .base.repo.full_name, author: .user.login, head_sha: .head.sha, head_ref: .head.ref, base_ref: .base.ref}')
 
           HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head_repo')
           BASE_REPO=$(echo "$PR_DATA" | jq -r '.base_repo')
           AUTHOR=$(echo "$PR_DATA" | jq -r '.author')
+          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head_sha')
+          HEAD_REF=$(echo "$PR_DATA" | jq -r '.head_ref')
+          BASE_REF=$(echo "$PR_DATA" | jq -r '.base_ref')
 
           echo "PR #$PR_NUMBER: head=$HEAD_REPO, base=$BASE_REPO, author=$AUTHOR"
+          echo "  head_sha=$HEAD_SHA, head_ref=$HEAD_REF, base_ref=$BASE_REF"
 
           if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
             # Fork PR — check if author is in the trusted whitelist
@@ -45,6 +53,25 @@ jobs:
             fi
             echo "::notice::PR #$PR_NUMBER is from a trusted fork ($HEAD_REPO) by whitelisted author @$AUTHOR — allowed."
           fi
+
+          # Check PR is up-to-date with base branch
+          BEHIND_BY=$(gh api "repos/${{ github.repository }}/compare/${BASE_REF}...${HEAD_SHA}" \
+            --jq '.behind_by')
+
+          if ! [[ "$BEHIND_BY" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to determine behind_by from compare API."
+            exit 1
+          fi
+
+          if [ "$BEHIND_BY" -gt 0 ]; then
+            echo "::error::PR #$PR_NUMBER is behind $BASE_REF by $BEHIND_BY commits. Please rebase before building."
+            exit 1
+          fi
+
+          echo "::notice::PR #$PR_NUMBER is up-to-date with $BASE_REF."
+
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
           echo "PR #$PR_NUMBER validated successfully."
 
@@ -63,16 +90,17 @@ jobs:
         uses: actions/checkout@v4
         if: ${{ !inputs.pr_number }}
 
-      - name: Checkout PR merge commit
+      - name: Checkout PR head commit
         if: ${{ inputs.pr_number }}
         uses: actions/checkout@v4
         with:
-          ref: refs/pull/${{ inputs.pr_number }}/merge
+          ref: refs/pull/${{ inputs.pr_number }}/head
 
       - name: Generate build parameters
         id: params
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_REF: ${{ needs.validate-pr.outputs.head_ref }}
         run: |
           # Read BUILD_NUMBER from .env.version
           BUILD_NUMBER=""
@@ -102,7 +130,7 @@ jobs:
           echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
           echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
           if [ -n "$PR_NUMBER" ]; then
-            BRANCH="pull/$PR_NUMBER"
+            BRANCH="$HEAD_REF"
             COMMIT=$(git rev-parse HEAD)
           else
             BRANCH="${{ github.ref_name }}"
