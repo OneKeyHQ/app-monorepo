@@ -4,7 +4,14 @@ import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Form, Page, YStack, useForm, useMedia } from '@onekeyhq/components';
+import {
+  Form,
+  Page,
+  Toast,
+  YStack,
+  useForm,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -438,6 +445,9 @@ function BaseBulkSendAddressesInput() {
       bulkSendMode === EBulkSendMode.ManyToMany &&
       senders.length !== receivers.length
     ) {
+      Toast.error({
+        title: `Sender and receiver count must match (senders: ${senders.length}, receivers: ${receivers.length})`,
+      });
       return;
     }
 
