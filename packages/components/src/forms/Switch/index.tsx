@@ -67,6 +67,7 @@ export function Switch({
           true: theme.bgPrimary.val,
         },
         thumbColor: theme.bg.val,
+        style: { opacity: disabled ? 0.5 : 1 },
       }}
       {...restProps}
     >
