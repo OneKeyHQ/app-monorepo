@@ -165,14 +165,12 @@ function BulkSendProcess() {
   const progressStateRef = useRef(progressState);
   const resultsRef = useRef<ISendTxOnSuccessData[]>([]);
 
-  // Track native balance per sender (keyed by networkId:accountAddress)
+  // Track native balance per sender for native max-send tx updates.
   const networkStatusRef = useRef<
     Record<
       string,
       {
-        isInsufficientFunds: boolean;
         nativeBalance: string;
-        nativeSymbol: string;
       }
     >
   >({});
@@ -295,9 +293,7 @@ function BulkSendProcess() {
             if (resp?.[0] && !isNil(resp[0].balanceParsed)) {
               networkStatusRef.current[balanceKey] = {
                 ...networkStatusRef.current[balanceKey],
-                isInsufficientFunds: false,
                 nativeBalance: resp[0].balanceParsed,
-                nativeSymbol: resp[0].info?.symbol ?? '',
               };
             }
           } catch (error) {
@@ -307,21 +303,6 @@ function BulkSendProcess() {
 
         if (isAborted.current) break;
         await waitUntilInProgress();
-
-        // Check if sender already marked as insufficient
-        if (networkStatusRef.current[balanceKey]?.isInsufficientFunds) {
-          const nativeSymbol =
-            networkStatusRef.current[balanceKey]?.nativeSymbol;
-          setTxStatusMap((prev) => ({
-            ...prev,
-            [i]: {
-              isInsufficientFunds: true,
-              status: EBulkSendTxStatus.Skipped,
-              errorMessage: `Insufficient ${nativeSymbol} for network fees`,
-            },
-          }));
-          continue;
-        }
 
         // Set processing status
         setTxStatusMap((prev) => ({
@@ -389,44 +370,32 @@ function BulkSendProcess() {
         if (isAborted.current) break;
         await waitUntilInProgress();
 
-        // Balance vs fee check
-        if (
-          !isNil(networkStatusRef.current[balanceKey]?.nativeBalance) &&
-          new BigNumber(networkStatusRef.current[balanceKey]?.nativeBalance).lt(
-            feeResult.totalNativeForDisplay ?? feeResult.totalNative,
-          )
-        ) {
-          networkStatusRef.current[balanceKey].isInsufficientFunds = true;
-          networkStatusRef.current[balanceKey].nativeSymbol =
-            feeInfo.common.nativeSymbol;
-          setTxStatusMap((prev) => ({
-            ...prev,
-            [i]: {
-              isInsufficientFunds: true,
-              status: EBulkSendTxStatus.Failed,
-              errorMessage: `Insufficient ${feeInfo.common.nativeSymbol} for network fees`,
-            },
-          }));
-          continue;
-        }
-
-        // Native Token + Max mode: deduct fee from send amount
+        // Native token + max mode: update the tx with the latest max amount.
         let updatedTx = tx;
+        let updatedMaxSendAmount: string | undefined;
         if (isMaxMode && tokenInfo?.isNative) {
           const network = await backgroundApiProxy.serviceNetwork.getNetwork({
             networkId,
           });
           const currentBalance =
-            networkStatusRef.current[balanceKey]?.nativeBalance ?? '0';
+            networkStatusRef.current[balanceKey]?.nativeBalance ??
+            transfersInfoState[i]?.amount ??
+            tx.transfersInfo?.[0]?.amount ??
+            '0';
+          if (isNil(networkStatusRef.current[balanceKey]?.nativeBalance)) {
+            networkStatusRef.current[balanceKey] = {
+              nativeBalance: currentBalance,
+            };
+          }
           const feeWithRatio = new BigNumber(feeResult.totalNative).times(
             network.feeMeta?.maxSendFeeUpRatio ?? 1,
           );
           const maxSendAmount = new BigNumber(currentBalance).minus(
             feeWithRatio,
           );
+          const nextMaxSendAmount = maxSendAmount.toFixed();
 
           if (maxSendAmount.lte(0)) {
-            networkStatusRef.current[balanceKey].isInsufficientFunds = true;
             setTxStatusMap((prev) => ({
               ...prev,
               [i]: {
@@ -438,13 +407,22 @@ function BulkSendProcess() {
             continue;
           }
 
+          const finalMaxSendAmount = nextMaxSendAmount;
+          updatedMaxSendAmount = finalMaxSendAmount;
           updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
             networkId,
             accountId: txAccountId,
             unsignedTx: updatedTx,
             feeInfo,
-            nativeAmountInfo: { maxSendAmount: maxSendAmount.toFixed() },
+            nativeAmountInfo: { maxSendAmount: finalMaxSendAmount },
           });
+          setTransfersInfoState((prev) =>
+            prev.map((item, index) =>
+              index === i && item.amount !== finalMaxSendAmount
+                ? { ...item, amount: finalMaxSendAmount }
+                : item,
+            ),
+          );
         }
 
         // Fee overflow check — only once (same network for all txs)
@@ -523,9 +501,8 @@ function BulkSendProcess() {
           let deduction = new BigNumber(
             feeResult.totalNativeForDisplay ?? feeResult.totalNative,
           );
-          // For max mode native token, also deduct the sent amount
-          if (isMaxMode && tokenInfo?.isNative && transfersInfoState?.[i]) {
-            deduction = deduction.plus(transfersInfoState[i].amount || '0');
+          if (updatedMaxSendAmount) {
+            deduction = deduction.plus(updatedMaxSendAmount);
           }
           networkStatusRef.current[balanceKey].nativeBalance = new BigNumber(
             networkStatusRef.current[balanceKey]?.nativeBalance,
@@ -618,22 +595,6 @@ function BulkSendProcess() {
         }
 
         if (!passphraseEnabled && !deviceCommunicationError) {
-          if (
-            (error as { code: number }).code ===
-            EResponseCode.insufficient_funds_for_tx_fee
-          ) {
-            const accountAddress2 = await backgroundApiProxy.serviceAccount
-              .getAccountAddressForApi({
-                networkId,
-                accountId: tx.accountId || accountId || '',
-              })
-              .catch(() => '');
-            const key2 = `${networkId}:${accountAddress2}`;
-            if (networkStatusRef.current[key2]) {
-              networkStatusRef.current[key2].isInsufficientFunds = true;
-            }
-          }
-
           // oxlint-disable-next-line no-loop-func
           setTxStatusMap((prev) => ({
             ...prev,

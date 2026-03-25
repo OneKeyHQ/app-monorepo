@@ -60,11 +60,21 @@ function SingleLineReceiverInput() {
       if (isEnableTransferAllowList && selectedNetworkId) {
         let isAllowed = false;
         try {
-          const walletAccountItems =
+          const isBTCNetwork = networkUtils.isBTCNetwork(selectedNetworkId);
+          let walletAccountItems =
             await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
               networkId: selectedNetworkId,
               address: trimmedAddress,
             });
+          if (walletAccountItems.length === 0 && isBTCNetwork) {
+            walletAccountItems =
+              await backgroundApiProxy.serviceFreshAddress.getAccountNameFromFreshAddress(
+                {
+                  address: trimmedAddress,
+                  networkId: selectedNetworkId,
+                },
+              );
+          }
           if (
             walletAccountItems.some((item) =>
               accountUtils.isOwnAccount({ accountId: item.accountId }),

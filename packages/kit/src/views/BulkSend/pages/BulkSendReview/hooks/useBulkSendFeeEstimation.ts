@@ -346,8 +346,8 @@ export function useBulkSendFeeEstimation({
               .toFixed();
           }
 
-          // Skip SOL balance check for ManyToOne/ManyToMany —
-          // each sender has their own balance, checked per-tx in BulkSendProcess
+          // Skip SOL balance check for ManyToOne/ManyToMany.
+          // Those transactions are handled one by one in BulkSendProcess.
           if (!isManyToManyOrManyToOne) {
             const nativeTransferAmount = tokenInfo?.isNative
               ? new BigNumber(totalTokenAmount ?? '0')
