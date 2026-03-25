@@ -1,9 +1,11 @@
 require('../../../development/env');
 
-const path = require('path');
 const childProcess = require('child_process');
+const path = require('path');
+
 const { build } = require('esbuild');
 const glob = require('glob');
+
 const pkg = require('../app/package.json');
 
 const isProduction = process.env.NODE_ENV === 'production';

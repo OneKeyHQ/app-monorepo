@@ -6,8 +6,8 @@
  * - Builds production extension and runs Chromium (headed) via Playwright.
  */
 
-const path = require('path');
 const { spawn } = require('child_process');
+const path = require('path');
 
 function main() {
   const repoRoot = path.join(__dirname, '..', '..');
