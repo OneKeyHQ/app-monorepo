@@ -1,5 +1,4 @@
-/* oxlint-disable import-js/order */
-/* eslint-disable import/order */
+/* eslint-disable import-js/order */
 // import { clearIntervalAsync, setIntervalAsync } from 'set-interval-async';
 
 // walletconnect react-native-compat polyfill

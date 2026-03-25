@@ -1,10 +1,7 @@
-/* oxlint-disable import-js/order */
-/* eslint-disable import/order */
+/* eslint-disable import-js/order */
 // fix missing setimmediate
-// eslint-disable-next-line import/order
 import 'setimmediate';
 
-// eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/polyfills';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';

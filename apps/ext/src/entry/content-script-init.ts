@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 // oxlint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/polyfills/polyfillsExtContentScript';
 

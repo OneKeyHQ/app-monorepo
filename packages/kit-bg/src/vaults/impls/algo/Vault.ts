@@ -64,6 +64,7 @@ import { encodeTransaction } from './utils';
 import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
+// eslint-disable-next-line import-js/order
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
@@ -78,9 +79,9 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-/* eslint-disable import/order */
+
+// eslint-disable-next-line import-js/order
 import type { FailedAttemptError } from 'p-retry';
-/* eslint-enable import/order */
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;
