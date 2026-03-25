@@ -85,6 +85,13 @@ export type IBulkSendAmountsInputContext = {
   // Interval settings (ManyToOne/ManyToMany only)
   intervalSettings: IIntervalSettings;
   setIntervalSettings: (settings: IIntervalSettings) => void;
+  // Per-sender balance data (ManyToOne/ManyToMany only)
+  senderBalances: Record<string, string>; // address -> balanceParsed
+  setSenderBalances: (balances: Record<string, string>) => void;
+  senderBalancesLoading: boolean;
+  setSenderBalancesLoading: (loading: boolean) => void;
+  // Per-sender accountId map (address -> accountId)
+  senderAccountIdMap: Map<string, string>;
 };
 
 const defaultModeData: IMobileModeData = {
@@ -157,6 +164,11 @@ export const BulkSendAmountsInputContext =
       maxSeconds: '',
     },
     setIntervalSettings: () => {},
+    senderBalances: {},
+    setSenderBalances: () => {},
+    senderBalancesLoading: false,
+    setSenderBalancesLoading: () => {},
+    senderAccountIdMap: new Map(),
   });
 
 export const useBulkSendAmountsInputContext = () =>

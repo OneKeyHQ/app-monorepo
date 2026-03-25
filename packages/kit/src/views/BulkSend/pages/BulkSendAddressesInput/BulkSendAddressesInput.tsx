@@ -74,6 +74,7 @@ function BaseBulkSendAddressesInput() {
     bulkSendMode,
     setBulkSendMode,
     setSelectedDeriveType,
+    resolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -401,17 +402,21 @@ function BaseBulkSendAddressesInput() {
     const formValues = form.getValues();
 
     // Parse sender addresses — extract amounts for ManyToOne/ManyToMany
+    let senderLineIndex = 0;
     const senders = formValues.senderAddresses
       .split('\n')
       .filter((line) => line.trim())
       .map((line) => {
         const [address, amount] = line.trim().split(',');
+        const currentIndex = senderLineIndex;
+        senderLineIndex += 1;
         return {
           address: address.trim(),
           amount:
             !isOneToMany && amount !== undefined
               ? new BigNumber(amount.trim()).toFixed()
               : undefined,
+          accountId: resolvedSenderAccountIds[currentIndex],
         };
       });
 
@@ -507,6 +512,7 @@ function BaseBulkSendAddressesInput() {
     isOneToMany,
     isInModal,
     setSelectedTokenDetail,
+    resolvedSenderAccountIds,
   ]);
 
   if (availableWallets && availableWallets.length === 0) {
@@ -624,6 +630,10 @@ function BulkSendAddressesInput() {
     IAccountDeriveTypes | undefined
   >(undefined);
 
+  const [resolvedSenderAccountIds, setResolvedSenderAccountIds] = useState<
+    Record<number, string>
+  >({});
+
   const context = useMemo(
     () => ({
       selectedAccountId,
@@ -642,6 +652,8 @@ function BulkSendAddressesInput() {
       setBulkSendMode,
       selectedDeriveType,
       setSelectedDeriveType,
+      resolvedSenderAccountIds,
+      setResolvedSenderAccountIds,
     }),
     [
       selectedAccountId,
@@ -659,6 +671,7 @@ function BulkSendAddressesInput() {
       bulkSendMode,
       setBulkSendMode,
       selectedDeriveType,
+      resolvedSenderAccountIds,
     ],
   );
 

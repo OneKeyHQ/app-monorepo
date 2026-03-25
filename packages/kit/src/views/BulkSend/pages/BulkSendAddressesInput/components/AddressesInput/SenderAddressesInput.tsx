@@ -348,8 +348,12 @@ function SingleLineSenderInput() {
 
 function MultiLineSenderInput() {
   const intl = useIntl();
-  const { selectedNetworkId, selectedToken, selectedAccountId } =
-    useBulkSendAddressesInputContext();
+  const {
+    selectedNetworkId,
+    selectedToken,
+    selectedAccountId,
+    setResolvedSenderAccountIds,
+  } = useBulkSendAddressesInputContext();
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
@@ -359,6 +363,8 @@ function MultiLineSenderInput() {
     checkDuplicates: false,
     checkAllowlist: false,
     selectedAccountId,
+    resolveAccountId: true,
+    onResolvedAccountIds: setResolvedSenderAccountIds,
   });
 
   const validate = useCallback(

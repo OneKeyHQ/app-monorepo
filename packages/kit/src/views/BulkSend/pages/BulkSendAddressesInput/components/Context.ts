@@ -32,6 +32,9 @@ export type IBulkSendAddressesInputContext = {
   setBulkSendMode: (bulkSendMode: EBulkSendMode) => void;
   selectedDeriveType: IAccountDeriveTypes | undefined;
   setSelectedDeriveType: (deriveType: IAccountDeriveTypes | undefined) => void;
+  // Per-sender resolved accountIds (ManyToOne/ManyToMany)
+  resolvedSenderAccountIds: Record<number, string>;
+  setResolvedSenderAccountIds: (ids: Record<number, string>) => void;
 };
 export const BulkSendAddressesInputContext =
   createContext<IBulkSendAddressesInputContext>({
@@ -54,6 +57,8 @@ export const BulkSendAddressesInputContext =
     setBulkSendMode: () => {},
     selectedDeriveType: undefined,
     setSelectedDeriveType: () => {},
+    resolvedSenderAccountIds: {},
+    setResolvedSenderAccountIds: () => {},
   });
 
 export const useBulkSendAddressesInputContext = () =>

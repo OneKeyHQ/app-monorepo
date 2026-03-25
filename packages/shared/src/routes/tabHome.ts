@@ -53,6 +53,7 @@ export type ITabHomeParamList = {
     senders: {
       address: string;
       amount: string | undefined;
+      accountId: string | undefined;
     }[];
     receivers: { address: string; amount: string | undefined }[];
     tokenInfo: IToken;

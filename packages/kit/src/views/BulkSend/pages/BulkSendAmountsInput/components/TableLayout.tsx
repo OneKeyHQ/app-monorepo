@@ -13,6 +13,7 @@ import {
   NumberSizeableText,
   Select,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -815,7 +816,12 @@ function TransferInfoListSection() {
     setTransferInfoErrors,
     minTransferAmount,
     isMaxMode,
+    bulkSendMode,
+    senderBalances,
+    senderBalancesLoading,
   } = useBulkSendAmountsInputContext();
+
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
   const { handleDeleteTransfer, handleAmountChange } = useTransferInfoActions({
     tokenInfo,
@@ -934,6 +940,38 @@ function TransferInfoListSection() {
               >
                 {transfer.from}
               </SizableText>
+              {!isOneToMany ? (
+                <XStack gap="$1" alignItems="center">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.wallet_bulk_send_balance,
+                    })}
+                    :
+                  </SizableText>
+                  {senderBalancesLoading && !senderBalances[transfer.from] ? (
+                    <Skeleton.BodySm width="$16" />
+                  ) : (
+                    <NumberSizeableText
+                      size="$bodySm"
+                      color={
+                        senderBalances[transfer.from] &&
+                        transfer.amount &&
+                        new BigNumber(transfer.amount).gt(
+                          senderBalances[transfer.from],
+                        )
+                          ? '$textCritical'
+                          : '$textSubdued'
+                      }
+                      formatter="balance"
+                      formatterOptions={{
+                        tokenSymbol: tokenInfo?.symbol,
+                      }}
+                    >
+                      {senderBalances[transfer.from] ?? '-'}
+                    </NumberSizeableText>
+                  )}
+                </XStack>
+              ) : null}
               {hasFromError ? (
                 <XStack gap="$1" alignItems="center">
                   <Icon

@@ -179,6 +179,11 @@ function SetAmountPerAddressDialogContent({
         totalTokenAmount: '0',
         totalFiatAmount: '0',
       } as IMobileModeData,
+      senderBalances: {},
+      setSenderBalances: () => {},
+      senderBalancesLoading: false,
+      setSenderBalancesLoading: () => {},
+      senderAccountIdMap: new Map(),
     }),
     [
       accountId,

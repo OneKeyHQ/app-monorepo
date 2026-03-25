@@ -8,7 +8,9 @@ import {
   Icon,
   IconButton,
   Input,
+  NumberSizeableText,
   SizableText,
+  Skeleton,
   Stack,
   Toast,
   Tooltip,
@@ -78,6 +80,8 @@ type IProps = {
   onAmountChange?: (index: number, amount: string) => void;
   containerProps?: IYStackProps;
   isMaxMode?: boolean;
+  senderBalances?: Record<string, string>;
+  senderBalancesLoading?: boolean;
 };
 
 type ITransferListItemProps = {
@@ -94,6 +98,8 @@ type ITransferListItemProps = {
   onDeleteTransfers?: (indices: number[]) => void;
   onAmountChangeByIndex?: (index: number, amount: string) => void;
   isMaxMode?: boolean;
+  balance?: string;
+  balanceLoading?: boolean;
 };
 
 function TransferListItemBase({
@@ -110,6 +116,8 @@ function TransferListItemBase({
   onDeleteTransfers,
   onAmountChangeByIndex,
   isMaxMode,
+  balance,
+  balanceLoading,
 }: ITransferListItemProps) {
   const media = useMedia();
   const shortenedAddress = accountUtils.shortenAddress({
@@ -254,6 +262,30 @@ function TransferListItemBase({
         })}
       >
         {renderAddress()}
+        {(() => {
+          if (type === 'send' && balance !== undefined) {
+            return (
+              <XStack gap="$1" alignItems="center">
+                <NumberSizeableText
+                  size="$bodySm"
+                  color={
+                    amount && new BigNumber(amount).gt(balance)
+                      ? '$textCritical'
+                      : '$textSubdued'
+                  }
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol }}
+                >
+                  {balance}
+                </NumberSizeableText>
+              </XStack>
+            );
+          }
+          if (type === 'send' && balanceLoading) {
+            return <Skeleton.BodySm width="$12" />;
+          }
+          return null;
+        })()}
         {hasAddressError ? (
           <XStack gap="$1" alignItems="center">
             <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
@@ -305,6 +337,8 @@ const TransferListItem = memo(
     prev.onDeleteTransfers === next.onDeleteTransfers &&
     prev.onAmountChangeByIndex === next.onAmountChangeByIndex &&
     prev.isMaxMode === next.isMaxMode &&
+    prev.balance === next.balance &&
+    prev.balanceLoading === next.balanceLoading &&
     arraysEqual(prev.indices, next.indices),
 );
 
@@ -338,6 +372,8 @@ function BulkSendTxDetails(props: IProps) {
     onAmountChange,
     containerProps,
     isMaxMode,
+    senderBalances,
+    senderBalancesLoading,
   } = props;
 
   const intl = useIntl();
@@ -469,6 +505,8 @@ function BulkSendTxDetails(props: IProps) {
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
             isMaxMode={isMaxMode}
+            balance={senderBalances?.[sender.address]}
+            balanceLoading={senderBalancesLoading}
           />
         ))}
         {visibleSenders.length < senders.length ? (

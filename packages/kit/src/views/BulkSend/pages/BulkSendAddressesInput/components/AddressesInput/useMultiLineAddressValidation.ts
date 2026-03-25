@@ -1,5 +1,5 @@
 /* eslint-disable no-continue */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
@@ -27,6 +27,8 @@ type IUseMultiLineAddressValidationParams = {
   checkDuplicates: boolean;
   checkAllowlist: boolean;
   selectedAccountId?: string;
+  resolveAccountId?: boolean;
+  onResolvedAccountIds?: (ids: Record<number, string>) => void;
 };
 
 function useMultiLineAddressValidation(
@@ -42,11 +44,15 @@ function useMultiLineAddressValidation(
     checkAllowlist,
     // selectedAccountId reserved for future allowlist context
     selectedAccountId: _selectedAccountId,
+    resolveAccountId,
+    onResolvedAccountIds,
   } = params;
 
   const intl = useIntl();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
+  const onResolvedAccountIdsRef = useRef(onResolvedAccountIds);
+  onResolvedAccountIdsRef.current = onResolvedAccountIds;
 
   const { result: vaultSettings } = usePromiseResult(
     async () =>
@@ -156,10 +162,77 @@ function useMultiLineAddressValidation(
     [],
   );
 
+  const resolveAccountIdForAddress = useCallback(
+    async (
+      address: string,
+      networkId: string,
+    ): Promise<{ accountId: string } | { error: string }> => {
+      try {
+        const walletAccountItems =
+          await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+            networkId,
+            address: address.trim(),
+          });
+
+        if (walletAccountItems.length === 0) {
+          return {
+            error: intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_error_address_not_found,
+            }),
+          };
+        }
+
+        for (const item of walletAccountItems) {
+          if (accountUtils.isWatchingAccount({ accountId: item.accountId })) {
+            continue;
+          }
+
+          if (
+            accountUtils.isHdAccount({ accountId: item.accountId }) ||
+            accountUtils.isHwAccount({ accountId: item.accountId })
+          ) {
+            const networkAccounts =
+              await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+                {
+                  indexedAccountId: item.accountId,
+                  networkIds: [networkId],
+                },
+              );
+            if (networkAccounts[0]?.account) {
+              return { accountId: networkAccounts[0].account.id };
+            }
+          } else if (
+            accountUtils.isExternalAccount({ accountId: item.accountId }) ||
+            accountUtils.isImportedAccount({ accountId: item.accountId })
+          ) {
+            return { accountId: item.accountId };
+          }
+        }
+
+        // All matched accounts are watching accounts
+        return {
+          error: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_watching_account,
+          }),
+        };
+      } catch (_) {
+        return {
+          error: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_address_not_found,
+          }),
+        };
+      }
+    },
+    [intl],
+  );
+
   const handleValidateAddresses = useCallback(
     async (value: string, emptyErrorMessageId: ETranslations) => {
       if (!value) {
         setErrors([]);
+        if (resolveAccountId) {
+          onResolvedAccountIdsRef.current?.({});
+        }
         return intl.formatMessage({ id: emptyErrorMessageId });
       }
 
@@ -289,6 +362,8 @@ function useMultiLineAddressValidation(
       }
 
       // Phase 2: Concurrent address validation with rate limiting and duplicate detection
+      const resolvedIds: Record<number, string> = {};
+
       if (addressesToValidate.length > 0) {
         const limit = pLimit(10);
         const validationResults = await Promise.all(
@@ -335,6 +410,46 @@ function useMultiLineAddressValidation(
               }
             } else {
               validAddresses.push({ index, address });
+            }
+          }
+        }
+
+        // Phase 2.5: Resolve accountId for each valid sender address
+        if (
+          resolveAccountId &&
+          validAddresses.length > 0 &&
+          selectedNetworkId
+        ) {
+          const accountIdResults = await Promise.all(
+            validAddresses.map(({ index, address }) =>
+              limit(async () => {
+                const result = await resolveAccountIdForAddress(
+                  address,
+                  selectedNetworkId,
+                );
+                return { index, result };
+              }),
+            ),
+          );
+
+          for (const { index, result } of accountIdResults) {
+            if ('error' in result) {
+              lineErrors.push({
+                lineNumber: index + 1,
+                message: result.error,
+              });
+            } else {
+              // Map from original line index to accountId
+              // Need to convert from lines[] index to non-empty line index
+              let nonEmptyIndex = 0;
+              for (let i = 0; i <= index; i += 1) {
+                if (lines[i].trim()) {
+                  if (i === index) {
+                    resolvedIds[nonEmptyIndex] = result.accountId;
+                  }
+                  nonEmptyIndex += 1;
+                }
+              }
             }
           }
         }
@@ -423,6 +538,11 @@ function useMultiLineAddressValidation(
         lineErrors.sort((a, b) => a.lineNumber - b.lineNumber);
       }
 
+      // Notify parent of resolved accountIds
+      if (resolveAccountId) {
+        onResolvedAccountIdsRef.current?.(resolvedIds);
+      }
+
       setErrors(lineErrors);
       if (lineErrors.length > 0) {
         const maxErrorsToDisplay = 5;
@@ -466,6 +586,8 @@ function useMultiLineAddressValidation(
       requireAmounts,
       checkDuplicates,
       checkAllowlist,
+      resolveAccountId,
+      resolveAccountIdForAddress,
     ],
   );
 

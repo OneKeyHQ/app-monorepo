@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
+import pLimit from 'p-limit';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
@@ -91,6 +92,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isMaxMode,
     setIsMaxMode,
     intervalSettings,
+    senderBalances,
+    senderBalancesLoading,
+    senderAccountIdMap,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -368,14 +372,38 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     } = getEffectiveData();
 
     try {
+      // Resolve Max mode amounts from sender balances
+      const resolvedTransfersInfo = isMaxMode
+        ? effectiveTransfersInfo.map((transfer) => ({
+            ...transfer,
+            amount: senderBalances[transfer.from] ?? '0',
+          }))
+        : effectiveTransfersInfo;
+
+      // Recalculate totals for Max mode
+      let finalTotalTokenAmount = effectiveTotalTokenAmount;
+      let finalTotalFiatAmount = effectiveTotalFiatAmount;
+      if (isMaxMode && tokenDetails?.price) {
+        const { totalTokenAmount: maxTotal, totalFiatAmount: maxFiat } =
+          calculateTotalAmounts({
+            transfersInfo: resolvedTransfersInfo,
+            tokenPrice: tokenDetails.price,
+          });
+        finalTotalTokenAmount = maxTotal;
+        finalTotalFiatAmount = maxFiat;
+      }
+
       // Each sender creates an independent transaction
       const unsignedTxs: IUnsignedTxPro[] = [];
 
-      for (const transfer of effectiveTransfersInfo) {
+      for (const transfer of resolvedTransfersInfo) {
+        // Use per-sender accountId when available
+        const senderAccountId =
+          senderAccountIdMap.get(transfer.from) ?? accountId;
         const unsignedTx =
           await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
             networkId,
-            accountId,
+            accountId: senderAccountId,
             transfersInfo: [transfer],
           });
         unsignedTxs.push(unsignedTx);
@@ -387,11 +415,11 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         unsignedTxs,
         approvesInfo: [],
         tokenInfo,
-        transfersInfo: effectiveTransfersInfo,
+        transfersInfo: resolvedTransfersInfo,
         bulkSendMode,
         isInModal,
-        totalTokenAmount: effectiveTotalTokenAmount,
-        totalFiatAmount: effectiveTotalFiatAmount,
+        totalTokenAmount: finalTotalTokenAmount,
+        totalFiatAmount: finalTotalFiatAmount,
       });
     } catch (error) {
       console.error(
@@ -405,8 +433,12 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     accountId,
     networkId,
     tokenInfo,
+    tokenDetails?.price,
     bulkSendMode,
     isInModal,
+    isMaxMode,
+    senderBalances,
+    senderAccountIdMap,
     getEffectiveData,
     navigateToReviewOrInterval,
   ]);
@@ -456,6 +488,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
 
     if (baseConditions) return true;
 
+    // Max mode requires sender balances to be loaded
+    if (!isOneToMany && isMaxMode && senderBalancesLoading) return true;
+
     if (!media.gtMd) {
       // In preview mode, only check mode-specific insufficient balance
       if (isInPreviewMode) {
@@ -491,6 +526,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isOneToMany,
     bulkSendContractAddress,
     isNativeBatchTransfer,
+    isMaxMode,
+    senderBalancesLoading,
     media.gtMd,
     isInPreviewMode,
     amountInputMode,
@@ -502,7 +539,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       if (amountInputMode === EAmountInputMode.Custom || isInPreviewMode) {
         hasInsufficientBalance = currentModeData.isInsufficientBalance;
       }
-    } else if (amountInputMode === EAmountInputMode.Custom) {
+    } else if (amountInputMode === EAmountInputMode.Custom || !isOneToMany) {
       hasInsufficientBalance = isInsufficientBalance;
     }
 
@@ -526,6 +563,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isInPreviewMode,
     currentModeData.isInsufficientBalance,
     isInsufficientBalance,
+    isOneToMany,
   ]);
 
   const handleMaxPress = useCallback(() => {
@@ -907,6 +945,21 @@ function BulkSendAmountsInput() {
     maxSeconds: '',
   });
 
+  // Per-sender balance data (ManyToOne/ManyToMany only)
+  const [senderBalances, setSenderBalances] = useState<Record<string, string>>(
+    {},
+  );
+  const [senderBalancesLoading, setSenderBalancesLoading] = useState(false);
+
+  // Per-sender accountId map (address -> accountId) from route params
+  const senderAccountIdMap = useMemo(() => {
+    const map = new Map<string, string>();
+    senders?.forEach((s) => {
+      if (s.accountId) map.set(s.address, s.accountId);
+    });
+    return map;
+  }, [senders]);
+
   const { totalTokenAmount, totalFiatAmount } = useMemo(
     () =>
       calculateTotalAmounts({
@@ -988,6 +1041,76 @@ function BulkSendAmountsInput() {
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
+
+  // Fetch per-sender balances for ManyToOne/ManyToMany modes
+  usePromiseResult(
+    async () => {
+      if (bulkSendMode === EBulkSendMode.OneToMany) return;
+      if (!networkId || !tokenInfo || !senders || senders.length === 0) return;
+
+      // Only fetch for senders that have accountId resolved
+      const sendersWithAccountId = senders.filter((s) => s.accountId);
+      if (sendersWithAccountId.length === 0) return;
+
+      setSenderBalancesLoading(true);
+
+      const balanceMap: Record<string, string> = {};
+      const limit = pLimit(5);
+
+      try {
+        await Promise.all(
+          sendersWithAccountId.map((sender) =>
+            limit(async () => {
+              if (!sender.accountId) return;
+              try {
+                const resp =
+                  await backgroundApiProxy.serviceToken.fetchTokensDetails({
+                    accountId: sender.accountId,
+                    networkId,
+                    contractList: [tokenInfo.address],
+                    withFrozenBalance: true,
+                    withCheckInscription: false,
+                  });
+                if (resp[0]) {
+                  balanceMap[sender.address] = resp[0].balanceParsed;
+                }
+              } catch (_e) {
+                // Individual fetch failure is non-fatal
+              }
+            }),
+          ),
+        );
+      } finally {
+        setSenderBalances(balanceMap);
+        setSenderBalancesLoading(false);
+      }
+    },
+    [networkId, tokenInfo, bulkSendMode, senders],
+    {
+      debounced: POLLING_DEBOUNCE_INTERVAL,
+      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+    },
+  );
+
+  // Per-sender balance validation for ManyToOne/ManyToMany
+  useEffect(() => {
+    if (bulkSendMode === EBulkSendMode.OneToMany) return;
+    if (Object.keys(senderBalances).length === 0) return;
+
+    let anyInsufficient = false;
+
+    for (const transfer of transfersInfo) {
+      const balance = senderBalances[transfer.from];
+      if (balance !== undefined && transfer.amount && transfer.amount !== '') {
+        if (new BigNumber(transfer.amount).gt(balance)) {
+          anyInsufficient = true;
+          break;
+        }
+      }
+    }
+
+    setIsInsufficientBalance(anyInsufficient);
+  }, [bulkSendMode, senderBalances, transfersInfo]);
 
   useEffect(() => {
     const generateTransfersInfo = (): ITransferInfo[] => {
@@ -1109,6 +1232,11 @@ function BulkSendAmountsInput() {
       minTransferAmount,
       intervalSettings,
       setIntervalSettings,
+      senderBalances,
+      setSenderBalances,
+      senderBalancesLoading,
+      setSenderBalancesLoading,
+      senderAccountIdMap,
     }),
     [
       networkId,
@@ -1136,6 +1264,9 @@ function BulkSendAmountsInput() {
       currentModeData,
       minTransferAmount,
       intervalSettings,
+      senderBalances,
+      senderBalancesLoading,
+      senderAccountIdMap,
     ],
   );
 
