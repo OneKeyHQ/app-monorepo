@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components/src/primitives';
 import { TMPopover, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -43,8 +44,6 @@ const ESTIMATED_TAB_ITEM_HEIGHT = 70;
 
 const TAB_BAR_STYLE_WIDTH_40 = { width: 40 };
 const TAB_BAR_STYLE_ARRAY_WIDTH_40 = [{ width: 40 }];
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../../../utils/animationConstants';
-
 const ENTER_EXIT_STYLE = { scale: 0.95, opacity: 0 };
 const OVERFLOW_ANIMATION: [
   'quick',

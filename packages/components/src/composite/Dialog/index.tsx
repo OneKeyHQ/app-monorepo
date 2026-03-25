@@ -34,6 +34,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '../../utils/animationConstants';
+
 import { Toast } from '../../actions/Toast';
 import { Keyboard, SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
@@ -102,10 +107,6 @@ const MAX_CONTENT_WIDTH = 400;
 
 const DIALOG_ENTER_STYLE_OPACITY = { opacity: 0 } as any;
 const DIALOG_EXIT_STYLE_OPACITY = { opacity: 0 } as any;
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '../../utils/animationConstants';
 const DIALOG_CONTENT_ANIMATION: [
   'quick',
   { opacity: { overshootClamping: boolean } },

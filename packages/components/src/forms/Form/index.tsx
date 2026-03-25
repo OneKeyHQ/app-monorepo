@@ -24,6 +24,8 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
+
 import { HeightTransition } from '../../content';
 import {
   Button,
@@ -139,7 +141,6 @@ const errorAnimationStyle = {
   opacity: 0,
   y: -6,
 };
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 export function FieldDescription(props: ISizableTextProps) {
   return (

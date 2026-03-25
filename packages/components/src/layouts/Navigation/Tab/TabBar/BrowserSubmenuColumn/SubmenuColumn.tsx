@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { Stack, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import { ANIMATE_ONLY_WIDTH } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -14,8 +15,6 @@ export interface ISubmenuColumnProps {
   webPageTabBar: ReactElement;
   isExpanded?: boolean;
 }
-
-import { ANIMATE_ONLY_WIDTH } from '../../../../../utils/animationConstants';
 
 const dragRegionStyle = { WebkitAppRegion: 'drag' } as any;
 
