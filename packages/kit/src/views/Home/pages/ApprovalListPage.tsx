@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -177,6 +178,7 @@ function ApprovalListPageContent() {
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
+  const tabBarHeight = useScrollContentTabBarOffset();
 
   const approvalListActions = useApprovalListActions();
   const [{ approvals }] = useApprovalListAtom();
@@ -386,6 +388,11 @@ function ApprovalListPageContent() {
               networkId={networkId ?? ''}
               indexedAccountId={indexedAccountId}
               onPress={handleApprovalOnPress}
+              listViewStyleProps={{
+                contentContainerStyle: {
+                  pb: tabBarHeight,
+                },
+              }}
               {...(media.gtLg && {
                 tableLayout: true,
               })}
