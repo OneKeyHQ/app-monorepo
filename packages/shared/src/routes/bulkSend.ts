@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { EBulkSendMode, IIntervalSettings } from '../../types/bulkSend';
+import type { ISendSelectedFeeInfo } from '../../types/fee';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { ISendTxOnSuccessData } from '../../types/tx';
 
@@ -74,5 +75,15 @@ export type IModalBulkSendParamList = {
     networkId: string;
     accountId: string | undefined;
     isInModal?: boolean;
+    unsignedTxs: IUnsignedTxPro[];
+    feeInfo: ISendSelectedFeeInfo;
+    tokenInfo: IToken;
+    transfersInfo: ITransferInfo[];
+    bulkSendMode: EBulkSendMode;
+    totalTokenAmount: string;
+    totalFiatAmount: string;
+    intervalSettings?: IIntervalSettings;
+    onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+    onFail?: (error: Error) => void;
   };
 };

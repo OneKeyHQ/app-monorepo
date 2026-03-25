@@ -59,6 +59,8 @@ function BulkSendReviewCostCard({
     ataRentFeeNative,
     insufficientSol,
     solBalanceNeeded,
+    singleTxFeeNative,
+    txCountForFeeDisplay,
   } = feeState;
 
   const showAtaRent = ataRentFeeNative && new BigNumber(ataRentFeeNative).gt(0);
@@ -126,13 +128,34 @@ function BulkSendReviewCostCard({
                     <SizableText size="$bodyMdMedium">-</SizableText>
                   ) : (
                     <>
-                      <NumberSizeableText
-                        size="$bodyMdMedium"
-                        formatter="balance"
-                        formatterOptions={{ tokenSymbol: nativeSymbol }}
-                      >
-                        {networkFee}
-                      </NumberSizeableText>
+                      {txCountForFeeDisplay && txCountForFeeDisplay > 1 ? (
+                        <>
+                          <SizableText size="$bodyMdMedium">~</SizableText>
+                          <NumberSizeableText
+                            size="$bodyMdMedium"
+                            formatter="balance"
+                            formatterOptions={{
+                              tokenSymbol: nativeSymbol,
+                            }}
+                          >
+                            {singleTxFeeNative ?? '0'}
+                          </NumberSizeableText>
+                          <SizableText
+                            size="$bodyMdMedium"
+                            color="$textSubdued"
+                          >
+                            {` × ${txCountForFeeDisplay}`}
+                          </SizableText>
+                        </>
+                      ) : (
+                        <NumberSizeableText
+                          size="$bodyMdMedium"
+                          formatter="balance"
+                          formatterOptions={{ tokenSymbol: nativeSymbol }}
+                        >
+                          {networkFee}
+                        </NumberSizeableText>
+                      )}
                       <SizableText size="$bodyMdMedium">
                         (
                         <NumberSizeableText

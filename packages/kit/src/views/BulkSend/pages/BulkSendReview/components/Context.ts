@@ -39,6 +39,10 @@ export type IBulkSendFeeState = {
   insufficientSol?: boolean;
   solBalanceNeeded?: string;
   solBalance?: string; // cached SOL balance for recalculation in handleFeeChange
+  // ManyToMany/ManyToOne: single tx fee for "fee × N" display
+  singleTxFeeNative?: string;
+  singleTxFeeFiat?: string;
+  txCountForFeeDisplay?: number;
 };
 
 export type IBulkSendReviewContext = {

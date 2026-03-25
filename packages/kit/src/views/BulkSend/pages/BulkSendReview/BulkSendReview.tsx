@@ -19,7 +19,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  type EModalBulkSendRoutes,
+  EModalBulkSendRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   ETabRoutes,
@@ -29,6 +29,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -64,6 +65,7 @@ function BaseBulkSendReview({
     transfersInfo,
     bulkSendMode,
     totalTokenAmount,
+    totalFiatAmount,
     approvesInfo,
     unsignedTxs,
     setApprovesInfo,
@@ -95,6 +97,7 @@ function BaseBulkSendReview({
       ataCount,
       tokenInfo,
       totalTokenAmount,
+      bulkSendMode,
     });
 
   // Approval recheck hook - polls allowance after partial batch failure
@@ -342,13 +345,23 @@ function BaseBulkSendReview({
     }
 
     // Step 2: Update unsigned transactions before sending
+    // For ManyToMany/ManyToOne, expand single fee info to match tx count
+    const expandedFeeInfos =
+      bulkSendMode !== EBulkSendMode.OneToMany &&
+      feeState.feeInfos.length === 1 &&
+      unsignedTxs.length > 1
+        ? (Array(unsignedTxs.length).fill(
+            feeState.feeInfos[0],
+          ) as ISendSelectedFeeInfo[])
+        : feeState.feeInfos;
+
     let newUnsignedTxs: IUnsignedTxPro[];
     try {
       newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
         networkId,
         unsignedTxs,
-        feeInfos: feeState.feeInfos,
+        feeInfos: expandedFeeInfos,
       });
     } catch (e: any) {
       setIsSubmitting(false);
@@ -356,9 +369,11 @@ function BaseBulkSendReview({
       throw e;
     }
 
-    // Step 3: Check fee overflow for each transaction
-    for (let i = 0; i < newUnsignedTxs.length; i += 1) {
-      const feeInfo = feeState.feeInfos[i];
+    // Step 3: Check fee overflow (for ManyToMany/ManyToOne, only check first tx)
+    const feeOverflowCheckCount =
+      bulkSendMode !== EBulkSendMode.OneToMany ? 1 : newUnsignedTxs.length;
+    for (let i = 0; i < feeOverflowCheckCount; i += 1) {
+      const feeInfo = expandedFeeInfos[i];
       if (feeInfo) {
         const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
           accountId,
@@ -378,6 +393,38 @@ function BaseBulkSendReview({
           break;
         }
       }
+    }
+
+    // Step 3.5: ManyToMany/ManyToOne — navigate to BulkSendProcess
+    if (bulkSendMode !== EBulkSendMode.OneToMany) {
+      setIsSubmitting(false);
+
+      const processParams = {
+        networkId,
+        accountId,
+        isInModal,
+        unsignedTxs: newUnsignedTxs,
+        feeInfo: feeState.feeInfos[0],
+        tokenInfo,
+        transfersInfo,
+        bulkSendMode,
+        totalTokenAmount,
+        totalFiatAmount,
+        intervalSettings,
+        onSuccess,
+        onFail,
+      };
+
+      if (isInModal) {
+        navigation.push(EModalBulkSendRoutes.BulkSendProcess, processParams);
+      } else {
+        await popModalPages();
+        navigation.pushModal(EModalRoutes.BulkSendModal, {
+          screen: EModalBulkSendRoutes.BulkSendProcess,
+          params: processParams,
+        });
+      }
+      return;
     }
 
     // Step 4: Check if Tron network - confirm transactions one by one
@@ -510,8 +557,12 @@ function BaseBulkSendReview({
     startApprovalRecheck,
     approvesInfo.length,
     bulkSendMode,
-    transfersInfo.length,
-    tokenInfo?.symbol,
+    transfersInfo,
+    tokenInfo,
+    totalTokenAmount,
+    totalFiatAmount,
+    intervalSettings,
+    isInModal,
   ]);
 
   // Determine if confirm button should be disabled

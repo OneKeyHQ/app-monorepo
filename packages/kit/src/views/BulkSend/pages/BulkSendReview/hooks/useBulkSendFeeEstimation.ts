@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/utils/feeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import {
   EFeeType,
   ESendFeeStatus,
@@ -43,6 +44,7 @@ type IUseBulkSendFeeEstimationParams = {
   ataCount?: number;
   tokenInfo?: IToken;
   totalTokenAmount?: string;
+  bulkSendMode?: EBulkSendMode;
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
@@ -88,6 +90,7 @@ export function useBulkSendFeeEstimation({
   ataCount,
   tokenInfo,
   totalTokenAmount,
+  bulkSendMode,
 }: IUseBulkSendFeeEstimationParams) {
   const intl = useIntl();
   const isEstimating = useRef(false);
@@ -273,7 +276,12 @@ export function useBulkSendFeeEstimation({
         let totalNative = new BigNumber(0);
         let totalFiat = new BigNumber(0);
 
-        for (let i = 0; i < unsignedTxs.length; i += 1) {
+        // ManyToMany/ManyToOne: only calculate fee for the first tx, then multiply
+        const isManyToManyOrManyToOne =
+          bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
+        const txCountForLoop = isManyToManyOrManyToOne ? 1 : unsignedTxs.length;
+
+        for (let i = 0; i < txCountForLoop; i += 1) {
           const unsignedTx = unsignedTxs[i];
           // Use per-tx fee info if available (from batch estimation)
           // Otherwise use the shared selectedFeeInfo
@@ -311,6 +319,19 @@ export function useBulkSendFeeEstimation({
             totalNativeForDisplay: feeResult.totalNativeForDisplay,
             totalFiatForDisplay: feeResult.totalFiatForDisplay,
           });
+        }
+
+        // ManyToMany/ManyToOne: multiply single tx fee by total tx count
+        let singleTxFeeNative: string | undefined;
+        let singleTxFeeFiat: string | undefined;
+        let txCountForFeeDisplay: number | undefined;
+
+        if (isManyToManyOrManyToOne && unsignedTxs.length > 1) {
+          singleTxFeeNative = totalNative.toFixed();
+          singleTxFeeFiat = totalFiat.toFixed();
+          txCountForFeeDisplay = unsignedTxs.length;
+          totalNative = totalNative.times(unsignedTxs.length);
+          totalFiat = totalFiat.times(unsignedTxs.length);
         }
 
         // Calculate ATA rent and check SOL balance for Solana transfers
@@ -375,6 +396,9 @@ export function useBulkSendFeeEstimation({
           ataRentFeeNative,
           insufficientSol,
           solBalanceNeeded,
+          singleTxFeeNative,
+          singleTxFeeFiat,
+          txCountForFeeDisplay,
         }));
 
         return {
@@ -420,6 +444,7 @@ export function useBulkSendFeeEstimation({
       tokenInfo?.isNative,
       totalTokenAmount,
       unsignedTxs,
+      bulkSendMode,
     ],
   );
 
@@ -463,8 +488,11 @@ export function useBulkSendFeeEstimation({
       const feeInfos: ISendSelectedFeeInfo[] = [];
 
       const isMultiTxs = unsignedTxs.length > 1;
+      const isManyToManyOrManyToOne =
+        bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
+      const txCountForLoop = isManyToManyOrManyToOne ? 1 : unsignedTxs.length;
 
-      for (let i = 0; i < unsignedTxs.length; i += 1) {
+      for (let i = 0; i < txCountForLoop; i += 1) {
         const unsignedTx = unsignedTxs[i];
         // Use per-tx fee info if available (from batch estimation)
         let txFeeInfo = selectedFeeInfo;
@@ -502,6 +530,19 @@ export function useBulkSendFeeEstimation({
         });
       }
 
+      // ManyToMany/ManyToOne: multiply single tx fee
+      let newSingleTxFeeNative: string | undefined;
+      let newSingleTxFeeFiat: string | undefined;
+      let newTxCountForFeeDisplay: number | undefined;
+
+      if (isManyToManyOrManyToOne && unsignedTxs.length > 1) {
+        newSingleTxFeeNative = totalNative.toFixed();
+        newSingleTxFeeFiat = totalFiat.toFixed();
+        newTxCountForFeeDisplay = unsignedTxs.length;
+        totalNative = totalNative.times(unsignedTxs.length);
+        totalFiat = totalFiat.times(unsignedTxs.length);
+      }
+
       setFeeState((prev) => {
         const updated: Partial<IBulkSendFeeState> = {
           selectedFee: {
@@ -511,6 +552,9 @@ export function useBulkSendFeeEstimation({
           totalFeeNative: totalNative.toFixed(),
           totalFeeFiat: totalFiat.toFixed(),
           feeInfos,
+          singleTxFeeNative: newSingleTxFeeNative,
+          singleTxFeeFiat: newSingleTxFeeFiat,
+          txCountForFeeDisplay: newTxCountForFeeDisplay,
         };
 
         // Recalculate insufficientSol when fee level changes
@@ -544,6 +588,7 @@ export function useBulkSendFeeEstimation({
       tokenInfo?.isNative,
       totalTokenAmount,
       unsignedTxs,
+      bulkSendMode,
     ],
   );
 
