@@ -936,12 +936,10 @@ class ServiceAccountSelector extends ServiceBase {
           }
         }
       }
-      return Object.keys(accountAddressMap).length > 0
-        ? accountAddressMap
-        : undefined;
+      return accountAddressMap;
     } catch (error) {
       // silently fail — address search degrades to name-only
-      return undefined;
+      return {};
     }
   }
 
