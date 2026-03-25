@@ -42,6 +42,8 @@ const HEADER_TITLE_BASE_STYLE = {
 } as const;
 const EMPTY_HEADER_RIGHT_CONTAINER_STYLE = {} as const;
 const EMPTY_HEADER_TITLE_CONTAINER_STYLE = {} as const;
+const EMPTY_OPTIONS = {} as const;
+const GTMD_FLEX_DIRECTION_ROW = { flexDirection: 'row' } as const;
 
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },
@@ -108,7 +110,7 @@ function HeaderView({
     // native HeaderSearchBar in packages/components/src/layouts/Page/PageHeader.tsx
     headerSearchBarOptions,
     headerTitleStyle,
-  } = options || {};
+  } = options || EMPTY_OPTIONS;
   const theme = useTheme();
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
@@ -189,6 +191,72 @@ function HeaderView({
     () => `${title}-${routeName}`,
     [title, routeName],
   );
+  const stackStyle = useMemo(
+    () =>
+      headerTransparent && !platformEnv.isNativeAndroid
+        ? HEADER_TRANSPARENT_STYLE
+        : EMPTY_HEADER_STYLE,
+    [headerTransparent],
+  );
+
+  const innerGtMd = useMemo(
+    () => (platformEnv.isNativeAndroid ? undefined : GTMD_FLEX_1),
+    [],
+  );
+
+  const headerRightContainerStyleMemo = useMemo(
+    () =>
+      isOnboardingScreen ? FLEX_GROW_0_STYLE : headerRightContainerStyle,
+    [isOnboardingScreen, headerRightContainerStyle],
+  );
+
+  const headerRightView = useCallback(
+    typeof headerRight === 'function'
+      ? ({ tintColor }: { tintColor?: string }) => {
+          const ele = headerRight({ tintColor, canGoBack });
+          return ele;
+        }
+      : () => headerRight as any,
+    [headerRight, canGoBack],
+  );
+
+  const headerTitleView = useCallback(
+    typeof headerTitle === 'function'
+      ? ({
+          children,
+          tintColor,
+        }: {
+          children: string;
+          tintColor?: string;
+        }) => headerTitle({ children, tintColor })
+      : () => null,
+    [headerTitle],
+  );
+
+  const headerTitleStyleMemo = useMemo(
+    () =>
+      headerTitleStyle
+        ? { ...HEADER_TITLE_BASE_STYLE, ...(headerTitleStyle as any) }
+        : HEADER_TITLE_BASE_STYLE,
+    [headerTitleStyle],
+  );
+
+  const headerTitleContainerStyleMemo = useMemo(
+    () => ({
+      marginHorizontal: 0,
+      ...(headerTitleContainerStyle as any),
+      ...(isOnboardingScreen
+        ? { flex: 1, alignItems: 'center' }
+        : undefined),
+    }),
+    [headerTitleContainerStyle, isOnboardingScreen],
+  );
+
+  const headerStyleMemo = useMemo(
+    () => [{ height: headerHeight }, headerStyle],
+    [headerHeight, headerStyle],
+  );
+
   if (!headerShown) {
     return null;
   }
@@ -199,19 +267,13 @@ function HeaderView({
         alignItems="center"
         bg={headerBackgroundColor}
         pt={isOnboardingScreen ? '$10' : undefined}
-        style={
-          headerTransparent && !platformEnv.isNativeAndroid
-            ? { position: 'absolute', right: 0, left: 0 }
-            : {}
-        }
+        style={stackStyle}
         pointerEvents="box-none"
-        {...(!isModelScreen && {
-          $gtMd: platformEnv.isNativeAndroid
-            ? undefined
-            : {
-                flexDirection: 'row',
-              },
-        })}
+        $gtMd={
+          !isModelScreen && !platformEnv.isNativeAndroid
+            ? GTMD_FLEX_DIRECTION_ROW
+            : undefined
+        }
       >
         <Stack
           alignSelf="stretch"
@@ -223,13 +285,7 @@ function HeaderView({
               ? WINDOWS_OVERLAY_BUTTONS_WIDTH
               : undefined
           }
-          $gtMd={
-            platformEnv.isNativeAndroid
-              ? undefined
-              : {
-                  flex: 1,
-                }
-          }
+          $gtMd={innerGtMd}
         >
           <Header
             layout={layout}
@@ -237,45 +293,24 @@ function HeaderView({
             key={headerViewKey}
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView as any}
-            headerRightContainerStyle={
-              isOnboardingScreen ? { flexGrow: 0 } : headerRightContainerStyle
-            }
+            headerRightContainerStyle={headerRightContainerStyleMemo}
             headerTitleAllowFontScaling={false}
             headerRight={
               typeof headerRight === 'function'
-                ? ({ tintColor }) => {
-                    const ele = headerRight({ tintColor, canGoBack });
-                    return ele;
-                  }
+                ? headerRightView
                 : (headerRight as any)
             }
             headerTitle={
               typeof headerTitle === 'function'
-                ? ({ children, tintColor }) =>
-                    headerTitle({ children, tintColor })
+                ? headerTitleView
                 : headerTitle
             }
             headerTitleAlign={headerTitleAlign}
-            headerTitleStyle={{
-              lineHeight: 28,
-              fontWeight: '600',
-              ...(headerTitleStyle as any),
-            }}
-            headerTitleContainerStyle={{
-              marginHorizontal: 0,
-              ...(headerTitleContainerStyle as any),
-              ...(isOnboardingScreen
-                ? { flex: 1, alignItems: 'center' }
-                : undefined),
-            }}
+            headerTitleStyle={headerTitleStyleMemo}
+            headerTitleContainerStyle={headerTitleContainerStyleMemo}
             headerTransparent
             headerBackground={headerBackground}
-            headerStyle={[
-              {
-                height: headerHeight,
-              },
-              headerStyle,
-            ]}
+            headerStyle={headerStyleMemo}
           />
         </Stack>
         {headerSearchBarOptions ? (

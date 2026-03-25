@@ -94,19 +94,22 @@ export function RootStackNavigator<
     () =>
       config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, type, options }) => (
-          <RootStack.Screen
-            key={name}
-            name={name}
-            component={component}
-            options={(optionsInfo) => ({
-              ...(typeof options === 'function'
-                ? options(optionsInfo as any)
-                : options),
-              ...getOptionsWithType(type, optionsInfo),
-            })}
-          />
-        )),
+        .map(({ name, component, type, options }) => {
+          const screenOptions = (optionsInfo: IScreenOptionsInfo<any>) => ({
+            ...(typeof options === 'function'
+              ? options(optionsInfo as any)
+              : options),
+            ...getOptionsWithType(type, optionsInfo),
+          });
+          return (
+            <RootStack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={screenOptions}
+            />
+          );
+        }),
     [config, getOptionsWithType],
   );
 

@@ -198,20 +198,33 @@ export function DesktopTabItem(
     },
     [reportPopoverOpen],
   );
+  const tabItemGtMdStyle = useMemo(
+    () =>
+      ({
+        flexDirection: 'row',
+        px: '$2',
+        bg: selected ? '$bgActive' : undefined,
+        borderRadius: '$2',
+      }) as any,
+    [selected],
+  );
+  const defaultCloseButtonTitle = useMemo(
+    () => (
+      <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+        {intl.formatMessage({
+          id: ETranslations.global_close,
+        })}
+      </Tooltip.Text>
+    ),
+    [intl],
+  );
   const trigger = useMemo(
     () => (
       <YStack
         {...tabBarItemStyle}
         alignItems="center"
         py="$2"
-        $gtMd={
-          {
-            flexDirection: 'row',
-            px: '$2',
-            bg: selected ? '$bgActive' : undefined,
-            borderRadius: '$2',
-          } as any
-        }
+        $gtMd={tabItemGtMdStyle}
         userSelect="none"
         {...((!selected && {
           pressStyle: {
@@ -282,15 +295,7 @@ export function DesktopTabItem(
             {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
             variant="tertiary"
             focusVisibleStyle={undefined}
-            title={
-              closeButtonTitle ?? (
-                <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
-                  {intl.formatMessage({
-                    id: ETranslations.global_close,
-                  })}
-                </Tooltip.Text>
-              )
-            }
+            title={closeButtonTitle ?? defaultCloseButtonTitle}
             m={-3}
             testID="browser-bar-options"
             onPress={onClose}
@@ -311,6 +316,7 @@ export function DesktopTabItem(
     ),
     [
       tabBarItemStyle,
+      tabItemGtMdStyle,
       selected,
       isContextMenuOpened,
       isHovered,
@@ -331,10 +337,10 @@ export function DesktopTabItem(
       alwaysShowCloseButton,
       closeButtonIcon,
       closeButtonTitle,
+      defaultCloseButtonTitle,
       actionList,
       handleRenderItems,
       handleActionListOpenChange,
-      intl,
       onClose,
       children,
     ],

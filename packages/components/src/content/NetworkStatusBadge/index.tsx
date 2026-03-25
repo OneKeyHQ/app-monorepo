@@ -9,7 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Badge } from '../Badge';
 
-const fontVariant = ['tabular-nums'] as const;
+const fontVariant: ['tabular-nums'] = ['tabular-nums'];
 
 export type INetworkStatusBadgeProps = {
   connected: boolean;

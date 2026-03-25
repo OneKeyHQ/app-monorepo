@@ -44,10 +44,10 @@ const ESTIMATED_TAB_ITEM_HEIGHT = 70;
 const TAB_BAR_STYLE_WIDTH_40 = { width: 40 };
 const TAB_BAR_STYLE_ARRAY_WIDTH_40 = [{ width: 40 }];
 const ENTER_EXIT_STYLE = { scale: 0.95, opacity: 0 };
-const OVERFLOW_ANIMATION: [
-  string,
-  { opacity: { overshootClamping: boolean } },
-] = ['quick', { opacity: { overshootClamping: true } }];
+const OVERFLOW_ANIMATION = [
+  'quick' as const,
+  { opacity: { overshootClamping: true } },
+] as const;
 const PLATFORM_WEB_SHADOW_STYLE = {
   outlineColor: '$neutral3',
   outlineStyle: 'solid',

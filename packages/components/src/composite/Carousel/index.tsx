@@ -285,7 +285,7 @@ export function Carousel<T>({
   const pagerViewStyle = useMemo(
     () => ({
       width: (pageWidthProp || layout.width) as number,
-      height: pageWidthProp ? '100%' : layout.height,
+      height: (pageWidthProp ? '100%' : layout.height) as number | `${number}%`,
     }),
     [pageWidthProp, layout.width, layout.height],
   );

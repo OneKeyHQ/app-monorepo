@@ -8,6 +8,8 @@ import { DOTS, usePagination } from './usePagination';
 import type { IXStackProps } from '../../primitives';
 
 const pressStyleConst = { bg: '$bgActive' } as const;
+const activeHoverStyle = { bg: '$bgStrong' } as const;
+const inactiveHoverStyle = { bg: '$bgHover' } as const;
 
 export interface IPaginationProps extends IXStackProps {
   current: number;

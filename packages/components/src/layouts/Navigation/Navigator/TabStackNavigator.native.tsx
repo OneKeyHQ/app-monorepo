@@ -42,27 +42,30 @@ function BasicTabSubStackNavigator({
     <Stack.Navigator>
       {config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId, headerShown = true }) => (
-          <Stack.Screen
-            key={name}
-            name={name}
-            component={component}
-            options={({ navigation }: { navigation: any }) => ({
-              freezeOnBlur: true,
-              title: translationId
-                ? intl.formatMessage({
-                    id: translationId,
-                  })
-                : '',
-              ...makeTabScreenOptions({
-                navigation,
-                bgColor: theme.bgApp.val,
-                titleColor: theme.text.val,
-              }),
-              headerShown,
-            })}
-          />
-        ))}
+        .map(({ name, component, translationId, headerShown = true }) => {
+          const screenOptions = ({ navigation }: { navigation: any }) => ({
+            freezeOnBlur: true,
+            title: translationId
+              ? intl.formatMessage({
+                  id: translationId,
+                })
+              : '',
+            ...makeTabScreenOptions({
+              navigation,
+              bgColor: theme.bgApp.val,
+              titleColor: theme.text.val,
+            }),
+            headerShown,
+          });
+          return (
+            <Stack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={screenOptions}
+            />
+          );
+        })}
     </Stack.Navigator>
   );
 }

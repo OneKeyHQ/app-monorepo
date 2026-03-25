@@ -41,7 +41,7 @@ const textAreaAddOnsItemProps = {
     bg: '$bgActive',
     borderRadius: '$5',
   },
-};
+} as const;
 
 const textAreaInputComponentStyle = {
   h: undefined,

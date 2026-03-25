@@ -58,6 +58,32 @@ type IProps = DefaultNavigatorOptions<
   StackRouterOptions &
   IModalNavigationConfig;
 
+function ModalRouteWrapper({
+  routeIndex,
+  stackChildrenRefList,
+  children,
+  style,
+}: {
+  routeIndex: number;
+  stackChildrenRefList: React.MutableRefObject<TamaguiElement[]>;
+  children: React.ReactNode;
+  style: any;
+}) {
+  const refCallback = useCallback(
+    (ref: TamaguiElement | null) => {
+      if (ref) {
+        stackChildrenRefList.current[routeIndex] = ref;
+      }
+    },
+    [routeIndex, stackChildrenRefList],
+  );
+  return (
+    <Stack ref={refCallback} flex={1} bg="$bg" style={style}>
+      {children}
+    </Stack>
+  );
+}
+
 const backdropId = 'app-modal-stacks-backdrop';
 
 const backdropStyle = {
@@ -95,7 +121,7 @@ const routeStyleFirst = {
 const containerGtMdStyle = {
   justifyContent: 'center',
   alignItems: 'center',
-};
+} as const;
 
 const modalScreenGtMdStyle = {
   width: '90%',
@@ -106,7 +132,7 @@ const modalScreenGtMdStyle = {
   outlineWidth: '$px',
   outlineStyle: 'solid',
   outlineColor: '$borderSubdued',
-};
+} as const;
 
 const routeStyleNonFirst = {
   transform: [{ translateX: 640 }],
@@ -350,18 +376,13 @@ function WebModalNavigator({
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { render } = routeDescriptor;
     routeDescriptor.render = () => (
-      <Stack
-        ref={(ref) => {
-          if (ref) {
-            stackChildrenRefList.current[routeIndex] = ref;
-          }
-        }}
-        flex={1}
-        bg="$bg"
+      <ModalRouteWrapper
+        routeIndex={routeIndex}
+        stackChildrenRefList={stackChildrenRefList}
         style={routeIndex !== 0 ? routeStyleNonFirst : routeStyleFirst}
       >
         {render()}
-      </Stack>
+      </ModalRouteWrapper>
     );
   });
 

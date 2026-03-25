@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import type { DPMonth } from '@rehookify/datepicker';
 import { useDatePickerContext } from '@rehookify/datepicker';
 
 import { SizableText, Stack } from '../../primitives';
@@ -14,8 +15,8 @@ const MonthCell = memo(
     month: m,
     onPress,
   }: {
-    month: { $date: Date; month: string; active: boolean };
-    onPress: (m: { $date: Date; month: string; active: boolean }) => void;
+    month: DPMonth;
+    onPress: (m: DPMonth) => void;
   }) => {
     const handlePress = useCallback(() => {
       onPress(m);

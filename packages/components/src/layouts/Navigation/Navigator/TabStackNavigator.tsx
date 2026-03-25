@@ -32,27 +32,30 @@ function BasicTabSubStackNavigator({
     <Stack.Navigator>
       {config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId, headerShown = true }) => (
-          <Stack.Screen
-            key={name}
-            name={name}
-            component={component}
-            options={({ navigation }: { navigation: any }) => ({
-              freezeOnBlur: true,
-              title: translationId
-                ? intl.formatMessage({
-                    id: translationId,
-                  })
-                : '',
-              ...makeTabScreenOptions({
-                navigation,
-                bgColor: theme.bgApp.val,
-                titleColor: theme.text.val,
-              }),
-              headerShown,
-            })}
-          />
-        ))}
+        .map(({ name, component, translationId, headerShown = true }) => {
+          const screenOptions = ({ navigation }: { navigation: any }) => ({
+            freezeOnBlur: true,
+            title: translationId
+              ? intl.formatMessage({
+                  id: translationId,
+                })
+              : '',
+            ...makeTabScreenOptions({
+              navigation,
+              bgColor: theme.bgApp.val,
+              titleColor: theme.text.val,
+            }),
+            headerShown,
+          });
+          return (
+            <Stack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={screenOptions}
+            />
+          );
+        })}
     </Stack.Navigator>
   );
 }
@@ -119,38 +122,42 @@ export function TabStackNavigator<RouteName extends string>({
   const tabBarPosition = useTabBarPosition();
 
   const tabScreens = useMemo(() => {
-    const screens = tabComponents.map(({ name, children, ...options }) => (
-      <Tab.Screen
-        key={name}
-        name={name}
-        options={{
-          ...options,
-          tabBarLabel: intl.formatMessage({ id: options.translationId }),
-          tabBarPosition,
-          // @ts-expect-error Custom property for tab bar handling
-          collapseTabBarLabel: options.collapseSideBarTranslationId
-            ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
-            : undefined,
-          hideOnTabBar: options.hideOnTabBar,
-          tabbarOnPress: options.tabbarOnPress,
-        }}
-      >
-        {children}
-      </Tab.Screen>
-    ));
+    const screens = tabComponents.map(({ name, children, ...options }) => {
+      const screenOptions = {
+        ...options,
+        tabBarLabel: intl.formatMessage({ id: options.translationId }),
+        tabBarPosition,
+        // @ts-expect-error Custom property for tab bar handling
+        collapseTabBarLabel: options.collapseSideBarTranslationId
+          ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
+          : undefined,
+        hideOnTabBar: options.hideOnTabBar,
+        tabbarOnPress: options.tabbarOnPress,
+      };
+      return (
+        <Tab.Screen
+          key={name}
+          name={name}
+          options={screenOptions}
+        >
+          {children}
+        </Tab.Screen>
+      );
+    });
 
     if (extraConfig) {
       const children = () => (
         <TabSubStackNavigator config={extraConfig.children} />
       );
+      const extraScreenOptions = {
+        freezeOnBlur: true,
+        tabBarPosition,
+      };
       screens.push(
         <Tab.Screen
           key={extraConfig.name}
           name={extraConfig.name}
-          options={{
-            freezeOnBlur: true,
-            tabBarPosition,
-          }}
+          options={extraScreenOptions}
         >
           {children}
         </Tab.Screen>,

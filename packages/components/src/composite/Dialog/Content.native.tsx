@@ -9,6 +9,7 @@ import { Spinner, Stack, YStack } from '../../primitives';
 import type { IDialogContentProps } from './type';
 import type { LayoutChangeEvent, View } from 'react-native';
 
+const exitStyleConst = { opacity: 0 } as const;
 const MAX_ANIMATION_DURATION = 550;
 export function Content({
   children,
@@ -132,9 +133,7 @@ export function Content({
                 alignContent="center"
                 justifyContent="center"
                 flex={1}
-                exitStyle={{
-                  opacity: 0,
-                }}
+                exitStyle={exitStyleConst}
               >
                 <Spinner size="large" />
               </Stack>

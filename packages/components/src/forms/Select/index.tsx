@@ -346,7 +346,7 @@ function SelectContent() {
   const mergedSheetProps = useMemo(
     () => ({
       dismissOnSnapToBottom: true,
-      snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',
+      snapPointsMode: usingPercentSnapPoints ? ('percent' as const) : ('fit' as const),
       snapPoints: usingPercentSnapPoints ? [65] : undefined,
       ...sheetProps,
     }),
