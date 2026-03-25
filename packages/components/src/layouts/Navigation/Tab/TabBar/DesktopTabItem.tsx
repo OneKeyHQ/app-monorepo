@@ -45,6 +45,8 @@ import type {
   ViewStyle,
 } from 'react-native';
 
+const emptyFragment = <></>;
+
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
   size?: 'small' | 'medium';
@@ -78,21 +80,25 @@ function BasicDesktopTabItemImage({
   avatarSrc?: string;
   selected?: boolean;
 }) {
+  const fallbackElement = useMemo(
+    () => (
+      <Image.Fallback bg="$bgSidebar" delayMs={180}>
+        <Icon
+          size="$4.5"
+          name="GlobusOutline"
+          color={selected ? '$iconActive' : '$iconSubdued'}
+        />
+      </Image.Fallback>
+    ),
+    [selected],
+  );
   return (
     <Image
       borderRadius="$1"
       size="$4.5"
       m="$px"
       source={avatarSrc}
-      fallback={
-        <Image.Fallback bg="$bgSidebar" delayMs={180}>
-          <Icon
-            size="$4.5"
-            name="GlobusOutline"
-            color={selected ? '$iconActive' : '$iconSubdued'}
-          />
-        </Image.Fallback>
-      }
+      fallback={fallbackElement}
     />
   );
 }
@@ -177,20 +183,48 @@ export function DesktopTabItem(
     },
     [onPress, selected, trackId, onPressWhenSelected],
   );
+  const handleRenderItems = useCallback(
+    ({ handleActionListOpen }: { handleActionListOpen: () => void }) => {
+      openActionList.current = handleActionListOpen;
+      return undefined;
+    },
+    [],
+  );
+  const handleActionListOpenChange = useCallback(
+    (isOpened: boolean) => {
+      reportPopoverOpen(isOpened);
+      setIsContextMenuOpened(isOpened);
+      setIsHovered(isOpened);
+    },
+    [reportPopoverOpen],
+  );
+  const tabItemGtMdStyle = useMemo(
+    () =>
+      ({
+        flexDirection: 'row',
+        px: '$2',
+        bg: selected ? '$bgActive' : undefined,
+        borderRadius: '$2',
+      }) as IStackStyle,
+    [selected],
+  );
+  const defaultCloseButtonTitle = useMemo(
+    () => (
+      <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+        {intl.formatMessage({
+          id: ETranslations.global_close,
+        })}
+      </Tooltip.Text>
+    ),
+    [intl],
+  );
   const trigger = useMemo(
     () => (
       <YStack
         {...tabBarItemStyle}
         alignItems="center"
         py="$2"
-        $gtMd={
-          {
-            flexDirection: 'row',
-            px: '$2',
-            bg: selected ? '$bgActive' : undefined,
-            borderRadius: '$2',
-          } as any
-        }
+        $gtMd={tabItemGtMdStyle}
         userSelect="none"
         {...((!selected && {
           pressStyle: {
@@ -261,15 +295,7 @@ export function DesktopTabItem(
             {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
             variant="tertiary"
             focusVisibleStyle={undefined}
-            title={
-              closeButtonTitle ?? (
-                <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
-                  {intl.formatMessage({
-                    id: ETranslations.global_close,
-                  })}
-                </Tooltip.Text>
-              )
-            }
+            title={closeButtonTitle ?? defaultCloseButtonTitle}
             m={-3}
             testID="browser-bar-options"
             onPress={onClose}
@@ -280,16 +306,9 @@ export function DesktopTabItem(
             title=""
             placement="right-start"
             sections={actionList}
-            renderTrigger={<></>}
-            renderItems={({ handleActionListOpen }) => {
-              openActionList.current = handleActionListOpen;
-              return undefined;
-            }}
-            onOpenChange={(isOpened) => {
-              reportPopoverOpen(isOpened);
-              setIsContextMenuOpened(isOpened);
-              setIsHovered(isOpened);
-            }}
+            renderTrigger={emptyFragment}
+            renderItems={handleRenderItems}
+            onOpenChange={handleActionListOpenChange}
           />
         ) : null}
         {children}
@@ -297,6 +316,7 @@ export function DesktopTabItem(
     ),
     [
       tabBarItemStyle,
+      tabItemGtMdStyle,
       selected,
       isContextMenuOpened,
       isHovered,
@@ -317,9 +337,10 @@ export function DesktopTabItem(
       alwaysShowCloseButton,
       closeButtonIcon,
       closeButtonTitle,
+      defaultCloseButtonTitle,
       actionList,
-      reportPopoverOpen,
-      intl,
+      handleRenderItems,
+      handleActionListOpenChange,
       onClose,
       children,
     ],

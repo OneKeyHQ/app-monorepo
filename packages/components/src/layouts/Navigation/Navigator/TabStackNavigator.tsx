@@ -32,27 +32,31 @@ function BasicTabSubStackNavigator({
     <Stack.Navigator>
       {config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId, headerShown = true }) => (
-          <Stack.Screen
-            key={name}
-            name={name}
-            component={component}
-            options={({ navigation }: { navigation: any }) => ({
-              freezeOnBlur: true,
-              title: translationId
-                ? intl.formatMessage({
-                    id: translationId,
-                  })
-                : '',
-              ...makeTabScreenOptions({
-                navigation,
-                bgColor: theme.bgApp.val,
-                titleColor: theme.text.val,
-              }),
-              headerShown,
-            })}
-          />
-        ))}
+        .map(({ name, component, translationId, headerShown = true }) => {
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+          const screenOptions = ({ navigation }: { navigation: any }) => ({
+            freezeOnBlur: true,
+            title: translationId
+              ? intl.formatMessage({
+                  id: translationId,
+                })
+              : '',
+            ...makeTabScreenOptions({
+              navigation,
+              bgColor: theme.bgApp.val,
+              titleColor: theme.text.val,
+            }),
+            headerShown,
+          });
+          return (
+            <Stack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={screenOptions}
+            />
+          );
+        })}
     </Stack.Navigator>
   );
 }
@@ -62,6 +66,14 @@ const TabSubStackNavigatorMemo = memo(BasicTabSubStackNavigator);
 export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const Tab = createBottomTabNavigator();
+
+const emptyTabBar = () => null;
+
+const tabScreenOptions = {
+  headerShown: false,
+  freezeOnBlur: true,
+  lazy: false,
+};
 
 const useTabBarPosition = platformEnv.isNative
   ? () => 'bottom' as const
@@ -111,38 +123,39 @@ export function TabStackNavigator<RouteName extends string>({
   const tabBarPosition = useTabBarPosition();
 
   const tabScreens = useMemo(() => {
-    const screens = tabComponents.map(({ name, children, ...options }) => (
-      <Tab.Screen
-        key={name}
-        name={name}
-        options={{
-          ...options,
-          tabBarLabel: intl.formatMessage({ id: options.translationId }),
-          tabBarPosition,
-          // @ts-expect-error Custom property for tab bar handling
-          collapseTabBarLabel: options.collapseSideBarTranslationId
-            ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
-            : undefined,
-          hideOnTabBar: options.hideOnTabBar,
-          tabbarOnPress: options.tabbarOnPress,
-        }}
-      >
-        {children}
-      </Tab.Screen>
-    ));
+    const screens = tabComponents.map(({ name, children, ...options }) => {
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+      const screenOptions = {
+        ...options,
+        tabBarLabel: intl.formatMessage({ id: options.translationId }),
+        tabBarPosition,
+        collapseTabBarLabel: options.collapseSideBarTranslationId
+          ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
+          : undefined,
+        hideOnTabBar: options.hideOnTabBar,
+        tabbarOnPress: options.tabbarOnPress,
+      } as any;
+      return (
+        <Tab.Screen key={name} name={name} options={screenOptions}>
+          {children}
+        </Tab.Screen>
+      );
+    });
 
     if (extraConfig) {
       const children = () => (
         <TabSubStackNavigator config={extraConfig.children} />
       );
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+      const extraScreenOptions = {
+        freezeOnBlur: true,
+        tabBarPosition,
+      } as any;
       screens.push(
         <Tab.Screen
           key={extraConfig.name}
           name={extraConfig.name}
-          options={{
-            freezeOnBlur: true,
-            tabBarPosition,
-          }}
+          options={extraScreenOptions}
         >
           {children}
         </Tab.Screen>,
@@ -153,12 +166,8 @@ export function TabStackNavigator<RouteName extends string>({
 
   return (
     <Tab.Navigator
-      tabBar={showTabBar ? tabBarCallback : () => null}
-      screenOptions={{
-        headerShown: false,
-        freezeOnBlur: true,
-        lazy: false,
-      }}
+      tabBar={showTabBar ? tabBarCallback : emptyTabBar}
+      screenOptions={tabScreenOptions}
     >
       {tabScreens}
     </Tab.Navigator>

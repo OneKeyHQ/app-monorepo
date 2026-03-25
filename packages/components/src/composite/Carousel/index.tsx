@@ -215,10 +215,13 @@ export function Carousel<T>({
     };
   });
 
-  const onPressPagination = (index: number) => {
-    setPage(index);
-    debouncedSetPageIndex(index);
-  };
+  const onPressPagination = useCallback(
+    (index: number) => {
+      setPage(index);
+      debouncedSetPageIndex(index);
+    },
+    [setPage, debouncedSetPageIndex],
+  );
 
   const onPageSelected = useCallback(
     (e: NativeSyntheticEvent<Readonly<{ position: number }>>) => {
@@ -271,6 +274,35 @@ export function Carousel<T>({
 
   const value = useMemo(() => ({ pageIndex }), [pageIndex]);
 
+  const containerSizeStyle = useMemo(
+    () => ({
+      width: pageWidthProp || layout.width,
+      height: pageWidthProp ? '100%' : layout.height,
+    }),
+    [pageWidthProp, layout.width, layout.height],
+  );
+
+  const pagerViewStyle = useMemo(
+    () => ({
+      width: (pageWidthProp || layout.width) as number,
+      height: (pageWidthProp ? '100%' : layout.height) as number | `${number}%`,
+    }),
+    [pageWidthProp, layout.width, layout.height],
+  );
+
+  const pageItemStyle = useMemo(
+    () => ({
+      width: pageWidth,
+      height: '100%' as const,
+    }),
+    [pageWidth],
+  );
+
+  const defaultActiveDotStyle = useMemo(
+    () => activeDotStyle || { bg: '$bgPrimary' as const },
+    [activeDotStyle],
+  );
+
   return (
     <CarouselContext.Provider value={value}>
       <YStack userSelect="none" ref={containerRef as any}>
@@ -284,20 +316,14 @@ export function Carousel<T>({
         >
           {pageWidthProp || (layout.width > 0 && layout.height > 0) ? (
             <Stack
-              style={{
-                width: pageWidthProp || layout.width,
-                height: pageWidthProp ? '100%' : layout.height,
-              }}
+              style={containerSizeStyle}
               key={
                 pageWidthProp ? undefined : `${layout.width}-${layout.height}`
               }
             >
               <PagerView
                 ref={pagerRef as RefObject<NativePagerView>}
-                style={{
-                  width: (pageWidthProp || layout.width) as number,
-                  height: pageWidthProp ? '100%' : layout.height,
-                }}
+                style={pagerViewStyle}
                 initialPage={defaultIndex}
                 pageWidth={pageWidth}
                 onPageSelected={onPageSelected}
@@ -308,13 +334,7 @@ export function Carousel<T>({
                 {...pagerProps}
               >
                 {data.map((item, index) => (
-                  <Stack
-                    key={index}
-                    style={{
-                      width: pageWidth,
-                      height: '100%',
-                    }}
-                  >
+                  <Stack key={index} style={pageItemStyle}>
                     {renderItem({ item, index })}
                   </Stack>
                 ))}
@@ -335,7 +355,7 @@ export function Carousel<T>({
               <IconButton
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
-                onPress={() => scrollToPreviousPage()}
+                onPress={scrollToPreviousPage}
                 disabled={data.length <= 1}
               />
             ) : null}
@@ -346,9 +366,7 @@ export function Carousel<T>({
                     data: item,
                     dotStyle,
                     activeDotStyle:
-                      index === pageIndex
-                        ? activeDotStyle || { bg: '$bgPrimary' }
-                        : undefined,
+                      index === pageIndex ? defaultActiveDotStyle : undefined,
                     onPress: () => onPressPagination(index),
                   },
                   index,
@@ -359,7 +377,7 @@ export function Carousel<T>({
               <IconButton
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"
-                onPress={() => scrollToNextPage()}
+                onPress={scrollToNextPage}
                 disabled={data.length <= 1}
               />
             ) : null}

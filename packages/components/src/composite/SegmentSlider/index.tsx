@@ -28,25 +28,40 @@ const Mark = ({
   backgroundColor,
   borderColor,
   onPress,
+  index,
+  onPressIndex,
 }: {
   slideOver?: boolean;
   markColor?: string;
   backgroundColor?: string;
   borderColor?: string;
   onPress?: () => void;
+  index?: number;
+  onPressIndex?: (index: number) => void;
 }) => {
+  const markStyle = useMemo(
+    () => ({
+      width: markWidth,
+      height: markWidth,
+      backgroundColor: slideOver ? markColor : backgroundColor,
+      borderWidth: 1,
+      borderColor: slideOver ? markColor : borderColor,
+      borderRadius: markWidth / 2,
+    }),
+    [slideOver, markColor, backgroundColor, borderColor],
+  );
+
+  const handlePress = useCallback(() => {
+    if (onPress) {
+      onPress();
+    } else if (onPressIndex !== undefined && index !== undefined) {
+      onPressIndex(index);
+    }
+  }, [onPress, onPressIndex, index]);
+
   return (
-    <TouchableWithoutFeedback onPress={onPress}>
-      <View
-        style={{
-          width: markWidth,
-          height: markWidth,
-          backgroundColor: slideOver ? markColor : backgroundColor,
-          borderWidth: 1,
-          borderColor: slideOver ? markColor : borderColor,
-          borderRadius: markWidth / 2,
-        }}
-      />
+    <TouchableWithoutFeedback onPress={handlePress}>
+      <View style={markStyle} />
     </TouchableWithoutFeedback>
   );
 };
@@ -58,18 +73,19 @@ const Thumb = ({
   backgroundColor?: string;
   borderColor?: string;
 }) => {
-  return (
-    <View
-      style={{
-        width: thumbWidth,
-        height: thumbWidth,
-        backgroundColor,
-        borderWidth: 1,
-        borderColor,
-        borderRadius: thumbWidth / 2,
-      }}
-    />
+  const thumbStyle = useMemo(
+    () => ({
+      width: thumbWidth,
+      height: thumbWidth,
+      backgroundColor,
+      borderWidth: 1,
+      borderColor,
+      borderRadius: thumbWidth / 2,
+    }),
+    [backgroundColor, borderColor],
   );
+
+  return <View style={thumbStyle} />;
 };
 
 const MarkWithAnimatedView = ({
@@ -79,7 +95,7 @@ const MarkWithAnimatedView = ({
   markColor,
   backgroundColor,
   borderColor,
-  onPress,
+  onPressIndex,
   centerOrigin = false,
   minValue = 0,
   maxValue = 100,
@@ -90,7 +106,7 @@ const MarkWithAnimatedView = ({
   markColor?: string;
   backgroundColor?: string;
   borderColor?: string;
-  onPress?: () => void;
+  onPressIndex?: (index: number) => void;
   centerOrigin?: boolean;
   minValue?: number;
   maxValue?: number;
@@ -123,11 +139,17 @@ const MarkWithAnimatedView = ({
       opacity: index <= progressStep ? 1 : 0,
     };
   });
+  const combinedStyle = useMemo(
+    () => [{ ...StyleSheet.absoluteFillObject }, style],
+    [style],
+  );
+
   return (
-    <Animated.View style={[{ ...StyleSheet.absoluteFillObject }, style]}>
+    <Animated.View style={combinedStyle}>
       <Mark
         slideOver
-        onPress={onPress}
+        index={index}
+        onPressIndex={onPressIndex}
         markColor={markColor}
         backgroundColor={backgroundColor}
         borderColor={borderColor}
@@ -309,9 +331,8 @@ export function SegmentSlider({
             key={index}
             markColor={bgPrimaryColor}
             backgroundColor={bgColor}
-            onPress={() => {
-              handlePressSegment(index);
-            }}
+            index={index}
+            onPressIndex={handlePressSegment}
             borderColor={neutral5Color}
           />
           <MarkWithAnimatedView
@@ -321,9 +342,7 @@ export function SegmentSlider({
             markColor={bgPrimaryColor}
             backgroundColor={bgColor}
             borderColor={neutral5Color}
-            onPress={() => {
-              handlePressSegment(index);
-            }}
+            onPressIndex={handlePressSegment}
             centerOrigin={centerOrigin}
             minValue={minValue}
             maxValue={maxValue}

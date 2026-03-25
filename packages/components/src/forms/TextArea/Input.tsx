@@ -18,6 +18,35 @@ export type ITextAreaInputProps = Omit<IInputProps, 'size'> &
 const defaultAlignVertical: TextAreaProps['verticalAlign'] =
   platformEnv.isNative ? 'top' : undefined;
 
+const textAreaContainerProps = {
+  flexDirection: 'column' as const,
+};
+
+const textAreaAddOnsContainerProps = {
+  justifyContent: 'flex-end' as const,
+  paddingBottom: '$2',
+  borderRadius: 0,
+  gap: '$2',
+  paddingRight: '$1',
+};
+
+const textAreaAddOnsItemProps = {
+  width: '$10',
+  height: '$10',
+  hoverStyle: {
+    bg: '$bgHover',
+    borderRadius: '$5',
+  },
+  pressStyle: {
+    bg: '$bgActive',
+    borderRadius: '$5',
+  },
+} as const;
+
+const textAreaInputComponentStyle = {
+  h: undefined,
+};
+
 function BaseTextArea(
   { size, verticalAlign, allowSecureTextEye, ...props }: ITextAreaInputProps,
   forwardedRef: Ref<TextInput>,
@@ -36,37 +65,16 @@ function BaseTextArea(
   useAutoScrollToTop(ref);
   return (
     <Input
-      containerProps={{
-        flexDirection: 'column',
-      }}
-      addOnsContainerProps={{
-        justifyContent: 'flex-end',
-        paddingBottom: '$2',
-        borderRadius: 0,
-        gap: '$2',
-        paddingRight: '$1',
-      }}
-      addOnsItemProps={{
-        width: '$10',
-        height: '$10',
-        hoverStyle: {
-          bg: '$bgHover',
-          borderRadius: '$5',
-        },
-        pressStyle: {
-          bg: '$bgActive',
-          borderRadius: '$5',
-        },
-      }}
+      containerProps={textAreaContainerProps}
+      addOnsContainerProps={textAreaAddOnsContainerProps}
+      addOnsItemProps={textAreaAddOnsItemProps}
       InputComponent={TMTextArea}
       ref={ref}
       fontSize={getFontSize('$bodyLg')}
       py={size === 'large' ? '$3.5' : '$2.5'}
       numberOfLines={3}
       borderCurve="continuous"
-      InputComponentStyle={{
-        h: undefined,
-      }}
+      InputComponentStyle={textAreaInputComponentStyle}
       verticalAlign={verticalAlign || defaultAlignVertical}
       allowSecureTextEye={effectiveAllowSecureTextEye}
       {...props}
