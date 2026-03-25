@@ -49,8 +49,11 @@ const TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
 // Validate EVM address: 0x + 40 hex chars
 const EVM_ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/i;
 
-// Validate hex data string
-const HEX_DATA_PATTERN = /^0x[a-fA-F0-9]*$/i;
+// Validate hex calldata: 0x + even number of hex chars (complete bytes)
+const HEX_BYTES_PATTERN = /^0x(?:[a-fA-F0-9]{2})*$/i;
+
+// Validate hex quantity (value): 0x + at least one hex char
+const HEX_QUANTITY_PATTERN = /^0x[a-fA-F0-9]+$/i;
 
 // ERC-20 approve(address,uint256) function selector
 const APPROVE_SELECTOR = '095ea7b3';
@@ -300,29 +303,41 @@ export function registerSwapExecuteCommand(parent: Command): void {
           }
           if (
             txData.tx.data !== undefined &&
-            !HEX_DATA_PATTERN.test(txData.tx.data)
+            !HEX_BYTES_PATTERN.test(txData.tx.data)
           ) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              'Invalid tx.data in order: not a valid hex string',
+              'Invalid tx.data in order: not a valid hex byte string (must be even-length)',
               'Run "onekey swap build" to create a new order',
             );
           }
           if (
             txData.tx.value !== undefined &&
-            !HEX_DATA_PATTERN.test(txData.tx.value)
+            !HEX_QUANTITY_PATTERN.test(txData.tx.value)
           ) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              'Invalid tx.value in order: not a valid hex string',
+              'Invalid tx.value in order: not a valid hex quantity',
               'Run "onekey swap build" to create a new order',
             );
+          }
+
+          // Check if token approval is required (before confirmation so we can inform the user)
+          const needsApprove =
+            txData.result?.allowanceResult !== undefined &&
+            txData.result.allowanceResult !== null &&
+            txData.result.allowanceResult.isEnough === false;
+
+          // Build confirmation action string — include approve info if applicable
+          let confirmAction = `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`;
+          if (needsApprove) {
+            confirmAction = `Approve unlimited ${order.fromToken.symbol} allowance to ${swapTxTo}, then swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol} (2 transactions)`;
           }
 
           // Confirm execution (prompts in human mode, rejects JSON without --yes)
           await confirmTransaction({
             info: {
-              action: `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`,
+              action: confirmAction,
               to: order.provider ?? 'swap provider',
               value: `${order.amount} ${order.fromToken.symbol}`,
               network: options.chain,
@@ -349,18 +364,21 @@ export function registerSwapExecuteCommand(parent: Command): void {
           let approveTxHash: string | undefined;
           let approveNonce: number | undefined;
 
-          // Check if token approval is required
-          const needsApprove =
-            txData.result?.allowanceResult !== undefined &&
-            txData.result.allowanceResult !== null &&
-            txData.result.allowanceResult.isEnough === false;
-
           if (needsApprove) {
             if (!order.fromToken.contractAddress) {
               throw new AppError(
                 ERROR_CODES.BIZ_SWAP_FAILED.code,
                 'Approve required but fromToken has no contract address (native token)',
                 'This should not happen — rebuild the order',
+              );
+            }
+
+            // Validate fromToken contract address is a legitimate EVM address
+            if (!EVM_ADDRESS_PATTERN.test(order.fromToken.contractAddress)) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `Invalid fromToken contract address: "${order.fromToken.contractAddress}"`,
+                'Run "onekey swap build" to create a new order',
               );
             }
 
@@ -492,11 +510,17 @@ export function registerSwapExecuteCommand(parent: Command): void {
           } catch (swapError) {
             // Approve succeeded but swap failed — mark as approve_only
             if (approveTxHash) {
-              updatePendingStatus(options.order, 'approve_only');
               const swapAppError = AppError.from(swapError);
+              let statusWarning = '';
+              try {
+                updatePendingStatus(options.order, 'approve_only');
+              } catch {
+                statusWarning =
+                  ' Warning: failed to update local order status to approve_only.';
+              }
               output.error({
                 code: swapAppError.code,
-                message: `Approve succeeded (tx: ${approveTxHash}) but swap failed: ${swapAppError.message}. Token allowance has been granted.`,
+                message: `Approve succeeded (tx: ${approveTxHash}) but swap failed: ${swapAppError.message}. Token allowance has been granted.${statusWarning}`,
                 suggestion:
                   'Run "onekey swap build" then "onekey swap execute" to retry the swap',
               });
