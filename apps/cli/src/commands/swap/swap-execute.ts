@@ -334,11 +334,11 @@ export function registerSwapExecuteCommand(parent: Command): void {
             confirmAction = `Approve unlimited ${order.fromToken.symbol} allowance to ${swapTxTo}, then swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol} (2 transactions)`;
           }
 
-          // Confirm execution (prompts in human mode, rejects JSON without --yes)
+          // Confirm execution — show real tx.to (router contract), not just provider name
           await confirmTransaction({
             info: {
               action: confirmAction,
-              to: order.provider ?? 'swap provider',
+              to: `${swapTxTo} (${order.provider ?? 'swap provider'})`,
               value: `${order.amount} ${order.fromToken.symbol}`,
               network: options.chain,
             },
@@ -350,6 +350,21 @@ export function registerSwapExecuteCommand(parent: Command): void {
           const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
           const addressInfo = await signer.getAddress(chainConfig.networkId);
           const fromAddress = addressInfo.address;
+
+          // Verify current wallet matches the address used at build time.
+          // The swap tx calldata encodes recipient/sender — signing with a
+          // different account could send funds to the wrong address.
+          const buildTimeFrom = txData.tx.from;
+          if (
+            buildTimeFrom &&
+            buildTimeFrom.toLowerCase() !== fromAddress.toLowerCase()
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Wallet address mismatch: order was built for ${buildTimeFrom}, but current wallet is ${fromAddress}`,
+              'Run "onekey swap build" again with the current wallet',
+            );
+          }
 
           // Prepare sign credentials once for both approve + swap
           const hdCredential = await signer.getHdCredential();
