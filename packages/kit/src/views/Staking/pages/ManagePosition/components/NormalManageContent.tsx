@@ -688,7 +688,7 @@ export function NormalManageContent({
           stakeTag={stakeTag || protocolInfo?.stakeTag}
           historyAction={historyAction}
           onHistory={onHistory}
-          onRefresh={onIndicatorRefresh}
+          onRefresh={isInModalContext ? undefined : onIndicatorRefresh}
           onRefreshPending={(refreshFn) => {
             if (onRefreshPendingRef) {
               onRefreshPendingRef.current = refreshFn;

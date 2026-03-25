@@ -1364,6 +1364,7 @@ jsbundle
 avd
 AVD
 oxlint
+oxlintrc
 serviceworker
 newtab
 hrstart
