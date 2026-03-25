@@ -1,6 +1,8 @@
+// oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable no-inner-declarations */
 /* eslint-disable prefer-template */
+/* oxlint-disable import-js/order */
 
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
@@ -24,6 +26,8 @@ const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 shimArrayToSorted();
 
 require('react-native-url-polyfill/auto');
+const { Base64 } = require('js-base64');
+
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
 const shimsInjectedLog = (str) => console.log(`Shims Injected log: ${str}`);
@@ -51,66 +55,8 @@ if (platformEnv.isNative) {
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
     const assetsPath = `file://${mainBundlePath}/assets/`;
-    const { Platform, PixelRatio } = require('react-native');
-    const AssetSourceResolver =
-      require('react-native/Libraries/Image/AssetSourceResolver').default;
-    const wrap = require('lodash/wrap');
 
-    const { pickScale } = require('react-native/Libraries/Image/AssetUtils');
-
-    let getAndroidResourceFolderName;
-    let getAndroidResourceIdentifier;
-    if (Platform.OS === 'android') {
-      const pathSupport = require('@react-native/assets-registry/path-support');
-      getAndroidResourceFolderName = pathSupport.getAndroidResourceFolderName;
-      getAndroidResourceIdentifier = pathSupport.getAndroidResourceIdentifier;
-    }
-
-    function getAssetPathInDrawableFolder(asset) {
-      const scale = pickScale(asset.scales, PixelRatio.get());
-      const drawableFolder = getAndroidResourceFolderName(asset, scale);
-      const fileName = getAndroidResourceIdentifier(asset);
-      return drawableFolder + '/' + fileName + '.' + asset.type;
-    }
-
-    AssetSourceResolver.prototype.defaultAsset = wrap(
-      AssetSourceResolver.prototype.defaultAsset,
-      function (_func, ..._args) {
-        const isLoadedFromServer = this.isLoadedFromServer();
-        if (isLoadedFromServer) {
-          const serverUrl = this.assetServerURL();
-          return serverUrl;
-        }
-        if (Platform.OS === 'android') {
-          const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
-          if (useJsBundle) {
-            const asset = this.fromSource(
-              assetsPath + getAssetPathInDrawableFolder(this.asset),
-            );
-            asset.uri = asset.uri
-              .replace('__packages', 'packages')
-              .replace('__node_modules', 'node_modules');
-            return asset;
-          }
-          if (isLoadedFromFileSystem) {
-            const resolvedAssetSource = this.drawableFolderInBundle();
-            return resolvedAssetSource;
-          }
-          const resolvedAssetSource = this.resourceIdentifierWithoutScale();
-          return resolvedAssetSource;
-        }
-        if (Platform.OS === 'ios') {
-          const iOSAsset = this.scaledAssetURLNearBundle();
-          if (useJsBundle) {
-            iOSAsset.uri = iOSAsset.uri
-              .replace(this.jsbundleUrl, assetsPath)
-              .replace('__packages', 'packages')
-              .replace('__node_modules', 'node_modules');
-          }
-          return iOSAsset;
-        }
-      },
-    );
+    require('./assetResolutionPatch').patchNativeAssetResolution(assetsPath);
   }
 }
 
@@ -173,7 +119,6 @@ Shims Injected:
  */
 // Shim atob and btoa
 // js-base64 lib cannot import by `require` function in React Native 0.72.
-const { Base64 } = require('js-base64');
 
 if (!global.atob) {
   shimsInjectedLog('atob');
@@ -204,21 +149,22 @@ try {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- polyfill runs before OneKeyLocalError is available
         throw new Error('InvalidStateError');
       }
       this._setReadyState(this.LOADING);
       this._result = null;
       this._error = null;
-      const fr = new FileReader();
-      fr.onloadend = () => {
-        const content = atob(fr.result.split(',').pop().trim());
+      const innerReader = new FileReader();
+      innerReader.onloadend = () => {
+        const content = atob(innerReader.result.split(',').pop().trim());
         const buffer = new ArrayBuffer(content.length);
         const view = new Uint8Array(buffer);
         view.set(Array.from(content).map((c) => c.charCodeAt(0)));
         this._result = buffer;
         this._setReadyState(this.DONE);
       };
-      fr.readAsDataURL(blob);
+      innerReader.readAsDataURL(blob);
     };
   }
 } catch (_error) {

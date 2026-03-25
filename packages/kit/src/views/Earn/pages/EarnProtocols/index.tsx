@@ -21,6 +21,7 @@ import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -84,10 +85,12 @@ const getProtocolCategory = (item: IStakeProtocolListItem) => {
 function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
   const {
     symbol,
     filterNetworkId,
     logoURI: encodedLogoURI,
+    defaultCategory: defaultCategoryParam,
   } = route.params || {};
 
   const logoURI = useMemo(() => {
@@ -121,16 +124,28 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     [],
   );
   const [selectedCategory, setSelectedCategory] = useState<EProtocolCategory>(
-    EProtocolCategory.FixedRate,
+    (defaultCategoryParam as EProtocolCategory) || EProtocolCategory.SimpleEarn,
   );
   const [isLoading, setIsLoading] = useState(true);
+  const accountId = activeAccount.account?.id;
+  const accountNetworkId = filterNetworkId ?? activeAccount.network?.id;
 
   const fetchProtocolData = useCallback(async () => {
+    if (!activeAccount.ready) {
+      return;
+    }
+    if (accountId && !accountNetworkId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
 
       const data = await backgroundApiProxy.serviceStaking.getProtocolList({
         symbol,
+        accountId,
+        networkId: accountNetworkId,
         filterNetworkId,
       });
 
@@ -140,7 +155,13 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     } finally {
       setIsLoading(false);
     }
-  }, [symbol, filterNetworkId]);
+  }, [
+    symbol,
+    accountId,
+    accountNetworkId,
+    filterNetworkId,
+    activeAccount.ready,
+  ]);
 
   useEffect(() => {
     void fetchProtocolData();
@@ -160,6 +181,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
   }, [protocolData]);
 
   useEffect(() => {
+    // Auto-switch only when the current category has no protocols
     if (
       protocolCategoryCounts.fixedRateCount === 0 &&
       protocolCategoryCounts.simpleEarnCount > 0
@@ -226,23 +248,11 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
 
   const protocolDisplayData = useMemo(() => {
     const isFixedRate = selectedCategory === EProtocolCategory.FixedRate;
-    const filtered = protocolData.filter((item) => {
+    return protocolData.filter((item) => {
       const category = getProtocolCategory(item);
       return isFixedRate
         ? category === EProtocolCategory.FixedRate
         : category === EProtocolCategory.SimpleEarn;
-    });
-
-    if (!isFixedRate) {
-      return filtered;
-    }
-
-    return [...filtered].toSorted((a, b) => {
-      const daysA = getProviderDaysRemaining(a);
-      const daysB = getProviderDaysRemaining(b);
-      const orderA = daysA ?? Number.POSITIVE_INFINITY;
-      const orderB = daysB ?? Number.POSITIVE_INFINITY;
-      return orderA - orderB;
     });
   }, [protocolData, selectedCategory]);
 
@@ -271,6 +281,16 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
             : ETranslations.global_protocol,
         }),
         flex: 5,
+        sortable: isFixedRateCategory,
+        comparator: isFixedRateCategory
+          ? (a: IStakeProtocolListItem, b: IStakeProtocolListItem) => {
+              const daysA =
+                getProviderDaysRemaining(a) ?? Number.POSITIVE_INFINITY;
+              const daysB =
+                getProviderDaysRemaining(b) ?? Number.POSITIVE_INFINITY;
+              return daysA - daysB;
+            }
+          : undefined,
         render: (item) => {
           const providerName = normalizeToEarnProvider(item.provider.name);
           const { detailText, maturityTitle } = getMaturityDisplay(item);
@@ -350,6 +370,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         flex: 2,
         hideInMobile: true,
         align: 'flex-end',
+        sortable: true,
+        comparator: (a, b) => {
+          const tvlA = parseFloat(a.provider.totalFiatValue || '0');
+          const tvlB = parseFloat(b.provider.totalFiatValue || '0');
+          return tvlA - tvlB;
+        },
         render: (item) => (
           <SizableText size="$bodyLgMedium">
             <EarnText size="$bodyLg" text={item?.tvl} />
@@ -361,6 +387,12 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
         label: intl.formatMessage({ id: ETranslations.defi_apr_apy }),
         flex: 2,
         align: 'flex-end',
+        sortable: true,
+        comparator: (a, b) => {
+          const aprA = parseFloat(a.provider.aprWithoutFee || '0');
+          const aprB = parseFloat(b.provider.aprWithoutFee || '0');
+          return aprA - aprB;
+        },
         render: (item) => {
           if (item.aprInfo?.button?.type === 'redeem') {
             return (
@@ -545,10 +577,17 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
       <YStack>
         {categoryTabs}
         <TableList<IStakeProtocolListItem>
+          key={selectedCategory}
           data={protocolDisplayData}
           columns={columns}
-          defaultSortKey="yield"
-          defaultSortDirection="desc"
+          defaultSortKey={
+            selectedCategory === EProtocolCategory.FixedRate
+              ? 'protocol'
+              : 'yield'
+          }
+          defaultSortDirection={
+            selectedCategory === EProtocolCategory.FixedRate ? 'asc' : 'desc'
+          }
           onPressRow={handleProtocolPress}
           enableDrillIn={isDesktopLayout}
           isLoading={isLoading}
@@ -561,6 +600,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
     protocolDisplayData,
     categoryTabs,
     columns,
+    selectedCategory,
     handleProtocolPress,
     isDesktopLayout,
     intl,

@@ -6,6 +6,7 @@
  * example: yarn debug:hardware-sdk -v 0.2.40
  */
 const { exec, execSync } = require('child_process');
+
 const argv = require('minimist')(process.argv.slice(2));
 
 const LIB_VERSION = argv.v || 'latest';

@@ -29,18 +29,28 @@ class KeylessCloudSyncApi {
     try {
       const response = await client.post<IApiClientResponse<T>>(url, postData, {
         headers: {
-          // x-keyless-sync-signature already contains publicKey, no need for separate header
+          // x-onekey-keyless-sync-signature already contains publicKey, no need for separate header
           [KEYLESS_SYNC_SIGNATURE_HEADER]: signatureHeader,
         },
       });
       return response;
     } catch (error) {
+      const safeInfo: Record<string, unknown> = { url };
+      if (error && typeof error === 'object') {
+        const e = error as Record<string, any>;
+        if (e.response) {
+          safeInfo.status = e.response.status;
+        }
+        if (e.code) {
+          safeInfo.code = e.code;
+        }
+        if (e.message) {
+          safeInfo.message = e.message;
+        }
+      }
       console.warn(
         '[CloudSyncAPI] Cloud sync server unavailable, fallback to memory.',
-        {
-          url,
-          error,
-        },
+        safeInfo,
       );
       throw error;
     }

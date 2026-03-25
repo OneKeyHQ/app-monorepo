@@ -13,7 +13,7 @@ let _secureStorageSupported: boolean | null = null;
 async function isSecureStorageSupported(): Promise<boolean> {
   if (_secureStorageSupported === null) {
     _secureStorageSupported =
-      await appStorage.secureStorage.supportSecureStorage();
+      await appStorage.secureStorage.supportSecureStorageWithoutInteraction();
   }
   return _secureStorageSupported;
 }

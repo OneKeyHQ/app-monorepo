@@ -1,7 +1,15 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type { EPerpPageEnterSource } from '../type';
+
 export class CommonScene extends BaseScene {
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public pageView({ source }: { source: EPerpPageEnterSource }) {
+    return { source, pageName: 'Perp' };
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public placeOrder({
@@ -23,8 +31,8 @@ export class CommonScene extends BaseScene {
     nonce: number;
     errorMessage: string;
   }) {
+    void userAddress;
     const result = {
-      userAddress,
       chainId,
       builder: {
         b: builderAddress,

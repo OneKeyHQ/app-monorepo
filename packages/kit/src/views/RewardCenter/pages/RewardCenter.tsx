@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -25,6 +25,10 @@ import {
   TRON_SOURCE_FLAG_TESTNET,
 } from '@onekeyhq/core/src/chains/tron/constants';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -202,6 +206,7 @@ function RewardCenterDetails() {
 
   const [isClaiming, setIsClaiming] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isClaimed, setIsClaimed] = useState(false);
   const [remaining, setRemaining] = useState(0);
@@ -324,6 +329,10 @@ function RewardCenterDetails() {
         }),
       });
       setIsClaiming(false);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      }, 1000);
       return resp;
     } catch (_error) {
       setIsClaiming(false);
@@ -379,6 +388,10 @@ function RewardCenterDetails() {
 
       setIsRedeeming(false);
       setIsResourceRedeemed(true);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      }, 1000);
       return resp;
     } catch (_error) {
       setIsRedeeming(false);

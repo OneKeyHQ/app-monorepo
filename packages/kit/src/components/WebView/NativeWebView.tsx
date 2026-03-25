@@ -25,7 +25,7 @@ import uriUtils, {
 } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
-import { createMessageInjectedScript } from './utils';
+import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -66,6 +66,24 @@ const NativeWebView = forwardRef(
     const [isRefresh] = useState(false);
     const isUnmountingRef = useRef(false);
     const [webViewKey, setWebViewKey] = useState(0);
+    const [loadTimeoutError, setLoadTimeoutError] = useState(false);
+    const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearLoadTimeout = useCallback(() => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    }, []);
+
+    const startLoadTimeout = useCallback(() => {
+      clearLoadTimeout();
+      loadTimeoutRef.current = setTimeout(() => {
+        if (!isUnmountingRef.current) {
+          setLoadTimeoutError(true);
+        }
+      }, WEBVIEW_LOAD_TIMEOUT_MS);
+    }, [clearLoadTimeout]);
 
     const onRefresh = useCallback(() => {
       if (isUnmountingRef.current) return;
@@ -79,6 +97,7 @@ const NativeWebView = forwardRef(
 
       return () => {
         isUnmountingRef.current = true;
+        clearLoadTimeout();
 
         try {
           // Stop WebView loading before component unmounts
@@ -88,7 +107,7 @@ const NativeWebView = forwardRef(
           console.log('NativeWebView cleanup error:', error);
         }
       };
-    }, []);
+    }, [clearLoadTimeout]);
 
     const jsBridge = useMemo(
       () =>
@@ -141,6 +160,9 @@ const NativeWebView = forwardRef(
         // Guard against events after unmount started
         if (isUnmountingRef.current) return;
 
+        setLoadTimeoutError(false);
+        startLoadTimeout();
+
         // eslint-disable-next-line no-unsafe-optional-chaining, @typescript-eslint/no-unsafe-member-access
         const { url } = syntheticEvent?.nativeEvent;
         try {
@@ -154,7 +176,7 @@ const NativeWebView = forwardRef(
           console.log('onLoadStart: ', error);
         }
       },
-      [onLoadStart],
+      [onLoadStart, startLoadTimeout],
     );
 
     const renderError = useCallback(
@@ -201,17 +223,21 @@ const NativeWebView = forwardRef(
     const safeOnLoad = useCallback(
       (event: any) => {
         if (isUnmountingRef.current) return;
+        clearLoadTimeout();
+        setLoadTimeoutError(false);
         onLoad?.(event);
       },
-      [onLoad],
+      [clearLoadTimeout, onLoad],
     );
 
     const safeOnLoadEnd = useCallback(
       (event: any) => {
         if (isUnmountingRef.current) return;
+        clearLoadTimeout();
+        setLoadTimeoutError(false);
         onLoadEnd?.(event);
       },
-      [onLoadEnd],
+      [clearLoadTimeout, onLoadEnd],
     );
 
     const safeOnScroll = useCallback(
@@ -348,6 +374,18 @@ const NativeWebView = forwardRef(
       allowsBackForwardNavigationGestures,
     ]);
 
+    const timeoutErrorOverlay = loadTimeoutError ? (
+      <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
+        <ErrorView
+          onRefresh={() => {
+            if (isUnmountingRef.current) return;
+            setLoadTimeoutError(false);
+            webviewRef.current?.reload();
+          }}
+        />
+      </Stack>
+    ) : null;
+
     return platformEnv.isNativeAndroid && pullToRefreshEnabled ? (
       <RefreshControl
         ref={refreshControlRef}
@@ -357,9 +395,13 @@ const NativeWebView = forwardRef(
         enabled={false}
       >
         {renderWebView}
+        {timeoutErrorOverlay}
       </RefreshControl>
     ) : (
-      renderWebView
+      <>
+        {renderWebView}
+        {timeoutErrorOverlay}
+      </>
     );
   },
 );

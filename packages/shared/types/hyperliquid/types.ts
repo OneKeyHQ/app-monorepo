@@ -154,6 +154,25 @@ export interface IPositionTpslOrderParams {
   slippage?: number;
 }
 
+// ── Standalone Trigger Order Types ──
+
+export enum ETriggerOrderType {
+  TRIGGER_MARKET = 'triggerMarket',
+  TRIGGER_LIMIT = 'triggerLimit',
+}
+
+export interface ITriggerOrderParams {
+  assetId: number;
+  isBuy: boolean;
+  size: string;
+  triggerPx: string;
+  triggerOrderType: ETriggerOrderType;
+  tpsl: 'tp' | 'sl';
+  executionPx?: string; // required for limit triggers
+  reduceOnly: boolean;
+  slippage?: number;
+}
+
 export interface IL2BookOptions {
   nSigFigs?: 2 | 3 | 4 | 5 | null;
   mantissa?: 2 | 5 | null;
@@ -183,6 +202,15 @@ export interface IHyperLiquidErrorLocaleItem {
   matcher: IHyperLiquidErrorMatcher;
 }
 
+export interface IPerpActivityCard {
+  id: string;
+  imageUrl?: string;
+  iconName?: string;
+  title: string;
+  subtitle: string;
+  url: string;
+}
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
@@ -190,6 +218,7 @@ export interface IPerpCommonConfig {
   perpBannerConfig?: IPerpServerBannerConfig;
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];
+  activityCards?: IPerpActivityCard[];
 }
 
 export enum EPerpUserType {

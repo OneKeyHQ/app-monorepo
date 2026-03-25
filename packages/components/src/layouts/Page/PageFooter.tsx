@@ -17,7 +17,8 @@ import type { IPageFooterProps } from './type';
 
 const Placeholder = () => {
   const bottom = useSafeAreaBottom();
-  return bottom > 0 ? <OptimizationView style={{ height: bottom }} /> : null;
+  const style = useMemo(() => ({ height: bottom }), [bottom]);
+  return bottom > 0 ? <OptimizationView style={style} /> : null;
 };
 
 const PageFooterContainer = ({

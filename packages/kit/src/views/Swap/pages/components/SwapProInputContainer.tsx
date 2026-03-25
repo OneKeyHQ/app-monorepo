@@ -14,12 +14,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
+  useSwapProSellToTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapProUseSelectBuyTokenAtom,
   useSwapTypeSwitchAtom,
@@ -77,6 +79,7 @@ const SwapProInputContainer = ({
     useSwapProInputAmountAtom();
   const [swapProUseSelectBuyToken, setSwapProUseSelectBuyToken] =
     useSwapProUseSelectBuyTokenAtom();
+  const [, setSwapProSellToToken] = useSwapProSellToTokenAtom();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const inputRef = useRef<IInputRef & TextInput>(null);
   const inputToken = useSwapProInputToken();
@@ -111,9 +114,28 @@ const SwapProInputContainer = ({
     (token: IToken) => {
       cleanInputAmount();
       setSwapProUseSelectBuyToken(token);
+      // Sync SELL counterparty so both directions use the same token
+      setSwapProSellToToken(token);
       setIsPopoverOpen(false);
+      // Save preference (shared with Instant Mode) via simpledb
+      const networkId = swapProSelectToken?.networkId || '';
+      if (networkId) {
+        void backgroundApiProxy.simpleDb.marketTokenPreference.setPreference({
+          networkId,
+          preference: {
+            contractAddress: token.contractAddress,
+            symbol: token.symbol,
+            networkId: token.networkId,
+          },
+        });
+      }
     },
-    [setSwapProUseSelectBuyToken, cleanInputAmount],
+    [
+      setSwapProUseSelectBuyToken,
+      setSwapProSellToToken,
+      cleanInputAmount,
+      swapProSelectToken?.networkId,
+    ],
   );
   const isTokenSelectorVisible =
     swapProDirection === ESwapDirection.BUY && defaultTokensFromType.length > 1;

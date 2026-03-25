@@ -14,7 +14,10 @@ import type {
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
+import {
+  EPerpUserType,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { EAtomNames } from '../atomNames';
@@ -313,6 +316,7 @@ export const {
 // #region Settings & Config
 export interface IPerpsCommonConfigPersistAtom {
   perpConfigCommon: IPerpCommonConfig;
+  perpConfigLoaded?: boolean;
 }
 export const {
   target: perpsCommonConfigPersistAtom,
@@ -322,8 +326,9 @@ export const {
   persist: true,
   initialValue: {
     perpConfigCommon: {
-      disablePerp: true, // Default to hide perps tab, will be overridden by server config
+      disablePerp: true, // Default to hide perps tab, gated by perpConfigLoaded
     },
+    perpConfigLoaded: false,
   },
 });
 
@@ -420,6 +425,7 @@ export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
+  lastTriggerOrderType: ETriggerOrderType;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -431,6 +437,7 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
+    lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },
 });
 
@@ -466,6 +473,7 @@ export const {
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;
+  pingMs?: number | null;
 }
 
 export const {

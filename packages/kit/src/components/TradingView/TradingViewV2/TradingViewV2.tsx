@@ -11,7 +11,6 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { useCurrency } from '../../Currency';
 import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
@@ -40,6 +39,7 @@ interface IBaseTradingViewV2Props {
   onPanesCountChange?: (count: number) => void;
   dataSource?: 'websocket' | 'polling';
   accountAddress?: string;
+  onTouchScroll?: (deltaY: number) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -49,7 +49,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
-  const currencyInfo = useCurrency();
 
   const {
     tokenAddress = '',
@@ -59,6 +58,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPanesCountChange,
     dataSource,
     accountAddress,
+    onTouchScroll,
     ...stackStyle
   } = props;
 
@@ -71,6 +71,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     tokenSymbol: symbol,
     marksTimeRange,
+    onTouchScroll,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -120,7 +121,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     webRef,
     enabled: isVisible && dataSource === 'websocket' && !isHyperLiquidSource,
     chartType: '1m',
-    currency: currencyInfo.id,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds

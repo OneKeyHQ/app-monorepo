@@ -1,3 +1,4 @@
+import { navigateFromOverlayToTab } from '@onekeyhq/components';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -80,6 +81,33 @@ export const marketNavigation = {
     // Keep backward compatibility by using V1 version
     return this.pushDetailPageFromDeeplinkV1(navigation, {
       coinGeckoId,
+    });
+  },
+
+  // Safe version for navigating from overlay routes (scan modal, ActionCenter).
+  // Uses navigateFromOverlayToTab to atomically remove all overlay routes
+  // via reset, avoiding the native UITabBarController window-nil race
+  // condition where RNSScreenStack retries exhaust on detached tab views.
+  async pushDetailPageFromOverlay(
+    navigation: IAppNavigation,
+    {
+      coinGeckoId,
+    }: {
+      coinGeckoId: string;
+    },
+  ) {
+    await navigateFromOverlayToTab({
+      targetTab: ETabRoutes.Market,
+      switchTab: (tab) => navigation.switchTab(tab),
+    });
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetail,
+        params: {
+          token: coinGeckoId,
+        },
+      },
     });
   },
 };

@@ -42,16 +42,12 @@ jest.mock('react-native-zip-archive', () => ({
   zip: jest.fn(),
 }));
 
-jest.mock('react-native-file-logger', () => ({
-  FileLogger: {
-    configure: jest.fn(),
+jest.mock('@onekeyfe/react-native-native-logger', () => ({
+  NativeLogger: {
     write: jest.fn(),
-  },
-  LogLevel: {
-    Debug: 0,
-    Info: 1,
-    Warning: 2,
-    Error: 3,
+    getLogDirectory: jest.fn(() => ''),
+    getLogFilePaths: jest.fn(() => Promise.resolve([])),
+    deleteLogFiles: jest.fn(() => Promise.resolve()),
   },
 }));
 

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/runkids/skillshare/main/schemas/project-config.schema.json
+targets:
+    - mode: symlink
+      name: claude
+    - mode: symlink
+      name: universal
+audit:
+    block_threshold: CRITICAL
+hub:
+    default: vercel-agent-skills
+    hubs:
+        - label: vercel-skills
+          url: https://skills.sh
+        - label: vercel-agent-skills
+          url: https://github.com/vercel-labs/agent-skills

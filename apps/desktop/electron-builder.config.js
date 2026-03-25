@@ -61,6 +61,8 @@ module.exports = {
     'extendInfo': {
       'CFBundleIconName': 'OneKeyLogo',
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
+      'NSMicrophoneUsageDescription':
+        'Please allow OneKey to use your microphone',
       'NSBluetoothAlwaysUsageDescription':
         'OneKey wallet needs Bluetooth access to communicate with hardware wallets',
       'NSBluetoothPeripheralUsageDescription':
@@ -91,6 +93,6 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
-    'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
+    'target': ['AppImage'],
   },
 };

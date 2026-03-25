@@ -369,45 +369,58 @@ class ServiceDeFi extends ServiceBase {
         >;
       }> = [];
       const rawData = await this.backgroundApi.simpleDb.deFi.getRawData();
-      for (let i = 0; i < accounts.length; i += 1) {
-        const account = accounts[i];
-        const { accountsInfo } =
-          await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-            accountId: account.accountId,
-            networkId: account.networkId,
-            indexedAccountId: account.indexedAccountId,
-            deriveType: undefined,
-            nftEnabledOnly: false,
-            DeFiEnabledOnly: true,
-            excludeTestNetwork: true,
-            networksEnabledOnly: isUndefined(networksEnabledOnly)
-              ? !accountUtils.isOthersAccount({
-                  accountId: account.accountId,
-                })
-              : networksEnabledOnly,
-          });
-        for (const accountInfo of accountsInfo) {
-          const key = accountUtils.buildAccountLocalAssetsKey({
-            accountAddress: accountInfo.apiAddress,
-            xpub: accountInfo.accountXpub,
-          });
-          if (rawData?.overview?.[key]) {
-            if (!result[i]) {
-              result[i] = {
+      const CONCURRENCY = 10;
+      for (let start = 0; start < accounts.length; start += CONCURRENCY) {
+        const batch = accounts.slice(start, start + CONCURRENCY);
+        const batchResults = await Promise.all(
+          batch.map(async (account, batchIdx) => {
+            const idx = start + batchIdx;
+            const { accountsInfo } =
+              await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
                 accountId: account.accountId,
                 networkId: account.networkId,
-                overview: {
-                  [accountInfo.networkId]:
-                    rawData.overview[key][accountInfo.networkId],
-                },
-              };
-            } else {
-              result[i].overview = {
-                ...result[i].overview,
-                [accountInfo.networkId]:
-                  rawData.overview[key][accountInfo.networkId],
-              };
+                indexedAccountId: account.indexedAccountId,
+                deriveType: undefined,
+                nftEnabledOnly: false,
+                DeFiEnabledOnly: true,
+                excludeTestNetwork: true,
+                networksEnabledOnly: isUndefined(networksEnabledOnly)
+                  ? !accountUtils.isOthersAccount({
+                      accountId: account.accountId,
+                    })
+                  : networksEnabledOnly,
+              });
+            let entry: (typeof result)[number] | undefined;
+            for (const accountInfo of accountsInfo) {
+              const key = accountUtils.buildAccountLocalAssetsKey({
+                accountAddress: accountInfo.apiAddress,
+                xpub: accountInfo.accountXpub,
+              });
+              if (rawData?.overview?.[key]) {
+                if (!entry) {
+                  entry = {
+                    accountId: account.accountId,
+                    networkId: account.networkId,
+                    overview: {
+                      [accountInfo.networkId]:
+                        rawData.overview[key][accountInfo.networkId],
+                    },
+                  };
+                } else {
+                  entry.overview = {
+                    ...entry.overview,
+                    [accountInfo.networkId]:
+                      rawData.overview[key][accountInfo.networkId],
+                  };
+                }
+              }
             }
+            return { idx, entry };
+          }),
+        );
+        for (const { idx, entry } of batchResults) {
+          if (entry) {
+            result[idx] = entry;
           }
         }
       }

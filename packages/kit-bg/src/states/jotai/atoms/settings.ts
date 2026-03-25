@@ -174,4 +174,19 @@ export const {
   },
 });
 
+export type ISettingsFiatPaySiteWhitelistPersistAtom = {
+  fiatPaySiteWhitelist: string[];
+};
+
+export const {
+  target: settingsFiatPaySiteWhitelistPersistAtom,
+  use: useSettingsFiatPaySiteWhitelistPersistAtom,
+} = globalAtom<ISettingsFiatPaySiteWhitelistPersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsFiatPaySiteWhitelistPersistAtom,
+  initialValue: {
+    fiatPaySiteWhitelist: [],
+  },
+});
+
 // extract high frequency refresh data to another atom

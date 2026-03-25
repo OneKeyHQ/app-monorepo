@@ -62,6 +62,47 @@
         "credentialsSource": "local"
       }
     },
+    "qa-internal": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production",
+        "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION": "true"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleProdRelease",
+        "env": {
+          "ANDROID_CHANNEL": "direct"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc",
+        "buildConfiguration": "Release",
+        "distribution": "internal",
+        "credentialsSource": "local"
+      }
+    },
+    "qa-internal-store": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production",
+        "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION": "true"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleGoogleRelease",
+        "env": {
+          "ANDROID_CHANNEL": "google"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "universal",
+        "buildConfiguration": "Release",
+        "credentialsSource": "local"
+      }
+    },
     "production-huawei": {
       "extends": "base",
       "distribution": "store",
@@ -91,6 +132,18 @@
   },
   "submit": {
     "production-store": {
+      "ios": {
+        "ascAppId": "1609559473",
+        "appleTeamId": "BVJ3FU5H2K",
+        "ascApiKeyIssuerId": "bbc48cd1-0ffa-4bb7-994d-fab6a5eff73e",
+        "ascApiKeyId": "KAV3B73J8L",
+        "ascApiKeyPath": "./AscApiKey.p8"
+      },
+      "android": {
+        "track": "internal"
+      }
+    },
+    "qa-internal-store": {
       "ios": {
         "ascAppId": "1609559473",
         "appleTeamId": "BVJ3FU5H2K",

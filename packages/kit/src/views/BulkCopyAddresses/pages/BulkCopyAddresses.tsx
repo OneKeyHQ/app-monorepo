@@ -62,6 +62,7 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { EmptyNoWalletView } from '../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 import { BATCH_CREATE_ACCONT_MAX_COUNT } from '../../AccountManagerStacks/pages/BatchCreateAccount/BatchCreateAccountFormBase';
 import { showBatchCreateAccountProcessingDialog } from '../../AccountManagerStacks/pages/BatchCreateAccount/ProcessingDialog';
 
@@ -814,6 +815,21 @@ function BulkCopyAddresses({
       form.setValue('selectedWalletId', availableWallets?.[0]?.id);
     }
   }, [availableWallets, selectedWallet, form]);
+
+  if (availableWallets && availableWallets.length === 0) {
+    return (
+      <Page>
+        <Page.Header
+          title={intl.formatMessage({
+            id: ETranslations.global_bulk_copy_addresses,
+          })}
+        />
+        <Page.Body>
+          <EmptyNoWalletView />
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page scrollEnabled>

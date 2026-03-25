@@ -1,0 +1,230 @@
+name: release-app-bundles
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to build (optional, builds from PR head ref)'
+        required: false
+        type: string
+      build_web:
+        description: 'Build Web bundle'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  validate-pr:
+    if: ${{ inputs.pr_number }}
+    runs-on: ubuntu-24.04
+    outputs:
+      head_sha: ${{ steps.pr-info.outputs.head_sha }}
+      head_ref: ${{ steps.pr-info.outputs.head_ref }}
+    steps:
+      - name: Validate PR and extract metadata
+        id: pr-info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          TRUSTED_PR_AUTHORS: ${{ vars.TRUSTED_PR_AUTHORS }}
+        run: |
+          PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
+            --jq '{head_repo: .head.repo.full_name, base_repo: .base.repo.full_name, author: .user.login, head_sha: .head.sha, head_ref: .head.ref, base_ref: .base.ref}')
+
+          HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head_repo')
+          BASE_REPO=$(echo "$PR_DATA" | jq -r '.base_repo')
+          AUTHOR=$(echo "$PR_DATA" | jq -r '.author')
+          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head_sha')
+          HEAD_REF=$(echo "$PR_DATA" | jq -r '.head_ref')
+          BASE_REF=$(echo "$PR_DATA" | jq -r '.base_ref')
+
+          echo "PR #$PR_NUMBER: head=$HEAD_REPO, base=$BASE_REPO, author=$AUTHOR"
+          echo "  head_sha=$HEAD_SHA, head_ref=$HEAD_REF, base_ref=$BASE_REF"
+
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            # Fork PR — check if author is in the trusted whitelist
+            if [[ ! ",$TRUSTED_PR_AUTHORS," == *",$AUTHOR,"* ]]; then
+              echo "::error::PR #$PR_NUMBER is from a fork by @$AUTHOR who is not in TRUSTED_PR_AUTHORS. Configure the whitelist in repository variables."
+              exit 1
+            fi
+            echo "::notice::PR #$PR_NUMBER is from a trusted fork ($HEAD_REPO) by whitelisted author @$AUTHOR — allowed."
+          fi
+
+          # Check PR is up-to-date with base branch
+          BEHIND_BY=$(gh api "repos/${{ github.repository }}/compare/${BASE_REF}...${HEAD_SHA}" \
+            --jq '.behind_by')
+
+          if ! [[ "$BEHIND_BY" =~ ^[0-9]+$ ]]; then
+            echo "::error::Failed to determine behind_by from compare API."
+            exit 1
+          fi
+
+          if [ "$BEHIND_BY" -gt 0 ]; then
+            echo "::error::PR #$PR_NUMBER is behind $BASE_REF by $BEHIND_BY commits. Please rebase before building."
+            exit 1
+          fi
+
+          echo "::notice::PR #$PR_NUMBER is up-to-date with $BASE_REF."
+
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+
+          echo "PR #$PR_NUMBER validated successfully."
+
+  prepare-params:
+    needs: [validate-pr]
+    if: ${{ always() && (needs.validate-pr.result == 'success' || needs.validate-pr.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ steps.params.outputs.build_number }}
+      build_bundle_version: ${{ steps.params.outputs.build_bundle_version }}
+      build_source: ${{ steps.params.outputs.build_source }}
+      branch: ${{ steps.params.outputs.branch }}
+      commit: ${{ steps.params.outputs.commit }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        if: ${{ !inputs.pr_number }}
+
+      - name: Checkout PR head commit
+        if: ${{ inputs.pr_number }}
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ inputs.pr_number }}/head
+
+      - name: Generate build parameters
+        id: params
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_REF: ${{ needs.validate-pr.outputs.head_ref }}
+        run: |
+          # Read BUILD_NUMBER from .env.version
+          BUILD_NUMBER=""
+          BUILD_SOURCE="bundle-dev"
+          if [ -f .env.version ]; then
+            BUILD_NUMBER=$(grep -E '^BUILD_NUMBER=' .env.version | cut -d '=' -f 2 || true)
+          fi
+
+          if [ -n "$BUILD_NUMBER" ]; then
+            echo "Found BUILD_NUMBER in .env.version: $BUILD_NUMBER"
+            BUILD_SOURCE="bundle-release"
+          else
+            # Fallback: bundle-dev format 10YYMMDD{run_number % 100}
+            DATE=$(date -u "+%y%m%d")
+            RUN_MOD=$(( $GITHUB_RUN_NUMBER % 100 ))
+            RUN_MOD=$(printf "%02d" $RUN_MOD)
+            BUILD_NUMBER="10${DATE}${RUN_MOD}"
+            echo "Generated BUILD_NUMBER: $BUILD_NUMBER"
+          fi
+
+          # Generate BUILD_BUNDLE_VERSION: seconds since 2026-01-01T00:00:00Z
+          EPOCH_2026=$(date -u -d '2026-01-01T00:00:00' +%s 2>/dev/null || date -u -j -f '%Y-%m-%dT%H:%M:%S' '2026-01-01T00:00:00' +%s)
+          NOW=$(date -u +%s)
+          BUILD_BUNDLE_VERSION=$(( NOW - EPOCH_2026 ))
+
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
+          echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
+          if [ -n "$PR_NUMBER" ]; then
+            BRANCH="$HEAD_REF"
+            COMMIT=$(git rev-parse HEAD)
+          else
+            BRANCH="${{ github.ref_name }}"
+            COMMIT="${{ github.sha }}"
+          fi
+
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+
+          echo "Summary:"
+          echo "  BUILD_NUMBER=$BUILD_NUMBER"
+          echo "  BUILD_BUNDLE_VERSION=$BUILD_BUNDLE_VERSION"
+          echo "  BUILD_SOURCE=$BUILD_SOURCE"
+          echo "  BRANCH=$BRANCH"
+          echo "  COMMIT=$COMMIT"
+
+  desktop-bundle:
+    needs: prepare-params
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/release-desktop-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      APPLEID: ${{ secrets.APPLEID }}
+      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+      QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+
+  native-bundle:
+    needs: prepare-params
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/release-native-bundle.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      APPLEID: ${{ secrets.APPLEID }}
+      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
+      QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+
+  web-bundle:
+    needs: prepare-params
+    if: ${{ inputs.build_web && !cancelled() && !failure() }}
+    uses: ./.github/workflows/release-web.yml
+    with:
+      build_number: ${{ needs.prepare-params.outputs.build_number }}
+      build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
+      build_source: ${{ needs.prepare-params.outputs.build_source }}
+      branch: ${{ needs.prepare-params.outputs.branch }}
+      commit: ${{ needs.prepare-params.outputs.commit }}
+      checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+    secrets:
+      COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+      SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
+      SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
+      SENTRY_DSN_MAS: ${{ secrets.SENTRY_DSN_MAS }}
+      SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
+      SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
+      SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
+      SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}

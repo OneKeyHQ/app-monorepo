@@ -512,11 +512,6 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   public async hideDialogInfo() {
-    const { servicePassword } = this.backgroundApi;
-    const passwordSet = await servicePassword.checkPasswordSet();
-    if (!passwordSet) {
-      return;
-    }
     await addressBookPersistAtom.set((prev) => ({
       ...prev,
       hideDialogInfo: true,

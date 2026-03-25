@@ -11,10 +11,12 @@ import {
   Icon,
   IconButton,
   Image,
+  NumberSizeableText,
   Page,
   Popover,
   SegmentControl,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -83,12 +85,15 @@ type IBorrowRepayPositionProps = Omit<
     params: IRepayWithCollateralConfirmParams,
   ) => Promise<void>;
   collateralAssets: IRepayCollateralAsset[];
+  collateralLoading?: boolean;
   defaultCollateralReserveAddress?: string;
+  debtBalance?: string;
 };
 
 type IRepayMode = 'wallet' | 'collateral';
 
 const ARROW_OVERLAY_OFFSET = -13;
+const ENABLE_COLLATERAL_REPAY_ENTRY = false;
 
 function CollateralSelectContent({
   assets,
@@ -148,12 +153,12 @@ function CollateralSelectContent({
               </SizableText>
             </XStack>
             <YStack alignItems="flex-end">
-              <SizableText size="$bodyMd">
-                {item.supplied.title.text}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {item.supplied.description.text}
-              </SizableText>
+              <EarnText text={item.supplied.title} size="$bodyMd" />
+              <EarnText
+                text={item.supplied.description}
+                size="$bodySm"
+                color="$textSubdued"
+              />
             </YStack>
           </XStack>
         );
@@ -212,7 +217,9 @@ function RepayWithCollateralForm({
   providerName,
   borrowMarketAddress,
   borrowReserveAddress,
-  balance,
+  balance: _walletBalance,
+  maxBalance: _walletMaxBalance,
+  debtBalance,
   decimals,
   price,
   tokenSymbol,
@@ -224,9 +231,14 @@ function RepayWithCollateralForm({
   beforeFooter,
   isInModalContext = true,
   collateralAssets,
+  collateralLoading,
   defaultCollateralReserveAddress,
   onRepayWithCollateralConfirm,
 }: Omit<IBorrowRepayPositionProps, 'onWalletConfirm'>) {
+  // For collateral repay, use debt balance (how much user owes)
+  // Fall back to wallet maxBalance (which is also debt) for backward compatibility
+  const balance = debtBalance ?? _walletMaxBalance ?? _walletBalance;
+  const maxBalance = debtBalance;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -286,6 +298,7 @@ function RepayWithCollateralForm({
     action: 'repay',
     decimals,
     balance,
+    maxBalance,
     amountValue,
     setAmountValue,
   });
@@ -493,7 +506,7 @@ function RepayWithCollateralForm({
               provider: providerName,
               marketAddress: borrowMarketAddress,
               reserveAddress: borrowReserveAddress,
-              action: 'repay',
+              action: 'repayWithCollateral',
               amount: value,
               collateralReserveAddress,
               slippageBps: currentSlippageBps,
@@ -557,7 +570,7 @@ function RepayWithCollateralForm({
             provider: providerName,
             marketAddress: borrowMarketAddress,
             reserveAddress: borrowReserveAddress,
-            action: 'repay',
+            action: 'repayWithCollateral',
             amount: value,
             repayAll,
             collateralReserveAddress,
@@ -656,6 +669,21 @@ function RepayWithCollateralForm({
 
   const collateralTrigger = useMemo(() => {
     if (!selectedCollateral) {
+      if (collateralLoading) {
+        return (
+          <XStack
+            alignItems="center"
+            m="$1.5"
+            mb="$0"
+            p="$2"
+            borderRadius="$2"
+            maxWidth="$44"
+          >
+            <Skeleton w="$7" h="$7" mr="$2" radius="round" />
+            <Skeleton w="$16" h="$6" />
+          </XStack>
+        );
+      }
       return null;
     }
 
@@ -706,20 +734,37 @@ function RepayWithCollateralForm({
         })}
       />
     );
-  }, [collateralAssets, collateralPopoverTitle, selectedCollateral]);
+  }, [
+    collateralAssets,
+    collateralLoading,
+    collateralPopoverTitle,
+    selectedCollateral,
+  ]);
 
   const usingAmountText = useMemo(() => quote?.swapIn ?? '0', [quote?.swapIn]);
 
-  const priceImpactText = useMemo(() => {
+  const priceImpactInfo = useMemo(() => {
     if (!quote?.maxPriceImpact) {
       return undefined;
     }
-    const normalized = new BigNumber(quote.maxPriceImpact);
-    if (normalized.isNaN()) {
-      return quote.maxPriceImpact;
+    const impactPct = new BigNumber(quote.maxPriceImpact);
+    if (impactPct.isNaN()) {
+      return undefined;
     }
-    return `${normalized.toFixed()}%`;
-  }, [quote?.maxPriceImpact]);
+    const pctFormatted = `${impactPct.toFixed(2)}%`;
+    // Debt repayment fiat value = swapIn (collateral) × fillPrice (debt per collateral) × debtTokenPrice
+    const swapInBN = new BigNumber(quote.swapIn || '0');
+    const fillPriceBN = new BigNumber(quote.fillPrice || '0');
+    const priceBN = new BigNumber(price || '0');
+    if (swapInBN.lte(0) || fillPriceBN.lte(0) || priceBN.lte(0)) {
+      return { pctFormatted };
+    }
+    const fiatValue = swapInBN
+      .multipliedBy(fillPriceBN)
+      .multipliedBy(priceBN)
+      .toFixed();
+    return { fiatValue, pctFormatted };
+  }, [quote?.maxPriceImpact, quote?.swapIn, quote?.fillPrice, price]);
 
   const quoteSummary = useMemo(() => {
     if (
@@ -786,7 +831,7 @@ function RepayWithCollateralForm({
               balanceProps={{
                 value: balance,
                 iconText: intl.formatMessage({
-                  id: ETranslations.global_available,
+                  id: ETranslations.defi_borrow_repay_remaining_debt,
                 }),
                 onPress: isDisabled ? undefined : onMax,
               }}
@@ -823,19 +868,36 @@ function RepayWithCollateralForm({
                   justifyContent="space-between"
                   alignItems="center"
                 >
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {priceImpactText
-                      ? `${intl.formatMessage({
-                          id: ETranslations.swap_page_price_impact_title,
-                        })} ${priceImpactText}`
-                      : '-'}
-                  </SizableText>
-                  {selectedCollateral ? (
+                  {priceImpactInfo?.fiatValue ? (
                     <SizableText size="$bodySm" color="$textSubdued">
-                      {`${intl.formatMessage({
-                        id: ETranslations.global_available,
-                      })} ${selectedCollateral.supplied.title.text}`}
+                      <NumberSizeableText
+                        size="$bodySm"
+                        color="$textSubdued"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: currencySymbol,
+                        }}
+                      >
+                        {priceImpactInfo.fiatValue}
+                      </NumberSizeableText>
+                      {` (${priceImpactInfo.pctFormatted})`}
                     </SizableText>
+                  ) : (
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {priceImpactInfo?.pctFormatted ?? '-'}
+                    </SizableText>
+                  )}
+                  {selectedCollateral ? (
+                    <EarnText
+                      text={{
+                        ...selectedCollateral.supplied.title,
+                        text: `${intl.formatMessage({
+                          id: ETranslations.global_available,
+                        })} ${selectedCollateral.supplied.title.text ?? ''}`,
+                      }}
+                      size="$bodySm"
+                      color="$textSubdued"
+                    />
                   ) : null}
                 </XStack>
               </YStack>
@@ -920,7 +982,15 @@ function RepayWithCollateralForm({
           >
             {quoteSummary ? (
               <>
-                <BorrowInfoItem title={quoteSummary} />
+                <BorrowInfoItem
+                  title={
+                    <EarnText
+                      text={{ text: quoteSummary }}
+                      color="$text"
+                      size="$bodyMdMedium"
+                    />
+                  }
+                />
                 <Divider />
               </>
             ) : null}
@@ -949,20 +1019,9 @@ function RepayWithCollateralForm({
             ) : null}
 
             <BorrowInfoItem
-              title={
-                <XStack alignItems="center" gap="$1.5">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.slippage_tolerance_title,
-                    })}
-                  </SizableText>
-                  <Icon
-                    name="InfoCircleOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                </XStack>
-              }
+              title={intl.formatMessage({
+                id: ETranslations.slippage_tolerance_title,
+              })}
             >
               <XStack
                 alignItems="center"
@@ -1017,7 +1076,9 @@ export function BorrowRepayPosition({
   onWalletConfirm,
   onRepayWithCollateralConfirm,
   collateralAssets,
+  collateralLoading,
   defaultCollateralReserveAddress,
+  debtBalance,
   ...props
 }: IBorrowRepayPositionProps) {
   const intl = useIntl();
@@ -1037,7 +1098,14 @@ export function BorrowRepayPosition({
     },
   ];
 
-  if (!collateralAssets.length) {
+  // Hide the entry for this release while keeping the collateral repay flow
+  // implemented behind the flag.
+  const isCollateralRepayEnabled =
+    ENABLE_COLLATERAL_REPAY_ENTRY &&
+    !!debtBalance &&
+    (!!collateralLoading || collateralAssets.length > 0);
+
+  if (!isCollateralRepayEnabled) {
     return (
       <ManagePosition {...props} action="repay" onConfirm={onWalletConfirm} />
     );
@@ -1079,7 +1147,9 @@ export function BorrowRepayPosition({
           {...props}
           onRepayWithCollateralConfirm={onRepayWithCollateralConfirm}
           collateralAssets={collateralAssets}
+          collateralLoading={collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
+          debtBalance={debtBalance}
         />
       )}
     </YStack>

@@ -8,22 +8,13 @@ import {
 } from 'react';
 
 import { Splash } from '@onekeyhq/components';
-import {
-  EAppUpdateStatus,
-  EUpdateFileType,
-  EUpdateStrategy,
-  getUpdateFileType,
-  isFirstLaunchAfterUpdated,
-} from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  AppUpdate,
-  BundleUpdate,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+
+const SPLASH_SAFETY_TIMEOUT = 10_000;
 
 export const useDisplaySplash =
   platformEnv.isDesktop || platformEnv.isNative
@@ -35,46 +26,34 @@ export const useDisplaySplash =
           if (hasLaunchEventsExecutedRef.current) {
             return;
           }
+
+          // Safety net: if the async logic below hangs or throws an
+          // unhandled error, force the splash to show so the app is
+          // never stuck on a blank native splash screen.
+          const safetyTimer = setTimeout(() => {
+            defaultLogger.app.appUpdate.log(
+              `SplashProvider: safety timer fired after ${SPLASH_SAFETY_TIMEOUT}ms, forcing splash display`,
+            );
+            setDisplaySplash(true);
+          }, SPLASH_SAFETY_TIMEOUT);
+
           const launchCallback = async () => {
             hasLaunchEventsExecutedRef.current = true;
-            const appInfo =
-              await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-
-            if (appInfo.updateStrategy === EUpdateStrategy.seamless) {
-              if (isFirstLaunchAfterUpdated(appInfo)) {
-                await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
-                setDisplaySplash(true);
-                return;
-              }
-              if (appInfo.status === EAppUpdateStatus.ready) {
-                const fileType = getUpdateFileType(appInfo);
-                try {
-                  defaultLogger.app.appUpdate.startInstallPackage({
-                    fileType,
-                    data: appInfo,
-                  });
-                  if (fileType === EUpdateFileType.jsBundle) {
-                    await BundleUpdate.installBundle(appInfo.downloadedEvent);
-                  } else {
-                    await AppUpdate.installPackage(appInfo);
-                  }
-                  defaultLogger.app.appUpdate.endInstallPackage(true);
-                } catch (e) {
-                  setDisplaySplash(true);
-                  defaultLogger.app.appUpdate.endInstallPackage(
-                    false,
-                    e as Error,
-                  );
-                  await backgroundApiProxy.serviceAppUpdate.reset();
-                }
-              } else {
-                setDisplaySplash(true);
-              }
-            } else {
+            try {
+              await backgroundApiProxy.servicePendingInstallTask.processPendingInstallTask();
+              setDisplaySplash(true);
+            } catch (error) {
+              defaultLogger.app.appUpdate.log(
+                `SplashProvider: launch callback failed: ${(error as Error)?.message}`,
+              );
               setDisplaySplash(true);
             }
           };
           void launchCallback();
+
+          return () => {
+            clearTimeout(safetyTimer);
+          };
         }, []);
         return displaySplash;
       }

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -88,8 +88,23 @@ function MarketDetailV2(
     ETabMarketRoutes.MarketDetailV2 | ETabMarketRoutes.MarketNativeDetail
   >,
 ) {
+  const { navigation } = props;
   const isLandscape = useIsSplitView();
   const isTablet = isNativeTablet();
+
+  useLayoutEffect(() => {
+    if (!platformEnv.isNativeIOS) {
+      return;
+    }
+    navigation.setOptions({
+      gestureEnabled: true,
+      fullScreenGestureEnabled: false,
+      gestureResponseDistance: {
+        start: 20,
+      },
+    });
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
       if (platformEnv.isExtension || (isTablet && isLandscape)) {

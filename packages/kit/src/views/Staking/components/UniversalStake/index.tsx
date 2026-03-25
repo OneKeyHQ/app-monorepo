@@ -16,9 +16,9 @@ import {
   IconButton,
   Image,
   Page,
-  Popover,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -40,6 +40,8 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 import type {
@@ -48,7 +50,6 @@ import type {
   IEarnEstimateFeeResp,
   IEarnPermit2ApproveSignData,
   IEarnSelectField,
-  IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTransactionConfirmation,
@@ -68,6 +69,7 @@ import {
   capitalizeString,
   countDecimalPlaces,
   isInvalidAmount,
+  shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationListItem } from '../CalculationList';
@@ -81,11 +83,16 @@ import {
 } from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
+import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import {
   PendleAccordionTriggerContent,
   PendleSummarySection,
 } from '../ProtocolDetails/PendleSharedComponents';
+import {
+  calcPriceImpactInfo,
+  showHighPriceImpactDialog,
+} from '../showHighPriceImpactDialog';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   StakingAmountInput,
@@ -366,8 +373,12 @@ export function UniversalStake({
     ],
   );
 
+  const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
+    useState(false);
+
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
+      setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
         setTransactionConfirmation(resp);
@@ -376,6 +387,8 @@ export function UniversalStake({
         }
       } catch {
         // keep stale state
+      } finally {
+        setTransactionConfirmationLoading(false);
       }
     },
     350,
@@ -545,6 +558,8 @@ export function UniversalStake({
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
 
+  const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
+
   const checkAmount = useDebouncedCallback(
     async ({ amount, identity }: { amount: string; identity?: string }) => {
       if (isInvalidAmount(amount)) {
@@ -621,18 +636,74 @@ export function UniversalStake({
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
-  const onMax = useCallback(() => {
+  const maxAmountValue = useMemo(() => {
     const balanceBN = new BigNumber(balance);
-    const remainBN = balanceBN.minus(minTransactionFee);
-    if (remainBN.gt(0)) {
-      onChangeAmountValue(remainBN.toFixed());
-    } else {
-      onChangeAmountValue(balance);
+    if (balanceBN.isNaN()) {
+      return balance;
     }
-  }, [onChangeAmountValue, balance, minTransactionFee]);
+
+    const maxAmountBN = tokenInfo?.token?.isNative
+      ? BigNumber.max(0, balanceBN.minus(minTransactionFee))
+      : balanceBN;
+
+    return typeof decimals === 'number'
+      ? maxAmountBN.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
+      : maxAmountBN.toFixed();
+  }, [balance, decimals, minTransactionFee, tokenInfo?.token?.isNative]);
+
+  const reserveGasFormatter: INumberFormatProps = useMemo(
+    () => ({
+      formatter: 'balance',
+      formatterOptions: {
+        tokenSymbol: tokenSymbol || tokenInfo?.token.symbol,
+      },
+    }),
+    [tokenInfo?.token.symbol, tokenSymbol],
+  );
+
+  const showNativeTokenMaxToast = useCallback(() => {
+    if (!tokenInfo?.token?.isNative) {
+      return;
+    }
+
+    const reserveFeeBN = new BigNumber(minTransactionFee || 0);
+    const reserveFeeFormatted =
+      reserveFeeBN.gt(0) && !reserveFeeBN.isNaN()
+        ? numberFormat(reserveFeeBN.toFixed(), reserveGasFormatter)
+        : undefined;
+
+    const message = intl.formatMessage(
+      {
+        id: reserveFeeFormatted
+          ? ETranslations.swap_native_token_max_tip_already
+          : ETranslations.swap_native_token_max_tip,
+      },
+      {
+        num_token: reserveFeeFormatted,
+      },
+    );
+
+    Toast.message({
+      title: message,
+    });
+  }, [
+    intl,
+    minTransactionFee,
+    reserveGasFormatter,
+    tokenInfo?.token?.isNative,
+  ]);
+
+  const onMax = useCallback(() => {
+    showNativeTokenMaxToast();
+    onChangeAmountValue(maxAmountValue);
+  }, [maxAmountValue, onChangeAmountValue, showNativeTokenMaxToast]);
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
+      if (percent === 100) {
+        onMax();
+        return;
+      }
       onChangeAmountValue(
         calcPercentBalance({
           balance,
@@ -641,7 +712,7 @@ export function UniversalStake({
         }),
       );
     },
-    [balance, decimals, onChangeAmountValue],
+    [balance, decimals, onChangeAmountValue, onMax],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -763,6 +834,7 @@ export function UniversalStake({
       try {
         await onConfirm?.({
           amount: amountValue,
+          effectiveApy: transactionConfirmation?.effectiveApy,
           ...permitSignatureParams,
           ...stakefishParams,
         });
@@ -773,6 +845,28 @@ export function UniversalStake({
         setSubmitting(false);
       }
     };
+
+    // Check high price impact (Pendle only)
+    if (isPendleProvider) {
+      const payFiatValue =
+        Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
+          ? new BigNumber(amountValue)
+              .multipliedBy(tokenInfo?.price ?? '0')
+              .toFixed()
+          : undefined;
+      const impactInfo = calcPriceImpactInfo({
+        payFiatValue,
+        receiveConfig: receiveInputConfig,
+        receiveDescription: transactionConfirmation?.receive,
+      });
+      if (impactInfo) {
+        const userConfirmed = await showHighPriceImpactDialog(intl, {
+          percent: impactInfo.percent,
+          lossAmount: `${symbol}${impactInfo.lossAmount}`,
+        });
+        if (!userConfirmed) return;
+      }
+    }
 
     if (estimateFeeResp) {
       const daySpent =
@@ -806,6 +900,7 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
+    isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
     signPersonalMessage,
@@ -814,6 +909,12 @@ export function UniversalStake({
     tokenSymbol,
     providerName,
     onQuoteReset,
+    intl,
+    symbol,
+    tokenInfo?.price,
+    receiveInputConfig,
+    transactionConfirmation?.effectiveApy,
+    transactionConfirmation?.receive,
   ]);
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
@@ -1152,6 +1253,7 @@ export function UniversalStake({
     receiveInputConfig,
     networkLogoURI: network?.logoURI,
     isQuoteExpired,
+    loading: quoteLoading,
   });
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
@@ -1331,6 +1433,7 @@ export function UniversalStake({
         <PendleSummarySection
           rewardRows={pendleRewardRows}
           tipText={pendleTipText}
+          loading={quoteLoading}
         />
       );
     }
@@ -1346,29 +1449,9 @@ export function UniversalStake({
             }}
           />
           {transactionConfirmation?.tooltip ? (
-            <Popover
-              placement="top"
-              title={transactionConfirmation?.title?.text ?? ''}
-              renderTrigger={
-                <IconButton
-                  iconColor="$iconSubdued"
-                  size="small"
-                  icon="InfoCircleOutline"
-                  variant="tertiary"
-                />
-              }
-              renderContent={
-                <Stack p="$5">
-                  <EarnText
-                    text={
-                      transactionConfirmation?.tooltip?.type === 'text'
-                        ? transactionConfirmation?.tooltip?.data?.description
-                        : undefined
-                    }
-                    size="$bodyMd"
-                  />
-                </Stack>
-              }
+            <EarnTooltip
+              title={transactionConfirmation?.title?.text}
+              tooltip={transactionConfirmation?.tooltip}
             />
           ) : null}
         </XStack>
@@ -1402,14 +1485,9 @@ export function UniversalStake({
                     flexShrink={1}
                   />
                   {hasTooltip ? (
-                    <Popover.Tooltip
-                      iconSize="$5"
+                    <EarnTooltip
                       title={reward.title.text}
-                      tooltip={
-                        (reward.tooltip as IEarnTextTooltip)?.data?.description
-                          ?.text
-                      }
-                      placement="top"
+                      tooltip={reward.tooltip}
                     />
                   ) : null}
                 </XStack>
@@ -1425,7 +1503,16 @@ export function UniversalStake({
     pendleRewardRows,
     pendleTipText,
     transactionConfirmation,
+    quoteLoading,
   ]);
+
+  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
+    isDisabled,
+    isPendleProvider,
+    amountValue,
+    hasSummarySection,
+    showPendleTransactionSection,
+  });
 
   return (
     <StakingFormWrapper>
@@ -1472,6 +1559,7 @@ export function UniversalStake({
             config={effectiveReceiveInputConfig}
             fiatSymbol={symbol}
             payFiatValue={currentValue}
+            loading={quoteLoading}
           />
         </YStack>
         {showReceiveInput ? (
@@ -1541,7 +1629,7 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {!isDisabled ? (
+      {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
           pt={hasSummarySection ? '$5' : '$3.5'}
@@ -1660,14 +1748,16 @@ export function UniversalStake({
                 </Accordion.Item>
               </Accordion>
             ) : null}
-            <TradeOrBuy
-              token={tokenInfo?.token as IToken}
-              accountId={accountId}
-              networkId={networkId}
-              containerStyle={{
-                pt: '$0',
-              }}
-            />
+            {isPendleProvider ? null : (
+              <TradeOrBuy
+                token={tokenInfo?.token as IToken}
+                accountId={accountId}
+                networkId={networkId}
+                containerStyle={{
+                  pt: '$0',
+                }}
+              />
+            )}
           </YStack>
         </YStack>
       ) : null}

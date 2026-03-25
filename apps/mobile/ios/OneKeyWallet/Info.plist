@@ -44,6 +44,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>BUNDLE_VERSION</key>
+	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
@@ -57,6 +59,7 @@
 		<string>imtokenv2</string>
 		<string>phantom</string>
 		<string>coinbase</string>
+		<string>cbwallet</string>
 		<string>fireblocks-wc</string>
 		<string>bitkeep</string>
 		<string>oneinch</string>
@@ -89,6 +92,8 @@
 	<string>Use bluetooth peripheral to connect OneKey hardware devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Use Camera to scan QR Code.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Use Microphone to record videos.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use biometrics to authenticate and unlock your wallet.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
@@ -124,6 +129,15 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Roobert-Regular.ttf</string>
+		<string>Roobert-Medium.ttf</string>
+		<string>Roobert-SemiBold.ttf</string>
+		<string>Roobert-Bold.ttf</string>
+		<string>GeistMono-Regular.ttf</string>
+		<string>GeistMono-Medium.ttf</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>

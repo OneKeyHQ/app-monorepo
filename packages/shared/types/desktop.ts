@@ -45,10 +45,14 @@ export enum EDesktopStoreKeys {
   UpdateBundleData = 'updateBundleData',
   FallbackUpdateBundleData = 'fallbackUpdateBundleData',
   NativeVersion = 'nativeVersion',
+  NativeBuildNumber = 'nativeBuildNumber',
   AppInstanceMetaBackup = INSTANCE_META_BACKUP_KEY,
   // GPU Crash Statistics - for monitoring
   GPUCrashCount = 'gpuCrashCount',
   LastGPUCrashTime = 'lastGPUCrashTime',
+  // Boot Recovery
+  ConsecutiveBootFailCount = 'consecutiveBootFailCount',
+  BootFailAppVersion = 'bootFailAppVersion',
 }
 
 export type IDesktopStoreUpdateSettings = {
@@ -76,10 +80,14 @@ export type IDesktopStoreMap = {
   };
   [EDesktopStoreKeys.ASCFile]: string;
   [EDesktopStoreKeys.UpdateBuildNumber]: string;
+  [EDesktopStoreKeys.NativeBuildNumber]: string;
   [EDesktopStoreKeys.AppInstanceMetaBackup]: IInstanceMetaBackup;
   [EDesktopStoreKeys.UpdateBundleData]: IDesktopStoreUpdateBundleData;
   [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreFallbackUpdateBundleData;
   // GPU Crash Statistics
   [EDesktopStoreKeys.GPUCrashCount]: number;
   [EDesktopStoreKeys.LastGPUCrashTime]: number;
+  // Boot Recovery
+  [EDesktopStoreKeys.ConsecutiveBootFailCount]: number;
+  [EDesktopStoreKeys.BootFailAppVersion]: string;
 };

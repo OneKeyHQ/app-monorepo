@@ -91,6 +91,10 @@ const SwapTokenSelectPage = ({
   const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
+  // Reset to the default token list immediately when the input is cleared.
+  const requestedSearchKeyword = searchKeyword
+    ? searchKeywordDebounce
+    : searchKeyword;
   const [swapAllSupportNetworks] = useSwapNetworksIncludeAllNetworkAtom();
   const [swapNetworksIncludeAllNetwork] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -187,7 +191,7 @@ const SwapTokenSelectPage = ({
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
-    searchKeywordDebounce,
+    requestedSearchKeyword,
     swapTypeSwitch,
   );
   const alertIndex = useMemo(
@@ -380,12 +384,12 @@ const SwapTokenSelectPage = ({
       }
 
       const tokenItem: ITokenListItemProps = {
-        isSearch: !!searchKeywordDebounce,
+        isSearch: !!requestedSearchKeyword,
         tokenImageSrc: rawItem.logoURI,
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
         networkImageSrc: rawItem.networkLogoURI,
-        tokenContrastAddress: searchKeywordDebounce
+        tokenContrastAddress: requestedSearchKeyword
           ? contractAddressDisplay
           : undefined,
         balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
@@ -477,7 +481,7 @@ const SwapTokenSelectPage = ({
       disableNetworksOnClick,
       md,
       onSelectToken,
-      searchKeywordDebounce,
+      requestedSearchKeyword,
       settingsPersistAtom.currencyInfo.symbol,
       type,
     ],
@@ -612,7 +616,7 @@ const SwapTokenSelectPage = ({
           onSelectNetwork={onSelectCurrentNetwork}
           onDisableNetworksClick={disableNetworksOnClick}
         />
-        {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
+        {currentNetworkPopularTokens.length > 0 && !requestedSearchKeyword ? (
           <Divider mt="$2" />
         ) : null}
         <YStack flex={1}>
@@ -624,7 +628,7 @@ const SwapTokenSelectPage = ({
             estimatedItemSize={60}
             ListHeaderComponent={
               currentNetworkPopularTokens.length > 0 &&
-              !searchKeywordDebounce ? (
+              !requestedSearchKeyword ? (
                 <YStack px="$5" pt="$3" gap="$2">
                   <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
                     {intl.formatMessage({

@@ -6,6 +6,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { XYZ_DEX_PREFIX } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IUniversalSearchPerp } from '@onekeyhq/shared/types/search';
@@ -31,6 +35,7 @@ export function UniversalSearchPerpItem({
   const tag = isPerpsType ? `${maxLeverage}X` : 'xyz';
 
   const handlePress = useCallback(() => {
+    setPerpPageEnterSource(EPerpPageEnterSource.UniversalSearch);
     setTimeout(async () => {
       navigation.switchTab(ETabRoutes.Perp);
       try {

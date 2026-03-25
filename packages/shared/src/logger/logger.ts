@@ -21,6 +21,7 @@ import { PerpScope } from './scopes/perp';
 import { PrimeScope } from './scopes/prime';
 import { ReferralScope } from './scopes/referral';
 import { RewardScope } from './scopes/reward';
+import { RookieGuideScope } from './scopes/rookieGuide';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
 import { SettingScope } from './scopes/setting';
 import { SignatureRecordScope } from './scopes/signatureRecord';
@@ -97,6 +98,8 @@ export class DefaultLogger {
   onboarding = new OnboardingScope();
 
   universalSearch = new UniversalSearchScope();
+
+  rookieGuide = new RookieGuideScope();
 }
 
 const defaultLogger = new DefaultLogger();

@@ -61,6 +61,8 @@ export function ErrorToastContainer() {
       Toast[p.method]({
         title: p.title,
         message: p.message,
+        // icon is string in event bus (shared can't import IKeyOfIcons from components)
+        icon: p.icon as any,
         toastId,
         actions,
         duration: p.duration,

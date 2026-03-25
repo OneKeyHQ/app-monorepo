@@ -1,32 +1,31 @@
 import { memo, useCallback } from 'react';
 
-import {
-  Icon,
-  IconButton,
-  Popover,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Icon, Popover, SizableText, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   type IPerpsFooterTickerMode,
   usePerpsFooterTickerModePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const FOOTER_MODES: {
   mode: IPerpsFooterTickerMode;
-  label: string;
+  labelId: ETranslations;
 }[] = [
-  { mode: 'none', label: 'No Preview' },
-  { mode: 'popular', label: 'Popular' },
-  { mode: 'favorites', label: 'Favorites' },
+  { mode: 'none', labelId: ETranslations.perps_no_preview },
+  { mode: 'popular', labelId: ETranslations.global_popular },
+  { mode: 'favorites', labelId: ETranslations.global_favorites },
 ];
+const FOOTER_SETTINGS_POPOVER_WIDTH = 160;
 
 function FooterTickerSettingsContent({
   closePopover,
 }: {
   closePopover: () => void;
 }) {
+  const intl = useIntl();
   const [footerMode, setFooterMode] = usePerpsFooterTickerModePersistAtom();
 
   const handleSelect = useCallback(
@@ -38,11 +37,17 @@ function FooterTickerSettingsContent({
   );
 
   return (
-    <YStack py="$1" minWidth={180}>
-      {FOOTER_MODES.map(({ mode, label }) => (
-        <ListItem key={mode} onPress={() => handleSelect(mode)} py="$2" px="$3">
+    <YStack py="$1">
+      {FOOTER_MODES.map(({ mode, labelId }) => (
+        <ListItem
+          key={mode}
+          onPress={() => handleSelect(mode)}
+          py="$2"
+          px="$3"
+          tabIndex={-1}
+        >
           <SizableText size="$bodyMd" flex={1}>
-            {label}
+            {intl.formatMessage({ id: labelId })}
           </SizableText>
           {footerMode.mode === mode ? (
             <Icon name="CheckLargeOutline" size="$4.5" color="$icon" />
@@ -61,12 +66,16 @@ function FooterTickerSettings() {
       renderContent={({ closePopover }) => (
         <FooterTickerSettingsContent closePopover={closePopover} />
       )}
+      floatingPanelProps={{
+        width: FOOTER_SETTINGS_POPOVER_WIDTH,
+      }}
       renderTrigger={
-        <IconButton
-          icon="SliderVerOutline"
-          size="small"
-          variant="tertiary"
-          iconProps={{ color: '$iconSubdued', size: '$4.5' }}
+        <Icon
+          name="SliderVerOutline"
+          size="$4.5"
+          color="$iconSubdued"
+          cursor="pointer"
+          hoverStyle={{ color: '$icon' }}
         />
       }
     />

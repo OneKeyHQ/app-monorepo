@@ -914,7 +914,12 @@ function SelectPrivateKeyNetworkView() {
                     />
                   ) : null}
                   {detectedNetworks && detectedNetworks.length > 0 ? (
-                    <XStack gap="$1" pt="$5" justifyContent="center">
+                    <XStack
+                      gap="$1"
+                      pt="$5"
+                      justifyContent="center"
+                      flexWrap="wrap"
+                    >
                       <SizableText size="$bodyMd" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.cant_find_network_question,

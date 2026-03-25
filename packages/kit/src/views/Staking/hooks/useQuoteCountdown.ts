@@ -61,17 +61,12 @@ export function useQuoteCountdown({
     onRefreshRef.current?.();
   }, [enabled, durationSeconds, startTimer]);
 
-  // Start/stop timer based on enabled
+  // Reset state based on enabled; timer only starts via reset() after a successful fetch
   useEffect(() => {
-    if (enabled) {
-      setRemainingSeconds(durationSeconds);
-      startTimer();
-    } else {
-      clearTimer();
-      setRemainingSeconds(durationSeconds);
-    }
+    clearTimer();
+    setRemainingSeconds(durationSeconds);
     return clearTimer;
-  }, [enabled, durationSeconds, startTimer, clearTimer]);
+  }, [enabled, durationSeconds, clearTimer]);
 
   const isExpired = enabled && remainingSeconds <= 0;
 

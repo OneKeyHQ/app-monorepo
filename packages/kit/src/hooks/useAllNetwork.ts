@@ -301,6 +301,15 @@ function useAllNetworkRequests<T>(params: {
     accountId?: string;
     networkId?: string;
   }) => Promise<void>;
+  onCacheChecked?: ({
+    accountId,
+    networkId,
+    hasCache,
+  }: {
+    accountId?: string;
+    networkId?: string;
+    hasCache: boolean;
+  }) => Promise<void> | void;
   revalidateOnFocus?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
@@ -325,6 +334,7 @@ function useAllNetworkRequests<T>(params: {
     shouldAlwaysFetch,
     onStarted,
     onFinished,
+    onCacheChecked,
     revalidateOnFocus = false,
   } = params;
   const allNetworkDataInit = useRef(false);
@@ -532,6 +542,7 @@ function useAllNetworkRequests<T>(params: {
         }
 
         if (!allNetworkDataInit.current) {
+          let cacheHasData = false;
           try {
             perf.markStart('allNetworkCacheRequests');
             const cachedData = (
@@ -566,6 +577,7 @@ function useAllNetworkRequests<T>(params: {
             perf.markEnd('allNetworkCacheRequests');
 
             if (cachedData && !isEmpty(cachedData)) {
+              cacheHasData = true;
               allNetworkDataInit.current = true;
               perf.done();
               perfTokenListView.markEnd(
@@ -580,7 +592,16 @@ function useAllNetworkRequests<T>(params: {
             }
           } catch (e) {
             console.error(e);
-            // pass
+          } finally {
+            try {
+              await onCacheChecked?.({
+                accountId: currentAccountId,
+                networkId: currentNetworkId,
+                hasCache: cacheHasData,
+              });
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
 
@@ -737,6 +758,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkAccountsData,
       onStarted,
       onFinished,
+      onCacheChecked,
       clearAllNetworkData,
       allNetworkCacheRequests,
       allNetworkCacheData,

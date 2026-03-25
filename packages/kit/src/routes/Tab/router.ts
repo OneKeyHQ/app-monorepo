@@ -203,6 +203,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         rewrite: perpTabShowWeb ? undefined : '/perps',
         exact: true,
         hiddenIcon: perpDisabled || perpTabShowWeb,
+        trackId: 'global-perp',
       },
       {
         name: ETabRoutes.Earn,

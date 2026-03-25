@@ -155,7 +155,7 @@ function MoreActionContentHeader({
     await closePopover?.();
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
+      autoExecuteParsedAction: true,
       account,
       network,
       tokens: {
@@ -917,7 +917,7 @@ function MoreActionGeneralGrid() {
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-      autoHandleResult: true,
+      autoExecuteParsedAction: true,
       account,
       network,
       tokens: {
@@ -1541,7 +1541,7 @@ function MoreButtonWithDot({
     return (
       <YStack p="$2" borderRadius="$2" hoverStyle={{ bg: '$bgHover' }}>
         <Stack position="relative">
-          <Icon name="DotGridOutline" size="$5" />
+          <Icon name="DotGridOutline" size="$6" color="$iconSubdued" />
           {desktopDot}
         </Stack>
       </YStack>

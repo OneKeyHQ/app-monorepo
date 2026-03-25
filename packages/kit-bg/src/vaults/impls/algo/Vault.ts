@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isArray, isEmpty, isNil } from 'lodash';
 
+import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
 import type {
   IEncodedTxAlgo,
   IEncodedTxGroupAlgo,
@@ -63,6 +64,7 @@ import { encodeTransaction } from './utils';
 import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
+// eslint-disable-next-line import-js/order
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
@@ -77,10 +79,9 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-/* eslint-disable import/order */
+
+// eslint-disable-next-line import-js/order
 import type { FailedAttemptError } from 'p-retry';
-import { NETWORK_REQUEST_ERROR_CODE } from '@onekeyhq/core/src/chains/algo/constants';
-/* eslint-enable import/order */
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.algo.hd;

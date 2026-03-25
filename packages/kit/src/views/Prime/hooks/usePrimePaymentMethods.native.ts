@@ -6,7 +6,10 @@ import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePrimePersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
@@ -41,6 +44,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
   const { isReady: isAuthReady, user } = useOneKeyAuth();
 
   const [, setPrimePersistAtom] = usePrimePersistAtom();
+  const [{ instanceId }] = useSettingsPersistAtom();
   const intl = useIntl();
 
   // TODO move to jotai context
@@ -90,7 +94,16 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     if (appUserId !== user?.onekeyUserId) {
       throw new OneKeyLocalError('AppUserId not match');
     }
-  }, [user?.onekeyUserId]);
+    // Sync instanceId to RevenueCat so server-side events (renewal, cancellation, etc.)
+    // are sent to Mixpanel with the same distinct_id as client-side analytics.
+    if (instanceId) {
+      try {
+        await PurchasesReactNative.setMixpanelDistinctID(instanceId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [instanceId, user?.onekeyUserId]);
 
   const restorePurchases = useCallback(async () => {
     try {
@@ -175,6 +188,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
+        currencyCode,
         pricePerYear: pricePerYear || 0,
         pricePerYearString: `${new BigNumber(pricePerYear || 0).toFixed(
           2,
@@ -238,6 +252,18 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
           makePurchaseResult?.customerInfo?.entitlements?.active?.Prime
             ?.isActive
         ) {
+          // Set subscriptionManageUrl immediately from purchase result,
+          // because the server may not yet have it (RevenueCat webhook delay).
+          setPrimePersistAtom(
+            (prev): IPrimeUserInfo =>
+              perfUtils.buildNewValueIfChanged(prev, {
+                ...prev,
+                subscriptionManageUrl:
+                  makePurchaseResult.customerInfo.managementURL ||
+                  prev.subscriptionManageUrl ||
+                  '',
+              }),
+          );
           await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
 
           // Track successful subscription
@@ -294,7 +320,7 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
     },
-    [isReady, intl, loginPurchasesSdk],
+    [isReady, intl, loginPurchasesSdk, setPrimePersistAtom],
   );
 
   return {

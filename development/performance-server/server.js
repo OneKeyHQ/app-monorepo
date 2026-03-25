@@ -13,12 +13,14 @@
  *   PERF_OUTPUT_DIR  - Output directory (default: $HOME/perf-sessions)
  */
 
-const http = require('http');
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
+
 const { WebSocketServer } = require('ws');
-const storage = require('./storage');
+
 const derivedLib = require('./derived');
+const storage = require('./storage');
 
 const PORT = parseInt(process.env.PERF_SERVER_PORT || '9527', 10);
 const PUBLIC_DIR = path.join(__dirname, 'public');

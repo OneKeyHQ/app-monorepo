@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { NumberSizeableText } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText } from '@onekeyhq/components';
 
 import { useLiquidationPrice } from '../../../hooks/useLiquidationPrice';
 
@@ -17,8 +17,9 @@ const LiquidationPriceDisplay = memo(
     side?: 'long' | 'short';
   }) => {
     const liquidationPrice = useLiquidationPrice(side);
+
     if (!liquidationPrice) {
-      return 'N/A';
+      return <SizableText size={textSize ?? '$bodySmMedium'}>--</SizableText>;
     }
 
     return (

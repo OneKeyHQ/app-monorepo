@@ -1,8 +1,10 @@
-const path = require('path');
-const webpack = require('webpack');
 const fs = require('fs');
+const path = require('path');
+
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const webpack = require('webpack');
+
 const { WEB_PORT } = require('./constant');
 
 module.exports = ({ basePath }) => ({

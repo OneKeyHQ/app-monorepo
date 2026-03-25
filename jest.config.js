@@ -1,6 +1,7 @@
 // https://jestjs.io/docs/configuration
-const { defaults } = require('jest-config');
 const util = require('node:util');
+
+const { defaults } = require('jest-config');
 const exec = util.promisify(require('node:child_process').exec);
 
 module.exports = async () => {
@@ -101,9 +102,11 @@ module.exports = async () => {
         },
       ],
     ],
+    modulePathIgnorePatterns: ['<rootDir>/.claude/worktrees/'],
     testPathIgnorePatterns: [
       // Detox E2E tests have their own Jest config under apps/mobile/e2e and must not run in unit-test CI.
       'apps/mobile/e2e',
+      '\\.claude/worktrees/',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',
       'packages/core/src/chains/apt',

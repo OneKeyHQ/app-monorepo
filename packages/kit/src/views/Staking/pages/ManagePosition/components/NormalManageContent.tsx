@@ -13,7 +13,6 @@ import {
   EStakingActionType,
 } from '@onekeyhq/shared/types/staking';
 import type {
-  IBorrowReserveItem,
   IEarnHistoryActionIcon,
   IEarnManagePageActionData,
   IEarnManagePageResponse,
@@ -69,7 +68,6 @@ interface INormalManageContentProps {
   ongoingValidator?: IEarnSelectField;
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
-  borrowReserves?: IBorrowReserveItem;
   preferManagePageActionText?: boolean;
 }
 
@@ -102,7 +100,6 @@ export function NormalManageContent({
   fallbackTokenImageUri,
   ongoingValidator,
   managePageData,
-  borrowReserves,
   type = EManagePositionType.Staking,
   preferManagePageActionText = false,
 }: INormalManageContentProps) {
@@ -368,6 +365,7 @@ export function NormalManageContent({
     if (defaultTab === 'withdraw') return 1;
     return 0;
   });
+  const shouldDisablePrimaryTab = depositDisabled;
 
   // Pendle: slippage state + countdown
   const isPendleProvider = useIsPendleProvider(provider);
@@ -443,13 +441,14 @@ export function NormalManageContent({
           autoValue={swapSlippageAutoValue}
           onSave={(item, close) => {
             setPendleSlippage(item);
+            handleHeaderRefreshQuote();
             void close({ flag: 'save' });
           }}
           isMEV={false}
         />
       ),
     });
-  }, [intl, pendleSlippage]);
+  }, [intl, pendleSlippage, handleHeaderRefreshQuote]);
 
   useEffect(() => {
     if (defaultTab === 'withdraw') {
@@ -559,6 +558,13 @@ export function NormalManageContent({
 
   const focusedTab = useSharedValue(initialTabName);
 
+  useEffect(() => {
+    if (depositDisabled && selectedTabIndex === 0) {
+      setSelectedTabIndex(1);
+      focusedTab.value = tabNames[1];
+    }
+  }, [depositDisabled, selectedTabIndex, focusedTab, tabNames]);
+
   const isWithdrawOrder = useMemo(() => {
     return (
       protocolInfo?.withdrawAction?.type === EStakingActionType.WithdrawOrder
@@ -569,6 +575,9 @@ export function NormalManageContent({
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
       if (index !== -1) {
+        if (index === 0 && shouldDisablePrimaryTab) {
+          return;
+        }
         if (index === 1 && isWithdrawOrder) {
           const withdrawParams = {
             accountId: earnAccount?.accountId || '',
@@ -604,6 +613,7 @@ export function NormalManageContent({
     },
     [
       isWithdrawOrder,
+      shouldDisablePrimaryTab,
       earnAccount?.accountId,
       focusedTab,
       tabData,
@@ -627,32 +637,50 @@ export function NormalManageContent({
           onTabPress={handleTabChange}
           tabNames={tabNames}
           focusedTab={focusedTab}
-          renderItem={({ name, isFocused }) => (
-            <XStack
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={isFocused ? '$bgActive' : '$bg'}
-              borderRadius="$2"
-              borderCurve="continuous"
-              hoverStyle={
-                !isFocused
-                  ? {
-                      bg: '$bgHover',
-                    }
-                  : null
-              }
-              onPress={() => handleTabChange(name)}
-            >
-              <SizableText
-                size="$headingMd"
-                color={isFocused ? '$text' : '$textSubdued'}
-                letterSpacing={-0.15}
+          renderItem={({ name, isFocused }) => {
+            const isDisabled = shouldDisablePrimaryTab && name === tabNames[0];
+            let textColor: '$textDisabled' | '$text' | '$textSubdued' =
+              '$textSubdued';
+
+            if (isDisabled) {
+              textColor = '$textDisabled';
+            } else if (isFocused) {
+              textColor = '$text';
+            }
+
+            return (
+              <XStack
+                px="$2"
+                py="$1.5"
+                mr="$1"
+                bg={isFocused ? '$bgActive' : '$bg'}
+                borderRadius="$2"
+                borderCurve="continuous"
+                opacity={isDisabled ? 0.4 : 1}
+                hoverStyle={
+                  !isFocused && !isDisabled
+                    ? {
+                        bg: '$bgHover',
+                      }
+                    : null
+                }
+                onPress={() => {
+                  if (isDisabled) {
+                    return;
+                  }
+                  handleTabChange(name);
+                }}
               >
-                {name}
-              </SizableText>
-            </XStack>
-          )}
+                <SizableText
+                  size="$headingMd"
+                  color={textColor}
+                  letterSpacing={-0.15}
+                >
+                  {name}
+                </SizableText>
+              </XStack>
+            );
+          }}
         />
         <HeaderRight
           accountId={indicatorAccountId || earnAccount?.accountId}
@@ -690,7 +718,6 @@ export function NormalManageContent({
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionPrimary}
-          borrowReserves={borrowReserves}
           borrowActionLabel={borrowActionLabelPrimary}
           receiveInputConfig={stakeReceiveInputConfig}
           pendleSlippage={pendleSlippageValue}
@@ -716,7 +743,6 @@ export function NormalManageContent({
           borrowMarketAddress={marketAddress}
           borrowReserveAddress={reserveAddress}
           borrowAction={borrowActionSecondary}
-          borrowReserves={borrowReserves}
           defaultCollateralReserveAddress={
             managePageData?.collateral?.data?.reserveAddress
           }

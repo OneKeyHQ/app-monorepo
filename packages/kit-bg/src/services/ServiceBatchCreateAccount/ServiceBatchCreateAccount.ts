@@ -490,6 +490,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
   async addDefaultNetworkAccounts({
     walletId,
     indexedAccountId,
+    indexes,
     skipDeviceCancel,
     hideCheckingDeviceLoading,
     skipCloseHardwareUiStateDialog,
@@ -499,6 +500,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     autoHandleExitError?: boolean;
     walletId: string | undefined;
     indexedAccountId: string | undefined;
+    indexes?: number[];
     customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
   } & IWithHardwareProcessingControlParams): Promise<{
     addedAccounts: {
@@ -529,17 +531,26 @@ class ServiceBatchCreateAccount extends ServiceBase {
         walletId,
       })
     ) {
-      if (!indexedAccountId) {
-        throw new OneKeyLocalError('indexedAccountId is required');
+      let fromIndex: number;
+      let toIndex: number;
+
+      if (indexedAccountId) {
+        const index = accountUtils.parseIndexedAccountId({
+          indexedAccountId,
+        }).index;
+        fromIndex = index;
+        toIndex = index;
+      } else if (indexes && indexes.length > 0) {
+        fromIndex = Math.min(...indexes);
+        toIndex = Math.max(...indexes);
+      } else {
+        throw new OneKeyLocalError('indexedAccountId or indexes is required');
       }
 
-      const index = accountUtils.parseIndexedAccountId({
-        indexedAccountId,
-      }).index;
       return this.startBatchCreateAccountsFlowForAllNetwork({
         walletId,
-        fromIndex: index,
-        toIndex: index,
+        fromIndex,
+        toIndex,
         excludedIndexes: {},
         saveToDb: true,
         customNetworks: customNetworks || [],

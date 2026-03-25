@@ -5,7 +5,8 @@
   "main": "src/index.tsx",
   "dependencies": {
     "eth-url-parser": "^1.0.4",
-    "idb": "^7.1.1"
+    "idb": "^7.1.1",
+    "miscreant": "^0.3.2"
   },
   "scripts": {
     "_folderslint": "yarn folderslint",

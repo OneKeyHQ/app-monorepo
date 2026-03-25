@@ -1,6 +1,9 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 
 type IUseEarnAccountParams = {
   networkId?: string;
@@ -16,11 +19,18 @@ export function useEarnAccount({
   btcOnlyTaproot = true,
 }: IUseEarnAccountParams) {
   const {
-    activeAccount: { account, indexedAccount },
+    activeAccount: { indexedAccount },
   } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
 
-  const resolvedAccountId = accountId ?? account?.id ?? '';
-  const resolvedIndexedAccountId = indexedAccountId ?? indexedAccount?.id;
+  // For accountId: only use othersWalletAccountId (external/imported wallets).
+  // NEVER use account?.id — it's network-specific and will mismatch in cross-network scenarios.
+  const resolvedAccountId =
+    accountId || selectedAccount.othersWalletAccountId || '';
+  // For indexedAccountId: selectedAccount is available immediately from storage sync,
+  // bypassing the async activeAccount resolution delay.
+  const resolvedIndexedAccountId =
+    indexedAccountId || selectedAccount.indexedAccountId || indexedAccount?.id;
 
   const {
     result: earnAccount,

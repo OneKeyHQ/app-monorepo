@@ -84,6 +84,11 @@ allprojects {
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
     }
+    // Pin app.notifee:core to the version bundled in node_modules to avoid
+    // querying remote repos (jitpack.io) which can time out on EAS builds.
+    configurations.all {
+        resolutionStrategy.force 'app.notifee:core:202108261754'
+    }
 }
 
 apply plugin: "expo-root-project"

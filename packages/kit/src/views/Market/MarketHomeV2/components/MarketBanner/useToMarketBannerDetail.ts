@@ -20,6 +20,7 @@ export function useToMarketBannerDetail() {
       const params = {
         tokenListId: item.tokenListId,
         title: item.title,
+        type: item.type,
       };
 
       // Push to page (works on all platforms including native via Discovery routes)

@@ -10,6 +10,8 @@ export const SHEET_AND_DIALOG_Z_INDEX = 100_000 - 1;
 //  the z-index of the Dialog is 1e5.
 //  the z-index of the Toast is 1e5.
 //  the z-index of the Popover 15e4.
+// Drag clone must render above Dialog (1e5) and Sheet (1e5-1) overlays
+export const DRAG_CLONE_Z_INDEX = 100_001;
 export const SHEET_POPOVER_Z_INDEX = 150_000;
 
 export const PASSWORD_VERIFY_CONTAINER_Z_INDEX = 160_000;
