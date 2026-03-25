@@ -43,6 +43,22 @@ interface ISendTransactionResult {
   result: string;
 }
 
+// GET /swap/v1/allowance response (matches App's ISwapApproveAllowanceResponse)
+interface IAllowanceCheckResponse {
+  isApproved: boolean;
+  allowanceTarget: string;
+  shouldApproveAmount: string;
+  approvedAmount: string;
+  shouldResetApprove?: boolean;
+}
+
+// build-tx response's allowanceResult (matches App's IAllowanceResult)
+interface IAllowanceResult {
+  allowanceTarget: string;
+  amount: string;
+  shouldResetApprove?: boolean;
+}
+
 // Validate tx hash: 0x + 64 hex chars
 const TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
 
@@ -52,8 +68,8 @@ const EVM_ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/i;
 // Validate hex calldata: 0x + even number of hex chars (complete bytes)
 const HEX_BYTES_PATTERN = /^0x(?:[a-fA-F0-9]{2})*$/i;
 
-// Validate hex quantity (value): 0x + at least one hex char
-const HEX_QUANTITY_PATTERN = /^0x[a-fA-F0-9]+$/i;
+// Validate tx value: either "0x" hex quantity or plain decimal integer (API may return either)
+const TX_VALUE_PATTERN = /^(?:0x[a-fA-F0-9]+|\d+)$/i;
 
 // ERC-20 approve(address,uint256) function selector
 const APPROVE_SELECTOR = '095ea7b3';
@@ -75,6 +91,62 @@ function buildApproveEncodedTx(
     data,
     value: '0x0',
   };
+}
+
+/**
+ * Check on-chain allowance via the swap API (same endpoint the App uses).
+ */
+async function checkAllowance(
+  networkId: string,
+  tokenAddress: string,
+  spenderAddress: string,
+  walletAddress: string,
+  amount: string,
+): Promise<IAllowanceCheckResponse> {
+  return apiClient.get<IAllowanceCheckResponse>('swap', '/swap/v1/allowance', {
+    networkId,
+    tokenAddress,
+    spenderAddress,
+    walletAddress,
+    amount,
+  });
+}
+
+/**
+ * Poll the allowance API until approval is confirmed or timeout.
+ * Base block time ~2s; polls every 3s for up to 30s.
+ */
+async function waitForApproveConfirmation(
+  networkId: string,
+  tokenAddress: string,
+  spenderAddress: string,
+  walletAddress: string,
+  amount: string,
+): Promise<void> {
+  const maxAttempts = 10;
+  const intervalMs = 3000;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, intervalMs);
+    });
+    try {
+      const resp = await checkAllowance(
+        networkId,
+        tokenAddress,
+        spenderAddress,
+        walletAddress,
+        amount,
+      );
+      if (resp.isApproved) return;
+    } catch {
+      // Ignore transient API errors during polling
+    }
+  }
+  throw new AppError(
+    ERROR_CODES.BIZ_SWAP_FAILED.code,
+    'Approve transaction not confirmed within 30 seconds',
+    'Check the approve tx on chain explorer, then retry "onekey swap execute"',
+  );
 }
 
 /**
@@ -279,7 +351,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
           // Validate tx data exists in the pending order
           const txData = order.txData as {
             result?: {
-              allowanceResult?: { isEnough?: boolean };
+              allowanceResult?: IAllowanceResult;
             };
             tx?: Record<string, string>;
           };
@@ -313,25 +385,43 @@ export function registerSwapExecuteCommand(parent: Command): void {
           }
           if (
             txData.tx.value !== undefined &&
-            !HEX_QUANTITY_PATTERN.test(txData.tx.value)
+            !TX_VALUE_PATTERN.test(txData.tx.value)
           ) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              'Invalid tx.value in order: not a valid hex quantity',
+              'Invalid tx.value in order: not a valid hex or decimal value',
               'Run "onekey swap build" to create a new order',
             );
           }
 
-          // Check if token approval is required (before confirmation so we can inform the user)
-          const needsApprove =
-            txData.result?.allowanceResult !== undefined &&
-            txData.result.allowanceResult !== null &&
-            txData.result.allowanceResult.isEnough === false;
+          // Determine if token approval is needed by calling the on-chain allowance API.
+          // The build-tx response's allowanceResult contains the spender (allowanceTarget)
+          // and required amount — but the actual approval status must be checked on-chain.
+          const buildAllowance = txData.result?.allowanceResult;
+          let needsApprove = false;
+          let approveSpender = '';
+          let onChainAllowance: IAllowanceCheckResponse | undefined;
+
+          if (
+            buildAllowance?.allowanceTarget &&
+            order.fromToken.contractAddress
+          ) {
+            approveSpender = buildAllowance.allowanceTarget;
+            onChainAllowance = await checkAllowance(
+              chainConfig.networkId,
+              order.fromToken.contractAddress,
+              approveSpender,
+              // Use build-time address if available, otherwise will be checked after signer init
+              txData.tx.from ?? '',
+              buildAllowance.amount,
+            );
+            needsApprove = !onChainAllowance.isApproved;
+          }
 
           // Build confirmation action string — include approve info if applicable
           let confirmAction = `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`;
           if (needsApprove) {
-            confirmAction = `Approve unlimited ${order.fromToken.symbol} allowance to ${swapTxTo}, then swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol} (2 transactions)`;
+            confirmAction = `Approve unlimited ${order.fromToken.symbol} allowance to ${approveSpender}, then swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol} (2 transactions)`;
           }
 
           // Confirm execution — show real tx.to (router contract), not just provider name
@@ -380,14 +470,6 @@ export function registerSwapExecuteCommand(parent: Command): void {
           let approveNonce: number | undefined;
 
           if (needsApprove) {
-            if (!order.fromToken.contractAddress) {
-              throw new AppError(
-                ERROR_CODES.BIZ_SWAP_FAILED.code,
-                'Approve required but fromToken has no contract address (native token)',
-                'This should not happen — rebuild the order',
-              );
-            }
-
             // Validate fromToken contract address is a legitimate EVM address
             if (!EVM_ADDRESS_PATTERN.test(order.fromToken.contractAddress)) {
               throw new AppError(
@@ -396,23 +478,22 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 'Run "onekey swap build" to create a new order',
               );
             }
-
-            // Spender is the swap router contract (the tx.to field)
-            const spender = txData.tx.to;
-            if (!spender) {
+            if (!EVM_ADDRESS_PATTERN.test(approveSpender)) {
               throw new AppError(
                 ERROR_CODES.BIZ_SWAP_FAILED.code,
-                'Cannot determine approve spender from swap tx data',
+                `Invalid allowanceTarget (spender): "${approveSpender}"`,
                 'Run "onekey swap build" to create a new order',
               );
             }
 
-            output.info('Approving token allowance...');
+            output.info(
+              `Approving ${order.fromToken.symbol} for spender ${approveSpender}...`,
+            );
 
             const approveEncodedTx = buildApproveEncodedTx(
               fromAddress,
               order.fromToken.contractAddress,
-              spender,
+              approveSpender,
             );
 
             const approveBuilt = await buildSignableTx(
@@ -453,7 +534,19 @@ export function registerSwapExecuteCommand(parent: Command): void {
             }
 
             approveTxHash = approveResult.result;
-            output.info(`Approve tx broadcast: ${approveTxHash}`);
+            output.info(
+              `Approve tx broadcast: ${approveTxHash}. Waiting for confirmation...`,
+            );
+
+            // Wait for approve to be confirmed on-chain before swap gas estimation
+            await waitForApproveConfirmation(
+              chainConfig.networkId,
+              order.fromToken.contractAddress,
+              approveSpender,
+              fromAddress,
+              buildAllowance!.amount,
+            );
+            output.info('Approve confirmed on-chain.');
           }
 
           // Sign and broadcast swap tx
