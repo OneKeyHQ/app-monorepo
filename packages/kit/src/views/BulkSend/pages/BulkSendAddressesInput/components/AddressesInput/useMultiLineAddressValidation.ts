@@ -52,6 +52,7 @@ function useMultiLineAddressValidation(
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const onResolvedAccountIdsRef = useRef(onResolvedAccountIds);
+  const validationSeqRef = useRef(0);
   onResolvedAccountIdsRef.current = onResolvedAccountIds;
 
   const { result: vaultSettings } = usePromiseResult(
@@ -228,6 +229,10 @@ function useMultiLineAddressValidation(
 
   const handleValidateAddresses = useCallback(
     async (value: string, emptyErrorMessageId: ETranslations) => {
+      validationSeqRef.current += 1;
+      const seq = validationSeqRef.current;
+      const isValidationStale = () => validationSeqRef.current !== seq;
+
       if (!value) {
         setErrors([]);
         if (resolveAccountId) {
@@ -374,6 +379,9 @@ function useMultiLineAddressValidation(
             }),
           ),
         );
+        if (isValidationStale()) {
+          return true;
+        }
 
         const validAddresses: { index: number; address: string }[] = [];
         const seenNormalizedAddresses = new Map<string, number>();
@@ -431,6 +439,9 @@ function useMultiLineAddressValidation(
               }),
             ),
           );
+          if (isValidationStale()) {
+            return true;
+          }
 
           for (const { index, result } of accountIdResults) {
             if ('error' in result) {
@@ -522,6 +533,9 @@ function useMultiLineAddressValidation(
               }),
             ),
           );
+          if (isValidationStale()) {
+            return true;
+          }
 
           for (const { index, isAllowed } of allowListResults) {
             if (!isAllowed) {
@@ -536,6 +550,10 @@ function useMultiLineAddressValidation(
         }
 
         lineErrors.sort((a, b) => a.lineNumber - b.lineNumber);
+      }
+
+      if (isValidationStale()) {
+        return true;
       }
 
       // Notify parent of resolved accountIds

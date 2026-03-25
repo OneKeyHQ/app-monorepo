@@ -1,6 +1,7 @@
 /* eslint-disable no-continue */
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
+import { useWatch } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
 import { Form, useFormContext } from '@onekeyhq/components';
@@ -152,6 +153,11 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     useBulkSendAddressesInputContext();
 
   const form = useFormContext();
+  const senderAddresses = useWatch({
+    control: form.control,
+    name: 'senderAddresses',
+  }) as string | undefined;
+  const previousSenderAddressesRef = useRef<string | undefined>(undefined);
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
@@ -189,6 +195,25 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
   );
 
   const debouncedValidate = useDebouncedValidation(validate);
+
+  useEffect(() => {
+    const previousSenderAddresses = previousSenderAddressesRef.current;
+    previousSenderAddressesRef.current = senderAddresses;
+
+    if (previousSenderAddresses === undefined) {
+      return;
+    }
+
+    if (previousSenderAddresses === senderAddresses) {
+      return;
+    }
+
+    if (!form.getValues('receiverAddresses')) {
+      return;
+    }
+
+    void form.trigger('receiverAddresses');
+  }, [form, senderAddresses]);
 
   return (
     <Form.Field
