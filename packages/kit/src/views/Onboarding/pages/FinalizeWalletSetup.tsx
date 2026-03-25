@@ -43,6 +43,9 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function FinalizeWalletSetupPage({
   route,
@@ -285,7 +288,7 @@ function FinalizeWalletSetupPage({
               <Stack
                 key="CheckRadioSolid"
                 animation="quick"
-                animateOnly={['opacity', 'transform']}
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
@@ -302,7 +305,7 @@ function FinalizeWalletSetupPage({
                 key="spinner"
                 size="large"
                 animation="quick"
-                animateOnly={['opacity', 'transform']}
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 exitStyle={
                   platformEnv.isNativeAndroid
                     ? undefined
@@ -319,7 +322,7 @@ function FinalizeWalletSetupPage({
           <Stack
             key={currentStep}
             animation="quick"
-            animateOnly={['opacity', 'transform']}
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,
               x: 12,

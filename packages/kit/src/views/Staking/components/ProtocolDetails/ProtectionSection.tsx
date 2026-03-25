@@ -15,6 +15,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function AutoRiskControlContent() {
   const intl = useIntl();
@@ -70,7 +73,11 @@ function AutoRiskControlContent() {
                     id: ETranslations.earn_disclaimer,
                   })}
                 </SizableText>
-                <YStack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
+                <YStack
+                  animation="quick"
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
+                  rotate={open ? '180deg' : '0deg'}
+                >
                   <Icon
                     name="ChevronDownSmallOutline"
                     color="$iconSubdued"

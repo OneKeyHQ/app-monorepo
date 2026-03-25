@@ -7,6 +7,7 @@ import {
 } from 'react-native-draggable-flatlist';
 
 import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   GetProps,
   StackProps,
@@ -60,7 +61,7 @@ function BaseSortableCell(
                 icon="MinusCircleSolid"
                 variant="destructive"
                 animation="quick"
-                animateOnly={['opacity', 'transform']}
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={enterStyleAnimated}
               />
             ) : null}
@@ -75,7 +76,7 @@ function BaseSortableCell(
                 icon="MenuOutline"
                 onPressIn={drag}
                 animation="quick"
-                animateOnly={['opacity', 'transform']}
+                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                 enterStyle={enterStyleAnimated}
               />
             ) : null}

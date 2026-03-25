@@ -27,6 +27,9 @@ import { ReferAFriendIntroPhase } from './components/ReferAFriendIntroPhase';
 import { ReferAFriendPhaseActions } from './components/ReferAFriendPhaseActions';
 import { useReferAFriendData } from './hooks/useReferAFriendData';
 import { EPhaseState } from './types';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IReferAFriendPageProps {
   postConfig: IInvitePostConfig;
@@ -48,7 +51,7 @@ function ReferAFriendPage({
           <YStack
             key="intro-phase"
             animation="quick"
-            animateOnly={['opacity']}
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
             }}
@@ -73,7 +76,7 @@ function ReferAFriendPage({
           <YStack
             key="howto-phase"
             animation="quick"
-            animateOnly={['opacity']}
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
             }}

@@ -34,6 +34,9 @@ import { useAppRoute } from '../../../hooks/useAppRoute';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function OptionItem({
   icon,
@@ -90,7 +93,7 @@ function OptionItem({
             <YStack
               key="loading-spinner"
               animation="quick"
-              animateOnly={['transform', 'opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ scale: 0.7, opacity: 0 }}
               exitStyle={{ scale: 0.7, opacity: 0 }}
             >
@@ -100,7 +103,7 @@ function OptionItem({
             <YStack
               key="chevron-right"
               animation="quick"
-              animateOnly={['transform', 'opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{ scale: 0.7, opacity: 0 }}
               exitStyle={{ scale: 0.7, opacity: 0 }}
             >

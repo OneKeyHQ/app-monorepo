@@ -18,6 +18,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
@@ -49,7 +52,7 @@ const SwapAccountAddressContainer = ({
           <XStack
             key="network-component"
             animation="quick"
-            animateOnly={['opacity', 'transform']}
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,
               x: 8,

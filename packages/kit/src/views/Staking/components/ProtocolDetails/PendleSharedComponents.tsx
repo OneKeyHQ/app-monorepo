@@ -24,6 +24,9 @@ import { EarnAmountText } from './EarnAmountText';
 import { EarnSwapRoute } from './EarnSwapRoute';
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 // --- PendleRewardRow ---
 
@@ -191,7 +194,11 @@ export const PendleAccordionTriggerContent: FC<
     >
       {triggerText}
     </SizableText>
-    <YStack animation="quick" animateOnly={['transform']} rotate={open && !isDisabled ? '180deg' : '0deg'}>
+    <YStack
+      animation="quick"
+      animateOnly={ANIMATE_ONLY_TRANSFORM}
+      rotate={open && !isDisabled ? '180deg' : '0deg'}
+    >
       <Icon
         name="ChevronDownSmallSolid"
         color={isDisabled ? '$iconDisabled' : '$iconSubdued'}

@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
@@ -132,7 +133,7 @@ function TableRow<T>({
   const nativeScaleAnimationProps: IXStackProps = platformEnv.isNativeIOS
     ? {
         scale: isDragging ? 0.9 : 1,
-        animateOnly: ['transform'],
+        animateOnly: ANIMATE_ONLY_TRANSFORM,
         animation: 'quick',
       }
     : {};

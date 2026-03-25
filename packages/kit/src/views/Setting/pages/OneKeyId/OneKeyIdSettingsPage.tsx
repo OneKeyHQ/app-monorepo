@@ -25,6 +25,9 @@ import { TabSettingsListItem, TabSettingsSection } from '../Tab/ListItem';
 import { useIsTabNavigator } from '../Tab/useIsTabNavigator';
 
 import { OneKeyIdAvatar } from './OneKeyIdAvatar';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function OneKeyIdUserProfile() {
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
@@ -95,7 +98,7 @@ function OneKeyIdUserProfile() {
           borderRadius="$full"
           overflow="hidden"
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           opacity={0}
           hoverStyle={{
             opacity: 1,

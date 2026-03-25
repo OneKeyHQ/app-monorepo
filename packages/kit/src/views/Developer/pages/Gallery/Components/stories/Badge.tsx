@@ -18,6 +18,9 @@ import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
 import { Layout } from './utils/Layout';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IEvaluateOption = 'best' | 'maxReceived';
 
@@ -204,7 +207,11 @@ function SwapProviderItem({
                 Route
               </SizableText>
 
-              <Stack animation="quick" animateOnly={['transform']} rotate={showRoute ? '90deg' : '0deg'}>
+              <Stack
+                animation="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={showRoute ? '90deg' : '0deg'}
+              >
                 <Icon
                   name="ChevronRightSmallOutline"
                   size="$5"

@@ -49,6 +49,9 @@ import type {
   TextInput,
   TextInputSelectionChangeEventData,
 } from 'react-native';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   const intl = useIntl();
@@ -380,7 +383,7 @@ export default function ImportPhraseOrPrivateKey() {
                 <YStack
                   key="privateKey"
                   animation="quick"
-                  animateOnly={['opacity']}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
                     filter: 'blur(4px)',

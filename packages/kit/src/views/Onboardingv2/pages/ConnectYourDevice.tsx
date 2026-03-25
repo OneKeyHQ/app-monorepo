@@ -93,6 +93,9 @@ import {
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 enum EConnectionStatus {
   init = 'init',
@@ -552,7 +555,7 @@ function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
       borderCurve="continuous"
       bg="$bgSubdued"
       animation="quick"
-      animateOnly={['opacity', 'transform']}
+      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       enterStyle={{
         opacity: 0,
         x: 24,

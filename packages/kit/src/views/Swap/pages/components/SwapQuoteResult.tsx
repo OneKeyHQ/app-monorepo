@@ -59,6 +59,9 @@ import {
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
@@ -415,7 +418,7 @@ const SwapQuoteResult = ({
               gap="$4"
               p="$0"
               animation="quick"
-              animateOnly={['opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{ opacity: 0 }}
             >
               <Divider mt="$4" />

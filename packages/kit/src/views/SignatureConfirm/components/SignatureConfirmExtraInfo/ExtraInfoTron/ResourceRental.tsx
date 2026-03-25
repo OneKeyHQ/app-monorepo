@@ -38,6 +38,10 @@ import {
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 const showResourceRentalDetailsDialog = ({
   title,
@@ -205,7 +209,7 @@ function ResourceRental() {
                 </SizableText>
                 <View
                   animation="quick"
-                  animateOnly={['transform']}
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '180deg' : '0deg'}
                   transformOrigin="center"
                 >
@@ -218,7 +222,7 @@ function ResourceRental() {
             <Accordion.Content
               backgroundColor="transparent"
               animation="quick"
-              animateOnly={['opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{ opacity: 0 }}
               px="$3"
             >

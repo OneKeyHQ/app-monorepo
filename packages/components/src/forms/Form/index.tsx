@@ -139,6 +139,7 @@ const errorAnimationStyle = {
   opacity: 0,
   y: -6,
 };
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 export function FieldDescription(props: ISizableTextProps) {
   return (
@@ -255,7 +256,7 @@ function Field({
             <SizableText
               pt="$1.5"
               animation="quick"
-              animateOnly={['opacity', 'transform']}
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={errorAnimationStyle}
               exitStyle={errorAnimationStyle}
               textAlign={errorMessageAlign}

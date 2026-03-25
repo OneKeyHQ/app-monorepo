@@ -38,6 +38,9 @@ import { EDeFiAssetType } from '@onekeyhq/shared/types/defi';
 import { RichTable } from '../RichTable';
 
 import type { GestureResponderEvent } from 'react-native';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function Protocol({
   protocol,
@@ -405,7 +408,7 @@ function Protocol({
               <View
                 ml="$2"
                 animation="quick"
-                animateOnly={['transform']}
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={open ? '180deg' : '0deg'}
                 transformOrigin="center"
               >

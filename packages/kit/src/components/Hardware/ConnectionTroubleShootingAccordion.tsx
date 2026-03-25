@@ -19,6 +19,10 @@ import {
 import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 // Define stable components outside of render function to avoid React warnings
 function LinkComponent({
@@ -214,7 +218,11 @@ export function ConnectionTroubleShootingAccordion({
                         },
                       )}
                 </Heading>
-                <Stack animation="quick" animateOnly={['transform']} rotate={open ? '-180deg' : '0deg'}>
+                <Stack
+                  animation="quick"
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
+                  rotate={open ? '-180deg' : '0deg'}
+                >
                   <Icon
                     name="ChevronDownSmallOutline"
                     color={open ? '$iconActive' : '$iconSubdued'}
@@ -228,7 +236,7 @@ export function ConnectionTroubleShootingAccordion({
             <Accordion.Content
               unstyled
               animation="quick"
-              animateOnly={['opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY}
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
             >

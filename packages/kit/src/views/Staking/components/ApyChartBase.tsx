@@ -14,6 +14,10 @@ import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart'
 import type { IApyHistoryItem } from '@onekeyhq/shared/types/staking';
 
 import type { UTCTimestamp } from 'lightweight-charts';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IApyChartBaseProps {
   data: IApyHistoryItem[] | undefined;
@@ -149,7 +153,7 @@ const ApyChartBaseComponent = ({
           position="relative"
           overflow="hidden"
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{ opacity: 0 }}
         >
           <Skeleton w="100%" h="100%" borderRadius="$2" />
@@ -170,7 +174,7 @@ const ApyChartBaseComponent = ({
         <YStack
           position="relative"
           animation="quick"
-          animateOnly={['opacity', 'transform']}
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, scale: 0.98 }}
           exitStyle={{ opacity: 0, scale: 0.98 }}
           onLayout={(e) => {

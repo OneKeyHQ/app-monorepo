@@ -1,12 +1,15 @@
 import type { IYStackProps } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 export function PageContainer({ children, ...rest }: IYStackProps) {
   return (
     <YStack
       animation="quick"
-      animateOnly={['opacity', 'transform']}
+      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
       enterStyle={{
         opacity: 0,
         x: 24,

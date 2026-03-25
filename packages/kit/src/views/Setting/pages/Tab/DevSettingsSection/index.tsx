@@ -96,6 +96,10 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 let correctDevOnlyPwd = '';
 
@@ -202,7 +206,11 @@ const DevSettingsAccordionTrigger = ({
               }}
             />
           ) : null}
-          <View animation="quick" animateOnly={['transform']} rotate={open ? '0deg' : '-90deg'}>
+          <View
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
+            rotate={open ? '0deg' : '-90deg'}
+          >
             <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
           </View>
         </XStack>
@@ -459,7 +467,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionPressItem
@@ -695,7 +703,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionFieldItem
@@ -889,7 +897,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionPressItem
@@ -968,7 +976,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <ListItem
@@ -1098,7 +1106,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionPressItem
@@ -1328,7 +1336,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionPressItem
@@ -1423,7 +1431,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionPressItem
@@ -1509,7 +1517,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <AddressBookDevSetting />
@@ -1656,7 +1664,7 @@ const BaseDevSettingsSection = () => {
                   <Accordion.HeightAnimator animation="quick">
                     <Accordion.Content
                       animation="quick"
-                      animateOnly={['opacity']}
+                      animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
                       <SectionPressItem

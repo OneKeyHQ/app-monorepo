@@ -32,6 +32,9 @@ import useActiveTabDAppInfo from '../../hooks/useActiveTabDAppInfo';
 import { useDappAccountSwitch } from '../../hooks/useDappAccountSwitch';
 
 import type { IExtensionActiveTabDAppInfo } from '../../hooks/useActiveTabDAppInfo';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function SingleAccountAddressSelectorTrigger({
   num,
@@ -264,7 +267,7 @@ function DAppConnectExtensionFloatingTrigger() {
       >
         <Stack
           animation="quick"
-          animateOnly={['transform']}
+          animateOnly={ANIMATE_ONLY_TRANSFORM}
           $group-hover={{
             scale: 1.1,
           }}

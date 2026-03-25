@@ -19,6 +19,9 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 export default function ImportWatchedAccountV2() {
   const navigation = useAppNavigation();
@@ -120,7 +123,7 @@ export default function ImportWatchedAccountV2() {
                 <YStack
                   key="address"
                   animation="quick"
-                  animateOnly={['opacity']}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
                   }}
@@ -145,7 +148,7 @@ export default function ImportWatchedAccountV2() {
                 <YStack
                   key="publicKey"
                   animation="quick"
-                  animateOnly={['opacity']}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{
                     opacity: 0,
                   }}

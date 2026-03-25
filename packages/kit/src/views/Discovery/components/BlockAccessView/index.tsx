@@ -5,6 +5,9 @@ import { useIntl } from 'react-intl';
 import { Empty, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function BlockAccessView({
   urlValidateState,
@@ -42,7 +45,7 @@ function BlockAccessView({
         justifyContent="center"
         alignItems="center"
         animation="quick"
-        animateOnly={['opacity']}
+        animateOnly={ANIMATE_ONLY_OPACITY}
       >
         <Empty
           icon="ErrorOutline"

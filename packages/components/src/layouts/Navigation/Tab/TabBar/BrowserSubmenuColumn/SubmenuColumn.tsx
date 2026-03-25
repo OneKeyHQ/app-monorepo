@@ -15,6 +15,8 @@ export interface ISubmenuColumnProps {
   isExpanded?: boolean;
 }
 
+import { ANIMATE_ONLY_WIDTH } from '../../../../../utils/animationConstants';
+
 const dragRegionStyle = { WebkitAppRegion: 'drag' } as any;
 
 export function SubmenuColumn({
@@ -54,7 +56,7 @@ export function SubmenuColumn({
         px="$3"
         zIndex={10}
         animation="quick"
-        animateOnly={['width']}
+        animateOnly={ANIMATE_ONLY_WIDTH}
         borderTopRightRadius={isExpanded ? '$3' : 0}
         borderBottomRightRadius={isExpanded ? '$3' : 0}
         borderTopWidth={1}

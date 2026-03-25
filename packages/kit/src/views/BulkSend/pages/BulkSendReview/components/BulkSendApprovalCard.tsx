@@ -23,6 +23,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useBulkSendReviewContext } from './Context';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IApprovalItemProps = {
   approveInfo: IApproveInfo;
@@ -239,7 +243,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
                     ) : null}
                     <View
                       animation="quick"
-                      animateOnly={['transform']}
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={open ? '180deg' : '0deg'}
                       transformOrigin="center"
                     >
@@ -259,7 +263,7 @@ function BulkSendApprovalCard({ onEditApproval }: Props) {
             >
               <Accordion.Content
                 animation="quick"
-                animateOnly={['opacity']}
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 exitStyle={{ opacity: 0 }}
                 backgroundColor="transparent"
                 padding="$0"

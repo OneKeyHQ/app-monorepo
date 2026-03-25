@@ -51,6 +51,9 @@ import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBCon
 import { getForceTransportType } from '../utils';
 
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 enum ECheckAndUpdateStepState {
   Idle = 'idle',
@@ -846,7 +849,7 @@ function CheckAndUpdatePage({
                     step.state !== ECheckAndUpdateStepState.Idle ? (
                       <YStack
                         animation="quick"
-                        animateOnly={['opacity', 'transform']}
+                        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                         enterStyle={{
                           opacity: 0,
                           scale: 0.97,
@@ -974,7 +977,7 @@ function CheckAndUpdatePage({
                                 key="spinner"
                                 size="small"
                                 animation="quick"
-                                animateOnly={['opacity', 'transform']}
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.7, opacity: 0 }}
                                 exitStyle={{ scale: 0.7, opacity: 0 }}
                                 scale={0.8}
@@ -983,7 +986,7 @@ function CheckAndUpdatePage({
                             {step.state === ECheckAndUpdateStepState.Error ? (
                               <YStack
                                 animation="quick"
-                                animateOnly={['opacity', 'transform']}
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
                                 exitStyle={{ scale: 0.8, opacity: 0 }}
                                 key="error"
@@ -999,7 +1002,7 @@ function CheckAndUpdatePage({
                             step.state === ECheckAndUpdateStepState.Skipped ? (
                               <YStack
                                 animation="quick"
-                                animateOnly={['opacity', 'transform']}
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
                                 exitStyle={{ scale: 0.8, opacity: 0 }}
                                 key="warning"
@@ -1014,7 +1017,7 @@ function CheckAndUpdatePage({
                             {step.state === ECheckAndUpdateStepState.Success ? (
                               <YStack
                                 animation="quick"
-                                animateOnly={['opacity', 'transform']}
+                                animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                                 enterStyle={{ scale: 0.8, opacity: 0 }}
                                 exitStyle={{ scale: 0.8, opacity: 0 }}
                                 key="checkmark"
@@ -1197,7 +1200,7 @@ function CheckAndUpdatePage({
               ) ? (
                 <Button
                   animation="quick"
-                  animateOnly={['opacity', 'transform']}
+                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   variant="primary"
                   size="large"
                   onPress={handleVerifyHardware}

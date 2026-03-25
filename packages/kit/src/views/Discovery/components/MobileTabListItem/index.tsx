@@ -14,6 +14,9 @@ import {
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 
 import type { IWebTab } from '../../types';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function MobileTabListItem({
   id,
@@ -40,7 +43,7 @@ function MobileTabListItem({
       }}
       p="$1"
       animation="quick"
-      animateOnly={['transform']}
+      animateOnly={ANIMATE_ONLY_TRANSFORM}
       pressStyle={{
         scale: 0.95,
       }}

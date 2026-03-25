@@ -39,6 +39,10 @@ import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function ChangeLogMarkdown({
   changelog,
@@ -121,7 +125,11 @@ function ChangeLogSection({
                 active={open}
               />
             </XStack>
-            <Stack animation="quick" animateOnly={['transform']} rotate={open ? '-180deg' : '0deg'}>
+            <Stack
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
+              rotate={open ? '-180deg' : '0deg'}
+            >
               <Icon
                 name="ChevronDownSmallOutline"
                 size="$6"
@@ -134,7 +142,7 @@ function ChangeLogSection({
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{ opacity: 0 }}
           px="$5"
           pb="$5"

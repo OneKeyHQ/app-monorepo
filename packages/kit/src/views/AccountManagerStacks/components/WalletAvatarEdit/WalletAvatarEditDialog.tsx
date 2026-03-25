@@ -17,6 +17,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   const intl = useIntl();
@@ -34,7 +37,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
             flexBasis="25%"
             py="$2"
             animation="quick"
-            animateOnly={['transform']}
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
             hoverStyle={{
               scale: 1.1,
             }}

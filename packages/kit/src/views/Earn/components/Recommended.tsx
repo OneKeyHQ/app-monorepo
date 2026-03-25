@@ -33,6 +33,9 @@ import {
 import { EarnNavigation } from '../earnUtils';
 
 import { AprText } from './AprText';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (
@@ -111,7 +114,7 @@ const RecommendedItem = memo(
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         animation="quick"
-        animateOnly={['transform']}
+        animateOnly={ANIMATE_ONLY_TRANSFORM}
         hoverStyle={{
           scale: 1.05,
         }}

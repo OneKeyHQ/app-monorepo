@@ -32,6 +32,9 @@ import { TradingView } from '../../../components/TradingView';
 import { PriceChart } from './Chart';
 
 import type { ITradingViewProps } from '../../../components/TradingView';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IChartProps {
   coinGeckoId: string;
@@ -373,7 +376,7 @@ function BasicTokenPriceChart({
             opacity={1}
             flex={1}
             animation="quick"
-            animateOnly={['opacity']}
+            animateOnly={ANIMATE_ONLY_OPACITY}
             exitStyle={{
               opacity: 0,
             }}

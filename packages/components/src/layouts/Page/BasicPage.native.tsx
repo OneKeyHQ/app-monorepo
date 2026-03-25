@@ -20,6 +20,8 @@ import {
 
 import type { IBasicPageProps } from './type';
 
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
+
 const exitStyleFadeOut = { opacity: 0 };
 
 function Loading() {
@@ -88,7 +90,7 @@ function AbsoluteContainer({ children }: PropsWithChildren) {
       opacity={1}
       flex={1}
       animation="quick"
-      animateOnly={['opacity']}
+      animateOnly={ANIMATE_ONLY_OPACITY}
       exitStyle={exitStyleFadeOut}
     >
       {children}

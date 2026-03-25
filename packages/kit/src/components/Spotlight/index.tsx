@@ -43,6 +43,9 @@ import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { View as NativeView } from 'react-native';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 export type ISpotlightViewProps = PropsWithChildren<{
   containerProps?: IStackStyle;
@@ -195,7 +198,7 @@ function SpotlightContent({
       <Stack
         testID="spotlight-content"
         animation="quick"
-        animateOnly={['opacity']}
+        animateOnly={ANIMATE_ONLY_OPACITY}
         bg="rgba(0,0,0,0.3)"
         position="absolute"
         top={0}

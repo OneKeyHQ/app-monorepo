@@ -84,6 +84,10 @@ import {
 import StakingFormWrapper from '../StakingFormWrapper';
 
 import type { FontSizeTokens } from 'tamagui';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IUniversalWithdrawProps = {
   accountAddress: string;
@@ -1466,7 +1470,7 @@ export function UniversalWithdraw({
                           </XStack>
                           <YStack
                             animation="quick"
-                            animateOnly={['transform']}
+                            animateOnly={ANIMATE_ONLY_TRANSFORM}
                             rotate={
                               open && !isAccordionTriggerDisabled
                                 ? '180deg'
@@ -1492,7 +1496,7 @@ export function UniversalWithdraw({
                 <Accordion.HeightAnimator animation="quick">
                   <Accordion.Content
                     animation="quick"
-                    animateOnly={['opacity']}
+                    animateOnly={ANIMATE_ONLY_OPACITY}
                     exitStyle={{ opacity: 0 }}
                     px={0}
                     pb={0}

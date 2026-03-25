@@ -10,6 +10,9 @@ import PasswordVerifyContainer from '../../../components/Password/container/Pass
 
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 const isLockContainerTampered = (
   el: HTMLElement,
@@ -125,7 +128,7 @@ export function AppStateLockContainer({
             lockContainerRef={lockContainerRef as any}
             key="unlock-screen"
             animation="quick"
-            animateOnly={['opacity']}
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 1,
             }}

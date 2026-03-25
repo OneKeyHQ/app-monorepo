@@ -20,6 +20,10 @@ import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  ANIMATE_ONLY_BACKGROUND_COLOR,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 export default function PickYourDevice() {
   const intl = useIntl();
@@ -81,7 +85,7 @@ export default function PickYourDevice() {
             {DEVICES.map(({ name, tags, image, deviceType }, index) => (
               <YStack
                 key={name}
-                animateOnly={['backgroundColor']}
+                animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
                 animation="quick"
                 p="$5"
                 borderWidth={1}
@@ -136,7 +140,7 @@ export default function PickYourDevice() {
                 <YStack
                   position="absolute"
                   animation="quick"
-                  animateOnly={['opacity', 'transform']}
+                  animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   enterStyle={{
                     opacity: 0,
                     y: 16,

@@ -19,6 +19,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 
 // Constants for performance optimization
@@ -154,7 +156,7 @@ const OnboardingLayoutConstrainedContent = memo(
         gap="$5"
         {...(!platformEnv.isNativeIOS && {
           animation: 'quick',
-          animateOnly: ['opacity', 'transform'],
+          animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
           enterStyle: {
             opacity: 0,
             x: 24,

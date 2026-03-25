@@ -25,6 +25,10 @@ import { DAppSiteMark } from '../../../../../DAppConnection/components/DAppReque
 import { Layout } from './utils/Layout';
 
 import type { ITokenProps } from '../../../../../../components/Token';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 /* 
   do not use this demo-only component
@@ -389,7 +393,11 @@ function SignatureAdvanceSection() {
                 <SizableText size="$bodyMd" color="$textSubdued">
                   Advance
                 </SizableText>
-                <YStack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
+                <YStack
+                  animation="quick"
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
+                  rotate={open ? '180deg' : '0deg'}
+                >
                   <Icon
                     name="ChevronDownSmallOutline"
                     color="$iconSubdued"
@@ -405,7 +413,7 @@ function SignatureAdvanceSection() {
               pt="$2.5"
               gap="$5"
               animation="quick"
-              animateOnly={['opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY}
               enterStyle={{ opacity: 0 }}
               exitStyle={{ opacity: 0 }}
             >

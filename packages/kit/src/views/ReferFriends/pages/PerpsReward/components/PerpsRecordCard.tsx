@@ -16,6 +16,9 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsInviteItem } from '@onekeyhq/shared/src/referralCode/type';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IPerpsRecordCardProps {
   item: IPerpsInviteItem;
@@ -145,7 +148,11 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
           </XStack>
 
           {/* Expand Icon */}
-          <Stack animation="quick" animateOnly={['transform']} rotate={isExpanded ? '0deg' : '-90deg'}>
+          <Stack
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
+            rotate={isExpanded ? '0deg' : '-90deg'}
+          >
             <Icon
               name="ChevronDownSmallOutline"
               size="$5"

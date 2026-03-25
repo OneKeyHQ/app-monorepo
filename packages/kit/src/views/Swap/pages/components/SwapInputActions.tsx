@@ -20,6 +20,10 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 const SwapInputActions = ({
   showPercentageInput,
@@ -80,7 +84,7 @@ const SwapInputActions = ({
         {showActionBuy ? (
           <XStack
             animation="quick"
-            animateOnly={['opacity']}
+            animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 0,
             }}
@@ -115,7 +119,7 @@ const SwapInputActions = ({
         {!platformEnv.isNative && showPercentageInput ? (
           <XStack
             animation="quick"
-            animateOnly={['opacity', 'transform']}
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={{
               opacity: 0,
               x: 8,

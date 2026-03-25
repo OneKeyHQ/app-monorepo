@@ -25,6 +25,10 @@ import {
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type ISolution = {
   question: string;
@@ -127,7 +131,11 @@ function FaqInfo({
                     >
                       {question}
                     </SizableText>
-                    <Stack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
+                    <Stack
+                      animation="quick"
+                      animateOnly={ANIMATE_ONLY_TRANSFORM}
+                      rotate={open ? '180deg' : '0deg'}
+                    >
                       <Icon
                         name="ChevronDownSmallOutline"
                         color={open ? '$iconActive' : '$iconSubdued'}
@@ -143,7 +151,7 @@ function FaqInfo({
                   pt="$2"
                   pb="$5"
                   animation="100ms"
-                  animateOnly={['opacity']}
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >

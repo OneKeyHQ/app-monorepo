@@ -7,6 +7,8 @@ import { Stack } from '../../primitives/Stack';
 
 import type { ISplashViewProps } from './type';
 
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
+
 const exitStyle = { opacity: 0 };
 
 const removePreloadElements = () => {
@@ -42,7 +44,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
           bg="$bgApp"
           key="splash-view"
           animation="50ms"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           position="absolute"
           top={0}
           left={0}

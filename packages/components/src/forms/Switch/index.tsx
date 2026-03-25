@@ -5,6 +5,8 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IFormFieldProps } from '../types';
 
+import { ANIMATE_ONLY_TRANSFORM } from '../../../utils/animationConstants';
+
 export enum ESwitchSize {
   'small' = 'small',
   'large' = 'large',
@@ -87,7 +89,7 @@ export function Switch({
         borderRadius="$full"
         bg="$bg"
         animation="switch"
-        animateOnly={['transform']}
+        animateOnly={ANIMATE_ONLY_TRANSFORM}
         {...thumbProps}
       />
     </TMSwitch>

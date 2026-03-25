@@ -102,11 +102,10 @@ const MAX_CONTENT_WIDTH = 400;
 
 const DIALOG_ENTER_STYLE_OPACITY = { opacity: 0 } as any;
 const DIALOG_EXIT_STYLE_OPACITY = { opacity: 0 } as any;
-const DIALOG_ANIMATE_ONLY_OPACITY = ['opacity'] as string[];
-const DIALOG_ANIMATE_ONLY_TRANSFORM_OPACITY = [
-  'transform',
-  'opacity',
-] as string[];
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '../../utils/animationConstants';
 const DIALOG_CONTENT_ANIMATION: [
   'quick',
   { opacity: { overshootClamping: boolean } },
@@ -307,7 +306,7 @@ function DialogFrame({
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
           animation="quick"
-          animateOnly={DIALOG_ANIMATE_ONLY_OPACITY}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={DIALOG_ENTER_STYLE_OPACITY}
           exitStyle={DIALOG_EXIT_STYLE_OPACITY}
           backgroundColor="$bgBackdrop"
@@ -363,7 +362,7 @@ function DialogFrame({
             <TMDialog.Overlay
               key="overlay"
               backgroundColor="$bgBackdrop"
-              animateOnly={DIALOG_ANIMATE_ONLY_OPACITY}
+              animateOnly={ANIMATE_ONLY_OPACITY}
               animation="quick"
               forceMount={forceMount || undefined}
               enterStyle={DIALOG_ENTER_STYLE_OPACITY}
@@ -384,7 +383,7 @@ function DialogFrame({
               onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
-              animateOnly={DIALOG_ANIMATE_ONLY_TRANSFORM_OPACITY}
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               animation={DIALOG_CONTENT_ANIMATION}
               enterStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               exitStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}

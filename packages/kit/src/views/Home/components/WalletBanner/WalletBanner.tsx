@@ -34,6 +34,9 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 12;
@@ -380,7 +383,7 @@ function WebBannerScroller({
           opacity={showLeftArrow ? 1 : 0}
           pointerEvents={showLeftArrow ? 'auto' : 'none'}
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
           style={{
@@ -415,7 +418,7 @@ function WebBannerScroller({
           opacity={showRightArrow ? 1 : 0}
           pointerEvents={showRightArrow ? 'auto' : 'none'}
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
           style={{

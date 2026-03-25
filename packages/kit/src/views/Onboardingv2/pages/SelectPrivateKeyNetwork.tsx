@@ -69,6 +69,9 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { toastSuccessWhenImportAddressOrPrivateKey } from '../../../utils/toastExistingWalletSwitch';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import {
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IFormValues = {
   // networkId?: string;
@@ -395,7 +398,7 @@ function NetworkGroupItem({
           {shouldShowExtraPanel ? (
             <YStack
               animation="quick"
-              animateOnly={['opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY}
               enterStyle={{
                 opacity: 0,
                 filter: 'blur(4px)',

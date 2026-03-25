@@ -9,6 +9,8 @@ import { Spinner, Stack, YStack } from '../../primitives';
 import type { IDialogContentProps } from './type';
 import type { LayoutChangeEvent, View } from 'react-native';
 
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
+
 const exitStyleConst = { opacity: 0 } as const;
 const MAX_ANIMATION_DURATION = 550;
 export function Content({
@@ -124,7 +126,7 @@ export function Content({
               <Stack
                 bg="$bg"
                 animation="medium"
-                animateOnly={['opacity']}
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 position="absolute"
                 top={0}
                 left={0}

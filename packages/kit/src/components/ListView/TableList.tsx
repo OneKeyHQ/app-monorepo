@@ -15,6 +15,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 // ==================== Types ====================
 
@@ -476,7 +480,7 @@ function TableListRow<T>({
             ai="center"
             jc="center"
             animation="quick"
-            animateOnly={['transform']}
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
             <Icon
@@ -492,7 +496,7 @@ function TableListRow<T>({
           px="$5"
           py={isExpanded ? '$4' : '$0'}
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           opacity={isExpanded ? 1 : 0}
           maxHeight={isExpanded ? 1000 : 0}
           overflow="hidden"

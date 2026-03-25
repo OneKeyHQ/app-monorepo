@@ -39,6 +39,10 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Layout } from './utils/Layout';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function PartContainer({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -94,7 +98,7 @@ function CustomAccordionItem({
         <SizableText>{title}</SizableText>
         <View
           animation="quick"
-          animateOnly={['transform']}
+          animateOnly={ANIMATE_ONLY_TRANSFORM}
           rotate={isOpen ? '0deg' : '-90deg'}
           transformOrigin="center"
         >
@@ -104,7 +108,7 @@ function CustomAccordionItem({
 
       <YStack
         animation="quick"
-        animateOnly={['opacity']}
+        animateOnly={ANIMATE_ONLY_OPACITY}
         opacity={isOpen ? 1 : 0}
         overflow="hidden"
         style={{

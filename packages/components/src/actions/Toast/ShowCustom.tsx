@@ -24,6 +24,8 @@ import { Trigger } from '../Trigger';
 
 import type { GestureResponderEvent } from 'react-native';
 
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
+
 const toastEnterStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
 const toastExitStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
 
@@ -178,7 +180,7 @@ function BasicShowToaster({
             maxWidth={platformEnv.isNative ? '$96' : undefined}
             px={platformEnv.isNative ? '$5' : undefined}
             animation="quick"
-            animateOnly={['opacity', 'transform']}
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             viewportName={containerName}
           >
             <CustomToasterContext.Provider value={value}>

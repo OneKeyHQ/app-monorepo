@@ -22,6 +22,9 @@ import WebContent from '../../components/WebContent/WebContent';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;
@@ -151,7 +154,7 @@ function BasicFind({ id }: { id: string }) {
           top="$2.5"
           zIndex={100_000}
           animation="quick"
-          animateOnly={['opacity', 'transform']}
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{
             opacity: 0,
             y: -20,

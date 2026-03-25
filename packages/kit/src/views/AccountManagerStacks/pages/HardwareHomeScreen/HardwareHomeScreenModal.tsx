@@ -50,6 +50,9 @@ import UploadedHomeScreenCache from './uploadedHomeScreenCache';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { DimensionValue } from 'react-native';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 const USER_UPLOAD_IMG_NAME_PREFIX = 'user_upload__';
 
@@ -208,7 +211,7 @@ function HomeScreenImageItem({
             zIndex={100}
             // backgroundColor="$bg"
             animation="quick"
-            animateOnly={['opacity', 'transform']}
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={
               platformEnv.isNativeAndroid
                 ? undefined
@@ -241,7 +244,7 @@ function HomeScreenImageItem({
             borderRadius="$full"
             backgroundColor="$bg"
             animation="quick"
-            animateOnly={['opacity', 'transform']}
+            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={
               platformEnv.isNativeAndroid
                 ? undefined

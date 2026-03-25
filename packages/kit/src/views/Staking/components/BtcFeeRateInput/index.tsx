@@ -20,6 +20,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
 
 import { CalculationListItem } from '../CalculationList';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IFeeRateType = 'slow' | 'normal' | 'fast' | 'custom';
 
@@ -145,7 +148,7 @@ const BtcFeeRateInputDialogContent = ({
             <SizableText
               pt="$1.5"
               animation="quick"
-              animateOnly={['opacity', 'transform']}
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{
                 opacity: 0,
                 y: -6,

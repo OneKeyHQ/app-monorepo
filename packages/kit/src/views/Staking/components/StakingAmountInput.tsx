@@ -15,6 +15,9 @@ import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/Sw
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
@@ -87,7 +90,7 @@ export function StakingAmountInput({
           (percentageInputStageShow || !!value) ? (
             <XStack
               animation="quick"
-              animateOnly={['opacity', 'transform']}
+              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
               enterStyle={{
                 opacity: 0,
                 x: 8,

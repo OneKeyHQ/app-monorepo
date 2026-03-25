@@ -11,6 +11,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IMarketBannerItem } from '@onekeyhq/shared/types/marketV2';
+import {
+  ANIMATE_ONLY_BORDER_COLOR,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IMarketBannerItemProps = {
   item: IMarketBannerItem;
@@ -103,7 +106,7 @@ function MarketBannerItemComponent({ item, onPress }: IMarketBannerItemProps) {
       justifyContent="space-between"
       onPress={handlePress}
       animation="quick"
-      animateOnly={['borderColor']}
+      animateOnly={ANIMATE_ONLY_BORDER_COLOR}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
       hoverStyle={{ borderColor: '$neutral4' }}

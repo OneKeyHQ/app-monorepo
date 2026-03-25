@@ -19,6 +19,9 @@ import {
   HardwareRecordTimeline,
   formatTimestamp,
 } from './HardwareRecordTimeline';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IHardwareRecordStatus =
   | 'Completed'
@@ -103,7 +106,11 @@ export function HardwareRecordCard({ item }: IHardwareRecordCardProps) {
               {item.inviteCode}
             </Badge>
           </XStack>
-          <Stack animation="quick" animateOnly={['transform']} rotate={isExpanded ? '-180deg' : '-90deg'}>
+          <Stack
+            animation="quick"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
+            rotate={isExpanded ? '-180deg' : '-90deg'}
+          >
             <Icon
               name="ChevronDownSmallOutline"
               size="$5"

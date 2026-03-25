@@ -43,6 +43,9 @@ import { isPassphraseValid } from '../../utils/passphraseUtils';
 import CommunicatingLottieView from './CommunicatingLottieView';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import {
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 function MacBluetoothIllustrationViews({
   view,
@@ -71,7 +74,7 @@ function MacBluetoothIllustrationViews({
             },
           },
         ]}
-        animateOnly={['opacity', 'transform']}
+        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
         enterStyle={{
           opacity: 0,
           scale: 0.9,
@@ -180,7 +183,7 @@ function MacBluetoothIllustrationViews({
             },
           },
         ]}
-        animateOnly={['opacity', 'transform']}
+        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
         enterStyle={{
           opacity: 0,
           scale: 0.9,

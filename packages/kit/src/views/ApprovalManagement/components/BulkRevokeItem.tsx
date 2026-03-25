@@ -37,6 +37,10 @@ import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { openTransactionDetailsUrl } from '../../../utils/explorerUtils';
 
 import type { IntlShape } from 'react-intl';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IProps = {
   unsignedTx: IUnsignedTxPro;
@@ -262,7 +266,7 @@ function BulkRevokeItem(props: IProps) {
           <XStack alignItems="center" gap="$3" flex={1}>
             <View
               animation="quick"
-              animateOnly={['transform']}
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '180deg' : '0deg'}
               transformOrigin="center"
             >
@@ -315,7 +319,7 @@ function BulkRevokeItem(props: IProps) {
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgSubdued"
           padding="$0"

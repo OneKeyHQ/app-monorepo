@@ -48,6 +48,10 @@ import {
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 
 import type { GestureResponderEvent } from 'react-native';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IDBWalletExtended = Omit<
   IDBWallet,
@@ -449,13 +453,17 @@ function WalletAccordionItem({
           <>
             <XStack
               animation="quick"
-              animateOnly={['opacity']}
+              animateOnly={ANIMATE_ONLY_OPACITY}
               flex={1}
               alignItems="center"
               gap="$3"
               opacity={isWalletEnabled ? 1 : 0.5}
             >
-              <YStack animation="quick" animateOnly={['transform']} rotate={open ? '180deg' : '0deg'}>
+              <YStack
+                animation="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={open ? '180deg' : '0deg'}
+              >
                 <Icon
                   name="ChevronBottomOutline"
                   color={open ? '$iconActive' : '$iconSubdued'}
@@ -494,7 +502,7 @@ function WalletAccordionItem({
           // bg="$transparent"
           bg="$bgDefault"
           animation="quick"
-          animateOnly={['opacity']}
+          animateOnly={ANIMATE_ONLY_OPACITY}
           exitStyle={{
             opacity: 0,
           }}

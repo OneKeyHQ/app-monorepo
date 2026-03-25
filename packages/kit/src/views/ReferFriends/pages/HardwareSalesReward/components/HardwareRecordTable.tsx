@@ -21,6 +21,9 @@ import {
   HardwareRecordTimeline,
   formatTimestamp,
 } from './HardwareRecordTimeline';
+import {
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 
 type IHardwareRecordStatus =
   | 'Completed'
@@ -81,7 +84,7 @@ function TableRow({ item }: ITableRowProps) {
             ai="center"
             jc="center"
             animation="quick"
-            animateOnly={['transform']}
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
             <Icon
