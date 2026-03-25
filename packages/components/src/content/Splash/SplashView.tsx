@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -6,6 +6,8 @@ import { Image } from '../../primitives/Image';
 import { Stack } from '../../primitives/Stack';
 
 import type { ISplashViewProps } from './type';
+
+const exitStyle = { opacity: 0 };
 
 const removePreloadElements = () => {
   document.documentElement.style.removeProperty('background-color');
@@ -26,6 +28,13 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
     });
   }, [hideSplash, ready]);
 
+  const splashSource = useMemo(
+    () => ({
+      uri: require('../../../assets/splash.svg'),
+    }),
+    [],
+  );
+
   return (
     <AnimatePresence onExitComplete={onExit}>
       {showLoading ? (
@@ -40,9 +49,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
           bottom={0}
           opacity={1}
           flex={1}
-          exitStyle={{
-            opacity: 0,
-          }}
+          exitStyle={exitStyle}
         >
           <Stack
             width="100vw"
@@ -51,12 +58,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
             alignItems="center"
           >
             <Stack w={80} h={80}>
-              <Image
-                flex={1}
-                source={{
-                  uri: require('../../../assets/splash.svg'),
-                }}
-              />
+              <Image flex={1} source={splashSource} />
             </Stack>
           </Stack>
         </Stack>

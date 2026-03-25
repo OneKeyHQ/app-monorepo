@@ -11,6 +11,7 @@ export interface ISimpleDBAppStatus {
   allHdDuplicateWalletsMerged?: boolean;
 
   launchTimes?: number;
+  // Launch count since last update reset; used by launch-threshold prompts (e.g. floating icon guide).
   launchTimesLastReset?: number;
   hdWalletsBackupMigrated?: boolean; // is mnemonic backuped by user
   falconDepositDoNotShowAgain?: boolean;

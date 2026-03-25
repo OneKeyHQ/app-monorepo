@@ -82,40 +82,57 @@ export function OTPInput(
     [numberOfDigits, onTextChange],
   );
 
+  const otpTheme = useMemo(
+    () => ({
+      pinCodeTextStyle: {
+        fontSize: 20,
+        fontWeight: 'bold' as const,
+        color: theme.text.val,
+      },
+      pinCodeContainerStyle: {
+        width: 50,
+        height: 50,
+        borderWidth: 1,
+        borderColor:
+          innerStatus === 'error' ? theme.red9.val : theme.neutral7.val,
+      },
+      filledPinCodeContainerStyle: {
+        borderWidth: 2,
+        backgroundColor: theme.gray2.val,
+      },
+      focusedPinCodeContainerStyle: {
+        borderWidth: 2,
+        borderColor:
+          innerStatus === 'error' ? theme.red9.val : theme.borderActive.val,
+      },
+    }),
+    [
+      innerStatus,
+      theme.text.val,
+      theme.red9.val,
+      theme.neutral7.val,
+      theme.gray2.val,
+      theme.borderActive.val,
+    ],
+  );
+
+  const mergedTextInputProps = useMemo(
+    () => ({
+      ...textInputProps,
+      onPaste: handleOnPaste,
+    }),
+    [textInputProps, handleOnPaste],
+  );
+
   return (
     <OtpInput
       ref={ref}
-      theme={{
-        pinCodeTextStyle: {
-          fontSize: 20,
-          fontWeight: 'bold',
-          color: theme.text.val,
-        },
-        pinCodeContainerStyle: {
-          width: 50,
-          height: 50,
-          borderWidth: 1,
-          borderColor:
-            innerStatus === 'error' ? theme.red9.val : theme.neutral7.val,
-        },
-        filledPinCodeContainerStyle: {
-          borderWidth: 2,
-          backgroundColor: theme.gray2.val,
-        },
-        focusedPinCodeContainerStyle: {
-          borderWidth: 2,
-          borderColor:
-            innerStatus === 'error' ? theme.red9.val : theme.borderActive.val,
-        },
-      }}
+      theme={otpTheme}
       focusColor={theme.text.val}
       numberOfDigits={numberOfDigits}
       autoFocus={autoFocus}
       onTextChange={onTextChange}
-      textInputProps={{
-        ...textInputProps,
-        onPaste: handleOnPaste,
-      }}
+      textInputProps={mergedTextInputProps}
       {...rest}
     />
   );

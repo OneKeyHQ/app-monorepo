@@ -123,7 +123,7 @@ class ServiceAppUpdate extends ServiceBase {
   // Schedule a pending task with targetBundleVersion="0" to rollback to
   // the builtin bundle on next cold start.  executeBundleSwitchTask will
   // detect the missing bundle and fall into the existing builtin fallback
-  // path: clearPendingInstallTask → resetToBuiltInBundle → switchBundle.
+  // path: clearPendingInstallTask → resetToBuiltInBundle → restart.
   // Returns true if the task was scheduled, false if skipped.
   private async scheduleRollbackToBuiltinTask({
     reason,
@@ -1160,7 +1160,7 @@ class ServiceAppUpdate extends ServiceBase {
       //   1. isBundleExists("X.Y.Z", "0") → false
       //   2. targetBundle(0) < currentBundle → true (rollback)
       //   3. Fall into the existing builtin fallback path:
-      //      clearPendingInstallTask → resetToBuiltInBundle → switchBundle({empty})
+      //      clearPendingInstallTask → resetToBuiltInBundle → restart
       if (decision.decision === 'jsBundleRollbackToBuiltin') {
         await this.scheduleRollbackToBuiltinTask({
           reason: 'jsBundleRollbackToBuiltin',

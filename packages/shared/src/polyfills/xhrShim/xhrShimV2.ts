@@ -568,6 +568,7 @@ export class XMLHttpRequest extends XMLHttpRequestEventTarget {
     try {
       let base: string | undefined;
       try {
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         base = global.location.toString();
       } catch {
         // we just want to avoid the error about location in Deno
@@ -792,7 +793,7 @@ function maybeDefine(value: any, name: string, scope: object) {
     enumerable: false,
     configurable: true,
   });
-  if (!(name in global)) {
+  if (!(name in globalThis)) {
     Object.defineProperty(scope, name, {
       value,
       writable: true,
@@ -802,6 +803,6 @@ function maybeDefine(value: any, name: string, scope: object) {
   }
 }
 
-maybeDefine(XMLHttpRequest, 'XMLHttpRequest', global);
-maybeDefine(XMLHttpRequestEventTarget, 'XMLHttpRequestEventTarget', global);
-maybeDefine(XMLHttpRequestUpload, 'XMLHttpRequestUpload', global);
+maybeDefine(XMLHttpRequest, 'XMLHttpRequest', globalThis);
+maybeDefine(XMLHttpRequestEventTarget, 'XMLHttpRequestEventTarget', globalThis);
+maybeDefine(XMLHttpRequestUpload, 'XMLHttpRequestUpload', globalThis);

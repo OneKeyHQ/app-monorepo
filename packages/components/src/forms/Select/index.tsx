@@ -96,6 +96,10 @@ function SelectTrigger({ renderTrigger }: ISelectTriggerProps) {
   );
 }
 
+const selectItemGtMdStyle = {
+  size: '$bodyMd' as const,
+};
+
 function SelectItemView({
   label,
   description,
@@ -105,13 +109,7 @@ function SelectItemView({
 }) {
   return (
     <>
-      <SizableText
-        size="$bodyLg"
-        $gtMd={{
-          size: '$bodyMd',
-        }}
-        numberOfLines={2}
-      >
+      <SizableText size="$bodyLg" $gtMd={selectItemGtMdStyle} numberOfLines={2}>
         {label}
       </SizableText>
       {description ? (
@@ -127,6 +125,14 @@ function SelectItemView({
     </>
   );
 }
+
+const selectItemMdStyle = {
+  py: '$2.5' as const,
+  borderRadius: '$3' as const,
+};
+
+const selectItemHoverStyle = { bg: '$bgHover' as const };
+const selectItemPressStyle = { bg: '$bgActive' as const };
 
 function SelectItem({
   onSelect,
@@ -153,14 +159,11 @@ function SelectItem({
         px="$2"
         py="$1.5"
         borderRadius="$2"
-        $md={{
-          py: '$2.5',
-          borderRadius: '$3',
-        }}
+        $md={selectItemMdStyle}
         borderCurve="continuous"
         opacity={disabled ? 0.5 : 1}
-        hoverStyle={disabled ? undefined : { bg: '$bgHover' }}
-        pressStyle={disabled ? undefined : { bg: '$bgActive' }}
+        hoverStyle={disabled ? undefined : selectItemHoverStyle}
+        pressStyle={disabled ? undefined : selectItemPressStyle}
         onPress={handleSelect}
         testID={testID}
         alignItems="center"
@@ -221,6 +224,11 @@ const useRenderPopoverTrigger = () => {
   );
 };
 
+const sectionHeaderMdStyle = {
+  size: '$headingSm' as const,
+  py: '$2.5' as const,
+};
+
 const requestIdleCallback = (callback: () => void) => {
   setTimeout(callback, 150);
 };
@@ -279,7 +287,7 @@ function SelectContent() {
     ({ section }: { section: ISelectSection }) => (
       <Heading
         size="$headingXs"
-        $md={{ size: '$headingSm', py: '$2.5' }}
+        $md={sectionHeaderMdStyle}
         py="$1.5"
         px="$2"
         color="$textSubdued"
@@ -295,6 +303,8 @@ function SelectContent() {
       `${String(item.value)}-${item.label}-${index}`,
     [],
   );
+
+  const sectionSeparator = useMemo(() => <Stack h="$2" />, []);
 
   const renderContent = useMemo(
     () => {
@@ -315,7 +325,7 @@ function SelectContent() {
         <SectionList
           sections={sections}
           renderSectionHeader={renderSectionHeader}
-          SectionSeparatorComponent={<Stack h="$2" />}
+          SectionSeparatorComponent={sectionSeparator}
           {...(listProps as any)}
         />
       ) : (
@@ -332,23 +342,33 @@ function SelectContent() {
   const popoverTrigger = useRenderPopoverTrigger();
   const usingPercentSnapPoints =
     usingPercentSnapPointsFromContext || (items?.length && items?.length > 10);
+  const mergedSheetProps = useMemo(
+    () => ({
+      dismissOnSnapToBottom: true,
+      snapPointsMode: usingPercentSnapPoints
+        ? ('percent' as const)
+        : ('fit' as const),
+      snapPoints: usingPercentSnapPoints ? [65] : undefined,
+      ...sheetProps,
+    }),
+    [usingPercentSnapPoints, sheetProps],
+  );
+  const mergedFloatingPanelProps = useMemo(
+    () => ({
+      maxHeight: platformEnv.isNative ? undefined : '60vh',
+      width: '$56',
+      ...floatingPanelProps,
+    }),
+    [floatingPanelProps],
+  );
   return (
     <Popover
       title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
       keepChildrenMounted={!platformEnv.isNative}
-      sheetProps={{
-        dismissOnSnapToBottom: true,
-        snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',
-        snapPoints: usingPercentSnapPoints ? [65] : undefined,
-        ...sheetProps,
-      }}
-      floatingPanelProps={{
-        maxHeight: platformEnv.isNative ? undefined : '60vh',
-        width: '$56',
-        ...floatingPanelProps,
-      }}
+      sheetProps={mergedSheetProps}
+      floatingPanelProps={mergedFloatingPanelProps}
       placement={placement}
       renderTrigger={popoverTrigger}
       renderContent={renderContent}

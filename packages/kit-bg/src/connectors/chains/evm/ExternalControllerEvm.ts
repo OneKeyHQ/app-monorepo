@@ -17,6 +17,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  IConnectToWalletOptions,
   IExternalConnectResultEvm,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
@@ -272,13 +273,22 @@ export class ExternalControllerEvm extends ExternalControllerBase {
 
   override async connectWallet({
     connector,
+    connectToWalletOptions,
   }: {
     connector: IExternalConnectorEvm;
+    connectToWalletOptions?: IConnectToWalletOptions;
   }): Promise<IExternalConnectWalletResult> {
     const { connectionInfo } = connector;
     checkIsDefined(connectionInfo);
-    // const { connector } = await this.createConnector({ connectionInfo });
-    const result = (await connector.connect()) as IExternalConnectResultEvm;
+    const result = (await connector.connect({
+      requestOneKeyKeylessAccount:
+        connectToWalletOptions?.webKeylessPendingLogin?.provider,
+    } as any)) as IExternalConnectResultEvm;
+
+    if (!result?.accounts?.length) {
+      throw new OneKeyLocalError('No authorized external wallet accounts');
+    }
+
     const { impl, createAtNetwork, addressMap, notSupportedNetworkIds } =
       await this.buildEvmConnectedAddressMap(result);
     let name = '';

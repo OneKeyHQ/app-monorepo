@@ -3,6 +3,7 @@ import {
   DEFAULT_VERIFY_STRING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
@@ -111,6 +112,9 @@ async function migrateBackupedDataToBucket({
   accountBucket,
   backupAccountBucket,
 }: ICheckCurrentDBIsMigratedToBucketResult) {
+  if (platformEnv.isWebDappMode) {
+    return;
+  }
   if (isMigrated) {
     console.log(
       'migrateBackupedDataToBucket skipped:  bucketDB is migrated already',

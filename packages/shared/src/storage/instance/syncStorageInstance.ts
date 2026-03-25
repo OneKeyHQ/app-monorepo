@@ -91,6 +91,14 @@ const syncStorageExtBg: ISyncStorage = {
     return [];
   },
 };
+const _isExtensionBackgroundServiceWorker =
+  platformEnv.isExtensionBackgroundServiceWorker;
+const _isExtensionBackgroundHtml = platformEnv.isExtensionBackground;
+
+console.log('isExtensionBackgroundServiceWorker', {
+  _isExtensionBackgroundServiceWorker,
+  _isExtensionBackgroundHtml,
+});
 
 // eslint-disable-next-line import/no-named-as-default-member
 export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker

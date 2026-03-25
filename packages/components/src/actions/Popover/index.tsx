@@ -58,6 +58,20 @@ const gtMdShFrameStyle = {
   maxWidth: 480,
   mx: 'auto',
 } as const;
+
+const POPOVER_ENTER_STYLE = { scale: 0.95, opacity: 0 } as const;
+const POPOVER_EXIT_STYLE = { scale: 0.95, opacity: 0 } as const;
+const POPOVER_PLATFORM_WEB_STYLE = {
+  outlineColor: '$neutral3',
+  outlineStyle: 'solid',
+  outlineWidth: '$px',
+  boxShadow:
+    '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
+} as const;
+const POPOVER_PLATFORM_NATIVE = { elevation: 20 } as const;
+const OVERLAY_ENTER_STYLE = { opacity: 0 } as const;
+const OVERLAY_EXIT_STYLE = { opacity: 0 } as const;
+const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
 export interface IPopoverProps extends TMPopoverProps {
   title: string | ReactElement;
   description?: string;
@@ -410,6 +424,14 @@ function RawPopover({
   const isShowNativeKeepChildrenMountedBackdrop =
     platformEnv.isNative && props.keepChildrenMounted;
   const maxScrollViewHeight = getMaxScrollViewHeight();
+  const transformOriginStyle = useMemo(
+    () => ({ transformOrigin }),
+    [transformOrigin],
+  );
+  const scrollViewStyle = useMemo(
+    () => ({ maxHeight: maxScrollViewHeight }),
+    [maxScrollViewHeight],
+  );
   return (
     <TMPopover
       offset={8}
@@ -430,33 +452,20 @@ function RawPopover({
           trapFocus={false}
           unstyled
           display={display}
-          style={{
-            transformOrigin,
-          }}
-          enterStyle={{
-            scale: 0.95,
-            opacity: 0,
-          }}
-          exitStyle={{ scale: 0.95, opacity: 0 }}
+          style={transformOriginStyle}
+          enterStyle={POPOVER_ENTER_STYLE}
+          exitStyle={POPOVER_EXIT_STYLE}
           w="$96"
           bg="$bg"
           borderRadius="$3"
-          $platform-web={{
-            outlineColor: '$neutral3',
-            outlineStyle: 'solid',
-            outlineWidth: '$px',
-            boxShadow:
-              '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
-          }}
-          $platform-native={{
-            elevation: 20,
-          }}
+          $platform-web={POPOVER_PLATFORM_WEB_STYLE}
+          $platform-native={POPOVER_PLATFORM_NATIVE}
           animation="popoverQuick"
           {...floatingPanelProps}
         >
           <TMPopover.ScrollView
             testID="TMPopover-ScrollView"
-            style={{ maxHeight: maxScrollViewHeight }}
+            style={scrollViewStyle}
           >
             {content}
           </TMPopover.ScrollView>
@@ -494,8 +503,8 @@ function RawPopover({
                   zIndex={sheetProps?.zIndex || zIndex}
                   backgroundColor="$bgBackdrop"
                   animation="quick"
-                  enterStyle={{ opacity: 0 }}
-                  exitStyle={{ opacity: 0 }}
+                  enterStyle={OVERLAY_ENTER_STYLE}
+                  exitStyle={OVERLAY_EXIT_STYLE}
                 />
               )}
               <TMPopover.Sheet.Frame
@@ -523,9 +532,7 @@ function RawPopover({
                         <SizableText
                           size="$headingXl"
                           color="$text"
-                          style={{
-                            wordBreak: 'break-all',
-                          }}
+                          style={WORD_BREAK_ALL_STYLE}
                         >
                           {title}
                         </SizableText>
@@ -615,6 +622,11 @@ function BasicPopover({
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
 
+  const webSheetProps = useMemo(
+    () => ({ ...sheetProps, modal: true }),
+    [sheetProps],
+  );
+
   if (platformEnv.isNative) {
     // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
@@ -644,7 +656,7 @@ function BasicPopover({
       onOpenChange={md ? onOpenChange : undefined}
       openPopover={openPopover}
       closePopover={closePopover}
-      sheetProps={{ ...sheetProps, modal: true }}
+      sheetProps={webSheetProps}
       renderTrigger={renderTrigger}
       trackID={trackID}
       keepChildrenMounted={keepChildrenMounted}
@@ -663,26 +675,35 @@ function Tooltip({
 }: IPopoverTooltip & {
   iconSize?: IIconButtonProps['iconSize'];
 }) {
+  const triggerMemo = useMemo(
+    () => (
+      <IconButton
+        iconColor="$iconSubdued"
+        iconSize={iconSize}
+        icon="InfoCircleOutline"
+        variant="tertiary"
+        {...triggerProps}
+      />
+    ),
+    [iconSize, triggerProps],
+  );
+
+  const contentMemo = useMemo(
+    () =>
+      renderContent || (
+        <YStack p="$5">
+          <SizableText size="$bodyLg">{tooltip}</SizableText>
+        </YStack>
+      ),
+    [renderContent, tooltip],
+  );
+
   return (
     <BasicPopover
       placement={placement}
       title={title}
-      renderTrigger={
-        <IconButton
-          iconColor="$iconSubdued"
-          iconSize={iconSize}
-          icon="InfoCircleOutline"
-          variant="tertiary"
-          {...triggerProps}
-        />
-      }
-      renderContent={
-        renderContent || (
-          <YStack p="$5">
-            <SizableText size="$bodyLg">{tooltip}</SizableText>
-          </YStack>
-        )
-      }
+      renderTrigger={triggerMemo}
+      renderContent={contentMemo}
     />
   );
 }

@@ -23,6 +23,7 @@ export function WalletActionRewardCenter({
   const navigation = useAppNavigation();
 
   const handleRewardCenter = useCallback(() => {
+    onClose();
     if (rewardCenterConfig) {
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalRewardCenterRoutes.RewardCenter,
@@ -33,7 +34,6 @@ export function WalletActionRewardCenter({
         },
       });
     }
-    onClose();
   }, [
     rewardCenterConfig,
     navigation,

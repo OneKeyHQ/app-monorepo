@@ -1,6 +1,9 @@
 name: Native Change Check
 
 on:
+  pull_request:
+    branches:
+      - 'release/*'
   workflow_dispatch:
     inputs:
       base_ref:

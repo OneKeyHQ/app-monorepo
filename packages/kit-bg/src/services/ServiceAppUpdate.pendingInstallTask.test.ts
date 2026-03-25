@@ -92,6 +92,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     installBundle: jest.fn(async () => undefined),
     clearBundle: jest.fn(async () => undefined),
     resetToBuiltInBundle: jest.fn(async () => undefined),
+    restart: jest.fn(),
     switchBundle: jest.fn(async () => undefined),
     isBundleExists: jest.fn(async () => false),
     verifyExtractedBundle: jest.fn(async () => undefined),
@@ -1204,11 +1205,7 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
     ).rejects.toThrow('BUILTIN_FALLBACK_RELAUNCH');
 
     expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalled();
-    expect(BundleUpdate.switchBundle).toHaveBeenCalledWith({
-      appVersion: '',
-      bundleVersion: '',
-      signature: '',
-    });
+    expect(BundleUpdate.restart).toHaveBeenCalled();
   });
 
   test('upgrade target not found locally throws BUNDLE_MISSING', async () => {

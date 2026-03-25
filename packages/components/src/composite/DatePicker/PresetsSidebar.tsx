@@ -13,15 +13,25 @@ function isSameDay(a: Date | null, b: Date | null): boolean {
   );
 }
 
+const activeHoverStyle = { backgroundColor: '$bgActive' } as const;
+const inactiveHoverStyle = { backgroundColor: '$bgHover' } as const;
+const pressStyleConst = { backgroundColor: '$bgActive' } as const;
+
 function PresetItem({
   label,
   isActive,
+  preset,
   onPress,
 }: {
   label: string;
   isActive: boolean;
-  onPress: () => void;
+  preset: IDateRangePreset;
+  onPress: (preset: IDateRangePreset) => void;
 }) {
+  const handlePress = useCallback(() => {
+    onPress(preset);
+  }, [onPress, preset]);
+
   return (
     <Stack
       paddingHorizontal="$3"
@@ -29,9 +39,9 @@ function PresetItem({
       borderRadius="$2"
       cursor="pointer"
       backgroundColor={isActive ? '$bgActive' : 'transparent'}
-      hoverStyle={{ backgroundColor: isActive ? '$bgActive' : '$bgHover' }}
-      pressStyle={{ backgroundColor: '$bgActive' }}
-      onPress={onPress}
+      hoverStyle={isActive ? activeHoverStyle : inactiveHoverStyle}
+      pressStyle={pressStyleConst}
+      onPress={handlePress}
     >
       <SizableText
         size="$bodyMd"
@@ -85,7 +95,8 @@ export const PresetsSidebar = memo(
             key={preset.label}
             label={preset.label}
             isActive={index === activeIndex}
-            onPress={() => handlePress(preset)}
+            preset={preset}
+            onPress={handlePress}
           />
         ))}
       </YStack>

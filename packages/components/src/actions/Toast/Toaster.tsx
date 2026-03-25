@@ -9,6 +9,8 @@ import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { useThemeName } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
 
+const toasterStyle = { zIndex: TOAST_Z_INDEX } as const;
+
 function Toaster() {
   const media = useMedia();
   const themeName = useThemeName();
@@ -23,9 +25,7 @@ function Toaster() {
     >
       <WebToaster
         closeButton
-        style={{
-          zIndex: TOAST_Z_INDEX,
-        }}
+        style={toasterStyle}
         visibleToasts={3}
         position={media.md ? 'top-center' : 'bottom-right'}
         theme={themeName}

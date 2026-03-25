@@ -32,6 +32,7 @@ import type {
 } from 'react-native';
 
 const DEFAULT_ROW_HEIGHT = 60;
+const defaultEstimatedListSize = { width: 370, height: 525 };
 
 const renderContent = (text?: string) => (
   <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
@@ -286,7 +287,7 @@ function BasicTable<T>({
   onDragEnd,
   showHeader = true,
   estimatedItemSize = DEFAULT_ROW_HEIGHT,
-  estimatedListSize = { width: 370, height: 525 },
+  estimatedListSize = defaultEstimatedListSize,
   stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
@@ -423,6 +424,25 @@ function BasicTable<T>({
   const effectiveStickyHeader =
     stickyHeader && (!tabIntegrated || !platformEnv.isNative);
 
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: itemSize || DEFAULT_ROW_HEIGHT,
+      offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
+      index,
+    }),
+    [itemSize],
+  );
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <>
+        {TableHeaderComponent}
+        {effectiveStickyHeader ? null : headerRow}
+      </>
+    ),
+    [TableHeaderComponent, effectiveStickyHeader, headerRow],
+  );
+
   const list = useMemo(
     () =>
       draggable ? (
@@ -441,18 +461,9 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={renderSortableItem}
-          getItemLayout={(_, index) => ({
-            length: itemSize || DEFAULT_ROW_HEIGHT,
-            offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
-            index,
-          })}
+          getItemLayout={getItemLayout}
           renderPlaceholder={renderPlaceholder}
-          ListHeaderComponent={
-            <>
-              {TableHeaderComponent}
-              {effectiveStickyHeader ? null : headerRow}
-            </>
-          }
+          ListHeaderComponent={listHeaderComponent}
           onDragBegin={handleDragBegin}
           onDragEnd={onDragEnd}
           keyExtractor={keyExtractor}
@@ -477,12 +488,7 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={handleRenderItem}
-          ListHeaderComponent={
-            <>
-              {TableHeaderComponent}
-              {effectiveStickyHeader ? null : headerRow}
-            </>
-          }
+          ListHeaderComponent={listHeaderComponent}
           ListFooterComponent={TableFooterComponent}
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
@@ -501,10 +507,9 @@ function BasicTable<T>({
       handleScroll,
       dataSource,
       renderSortableItem,
+      getItemLayout,
       renderPlaceholder,
-      TableHeaderComponent,
-      effectiveStickyHeader,
-      headerRow,
+      listHeaderComponent,
       handleDragBegin,
       onDragEnd,
       keyExtractor,
@@ -517,7 +522,6 @@ function BasicTable<T>({
       useFlashList,
       estimatedItemSize,
       handleRenderItem,
-      itemSize,
       tabIntegrated,
     ],
   );

@@ -862,6 +862,14 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
+  async restart() {
+    this.getMainWindow()?.destroy();
+    if (!process.mas) {
+      app.relaunch();
+    }
+    app.exit(0);
+  }
+
   async clearAllJSBundleData() {
     await this.clearDownload();
     await this.clearBundleExtract();

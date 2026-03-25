@@ -3,12 +3,12 @@
 import storageChecker from '../../storageChecker/storageChecker';
 
 // @ts-ignore
-if (!global.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
+if (!globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
   // @ts-ignore
-  global.IDBDatabase.prototype.transactionOriginal_a7c9d6a9 =
+  globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9 =
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    global.IDBDatabase.prototype.transaction;
-  global.IDBDatabase.prototype.transaction = function (
+    globalThis.IDBDatabase.prototype.transaction;
+  globalThis.IDBDatabase.prototype.transaction = function (
     storeNames: string | string[],
     mode?: IDBTransactionMode,
     options?: IDBTransactionOptions,
@@ -17,7 +17,7 @@ if (!global.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
     const self = this;
     try {
       const isWriteMode = mode !== 'readonly';
-      if (isWriteMode && global.$onekeySystemDiskIsFull) {
+      if (isWriteMode && globalThis.$onekeySystemDiskIsFull) {
         console.error('IndexedDB==>checkDiskFull ', self, {
           name: self.name,
           storeNames,
@@ -32,7 +32,7 @@ if (!global.IDBDatabase.prototype.transactionOriginal_a7c9d6a9) {
       const tx =
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        global.IDBDatabase.prototype.transactionOriginal_a7c9d6a9.apply(
+        globalThis.IDBDatabase.prototype.transactionOriginal_a7c9d6a9.apply(
           // @ts-ignore
           self,
           // @ts-ignore
