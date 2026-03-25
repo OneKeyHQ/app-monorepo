@@ -17,6 +17,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -26,8 +27,6 @@ import {
   type IBulkSendTxStatus,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
-
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 
 type IProps = {
   transferInfo: ITransferInfo;
