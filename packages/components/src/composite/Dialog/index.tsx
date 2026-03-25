@@ -34,11 +34,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '../../utils/animationConstants';
-
 import { Toast } from '../../actions/Toast';
 import { Keyboard, SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
@@ -57,6 +52,10 @@ import {
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, Spinner, Stack } from '../../primitives';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '../../utils/animationConstants';
 
 import { Content } from './Content';
 import { DialogContext } from './context';

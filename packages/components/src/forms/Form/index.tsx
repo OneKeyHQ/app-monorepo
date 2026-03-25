@@ -24,8 +24,6 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
-
 import { HeightTransition } from '../../content';
 import {
   Button,
@@ -35,6 +33,7 @@ import {
   XStack,
   YStack,
 } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
