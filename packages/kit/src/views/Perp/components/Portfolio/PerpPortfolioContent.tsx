@@ -246,8 +246,14 @@ function PerpPortfolioContentComponent({
   } | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const { chartData, fillsStats, netDeposits, accountSummary, isLoading } =
-    usePerpPortfolioData(timePeriod);
+  const {
+    chartData,
+    fillsStats,
+    netDeposits,
+    accountSummary,
+    totalPnl,
+    isLoading,
+  } = usePerpPortfolioData(timePeriod);
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
     if (!chartData) return [];
@@ -269,8 +275,9 @@ function PerpPortfolioContentComponent({
   const unrealizedPnl = formatPerpsUsd(unrealizedPnlRaw, true);
   const unrealizedColor = getPerpsValueColor(unrealizedPnlRaw);
 
-  const realizedPnl = formatPerpsUsd(fillsStats.realizedPnl, true);
-  const realizedColor = getPerpsValueColor(fillsStats.realizedPnl);
+  const totalPnlVal = totalPnl ?? fillsStats.realizedPnl;
+  const realizedPnl = formatPerpsUsd(totalPnlVal, true);
+  const realizedColor = getPerpsValueColor(totalPnlVal);
 
   const vlm = chartData?.vlm
     ? formatPerpsCompactUsd(parseFloat(chartData.vlm))
