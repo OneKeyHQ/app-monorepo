@@ -9,6 +9,7 @@ import {
   SizableText,
   Skeleton,
   XStack,
+  useFormContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
@@ -353,7 +354,10 @@ function MultiLineSenderInput() {
     selectedToken,
     selectedAccountId,
     setResolvedSenderAccountIds,
+    bulkSendMode,
   } = useBulkSendAddressesInputContext();
+
+  const form = useFormContext();
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
@@ -368,12 +372,20 @@ function MultiLineSenderInput() {
   });
 
   const validate = useCallback(
-    async (value: string) =>
-      handleValidateAddresses(
+    async (value: string) => {
+      const result = await handleValidateAddresses(
         value,
         ETranslations.wallet_bulk_send_error_sender_required,
-      ),
-    [handleValidateAddresses],
+      );
+      // ManyToMany: re-validate receiver count when sender changes
+      if (bulkSendMode === EBulkSendMode.ManyToMany) {
+        setTimeout(() => {
+          void form.trigger('receiverAddresses');
+        }, 0);
+      }
+      return result;
+    },
+    [handleValidateAddresses, bulkSendMode, form],
   );
 
   const debouncedValidate = useDebouncedValidation(validate);

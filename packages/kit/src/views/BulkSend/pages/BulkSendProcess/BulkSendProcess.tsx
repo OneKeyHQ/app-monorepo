@@ -148,6 +148,10 @@ function BulkSendProcess() {
     route.params?.unsignedTxs ?? [],
   );
 
+  const [transfersInfoState, setTransfersInfoState] = useState(
+    transfersInfo ?? [],
+  );
+
   const [txStatusMap, setTxStatusMap] = useState<
     Record<number, IBulkSendTxStatus>
   >({});
@@ -491,8 +495,8 @@ function BulkSendProcess() {
             feeResult.totalNativeForDisplay ?? feeResult.totalNative,
           );
           // For max mode native token, also deduct the sent amount
-          if (isMaxMode && tokenInfo?.isNative && transfersInfo?.[i]) {
-            deduction = deduction.plus(transfersInfo[i].amount || '0');
+          if (isMaxMode && tokenInfo?.isNative && transfersInfoState?.[i]) {
+            deduction = deduction.plus(transfersInfoState[i].amount || '0');
           }
           networkStatusRef.current[balanceKey].nativeBalance = new BigNumber(
             networkStatusRef.current[balanceKey]?.nativeBalance,
@@ -620,6 +624,11 @@ function BulkSendProcess() {
       }
     }
 
+    // Skip callbacks and finished state if user aborted
+    if (isAborted.current) {
+      return;
+    }
+
     setProgressState(EBulkSendProgressState.Finished);
 
     // Call callbacks
@@ -702,7 +711,11 @@ function BulkSendProcess() {
         }
       });
       setUnsignedTxs((prev) => prev.filter((_, idx) => failedIndices.has(idx)));
+      setTransfersInfoState((prev) =>
+        prev.filter((_, idx) => failedIndices.has(idx)),
+      );
       setTxStatusMap({});
+      feeOverflowCheckedRef.current = false;
       resultsRef.current = [];
       return;
     }
@@ -738,7 +751,7 @@ function BulkSendProcess() {
         </Stack>
         <Stack flex={1} pb="$5">
           {unsignedTxs.map((tx, index) => {
-            const transfer = transfersInfo?.[index];
+            const transfer = transfersInfoState?.[index];
             if (!transfer) return null;
             const status = txStatusMap[index] ?? {
               status: EBulkSendTxStatus.Pending,

@@ -346,35 +346,39 @@ export function useBulkSendFeeEstimation({
               .toFixed();
           }
 
-          const nativeTransferAmount = tokenInfo?.isNative
-            ? new BigNumber(totalTokenAmount ?? '0')
-            : new BigNumber(0);
-          const totalSolNeeded = totalNative
-            .plus(ataRentFeeNative ?? '0')
-            .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
-            .plus(nativeTransferAmount)
-            .toFixed();
-          solBalanceNeeded = totalSolNeeded;
+          // Skip SOL balance check for ManyToOne/ManyToMany —
+          // each sender has their own balance, checked per-tx in BulkSendProcess
+          if (!isManyToManyOrManyToOne) {
+            const nativeTransferAmount = tokenInfo?.isNative
+              ? new BigNumber(totalTokenAmount ?? '0')
+              : new BigNumber(0);
+            const totalSolNeeded = totalNative
+              .plus(ataRentFeeNative ?? '0')
+              .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+              .plus(nativeTransferAmount)
+              .toFixed();
+            solBalanceNeeded = totalSolNeeded;
 
-          try {
-            const accountDetails =
-              await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
-                {
-                  accountId: accountId ?? '',
-                  networkId,
-                  withNetWorth: false,
-                },
-              );
-            const solBalance = accountDetails?.balanceParsed ?? '0';
-            insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
+            try {
+              const accountDetails =
+                await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
+                  {
+                    accountId: accountId ?? '',
+                    networkId,
+                    withNetWorth: false,
+                  },
+                );
+              const solBalance = accountDetails?.balanceParsed ?? '0';
+              insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
 
-            setFeeState((prev) => ({
-              ...prev,
-              solBalance,
-            }));
-          } catch {
-            // If balance fetch fails, don't block the user
-            insufficientSol = undefined;
+              setFeeState((prev) => ({
+                ...prev,
+                solBalance,
+              }));
+            } catch {
+              // If balance fetch fails, don't block the user
+              insufficientSol = undefined;
+            }
           }
         }
 

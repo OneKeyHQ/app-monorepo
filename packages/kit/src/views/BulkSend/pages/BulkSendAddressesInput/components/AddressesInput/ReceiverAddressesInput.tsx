@@ -5,10 +5,13 @@ import { useIntl } from 'react-intl';
 
 import { Form, useFormContext } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
 import { useBulkSendAddressesInputContext } from '../Context';
@@ -26,6 +29,7 @@ function SingleLineReceiverInput() {
   const { selectedAccountId, selectedNetworkId } =
     useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
 
   const handleValidateAddresses = useCallback(
     async (value: string) => {
@@ -35,10 +39,12 @@ function SingleLineReceiverInput() {
         });
       }
 
+      const trimmedAddress = value.trim();
+
       const result =
         await backgroundApiProxy.serviceValidator.localValidateAddress({
           networkId: selectedNetworkId ?? '',
-          address: value.trim(),
+          address: trimmedAddress,
         });
 
       if (!result.isValid) {
@@ -50,9 +56,52 @@ function SingleLineReceiverInput() {
         );
       }
 
+      // Allowlist check
+      if (isEnableTransferAllowList && selectedNetworkId) {
+        let isAllowed = false;
+        try {
+          const walletAccountItems =
+            await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+              networkId: selectedNetworkId,
+              address: trimmedAddress,
+            });
+          if (
+            walletAccountItems.some((item) =>
+              accountUtils.isOwnAccount({ accountId: item.accountId }),
+            )
+          ) {
+            isAllowed = true;
+          }
+        } catch {
+          // ignore
+        }
+        if (!isAllowed) {
+          try {
+            const isEvmNetwork = networkUtils.isEvmNetwork({
+              networkId: selectedNetworkId,
+            });
+            const addressBookItem =
+              await backgroundApiProxy.serviceAddressBook.dangerouslyFindItemWithoutSafeCheck(
+                {
+                  networkId: isEvmNetwork ? undefined : selectedNetworkId,
+                  address: trimmedAddress,
+                },
+              );
+            isAllowed = !!addressBookItem;
+          } catch {
+            // ignore
+          }
+        }
+        if (!isAllowed) {
+          return intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_address_not_in_allowlist,
+          });
+        }
+      }
+
       return true;
     },
-    [intl, selectedNetworkId, network?.name],
+    [intl, selectedNetworkId, network?.name, isEnableTransferAllowList],
   );
 
   const debouncedValidate = useDebouncedValidation(handleValidateAddresses);
