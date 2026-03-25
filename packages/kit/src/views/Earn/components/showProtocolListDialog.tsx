@@ -533,10 +533,14 @@ export function ProtocolListContent({
       <YStack gap="$1" minHeight={90} {...switcherContentContainerProps}>
         <XStack px="$2" py="$1.5" alignItems="center">
           <SizableText size="$bodySmMedium" color="$textSubdued" flex={1}>
-            Protocol
+            {appLocale.intl.formatMessage({
+              id: ETranslations.global_protocol,
+            })}
           </SizableText>
           <SizableText size="$bodySmMedium" color="$textSubdued">
-            APR/APY
+            {appLocale.intl.formatMessage({
+              id: ETranslations.defi_apr_apy,
+            })}
           </SizableText>
         </XStack>
         <YStack gap="$0.5">
