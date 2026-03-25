@@ -9,6 +9,29 @@ import type {
   IMenuItem,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
 
+const MENU_ICON_STYLE = {
+  width: 16,
+  height: 16,
+  marginRight: 8,
+  flexShrink: 0,
+} as const;
+
+const MENU_CONTAINER_STYLE = {
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: '2px',
+  padding: '4px 8px',
+} as const;
+
+const MENU_ITEM_RELATIVE_STYLE = { position: 'relative' } as const;
+
+const MENU_TRIGGER_BASE_STYLE = {
+  padding: '4px 8px',
+  width: 'auto',
+  fontSize: '13px',
+} as const;
+
 function MenuItemComponent({
   item,
   onClose,
@@ -43,6 +66,16 @@ function MenuItemComponent({
       });
   }, [item.commandId, item.enabled, item.submenu, onClose]);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleClick();
+      }
+    },
+    [handleClick],
+  );
+
   if (item.type === 'separator') {
     return <div className="desktop-menu-separator" />;
   }
@@ -59,12 +92,7 @@ function MenuItemComponent({
       tabIndex={0}
       className={`desktop-menu-item ${!item.enabled ? 'disabled' : ''}`}
       onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
+      onKeyDown={handleKeyDown}
     >
       {/* eslint-disable no-nested-ternary */}
       {iconDataUrl ? (
@@ -72,22 +100,12 @@ function MenuItemComponent({
           src={iconDataUrl}
           alt=""
           className="desktop-menu-item-icon"
-          style={{
-            width: 16,
-            height: 16,
-            marginRight: 8,
-            flexShrink: 0,
-          }}
+          style={MENU_ICON_STYLE}
         />
       ) : item.icon ? (
         <span
           className="desktop-menu-item-icon-placeholder"
-          style={{
-            width: 16,
-            height: 16,
-            marginRight: 8,
-            flexShrink: 0,
-          }}
+          style={MENU_ICON_STYLE}
         />
       ) : null}
       {/* eslint-enable no-nested-ternary */}
@@ -218,13 +236,7 @@ export function Menu() {
       className={`desktop-menu-container ${
         themeName === 'light' ? 'light-theme' : ''
       }`}
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: '2px',
-        padding: '4px 8px',
-      }}
+      style={MENU_CONTAINER_STYLE}
     >
       {menu.items.map((menuItem, index) => {
         if (!menuItem.submenu || menuItem.submenu.items.length === 0) {
@@ -232,38 +244,17 @@ export function Menu() {
         }
 
         return (
-          <div
+          <MenuTriggerItem
             key={`menu-${index}`}
-            className="desktop-menu-container"
-            style={{ position: 'relative' }}
-          >
-            <div
-              role="menuitem"
-              tabIndex={0}
-              className="desktop-menu-trigger"
-              onClick={() => handleMenuTriggerClick(index)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleMenuTriggerClick(index);
-                }
-              }}
-              onMouseEnter={() => handleMenuTriggerHover(index)}
-              style={{
-                padding: '4px 8px',
-                width: 'auto',
-                fontSize: '13px',
-                color: themeName === 'light' ? '#1a1a1a' : '#e5e5e5',
-              }}
-            >
-              {menuItem.label}
-            </div>
-            <MenuDropdown
-              items={menuItem.submenu.items}
-              isOpen={isOpen ? activeMenuIndex === index : false}
-              onClose={handleClose}
-            />
-          </div>
+            menuItem={menuItem}
+            index={index}
+            isOpen={isOpen}
+            activeMenuIndex={activeMenuIndex}
+            handleMenuTriggerClick={handleMenuTriggerClick}
+            handleMenuTriggerHover={handleMenuTriggerHover}
+            handleClose={handleClose}
+            themeName={themeName}
+          />
         );
       })}
     </div>

@@ -19,6 +19,31 @@ type ILinkItemType = ISizableTextProps & {
   url: string | undefined;
 };
 
+function LinkText({
+  link,
+  children,
+}: {
+  link: ILinkItemType;
+  children: React.ReactNode;
+}) {
+  const handlePress = useCallback(() => {
+    if (link.url) {
+      openUrlExternal(link.url ?? '');
+    }
+  }, [link.url]);
+
+  return (
+    <SizableText
+      color="$textInfo"
+      cursor="pointer"
+      onPress={handlePress}
+      {...link}
+    >
+      {children}
+    </SizableText>
+  );
+}
+
 /**
  * @deprecated This component is deprecated. Please use HyperlinkText instead.
  * @see HyperlinkText in @onekeyhq/kit/src/components/HyperlinkText
@@ -29,12 +54,6 @@ export function RichSizeableText({
   i18NValues,
   ...rest
 }: IRichSizeableTextProps) {
-  const onLinkDidPress = useCallback((link: ILinkItemType) => {
-    if (link.url) {
-      openUrlExternal(link?.url ?? '');
-    }
-  }, []);
-
   const formattedMessageValues = useMemo(
     () =>
       ({
@@ -42,18 +61,9 @@ export function RichSizeableText({
           ? Object.keys(linkList).reduce(
               (values, key) => {
                 // eslint-disable-next-line react/no-unstable-nested-components
-                values[key] = (text) => {
+                values[key] = (text: React.ReactNode) => {
                   const link = linkList[key];
-                  return (
-                    <SizableText
-                      color="$textInfo"
-                      cursor="pointer"
-                      onPress={() => onLinkDidPress(link)}
-                      {...link}
-                    >
-                      {text}
-                    </SizableText>
-                  );
+                  return <LinkText link={link}>{text}</LinkText>;
                 };
                 return values;
               },
@@ -65,7 +75,7 @@ export function RichSizeableText({
           : {}),
         ...i18NValues,
       }) as Record<string, any>,
-    [linkList, i18NValues, onLinkDidPress],
+    [linkList, i18NValues],
   );
 
   return (

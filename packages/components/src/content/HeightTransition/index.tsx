@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -83,10 +83,20 @@ function HeightTransition({
     [measuredHeight],
   );
 
+  const outerStyle = useMemo(
+    () => [styles.hidden, style, containerStyle],
+    [style, containerStyle],
+  );
+
+  const innerStyle = useMemo(
+    () => [StyleSheet.absoluteFill, styles.autoBottom, childStyle],
+    [childStyle],
+  );
+
   return (
-    <Animated.View style={[styles.hidden, style, containerStyle]}>
+    <Animated.View style={outerStyle}>
       <Animated.View
-        style={[StyleSheet.absoluteFill, styles.autoBottom, childStyle]}
+        style={innerStyle}
         onLayout={handleLayout}
       >
         {children}

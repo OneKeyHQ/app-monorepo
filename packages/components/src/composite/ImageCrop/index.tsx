@@ -18,6 +18,8 @@ import {
 } from './type';
 
 import type { IStackStyle } from '../../primitives';
+
+const cropGtMdStyle = { height: 'calc(100vh - 180px)' };
 import type { CropperRef } from 'react-mobile-cropper';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -126,7 +128,7 @@ function BasicImageCrop({
     <>
       <Stack
         onLayout={onStackLayout}
-        $gtMd={{ height: 'calc(100vh - 180px)' }}
+        $gtMd={cropGtMdStyle}
         height="calc(100vh - 172px)"
       >
         <Cropper

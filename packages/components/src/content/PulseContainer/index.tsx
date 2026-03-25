@@ -27,11 +27,12 @@ function BasicPulseContainer({
     }).start();
   }, [isActive, activeOpacity, duration, opacityAnim]);
 
-  const animatedStyle = useMemo(() => ({ opacity: opacityAnim }), [opacityAnim]);
-
-  return (
-    <Animated.View style={animatedStyle}>{children}</Animated.View>
+  const animatedStyle = useMemo(
+    () => ({ opacity: opacityAnim }),
+    [opacityAnim],
   );
+
+  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
 }
 
 export const PulseContainer = memo(BasicPulseContainer);
