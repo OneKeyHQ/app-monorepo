@@ -155,7 +155,7 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  _getClientCache = memoizee(
+  _getClientCache: () => Promise<ClientSol> = memoizee(
     async () =>
       new ClientSol({
         networkId: this.networkId,
@@ -166,8 +166,17 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async getClient() {
+  async getClient(): Promise<ClientSol> {
     return this._getClientCache();
+  }
+
+  override async getSignatureStatuses(
+    signatures: string[],
+  ): Promise<
+    ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
+  > {
+    const client = await this.getClient();
+    return client.getSignatureStatuses(signatures);
   }
 
   override async buildAccountAddressDetail(
