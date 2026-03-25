@@ -26,8 +26,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { getPortfolioTitle } from '../../Portfolio/PerpPortfolioModal';
 import { useShowPortfolio } from '../../../hooks/useShowPortfolio';
+import { getPortfolioTitle } from '../../Portfolio/PerpPortfolioModal';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
@@ -50,6 +50,13 @@ export function PerpAccountDebugInfo() {
 function PerpAccountMMRView() {
   const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
   const intl = useIntl();
+  const mmrColor = (() => {
+    const pct = parseFloat(mmrPercent ?? '0');
+    if (pct <= 40) return '$green11';
+    if (pct <= 70) return '$yellow11';
+    return '$red11';
+  })();
+
   if (mmrPercent) {
     return (
       <XStack justifyContent="space-between">
@@ -72,16 +79,7 @@ function PerpAccountMMRView() {
             </DashText>
           }
         />
-        <SizableText
-          size="$bodySmMedium"
-          color={
-            parseFloat(mmrPercent) <= 40
-              ? '$green11'
-              : parseFloat(mmrPercent) <= 70
-                ? '$yellow11'
-                : '$red11'
-          }
-        >
+        <SizableText size="$bodySmMedium" color={mmrColor}>
           {mmrPercent}%
         </SizableText>
       </XStack>

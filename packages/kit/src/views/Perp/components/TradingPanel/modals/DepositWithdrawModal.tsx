@@ -5,8 +5,6 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import type { RouteProp } from '@react-navigation/core';
-
 import type { IPageNavigationProp, useInTabDialog } from '@onekeyhq/components';
 import {
   Alert,
@@ -57,9 +55,9 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import {
+import type {
   EModalPerpRoutes,
-  type IModalPerpParamList,
+  IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes/receive';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -89,6 +87,7 @@ import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
+import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';

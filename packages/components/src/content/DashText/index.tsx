@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
 
-import { useMedia } from '../../hooks/useStyle';
-
 import { Popover } from '../../actions/Popover';
 import { Tooltip } from '../../actions/Tooltip';
+import { useMedia } from '../../hooks/useStyle';
 import { SizableText } from '../../primitives/SizeableText';
 import { XStack, YStack } from '../../primitives/Stack';
 
