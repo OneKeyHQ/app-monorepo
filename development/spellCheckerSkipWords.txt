@@ -1357,6 +1357,8 @@ ONESHOT
 Hotspots
 podfile
 Podfile
+prefs
+Prefs
 pids
 UDID
 Udid

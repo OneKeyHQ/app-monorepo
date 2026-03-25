@@ -355,7 +355,7 @@ function ProtocolSwitcher({
           selectedProtocol={protocolSwitchConfig.selectedProtocol}
           onProtocolSelect={async (protocol) => {
             await protocolSwitchConfig.onProtocolSelect(protocol);
-            await closePopover();
+            closePopover();
           }}
         />
       )}
