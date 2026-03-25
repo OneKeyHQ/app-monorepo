@@ -2,11 +2,22 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, useClipboard } from '@onekeyhq/components';
+import {
+  Button,
+  Toast,
+  rootNavigationRef,
+  useClipboard,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  ECustomCloudSyncError,
+  ECustomOneKeyHardwareError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -132,6 +143,26 @@ function NeedFirmwareUpgradeFromWebButton() {
   );
 }
 
+function NavigateToCloudSyncButton() {
+  const intl = useIntl();
+
+  return (
+    <Button
+      variant="primary"
+      size="small"
+      onPress={() => {
+        Toast.dismiss(CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID);
+        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.PrimeModal,
+          params: { screen: EPrimePages.PrimeCloudSync },
+        });
+      }}
+    >
+      {intl.formatMessage({ id: ETranslations.global_view_details })}
+    </Button>
+  );
+}
+
 export function getErrorAction({
   errorCode,
   requestId,
@@ -140,6 +171,11 @@ export function getErrorAction({
   // Special case: firmware upgrade button
   if (errorCode === ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb) {
     return <NeedFirmwareUpgradeFromWebButton />;
+  }
+
+  // Cloud sync: navigate to Cloud Sync settings page
+  if (errorCode === ECustomCloudSyncError.OnekeyIdSyncUnavailable) {
+    return <NavigateToCloudSyncButton />;
   }
 
   // Default: show contact support + copy diagnostic info buttons

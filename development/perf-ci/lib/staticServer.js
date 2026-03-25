@@ -1,5 +1,5 @@
-const http = require('http');
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 
 const MIME_TYPES = {

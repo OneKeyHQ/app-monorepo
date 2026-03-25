@@ -28,6 +28,9 @@ import { TooltipContext } from './context';
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
 
+const tooltipEnterStyle = { scale: 0.95, opacity: 0 } as const;
+const tooltipExitStyle = { scale: 0.95, opacity: 0 } as const;
+
 const useHoverTooltip = () => {
   const [isHovered, setIsHovered] = useState(false);
   const showTooltipRef = useRef(isHovered);
@@ -290,11 +293,8 @@ export function Tooltip({
           {...contentProps}
           elevation={10}
           style={contentStyle}
-          enterStyle={{
-            scale: 0.95,
-            opacity: 0,
-          }}
-          exitStyle={{ scale: 0.95, opacity: 0 }}
+          enterStyle={tooltipEnterStyle}
+          exitStyle={tooltipExitStyle}
           animation="quick"
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}

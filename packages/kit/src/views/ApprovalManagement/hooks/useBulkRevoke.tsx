@@ -170,6 +170,7 @@ function useBulkRevoke() {
             <ListItem
               mx="$0"
               drillIn
+              nativePressableStyle={{ flexShrink: 0 }}
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
               icon="HandPinchOutline"
@@ -190,6 +191,7 @@ function useBulkRevoke() {
             <ListItem
               mx="$0"
               drillIn
+              nativePressableStyle={{ flexShrink: 0 }}
               icon="FlashOutline"
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"

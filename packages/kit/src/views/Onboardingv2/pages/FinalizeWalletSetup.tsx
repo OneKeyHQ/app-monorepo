@@ -24,6 +24,10 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type {
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -40,6 +44,7 @@ import {
   ERootRoutes,
   type IOnboardingParamListV2,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -48,6 +53,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKeylessWallet';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import {
   useAccountSelectorActions,
   useActiveAccount,
@@ -166,6 +172,7 @@ function FinalizeWalletSetupPage({
   });
 
   const closePageCalled = useRef(false);
+
   const closePage = useCallback(() => {
     closePageCalled.current = true;
     void backgroundApiProxy.serviceHardware.clearForceTransportType();
@@ -181,11 +188,19 @@ function FinalizeWalletSetupPage({
     isFirstCreateWallet.current = !isOnboardingDone;
   };
 
+  const {
+    setPendingKeylessAutoConnectWalletId,
+    openKeylessAutoConnectDappModal,
+  } = useKeylessWebFlowAutoConnectDapp();
+
   const handleWalletSetupReadyInner = useCallback(async () => {
     setTimeout(() => {
       closePage();
+      setTimeout(() => {
+        void openKeylessAutoConnectDappModal();
+      }, 600);
     }, 1000);
-  }, [closePage]);
+  }, [closePage, openKeylessAutoConnectDappModal]);
 
   const handleWalletSetupReady = useThrottledCallback(
     handleWalletSetupReadyInner,
@@ -249,6 +264,13 @@ function FinalizeWalletSetupPage({
   const { connectDevice, createHWWallet } = useDeviceConnect();
   const createWallet = useCallback(async () => {
     try {
+      let hdWalletCreatedResult:
+        | {
+            wallet: IDBWallet;
+            indexedAccount: IDBIndexedAccount | undefined;
+            isOverrideWallet: boolean | undefined;
+          }
+        | undefined;
       // **** hd wallet case
       if (mnemonic && !created.current) {
         await withPromptPasswordVerify({
@@ -267,7 +289,7 @@ function FinalizeWalletSetupPage({
             }
             const shouldRunAutoReset =
               !!isKeylessWallet && !!shouldAutoResetKeylessPinAfterRestore;
-            await actions.current.createHDWallet({
+            hdWalletCreatedResult = await actions.current.createHDWallet({
               mnemonic,
               isWalletBackedUp,
               isKeylessWallet,
@@ -319,6 +341,14 @@ function FinalizeWalletSetupPage({
                 }
               })();
             }
+
+            // const { wallet: createdWallet } =
+            //   await actions.current.createHDWallet({
+            //     mnemonic,
+            //     isWalletBackedUp,
+            //     isKeylessWallet,
+            //     keylessDetailsInfo,
+            //   });
             // Track keyless wallet creation success
             if (isKeylessWallet && keylessDetailsInfo) {
               defaultLogger.account.wallet.walletAdded({
@@ -333,6 +363,17 @@ function FinalizeWalletSetupPage({
                       : 'apple',
                 },
               });
+
+              if (
+                platformEnv.isExtension &&
+                accountUtils.isKeylessWallet({
+                  walletId: hdWalletCreatedResult?.wallet.id,
+                })
+              ) {
+                setPendingKeylessAutoConnectWalletId(
+                  hdWalletCreatedResult?.wallet.id,
+                );
+              }
             }
           },
         });
@@ -380,6 +421,7 @@ function FinalizeWalletSetupPage({
     goNextStep,
     connectDevice,
     createHWWallet,
+    setPendingKeylessAutoConnectWalletId,
   ]);
 
   const unmountedRef = useRef(false);
@@ -559,6 +601,7 @@ function FinalizeWalletSetupPage({
                     left="50%"
                     x="-50%"
                     y="50%"
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
                     w={87}
                     h={49}

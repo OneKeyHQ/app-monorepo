@@ -28,6 +28,39 @@ on:
       checkout_ref:
         type: string
         required: false
+    secrets:
+      COVALENT_KEY:
+        required: false
+      SENTRY_TOKEN:
+        required: false
+      SENTRY_DSN_REACT_NATIVE:
+        required: false
+      SENTRY_DSN_WEB:
+        required: false
+      SENTRY_DSN_DESKTOP:
+        required: false
+      SENTRY_DSN_MAS:
+        required: false
+      SENTRY_DSN_SNAP:
+        required: false
+      SENTRY_DSN_WINMS:
+        required: false
+      SENTRY_DSN_EXT:
+        required: false
+      APPLEID:
+        required: false
+      APPLEIDPASS:
+        required: false
+      ASC_PROVIDER:
+        required: false
+      QA_JS_BUNDLE_SERVER_URL:
+        required: false
+      QA_JS_BUNDLE_UPLOAD_SECRET:
+        required: false
+      SLACK_NOTIFICATION_WEBHOOK:
+        required: false
+      ACTION_SIGN_SECERT_KEY:
+        required: false
 
 env:
   NODE_ENV: production
@@ -176,7 +209,7 @@ jobs:
             !**/.DS_Store
 
       - name: Upload QA Bundles
-        uses: onekeyhq/actions/qa-bundle-upload@main
+        uses: onekeyhq/actions/qa-bundle-upload@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           server-url: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
           upload-secret: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
@@ -186,7 +219,7 @@ jobs:
           pr-title: ${{ env.COMMIT_MESSAGE }}
 
       - name: 'Notify to Slack'
-        uses: onekeyhq/actions/slack-notify-webhook@main
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         continue-on-error: true
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}

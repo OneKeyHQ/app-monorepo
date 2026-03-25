@@ -1,6 +1,7 @@
 const path = require('path');
-const dotenv = require('dotenv');
+
 const dateFns = require('date-fns');
+const dotenv = require('dotenv');
 
 const results = [
   dotenv.config({

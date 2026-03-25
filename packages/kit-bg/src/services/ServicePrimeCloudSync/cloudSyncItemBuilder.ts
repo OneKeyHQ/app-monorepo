@@ -56,14 +56,16 @@ class CloudSyncItemBuilder {
   canLocalItemSyncToScene({
     item,
     syncCredential,
+    forceSync,
   }: {
     item: IDBCloudSyncItem;
     syncCredential: ICloudSyncCredential;
+    forceSync?: boolean;
   }) {
     const pwdHash = this.getPwdHash(syncCredential);
 
     return (
-      !item.localSceneUpdated &&
+      (forceSync || !item.localSceneUpdated) &&
       (item.data || item.isDeleted) &&
       item.dataTime &&
       // Check pwdHash matches current mode or is empty
@@ -174,6 +176,7 @@ class CloudSyncItemBuilder {
     dataTime: number | undefined;
   }) {
     const { rawData, encryptedData } = await this.encryptSyncItem({
+      key,
       rawDataJson,
       syncCredential,
     });
@@ -197,9 +200,11 @@ class CloudSyncItemBuilder {
   }
 
   async encryptSyncItem({
+    key,
     rawDataJson,
     syncCredential,
   }: {
+    key: string;
     rawDataJson: ICloudSyncRawDataJson;
     syncCredential: ICloudSyncCredential | undefined;
   }) {
@@ -212,6 +217,8 @@ class CloudSyncItemBuilder {
         encryptedData = await keylessCloudSyncUtils.encryptWithKeylessKey({
           rawData,
           encryptionKey: keylessCredential.encryptionKey,
+          itemId: key,
+          dataType: rawDataJson.dataType,
         });
       } else {
         // Fallback to OneKey ID encryption
@@ -260,6 +267,8 @@ class CloudSyncItemBuilder {
           decryptedData = await keylessCloudSyncUtils.decryptWithKeylessKey({
             encryptedData: item.data,
             encryptionKey: syncCredential.keylessCredential.encryptionKey,
+            itemId: item.id,
+            dataType: item.dataType,
           });
         } catch (error) {
           console.error('decryptSyncItem keyless decrypt error', error, item);

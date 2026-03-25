@@ -1,13 +1,4 @@
 {
-  "mcpServers": {
-    "jira": {
-      "command": "npx",
-      "args": ["-y", "@mcp-devtools/jira"],
-      "env": {
-        "JIRA_URL": "${JIRA_URL}",
-        "JIRA_API_MAIL": "${JIRA_API_MAIL}",
-        "JIRA_API_KEY": "${JIRA_API_KEY}"
-      }
-    }
-  }
+  "__": "Do not define MCP servers here. Define them in ~/.cursor/mcp.json",
+  "mcpServers": {}
 }

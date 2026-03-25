@@ -68,8 +68,11 @@ export interface IPendingInstallTaskBase {
   type: EPendingInstallTaskType;
   targetAppVersion: string;
   targetBundleVersion: string;
+  /** Native app version (e.g. CFBundleShortVersionString / versionName) at the time the task was scheduled */
   scheduledEnvAppVersion: string;
   scheduledEnvBundleVersion: string;
+  /** Native build number (e.g. CFBundleVersion / versionCode) at the time the task was scheduled */
+  scheduledEnvBuildNumber?: string;
   createdAt: number;
   expiresAt: number;
   retryCount: number;

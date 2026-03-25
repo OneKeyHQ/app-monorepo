@@ -34,6 +34,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { KeylessWebConnectAlertContainer } from '../../provider/Container/KeylessWebConnectAlertContainer';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
@@ -480,6 +481,7 @@ function RightActions({
           onPress={handleSearchPress}
         />
       )}
+
       {isPerpsTab && customHeaderRightItems ? (
         customHeaderRightItems
       ) : (
@@ -494,7 +496,10 @@ function RightActions({
           </XStack>
         </>
       )}
+
       {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}
+      <KeylessWebConnectAlertContainer />
+
       <XStack
         ai="center"
         gap="$2.5"
