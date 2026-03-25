@@ -254,6 +254,18 @@ function isHwOrQrWallet({
   return isHwWallet({ walletId }) || isQrWallet({ walletId });
 }
 
+function isIndexedAccountWallet({
+  walletId,
+}: {
+  walletId: string | undefined;
+}): boolean {
+  return (
+    isHdWallet({ walletId }) ||
+    isHwWallet({ walletId }) ||
+    isQrWallet({ walletId })
+  );
+}
+
 function isHwHiddenWallet({
   wallet,
 }: {
@@ -1173,6 +1185,7 @@ export default {
   isQrWallet,
   isHwWallet,
   isHwOrQrWallet,
+  isIndexedAccountWallet,
   isHwHiddenWallet,
   isWatchingWallet,
   isImportedWallet,

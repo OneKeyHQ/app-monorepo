@@ -1,5 +1,7 @@
 const uniq = require('lodash/uniq');
+
 const { developmentConsts } = require('../babelTools');
+
 const { EXT_CHANNEL, TARGET_BROWSER } = require('./constant');
 
 exports.createResolveExtensions = function ({ platform, configName }) {

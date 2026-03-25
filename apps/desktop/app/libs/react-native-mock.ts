@@ -1,4 +1,8 @@
-import isDev from 'electron-is-dev';
+// Avoid `electron-is-dev` here — it accesses `electron.app` which is
+// undefined in the preload/renderer process and would crash at load time.
+// esbuild already defines process.env.NODE_ENV at build time, so this is
+// equivalent and works in both main and preload contexts.
+const isDev = process.env.NODE_ENV !== 'production';
 
 export const Platform = {};
 

@@ -1,11 +1,11 @@
 import {
-  applePlatform,
-  appleSimulator,
-} from '@react-native-harness/platform-apple';
-import {
   androidEmulator,
   androidPlatform,
 } from '@react-native-harness/platform-android';
+import {
+  applePlatform,
+  appleSimulator,
+} from '@react-native-harness/platform-apple';
 
 // Override defaults via environment variables:
 //   HARNESS_IOS_DEVICE   - iOS simulator name (default: 'iPhone 17 Pro')

@@ -1,5 +1,6 @@
-const { Server } = require('socket.io');
 const http = require('http');
+
+const { Server } = require('socket.io');
 
 // 创建 HTTP 服务器
 const server = http.createServer();

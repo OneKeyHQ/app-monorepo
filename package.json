@@ -74,7 +74,7 @@
     "_font": "node ./development/lint/font.js",
     "lint:project": "yarn _tsc && yarn _lint && concurrently --kill-others-on-fail \"yarn _electron\" \"yarn _folder\" \"yarn _lang\" \"yarn _packageVersions\" \"yarn _font\"",
     "lint": "yarn lint:project",
-    "eslint": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache'",
+    "eslint": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"/.eslintcache",
     "oxlint": "npx oxlint --tsconfig ./tsconfig.json --type-aware . --fix",
     "lint:only": "npx oxlint --tsconfig ./tsconfig.json --type-aware . --fix --deny-warnings",
     "lint:staged": "git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx)$' | xargs -r npx oxlint --tsconfig ./tsconfig.json --type-aware --fix --deny-warnings",
@@ -89,7 +89,9 @@
     "app:android:op": "yarn op yarn app:android",
     "app:native-bundle:op": "yarn op yarn app:native-bundle",
     "keyless:mock-server:build": "yarn workspace @onekeyhq/kit-bg keyless:mock-server:build",
-    "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js"
+    "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
+    "wt": "node development/scripts/worktree.js",
+    "worktree": "node development/scripts/worktree.js"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
@@ -261,7 +263,7 @@
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@typescript-eslint/parser": "^8.4.0",
     "@typescript/native-preview": "^7.0.0-dev.20260127.1",
-    "agentation": "^2.3.0",
+    "agentation": "^2.3.3",
     "axios": "^1.13.2",
     "babel-loader": "^9.1.3",
     "babel-plugin-catch-logger": "0.1.13",

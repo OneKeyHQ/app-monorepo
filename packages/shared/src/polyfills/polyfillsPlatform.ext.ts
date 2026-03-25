@@ -1,6 +1,7 @@
-/* eslint-disable import/order */
+/* eslint-disable import/order, import-js/order */
 import 'core-js/es7/global';
 import 'globalthis';
+
 import './globalShim';
 import './setimmediateShim';
 import './extensionApiShim/extensionApiShim';
