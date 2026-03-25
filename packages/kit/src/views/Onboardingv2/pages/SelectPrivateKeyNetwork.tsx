@@ -28,9 +28,7 @@ import {
   useFormWatch,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';

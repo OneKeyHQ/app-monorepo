@@ -22,9 +22,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ResourceBannerCard } from '@onekeyhq/kit/src/components/Resource';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';

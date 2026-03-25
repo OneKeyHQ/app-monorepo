@@ -20,7 +20,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 
 // Constants for performance optimization

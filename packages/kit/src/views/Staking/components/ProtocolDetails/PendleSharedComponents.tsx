@@ -11,9 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type {
   IEarnText,
   IEarnTooltip,

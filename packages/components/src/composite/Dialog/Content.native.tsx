@@ -5,11 +5,10 @@ import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Spinner, Stack, YStack } from '../../primitives';
-
 import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
+
 import type { IDialogContentProps } from './type';
 import type { LayoutChangeEvent, View } from 'react-native';
-
 
 const exitStyleConst = { opacity: 0 } as const;
 const MAX_ANIMATION_DURATION = 550;

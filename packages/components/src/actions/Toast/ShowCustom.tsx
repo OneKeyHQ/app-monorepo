@@ -25,7 +25,6 @@ import { Trigger } from '../Trigger';
 
 import type { GestureResponderEvent } from 'react-native';
 
-
 const toastEnterStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
 const toastExitStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
 

@@ -30,9 +30,7 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import {
   useKeylessWallet,
   useKeylessWalletFeatureIsEnabled,
