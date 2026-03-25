@@ -9,8 +9,8 @@
  *   node development/perf-ci/run-desktop-perf-release-daemon.js --interval-minutes 300
  */
 
-const path = require('path');
 const { spawn } = require('child_process');
+const path = require('path');
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));

@@ -36,6 +36,7 @@ export class AirGapTronSDK implements IAirGapSDK {
     raw: string;
   } {
     if (ur.type !== EURType.TronSignature) {
+      // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- standalone SDK package without @onekeyhq/shared dependency
       throw new Error('type not match');
     }
     const sig = TronSignature.fromCBOR(ur.cbor);

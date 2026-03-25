@@ -9,8 +9,8 @@
  *   LOKALISE_PROJECT_ID - Lokalise project ID
  */
 
-const https = require('https');
 const fs = require('fs');
+const https = require('https');
 const path = require('path');
 
 const LOCALE_JSON_PATH = path.join(
