@@ -136,7 +136,9 @@ export function TokenDetailHeaderRight({
             }
           />
           <StatItem
-            label="24h Volume"
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_stock_24h_volume,
+            })}
             value={
               <NumberSizeableText
                 size="$headingXs"
@@ -152,7 +154,9 @@ export function TokenDetailHeaderRight({
             }
           />
           <StatItem
-            label="P/E TTM"
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_stock_pe_ttm,
+            })}
             value={
               <SizableText size="$headingXs" color="$text">
                 {formatRatioValue(tokenDetail?.stock?.peRatio)}

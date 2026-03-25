@@ -134,14 +134,18 @@ export function InformationPanel() {
               )}
             />
             <StatRow
-              label="24h Volume"
+              label={intl.formatMessage({
+                id: ETranslations.dexmarket_stock_24h_volume,
+              })}
               value={formatStatValueWithFormatter(
                 tokenDetail.stock.volume24h,
                 usdCurrencyFormatter,
               )}
             />
             <StatRow
-              label="P/E TTM"
+              label={intl.formatMessage({
+                id: ETranslations.dexmarket_stock_pe_ttm,
+              })}
               value={formatRatioValue(tokenDetail.stock.peRatio)}
             />
           </>
