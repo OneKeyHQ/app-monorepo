@@ -36,6 +36,7 @@ import {
   isLoadingState,
 } from '../../Staking/components/PageFrame';
 import { capitalizeString } from '../../Staking/utils/utils';
+
 import { buildBorrowHistoryListItemKey } from './borrowHistoryList.utils';
 
 type IHistoryItemProps = {
