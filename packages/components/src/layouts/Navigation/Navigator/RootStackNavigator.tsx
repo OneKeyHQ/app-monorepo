@@ -95,7 +95,7 @@ export function RootStackNavigator<
       config
         .filter(({ disable }) => !disable)
         .map(({ name, component, type, options }) => {
-          const screenOptions = (optionsInfo: IScreenOptionsInfo<any>) => ({
+          const routeScreenOptions = (optionsInfo: IScreenOptionsInfo<any>) => ({
             ...(typeof options === 'function'
               ? options(optionsInfo as any)
               : options),
@@ -106,7 +106,7 @@ export function RootStackNavigator<
               key={name}
               name={name}
               component={component}
-              options={screenOptions}
+              options={routeScreenOptions}
             />
           );
         }),

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import type { ComponentProps, ReactElement } from 'react';
 
-
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components/src/primitives';

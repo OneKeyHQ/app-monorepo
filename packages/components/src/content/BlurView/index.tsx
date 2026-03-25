@@ -52,7 +52,11 @@ function BasicBlurView(
   return (
     <OptimizationView style={optimizationViewStyle}>
       <NativeBlurView
-        style={contentStyle ? (resolvedContentStyle as ViewStyle) : fallbackContentStyle}
+        style={
+          contentStyle
+            ? (resolvedContentStyle as ViewStyle)
+            : fallbackContentStyle
+        }
         tint={themeName}
         experimentalBlurMethod={experimentalBlurMethod || 'dimezisBlurView'}
         {...restProps}

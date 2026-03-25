@@ -76,10 +76,7 @@ export function ContainerChild({
       >
         {Children.map(children, (child, index) => {
           return (
-            <div
-              style={childDivStyle}
-              key={index}
-            >
+            <div style={childDivStyle} key={index}>
               {child}
             </div>
           );

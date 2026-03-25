@@ -58,10 +58,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
             alignItems="center"
           >
             <Stack w={80} h={80}>
-              <Image
-                flex={1}
-                source={splashSource}
-              />
+              <Image flex={1} source={splashSource} />
             </Stack>
           </Stack>
         </Stack>

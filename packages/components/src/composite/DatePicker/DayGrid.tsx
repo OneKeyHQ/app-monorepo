@@ -33,7 +33,15 @@ const DayCellWrapper = memo(
         disabled,
         range: dpDay.range || undefined,
       }),
-      [dateStr, dpDay.$date, dpDay.now, dpDay.inCurrentMonth, dpDay.selected, dpDay.range, disabled],
+      [
+        dateStr,
+        dpDay.$date,
+        dpDay.now,
+        dpDay.inCurrentMonth,
+        dpDay.selected,
+        dpDay.range,
+        disabled,
+      ],
     );
 
     return (

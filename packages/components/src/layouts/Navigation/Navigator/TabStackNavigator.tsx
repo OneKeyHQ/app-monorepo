@@ -127,19 +127,14 @@ export function TabStackNavigator<RouteName extends string>({
         ...options,
         tabBarLabel: intl.formatMessage({ id: options.translationId }),
         tabBarPosition,
-        // @ts-expect-error Custom property for tab bar handling
         collapseTabBarLabel: options.collapseSideBarTranslationId
           ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
           : undefined,
         hideOnTabBar: options.hideOnTabBar,
         tabbarOnPress: options.tabbarOnPress,
-      };
+      } as any;
       return (
-        <Tab.Screen
-          key={name}
-          name={name}
-          options={screenOptions}
-        >
+        <Tab.Screen key={name} name={name} options={screenOptions}>
           {children}
         </Tab.Screen>
       );
@@ -152,7 +147,7 @@ export function TabStackNavigator<RouteName extends string>({
       const extraScreenOptions = {
         freezeOnBlur: true,
         tabBarPosition,
-      };
+      } as any;
       screens.push(
         <Tab.Screen
           key={extraConfig.name}

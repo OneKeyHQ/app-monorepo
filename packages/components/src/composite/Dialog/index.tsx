@@ -107,10 +107,10 @@ const DIALOG_ANIMATE_ONLY_TRANSFORM_OPACITY = [
   'transform',
   'opacity',
 ] as string[];
-const DIALOG_CONTENT_ANIMATION = [
-  'quick' as const,
-  { opacity: { overshootClamping: true } },
-] as const;
+const DIALOG_CONTENT_ANIMATION: [
+  'quick',
+  { opacity: { overshootClamping: boolean } },
+] = ['quick', { opacity: { overshootClamping: true } }];
 const DIALOG_CONTENT_ENTER_EXIT_STYLE = { opacity: 0, scale: 0.85 };
 const DIALOG_THEME_DARK = { outlineColor: '$neutral5' } as const;
 const DIALOG_OUTLINE_STYLE = { outlineStyle: 'solid' } as const;

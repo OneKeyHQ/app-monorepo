@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import type { DPMonth } from '@rehookify/datepicker';
 import { useDatePickerContext } from '@rehookify/datepicker';

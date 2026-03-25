@@ -109,11 +109,7 @@ function SelectItemView({
 }) {
   return (
     <>
-      <SizableText
-        size="$bodyLg"
-        $gtMd={selectItemGtMdStyle}
-        numberOfLines={2}
-      >
+      <SizableText size="$bodyLg" $gtMd={selectItemGtMdStyle} numberOfLines={2}>
         {label}
       </SizableText>
       {description ? (
@@ -228,7 +224,10 @@ const useRenderPopoverTrigger = () => {
   );
 };
 
-const sectionHeaderMdStyle = { size: '$headingSm' as const, py: '$2.5' as const };
+const sectionHeaderMdStyle = {
+  size: '$headingSm' as const,
+  py: '$2.5' as const,
+};
 
 const requestIdleCallback = (callback: () => void) => {
   setTimeout(callback, 150);
@@ -346,7 +345,9 @@ function SelectContent() {
   const mergedSheetProps = useMemo(
     () => ({
       dismissOnSnapToBottom: true,
-      snapPointsMode: usingPercentSnapPoints ? ('percent' as const) : ('fit' as const),
+      snapPointsMode: usingPercentSnapPoints
+        ? ('percent' as const)
+        : ('fit' as const),
       snapPoints: usingPercentSnapPoints ? [65] : undefined,
       ...sheetProps,
     }),

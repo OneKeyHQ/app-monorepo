@@ -172,9 +172,7 @@ export default function MobileBottomTabBar({
       borderTopColor="$borderSubdued"
       pb={bottom}
     >
-      <View style={tabBarRowStyle}>
-        {tabs}
-      </View>
+      <View style={tabBarRowStyle}>{tabs}</View>
     </Stack>
   );
 }

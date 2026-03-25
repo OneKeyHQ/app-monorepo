@@ -1,5 +1,11 @@
 /* eslint-disable camelcase */
-import { type ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  type ChangeEvent,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
@@ -139,10 +145,7 @@ function BasicImageCrop({
           className="onekey-img-cropper"
         />
       </Stack>
-      <Dialog.Footer
-        onCancel={onCancel}
-        onConfirm={handleConfirm}
-      />
+      <Dialog.Footer onCancel={onCancel} onConfirm={handleConfirm} />
     </>
   );
 }

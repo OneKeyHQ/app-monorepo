@@ -153,9 +153,7 @@ export function CalendarPanel({
               ? setViewModeToMonth
               : undefined
           }
-          onYearClick={
-            !isRangeDualPanel ? setViewModeToYear : undefined
-          }
+          onYearClick={!isRangeDualPanel ? setViewModeToYear : undefined}
           mode={mode}
         />
       )}
@@ -168,16 +166,10 @@ export function CalendarPanel({
         />
       ) : null}
       {viewMode === 'month' ? (
-        <MonthGrid
-          onSelect={setViewModeToDay}
-          onMonthSelect={onMonthSelect}
-        />
+        <MonthGrid onSelect={setViewModeToDay} onMonthSelect={onMonthSelect} />
       ) : null}
       {viewMode === 'year' ? (
-        <YearGrid
-          onSelect={setViewModeToMonth}
-          onYearSelect={onYearSelect}
-        />
+        <YearGrid onSelect={setViewModeToMonth} onYearSelect={onYearSelect} />
       ) : null}
     </YStack>
   );

@@ -95,10 +95,7 @@ function HeightTransition({
 
   return (
     <Animated.View style={outerStyle}>
-      <Animated.View
-        style={innerStyle}
-        onLayout={handleLayout}
-      >
+      <Animated.View style={innerStyle} onLayout={handleLayout}>
         {children}
       </Animated.View>
     </Animated.View>

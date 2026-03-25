@@ -47,7 +47,7 @@ export function NativeBottomTabView({
       if (options?.title !== undefined) {
         return options.title;
       }
-      return (route as Route<string>).name;
+      return (route).name;
     },
     [descriptors],
   );

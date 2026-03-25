@@ -15,8 +15,7 @@ export interface ISubmenuColumnProps {
   isExpanded?: boolean;
 }
 
-// @ts-expect-error - Electron drag region
-const dragRegionStyle = { WebkitAppRegion: 'drag' } as const;
+const dragRegionStyle = { WebkitAppRegion: 'drag' } as any;
 
 export function SubmenuColumn({
   webPageTabBar,
@@ -24,9 +23,7 @@ export function SubmenuColumn({
 }: ISubmenuColumnProps) {
   const boxShadowStyle = useMemo(
     () => ({
-      boxShadow: isExpanded
-        ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)'
-        : 'none',
+      boxShadow: isExpanded ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)' : 'none',
     }),
     [isExpanded],
   );

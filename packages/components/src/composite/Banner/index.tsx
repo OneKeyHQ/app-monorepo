@@ -117,12 +117,7 @@ function PaginationDot({
     [goToIndex, index],
   );
   return (
-    <Stack
-      key={index}
-      p="$1"
-      borderRadius="$full"
-      onPress={handlePress}
-    >
+    <Stack key={index} p="$1" borderRadius="$full" onPress={handlePress}>
       <Stack
         shadowColor="$blackA1"
         shadowOpacity={0.1}

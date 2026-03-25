@@ -334,10 +334,7 @@ export function Carousel<T>({
                 {...pagerProps}
               >
                 {data.map((item, index) => (
-                  <Stack
-                    key={index}
-                    style={pageItemStyle}
-                  >
+                  <Stack key={index} style={pageItemStyle}>
                     {renderItem({ item, index })}
                   </Stack>
                 ))}
@@ -369,9 +366,7 @@ export function Carousel<T>({
                     data: item,
                     dotStyle,
                     activeDotStyle:
-                      index === pageIndex
-                        ? defaultActiveDotStyle
-                        : undefined,
+                      index === pageIndex ? defaultActiveDotStyle : undefined,
                     onPress: () => onPressPagination(index),
                   },
                   index,

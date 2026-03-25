@@ -90,8 +90,7 @@ export const Slider = ({
   }, [onSlideEnd]);
 
   const sliderValue = useMemo(
-    () =>
-      value !== undefined && value !== null ? [value] : undefined,
+    () => (value !== undefined && value !== null ? [value] : undefined),
     [value],
   );
   const sliderDefaultValue = useMemo(
@@ -193,11 +192,7 @@ export const Slider = ({
           justifyContent="space-between"
           top={-layout.height / 2}
         >
-          <SliderSegment
-            key={-1}
-            isActive
-            onPress={handleMinPress}
-          />
+          <SliderSegment key={-1} isActive onPress={handleMinPress} />
           {segmentItems.map((item, index) => (
             <SliderSegment
               key={item.index}
