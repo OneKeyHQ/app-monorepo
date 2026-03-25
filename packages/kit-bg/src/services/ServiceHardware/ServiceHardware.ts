@@ -1915,11 +1915,15 @@ class ServiceHardware extends ServiceBase {
       }
       if (device && !device.bleConnectId) {
         if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
-          // In BLE mode with no bleConnectId, returning the USB connectId would
-          // pass a serial-number-format string to Noble which can never match a
-          // BLE peripheral UUID — causing a guaranteed scan timeout. Silent calls
-          // cannot show a pairing dialog, so signal "not reachable" instead.
-          return '';
+          // BLE mode with no bleConnectId: throw instead of returning USB serial
+          throw new deviceErrors.DeviceNotFound({
+            payload: {
+              connectId,
+              deviceId: featuresDeviceId || undefined,
+              message:
+                'BLE mode with no bleConnectId, silent call cannot pair',
+            },
+          });
         }
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
