@@ -34,7 +34,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalBulkSendRoutes,
   EModalRoutes,
-  ETabHomeRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import {
@@ -51,6 +50,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
+import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
 
 import { AmountPreview } from './components/AmountPreview';
@@ -574,7 +574,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       });
     }
 
-    if (media.gtMd || isInPreviewMode) {
+    if (media.gtMd || (isInPreviewMode && isOneToMany)) {
       return intl.formatMessage({
         id: ETranslations.wallet_bulk_send_btn_review,
       });
@@ -672,35 +672,26 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
                   })}
                 </SizableText>
                 <XStack alignItems="center" gap="$1">
-                  {isMaxMode &&
-                  amountInputMode === EAmountInputMode.Specified ? (
-                    <SizableText size="$bodyLgMedium" color="$textSuccess">
-                      Max
-                    </SizableText>
-                  ) : (
-                    <>
-                      <NumberSizeableText
-                        size="$bodyLgMedium"
-                        formatter="balance"
-                        formatterOptions={{ tokenSymbol: tokenInfo?.symbol }}
-                      >
-                        {totalTokenAmount}
-                      </NumberSizeableText>
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        (
-                        <NumberSizeableText
-                          size="$bodyMd"
-                          formatter="value"
-                          formatterOptions={{
-                            currency: settings.currencyInfo.symbol,
-                          }}
-                        >
-                          {totalFiatAmount}
-                        </NumberSizeableText>
-                        )
-                      </SizableText>
-                    </>
-                  )}
+                  <NumberSizeableText
+                    size="$bodyLgMedium"
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: tokenInfo?.symbol }}
+                  >
+                    {totalTokenAmount}
+                  </NumberSizeableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    (
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      formatter="value"
+                      formatterOptions={{
+                        currency: settings.currencyInfo.symbol,
+                      }}
+                    >
+                      {totalFiatAmount}
+                    </NumberSizeableText>
+                    )
+                  </SizableText>
                 </XStack>
               </YStack>
             ) : (
@@ -742,25 +733,19 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   );
 }
 
-function BulkSendAmountsInput() {
-  const navigation = useAppNavigation();
+type IBulkSendAmountsInputRouteParams =
+  IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendAmountsInput];
 
-  const route = useAppRoute<
-    IModalBulkSendParamList,
-    EModalBulkSendRoutes.BulkSendAmountsInput
-  >();
-
-  const {
-    networkId,
-    accountId,
-    senders,
-    receivers,
-    tokenInfo,
-    tokenDetails: initialTokenDetails,
-    bulkSendMode,
-    isInModal,
-  } = route.params ?? {};
-
+function BulkSendAmountsInputContent({
+  networkId,
+  accountId,
+  senders,
+  receivers,
+  tokenInfo,
+  tokenDetails: initialTokenDetails,
+  bulkSendMode,
+  isInModal,
+}: IBulkSendAmountsInputRouteParams) {
   const hasCustomAmounts = useMemo(
     () =>
       receivers?.some((r) => r.amount !== undefined && r.amount !== '') ??
@@ -768,45 +753,6 @@ function BulkSendAmountsInput() {
     [receivers],
   );
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
-
-  // Redirect if required parameters are missing
-  useEffect(() => {
-    const hasRequiredParams =
-      networkId &&
-      senders?.length > 0 &&
-      receivers?.length > 0 &&
-      tokenInfo &&
-      bulkSendMode;
-
-    if (!hasRequiredParams) {
-      if (isInModal) {
-        navigation.replace(EModalBulkSendRoutes.BulkSendAddressesInput, {
-          networkId,
-          accountId,
-          indexedAccountId: undefined,
-          tokenInfo,
-          isInModal: true,
-        });
-      } else {
-        navigation.replace(ETabHomeRoutes.TabHomeBulkSendAddressesInput, {
-          networkId,
-          accountId,
-          indexedAccountId: undefined,
-          tokenInfo,
-          isInModal: false,
-        });
-      }
-    }
-  }, [
-    networkId,
-    accountId,
-    senders,
-    receivers,
-    tokenInfo,
-    bulkSendMode,
-    isInModal,
-    navigation,
-  ]);
 
   const [tokenDetails, setTokenDetails] = useState<
     ({ info: IToken } & ITokenFiat) | undefined
@@ -890,6 +836,15 @@ function BulkSendAmountsInput() {
     [mobileModeData, amountInputMode],
   );
 
+  // Per-sender balance data (ManyToOne/ManyToMany only)
+  const [senderBalances, setSenderBalances] = useState<Record<string, string>>(
+    {},
+  );
+  const [senderBalancesLoading, setSenderBalancesLoading] = useState(false);
+  const [senderBalancesFailed, setSenderBalancesFailed] = useState<Set<string>>(
+    new Set(),
+  );
+
   // Recalculate mobile mode totals when transfersInfo or token price changes
   useEffect(() => {
     if (!tokenDetails) return;
@@ -898,16 +853,35 @@ function BulkSendAmountsInput() {
       const modeData = prev[amountInputMode];
       if (modeData.transfersInfo.length === 0) return prev;
 
+      const resolvedModeTransfersInfo =
+        !isOneToMany && isMaxMode
+          ? modeData.transfersInfo.map((transfer) => ({
+              ...transfer,
+              amount: senderBalances[transfer.from] ?? '0',
+            }))
+          : modeData.transfersInfo;
+
       const {
         totalTokenAmount: modeTotalToken,
         totalFiatAmount: modeTotalFiat,
       } = calculateTotalAmounts({
-        transfersInfo: modeData.transfersInfo,
+        transfersInfo: resolvedModeTransfersInfo,
         tokenPrice: tokenDetails.price,
       });
       const modeIsInsufficient = isOneToMany
         ? new BigNumber(modeTotalToken).gt(tokenDetails.balanceParsed)
-        : false;
+        : !isMaxMode &&
+          modeData.transfersInfo.some((transfer) => {
+            const balance = senderBalances[transfer.from];
+            if (
+              balance === undefined ||
+              !transfer.amount ||
+              transfer.amount === ''
+            ) {
+              return false;
+            }
+            return new BigNumber(transfer.amount).gt(balance);
+          });
 
       if (
         modeData.totalTokenAmount === modeTotalToken &&
@@ -932,6 +906,8 @@ function BulkSendAmountsInput() {
     currentModeData.transfersInfo,
     amountInputMode,
     isOneToMany,
+    isMaxMode,
+    senderBalances,
     tokenDetails?.price,
     tokenDetails?.balanceParsed,
   ]);
@@ -970,15 +946,6 @@ function BulkSendAmountsInput() {
     maxSeconds: '',
   });
 
-  // Per-sender balance data (ManyToOne/ManyToMany only)
-  const [senderBalances, setSenderBalances] = useState<Record<string, string>>(
-    {},
-  );
-  const [senderBalancesLoading, setSenderBalancesLoading] = useState(false);
-  const [senderBalancesFailed, setSenderBalancesFailed] = useState<Set<string>>(
-    new Set(),
-  );
-
   // Per-sender accountId map (address -> accountId) from route params
   const senderAccountIdMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -988,13 +955,24 @@ function BulkSendAmountsInput() {
     return map;
   }, [senders]);
 
+  const displaySummaryTransfersInfo = useMemo(
+    () =>
+      !isOneToMany && isMaxMode
+        ? transfersInfo.map((transfer) => ({
+            ...transfer,
+            amount: senderBalances[transfer.from] ?? '0',
+          }))
+        : transfersInfo,
+    [isOneToMany, isMaxMode, transfersInfo, senderBalances],
+  );
+
   const { totalTokenAmount, totalFiatAmount } = useMemo(
     () =>
       calculateTotalAmounts({
-        transfersInfo,
+        transfersInfo: displaySummaryTransfersInfo,
         tokenPrice: tokenDetails?.price,
       }),
-    [transfersInfo, tokenDetails?.price],
+    [displaySummaryTransfersInfo, tokenDetails?.price],
   );
 
   useEffect(() => {
@@ -1310,6 +1288,37 @@ function BulkSendAmountsInput() {
       <BaseBulkSendAmountsInput isInModal={isInModal} />
     </BulkSendAmountsInputContext.Provider>
   );
+}
+
+function BulkSendAmountsInput() {
+  const route = useAppRoute<
+    IModalBulkSendParamList,
+    EModalBulkSendRoutes.BulkSendAmountsInput
+  >();
+
+  const params = route.params;
+  const hasRequiredParams = Boolean(
+    params?.networkId &&
+    params?.senders?.length &&
+    params?.receivers?.length &&
+    params?.tokenInfo &&
+    params?.bulkSendMode,
+  );
+
+  useRedirectToBulkSendAddressesInput({
+    networkId: params?.networkId,
+    accountId: params?.accountId,
+    tokenInfo: params?.tokenInfo,
+    isInModal: params?.isInModal,
+    bulkSendMode: params?.bulkSendMode,
+    hasRequiredParams,
+  });
+
+  if (!hasRequiredParams || !params) {
+    return null;
+  }
+
+  return <BulkSendAmountsInputContent {...params} />;
 }
 
 export default BulkSendAmountsInput;

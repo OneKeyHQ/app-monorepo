@@ -527,40 +527,25 @@ function AmountCard() {
   }
 
   const hasRangeError = !!amountInputErrors.rangeError;
+  const hasSpecifiedAmountError =
+    !isMaxMode && !!amountInputErrors.specifiedAmount;
   const sharedStyles = getSharedInputStyles({ error: hasRangeError });
 
   const renderAmountInput = () => {
     switch (amountInputMode) {
       case EAmountInputMode.Specified:
-        if (isMaxMode) {
-          return (
-            <YStack
-              bg="$bgApp"
-              borderRadius="$3"
-              borderWidth={1}
-              borderColor="$borderStrong"
-              px="$3.5"
-              py="$3"
-              justifyContent="center"
-              minHeight={80}
-            >
-              <SizableText size="$heading3xl" color="$textSuccess">
-                Max
-              </SizableText>
-            </YStack>
-          );
-        }
         return (
           <BaseAmountInput
             bg="$bgApp"
-            value={amountInputValues.specifiedAmount}
+            value={isMaxMode ? 'Max' : amountInputValues.specifiedAmount}
             onChange={handleSpecifiedAmountChange}
-            hasError={!!amountInputErrors.specifiedAmount}
+            hasError={hasSpecifiedAmountError}
             inputProps={{
               placeholder: '0',
+              readonly: isMaxMode,
             }}
             valueProps={{
-              value: specifiedFiatValue,
+              value: isMaxMode ? '-' : specifiedFiatValue,
               currency: settings.currencyInfo.symbol,
             }}
             tokenSelectorTriggerProps={{
@@ -745,7 +730,7 @@ function AmountCard() {
 
       {/* Error message */}
       {amountInputMode === EAmountInputMode.Specified &&
-      amountInputErrors.specifiedAmount ? (
+      hasSpecifiedAmountError ? (
         <SizableText size="$bodySm" color="$textCritical">
           {amountInputErrors.specifiedAmount}
         </SizableText>
@@ -941,7 +926,6 @@ function TransferInfoListSection() {
                     {intl.formatMessage({
                       id: ETranslations.wallet_bulk_send_balance,
                     })}
-                    :
                   </SizableText>
                   {(() => {
                     if (

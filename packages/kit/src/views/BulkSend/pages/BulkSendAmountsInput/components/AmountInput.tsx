@@ -141,39 +141,23 @@ export function SpecifiedAmountInput() {
     if (amount.isNaN() || !tokenDetails?.price) return '0';
     return amount.times(tokenDetails.price).toFixed();
   }, [amountInputValues.specifiedAmount, tokenDetails?.price]);
-
-  if (isMaxMode) {
-    return (
-      <YStack
-        w="100%"
-        borderRadius="$3"
-        borderWidth={1}
-        borderColor="$borderStrong"
-        px="$3.5"
-        py="$3"
-        justifyContent="center"
-        minHeight={80}
-      >
-        <SizableText size="$heading3xl" color="$textSuccess">
-          Max
-        </SizableText>
-      </YStack>
-    );
-  }
+  const hasSpecifiedAmountError =
+    !isMaxMode && !!amountInputErrors.specifiedAmount;
 
   return (
     <YStack gap="$1.5" w="100%">
       <BaseAmountInput
-        value={amountInputValues.specifiedAmount}
+        value={isMaxMode ? 'Max' : amountInputValues.specifiedAmount}
         onChange={handleChange}
-        hasError={!!amountInputErrors.specifiedAmount}
+        hasError={hasSpecifiedAmountError}
         inputProps={{
           placeholder: '0',
           loading: isLoading,
-          autoFocus: !isInPreviewMode,
+          autoFocus: !isInPreviewMode && !isMaxMode,
+          readonly: isMaxMode,
         }}
         valueProps={{
-          value: fiatValue,
+          value: isMaxMode ? '-' : fiatValue,
           loading: isLoading,
           currency: settings.currencyInfo.symbol,
         }}
@@ -184,7 +168,7 @@ export function SpecifiedAmountInput() {
           loading: isLoading,
         }}
       />
-      {amountInputErrors.specifiedAmount ? (
+      {hasSpecifiedAmountError ? (
         <SizableText size="$bodyMd" color="$textCritical" px="$1">
           {amountInputErrors.specifiedAmount}
         </SizableText>

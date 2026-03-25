@@ -32,8 +32,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { filterNumericInput } from '../utils';
 
 const INPUT_WIDTH = 130;
-const ADDRESS_WIDTH = 120;
-
 const INITIAL_BATCH = 20;
 const BATCH_SIZE = 50;
 const BATCH_INTERVAL = 100;
@@ -122,12 +120,14 @@ function TransferListItemBase({
   balanceLoading,
   balanceFailed,
 }: ITransferListItemProps) {
+  const intl = useIntl();
   const media = useMedia();
   const shortenedAddress = accountUtils.shortenAddress({
     address,
     leadingLength: media.gtMd ? 8 : 6,
     trailingLength: media.gtMd ? 6 : 4,
   });
+  const isCompactLayout = !media.gtMd;
   const isSend = type === 'send';
   const hasAddressError = !!addressError;
   const hasAmountError = !!amountError;
@@ -217,6 +217,7 @@ function TransferListItemBase({
         color={textColor}
         textAlign="right"
         flexShrink={0}
+        numberOfLines={1}
       >
         {`${displayAmount} ${tokenSymbol}`}
       </SizableText>
@@ -239,7 +240,10 @@ function TransferListItemBase({
       <SizableText
         size="$bodyMdMedium"
         color={hasAddressError ? '$textCritical' : '$text'}
+        minWidth={0}
+        flexShrink={1}
         numberOfLines={1}
+        ellipsizeMode="middle"
       >
         {shortenedAddress}
       </SizableText>
@@ -255,57 +259,115 @@ function TransferListItemBase({
   };
 
   return (
-    <XStack gap="$3" py="$2" alignItems={editMode ? 'center' : 'flex-start'}>
+    <XStack
+      gap="$3"
+      py="$2"
+      minWidth={0}
+      alignItems={editMode ? 'center' : 'flex-start'}
+    >
       <YStack
         justifyContent="center"
-        flexShrink={0}
-        {...(!media.gtMd && {
-          width: ADDRESS_WIDTH,
-          minWidth: ADDRESS_WIDTH,
-        })}
+        minWidth={0}
+        {...(isCompactLayout ? { flex: 1 } : { flexShrink: 0 })}
       >
         {renderAddress()}
         {(() => {
           if (type !== 'send') return null;
           if (balance !== undefined) {
             return (
-              <NumberSizeableText
-                size="$bodySm"
-                color={
-                  amount && new BigNumber(amount).gt(balance)
-                    ? '$textCritical'
-                    : '$textSubdued'
-                }
-                formatter="balance"
-                formatterOptions={{ tokenSymbol }}
-              >
-                {balance}
-              </NumberSizeableText>
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_balance,
+                  })}
+                </SizableText>
+                <NumberSizeableText
+                  size="$bodySm"
+                  minWidth={0}
+                  flexShrink={1}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  color={
+                    amount && new BigNumber(amount).gt(balance)
+                      ? '$textCritical'
+                      : '$textSubdued'
+                  }
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol }}
+                >
+                  {balance}
+                </NumberSizeableText>
+              </XStack>
             );
           }
           if (balanceFailed) {
             return (
-              <SizableText size="$bodySm" color="$textCaution">
-                -
-              </SizableText>
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_balance,
+                  })}
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color="$textCaution"
+                  numberOfLines={1}
+                >
+                  -
+                </SizableText>
+              </XStack>
             );
           }
           if (balanceLoading) {
-            return <Skeleton.BodySm width="$12" />;
+            return (
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_balance,
+                  })}
+                </SizableText>
+                <Skeleton.BodySm width="$12" />
+              </XStack>
+            );
           }
           return null;
         })()}
         {hasAddressError ? (
-          <XStack gap="$1" alignItems="center">
+          <XStack gap="$1" alignItems="center" minWidth={0}>
             <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-            <SizableText size="$bodyMd" color="$textCritical" numberOfLines={1}>
+            <SizableText
+              size="$bodyMd"
+              color="$textCritical"
+              flex={1}
+              minWidth={0}
+              numberOfLines={1}
+            >
               {addressError}
             </SizableText>
           </XStack>
         ) : null}
       </YStack>
 
-      <Stack flex={1} alignItems="flex-end">
+      <Stack
+        alignItems="flex-end"
+        minWidth={0}
+        {...(isCompactLayout ? { flexShrink: 0 } : { flex: 1 })}
+      >
         {renderAmount()}
       </Stack>
 

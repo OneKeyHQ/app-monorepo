@@ -86,9 +86,6 @@ export function AmountPreview({
 
   // Determine if we should show Total amount section
   const showTotalAmount = useMemo(() => {
-    if (isMaxMode && amountInputMode === EAmountInputMode.Specified) {
-      return true;
-    }
     if (inDialog) {
       return amountInputMode === EAmountInputMode.Specified;
     }
@@ -100,7 +97,7 @@ export function AmountPreview({
       return isInPreviewMode || hasRangeValues;
     }
     return true;
-  }, [inDialog, amountInputMode, isInPreviewMode, hasRangeValues, isMaxMode]);
+  }, [inDialog, amountInputMode, isInPreviewMode, hasRangeValues]);
 
   // Determine if we should show Available section
   // In preview mode for Specified/Range, hide Available
@@ -115,10 +112,6 @@ export function AmountPreview({
   }, [hideBalance, inDialog, isInPreviewMode, amountInputMode]);
 
   const { totalTokenAmount, totalFiatAmount } = useMemo(() => {
-    // Max mode: show "Max" instead of calculated amount
-    if (isMaxMode && amountInputMode === EAmountInputMode.Specified) {
-      return { totalTokenAmount: 'Max', totalFiatAmount: '' };
-    }
     // In preview mode, use pre-calculated values
     if (isInPreviewMode && previewTotalTokenAmount && previewTotalFiatAmount) {
       return {
@@ -176,7 +169,6 @@ export function AmountPreview({
     const totalFiatAmount = total.times(tokenDetails?.price ?? 0).toFixed();
     return { totalTokenAmount, totalFiatAmount };
   }, [
-    isMaxMode,
     isInPreviewMode,
     previewTotalTokenAmount,
     previewTotalFiatAmount,
@@ -189,59 +181,70 @@ export function AmountPreview({
     rangePreviewAmounts,
   ]);
 
-  const isMaxDisplay = totalTokenAmount === 'Max';
-
   return (
     <YStack {...containerProps}>
       {showTotalAmount ? (
         <>
-          <YStack>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_total_amount,
-              })}
-            </SizableText>
-            <XStack alignItems="center" gap="$1">
-              {(() => {
-                if (isMaxDisplay) {
+          <XStack
+            alignItems={hideBalance && onMaxPress ? 'flex-end' : 'stretch'}
+            justifyContent="space-between"
+            gap="$4"
+          >
+            <YStack flex={1} minWidth={0}>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_total_amount,
+                })}
+              </SizableText>
+              <XStack alignItems="center" gap="$1">
+                {(() => {
+                  if (totalTokenAmount === '--') {
+                    return <SizableText size="$bodyLgMedium">--</SizableText>;
+                  }
                   return (
-                    <SizableText size="$bodyLgMedium" color="$textSuccess">
-                      Max
-                    </SizableText>
-                  );
-                }
-                if (totalTokenAmount === '--') {
-                  return <SizableText size="$bodyLgMedium">--</SizableText>;
-                }
-                return (
-                  <>
-                    <NumberSizeableText
-                      size="$bodyLgMedium"
-                      formatter="balance"
-                      formatterOptions={{
-                        tokenSymbol: tokenDetails?.info.symbol,
-                      }}
-                    >
-                      {totalTokenAmount}
-                    </NumberSizeableText>
-                    <SizableText size="$bodyLgMedium" color="$textSubdued">
-                      (
+                    <>
                       <NumberSizeableText
                         size="$bodyLgMedium"
-                        formatter="value"
+                        formatter="balance"
                         formatterOptions={{
-                          currency: settings.currencyInfo.symbol,
+                          tokenSymbol: tokenDetails?.info.symbol,
                         }}
                       >
-                        {totalFiatAmount}
+                        {totalTokenAmount}
                       </NumberSizeableText>
-                      )
-                    </SizableText>
-                  </>
-                );
-              })()}
-            </XStack>
-          </YStack>
+                      <SizableText size="$bodyLgMedium" color="$textSubdued">
+                        (
+                        <NumberSizeableText
+                          size="$bodyLgMedium"
+                          formatter="value"
+                          formatterOptions={{
+                            currency: settings.currencyInfo.symbol,
+                          }}
+                        >
+                          {totalFiatAmount}
+                        </NumberSizeableText>
+                        )
+                      </SizableText>
+                    </>
+                  );
+                })()}
+              </XStack>
+            </YStack>
+            {hideBalance && onMaxPress ? (
+              <SizableText
+                size="$bodyMdMedium"
+                color={isMaxMode ? '$textSuccess' : '$textInteractive'}
+                cursor="default"
+                onPress={onMaxPress}
+                hitSlop={8}
+                flexShrink={0}
+              >
+                {isMaxMode
+                  ? `${intl.formatMessage({ id: ETranslations.global_cancel })} ${intl.formatMessage({ id: ETranslations.global_max })}`
+                  : intl.formatMessage({ id: ETranslations.global_max })}
+              </SizableText>
+            ) : null}
+          </XStack>
           {showAvailable ? (
             <YStack pt="$3" pb="$2">
               <Divider />
@@ -280,22 +283,6 @@ export function AmountPreview({
               {intl.formatMessage({ id: ETranslations.global_max })}
             </SizableText>
           ) : null}
-        </XStack>
-      ) : null}
-      {/* Max button for non-OneToMany (when balance is hidden) */}
-      {hideBalance && onMaxPress ? (
-        <XStack py="$0.5" alignItems="center" justifyContent="flex-end">
-          <SizableText
-            size="$bodyMdMedium"
-            color={isMaxMode ? '$textSuccess' : '$textInteractive'}
-            cursor="default"
-            onPress={onMaxPress}
-            hitSlop={8}
-          >
-            {isMaxMode
-              ? `${intl.formatMessage({ id: ETranslations.global_cancel })} ${intl.formatMessage({ id: ETranslations.global_max })}`
-              : intl.formatMessage({ id: ETranslations.global_max })}
-          </SizableText>
         </XStack>
       ) : null}
     </YStack>
