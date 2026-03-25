@@ -3,6 +3,7 @@ import type { IDBAccountAddressesMap } from '@onekeyhq/kit-bg/src/dbs/local/type
 import type { WalletConnectDappSideProvider } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnect/WalletConnectDappSideProvider';
 
 import type { Emitter } from '../src/eventBus/WagmiEventEmitter';
+import type { IKeylessPendingLogin } from '../src/keylessWallet/keylessWebTypes';
 import type {
   IWalletConnectConnectToWalletParams,
   IWalletConnectPeerMeta,
@@ -200,4 +201,11 @@ export type IExternalConnectWalletResult = {
   connectionInfo: IExternalConnectionInfo;
   accountInfo: IExternalConnectAccountInfo;
   notSupportedNetworkIds: string[] | undefined;
+};
+
+export type IConnectToWalletOptions = {
+  allowEmptyAuthorizedAddresses?: boolean;
+  suppressDeniedToast?: boolean;
+  skipDisconnectConnector?: boolean;
+  webKeylessPendingLogin?: IKeylessPendingLogin;
 };

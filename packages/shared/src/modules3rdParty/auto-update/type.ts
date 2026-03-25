@@ -121,6 +121,8 @@ export interface IBundleUpdate {
   clearBundle: IClearBundle;
   clearDownload: () => Promise<void>;
   resetToBuiltInBundle: () => Promise<void>;
+  /** Restart the app (RNRestart on native, app.relaunch on desktop). */
+  restart: () => void;
   isSkipGpgVerificationAllowed: () => Promise<boolean>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getFallbackBundles: () => Promise<IJSBundle[]>;

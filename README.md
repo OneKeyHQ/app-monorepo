@@ -11,6 +11,7 @@ Supports Bitcoin, Ethereum, Solana, Tron, BNB Smart Chain, and more.
 [![Last commit](https://img.shields.io/github/last-commit/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/commits/onekey)
 [![Issues](https://img.shields.io/github/issues-raw/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/issues?q=is%3Aissue+is%3Aopen)
 [![Pull Requests](https://img.shields.io/github/issues-pr-raw/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/pulls?q=is%3Apr+is%3Aopen)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OneKeyHQ/app-monorepo)
 [![Twitter Follow](https://img.shields.io/twitter/follow/OneKeyHQ?style=for-the-badge&labelColor=000)](https://twitter.com/OneKeyHQ)
 
 </div>

@@ -460,10 +460,24 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   setPinnedTab = contextAtomMethod(
     (get, set, payload: { id: string; pinned: boolean }) => {
+      let timestamp = Date.now();
+      // When unpinning, place the tab at the top of the unpinned list
+      if (!payload.pinned) {
+        const allTabs = get(webTabsAtom())?.tabs ?? [];
+        const minUnpinnedTimestamp = allTabs
+          .filter((t) => !t.isPinned && t.id !== payload.id && t.timestamp)
+          .reduce(
+            (min, t) => Math.min(min, t.timestamp ?? min),
+            Number.MAX_SAFE_INTEGER,
+          );
+        if (minUnpinnedTimestamp < Number.MAX_SAFE_INTEGER) {
+          timestamp = minUnpinnedTimestamp - 1;
+        }
+      }
       this.setWebTabData.call(set, {
         id: payload.id,
         isPinned: payload.pinned,
-        timestamp: Date.now(),
+        timestamp,
       });
       this.setTabs.call(set);
 

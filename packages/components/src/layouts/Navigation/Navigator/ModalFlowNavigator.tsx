@@ -111,6 +111,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             shouldPopOnClickBackdrop,
             dismissOnOverlayPress,
           }) => {
+            // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
             const customOptions: IModalNavigationOptions = {
               ...(typeof options === 'function' ? {} : options),
               shouldPopOnClickBackdrop,
@@ -121,10 +122,9 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
                   })
                 : '',
             };
-            const key = `Modal-Flow-${name as string}`;
             return (
               <ModalStack.Screen
-                key={key}
+                key={`Modal-Flow-${name as string}`}
                 name={name}
                 component={component}
                 options={customOptions}

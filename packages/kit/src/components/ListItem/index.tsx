@@ -42,6 +42,7 @@ import { useStatefulAction } from '../../hooks/useStatefulAction';
 import { AccountAvatar } from '../AccountAvatar';
 
 import type { IAccountAvatarProps } from '../AccountAvatar';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: IStackProps;
@@ -275,6 +276,8 @@ export type IListItemProps = PropsWithChildren<
     childrenBefore?: ComponentType | ReactNode;
     disabled?: boolean;
     testID?: string;
+    /** Style for the native Pressable wrapper. Only effective on native platforms. */
+    nativePressableStyle?: StyleProp<ViewStyle>;
   } & IStackProps
 >;
 
@@ -318,6 +321,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
       renderItemText,
       titleMatch,
       subTitleMatch,
+      nativePressableStyle,
       ...rest
     } = props;
 
@@ -344,6 +348,19 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
     const handlePressIn = useCallback(() => setNativePressed(true), []);
     const handlePressOut = useCallback(() => setNativePressed(false), []);
 
+    // On native with Pressable wrapper, strip pressStyle/hoverStyle from rest
+    // to prevent the inner Stack from claiming the touch responder. Without this,
+    // Tamagui attaches onStartShouldSetResponder to the inner Stack (because
+    // pressStyle triggers attachPress), which steals the responder from the
+    // outer Pressable and prevents onPress from firing.
+    let contentRest: typeof rest = rest;
+    let nativePressStyle: IStackProps['pressStyle'];
+    if (useNativePressable) {
+      const { pressStyle, hoverStyle, ...filtered } = rest;
+      contentRest = filtered;
+      nativePressStyle = pressStyle;
+    }
+
     const content = (
       <Stack
         ref={ref}
@@ -361,8 +378,10 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
           opacity: 0.5,
         })}
         {...(useWebPress ? listItemPressStyle : undefined)}
-        {...rest}
-        {...(nativePressed ? { bg: '$bgActive' } : undefined)}
+        {...contentRest}
+        {...(nativePressed
+          ? (nativePressStyle ?? { bg: '$bgActive' })
+          : undefined)}
       >
         {childrenBefore}
         {renderWithFallback(
@@ -423,6 +442,7 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           unstable_pressDelay={50}
+          style={nativePressableStyle ?? { flex: 1 }}
         >
           {content}
         </Pressable>

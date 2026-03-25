@@ -1,4 +1,5 @@
 const babelTools = require('../../development/babelTools');
+
 const packageJson = require('./package.json');
 
 module.exports = babelTools.normalizeConfig({

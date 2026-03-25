@@ -41,6 +41,7 @@ function findFiles(dir, files = []) {
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
 
+    // eslint-disable-next-line no-restricted-syntax
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
 
@@ -110,10 +111,10 @@ function removePerformanceTracking(filePath) {
       '',
     );
 
-    // Check if we should remove the eslint-disable import/order comment
+    // Check if we should remove the eslint-disable import-js/order comment
     // Remove it if it's at the beginning and there are no other imports that need it
     const eslintDisablePattern =
-      /^\/\*\s*eslint-disable\s+import\/order\s*\*\/\s*\n/;
+      /^\/\*\s*eslint-disable\s+import-js\/order\s*\*\/\s*\n/;
 
     if (eslintDisablePattern.test(newContent)) {
       // Check if the next line after eslint-disable is an import

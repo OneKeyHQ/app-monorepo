@@ -251,6 +251,30 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       onPress: onPressProp,
     });
 
+    const mergedHoverStyle = useMemo(
+      () => ({
+        ...sharedFrameStyles.hoverStyle,
+        ...props.hoverStyle,
+      }),
+      [sharedFrameStyles.hoverStyle, props.hoverStyle],
+    );
+
+    const mergedFocusVisibleStyle = useMemo(
+      () => ({
+        ...sharedFrameStyles.focusVisibleStyle,
+        ...props.focusVisibleStyle,
+      }),
+      [sharedFrameStyles.focusVisibleStyle, props.focusVisibleStyle],
+    );
+
+    const mergedPressStyle = useMemo(
+      () => ({
+        ...sharedFrameStyles.pressStyle,
+        ...props.pressStyle,
+      }),
+      [sharedFrameStyles.pressStyle, props.pressStyle],
+    );
+
     const handlePressWithLoading = useMemo(() => {
       if (!onPressLoadingEnabled || !onPress) {
         return onPress;
@@ -280,18 +304,9 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
         disabled={!!disabled || !!isLoading}
         aria-disabled={!!disabled || !!isLoading}
         {...sharedFrameStyles}
-        hoverStyle={{
-          ...sharedFrameStyles.hoverStyle,
-          ...props.hoverStyle,
-        }}
-        focusVisibleStyle={{
-          ...sharedFrameStyles.focusVisibleStyle,
-          ...props.focusVisibleStyle,
-        }}
-        pressStyle={{
-          ...sharedFrameStyles.pressStyle,
-          ...props.pressStyle,
-        }}
+        hoverStyle={mergedHoverStyle}
+        focusVisibleStyle={mergedFocusVisibleStyle}
+        pressStyle={mergedPressStyle}
         {...rest}
         onPress={handlePressWithLoading}
         onLongPress={onLongPress}

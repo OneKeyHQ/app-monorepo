@@ -9,6 +9,29 @@ import type {
   IMenuItem,
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSystem';
 
+const MENU_ICON_STYLE = {
+  width: 16,
+  height: 16,
+  marginRight: 8,
+  flexShrink: 0,
+} as const;
+
+const MENU_CONTAINER_STYLE = {
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: '2px',
+  padding: '4px 8px',
+} as const;
+
+const MENU_ITEM_RELATIVE_STYLE = { position: 'relative' } as const;
+
+const MENU_TRIGGER_BASE_STYLE = {
+  padding: '4px 8px',
+  width: 'auto',
+  fontSize: '13px',
+} as const;
+
 function MenuItemComponent({
   item,
   onClose,
@@ -43,6 +66,16 @@ function MenuItemComponent({
       });
   }, [item.commandId, item.enabled, item.submenu, onClose]);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleClick();
+      }
+    },
+    [handleClick],
+  );
+
   if (item.type === 'separator') {
     return <div className="desktop-menu-separator" />;
   }
@@ -59,12 +92,7 @@ function MenuItemComponent({
       tabIndex={0}
       className={`desktop-menu-item ${!item.enabled ? 'disabled' : ''}`}
       onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleClick();
-        }
-      }}
+      onKeyDown={handleKeyDown}
     >
       {/* eslint-disable no-nested-ternary */}
       {iconDataUrl ? (
@@ -72,22 +100,12 @@ function MenuItemComponent({
           src={iconDataUrl}
           alt=""
           className="desktop-menu-item-icon"
-          style={{
-            width: 16,
-            height: 16,
-            marginRight: 8,
-            flexShrink: 0,
-          }}
+          style={MENU_ICON_STYLE}
         />
       ) : item.icon ? (
         <span
           className="desktop-menu-item-icon-placeholder"
-          style={{
-            width: 16,
-            height: 16,
-            marginRight: 8,
-            flexShrink: 0,
-          }}
+          style={MENU_ICON_STYLE}
         />
       ) : null}
       {/* eslint-enable no-nested-ternary */}
@@ -140,6 +158,73 @@ function MenuDropdown({
           onClose={onClose}
         />
       ))}
+    </div>
+  );
+}
+
+function MenuTriggerItem({
+  menuItem,
+  index,
+  isOpen,
+  activeMenuIndex,
+  handleMenuTriggerClick,
+  handleMenuTriggerHover,
+  handleClose,
+  themeName,
+}: {
+  menuItem: IMenuItem;
+  index: number;
+  isOpen: boolean;
+  activeMenuIndex: number | null;
+  handleMenuTriggerClick: (index: number) => void;
+  handleMenuTriggerHover: (index: number) => void;
+  handleClose: () => void;
+  themeName: string;
+}) {
+  const handleClick = useCallback(() => {
+    handleMenuTriggerClick(index);
+  }, [handleMenuTriggerClick, index]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleMenuTriggerClick(index);
+      }
+    },
+    [handleMenuTriggerClick, index],
+  );
+
+  const handleHover = useCallback(() => {
+    handleMenuTriggerHover(index);
+  }, [handleMenuTriggerHover, index]);
+
+  const triggerStyle = useMemo(
+    () => ({
+      ...MENU_TRIGGER_BASE_STYLE,
+      color: themeName === 'light' ? '#1a1a1a' : '#e5e5e5',
+    }),
+    [themeName],
+  );
+
+  return (
+    <div className="desktop-menu-container" style={MENU_ITEM_RELATIVE_STYLE}>
+      <div
+        role="menuitem"
+        tabIndex={0}
+        className="desktop-menu-trigger"
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        onMouseEnter={handleHover}
+        style={triggerStyle}
+      >
+        {menuItem.label}
+      </div>
+      <MenuDropdown
+        items={menuItem.submenu!.items}
+        isOpen={isOpen ? activeMenuIndex === index : false}
+        onClose={handleClose}
+      />
     </div>
   );
 }
@@ -218,13 +303,7 @@ export function Menu() {
       className={`desktop-menu-container ${
         themeName === 'light' ? 'light-theme' : ''
       }`}
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: '2px',
-        padding: '4px 8px',
-      }}
+      style={MENU_CONTAINER_STYLE}
     >
       {menu.items.map((menuItem, index) => {
         if (!menuItem.submenu || menuItem.submenu.items.length === 0) {
@@ -232,38 +311,17 @@ export function Menu() {
         }
 
         return (
-          <div
+          <MenuTriggerItem
             key={`menu-${index}`}
-            className="desktop-menu-container"
-            style={{ position: 'relative' }}
-          >
-            <div
-              role="menuitem"
-              tabIndex={0}
-              className="desktop-menu-trigger"
-              onClick={() => handleMenuTriggerClick(index)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleMenuTriggerClick(index);
-                }
-              }}
-              onMouseEnter={() => handleMenuTriggerHover(index)}
-              style={{
-                padding: '4px 8px',
-                width: 'auto',
-                fontSize: '13px',
-                color: themeName === 'light' ? '#1a1a1a' : '#e5e5e5',
-              }}
-            >
-              {menuItem.label}
-            </div>
-            <MenuDropdown
-              items={menuItem.submenu.items}
-              isOpen={isOpen ? activeMenuIndex === index : false}
-              onClose={handleClose}
-            />
-          </div>
+            menuItem={menuItem}
+            index={index}
+            isOpen={isOpen}
+            activeMenuIndex={activeMenuIndex}
+            handleMenuTriggerClick={handleMenuTriggerClick}
+            handleMenuTriggerHover={handleMenuTriggerHover}
+            handleClose={handleClose}
+            themeName={themeName}
+          />
         );
       })}
     </div>
@@ -314,6 +372,16 @@ export function MenuHamburger() {
     setIsOpen((prev) => !prev);
   }, []);
 
+  const handleToggleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleMenu();
+      }
+    },
+    [toggleMenu],
+  );
+
   const allItems = useMemo(() => {
     // Flatten all menu items for hamburger menu display
     const itemArray: IMenuItem[] = [];
@@ -330,12 +398,16 @@ export function MenuHamburger() {
   }, [menu]);
 
   // Compute dropdown position from trigger element
-  const dropdownPosition = useMemo(() => {
+  const dropdownStyle = useMemo(() => {
     if (isOpen && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      return { top: rect.top, left: rect.right };
+      return {
+        position: 'fixed' as const,
+        top: rect.top,
+        left: rect.right,
+      };
     }
-    return { top: 0, left: 0 };
+    return { position: 'fixed' as const, top: 0, left: 0 };
   }, [isOpen]);
 
   if (
@@ -361,12 +433,7 @@ export function MenuHamburger() {
           aria-label="Menu"
           className="desktop-menu-trigger"
           onClick={toggleMenu}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              toggleMenu();
-            }
-          }}
+          onKeyDown={handleToggleKeyDown}
         >
           <Icon
             name="MenuOutline"
@@ -383,11 +450,7 @@ export function MenuHamburger() {
               className={`desktop-menu-dropdown open ${
                 themeName === 'light' ? 'light-theme' : ''
               }`}
-              style={{
-                position: 'fixed',
-                top: dropdownPosition.top,
-                left: dropdownPosition.left,
-              }}
+              style={dropdownStyle}
             >
               {allItems.map((item, index) => (
                 <MenuItemComponent

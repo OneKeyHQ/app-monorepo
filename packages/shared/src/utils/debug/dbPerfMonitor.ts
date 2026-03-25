@@ -57,6 +57,9 @@ const shouldLocalDbDebuggerRule: Record<string, number> = {
 let IS_ENABLED = false;
 
 function updateIsEnabled() {
+  if (platformEnv.isExtensionBackground) {
+    return;
+  }
   IS_ENABLED =
     platformEnv.isDev ||
     Boolean(
@@ -70,6 +73,9 @@ updateIsEnabled();
 
 let settings: IOneKeyDBPerfMonitorSettings | undefined = (() => {
   if (!IS_ENABLED) {
+    return undefined;
+  }
+  if (platformEnv.isExtensionBackground) {
     return undefined;
   }
   const savedSettings = syncStorage?.getObject(
@@ -95,6 +101,9 @@ function getSettings() {
 
 function updateSettings(newSettings: Partial<IOneKeyDBPerfMonitorSettings>) {
   if (!IS_ENABLED) {
+    return undefined;
+  }
+  if (platformEnv.isExtensionBackground) {
     return undefined;
   }
   settings = merge(settings, newSettings, {

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+
 const { FuseVersion, FuseV1Options } = require('@electron/fuses');
 
 exports.default = async function fileOperation(context) {
@@ -96,8 +97,7 @@ exports.default = async function fileOperation(context) {
         } catch {
           return;
         }
-        const pkgRelative = path.relative(unpackedDir, fullPath);
-        console.log(`[prebuilds] Scanning: ${pkgRelative}`);
+        console.log(`[prebuilds] Scanning: ${fullPath}`);
         for (const prebuild of prebuildEntries) {
           if (prebuild.isDirectory()) {
             processPrebuildEntry(fullPath, prebuild.name);

@@ -107,7 +107,10 @@ public class MainApplication extends Application implements ReactApplication {
     int newCount = oldCount + 1;
     prefs.edit().putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, newCount).commit();
 
-    shouldShowRecovery = newCount >= 3;
+    // Harness tests create this marker file via globalSetup so the recovery
+    // page never blocks React Native from starting during test runs.
+    boolean isHarnessMode = new java.io.File(getFilesDir(), "harness_mode").exists();
+    shouldShowRecovery = !isHarnessMode && newCount >= 3;
 
     super.onCreate();
 
@@ -123,6 +126,8 @@ public class MainApplication extends Application implements ReactApplication {
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
     }
+
+    OneKeyLog.info("BootRecovery", "boot_fail_count: " + oldCount + " -> " + newCount + ", shouldShowRecovery: " + shouldShowRecovery);
 
     if (shouldShowRecovery) {
         // Skip heavy initialization (React Native, Expo, JPush).
