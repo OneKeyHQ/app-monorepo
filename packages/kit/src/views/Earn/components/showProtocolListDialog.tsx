@@ -12,6 +12,7 @@ import {
   Skeleton,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -237,11 +238,19 @@ export function ProtocolListContent({
     IStakeProtocolListItem[]
   >([]);
   const [isFetching, setIsFetching] = useState(protocols === undefined);
+  const media = useMedia();
   const selectedProtocolKey = useMemo(
     () => (selectedProtocol ? getProtocolKey(selectedProtocol) : undefined),
     [selectedProtocol],
   );
   const shouldFetchProtocols = protocols === undefined;
+  const switcherContentContainerProps = useMemo(
+    () =>
+      media.gtMd
+        ? { p: '$1' as const }
+        : { px: '$3' as const, pb: '$5' as const },
+    [media.gtMd],
+  );
 
   const fetchProtocolData = useCallback(async () => {
     if (!shouldFetchProtocols) {
@@ -449,7 +458,7 @@ export function ProtocolListContent({
   if (isLoading) {
     if (variant === 'switcher') {
       return (
-        <YStack gap="$1" p="$1">
+        <YStack gap="$1" {...switcherContentContainerProps}>
           <XStack px="$2" py="$1.5" alignItems="center">
             <Skeleton h="$4" w={72} borderRadius="$2" />
             <XStack flex={1} />
@@ -521,7 +530,7 @@ export function ProtocolListContent({
 
   if (variant === 'switcher') {
     return (
-      <YStack gap="$1" minHeight={90} p="$1">
+      <YStack gap="$1" minHeight={90} {...switcherContentContainerProps}>
         <XStack px="$2" py="$1.5" alignItems="center">
           <SizableText size="$bodySmMedium" color="$textSubdued" flex={1}>
             Protocol
