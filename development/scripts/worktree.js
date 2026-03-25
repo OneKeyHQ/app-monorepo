@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+// oxlint-disable @cspell/spellchecker
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-// 全球主要城市列表（全小写）
+// Major global cities list, all lowercase
 const CITIES = [
   'tokyo',
   'beijing',
@@ -74,7 +75,7 @@ function getRepoRoot() {
     return execSync('git rev-parse --show-toplevel', {
       encoding: 'utf-8',
     }).trim();
-  } catch (error) {
+  } catch (_error) {
     console.error('❌ Failed to get repository root');
     process.exit(1);
   }
@@ -86,9 +87,9 @@ function createWorktreeAndRunCommand(commandToRun) {
   const city = getRandomCity();
   const date = getDateString();
 
-  // 生成分支名：城市-日期 (如: tokyo-0325)
+  // Generate the branch name as city-date, for example: tokyo-0325
   const branchName = `${city}-${date}`;
-  const worktreePath = path.join(repoRoot, '.claude', 'worktrees', branchName);
+  const worktreePath = path.join(repoRoot, '.worktree', branchName);
 
   console.log(`\n📍 Current branch: ${currentBranch}`);
   console.log(`🌍 Random city: ${city}`);
@@ -98,13 +99,13 @@ function createWorktreeAndRunCommand(commandToRun) {
   console.log(`📝 Command: ${commandToRun}\n`);
 
   try {
-    // 确保 .claude/worktrees 目录存在
-    const worktreeDir = path.join(repoRoot, '.claude', 'worktrees');
+    // Ensure the .worktree directory exists
+    const worktreeDir = path.join(repoRoot, '.worktree');
     if (!fs.existsSync(worktreeDir)) {
       fs.mkdirSync(worktreeDir, { recursive: true });
     }
 
-    // 创建 worktree，基于当前分支 (HEAD)
+    // Create a worktree from the current branch (HEAD)
     console.log('⚙️  Creating worktree...');
     execSync(`git worktree add "${worktreePath}" -b "${branchName}"`, {
       stdio: 'inherit',
@@ -113,11 +114,11 @@ function createWorktreeAndRunCommand(commandToRun) {
     console.log(`\n✅ Worktree created successfully!`);
     console.log(`\n🚀 Running command in this worktree...\n`);
 
-    // 在新 worktree 中执行命令
+    // Run the command inside the new worktree
     try {
       process.chdir(worktreePath);
       execSync(commandToRun, { stdio: 'inherit', shell: true });
-    } catch (error) {
+    } catch (_error) {
       console.log(`\n✋ Command ended`);
     }
 
