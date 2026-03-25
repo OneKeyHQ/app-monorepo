@@ -20,6 +20,7 @@ import {
   KEYLESS_SYNC_ENCRYPTION_SALT,
   KEYLESS_SYNC_SIGNING_SALT,
 } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
@@ -173,7 +174,7 @@ function generateNonce(): string {
   if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
     crypto.getRandomValues(randomBytes);
   } else {
-    throw new Error('Secure random number generator not available');
+    throw new OneKeyLocalError('Secure random number generator not available');
   }
   return bufferUtils.bytesToHex(randomBytes);
 }

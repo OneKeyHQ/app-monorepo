@@ -29,7 +29,6 @@ import {
 import {
   APP_STORE_LINK,
   BRIDGE_STATUS_URL,
-  EXT_RATE_URL,
   PLAY_STORE_LINK,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -46,6 +45,7 @@ import {
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import {
   openUrlExternal,
   openUrlInDiscovery,
@@ -718,10 +718,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   isExternalLink: true,
                   onPress: () => {
                     if (platformEnv.isExtension) {
-                      let url = EXT_RATE_URL.chrome;
-                      if (platformEnv.isExtFirefox) url = EXT_RATE_URL.firefox;
                       window.open(
-                        url,
+                        getOneKeyExtensionStoreUrl(),
                         intl.formatMessage({
                           id: ETranslations.settings_rate_app,
                         }),

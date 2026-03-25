@@ -52,7 +52,51 @@ module.exports = function ({ types: t }) {
           }
 
           // jest.mock('module', factory) ->
-          // globalThis.__harness_mock_module__(require('module'), factory)
+          // globalThis.__harness_mock_module__(
+          //   (function(){try{return require('module')}catch(e){console.warn('...',String(e));return {}}})(),
+          //   factory
+          // )
+          // The try-catch prevents crashes when native modules fail to load
+          // (e.g. after an app restart when the native bridge isn't fully ready).
+          // Failures are logged via console.warn so they remain visible.
+          const safeRequire = t.callExpression(
+            t.functionExpression(
+              null,
+              [],
+              t.blockStatement([
+                t.tryStatement(
+                  t.blockStatement([
+                    t.returnStatement(
+                      t.callExpression(t.identifier('require'), [args[0]]),
+                    ),
+                  ]),
+                  t.catchClause(
+                    t.identifier('_e'),
+                    t.blockStatement([
+                      t.expressionStatement(
+                        t.callExpression(
+                          t.memberExpression(
+                            t.identifier('console'),
+                            t.identifier('warn'),
+                          ),
+                          [
+                            t.stringLiteral(
+                              '[babel-plugin-jest-compat] require() failed for mock:',
+                            ),
+                            t.callExpression(t.identifier('String'), [
+                              t.identifier('_e'),
+                            ]),
+                          ],
+                        ),
+                      ),
+                      t.returnStatement(t.objectExpression([])),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+            [],
+          );
           path.replaceWith(
             t.expressionStatement(
               t.callExpression(
@@ -60,7 +104,7 @@ module.exports = function ({ types: t }) {
                   t.identifier('globalThis'),
                   t.identifier('__harness_mock_module__'),
                 ),
-                [t.callExpression(t.identifier('require'), [args[0]]), args[1]],
+                [safeRequire, args[1]],
               ),
             ),
           );

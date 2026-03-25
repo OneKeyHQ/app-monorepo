@@ -30,6 +30,8 @@ export type IBulkSendAddressesInputContext = {
   ) => void;
   bulkSendMode: EBulkSendMode;
   setBulkSendMode: (bulkSendMode: EBulkSendMode) => void;
+  duplicateAddressCount: number;
+  setDuplicateAddressCount: (count: number) => void;
   selectedDeriveType: IAccountDeriveTypes | undefined;
   setSelectedDeriveType: (deriveType: IAccountDeriveTypes | undefined) => void;
   // Per-sender resolved accountIds (ManyToOne/ManyToMany)
@@ -55,6 +57,8 @@ export const BulkSendAddressesInputContext =
     setTokenDetailsState: () => {},
     bulkSendMode: EBulkSendMode.OneToMany,
     setBulkSendMode: () => {},
+    duplicateAddressCount: 0,
+    setDuplicateAddressCount: () => {},
     selectedDeriveType: undefined,
     setSelectedDeriveType: () => {},
     resolvedSenderAccountIds: {},

@@ -8,7 +8,6 @@ import type {
 import { isValidElement, useCallback, useState } from 'react';
 
 import { Pressable } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
 
 import {
   Divider,
@@ -43,6 +42,7 @@ import { useStatefulAction } from '../../hooks/useStatefulAction';
 import { AccountAvatar } from '../AccountAvatar';
 
 import type { IAccountAvatarProps } from '../AccountAvatar';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 interface IListItemAvatarCornerIconProps extends IIconProps {
   containerProps?: IStackProps;

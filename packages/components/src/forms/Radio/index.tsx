@@ -8,6 +8,11 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { IFormFieldProps } from '../types';
 
+const radioFocusVisibleStyle = {
+  outlineOffset: 2,
+  outlineColor: '$focusRing',
+};
+
 export type IRadioProps = IFormFieldProps<
   string,
   {
@@ -24,6 +29,56 @@ export type IRadioProps = IFormFieldProps<
     gap?: string;
   }
 >;
+
+function RadioOptionLabel({
+  v,
+  orientation,
+  optionDisabled,
+  label,
+  description,
+  optionChildren,
+  handleValueChange,
+}: {
+  v: string;
+  orientation: 'vertical' | 'horizontal';
+  optionDisabled?: boolean;
+  label: string;
+  description?: string;
+  optionChildren?: React.ReactNode;
+  handleValueChange: (v: string) => void;
+}) {
+  const handlePress = useCallback(() => {
+    handleValueChange(v);
+  }, [handleValueChange, v]);
+
+  return (
+    <YStack
+      userSelect="none"
+      py={orientation === 'horizontal' ? '$0' : '$2'}
+      my={orientation === 'horizontal' ? '$0' : '$-2'}
+      flex={orientation === 'horizontal' ? undefined : 1}
+      onPress={handlePress}
+    >
+      <Label
+        htmlFor={v}
+        variant="$bodyLgMedium"
+        color={optionDisabled ? '$textDisabled' : '$text'}
+      >
+        {label}
+      </Label>
+      {description ? (
+        <SizableText
+          size="$bodyMd"
+          color={optionDisabled ? '$textDisabled' : '$textSubdued'}
+          pt="$0.5"
+        >
+          {description}
+        </SizableText>
+      ) : null}
+      {optionChildren}
+    </YStack>
+  );
+}
 
 export function Radio({
   value,
@@ -63,7 +118,7 @@ export function Radio({
     >
       <Container
         gap={gap}
-        alignItems={orientation === 'horizontal' ? 'flex-start' : 'stretch'}
+        alignItems="flex-start"
         flexWrap={orientation === 'horizontal' ? 'wrap' : undefined}
       >
         {options.map(
@@ -83,16 +138,9 @@ export function Radio({
               <ItemContainer
                 key={index}
                 py="$2"
-                alignItems={
-                  orientation === 'horizontal' ||
-                  (!description && !optionChildren)
-                    ? 'center'
-                    : 'flex-start'
-                }
+                alignItems="center"
                 gap="$2"
                 flex={itemContainerFlex}
-                w={orientation === 'horizontal' ? undefined : '100%'}
-                minWidth={0}
                 opacity={optionDisabled ? 0.5 : 1}
               >
                 <RadioGroup.Item
@@ -108,10 +156,7 @@ export function Radio({
                   borderColor={value === v ? '$transparent' : '$borderStrong'}
                   backgroundColor={value === v ? '$bgPrimary' : '$transparent'}
                   borderRadius="$full"
-                  focusVisibleStyle={{
-                    outlineOffset: 2,
-                    outlineColor: '$focusRing',
-                  }}
+                  focusVisibleStyle={radioFocusVisibleStyle}
                   hitSlop={NATIVE_HIT_SLOP}
                   disabled={optionDisabled}
                 >
@@ -123,33 +168,15 @@ export function Radio({
                     borderRadius="$full"
                   />
                 </RadioGroup.Item>
-                <YStack
-                  userSelect="none"
-                  py={orientation === 'horizontal' ? '$0' : '$2'}
-                  my={orientation === 'horizontal' ? '$0' : '$-2'}
-                  flex={orientation === 'horizontal' ? undefined : 1}
-                  minWidth={0}
-                  flexShrink={1}
-                  onPress={() => handleValueChange(v)}
-                >
-                  <Label
-                    htmlFor={v}
-                    variant="$bodyLgMedium"
-                    color={optionDisabled ? '$textDisabled' : '$text'}
-                  >
-                    {label}
-                  </Label>
-                  {description ? (
-                    <SizableText
-                      size="$bodyMd"
-                      color={optionDisabled ? '$textDisabled' : '$textSubdued'}
-                      pt="$0.5"
-                    >
-                      {description}
-                    </SizableText>
-                  ) : null}
-                  {optionChildren}
-                </YStack>
+                <RadioOptionLabel
+                  v={v}
+                  orientation={orientation}
+                  optionDisabled={optionDisabled}
+                  label={label}
+                  description={description}
+                  optionChildren={optionChildren}
+                  handleValueChange={handleValueChange}
+                />
               </ItemContainer>
             );
           },

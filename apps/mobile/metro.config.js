@@ -5,13 +5,14 @@
  * This config extends '@react-native/metro-config' to support React Native >=0.73
  * For details see: https://github.com/react-native-community/template/blob/main/template/metro.config.js
  */
-const connect = require('connect');
+const path = require('path');
+
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
-const path = require('path');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
+const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
-const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
@@ -164,6 +165,15 @@ if (process.env.RN_HARNESS === 'true') {
           return { type: 'sourceFile', filePath: fullPath };
         }
       }
+    }
+    // Replace react-native-mmkv with an in-memory mock during harness tests.
+    // MMKV's createMMKV() calls into JSI synchronously; after an app restart
+    // in the harness the JSI bridge may hang. Tests mock appStorage anyway.
+    if (moduleName === 'react-native-mmkv') {
+      return {
+        type: 'sourceFile',
+        filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
+      };
     }
     // Map lodash-es to lodash (same as Jest moduleNameMapper: '^lodash-es$': 'lodash')
     if (moduleName === 'lodash-es') {

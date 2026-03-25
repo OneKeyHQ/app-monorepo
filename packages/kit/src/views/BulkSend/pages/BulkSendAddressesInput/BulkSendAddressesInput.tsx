@@ -5,6 +5,7 @@ import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Form,
   Page,
   Toast,
@@ -80,6 +81,7 @@ function BaseBulkSendAddressesInput() {
     tokenDetailsState,
     bulkSendMode,
     setBulkSendMode,
+    duplicateAddressCount,
     setSelectedDeriveType,
     resolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
@@ -391,7 +393,7 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
   ]);
 
-  const handleSubmit = useCallback(async () => {
+  const navigateToNextStep = useCallback(async () => {
     if (!selectedNetworkId || !selectedToken) {
       return;
     }
@@ -525,6 +527,32 @@ function BaseBulkSendAddressesInput() {
     resolvedSenderAccountIds,
   ]);
 
+  const handleSubmit = useCallback(async () => {
+    if (duplicateAddressCount > 0) {
+      Dialog.show({
+        icon: 'InfoCircleOutline',
+        tone: 'warning',
+        title: intl.formatMessage({
+          id: ETranslations.global_warning,
+        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.wallet_bulk_send_warning_duplicate_addresses_desc,
+          },
+          { count: duplicateAddressCount },
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        onConfirm: () => {
+          void navigateToNextStep();
+        },
+      });
+      return;
+    }
+    await navigateToNextStep();
+  }, [duplicateAddressCount, intl, navigateToNextStep]);
+
   if (availableWallets && availableWallets.length === 0) {
     return (
       <Page>
@@ -636,6 +664,7 @@ function BulkSendAddressesInput() {
     isRefreshing: initialMode === EBulkSendMode.OneToMany,
   });
   const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(initialMode);
+  const [duplicateAddressCount, setDuplicateAddressCount] = useState(0);
   const [selectedDeriveType, setSelectedDeriveType] = useState<
     IAccountDeriveTypes | undefined
   >(undefined);
@@ -660,6 +689,8 @@ function BulkSendAddressesInput() {
       setTokenDetailsState,
       bulkSendMode,
       setBulkSendMode,
+      duplicateAddressCount,
+      setDuplicateAddressCount,
       selectedDeriveType,
       setSelectedDeriveType,
       resolvedSenderAccountIds,
@@ -680,6 +711,7 @@ function BulkSendAddressesInput() {
       setTokenDetailsState,
       bulkSendMode,
       setBulkSendMode,
+      duplicateAddressCount,
       selectedDeriveType,
       resolvedSenderAccountIds,
     ],
