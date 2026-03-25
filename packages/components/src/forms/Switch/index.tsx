@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IFormFieldProps } from '../types';
 
@@ -77,7 +78,18 @@ export function Switch({
       borderColor="$transparent"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
-      nativeProps={nativeProps}
+      nativeProps={{
+        disabled,
+        ios_backgroundColor: theme.neutral5.val,
+        trackColor: {
+          false: theme.neutral5.val,
+          true: theme.bgPrimary.val,
+        },
+        thumbColor: theme.bg.val,
+        ...(platformEnv.isNativeAndroid && {
+          style: { opacity: disabled ? 0.5 : 1 },
+        }),
+      }}
       {...restProps}
     >
       <TMSwitch.Thumb

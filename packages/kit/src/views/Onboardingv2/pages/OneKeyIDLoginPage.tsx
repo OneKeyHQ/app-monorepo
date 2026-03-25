@@ -70,6 +70,7 @@ function OptionItem({
       p="$3"
       m="$0"
       onPress={onPress}
+      nativePressableStyle={{ flexShrink: 0 }}
       userSelect="none"
     >
       <YStack
