@@ -34,7 +34,7 @@ const HEADER_TRANSPARENT_STYLE = {
   left: 0,
 } as const;
 const EMPTY_HEADER_STYLE = {} as const;
-const GTMD_FLEX_1 = { flex: 1 } as const;
+const GT_MD_FLEX_1 = { flex: 1 } as const;
 const FLEX_GROW_0_STYLE = { flexGrow: 0 } as const;
 const HEADER_TITLE_BASE_STYLE = {
   lineHeight: 28,
@@ -43,7 +43,7 @@ const HEADER_TITLE_BASE_STYLE = {
 const EMPTY_HEADER_RIGHT_CONTAINER_STYLE = {} as const;
 const EMPTY_HEADER_TITLE_CONTAINER_STYLE = {} as const;
 const EMPTY_OPTIONS = {} as const;
-const GTMD_FLEX_DIRECTION_ROW = { flexDirection: 'row' } as const;
+const GT_MD_FLEX_DIRECTION_ROW = { flexDirection: 'row' } as const;
 
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },
@@ -200,7 +200,7 @@ function HeaderView({
   );
 
   const innerGtMd = useMemo(
-    () => (platformEnv.isNativeAndroid ? undefined : GTMD_FLEX_1),
+    () => (platformEnv.isNativeAndroid ? undefined : GT_MD_FLEX_1),
     [],
   );
 
@@ -265,7 +265,7 @@ function HeaderView({
         pointerEvents="box-none"
         $gtMd={
           !isModelScreen && !platformEnv.isNativeAndroid
-            ? GTMD_FLEX_DIRECTION_ROW
+            ? GT_MD_FLEX_DIRECTION_ROW
             : undefined
         }
       >
