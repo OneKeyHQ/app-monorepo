@@ -9,8 +9,8 @@
  *   node development/perf-ci/run-ext-perf-release-daemon.js --interval-minutes 300
  */
 
-const path = require('path');
 const { spawn } = require('child_process');
+const path = require('path');
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -72,6 +72,7 @@ async function main() {
   // eslint-disable-next-line no-console
   console.log(`[perf] ext release daemon started; intervalMs=${intervalMs}`);
 
+  // oxlint-disable-next-line no-unmodified-loop-condition -- stopping is set by SIGINT/SIGTERM signal handler
   while (!stopping) {
     const startedAt = new Date().toISOString();
     // eslint-disable-next-line no-console

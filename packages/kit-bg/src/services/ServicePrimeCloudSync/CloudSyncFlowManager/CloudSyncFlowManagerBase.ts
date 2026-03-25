@@ -528,13 +528,15 @@ export abstract class CloudSyncFlowManagerBase<
     // }
     for (const item of items) {
       try {
-        const shouldSync =
-          forceSync ||
-          (syncCredential &&
-            cloudSyncItemBuilder.canLocalItemSyncToScene({
-              item,
-              syncCredential,
-            }));
+        let shouldSync =
+          syncCredential &&
+          cloudSyncItemBuilder.canLocalItemSyncToScene({
+            item,
+            syncCredential,
+          });
+        if (forceSync) {
+          shouldSync = true;
+        }
         if (item.dataType === this.dataType && shouldSync) {
           // TODO performance issue of decrypting in the loop
           const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({

@@ -1,15 +1,17 @@
 const path = require('path');
-const { merge } = require('webpack-merge');
-const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
 
+const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+const { merge } = require('webpack-merge');
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const { InjectManifest } = require('workbox-webpack-plugin');
-const baseConfig = require('./webpack.base.config');
+
+const babelTools = require('../babelTools');
+
+const { ENABLE_ANALYZER, NODE_ENV } = require('./constant');
 const analyzerConfig = require('./webpack.analyzer.config');
+const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
-const babelTools = require('../babelTools');
-const { ENABLE_ANALYZER, NODE_ENV } = require('./constant');
 
 const webConfig = {
   plugins: [new DuplicatePackageCheckerPlugin()],

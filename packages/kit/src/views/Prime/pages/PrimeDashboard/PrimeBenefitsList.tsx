@@ -95,41 +95,7 @@ export function PrimeBenefitsList({
 
   return (
     <Stack py="$2">
-      <PrimeBenefitsItem
-        icon="CloudOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_onekey_cloud,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.prime_onekey_cloud_desc,
-        })}
-        onPress={() => {
-          if (platformEnv.isWebDappMode) {
-            Toast.message({
-              title: intl.formatMessage({
-                id: ETranslations.global_web_feature_not_available_go_to_app,
-              }),
-            });
-            return;
-          }
-          if (isPrimeSubscriptionActive) {
-            navigation.navigate(EPrimePages.PrimeCloudSync, {
-              serverUserInfo,
-            });
-          } else {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.OneKeyCloud,
-              entryPoint: 'primePage',
-            });
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.OneKeyCloud,
-              selectedSubscriptionPeriod,
-              serverUserInfo,
-            });
-          }
-        }}
-      />
+      {/* OneKey Cloud removed — keyless sync is free, no longer a Prime benefit */}
       {/* <PrimeBenefitsItem
         icon="MultipleDevicesOutline"
         title={intl.formatMessage({

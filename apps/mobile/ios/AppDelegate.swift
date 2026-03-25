@@ -55,7 +55,13 @@ public class AppDelegate: ExpoAppDelegate {
     defaults.set(newCount, forKey: BootRecoveryKeys.consecutiveBootFailCount)
     defaults.synchronize()
 
-    if newCount >= 3 {
+    NitroModuleBridge.logInfo("BootRecovery", "boot_fail_count: \(oldCount) -> \(newCount), shouldShowRecovery: \(newCount >= 3)")
+
+    // Harness tests set this flag via globalSetup so the recovery page
+    // never blocks React Native from starting during test runs.
+    let isHarnessMode = defaults.bool(forKey: "onekey_harness_mode")
+
+    if !isHarnessMode && newCount >= 3 {
       // Skip super.application() and React Native initialization entirely.
       // Create our own window — this replaces the system launch storyboard.
       // Do NOT call super here: ExpoAppDelegate.super would start the RN engine

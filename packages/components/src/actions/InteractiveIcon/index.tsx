@@ -3,6 +3,8 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 
+const groupHoverStyle = { color: '$iconHover' } as const;
+
 export interface IInteractiveIconProps {
   icon: IKeyOfIcons;
   onPress: () => void;
@@ -27,7 +29,7 @@ export function InteractiveIcon({
         name={icon}
         size={size}
         color="$iconSubdued"
-        $group-hover={{ color: '$iconHover' }}
+        $group-hover={groupHoverStyle}
       />
     </Stack>
   );

@@ -20,6 +20,8 @@ import { useDialogInstance } from './hooks';
 
 import type { IDialogFooterProps } from './type';
 
+const mdSizeLargeStyle = { size: 'large' } as any;
+
 const useConfirmButtonDisabled = (
   props: IDialogFooterProps['confirmButtonProps'],
 ) => {
@@ -144,11 +146,7 @@ export function Footer(props: IDialogFooterProps) {
             <Button
               flexGrow={1}
               flexBasis={0}
-              $md={
-                {
-                  size: 'large',
-                } as any
-              }
+              $md={mdSizeLargeStyle}
               onPress={onCancel}
               {...cancelButtonProps}
             >
@@ -163,11 +161,7 @@ export function Footer(props: IDialogFooterProps) {
               flexBasis={0}
               loading={confirmLoading}
               disabled={confirmButtonDisabled}
-              $md={
-                {
-                  size: 'large',
-                } as any
-              }
+              $md={mdSizeLargeStyle}
               {...restConfirmButtonProps}
               onPress={onConfirmWithLoading}
             >

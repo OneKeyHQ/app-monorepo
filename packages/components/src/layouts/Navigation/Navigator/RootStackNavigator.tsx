@@ -94,34 +94,45 @@ export function RootStackNavigator<
     () =>
       config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, type, options }) => (
-          <RootStack.Screen
-            key={name}
-            name={name}
-            component={component}
-            options={(optionsInfo) => ({
-              ...(typeof options === 'function'
-                ? options(optionsInfo as any)
-                : options),
-              ...getOptionsWithType(type, optionsInfo),
-            })}
-          />
-        )),
+        .map(({ name, component, type, options }) => {
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+          const routeScreenOptions = (
+            optionsInfo: IScreenOptionsInfo<any>,
+          ) => ({
+            ...(typeof options === 'function'
+              ? options(optionsInfo as any)
+              : options),
+            ...getOptionsWithType(type, optionsInfo),
+          });
+          return (
+            <RootStack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={routeScreenOptions}
+            />
+          );
+        }),
     [config, getOptionsWithType],
+  );
+
+  const mergedScreenOptions = useMemo(
+    () => ({
+      ...presetScreenOptions,
+      ...screenOptions,
+    }),
+    [presetScreenOptions, screenOptions],
   );
 
   return useMemo(
     () => (
       <RootStack.Navigator
         initialRouteName={initialRouteName}
-        screenOptions={{
-          ...presetScreenOptions,
-          ...screenOptions,
-        }}
+        screenOptions={mergedScreenOptions}
       >
         {renderedScreens}
       </RootStack.Navigator>
     ),
-    [initialRouteName, presetScreenOptions, renderedScreens, screenOptions],
+    [initialRouteName, mergedScreenOptions, renderedScreens],
   );
 }

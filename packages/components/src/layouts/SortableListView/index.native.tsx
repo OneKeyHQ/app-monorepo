@@ -1,4 +1,4 @@
-import { forwardRef, useCallback } from 'react';
+import { forwardRef, useCallback, useMemo } from 'react';
 import type { ForwardedRef } from 'react';
 
 import DraggableFlatList, {
@@ -28,6 +28,8 @@ import type {
   DragEndParams,
   RenderItem,
 } from 'react-native-draggable-flatlist';
+
+const ANIMATION_CONFIG = { damping: 25, stiffness: 400, mass: 0.4 };
 
 function BaseSortableListView<T>(
   {
@@ -101,6 +103,11 @@ function BaseSortableListView<T>(
     [onDragEnd],
   );
 
+  const resolvedContainerStyle = useMemo(
+    () => [{ flex: 1 }, rawContainerStyle],
+    [rawContainerStyle],
+  );
+
   const ListComponent = tabIntegrated
     ? TabsDraggableFlatList
     : DraggableFlatList;
@@ -112,7 +119,7 @@ function BaseSortableListView<T>(
       onDragBegin={reloadOnDragBegin}
       onDragEnd={reloadOnDragEnd}
       activationDistance={enabled ? activeDistance : 100_000}
-      containerStyle={[{ flex: 1 }, rawContainerStyle]}
+      containerStyle={resolvedContainerStyle}
       columnWrapperStyle={columnWrapperStyle ? columnStyle : undefined}
       ListHeaderComponentStyle={listHeaderStyle}
       ListFooterComponentStyle={listFooterStyle}
@@ -122,7 +129,7 @@ function BaseSortableListView<T>(
       renderItem={renderItem as RenderItem<T>}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
-      animationConfig={{ damping: 25, stiffness: 400, mass: 0.4 }}
+      animationConfig={ANIMATION_CONFIG}
       {...restProps}
     />
   );

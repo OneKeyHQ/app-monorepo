@@ -1,15 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, import/first, import/order */
+// oxlint-disable import-js/order
+/* eslint-disable @typescript-eslint/no-unused-vars, import/first */
 import '@onekeyhq/shared/src/polyfills';
 import '@onekeyhq/shared/src/web/index.css';
-
 import { KitProvider } from '@onekeyhq/kit';
-
 import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
+
 import {
   ReanimatedLogLevel,
   configureReanimatedLogger,

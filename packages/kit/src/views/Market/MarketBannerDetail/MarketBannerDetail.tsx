@@ -218,25 +218,44 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     return null;
   }, [isWebDesktop, gtMd, renderHeaderTitle, renderHeaderLeft]);
 
+  const renderTokenList = useMemo(() => {
+    if (isPerps) {
+      return <PerpsTokenListSection tokenListId={tokenListId} />;
+    }
+    const tokenList = (
+      <MarketTokenListBase
+        result={listResult}
+        onItemPress={handleItemPress}
+        hideTokenAge
+        clientSort
+        watchlistFrom={EWatchlistFrom.BannerList}
+        copyFrom={ECopyFrom.BannerList}
+        showEndReachedIndicator
+      />
+    );
+    if (platformEnv.isNative) {
+      return tokenList;
+    }
+    return (
+      <Stack
+        flex={1}
+        className="normal-scrollbar"
+        style={{ overflowX: 'auto', overflowY: 'hidden' }}
+      >
+        <Stack flex={1} minWidth={900}>
+          {tokenList}
+        </Stack>
+      </Stack>
+    );
+  }, [isPerps, tokenListId, listResult, handleItemPress]);
+
   return (
     <Page>
       {renderPageHeader}
       <Page.Body>
         <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
-          {isPerps ? (
-            <PerpsTokenListSection tokenListId={tokenListId} />
-          ) : (
-            <MarketTokenListBase
-              result={listResult}
-              onItemPress={handleItemPress}
-              hideTokenAge
-              clientSort
-              watchlistFrom={EWatchlistFrom.BannerList}
-              copyFrom={ECopyFrom.BannerList}
-              showEndReachedIndicator
-            />
-          )}
+          {renderTokenList}
         </Stack>
       </Page.Body>
     </Page>

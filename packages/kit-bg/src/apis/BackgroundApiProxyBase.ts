@@ -189,9 +189,8 @@ export class BackgroundApiProxyBase
     this.backgroundApi?.connectWebEmbedBridge(bridge);
   }
 
-  bridgeReceiveHandler = (
-    payload: IJsBridgeMessagePayload,
-  ): any | Promise<any> => this.backgroundApi?.bridgeReceiveHandler(payload);
+  bridgeReceiveHandler = (payload: IJsBridgeMessagePayload): unknown =>
+    this.backgroundApi?.bridgeReceiveHandler(payload);
 
   // init in NON-Ext UI env
   readonly backgroundApi?: IBackgroundApi | null = null;

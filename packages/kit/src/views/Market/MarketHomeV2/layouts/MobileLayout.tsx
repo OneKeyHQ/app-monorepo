@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { RefObject } from 'react';
@@ -17,7 +18,6 @@ import {
   useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,6 +28,7 @@ import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
+import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
@@ -61,10 +62,12 @@ interface ITabBarDynamicContext {
   watchlistFilter: IWatchlistFilterType;
   onSelectWatchlistFilter: (filter: IWatchlistFilterType) => void;
   isWatchlistEmpty: boolean;
+  isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
+  activeTabName: string;
 }
 
 const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
@@ -81,20 +84,25 @@ function MarketHomeTabBar({
   perpsTabName,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
-  const focusedTab = useFocusedTab();
   const ctx = useContext(TabBarDynamicContext)!;
+  const { activeTabName } = ctx;
+  const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
   // Spot & Perps sub-headers: display toggling keeps both mounted across
   // tab switches — avoids remount flicker and loading re-trigger for the
   // network selector and perps category selector.
   const isSpotOrPerps =
-    focusedTab === spotTabName || focusedTab === perpsTabName;
+    currentFocusedTabName === spotTabName ||
+    currentFocusedTabName === perpsTabName;
 
   return (
-    <YStack bg="$bgApp">
-      <Tabs.TabBar {...tabBarProps} />
-      {focusedTab === watchlistTabName && !ctx.isWatchlistEmpty ? (
+    <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
+      <Tabs.TabBar
+        {...tabBarProps}
+        containerStyle={{ position: 'relative' as any }}
+      />
+      {currentFocusedTabName === watchlistTabName && !ctx.isWatchlistEmpty ? (
         <>
           <XStack alignItems="center" pr="$3">
             <XStack flex={1}>
@@ -108,24 +116,34 @@ function MarketHomeTabBar({
                 }}
               />
             </XStack>
-            <IconButton
-              icon="PencilOutline"
-              size="small"
-              variant="tertiary"
-              onPress={ctx.onEditWatchlist}
-            />
+            {ctx.isTokenCacheReady ? (
+              <IconButton
+                icon="PencilOutline"
+                size="small"
+                variant="tertiary"
+                onPress={ctx.onEditWatchlist}
+              />
+            ) : null}
           </XStack>
           <MarketListColumnHeader />
         </>
       ) : null}
       <YStack
-        display={isSpotOrPerps && focusedTab === spotTabName ? 'flex' : 'none'}
+        display={
+          isSpotOrPerps && currentFocusedTabName === spotTabName
+            ? 'flex'
+            : 'none'
+        }
       >
         <MarketFilterBarSmall {...ctx.filterBarProps} />
         <MarketListColumnHeader />
       </YStack>
       <YStack
-        display={isSpotOrPerps && focusedTab === perpsTabName ? 'flex' : 'none'}
+        display={
+          isSpotOrPerps && currentFocusedTabName === perpsTabName
+            ? 'flex'
+            : 'none'
+        }
       >
         <MarketPerpsCategorySelector
           categories={ctx.perpsCategories}
@@ -151,6 +169,7 @@ function MobileLayoutComponent({
   nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
+  const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
     spotTabName,
@@ -202,6 +221,14 @@ function MobileLayoutComponent({
     if (selectedTab === 'perps' && showPerpsTab) return perpsTabName;
     return spotTabName;
   }, [selectedTab, watchlistTabName, spotTabName, perpsTabName, showPerpsTab]);
+  const [activeTabName, setActiveTabName] = useState(initialTabName);
+
+  const setActiveTabNameRef = useRef(setActiveTabName);
+  setActiveTabNameRef.current = setActiveTabName;
+
+  useEffect(() => {
+    setActiveTabName(initialTabName);
+  }, [initialTabName]);
 
   const containerProps = useMemo(
     () => ({
@@ -239,19 +266,28 @@ function MobileLayoutComponent({
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => (
-      <MarketHomeTabBar
-        {...tabBarProps}
-        watchlistTabName={watchlistTabName}
-        spotTabName={spotTabName}
-        perpsTabName={perpsTabName}
-      />
-    ),
+    (tabBarProps: TabBarProps<string>) => {
+      const handleTabPress = (name: string) => {
+        setActiveTabNameRef.current(name);
+        tabBarProps.onTabPress?.(name);
+      };
+
+      return (
+        <MarketHomeTabBar
+          {...tabBarProps}
+          onTabPress={handleTabPress}
+          watchlistTabName={watchlistTabName}
+          spotTabName={spotTabName}
+          perpsTabName={perpsTabName}
+        />
+      );
+    },
     [watchlistTabName, spotTabName, perpsTabName],
   );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      setActiveTabName(tabName);
       handleTabChange(tabName);
     },
     [handleTabChange],
@@ -262,18 +298,22 @@ function MobileLayoutComponent({
       watchlistFilter,
       onSelectWatchlistFilter: setWatchlistFilter,
       isWatchlistEmpty,
+      isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
+      activeTabName,
     }),
     [
       filterBarProps,
       watchlistFilter,
       isWatchlistEmpty,
+      isTokenCacheReady,
       openMarketWatchlistEditDialog,
       perpsCategories,
       selectedCategoryId,
+      activeTabName,
     ],
   );
 

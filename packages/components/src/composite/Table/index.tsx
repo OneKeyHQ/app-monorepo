@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
@@ -32,6 +32,7 @@ import type {
 } from 'react-native';
 
 const DEFAULT_ROW_HEIGHT = 60;
+const defaultEstimatedListSize = { width: 370, height: 525 };
 
 const renderContent = (text?: string) => (
   <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
@@ -136,15 +137,24 @@ function TableRow<T>({
       }
     : {};
 
-  return (
+  // On native, use Pressable for scroll-vs-tap disambiguation (same as ListItem).
+  const useNativePressable =
+    platformEnv.isNative && !!onRowEvents?.onPress && !showSkeleton;
+
+  // Track native press state for visual feedback (bg='$bgActive').
+  const [nativePressed, setNativePressed] = useState(false);
+  const handleNativePressIn = useCallback(() => setNativePressed(true), []);
+  const handleNativePressOut = useCallback(() => setNativePressed(false), []);
+
+  const content = (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
-      bg={isDragging && isDarkMode ? '$bgActive' : '$bgApp'}
+      bg="$bgApp"
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
-      onPress={handlePress}
-      onLongPress={md ? handleLongPress : undefined}
+      onPress={!useNativePressable ? handlePress : undefined}
+      onLongPress={!useNativePressable && md ? handleLongPress : undefined}
       {...(!platformEnv.isNative && {
         onContextMenu: handleContextMenu as any,
       })}
@@ -153,8 +163,11 @@ function TableRow<T>({
           cursor: isDragging ? 'grabbing' : 'grab',
         })}
       {...nativeScaleAnimationProps}
-      {...(itemPressStyle as IXStackProps)}
+      {...(!useNativePressable ? (itemPressStyle as IXStackProps) : undefined)}
       {...(rowProps as IXStackProps)}
+      {...(nativePressed || (isDragging && isDarkMode)
+        ? { bg: '$bgActive' }
+        : undefined)}
     >
       {columns.map((column) => {
         if (!column) {
@@ -190,6 +203,22 @@ function TableRow<T>({
       })}
     </XStack>
   );
+
+  if (useNativePressable) {
+    return (
+      <Pressable
+        onPress={handlePress}
+        onLongPress={md ? handleLongPress : undefined}
+        onPressIn={handleNativePressIn}
+        onPressOut={handleNativePressOut}
+        unstable_pressDelay={50}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
 }
 
 function TableHeaderRow<T>({
@@ -258,7 +287,7 @@ function BasicTable<T>({
   onDragEnd,
   showHeader = true,
   estimatedItemSize = DEFAULT_ROW_HEIGHT,
-  estimatedListSize = { width: 370, height: 525 },
+  estimatedListSize = defaultEstimatedListSize,
   stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
@@ -395,6 +424,25 @@ function BasicTable<T>({
   const effectiveStickyHeader =
     stickyHeader && (!tabIntegrated || !platformEnv.isNative);
 
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: itemSize || DEFAULT_ROW_HEIGHT,
+      offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
+      index,
+    }),
+    [itemSize],
+  );
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <>
+        {TableHeaderComponent}
+        {effectiveStickyHeader ? null : headerRow}
+      </>
+    ),
+    [TableHeaderComponent, effectiveStickyHeader, headerRow],
+  );
+
   const list = useMemo(
     () =>
       draggable ? (
@@ -413,18 +461,9 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={renderSortableItem}
-          getItemLayout={(_, index) => ({
-            length: itemSize || DEFAULT_ROW_HEIGHT,
-            offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
-            index,
-          })}
+          getItemLayout={getItemLayout}
           renderPlaceholder={renderPlaceholder}
-          ListHeaderComponent={
-            <>
-              {TableHeaderComponent}
-              {effectiveStickyHeader ? null : headerRow}
-            </>
-          }
+          ListHeaderComponent={listHeaderComponent}
           onDragBegin={handleDragBegin}
           onDragEnd={onDragEnd}
           keyExtractor={keyExtractor}
@@ -449,12 +488,7 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={handleRenderItem}
-          ListHeaderComponent={
-            <>
-              {TableHeaderComponent}
-              {effectiveStickyHeader ? null : headerRow}
-            </>
-          }
+          ListHeaderComponent={listHeaderComponent}
           ListFooterComponent={TableFooterComponent}
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
@@ -473,10 +507,9 @@ function BasicTable<T>({
       handleScroll,
       dataSource,
       renderSortableItem,
+      getItemLayout,
       renderPlaceholder,
-      TableHeaderComponent,
-      effectiveStickyHeader,
-      headerRow,
+      listHeaderComponent,
       handleDragBegin,
       onDragEnd,
       keyExtractor,
@@ -489,7 +522,6 @@ function BasicTable<T>({
       useFlashList,
       estimatedItemSize,
       handleRenderItem,
-      itemSize,
       tabIntegrated,
     ],
   );

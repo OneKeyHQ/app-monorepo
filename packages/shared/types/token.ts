@@ -24,6 +24,7 @@ export type IToken = {
   order?: number;
   networkId?: string;
   networkName?: string;
+  networkShortName?: string;
   accountId?: string;
   mergeAssets?: boolean;
 

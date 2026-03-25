@@ -1,4 +1,5 @@
 /* eslint-disable no-restricted-syntax */
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnvLite from '@onekeyhq/shared/src/platformEnvLite';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
@@ -31,7 +32,9 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 
   override checkEnvAvailable(): void {
     if (!platformEnvLite.isDesktop) {
-      throw new Error('DesktopApiProxy should only be used in Desktop env.');
+      throw new OneKeyLocalError(
+        'DesktopApiProxy should only be used in Desktop env.',
+      );
     }
   }
 

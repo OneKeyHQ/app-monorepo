@@ -24,6 +24,10 @@ import { Trigger } from '../Trigger';
 
 import type { GestureResponderEvent } from 'react-native';
 
+const toastEnterStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
+const toastExitStyle = { opacity: 0, scale: 0.8, y: -20 } as const;
+
+// eslint-disable-next-line import/no-cycle
 export type IShowToasterProps = PropsWithChildren<{
   onClose?: (extra?: { flag?: string }) => Promise<void> | void;
   dismissOnOverlayPress?: boolean;
@@ -167,8 +171,8 @@ function BasicShowToaster({
             justifyContent="center"
             open={isOpen}
             borderRadius={0}
-            enterStyle={{ opacity: 0, scale: 0.8, y: -20 }}
-            exitStyle={{ opacity: 0, scale: 0.8, y: -20 }}
+            enterStyle={toastEnterStyle}
+            exitStyle={toastExitStyle}
             duration={duration}
             w={platformEnv.isNative ? pageWidth : undefined}
             maxWidth={platformEnv.isNative ? '$96' : undefined}
