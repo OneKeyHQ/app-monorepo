@@ -42,7 +42,7 @@ export function BaseSkeleton(
 
   const skeletonStyle = useMemo(
     () => [
-      style as any,
+      style as Record<string, unknown>,
       {
         height: (style.height as number) || DEFAULT_SKELETON_SIZE,
         width: (style.width as number) || '100%',

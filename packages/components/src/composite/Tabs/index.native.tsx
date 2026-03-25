@@ -21,11 +21,12 @@ const renderTabBarDefault = (tabProps: any) => <TabBar {...tabProps} />;
 const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
   ({ children, pagerProps, headerContainerStyle, ...props }, ref) => {
     const mergedHeaderContainerStyle = useMemo(
-      () => ({
-        shadowOpacity: 0,
-        elevation: 0,
-        ...(headerContainerStyle as any),
-      }),
+      () =>
+        ({
+          shadowOpacity: 0,
+          elevation: 0,
+          ...(headerContainerStyle as Record<string, unknown>),
+        }) as typeof headerContainerStyle,
       [headerContainerStyle],
     );
 
@@ -34,7 +35,7 @@ const Container = forwardRef<any, PropsWithChildren<IExtendedContainerProps>>(
         ({
           scrollSensitivity: 4,
           ...pagerProps,
-        }) as any,
+        }) as typeof pagerProps,
       [pagerProps],
     );
 

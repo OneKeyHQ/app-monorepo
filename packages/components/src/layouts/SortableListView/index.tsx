@@ -47,6 +47,8 @@ import type {
 import type {
   DragStart,
   DraggableProvided,
+  DraggableRubric,
+  DraggableStateSnapshot,
   DropResult,
 } from 'react-beautiful-dnd';
 import type {
@@ -161,7 +163,13 @@ function CellContainer<T>({
   const animatedViewStyle = useMemo(
     () =>
       height
-        ? { ...(props as Record<string, any>).style, height }
+        ? {
+            ...((props as Record<string, unknown>).style as Record<
+              string,
+              unknown
+            >),
+            height,
+          }
         : props.style,
     [height, props.style],
   );
@@ -447,7 +455,11 @@ function BaseSortableListView<T>(
   useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
   const renderClone = useCallback(
-    (provided: DraggableProvided, snapshot: any, rubric: any) => {
+    (
+      provided: DraggableProvided,
+      snapshot: DraggableStateSnapshot,
+      rubric: DraggableRubric,
+    ) => {
       const isDropping = snapshot.isDropAnimating;
       return (
         <Item

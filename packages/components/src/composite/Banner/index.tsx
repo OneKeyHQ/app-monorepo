@@ -110,7 +110,7 @@ function PaginationDot({
   goToIndex: (index: number) => void;
 }) {
   const handlePress = useCallback(
-    (event: any) => {
+    (event: { stopPropagation?: () => void }) => {
       event?.stopPropagation?.();
       goToIndex(index);
     },

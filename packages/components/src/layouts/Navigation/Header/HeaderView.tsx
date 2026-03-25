@@ -214,7 +214,7 @@ function HeaderView({
       if (typeof headerRight === 'function') {
         return headerRight({ tintColor, canGoBack });
       }
-      return headerRight as any;
+      return headerRight as React.ReactNode;
     },
     [headerRight, canGoBack],
   );
@@ -232,7 +232,10 @@ function HeaderView({
   const headerTitleStyleMemo = useMemo(
     () =>
       headerTitleStyle
-        ? { ...HEADER_TITLE_BASE_STYLE, ...(headerTitleStyle as any) }
+        ? {
+            ...HEADER_TITLE_BASE_STYLE,
+            ...(headerTitleStyle as Record<string, unknown>),
+          }
         : HEADER_TITLE_BASE_STYLE,
     [headerTitleStyle],
   );
@@ -240,8 +243,10 @@ function HeaderView({
   const headerTitleContainerStyleMemo = useMemo(
     () => ({
       marginHorizontal: 0,
-      ...(headerTitleContainerStyle as any),
-      ...(isOnboardingScreen ? { flex: 1, alignItems: 'center' } : undefined),
+      ...(headerTitleContainerStyle as Record<string, unknown>),
+      ...(isOnboardingScreen
+        ? { flex: 1, alignItems: 'center' as const }
+        : undefined),
     }),
     [headerTitleContainerStyle, isOnboardingScreen],
   );

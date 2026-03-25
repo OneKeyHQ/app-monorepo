@@ -205,7 +205,7 @@ export function DesktopTabItem(
         px: '$2',
         bg: selected ? '$bgActive' : undefined,
         borderRadius: '$2',
-      }) as any,
+      }) as IStackStyle,
     [selected],
   );
   const defaultCloseButtonTitle = useMemo(

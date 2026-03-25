@@ -24,10 +24,10 @@ import {
 } from './type';
 
 import type { IStackStyle } from '../../primitives';
-
-const cropGtMdStyle = { height: 'calc(100vh - 180px)' };
 import type { CropperRef } from 'react-mobile-cropper';
 import type { LayoutChangeEvent } from 'react-native';
+
+const cropGtMdStyle = { height: 'calc(100vh - 180px)' };
 
 const MINE_TYPE = RESULT_MINE_TYPE;
 const resizeImage = (
