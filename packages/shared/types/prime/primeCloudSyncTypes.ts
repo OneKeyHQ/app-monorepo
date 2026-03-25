@@ -53,6 +53,7 @@ export type IStartServerSyncFlowParams = {
   throwError?: boolean;
   callerName?: string;
   noDebounceUpload?: boolean;
+  forceSync?: boolean;
 };
 
 export type ICloudSyncServerItem = {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,7 @@ import {
   Stepper,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -103,6 +104,13 @@ function DownloadVerify({
   }, [navigation, showUpdateInCompleteDialog]);
 
   const [installing, setIsInstalling] = useState(false);
+  const [isGPGSkipped, setIsGPGSkipped] = useState(false);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceDevSetting
+      .getSkipBundleGPGVerification()
+      .then(setIsGPGSkipped);
+  }, []);
 
   const handleToManualInstall = useCallback(() => {
     navigation.pushModal(EModalRoutes.AppUpdateModal, {
@@ -226,6 +234,13 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_asc_label,
             })}
+            renderTitle={({ status }) =>
+              isGPGSkipped && status === EStepItemStatus.Done ? (
+                <SizableText size="$bodySm" color="$textCritical">
+                  ASC Download Skipped (Dev)
+                </SizableText>
+              ) : null
+            }
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
                 return renderDownloadError();
@@ -248,6 +263,13 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_verify_asc_label,
             })}
+            renderTitle={({ status }) =>
+              isGPGSkipped && status === EStepItemStatus.Done ? (
+                <SizableText size="$bodySm" color="$textCritical">
+                  GPG Verification Skipped (Dev)
+                </SizableText>
+              ) : null
+            }
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Done) {
                 return (
@@ -315,6 +337,13 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_verify_package_label,
             })}
+            renderTitle={({ status }) =>
+              isGPGSkipped && status === EStepItemStatus.Done ? (
+                <SizableText size="$bodySm" color="$textCritical">
+                  Package Verification Skipped (Dev)
+                </SizableText>
+              ) : null
+            }
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Done) {
                 return (

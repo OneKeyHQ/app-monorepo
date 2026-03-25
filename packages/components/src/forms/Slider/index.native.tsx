@@ -109,6 +109,14 @@ export function Slider({
     />
   );
 
+  const handlePressMin = useCallback(() => {
+    handleValueChange(min);
+  }, [handleValueChange, min]);
+
+  const handlePressMax = useCallback(() => {
+    handleValueChange(max);
+  }, [handleValueChange, max]);
+
   const value = props.value ?? props.defaultValue;
   return segments ? (
     <YStack position="relative" onLayout={handleLayout}>
@@ -123,9 +131,7 @@ export function Slider({
         >
           <XStack
             left={platformEnv.isNativeAndroid ? 12 : 2}
-            onPress={() => {
-              handleValueChange(min);
-            }}
+            onPress={handlePressMin}
           >
             <SliderSegment key={-1} marked />
           </XStack>
@@ -141,9 +147,7 @@ export function Slider({
           ))}
           <XStack
             right={platformEnv.isNativeAndroid ? 12 : 2}
-            onPress={() => {
-              handleValueChange(max);
-            }}
+            onPress={handlePressMax}
           >
             <SliderSegment key={segments ?? 1} marked={value === max} />
           </XStack>

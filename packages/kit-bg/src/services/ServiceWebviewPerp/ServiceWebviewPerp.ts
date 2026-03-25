@@ -30,15 +30,9 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import type {
-  EPerpUserType,
-  IHyperLiquidErrorLocaleItem,
-} from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IHyperLiquidErrorLocaleItem } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import {
-  perpsUserConfigPersistAtom,
-  settingsPersistAtom,
-} from '../../states/jotai/atoms';
+import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type { IHyperliquidCustomSettings } from '../../dbs/simple/entity/SimpleDbEntityPerp';
@@ -244,6 +238,15 @@ export interface IPerpDynamicTab {
 // Re-export types from perpsUtils for backward compatibility
 export type { ITokenSearchAliasItem, ITokenSearchAliases };
 
+export interface IPerpServerActivityCard {
+  id: string;
+  imageUrl?: string;
+  iconName?: string;
+  title: string;
+  subtitle: string;
+  url: string;
+}
+
 export interface IPerpServerConfigResponse {
   referrerConfig: IPerpServerReferrerConfig;
   customSettings?: IHyperliquidCustomSettings;
@@ -261,6 +264,7 @@ export interface IPerpServerConfigResponse {
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
   tokenSearchAliases?: ITokenSearchAliases;
   tokenSelectorTabs?: IPerpDynamicTab[];
+  activityCards?: IPerpServerActivityCard[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
@@ -833,17 +837,6 @@ class ServiceWebviewPerp extends ServiceBase {
           path: '/perps',
         });
     }
-  }
-
-  @backgroundMethod()
-  async setPerpUserConfig(type: EPerpUserType) {
-    // if (type === EPerpUserType.PERP_WEB) {
-    //   void this.backgroundApi.serviceHyperliquidSubscription.pauseSubscriptions();
-    // }
-    await perpsUserConfigPersistAtom.set((prev) => ({
-      ...prev,
-      perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
-    }));
   }
 }
 

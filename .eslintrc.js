@@ -14,6 +14,27 @@
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
 // require('./development/lint/eslint-rule-enforce-return-type');
 
+// Register local eslint-plugin-onekey so eslint-disable-next-line onekey/no-raw-error
+// comments don't cause "unknown rule" errors (the real rule lives in oxlint)
+const Module = require('module');
+const path = require('path');
+const originalResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...args) {
+  if (request === 'eslint-plugin-onekey') {
+    return path.resolve(
+      __dirname,
+      'development/plugins/eslint-plugin-onekey.js',
+    );
+  }
+  if (request === 'eslint-plugin-import-js') {
+    return path.resolve(
+      __dirname,
+      'development/plugins/eslint-plugin-import-js.js',
+    );
+  }
+  return originalResolve.call(this, request, ...args);
+};
+
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
   // --- Rules from wesbos config (previously inherited via extends: ['wesbos']) ---
@@ -153,6 +174,7 @@ const tsRules = {
   '@typescript-eslint/lines-between-class-members': 'off',
   '@typescript-eslint/no-throw-literal': 'off',
   '@typescript-eslint/no-require-imports': 'off',
+  // '@typescript-eslint/no-duplicate-type-constituents': 'off',
   '@typescript-eslint/no-restricted-imports': [
     'error',
     {
@@ -214,40 +236,42 @@ const tsRules = {
       'ignoreDeclarationSort': true,
     },
   ],
-  'import/order': [
-    'warn',
-    {
-      'groups': [
-        'builtin',
-        'internal',
-        'index',
-        'external',
-        'parent',
-        'sibling',
-        'object',
-        'type',
-      ],
-      'pathGroups': [
-        {
-          'pattern': 'react',
-          'group': 'builtin',
-          'position': 'before',
-        },
-        {
-          'pattern': '@onekeyhq/**',
-          'group': 'external',
-          'position': 'after',
-        },
-      ],
-      'alphabetize': {
-        'order': 'asc',
-        'caseInsensitive': true,
-      },
-      'newlines-between': 'always',
-      'pathGroupsExcludedImportTypes': ['builtin'],
-      'warnOnUnassignedImports': true,
-    },
-  ],
+  // Original config kept for reference:
+  // 'import/order': [
+  //   'warn',
+  //   {
+  //     'groups': [
+  //       'builtin',
+  //       'internal',
+  //       'index',
+  //       'external',
+  //       'parent',
+  //       'sibling',
+  //       'object',
+  //       'type',
+  //     ],
+  //     'pathGroups': [
+  //       {
+  //         'pattern': 'react',
+  //         'group': 'builtin',
+  //         'position': 'before',
+  //       },
+  //       {
+  //         'pattern': '@onekeyhq/**',
+  //         'group': 'external',
+  //         'position': 'after',
+  //       },
+  //     ],
+  //     'alphabetize': {
+  //       'order': 'asc',
+  //       'caseInsensitive': true,
+  //     },
+  //     'newlines-between': 'always',
+  //     'pathGroupsExcludedImportTypes': ['builtin'],
+  //     'warnOnUnassignedImports': true,
+  //   },
+  // ],
+  'import/order': 'off',
   'no-restricted-syntax': [
     'error',
     {
@@ -277,6 +301,8 @@ module.exports = {
     'react',
     'react-hooks',
     'import',
+    'onekey',
+    'import-js',
   ],
   settings: {
     'import/extensions': [
@@ -315,6 +341,7 @@ module.exports = {
     worker: true,
   },
   rules: {
+    'import-js/order': 'off',
     'import-path/parent-depth': ['error', 3],
     'import-path/forbidden': [
       'error',

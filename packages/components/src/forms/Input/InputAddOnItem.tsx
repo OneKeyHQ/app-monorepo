@@ -66,6 +66,16 @@ export const InputAddOnItem = XStack.styleable<IExtraProps, any, any>(
               },
               focusable: !(disabled || loading),
               focusVisibleStyle: sharedStyles.focusVisibleStyle,
+              ...(platformEnv.isNative
+                ? undefined
+                : {
+                    onKeyDown: (e: KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onPress?.(e as any);
+                      }
+                    },
+                  }),
             })}
           {...rest}
           tabIndex={platformEnv.isNative ? undefined : rest.tabIndex}

@@ -20,6 +20,7 @@ export * from './Skeleton';
 export * from './Spinner';
 export * from './Stack';
 export * from './View';
+export * from './ScrollGuard';
 export const AnimatePresence = TMAnimatePresence;
 export const Unspaced = TMUnspaced;
 export const withStaticProperties = TMWithStaticProperties;

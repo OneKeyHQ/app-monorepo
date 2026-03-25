@@ -28,6 +28,7 @@ export function AccountSearchBar({
   isOthersUniversal,
   focusedWalletInfo,
   editable,
+  currentNetworkId,
 }: {
   searchText: string;
   onSearchTextChange: (text: string) => void;
@@ -40,6 +41,7 @@ export function AccountSearchBar({
       }
     | undefined;
   editable: boolean;
+  currentNetworkId?: string;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -127,6 +129,7 @@ export function AccountSearchBar({
                 <BatchCreateAccountButton
                   focusedWalletInfo={focusedWalletInfo}
                   activeAccount={activeAccount}
+                  currentNetworkId={currentNetworkId}
                   onClose={handleActionListClose}
                 />
               ) : null}

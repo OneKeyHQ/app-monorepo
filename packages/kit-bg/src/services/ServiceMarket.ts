@@ -86,6 +86,27 @@ class ServiceMarket extends ServiceBase {
     return this._fetchSearchTrending();
   }
 
+  _fetchTrendingV2 = memoizee(
+    async (): Promise<IMarketSearchV2Token[]> => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: IMarketSearchV2Token[];
+      }>('/utility/v2/market/trending', {
+        headers: { 'x-onekey-request-currency': 'usd' },
+      });
+      return response.data.data ?? [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async fetchTrendingV2(): Promise<IMarketSearchV2Token[]> {
+    return this._fetchTrendingV2();
+  }
+
   @backgroundMethod()
   async fetchCategory(
     category: string,
@@ -221,9 +242,8 @@ class ServiceMarket extends ServiceBase {
     const response = await client.get<{
       data: IMarketSearchV2Token[];
     }>('/utility/v2/market/search', {
-      params: {
-        query,
-      },
+      params: { query },
+      headers: { 'x-onekey-request-currency': 'usd' },
     });
     const { data } = response.data;
     if (Array.isArray(data) && data.length) {

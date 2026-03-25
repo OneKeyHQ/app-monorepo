@@ -16,6 +16,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  EPerpPageEnterSource,
+  setPerpPageEnterSource,
+} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
@@ -30,6 +34,11 @@ import type {
   BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
 import type { RouteProp } from '@react-navigation/native';
+
+const tabBarRowStyle = {
+  flexDirection: 'row' as const,
+  justifyContent: 'space-around' as const,
+};
 
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
@@ -71,6 +80,10 @@ export default function MobileBottomTabBar({
         });
       }
 
+      if (route.name === ETabRoutes.Perp && !isActive) {
+        setPerpPageEnterSource(EPerpPageEnterSource.TabBar);
+      }
+
       if (!isActive && !event.defaultPrevented) {
         switchTab(route.name as ETabRoutes);
         if (route.name === ETabRoutes.Market) {
@@ -109,6 +122,7 @@ export default function MobileBottomTabBar({
           return null;
         }
 
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
         const onPress = () => {
           // Check if custom tabbarOnPress exists, use it instead of default navigation
           const customPress = (options as { tabbarOnPress?: () => void })
@@ -159,14 +173,7 @@ export default function MobileBottomTabBar({
       borderTopColor="$borderSubdued"
       pb={bottom}
     >
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-around',
-        }}
-      >
-        {tabs}
-      </View>
+      <View style={tabBarRowStyle}>{tabs}</View>
     </Stack>
   );
 }

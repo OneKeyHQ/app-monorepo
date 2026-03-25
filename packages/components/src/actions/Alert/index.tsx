@@ -75,6 +75,7 @@ export type IAlertProps = PropsWithChildren<
     onClose?: () => void;
     icon?: IKeyOfIcons;
     action?: IAlertActionProps;
+    actionLayout?: 'horizontal' | 'vertical';
   } & IStackProps
 >;
 
@@ -129,7 +130,14 @@ const AlertFrame = styled(XStack, {
         borderRadius: 0,
       },
     },
-  },
+    actionLayout: {
+      horizontal: {},
+      vertical: {
+        flexDirection: 'column',
+        alignItems: 'stretch',
+      },
+    },
+  } as const,
 });
 
 const AlertIcon = (props: { children: any }) => {
@@ -165,6 +173,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
     fullBleed,
     titleNumberOfLines,
     action,
+    actionLayout,
     onClose: onCloseProp,
     children,
     ...rest
@@ -189,6 +198,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
       ref={ref}
       type={type}
       fullBleed={fullBleed}
+      actionLayout={actionLayout}
       {...(rest as IYStackProps)}
     >
       {icon ? (

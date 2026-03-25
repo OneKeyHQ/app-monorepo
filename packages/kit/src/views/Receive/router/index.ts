@@ -36,6 +36,10 @@ const ReceiveSelector = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Receive/pages/ReceiveSelector'),
 );
 
+const ExchangeOpenRedirect = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Receive/pages/ExchangeOpenRedirect'),
+);
+
 const FiatCryptoBuyModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/FiatCrypto/pages/Buy'),
 );
@@ -83,5 +87,9 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.DeriveTypesAddress,
     component: DeriveTypesAddress,
+  },
+  {
+    name: EModalReceiveRoutes.ExchangeOpenRedirect,
+    component: ExchangeOpenRedirect,
   },
 ];

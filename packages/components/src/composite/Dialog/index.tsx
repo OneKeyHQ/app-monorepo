@@ -13,9 +13,14 @@ import {
   useState,
 } from 'react';
 
+import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
@@ -40,6 +45,7 @@ import {
 } from '../../hocs';
 import {
   useBackHandler,
+  useKeyboardEventWithoutNavigation,
   useModalNavigatorContextPortalId,
   useOverlayZIndex,
 } from '../../hooks';
@@ -94,6 +100,46 @@ export const FIX_SHEET_PROPS: IYStackProps = {
 
 const MAX_CONTENT_WIDTH = 400;
 
+const DIALOG_ENTER_STYLE_OPACITY = { opacity: 0 } as any;
+const DIALOG_EXIT_STYLE_OPACITY = { opacity: 0 } as any;
+const DIALOG_ANIMATE_ONLY_OPACITY = ['opacity'] as string[];
+const DIALOG_ANIMATE_ONLY_TRANSFORM_OPACITY = [
+  'transform',
+  'opacity',
+] as string[];
+const DIALOG_CONTENT_ANIMATION: [
+  'quick',
+  { opacity: { overshootClamping: boolean } },
+] = ['quick', { opacity: { overshootClamping: true } }];
+const DIALOG_CONTENT_ENTER_EXIT_STYLE = { opacity: 0, scale: 0.85 };
+const DIALOG_THEME_DARK = { outlineColor: '$neutral5' } as const;
+const DIALOG_OUTLINE_STYLE = { outlineStyle: 'solid' } as const;
+const DIALOG_CONTENT_VISIBILITY_HIDDEN = {
+  outlineStyle: 'solid',
+  contentVisibility: 'hidden',
+} as any;
+const DIALOG_HIDDEN_STYLE = { contentVisibility: 'hidden' } as any;
+const EMPTY_DIALOG_STYLE = {} as const;
+
+const DEFAULT_KEYBOARD_HEIGHT = 330;
+const useSafeKeyboardAnimationStyle = () => {
+  const keyboardHeightValue = useSharedValue(0);
+  const animatedStyles = useAnimatedStyle(() => ({
+    paddingBottom: keyboardHeightValue.value,
+  }));
+
+  useKeyboardEventWithoutNavigation({
+    keyboardWillShow: (e) => {
+      const height = e.endCoordinates.height;
+      keyboardHeightValue.value = height < 0 ? DEFAULT_KEYBOARD_HEIGHT : height;
+    },
+    keyboardWillHide: () => {
+      keyboardHeightValue.value = 0;
+    },
+  });
+  return platformEnv.isNative ? animatedStyles : undefined;
+};
+
 /**
  * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
  *
@@ -125,6 +171,7 @@ function DialogFrame({
   sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
+  trapFocus,
   showConfirmButton = true,
   showCancelButton = true,
   testID,
@@ -135,6 +182,7 @@ function DialogFrame({
   const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
+  const effectiveTrapFocus = trapFocus ?? !platformEnv.isNative;
   const onBackdropPress = useMemo(
     () => (dismissOnOverlayPress ? onClose : undefined),
     [dismissOnOverlayPress, onClose],
@@ -195,8 +243,9 @@ function DialogFrame({
   const media = useMedia();
 
   const zIndex = useOverlayZIndex(open, title);
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   const renderDialogContent = (
-    <Stack>
+    <Animated.View style={safeKeyboardAnimationStyle}>
       <DialogHeader trackID={trackID} onClose={handleHeaderCloseButtonPress} />
       {/* extra children */}
       <Content
@@ -231,7 +280,7 @@ function DialogFrame({
           })
         }
       />
-    </Stack>
+    </Animated.View>
   );
 
   if (media.md) {
@@ -258,8 +307,8 @@ function DialogFrame({
         <Sheet.Overlay
           {...FIX_SHEET_PROPS}
           animation="quick"
-          enterStyle={{ opacity: 0 } as any}
-          exitStyle={{ opacity: 0 } as any}
+          enterStyle={DIALOG_ENTER_STYLE_OPACITY}
+          exitStyle={DIALOG_EXIT_STYLE_OPACITY}
           backgroundColor="$bgBackdrop"
           zIndex={sheetProps?.zIndex || zIndex}
           {...sheetOverlayProps}
@@ -277,8 +326,12 @@ function DialogFrame({
           width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
           maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
-          {!disableDrag ? <SheetGrabber /> : null}
-          {renderDialogContent}
+          <FocusScope trapped={open ? effectiveTrapFocus : undefined} loop>
+            <Stack>
+              {!disableDrag ? <SheetGrabber /> : null}
+              {renderDialogContent}
+            </Stack>
+          </FocusScope>
         </Sheet.Frame>
       </Sheet>
     );
@@ -309,55 +362,42 @@ function DialogFrame({
             <TMDialog.Overlay
               key="overlay"
               backgroundColor="$bgBackdrop"
-              animateOnly={['opacity']}
+              animateOnly={DIALOG_ANIMATE_ONLY_OPACITY}
               animation="quick"
               forceMount={forceMount || undefined}
-              enterStyle={{
-                opacity: 0,
-              }}
-              exitStyle={{
-                opacity: 0,
-              }}
+              enterStyle={DIALOG_ENTER_STYLE_OPACITY}
+              exitStyle={DIALOG_EXIT_STYLE_OPACITY}
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex || zIndex}
               style={
                 !platformEnv.isNative && !open && forceMount
-                  ? ({ contentVisibility: 'hidden' } as any)
-                  : {}
+                  ? DIALOG_HIDDEN_STYLE
+                  : EMPTY_DIALOG_STYLE
               }
             />
             {/* /* fix missing title warnings in html dialog element on Web */}
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
+              trapFocus={effectiveTrapFocus}
               onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
-              animateOnly={['transform', 'opacity']}
-              animation={[
-                'quick',
-                {
-                  opacity: {
-                    overshootClamping: true,
-                  },
-                },
-              ]}
-              enterStyle={{ opacity: 0, scale: 0.85 }}
-              exitStyle={{ opacity: 0, scale: 0.85 }}
+              animateOnly={DIALOG_ANIMATE_ONLY_TRANSFORM_OPACITY}
+              animation={DIALOG_CONTENT_ANIMATION}
+              enterStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
+              exitStyle={DIALOG_CONTENT_ENTER_EXIT_STYLE}
               borderRadius="$4"
               borderWidth="$0"
-              $theme-dark={{
-                outlineColor: '$neutral5',
-              }}
+              $theme-dark={DIALOG_THEME_DARK}
               outlineWidth={1}
               outlineOffset={0}
               outlineColor="$neutral3"
-              style={{
-                outlineStyle: 'solid',
-                ...(!platformEnv.isNative && !open && forceMount
-                  ? ({ contentVisibility: 'hidden' } as any)
-                  : {}),
-              }}
+              style={
+                !platformEnv.isNative && !open && forceMount
+                  ? DIALOG_CONTENT_VISIBILITY_HIDDEN
+                  : DIALOG_OUTLINE_STYLE
+              }
               bg="$bg"
               width={MAX_CONTENT_WIDTH}
               p="$0"
@@ -557,6 +597,7 @@ function dialogShow({
           resolve();
         }, 300);
       });
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const isExist = () => !!instanceRef?.current;
   const element = (() => {
     if (dialogContainer) {
@@ -637,6 +678,7 @@ const dialogDebugMessage = (
     }
     return stringUtils.stableStringify(props.debugMessage, null, 4);
   })();
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const copyContent = async () => {
     await setStringAsync(dataContent);
     console.log('dialogDebugMessage: object >>> ', props.debugMessage);

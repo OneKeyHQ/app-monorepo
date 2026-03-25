@@ -17,7 +17,6 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -25,6 +24,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
+import { useNavigateToApprovalList } from '../../../Home/hooks/useNavigateToApprovalList';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
@@ -91,44 +91,11 @@ export function PrimeBenefitsList({
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const navigateToBulkSend = useNavigateToBulkSend();
+  const navigateToApprovalList = useNavigateToApprovalList();
 
   return (
     <Stack py="$2">
-      <PrimeBenefitsItem
-        icon="CloudOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_onekey_cloud,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.prime_onekey_cloud_desc,
-        })}
-        onPress={() => {
-          if (platformEnv.isWebDappMode) {
-            Toast.message({
-              title: intl.formatMessage({
-                id: ETranslations.global_web_feature_not_available_go_to_app,
-              }),
-            });
-            return;
-          }
-          if (isPrimeSubscriptionActive) {
-            navigation.navigate(EPrimePages.PrimeCloudSync, {
-              serverUserInfo,
-            });
-          } else {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.OneKeyCloud,
-              entryPoint: 'primePage',
-            });
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.OneKeyCloud,
-              selectedSubscriptionPeriod,
-              serverUserInfo,
-            });
-          }
-        }}
-      />
+      {/* OneKey Cloud removed — keyless sync is free, no longer a Prime benefit */}
       {/* <PrimeBenefitsItem
         icon="MultipleDevicesOutline"
         title={intl.formatMessage({
@@ -208,14 +175,11 @@ export function PrimeBenefitsList({
         })}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
-            navigation.navigate(EModalRoutes.ApprovalManagementModal, {
-              screen: EModalApprovalManagementRoutes.ApprovalList,
-              params: {
-                walletId: wallet?.id ?? '',
-                accountId: account?.id ?? '',
-                networkId: network?.id ?? '',
-                indexedAccountId: indexedAccount?.id ?? '',
-              },
+            void navigateToApprovalList({
+              networkId: network?.id,
+              accountId: account?.id,
+              walletId: wallet?.id,
+              indexedAccountId: indexedAccount?.id,
             });
           } else {
             defaultLogger.prime.subscription.primeEntryClick({

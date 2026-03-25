@@ -48,6 +48,7 @@ interface IEarnMainTabsProps {
   portfolioData: IUseEarnPortfolioReturn;
   header?: React.ReactNode;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
+  nestedPager?: boolean;
 }
 
 const TabContentContainer = ({
@@ -84,6 +85,7 @@ const EarnMainTabsComponent = ({
   portfolioData,
   header,
   tabsRef: externalTabsRef,
+  nestedPager = false,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
   const theme = useTheme();
@@ -270,6 +272,10 @@ const EarnMainTabsComponent = ({
       renderTabBar={renderTabBar}
       initialTabName={initialTabName}
       onTabChange={handleTabChange}
+      useNativeHeaderAnimation={platformEnv.isNativeAndroid}
+      pagerProps={
+        nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
+      }
       {...mergedContainerProps}
     >
       <Tabs.Tab name={tabNames.assets}>

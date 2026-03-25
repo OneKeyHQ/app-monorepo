@@ -522,6 +522,15 @@ export class SimpleDb {
     return value;
   }
 
+  get marketTokenPreference() {
+    const SimpleDbEntityMarketTokenPreference = (
+      require('../entity/SimpleDbEntityMarketTokenPreference') as unknown as typeof import('../entity/SimpleDbEntityMarketTokenPreference')
+    ).SimpleDbEntityMarketTokenPreference;
+    const value = new SimpleDbEntityMarketTokenPreference();
+    Object.defineProperty(this, 'marketTokenPreference', { value });
+    return value;
+  }
+
   get rookieGuide() {
     const SimpleDbEntityRookieGuide = (
       require('../entity/SimpleDbEntityRookieGuide') as unknown as typeof import('../entity/SimpleDbEntityRookieGuide')

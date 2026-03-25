@@ -156,6 +156,11 @@ function TxConfirm() {
 
   useEffect(() => {
     if (accountId && networkId && reactiveUnsignedTxs?.[0]?.uuid) {
+      updateDecodedTxs({
+        decodedTxs: [],
+        isBuildingDecodedTxs: false,
+      });
+      updateDecodedTxsInit(false);
       updateSendTxStatus({
         isInsufficientNativeBalance: false,
         isInsufficientTokenBalance: false,
@@ -172,6 +177,7 @@ function TxConfirm() {
   }, [
     txConfirmParamsInit,
     reactiveUnsignedTxs,
+    updateDecodedTxs,
     updateDecodedTxsInit,
     accountId,
     networkId,
@@ -366,7 +372,10 @@ function TxConfirm() {
   }, [sourceInfo, accountId]);
 
   const renderTxConfirmContent = useCallback(() => {
-    if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit) {
+    if (
+      (isBuildingDecodedTxs || !decodedTxs || decodedTxs.length === 0) &&
+      !decodedTxsInit
+    ) {
       return <SignatureConfirmLoading />;
     }
 

@@ -26,7 +26,12 @@ import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { CALL_DESKTOP_API_EVENT_NAME } from '@onekeyhq/kit-bg/src/desktopApis/base/consts';
-import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+import {
+  getFiatPaySiteWhitelistDomainKeys,
+  getFiatPaySiteWhitelistOrigins,
+  getOriginDomainKey,
+  getTemplatePhishingUrls,
+} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
@@ -47,10 +52,16 @@ import {
 import { ipcMessageKeys } from './config';
 import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
+// Side-effect import: registers synchronous IPC handler for renderer MMKV access
+// eslint-disable-next-line import-js/order
+import './libs/react-native-mmkv-desktop-main';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+// Logger initialization (file rotation, sanitization, rate limiting)
+import './logger';
 import initProcess from './process';
+import { createRecoveryWindow } from './recoveryWindow';
 import {
   getAppStaticResourcesPath,
   getResourcesPath,
@@ -58,16 +69,29 @@ import {
 } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
+// eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-
-logger.initialize();
-logger.transports.file.maxSize = 1024 * 1024 * 10;
 
 initSentry();
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
+
+function isWhitelistedMediaOrigin(
+  origin: string,
+  whitelistOrigins: Set<string>,
+  whitelistDomainKeys: Set<string>,
+): boolean {
+  if (!origin) {
+    return false;
+  }
+  if (whitelistOrigins.has(origin)) {
+    return true;
+  }
+  const domainKey = getOriginDomainKey(origin);
+  return !!domainKey && whitelistDomainKeys.has(domainKey);
+}
 
 if (isPerfCiMode) {
   // Keep prepared state in a stable location on perf machines.
@@ -382,7 +406,7 @@ function quitOrMinimizeApp() {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (isMac) {
-    // **** renderer app will reload after minimize, and keytar not working.
+    // **** renderer app will reload after minimize.
     const safelyMainWindow = getSafelyMainWindow();
     safelyMainWindow?.hide();
     // ****
@@ -473,6 +497,33 @@ const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
 async function createMainWindow() {
+  // === Boot Recovery Check (must be first) ===
+  const currentAppVersion = app.getVersion();
+  const storedFailVersion = store.getBootFailAppVersion();
+  if (storedFailVersion && storedFailVersion !== currentAppVersion) {
+    store.resetConsecutiveBootFailCount();
+    logger.info(
+      'Boot fail counter reset due to version change',
+      storedFailVersion,
+      '→',
+      currentAppVersion,
+    );
+  }
+  store.setBootFailAppVersion(currentAppVersion);
+  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  logger.info('Boot fail count:', bootFailCount);
+  if (bootFailCount >= 3) {
+    logger.error('Recovery page triggered', {
+      crashCount: bootFailCount,
+      appVersion: currentAppVersion,
+    });
+    const recoveryWin = createRecoveryWindow();
+    recoveryWin.on('closed', () => {
+      mainWindow = null;
+    });
+    return recoveryWin;
+  }
+
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -542,6 +593,7 @@ async function createMainWindow() {
     return undefined;
   };
 
+  store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
   const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
@@ -614,7 +666,7 @@ async function createMainWindow() {
   }
 
   /* eslint-disable no-nested-ternary */
-  const src = isPerfCiMode
+  let src = isPerfCiMode
     ? formatUrl({
         pathname: perfIndexHtmlPath,
         protocol: PROTOCOL,
@@ -717,6 +769,11 @@ async function createMainWindow() {
     event.returnValue = isDevServer;
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
+  ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
+    event.returnValue = path.dirname(logger.transports.file.getFile().path);
+  });
+
   ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
@@ -786,6 +843,22 @@ async function createMainWindow() {
       };
     }
   });
+
+  // === Boot Recovery IPC Handlers ===
+  ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
+  ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
+    store.resetConsecutiveBootFailCount();
+    logger.info('Boot success confirmed, crash counter reset');
+  });
+
+  ipcMain.removeAllListeners(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT);
+  ipcMain.on(
+    ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT,
+    (_event: unknown, count: number) => {
+      store.setConsecutiveBootFailCount(count);
+      logger.info('Consecutive boot fail count set to', count);
+    },
+  );
 
   ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
@@ -888,6 +961,48 @@ async function createMainWindow() {
     return false;
   });
 
+  // Permission handler for webview (partition: persist:onekey)
+  //
+  // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
+  // - notifications: already disabled at the webview tag level via
+  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
+  //   so the Notification API is completely unavailable and this handler
+  //   will never receive a 'notifications' permission request.
+  // - all other permissions: allowed to preserve default Electron behavior.
+  const webviewSession = session.fromPartition('persist:onekey');
+  webviewSession.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      const requestingUrl = details.requestingUrl || '';
+      const topLevelUrl = webContents.getURL();
+
+      if (permission === 'media') {
+        try {
+          const requestingOrigin = requestingUrl
+            ? new URL(requestingUrl).origin
+            : '';
+          const topLevelOrigin = topLevelUrl ? new URL(topLevelUrl).origin : '';
+          const origins = getFiatPaySiteWhitelistOrigins();
+          const domainKeys = getFiatPaySiteWhitelistDomainKeys();
+          const isWhitelisted =
+            isWhitelistedMediaOrigin(requestingOrigin, origins, domainKeys) ||
+            isWhitelistedMediaOrigin(topLevelOrigin, origins, domainKeys);
+          if (isWhitelisted) {
+            callback(true);
+            return;
+          }
+        } catch {
+          // Ignore malformed URLs and fall through to deny by default.
+        }
+        callback(false);
+        return;
+      }
+      // Allow all non-media permissions to preserve default Electron behavior.
+      // Note: 'notifications' is never requested here because it is disabled
+      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
+      callback(true);
+    },
+  );
+
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
@@ -914,16 +1029,26 @@ async function createMainWindow() {
     logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
-    const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
+    let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
-    const metadata = bundleDirPath
-      ? await getMetadata({
+    let metadata: Record<string, string> = {};
+    let metadataFailed = false;
+    if (bundleDirPath) {
+      try {
+        metadata = await getMetadata({
           bundleDir: bundleDirPath,
           appVersion: bundleData.appVersion,
           bundleVersion: bundleData.bundleVersion,
           signature: bundleData.signature,
-        })
-      : {};
+        });
+      } catch (e) {
+        // GPG verification failed or metadata unreadable — disable JS bundle
+        // so the interceptor falls back to the builtin bundle in the asar.
+        logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        useJsBundle = false;
+        metadataFailed = true;
+      }
+    }
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -989,6 +1114,17 @@ async function createMainWindow() {
         }
       },
     );
+    // When getMetadata failed, src still points to the bundle path which the
+    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
+    // now that the interceptor is registered and will serve builtin files.
+    if (metadataFailed) {
+      src = formatUrl({
+        pathname: 'index.html',
+        protocol: PROTOCOL,
+        slashes: true,
+      });
+      void browserWindow.loadURL(src);
+    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
@@ -1083,14 +1219,27 @@ if (!singleInstance && !process.mas) {
 
   app.on('ready', async (_, launchInfo) => {
     logger.info('launchInfo >>>> ', launchInfo);
+    logger.info(
+      `nativeAppVersion: ${app.getVersion()}, buildNumber: ${process.env.BUILD_NUMBER ?? ''}, builtinBundleVersion: ${process.env.BUNDLE_VERSION ?? ''}`,
+    );
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
-    startServices();
 
     if (!mainWindow) {
       mainWindow = await createMainWindow();
-      initMenu();
     }
+
+    // Menu is needed in both normal and recovery mode
+    initMenu();
+
+    // In recovery mode, skip heavy app initialization.
+    // createMainWindow() increments bootFailCount; if >= 3 it returned
+    // a standalone recovery window that doesn't need these services.
+    if (store.getConsecutiveBootFailCount() >= 3) {
+      return;
+    }
+
+    startServices();
     void initChildProcess();
   });
 }
@@ -1107,6 +1256,14 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  // Reset crash counter on graceful shutdown so normal close
+  // is not mistaken for a crash on next boot.
+  // Skip reset when in recovery mode (count >= 3) so recovery is still
+  // offered if the user closes the recovery window without resolving.
+  if (store.getConsecutiveBootFailCount() < 3) {
+    store.resetConsecutiveBootFailCount();
+  }
+
   if (systemIdleInterval) {
     clearInterval(systemIdleInterval);
   }

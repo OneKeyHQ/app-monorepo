@@ -43,7 +43,7 @@ export function AirGapQrcodeDialogContainer() {
             const result = await startScan({
               handlers: [EQRCodeHandlerNames.animation],
               qrWalletScene: true,
-              autoHandleResult: false,
+              autoExecuteParsedAction: false,
             });
             console.log(
               'AirGapQrcodeDialogContainer__startScan',

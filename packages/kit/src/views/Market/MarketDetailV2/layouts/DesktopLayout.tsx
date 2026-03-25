@@ -1,6 +1,12 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -23,6 +29,44 @@ const MARKET_DETAIL_LAYOUT = {
 } as const;
 
 const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;
+const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
+
+interface IIframeWheelEventMessage {
+  type: typeof IFRAME_WHEEL_EVENT_TYPE;
+  deltaY: number;
+}
+
+const ALLOWED_TRADING_VIEW_ORIGINS = new Set([
+  new URL(TRADING_VIEW_URL).origin,
+  new URL(TRADING_VIEW_URL_TEST).origin,
+  ...(platformEnv.isDev ? [TRADING_VIEW_LOCALHOST_ORIGIN] : []),
+]);
+
+// Listen for wheel events forwarded from TradingView iframe via postMessage.
+// TradingView side needs: window.parent.postMessage({ type: 'wheelEvent', deltaY }, '*')
+function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    const handleMessage = (e: MessageEvent) => {
+      if (!ALLOWED_TRADING_VIEW_ORIGINS.has(e.origin)) {
+        return;
+      }
+      const data = e.data as IIframeWheelEventMessage | undefined;
+      if (
+        data?.type === IFRAME_WHEEL_EVENT_TYPE &&
+        typeof data.deltaY === 'number'
+      ) {
+        scrollRef.current?.scrollBy({ top: data.deltaY });
+      }
+    };
+    globalThis.addEventListener('message', handleMessage);
+    return () => {
+      globalThis.removeEventListener('message', handleMessage);
+    };
+  }, [scrollRef]);
+}
 
 export function DesktopLayout() {
   const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
@@ -58,8 +102,18 @@ export function DesktopLayout() {
     ],
   );
 
+  const scrollContainerRef = useRef<HTMLElement>(null);
+  useIframeWheelPassthrough(scrollContainerRef);
+  const handleTradingViewTouchScroll = useCallback((deltaY: number) => {
+    scrollContainerRef.current?.scrollBy({ top: deltaY });
+  }, []);
+
   return (
-    <Stack flex={1} style={SCROLL_CONTAINER_STYLE}>
+    <Stack
+      ref={scrollContainerRef as any}
+      flex={1}
+      style={SCROLL_CONTAINER_STYLE}
+    >
       <XStack>
         {/* Left column */}
         <YStack
@@ -77,12 +131,13 @@ export function DesktopLayout() {
                 tokenSymbol={tokenDetail?.symbol}
                 isNative={isNative}
                 dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+                onTouchScroll={handleTradingViewTouchScroll}
               />
             ) : null}
           </Stack>
 
           <Stack
-            h={MARKET_DETAIL_LAYOUT.infoTabsHeight}
+            minHeight={MARKET_DETAIL_LAYOUT.infoTabsHeight}
             borderTopWidth="$px"
             borderTopColor="$borderSubdued"
           >
@@ -104,7 +159,7 @@ export function DesktopLayout() {
 
             <Divider my="$1" />
 
-            <TokenActivityOverview />
+            <TokenActivityOverview pl="$3" pr="$5" />
 
             <Divider />
 

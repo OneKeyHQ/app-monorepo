@@ -169,6 +169,7 @@ export type IStakeBaseParams = {
   inputTokenAddress?: string;
   outputTokenAddress?: string;
   slippage?: number;
+  effectiveApy?: string | number;
 
   term?: number; // Babylon
   feeRate?: number;
@@ -202,6 +203,7 @@ export type IWithdrawBaseParams = {
   inputTokenAddress?: string;
   outputTokenAddress?: string;
   slippage?: number;
+  effectiveApy?: string | number;
 
   identity?: string; // sol pubkey
   signature?: string; // lido unstake, stakefish withdraw all
@@ -513,6 +515,8 @@ export type IProtocolInfo = {
   protocolInputDecimals?: number;
   // Max repay balance (debt balance) for repay max button
   maxRepayBalance?: string;
+  // Debt balance for collateral repay (from debt field in manage page response)
+  debtBalance?: string;
   // Max supply balance for supply max button
   maxSupplyBalance?: string;
 };
@@ -1115,6 +1119,7 @@ export interface IEarnManagePageResponse {
   supply?: IEarnSupplyActionData;
   borrow?: IEarnBorrowActionData;
   repay?: IEarnRepayActionData;
+  debt?: IEarnManagePageActionData;
   collateral?: IEarnManagePageActionData;
   deposit?: IEarnDepositActionData;
   withdraw?: IEarnWithdrawActionData;
@@ -1140,6 +1145,7 @@ export interface IEarnManagePageResponse {
     minTransactionFee?: string;
     claimable?: string;
     remainingCap?: string;
+    maturity?: IEarnText;
     protocolInputDecimals?: number;
   };
   alerts?: IEarnAlert[];
@@ -1312,6 +1318,7 @@ export interface IStakeEarnDetail {
     minTransactionFee: string;
     claimable: string;
     remainingCap: string;
+    maturity?: IEarnText;
   };
   managers?: {
     items: {
@@ -1350,6 +1357,7 @@ export interface IStakeTransactionConfirmation {
   title?: IEarnText;
   tooltip?: IEarnTooltip;
   apyDetail?: IStakeEarnDetail['apyDetail'];
+  effectiveApy?: string | number;
   rewards?: Array<{
     title: IEarnText;
     description: IEarnText;
@@ -1695,6 +1703,8 @@ export interface IEarnInvestmentItemV2 {
   totalFiatValue: string;
   earnings24hFiatValue: string;
   totalFiatValueUsd?: string;
+  netPnl?: IEarnText;
+  netPnlFiatValue?: IEarnText;
   protocol: {
     networkId?: string;
     provider?: string;
@@ -1804,6 +1814,8 @@ export type IEarnPortfolioAsset = IEarnInvestmentItemV2['assets'][number] & {
     network: IEarnInvestmentItemV2['network'];
     fiatValue?: string;
     fiatValueUsd?: string;
+    netPnl?: IEarnText;
+    netPnlFiatValue?: IEarnText;
   };
 };
 
@@ -1930,6 +1942,7 @@ export type IApproveConfirmFnParams = {
   unsignedMessage?: IEarnPermit2ApproveSignData;
   // Stakefish: original message for permit signature
   message?: string;
+  effectiveApy?: string | number;
   // Stakefish ETH validator
   validatorPubkey?: string;
 };

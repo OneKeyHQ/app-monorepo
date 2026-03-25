@@ -1,7 +1,14 @@
 /* eslint-disable no-continue */
-import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { Semaphore } from 'async-mutex';
+
+import {
+  backgroundClass,
+  backgroundMethod,
+  toastIfError,
+} from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -21,11 +28,9 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
-import {
-  devSettingsPersistAtom,
-  primeCloudSyncPersistAtom,
-} from '../../states/jotai/atoms';
+import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -38,20 +43,29 @@ class ServiceKeylessCloudSync extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private repairCredentialMutex = new Semaphore(1);
+
   async getKeylessWallet(): Promise<IDBWallet | null> {
-    return localDb.getKeylessWallet();
+    const keylessWallet =
+      await this.backgroundApi.serviceAccount.getKeylessWallet();
+    await this.setPersistedCurrentCloudSyncKeylessWalletId(
+      keylessWallet?.id ?? null,
+    );
+    return keylessWallet ?? null;
   }
 
   async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
-    return localDb.getKeylessCloudSyncCredential();
-  }
-
-  async isKeylessCloudSyncFeatureEnabledInDev(): Promise<boolean> {
-    const devSettings = await devSettingsPersistAtom.get();
-    return (
-      !!devSettings?.enabled &&
-      !!devSettings?.settings?.enableKeylessCloudSyncFeature
-    );
+    const keylessWalletId = await this.getCurrentCloudSyncKeylessWalletId();
+    if (!keylessWalletId) {
+      return null;
+    }
+    const credential =
+      this.getKeylessCloudSyncCredentialCacheSync(keylessWalletId);
+    if (credential) {
+      return credential;
+    }
+    await this.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+    return this.getKeylessCloudSyncCredentialCacheSync(keylessWalletId) ?? null;
   }
 
   async getActiveSyncMode(): Promise<ECloudSyncMode> {
@@ -60,10 +74,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (isCloudSyncEnabled) {
       return ECloudSyncMode.OnekeyId;
     }
-    if (
-      isCloudSyncEnabledKeyless &&
-      (await this.isKeylessCloudSyncFeatureEnabledInDev())
-    ) {
+    if (isCloudSyncEnabledKeyless) {
       return ECloudSyncMode.Keyless;
     }
     return ECloudSyncMode.None;
@@ -79,12 +90,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
     pwdHash: string | undefined;
     fullPostData: T & { pwdHash: string | undefined };
   } | null> {
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      return null;
-    }
-
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
     const keylessCredential = syncCredential?.keylessCredential;
@@ -95,13 +100,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const fullPostData = { ...postData, pwdHash };
     const dataString = stringUtils.stableStringify(fullPostData);
     const dataHash = keylessCloudSyncUtils.computeDataHash(dataString);
-    const signatureHeader =
-      await keylessCloudSyncUtils.buildKeylessSignatureHeader({
-        signingPrivateKey: keylessCredential.signingPrivateKey,
-        signingPublicKey: keylessCredential.signingPublicKey,
-        password,
-        dataHash,
-      });
+    const signatureHeader = keylessCloudSyncUtils.buildKeylessSignatureHeader({
+      signingPrivateKey: keylessCredential.signingPrivateKey,
+      signingPublicKey: keylessCredential.signingPublicKey,
+      dataHash,
+    });
     return {
       publicKey: keylessCredential.signingPublicKey,
       signatureHeader,
@@ -154,7 +157,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
     });
-    return response.data.data;
+    return {
+      data: response.data.data,
+      pwdHash: auth.pwdHash,
+    };
   }
 
   async apiUploadItemsKeyless({
@@ -366,23 +372,193 @@ class ServiceKeylessCloudSync extends ServiceBase {
     ttlAutopurge: true,
   });
 
+  currentCloudSyncKeylessWalletIdCache: string | null | undefined;
+
+  async setPersistedCurrentCloudSyncKeylessWalletId(
+    currentCloudSyncKeylessWalletId: string | null,
+  ) {
+    this.currentCloudSyncKeylessWalletIdCache = currentCloudSyncKeylessWalletId;
+    await primeCloudSyncPersistAtom.set((v) => {
+      if (
+        v.currentCloudSyncKeylessWalletId === currentCloudSyncKeylessWalletId
+      ) {
+        return v;
+      }
+      return {
+        ...v,
+        currentCloudSyncKeylessWalletId,
+      };
+    });
+  }
+
+  async syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(
+    wallets: IDBWallet[],
+    options?: {
+      /**
+       * When `wallets` contains no keyless wallet:
+       * - `'clear'`: persist `currentCloudSyncKeylessWalletId` as `null` (default).
+       * - `'skip'`: do not change persisted value (e.g. filtered `getWallets` list).
+       */
+      whenNoKeyless?: 'clear' | 'skip';
+    },
+  ): Promise<void> {
+    const whenNoKeyless = options?.whenNoKeyless ?? 'clear';
+    const currentCloudSyncKeylessWalletId: string | null =
+      wallets
+        .filter((wallet) => wallet.isKeyless)
+        .toSorted((a, b) => a.id.localeCompare(b.id))[0]?.id || null;
+    if (!currentCloudSyncKeylessWalletId && whenNoKeyless === 'skip') {
+      return;
+    }
+    this.currentCloudSyncKeylessWalletIdCache = currentCloudSyncKeylessWalletId;
+    await this.setPersistedCurrentCloudSyncKeylessWalletId(
+      currentCloudSyncKeylessWalletId,
+    );
+    if (!currentCloudSyncKeylessWalletId) {
+      await keylessSyncCredentialStorage.removeAllCredentials();
+    }
+  }
+
+  async getCurrentCloudSyncKeylessWalletId(): Promise<string | null> {
+    if (this.currentCloudSyncKeylessWalletIdCache !== undefined) {
+      return this.currentCloudSyncKeylessWalletIdCache;
+    }
+    const { currentCloudSyncKeylessWalletId, isCloudSyncEnabledKeyless } =
+      await primeCloudSyncPersistAtom.get();
+    if (currentCloudSyncKeylessWalletId) {
+      this.currentCloudSyncKeylessWalletIdCache =
+        currentCloudSyncKeylessWalletId;
+      return this.currentCloudSyncKeylessWalletIdCache;
+    }
+    if (
+      currentCloudSyncKeylessWalletId === null &&
+      !isCloudSyncEnabledKeyless
+    ) {
+      this.currentCloudSyncKeylessWalletIdCache = null;
+      return this.currentCloudSyncKeylessWalletIdCache;
+    }
+    return null;
+  }
+
   setKeylessCloudSyncCredentialCache(
     keylessCloudSyncCredential: IKeylessCloudSyncCredential,
   ) {
+    this.currentCloudSyncKeylessWalletIdCache =
+      keylessCloudSyncCredential.keylessWalletId;
     this.keylessCloudSyncCredentialCache.set(
-      'keylessCloudSyncCredential',
+      keylessCloudSyncCredential.keylessWalletId,
       keylessCloudSyncCredential,
     );
   }
 
-  async getKeylessCloudSyncCredentialCache() {
+  /**
+   * Load encrypted keyless sync credential into memory before a long IndexedDB
+   * transaction. Never await storage reads while an IDB tx is open.
+   */
+  @backgroundMethod()
+  async hydrateKeylessSyncCredentialFromStorageIfNeeded(): Promise<void> {
+    const keylessWalletId = await this.getCurrentCloudSyncKeylessWalletId();
+    if (!keylessWalletId) {
+      return;
+    }
+    if (this.getKeylessCloudSyncCredentialCacheSync(keylessWalletId)) {
+      return;
+    }
+    const credential =
+      await keylessSyncCredentialStorage.getCredential(keylessWalletId);
+    if (!credential) {
+      return;
+    }
+    if (credential.keylessWalletId !== keylessWalletId) {
+      await keylessSyncCredentialStorage.removeAllCredentials();
+      return;
+    }
+    this.setKeylessCloudSyncCredentialCache(credential);
+  }
+
+  getKeylessCloudSyncCredentialCacheSync(
+    keylessWalletId: string,
+  ): IKeylessCloudSyncCredential | undefined {
+    return this.keylessCloudSyncCredentialCache.get(keylessWalletId);
+  }
+
+  async getKeylessCloudSyncCredentialCache({
+    keylessWalletId,
+  }: {
+    keylessWalletId?: string;
+  } = {}) {
+    const currentCloudSyncKeylessWalletId =
+      keylessWalletId ?? (await this.getCurrentCloudSyncKeylessWalletId());
+    if (!currentCloudSyncKeylessWalletId) {
+      return undefined;
+    }
     return this.keylessCloudSyncCredentialCache.get(
-      'keylessCloudSyncCredential',
+      currentCloudSyncKeylessWalletId,
     );
   }
 
-  clearKeylessCloudSyncCredentialCache() {
+  clearKeylessCloudSyncCredentialCache({
+    keylessWalletId,
+  }: {
+    keylessWalletId?: string;
+  } = {}) {
+    if (keylessWalletId) {
+      this.keylessCloudSyncCredentialCache.delete(keylessWalletId);
+      if (this.currentCloudSyncKeylessWalletIdCache === keylessWalletId) {
+        this.currentCloudSyncKeylessWalletIdCache = undefined;
+      }
+      return;
+    }
     this.keylessCloudSyncCredentialCache.clear();
+    this.currentCloudSyncKeylessWalletIdCache = undefined;
+  }
+
+  async repairKeylessSyncCredentialIfNeeded({
+    password,
+  }: {
+    password: string;
+  }): Promise<void> {
+    await this.repairCredentialMutex.runExclusive(async () => {
+      const walletId = await this.getCurrentCloudSyncKeylessWalletId();
+      if (!walletId) {
+        return;
+      }
+      const existing =
+        await keylessSyncCredentialStorage.getCredential(walletId);
+      if (existing?.keylessWalletId === walletId) {
+        return;
+      }
+      if (existing) {
+        await keylessSyncCredentialStorage.removeAllCredentials();
+      }
+      // Credential missing — re-derive from seed while password is available
+      try {
+        const credentialRecord = await localDb.getCredential(walletId);
+        if (!credentialRecord?.credential) {
+          return;
+        }
+        const { decryptRevealableSeed } =
+          await import('@onekeyhq/core/src/secret');
+        const { default: bufferUtils } =
+          await import('@onekeyhq/shared/src/utils/bufferUtils');
+        const revealableSeed = await decryptRevealableSeed({
+          rs: credentialRecord.credential,
+          password,
+        });
+        const seedBuffer = bufferUtils.toBuffer(revealableSeed.seed, 'hex');
+        const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
+          seed: seedBuffer,
+          keylessWalletId: walletId,
+        });
+        await keylessSyncCredentialStorage.saveCredential(credential);
+        this.setKeylessCloudSyncCredentialCache(credential);
+      } catch (error) {
+        console.error(
+          '[ServiceKeylessCloudSync] Failed to repair credential:',
+          error,
+        );
+      }
+    });
   }
 
   buildSyncCredentialWithKeylessCredential(
@@ -397,12 +573,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }
 
   async setCloudSyncEnabledKeyless(enabled: boolean): Promise<boolean> {
-    const shouldEnableKeyless =
-      enabled && (await this.isKeylessCloudSyncFeatureEnabledInDev());
+    const shouldEnableKeyless = enabled;
 
     if (shouldEnableKeyless) {
       const keylessWallet = await this.getKeylessWallet();
       if (!keylessWallet) {
+        await this.setPersistedCurrentCloudSyncKeylessWalletId(null);
         await primeCloudSyncPersistAtom.set((v) => ({
           ...v,
           isCloudSyncEnabledKeyless: false,
@@ -418,6 +594,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         });
         return false;
       }
+      await this.setPersistedCurrentCloudSyncKeylessWalletId(keylessWallet.id);
 
       const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
       if (isCloudSyncEnabled) {
@@ -433,9 +610,25 @@ class ServiceKeylessCloudSync extends ServiceBase {
       isCloudSyncEnabledKeyless: shouldEnableKeyless,
     }));
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+
+    if (shouldEnableKeyless) {
+      // Re-hydrate credential cache after clearing stale entries
+      await this.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+    }
+
+    // Remove persisted credential when disabling keyless sync
+    if (!shouldEnableKeyless) {
+      const currentWalletId = await this.getCurrentCloudSyncKeylessWalletId();
+      if (currentWalletId) {
+        await keylessSyncCredentialStorage.removeAllCredentials();
+      }
+    }
+
     return shouldEnableKeyless;
   }
 
+  @backgroundMethod()
+  @toastIfError()
   async toggleCloudSyncKeyless({
     enabled,
     silentEnable = false,
@@ -446,10 +639,6 @@ class ServiceKeylessCloudSync extends ServiceBase {
     forceEnable?: boolean;
   }) {
     try {
-      if (enabled && !(await this.isKeylessCloudSyncFeatureEnabledInDev())) {
-        await this.setCloudSyncEnabledKeyless(false);
-        return;
-      }
       if (enabled) {
         const { success } = await this.prepareCloudSyncKeyless({
           silentEnable,
@@ -497,24 +686,45 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async autoEnableCloudSyncKeyless() {
-    if (!(await this.isKeylessCloudSyncFeatureEnabledInDev())) {
-      return;
-    }
-    const { wallets } = await localDb.getAllWallets();
-    const keylessWallets = wallets.filter((wallet) => wallet.isKeyless);
-    if (wallets.length === 1 && keylessWallets.length > 0) {
-      return;
-    }
-    const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
+    const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
+    await this.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(wallets);
+    const { isCloudSyncEnabledKeyless, isCloudSyncEnabled } =
+      await primeCloudSyncPersistAtom.get();
     if (isCloudSyncEnabledKeyless) {
       return;
     }
-    await this.toggleCloudSyncKeyless({
-      enabled: true,
-      silentEnable: true,
-      forceEnable: true,
-    });
+    if (isCloudSyncEnabled) {
+      return;
+    }
+    // If ID sync is active, sync ID data first before switching (auto-migration)
+    const isMigrationFromId = isCloudSyncEnabled;
+    if (isMigrationFromId) {
+      try {
+        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
+          callerName: 'Auto-migration: ID sync before switch',
+          noDebounceUpload: true,
+        });
+      } catch {
+        // ID sync failure shouldn't block auto-enable
+      }
+    }
+    try {
+      await this.toggleCloudSyncKeyless({
+        enabled: true,
+        silentEnable: true,
+        forceEnable: true,
+      });
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_sync_error,
+        }),
+      });
+    }
   }
 
   async prepareCloudSyncKeyless({
@@ -549,6 +759,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify();
+
+    // Ensure credential exists before proceeding (auto-repair if missing)
+    await this.repairKeylessSyncCredentialIfNeeded({ password });
 
     const keylessCredential = await this.getKeylessCloudSyncCredential();
     if (!keylessCredential) {

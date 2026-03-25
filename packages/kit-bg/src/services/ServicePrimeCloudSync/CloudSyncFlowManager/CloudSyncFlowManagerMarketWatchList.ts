@@ -73,6 +73,11 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
 
       const isPerps = !!payload.perpsCoin;
 
+      // Skip invalid non-perps items with empty chainId to avoid infinite sync retry
+      if (!isPerps && !payload.chainId?.trim()) {
+        return true;
+      }
+
       const contractAddress = isPerps
         ? ''
         : normalizeTokenContractAddress({

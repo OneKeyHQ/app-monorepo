@@ -15,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { PerpFooterTicker } from '../../views/Perp/components/FooterTicker/PerpFooterTicker';
 import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
 import { PerpRefreshButton } from '../PerpRefreshButton';
@@ -60,6 +61,62 @@ const getLinks = () => [
   },
 ];
 
+export function PerpFooterActions() {
+  const intl = useIntl();
+  const links = useMemo(() => getLinks(), []);
+
+  const menuTrigger = useMemo(
+    () => (
+      <Icon
+        name="DotHorOutline"
+        size="$5"
+        color="$iconSubdued"
+        cursor="pointer"
+        hoverStyle={{ color: '$icon' }}
+      />
+    ),
+    [],
+  );
+
+  return (
+    <>
+      <XStack
+        alignItems="center"
+        gap="$1"
+        cursor="pointer"
+        flexShrink={0}
+        hoverStyle={{ opacity: 0.6 }}
+        onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
+      >
+        <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perps_footer_help_us_better,
+          })}
+        </SizableText>
+      </XStack>
+      <ActionList
+        title={intl.formatMessage({ id: ETranslations.global_more })}
+        renderTrigger={menuTrigger}
+        sections={[
+          {
+            items: links.map((item) => ({
+              label: intl.formatMessage({ id: item.translationKey }),
+              onPress: () => {
+                if (item.onPress) {
+                  item.onPress();
+                } else if (item.href) {
+                  openUrlExternal(item.href);
+                }
+              },
+            })),
+          },
+        ]}
+      />
+    </>
+  );
+}
+
 export function Footer() {
   const intl = useIntl();
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
@@ -93,21 +150,6 @@ export function Footer() {
     [intl, links],
   );
 
-  const perpMenuTrigger = useMemo(
-    () => (
-      <Icon
-        name="DotHorOutline"
-        size="$5"
-        color="$iconSubdued"
-        cursor="pointer"
-        hoverStyle={{
-          color: '$icon',
-        }}
-      />
-    ),
-    [],
-  );
-
   if (currentTab === ETabRoutes.WebviewPerpTrade) {
     return null;
   }
@@ -126,7 +168,7 @@ export function Footer() {
       alignItems="center"
       justifyContent="space-between"
     >
-      <XStack gap="$2" alignItems="center">
+      <XStack gap="$2" alignItems="center" flexShrink={0}>
         <NetworkStatus />
         {isInPerpRoute ? (
           <PerpsProviderMirror>
@@ -135,42 +177,15 @@ export function Footer() {
         ) : null}
       </XStack>
 
-      <XStack gap="$3" alignItems="center">
+      {isInPerpRoute ? (
+        <PerpsProviderMirror>
+          <PerpFooterTicker />
+        </PerpsProviderMirror>
+      ) : null}
+
+      <XStack gap="$3" alignItems="center" flexShrink={0}>
         {isInPerpRoute ? (
-          <>
-            <XStack
-              alignItems="center"
-              gap="$1"
-              cursor="pointer"
-              hoverStyle={{ opacity: 0.6 }}
-              onPress={() => openUrlExternal(PERP_TELEGRAM_URL)}
-            >
-              <Icon name="TelegramBrand" size="$4" color="$iconSubdued" />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perps_footer_help_us_better,
-                })}
-              </SizableText>
-            </XStack>
-            <ActionList
-              title={intl.formatMessage({ id: ETranslations.global_more })}
-              renderTrigger={perpMenuTrigger}
-              sections={[
-                {
-                  items: links.map((item) => ({
-                    label: intl.formatMessage({ id: item.translationKey }),
-                    onPress: () => {
-                      if (item.onPress) {
-                        item.onPress();
-                      } else if (item.href) {
-                        openUrlExternal(item.href);
-                      }
-                    },
-                  })),
-                },
-              ]}
-            />
-          </>
+          <PerpFooterActions />
         ) : (
           <FooterNavigation>{linkItems}</FooterNavigation>
         )}

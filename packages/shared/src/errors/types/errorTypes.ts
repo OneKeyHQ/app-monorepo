@@ -13,6 +13,10 @@ export enum ECustomOneKeyHardwareError {
   FirmwareUpdateBatteryTooLow = 4081,
 }
 
+export enum ECustomCloudSyncError {
+  OnekeyIdSyncUnavailable = 9001,
+}
+
 export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyAppError = 'OneKeyAppError',
@@ -22,6 +26,7 @@ export enum EOneKeyErrorClassNames {
   OneKeyServerApiError = 'OneKeyServerApiError',
   LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
   PrimeTransferImportCancelledError = 'PrimeTransferImportCancelledError',
+  RequestLimitExceededError = 'RequestLimitExceededError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',

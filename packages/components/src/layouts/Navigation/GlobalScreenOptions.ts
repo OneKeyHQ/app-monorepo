@@ -154,7 +154,9 @@ export function makeOnboardingScreenOptions(info: {
   };
 }
 
-export function makeRootModalStackOptions(): StackNavigationOptions {
+export function makeRootModalStackOptions(_params?: {
+  bgColor?: string;
+}): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
     headerShown: false,

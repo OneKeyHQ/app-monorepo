@@ -15,6 +15,27 @@ import type { IPageNavigationProp } from '../Navigation';
 
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
+const cancelButtonMdStyle = {
+  flexGrow: 1,
+  flexBasis: 0,
+  size: 'large',
+} as any;
+
+const confirmButtonMdStyle = {
+  flexGrow: 1,
+  flexBasis: 0,
+  size: 'large',
+} as any;
+
+const footerActionsGtMdStyle = {
+  flexDirection: 'row',
+  alignItems: 'center',
+} as const;
+
+const footerButtonContainerGtMdStyle = {
+  ml: 'auto',
+} as any;
+
 export type IFooterActionsProps = {
   onConfirm?: (
     close: (extra?: { flag?: string }) => void,
@@ -92,13 +113,7 @@ export function FooterCancelButton({
   }, [onCancel, pop, popStack]);
   return (
     <Button
-      $md={
-        {
-          flexGrow: 1,
-          flexBasis: 0,
-          size: 'large',
-        } as any
-      }
+      $md={cancelButtonMdStyle}
       onPress={handleCancel}
       testID="page-footer-cancel"
       {...props}
@@ -124,13 +139,7 @@ export function FooterConfirmButton({
 
   return (
     <Button
-      $md={
-        {
-          flexGrow: 1,
-          flexBasis: 0,
-          size: 'large',
-        } as any
-      }
+      $md={confirmButtonMdStyle}
       variant="primary"
       onPress={handleConfirm}
       testID="page-footer-confirm"
@@ -175,23 +184,11 @@ export function FooterActions({
     ) : null;
   }, [confirmButton, confirmButtonProps, onConfirm, onConfirmText]);
   return (
-    <Stack
-      p="$5"
-      $gtMd={{
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}
-      bg="$bgApp"
-      {...restProps}
-    >
+    <Stack p="$5" $gtMd={footerActionsGtMdStyle} bg="$bgApp" {...restProps}>
       {children}
       <XStack
         gap="$2.5"
-        $gtMd={
-          {
-            ml: 'auto',
-          } as any
-        }
+        $gtMd={footerButtonContainerGtMdStyle}
         {...(buttonContainerProps as IXStackProps)}
       >
         {renderCancelButton()}

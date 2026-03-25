@@ -46,20 +46,33 @@ export function FirmwareUpdateReminderAlert({
       bg="$bgInfoSubdued"
       borderColor="$borderInfoSubdued"
       alignItems="center"
-      gap="$2"
+      gap="$3"
+      justifyContent="space-between"
       flex={1}
       {...(containerProps as IXStackProps)}
     >
-      <Icon size="$5" name="DownloadOutline" color="$iconInfo" />
-      <SizableText
-        flex={1}
-        size="$bodyMdMedium"
-        color="$text"
-        numberOfLines={1}
+      <XStack alignItems="center" gap="$2" flex={1}>
+        <Icon
+          name="DownloadOutline"
+          color="$iconInfo"
+          size="$5"
+          flexShrink={0}
+        />
+        <SizableText
+          size="$bodyMdMedium"
+          color="$text"
+          flex={1}
+          numberOfLines={1}
+        >
+          {message}
+        </SizableText>
+      </XStack>
+      <Button
+        size="small"
+        variant="secondary"
+        onPress={onPress}
+        borderRadius="$1"
       >
-        {message}
-      </SizableText>
-      <Button size="small" onPress={onPress} borderRadius="$1">
         {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>
@@ -123,11 +136,11 @@ function HomeFirmwareUpdateReminderCmp() {
       return (
         <FirmwareUpdateReminderAlert
           containerProps={{
-            pl: '$3',
-            pr: '$2',
+            px: '$5',
             py: '$1.5',
             borderWidth: StyleSheet.hairlineWidth,
-            borderRadius: '$2',
+            borderLeftWidth: 0,
+            borderRightWidth: 0,
             borderCurve: 'continuous',
           }}
           message={message}

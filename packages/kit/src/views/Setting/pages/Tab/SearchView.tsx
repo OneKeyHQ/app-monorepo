@@ -98,7 +98,9 @@ export function SearchView({
                     <TabSettingsListGrid
                       key={config.item.title}
                       item={config.item}
-                      titleMatch={config.matches?.[0]}
+                      titleMatch={config.matches?.find(
+                        (m) => m.key === 'title',
+                      )}
                     />
                   ))}
                 </TabSettingsSection>

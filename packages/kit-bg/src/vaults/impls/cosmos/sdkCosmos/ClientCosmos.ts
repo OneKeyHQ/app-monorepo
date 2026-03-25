@@ -56,6 +56,13 @@ export class ClientCosmos {
     return response.data.block.header;
   }
 
+  async fetchConsensusIoPubKey(): Promise<{ key: string }> {
+    const response = await this.axios.get<{ key: string }>(
+      '/registration/v1beta1/tx-key',
+    );
+    return response.data;
+  }
+
   async broadcastTransaction({
     rawTx,
   }: {

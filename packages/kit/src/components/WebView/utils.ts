@@ -1,3 +1,5 @@
+export const WEBVIEW_LOAD_TIMEOUT_MS = 60_000;
+
 /**
  * Creates an injectable script to post a message to the WebView window
  * @param message - The message to be posted to the WebView window

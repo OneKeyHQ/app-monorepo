@@ -16,6 +16,8 @@ import { HeaderRight, SelectorTrigger } from './HeaderRight';
 import { HeaderTitle } from './HeaderTitle';
 import { LegacyUniversalSearchInput } from './LegacyUniversalSearchInput';
 
+import type { SharedValue } from 'react-native-reanimated';
+
 export function MDHeader({
   tabRoute,
   sceneName,
@@ -25,6 +27,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
+  pageScrollPosition,
 }: {
   tabRoute: ETabRoutes;
   sceneName: EAccountSelectorSceneName;
@@ -38,6 +41,7 @@ export function MDHeader({
     fixedItems: ReactNode;
   }) => ReactNode;
   headerPx?: string;
+  pageScrollPosition?: SharedValue<number>;
 }) {
   const { top } = useSafeAreaInsets();
   const rightActions = useMemo(() => {
@@ -132,6 +136,7 @@ export function MDHeader({
                     sceneName={sceneName}
                     tabRoute={tabRoute}
                     customHeaderLeftItems={customHeaderLeftItems}
+                    pageScrollPosition={pageScrollPosition}
                   />
                 </View>
                 <View>

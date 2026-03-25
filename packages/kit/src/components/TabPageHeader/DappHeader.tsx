@@ -34,6 +34,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { KeylessWebConnectAlertContainer } from '../../provider/Container/KeylessWebConnectAlertContainer';
 import {
   useAccountSelectorContextData,
   useActiveAccount,
@@ -341,16 +342,21 @@ function AnnouncementListItem() {
   );
 }
 
-function SettingListItem() {
+function SettingListItem({
+  onBeforeNavigate,
+}: {
+  onBeforeNavigate?: () => void;
+}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
   const handlePress = useCallback(async () => {
+    onBeforeNavigate?.();
     await closePopover?.();
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
-  }, [closePopover, navigation]);
+  }, [closePopover, navigation, onBeforeNavigate]);
   return (
     <ListItem
       title={intl.formatMessage({ id: ETranslations.settings_settings })}
@@ -376,6 +382,10 @@ function MoreDappActionContent() {
     setActiveSelect(isOpen ? 'currency' : null);
   }, []);
 
+  const closeAllDropdowns = useCallback(() => {
+    setActiveSelect(null);
+  }, []);
+
   return (
     <YStack py="$3">
       <ThemeListItem />
@@ -393,7 +403,7 @@ function MoreDappActionContent() {
         <Divider />
       </YStack>
       <AnnouncementListItem />
-      <SettingListItem />
+      <SettingListItem onBeforeNavigate={closeAllDropdowns} />
     </YStack>
   );
 }
@@ -471,6 +481,7 @@ function RightActions({
           onPress={handleSearchPress}
         />
       )}
+
       {isPerpsTab && customHeaderRightItems ? (
         customHeaderRightItems
       ) : (
@@ -485,7 +496,10 @@ function RightActions({
           </XStack>
         </>
       )}
+
       {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}
+      <KeylessWebConnectAlertContainer />
+
       <XStack
         ai="center"
         gap="$2.5"

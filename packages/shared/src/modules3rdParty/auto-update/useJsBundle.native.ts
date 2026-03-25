@@ -1,11 +1,6 @@
-import { NativeModules } from 'react-native';
+import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 
-const BundleUpdateModule = NativeModules.BundleUpdateModule;
-
-const jsBundlePath: string =
-  BundleUpdateModule && BundleUpdateModule.jsBundlePath
-    ? BundleUpdateModule.jsBundlePath()
-    : '';
+const jsBundlePath: string = ReactNativeBundleUpdate.getJsBundlePath() || '';
 
 export const getJsBundlePath = () => {
   return jsBundlePath;

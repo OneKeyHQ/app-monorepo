@@ -78,13 +78,30 @@ export type INavigationToMessageConfirmAsyncParams = Omit<
   'onSuccess' | 'onFail' | 'onCancel'
 >;
 
-function useSignatureConfirm(params: IParams) {
+type INavigationToTxConfirm = (params: IBuildUnsignedTxParams) => Promise<void>;
+
+type INavigationToMessageConfirm = (
+  params: INavigationToMessageConfirmParams,
+) => void;
+
+type INavigationToMessageConfirmAsync = (
+  params: INavigationToMessageConfirmAsyncParams,
+) => Promise<string>;
+
+type IUseSignatureConfirmResult = {
+  navigationToMessageConfirm: INavigationToMessageConfirm;
+  navigationToMessageConfirmAsync: INavigationToMessageConfirmAsync;
+  navigationToTxConfirm: INavigationToTxConfirm;
+  normalizeTxConfirm: INavigationToTxConfirm;
+};
+
+function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
   const { accountId, networkId } = params;
 
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const normalizeTxConfirm = useCallback(
+  const normalizeTxConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const {
         sameModal,
@@ -213,7 +230,7 @@ function useSignatureConfirm(params: IParams) {
     [accountId, navigation, networkId],
   );
 
-  const lightningSignatureConfirm = useCallback(
+  const lightningSignatureConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const { onSuccess, onFail, onCancel } = params;
 
@@ -286,7 +303,7 @@ function useSignatureConfirm(params: IParams) {
     [accountId, navigation, networkId, normalizeTxConfirm],
   );
 
-  const navigationToTxConfirm = useCallback(
+  const navigationToTxConfirm: INavigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
         await lightningSignatureConfirm(params);
@@ -297,7 +314,7 @@ function useSignatureConfirm(params: IParams) {
     [networkId, normalizeTxConfirm, lightningSignatureConfirm],
   );
 
-  const navigationToMessageConfirm = useCallback(
+  const navigationToMessageConfirm: INavigationToMessageConfirm = useCallback(
     (params: INavigationToMessageConfirmParams) => {
       const {
         unsignedMessage,
@@ -348,26 +365,29 @@ function useSignatureConfirm(params: IParams) {
   );
 
   // Promise-based version of navigationToMessageConfirm
-  const navigationToMessageConfirmAsync = useCallback(
-    async (params: INavigationToMessageConfirmAsyncParams): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        navigationToMessageConfirm({
-          ...params,
-          onSuccess: (result) => resolve(result),
-          onFail: (error) => reject(error),
-          onCancel: () =>
-            reject(
-              new OneKeyLocalError(
-                intl.formatMessage({
-                  id: ETranslations.feedback_user_rejected,
-                }),
+  const navigationToMessageConfirmAsync: INavigationToMessageConfirmAsync =
+    useCallback(
+      async (
+        params: INavigationToMessageConfirmAsyncParams,
+      ): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          navigationToMessageConfirm({
+            ...params,
+            onSuccess: (result) => resolve(result),
+            onFail: (error) => reject(error),
+            onCancel: () =>
+              reject(
+                new OneKeyLocalError(
+                  intl.formatMessage({
+                    id: ETranslations.feedback_user_rejected,
+                  }),
+                ),
               ),
-            ),
+          });
         });
-      });
-    },
-    [navigationToMessageConfirm, intl],
-  );
+      },
+      [navigationToMessageConfirm, intl],
+    );
 
   return {
     navigationToMessageConfirm,

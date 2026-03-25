@@ -7,7 +7,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export function PerpCandles() {
+export function PerpCandles({
+  onTouchScroll,
+}: {
+  onTouchScroll?: (deltaY: number) => void;
+}) {
   const [currentToken] = usePerpsActiveAssetAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
@@ -21,6 +25,7 @@ export function PerpCandles() {
           userAddress={currentAccount?.accountAddress}
           symbol={currentToken.coin}
           w={platformEnv.isNative ? width : undefined}
+          onTouchScroll={onTouchScroll}
         />
       ) : null}
     </Stack>

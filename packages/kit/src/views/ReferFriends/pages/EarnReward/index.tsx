@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Alert, DatePicker, Page, XStack, YStack } from '@onekeyhq/components';
@@ -14,10 +13,6 @@ import {
   EExportTab,
   EExportTimeRange,
 } from '@onekeyhq/shared/src/referralCode/type';
-import type {
-  ETabReferFriendsRoutes,
-  ITabReferFriendsParamList,
-} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -32,21 +27,14 @@ import { useRewardFilter } from '../../hooks/useRewardFilter';
 
 import { EarnRewardsTab } from './components';
 
-import type { RouteProp } from '@react-navigation/core';
-
 function EarnRewardPageWrapper() {
   // Redirect to ReferAFriend page if user is not logged in
   useRedirectWhenNotLoggedIn();
 
-  const route =
-    useRoute<
-      RouteProp<ITabReferFriendsParamList, ETabReferFriendsRoutes.TabEarnReward>
-    >();
-
   const intl = useIntl();
-  const title =
-    route.params?.title ||
-    intl.formatMessage({ id: ETranslations.referral_referred_type_2 });
+  const title = intl.formatMessage({
+    id: ETranslations.referral_referred_type_2,
+  });
 
   const { tourTimes, tourVisited } = useSpotlight(
     ESpotlightTour.earnRewardAlert,

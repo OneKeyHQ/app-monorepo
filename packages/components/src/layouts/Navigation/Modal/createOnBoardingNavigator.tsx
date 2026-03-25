@@ -36,7 +36,43 @@ import type {
 import type { GestureResponderEvent } from 'react-native';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
+const modalTransitionStyle = {
+  transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform',
+};
 let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
+
+const hiddenContentVisibilityStyle = { contentVisibility: 'hidden' as const };
+
+function RouteWrapper({
+  routeIndex,
+  isCurrentRoute,
+  stackChildrenRefList,
+  render,
+}: {
+  routeIndex: number;
+  isCurrentRoute: boolean;
+  stackChildrenRefList: React.MutableRefObject<TamaguiElement[]>;
+  render: () => React.ReactNode;
+}) {
+  const refCallback = useCallback(
+    (ref: TamaguiElement | null) => {
+      if (ref) {
+        stackChildrenRefList.current[routeIndex] = ref;
+      }
+    },
+    [stackChildrenRefList, routeIndex],
+  );
+  const style =
+    !platformEnv.isNative && !isCurrentRoute
+      ? hiddenContentVisibilityStyle
+      : undefined;
+  return (
+    <Stack ref={refCallback} flex={1} bg="$bg" style={style}>
+      {render()}
+    </Stack>
+  );
+}
 
 type IProps = DefaultNavigatorOptions<
   ParamListBase,
@@ -153,21 +189,12 @@ function OnBoardingModalNavigator({
     const { render } = routeDescriptor;
     const isCurrentRoute = routeIndex === state.index;
     routeDescriptor.render = () => (
-      <Stack
-        ref={(ref) => {
-          if (ref) {
-            stackChildrenRefList.current[routeIndex] = ref;
-          }
-        }}
-        flex={1}
-        bg="$bg"
-        style={{
-          contentVisibility:
-            !platformEnv.isNative && !isCurrentRoute ? 'hidden' : undefined,
-        }}
-      >
-        {render()}
-      </Stack>
+      <RouteWrapper
+        routeIndex={routeIndex}
+        isCurrentRoute={isCurrentRoute}
+        stackChildrenRefList={stackChildrenRefList}
+        render={render}
+      />
     );
   });
 
@@ -176,6 +203,15 @@ function OnBoardingModalNavigator({
       portalId: createPortalId(),
     }),
     [],
+  );
+
+  const modalViewRefCallback = useCallback(
+    (ref: TamaguiElement | null) => {
+      if (ref) {
+        MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+      }
+    },
+    [currentRouteIndex],
   );
 
   return (
@@ -194,15 +230,8 @@ function OnBoardingModalNavigator({
               height="100%"
               borderTopStartRadius="$6"
               borderTopEndRadius="$6"
-              ref={(ref) => {
-                if (ref) {
-                  MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
-                }
-              }}
-              style={{
-                transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-                willChange: 'transform',
-              }}
+              ref={modalViewRefCallback}
+              style={modalTransitionStyle}
             >
               <StackView
                 {...(rest as any)}

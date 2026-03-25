@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { NetworkStatusBadge, useOnRouterChange } from '@onekeyhq/components';
 import { useNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export function NetworkStatus() {
+  const intl = useIntl();
   const { isInternetReachable } = useNetInfo();
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
   const [perpsNetworkStatus] = usePerpsNetworkStatusAtom();
@@ -25,18 +29,32 @@ export function NetworkStatus() {
     setCurrentTab(currentTabName);
   });
 
+  const isInPerpRoute =
+    currentTab === ETabRoutes.Perp ||
+    currentTab === ETabRoutes.WebviewPerpTrade;
+
   // Determine network status based on current tab
   const isConnected = useMemo(() => {
-    // If in perps page, use perps network status
-    if (
-      currentTab === ETabRoutes.Perp ||
-      currentTab === ETabRoutes.WebviewPerpTrade
-    ) {
+    if (isInPerpRoute) {
       return Boolean(perpsNetworkStatus?.connected);
     }
-    // Otherwise use default network status
     return isInternetReachable !== false;
-  }, [currentTab, perpsNetworkStatus?.connected, isInternetReachable]);
+  }, [isInPerpRoute, perpsNetworkStatus?.connected, isInternetReachable]);
 
-  return <NetworkStatusBadge connected={isConnected} badgeSize="sm" />;
+  // Show ping latency in badge label when on Perp tab
+  const label = useMemo(() => {
+    if (
+      isInPerpRoute &&
+      isConnected &&
+      perpsNetworkStatus?.pingMs !== null &&
+      perpsNetworkStatus?.pingMs !== undefined
+    ) {
+      return `${intl.formatMessage({ id: ETranslations.perp_online })} ${perpsNetworkStatus.pingMs}ms`;
+    }
+    return undefined;
+  }, [isInPerpRoute, isConnected, perpsNetworkStatus?.pingMs, intl]);
+
+  return (
+    <NetworkStatusBadge connected={isConnected} badgeSize="sm" label={label} />
+  );
 }

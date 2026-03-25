@@ -116,10 +116,18 @@ export function DefaultLoadingNode({
         </XStack>
 
         <YStack gap="$1.5" flex={1}>
-          <Skeleton w="100%" h={MOBILE_ROW_HEIGHT} radius="round" />
-          <Skeleton w="80%" h={MOBILE_ROW_HEIGHT} radius="round" />
-          <Skeleton w="60%" h={MOBILE_ROW_HEIGHT} radius="round" />
-          <Skeleton w="40%" h={MOBILE_ROW_HEIGHT} radius="round" />
+          <XStack w="100%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
+          <XStack w="80%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
+          <XStack w="60%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
+          <XStack w="40%" h={MOBILE_ROW_HEIGHT}>
+            <Skeleton w="100%" h="100%" radius="round" />
+          </XStack>
         </YStack>
       </YStack>
     );

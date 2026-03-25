@@ -25,7 +25,7 @@ import {
 } from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
-import { createMessageInjectedScript } from './utils';
+import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 
 import type {
   IElectronWebView,
@@ -81,6 +81,7 @@ const DesktopWebView = forwardRef(
       // @ts-expect-error
       onNewWindow,
       onDomReady,
+      onShouldStartLoadWithRequest,
       ...props
     }: ComponentProps<typeof WEBVIEW_TAG> &
       IElectronWebViewEvents &
@@ -93,8 +94,26 @@ const DesktopWebView = forwardRef(
     const pendingScriptsRef = useRef<string[]>([]);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
     const [devSettings] = useDevSettingsPersistAtom();
+    const isUnmountingRef = useRef(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
+    const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const clearLoadTimeout = useCallback(() => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    }, []);
+
+    const startLoadTimeout = useCallback(() => {
+      clearLoadTimeout();
+      loadTimeoutRef.current = setTimeout(() => {
+        if (!isUnmountingRef.current) {
+          setDesktopLoadError(true);
+        }
+      }, WEBVIEW_LOAD_TIMEOUT_MS);
+    }, [clearLoadTimeout]);
 
     const flushPendingScripts = useCallback(() => {
       if (!isDomReady || !webviewRef.current) {
@@ -156,6 +175,9 @@ const DesktopWebView = forwardRef(
         };
 
         const innerHandleDidFailLoad = (event: any) => {
+          if (event.isMainFrame) {
+            clearLoadTimeout();
+          }
           if (event.errorCode !== -3) {
             // TODO iframe error also show ErrorView
             //      testing www.163.com
@@ -170,9 +192,20 @@ const DesktopWebView = forwardRef(
           event: DidStartNavigationEvent,
         ) => {
           const { isMainFrame, url } = event ?? {};
+          if (isMainFrame && onShouldStartLoadWithRequest && url) {
+            const shouldLoad = onShouldStartLoadWithRequest({
+              url,
+              isTopFrame: true,
+            });
+            if (!shouldLoad) {
+              webviewRef.current?.stop();
+              return;
+            }
+          }
           if (isMainFrame) {
             setDesktopLoadError(false);
             setIsDomReady(false);
+            startLoadTimeout();
           }
           checkGoogleOauth(url);
           checkEraseElectronFeature(url);
@@ -180,8 +213,15 @@ const DesktopWebView = forwardRef(
         };
 
         const didFinishLoad = (e: any) => {
+          clearLoadTimeout();
+          setDesktopLoadError(false);
           onDidFinishLoad?.();
           onLoadEnd?.(e);
+        };
+
+        const innerHandleDidStopLoading = () => {
+          clearLoadTimeout();
+          onDidStopLoading?.();
         };
 
         webview.addEventListener('did-start-loading', onDidStartLoading);
@@ -190,7 +230,7 @@ const DesktopWebView = forwardRef(
           innerHandleDidStartNavigationNavigation,
         );
         webview.addEventListener('did-finish-load', didFinishLoad);
-        webview.addEventListener('did-stop-loading', onDidStopLoading);
+        webview.addEventListener('did-stop-loading', innerHandleDidStopLoading);
         webview.addEventListener('did-fail-load', innerHandleDidFailLoad);
         webview.addEventListener('page-title-updated', onPageTitleUpdated);
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
@@ -203,13 +243,17 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('dom-ready', handleDomReady);
 
         return () => {
+          clearLoadTimeout();
           webview.removeEventListener('did-start-loading', onDidStartLoading);
           webview.removeEventListener(
             'did-start-navigation',
             innerHandleDidStartNavigationNavigation,
           );
           webview.removeEventListener('did-finish-load', didFinishLoad);
-          webview.removeEventListener('did-stop-loading', onDidStopLoading);
+          webview.removeEventListener(
+            'did-stop-loading',
+            innerHandleDidStopLoading,
+          );
           webview.removeEventListener('did-fail-load', innerHandleDidFailLoad);
           webview.removeEventListener('page-title-updated', onPageTitleUpdated);
           webview.removeEventListener(
@@ -223,6 +267,8 @@ const DesktopWebView = forwardRef(
         console.error(error);
       }
     }, [
+      clearLoadTimeout,
+      startLoadTimeout,
       onDidFailLoad,
       onDidFinishLoad,
       onDidStartLoading,
@@ -233,6 +279,7 @@ const DesktopWebView = forwardRef(
       onPageTitleUpdated,
       onDidStartNavigation,
       onLoadEnd,
+      onShouldStartLoadWithRequest,
     ]);
     if (isDev && props.preload) {
       console.warn(
@@ -242,10 +289,12 @@ const DesktopWebView = forwardRef(
 
     useEffect(
       () => () => {
+        isUnmountingRef.current = true;
+        clearLoadTimeout();
         // not working, ref is null after unmount
         webviewRef.current?.closeDevTools();
       },
-      [],
+      [clearLoadTimeout],
     );
 
     // TODO extract to hooks

@@ -18,6 +18,7 @@ export type ITabEarnParamList = {
     symbol: string;
     filterNetworkId?: string;
     logoURI?: string;
+    defaultCategory?: 'simpleEarn' | 'fixedRate';
   };
   [ETabEarnRoutes.EarnProtocolDetails]: {
     networkId: string;

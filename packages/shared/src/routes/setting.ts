@@ -7,7 +7,6 @@ export enum EModalSettingRoutes {
   SettingSpendUTXOModal = 'SettingSpendUTXOModal',
   SettingCustomRPC = 'SettingCustomRPC',
   SettingCustomTransaction = 'SettingCustomTransaction',
-  SettingPerpUserConfig = 'SettingPerpUserConfig',
   SettingCustomNetwork = 'SettingCustomNetwork',
   SettingAppAutoLockModal = 'SettingAppAutoLockModal',
   SettingProtectModal = 'SettingProtectModal',
@@ -28,6 +27,12 @@ export enum EModalSettingRoutes {
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
+  // Dev JS Bundle Manager
+  SettingDevBundleManagerModal = 'SettingDevBundleManagerModal',
+  SettingDevBundleVersionList = 'SettingDevBundleVersionList',
+  SettingDevBundleList = 'SettingDevBundleList',
+  SettingDevLocalBundleList = 'SettingDevLocalBundleList',
+  SettingDevBundleUpdateStatusModal = 'SettingDevBundleUpdateStatusModal',
   // OneKey ID sub-pages
   SettingOneKeyIdPersonalInfo = 'SettingOneKeyIdPersonalInfo',
   SettingOneKeyIdSignInSecurity = 'SettingOneKeyIdSignInSecurity',
@@ -67,7 +72,12 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
-  [EModalSettingRoutes.SettingPerpUserConfig]: undefined;
+  // Dev JS Bundle Manager
+  [EModalSettingRoutes.SettingDevBundleManagerModal]: undefined;
+  [EModalSettingRoutes.SettingDevBundleVersionList]: undefined;
+  [EModalSettingRoutes.SettingDevBundleList]: { version: string };
+  [EModalSettingRoutes.SettingDevLocalBundleList]: undefined;
+  [EModalSettingRoutes.SettingDevBundleUpdateStatusModal]: undefined;
   // OneKey ID sub-pages
   [EModalSettingRoutes.SettingOneKeyIdPersonalInfo]: undefined;
   [EModalSettingRoutes.SettingOneKeyIdSignInSecurity]: undefined;

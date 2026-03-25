@@ -130,19 +130,18 @@ export function HomePageView({
   const wasBlurredRef = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      let rafId: number | undefined;
+      let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
       if (wasBlurredRef.current && tabsRef.current) {
         // Force PagerView to display the correct page after freeze/unfreeze.
-        // jumpToTab won't work here because onTabPress skips setPage when
-        // the tab is already focused. We need to call setPageWithoutAnimation
-        // directly to force the native PagerView to re-render its current page.
-        rafId = requestAnimationFrame(() => {
+        // Defer until JS thread is idle to avoid blocking the first render
+        // frame after tab switch, which causes black screen flicker.
+        idleHandle = requestIdleCallback(() => {
           tabsRef.current?.syncCurrentPage();
         });
       }
       return () => {
-        if (rafId !== undefined) {
-          cancelAnimationFrame(rafId);
+        if (idleHandle !== undefined) {
+          cancelIdleCallback(idleHandle);
         }
         wasBlurredRef.current = true;
       };
@@ -330,7 +329,12 @@ export function HomePageView({
   );
 
   const renderHeader = useCallback(() => {
-    return <HomeHeaderContainer />;
+    return (
+      <>
+        <RiskApprovalAlert />
+        <HomeHeaderContainer />
+      </>
+    );
   }, []);
 
   const tabConfigs = useMemo(() => {
@@ -415,8 +419,6 @@ export function HomePageView({
         ref={tabsRef as any}
         key={key}
         allowHeaderOverscroll
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        // @ts-ignore
         useNativeHeaderAnimation={platformEnv.isNativeAndroid}
         width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
         renderHeader={renderHeader}
@@ -623,7 +625,6 @@ export function HomePageView({
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
             )}
             <NetworkAlert />
-            <RiskApprovalAlert />
             {content}
             {platformEnv.isNative ? (
               <YStack

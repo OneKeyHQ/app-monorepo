@@ -8,7 +8,6 @@
     "typescript-lsp@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": false,
     "commit-commands@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
-    "react-native-best-practices@callstack-agent-skills": true
+    "feature-dev@claude-plugins-official": true
   }
 }

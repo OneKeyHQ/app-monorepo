@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -138,10 +139,20 @@ const COMPARE_TOTAL_FEE_COLUMN_WIDTH = 108;
 const COMPARE_PROVIDER_FEE_COLUMN_WIDTH = 174;
 const COMPARE_COLUMN_GAP = '$3';
 const COMPARE_ROW_HORIZONTAL_PADDING = '$1';
-const COMPARE_TRADE_VOLUME_USD = 100_000;
+const COMPARE_TRADE_VOLUME_USD = 1_000_000;
 const COMPARE_MOBILE_WALLET_COLUMN_WIDTH = '18%';
 const COMPARE_MOBILE_TOTAL_COLUMN_WIDTH = '32%';
 const COMPARE_MOBILE_PROVIDER_COLUMN_WIDTH = '50%';
+
+function formatCompareTradeVolumeLabel(value: number): string {
+  if (value >= 1_000_000 && value % 1_000_000 === 0) {
+    return `$${value / 1_000_000}M`;
+  }
+  if (value >= 1000 && value % 1000 === 0) {
+    return `$${value / 1000}K`;
+  }
+  return `$${value}`;
+}
 
 function WalletRow({
   totalTakerFee,
@@ -311,13 +322,13 @@ function YourFeesSection({
           label={hlTakerFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.hlTaker)}
           emphasis
-          valueColor="$green11"
+          valueColor="$text"
         />
         <FeeRow
           label={hlMakerFeeLabel}
           value={formatFeePercent(resolvedFeeInfo.hlMaker)}
           emphasis
-          valueColor="$green11"
+          valueColor="$text"
         />
       </YStack>
       <Stack h={1} bg="$borderSubdued" />
@@ -366,7 +377,7 @@ function WalletComparisonSection({
   const totalTakerFeeLabel = intl.formatMessage({
     id: ETranslations.perps_fee_tiers_total_taker_fee,
   });
-  const providerFeeColumnTitle = `${builderFeeLabel} ($100k)`;
+  const providerFeeColumnTitle = `${builderFeeLabel} (${formatCompareTradeVolumeLabel(COMPARE_TRADE_VOLUME_USD)})`;
 
   const walletColumnLayout = useFluidColumns
     ? { width: COMPARE_MOBILE_WALLET_COLUMN_WIDTH }

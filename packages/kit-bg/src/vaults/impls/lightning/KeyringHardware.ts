@@ -317,7 +317,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    console.log('LightningNetwork signMessage: ', params);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('LightningNetwork signMessage: ', params);
+    }
     const network = await this.vault.getNetwork();
     const coinName = this.getBtcCoinName(network.isTestnet);
     const dbAccount = await this.vault.getAccount();

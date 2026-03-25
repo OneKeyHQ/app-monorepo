@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -15,6 +21,27 @@ import {
 } from '../utils/tokenListHelpers';
 
 import type { IMarketToken } from '../MarketTokenData';
+
+// Cached token list shared with the edit dialog so it opens instantly.
+let watchlistTokenCache: IMarketToken[] = [];
+const cacheListeners = new Set<() => void>();
+
+export function getWatchlistTokenCache(): IMarketToken[] {
+  return watchlistTokenCache;
+}
+
+function subscribeWatchlistTokenCache(cb: () => void) {
+  cacheListeners.add(cb);
+  return () => {
+    cacheListeners.delete(cb);
+  };
+}
+
+const getIsReady = () => watchlistTokenCache.length > 0;
+
+export function useIsWatchlistTokenCacheReady(): boolean {
+  return useSyncExternalStore(subscribeWatchlistTokenCache, getIsReady);
+}
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
@@ -270,6 +297,23 @@ export function useMarketWatchlistTokenList({
     setCurrentPage(1);
     void refetchData();
   }, [refetchData]);
+
+  useEffect(() => {
+    const prevLength = watchlistTokenCache.length;
+    watchlistTokenCache = paginatedData;
+    if ((prevLength === 0) !== (paginatedData.length === 0)) {
+      cacheListeners.forEach((cb) => cb());
+    }
+  }, [paginatedData]);
+
+  // Clear stale cache on unmount so re-mounting reads fresh data
+  useEffect(
+    () => () => {
+      watchlistTokenCache = [];
+      cacheListeners.forEach((cb) => cb());
+    },
+    [],
+  );
 
   return {
     data: paginatedData,

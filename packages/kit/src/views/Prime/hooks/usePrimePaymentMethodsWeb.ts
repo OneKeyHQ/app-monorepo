@@ -121,6 +121,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
 
         return {
           subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
+          currencyCode,
           pricePerYear: Number(pricePerYear),
           pricePerYearString: `${pricePerYear} ${currencyCode}`,
           pricePerMonth: Number(pricePerMonth),
@@ -142,11 +143,13 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       subscriptionPeriod,
       email,
       locale,
+      currency,
       featureName,
     }: {
       subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
+      currency?: string;
       featureName?: EPrimeFeatures;
     }) => {
       await initSdk({ loginRequired: true });
@@ -162,7 +165,9 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
         //   }),
         // });
 
-        const offerings = await Purchases.getSharedInstance().getOfferings();
+        const offerings = await Purchases.getSharedInstance().getOfferings(
+          currency ? { currency } : undefined,
+        );
 
         if (!offerings.current) {
           throw new OneKeyLocalError(

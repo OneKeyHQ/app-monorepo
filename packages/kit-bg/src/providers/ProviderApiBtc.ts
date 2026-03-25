@@ -355,6 +355,58 @@ class ProviderApiBtc extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  public async getBalanceV2(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const { balance } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+      });
+    return {
+      available: balance,
+      unavailable: 0,
+      total: balance,
+    };
+  }
+
+  @providerApiMethod()
+  public async getBitcoinUtxos(
+    request: IJsBridgeMessagePayload,
+    params?: { cursor?: number; size?: number },
+  ) {
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    const { utxoList } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+        withUTXOList: true,
+      });
+
+    const mappedUtxos =
+      utxoList?.map((it) => {
+        const bn = new BigNumber(it.value ?? 0);
+        const satoshis = bn.isNaN() ? 0 : bn.toNumber();
+
+        return {
+          txid: it.txid,
+          vout: it.vout,
+          pubkey: it.txPubkey,
+          satoshis,
+          scriptPk: it.scriptPublicKey,
+        };
+      }) ?? [];
+
+    const { cursor = 0, size = mappedUtxos.length } = params ?? {};
+    return mappedUtxos.slice(cursor, cursor + size);
+  }
+
+  @providerApiMethod()
   public async getInscriptions() {
     throw web3Errors.rpc.methodNotSupported();
   }

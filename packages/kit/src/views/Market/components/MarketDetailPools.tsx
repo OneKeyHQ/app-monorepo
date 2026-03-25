@@ -256,14 +256,19 @@ export function MarketDetailPools({
   );
 
   const onHeaderRow = useCallback(
-    (column: ITableColumn<IDataSourceItem>) => ({
-      onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
-        handleSortTypeChange?.({
-          columnName: column.dataIndex,
-          order,
-        });
-      },
-    }),
+    (column: ITableColumn<IDataSourceItem>) => {
+      if (!column.title) {
+        return undefined;
+      }
+      return {
+        onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
+          handleSortTypeChange?.({
+            columnName: column.dataIndex,
+            order,
+          });
+        },
+      };
+    },
     [handleSortTypeChange],
   );
 

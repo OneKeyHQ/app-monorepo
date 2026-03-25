@@ -1430,7 +1430,9 @@ export default class Vault extends VaultBase {
             deviceParams,
             signOnly: true,
           });
-          console.log('signTx@vault.signTransaction', signedTx);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('signTx@vault.signTransaction', signedTx);
+          }
           return signedTx;
         },
         { deviceParams, debugMethodName: 'serviceSend.signTransaction' },

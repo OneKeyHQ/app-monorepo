@@ -169,7 +169,7 @@ function FeeComparisonContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
                 h="$1"
                 borderRadius="$full"
                 bg={item.logo?.color ?? '$bgStrong'}
-                width={`${Math.max(Number(item.logo?.percentage ?? 0) * 100, 5)}%`}
+                width={`${Math.max(Number(item.logo?.percentage ?? 0) * 100, 0)}%`}
               />
             </Stack>
             <SizableText

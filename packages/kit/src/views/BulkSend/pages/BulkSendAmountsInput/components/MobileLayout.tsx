@@ -21,6 +21,7 @@ function MobileLayout() {
     transfersInfo: baseTransfersInfo,
     currentModeData,
     updateCurrentModeData,
+    minTransferAmount,
   } = useBulkSendAmountsInputContext();
 
   const { transfersInfo: modeTransfersInfo, transferInfoErrors } =
@@ -49,6 +50,7 @@ function MobileLayout() {
     setTransfersInfo: setModeTransfersInfo,
     transferInfoErrors,
     setTransferInfoErrors,
+    minTransferAmount,
   });
 
   // Use base transfersInfo for generating preview, mode-specific for display

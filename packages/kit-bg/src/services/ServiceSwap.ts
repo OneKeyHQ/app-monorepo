@@ -65,6 +65,7 @@ import type {
   IFetchQuoteResult,
   IFetchQuotesParams,
   IFetchResponse,
+  IFetchSpeedCheckResult,
   IFetchSwapQuoteParams,
   IFetchSwapTxHistoryStatusResponse,
   IFetchTokenDetailParams,
@@ -365,6 +366,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap fetch token cancel', {
           cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
         });
@@ -473,12 +475,14 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     contractAddress,
     direction,
+    currency,
   }: {
     networkId: string;
     accountAddress?: string;
     accountId?: string;
     contractAddress: string;
     direction?: ESwapDirectionType;
+    currency?: string;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
@@ -487,6 +491,7 @@ export default class ServiceSwap extends ServiceBase {
         networkId,
         accountAddress,
         contractAddress,
+        currency,
       };
       if (direction) {
         if (direction === ESwapDirectionType.FROM) {
@@ -537,12 +542,14 @@ export default class ServiceSwap extends ServiceBase {
         {
           params,
           signal: fetchSignal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId,
               },
-            ),
+            )),
+            ...(currency ? { 'x-onekey-request-currency': currency } : {}),
+          },
         },
       );
       return data?.data;
@@ -647,7 +654,7 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
@@ -1075,7 +1082,7 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap check token approve allowance cancel', {
           cause: ESwapFetchCancelCause.SWAP_APPROVE_ALLOWANCE_CANCEL,
         });
@@ -2295,6 +2302,30 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchSpeedCheck(params: {
+    fromNetworkId: string;
+    toNetworkId: string;
+    fromTokenAddress: string;
+    toTokenAddress: string;
+    fromTokenAmount: string;
+    protocol: string;
+  }): Promise<IFetchSpeedCheckResult | null> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<IFetchResponse<IFetchSpeedCheckResult>>(
+        '/swap/v1/check/speed',
+        {
+          params,
+        },
+      );
+      return data?.data ?? null;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  @backgroundMethod()
   async fetchSpeedSwapQuote({
     fromToken,
     toToken,
@@ -2357,7 +2388,7 @@ export default class ServiceSwap extends ServiceBase {
       }
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
         throw new Error('swap speed fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_SPEED_QUOTE_CANCEL,
         });

@@ -53,7 +53,7 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
     !options?.qrWalletScene &&
     result.type !== EQRCodeHandlerType.ANIMATION_CODE
   ) {
-    defaultLogger.scanQrCode.parseQrCode.parsedQrCode(JSON.stringify(result));
+    defaultLogger.scanQrCode.parseQrCode.parsedQrCode(result.type);
   }
 
   return result;

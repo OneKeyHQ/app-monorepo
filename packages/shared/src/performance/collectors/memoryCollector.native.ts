@@ -5,7 +5,7 @@
  * We use a small native module to read process memory and report it.
  */
 
-import { NativeModules } from 'react-native';
+import { ReactNativePerfMemory } from '@onekeyfe/react-native-perf-memory';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 let isCollecting = false;
@@ -17,31 +17,13 @@ type IPerfMemoryUsage = {
   rss?: number;
 } | null;
 
-type IPerfMemoryModule = {
-  getMemoryUsage: () => Promise<IPerfMemoryUsage>;
-};
-
-type INativeModulesWithPerfMemory = typeof NativeModules & {
-  PerfMemoryModule?: IPerfMemoryModule;
-};
-
 type IMemoryCollectorGlobal = {
   __perfReportMemory?: (data: NonNullable<IPerfMemoryUsage>) => void;
 };
 
-function getPerfMemoryModule(): IPerfMemoryModule | null {
-  const m = (NativeModules as unknown as INativeModulesWithPerfMemory)
-    .PerfMemoryModule;
-  if (m && typeof m.getMemoryUsage === 'function') {
-    return m;
-  }
-  return null;
-}
-
 export async function getMemoryUsage(): Promise<IPerfMemoryUsage> {
-  const mod = getPerfMemoryModule();
-  if (!mod) return null;
-  return mod.getMemoryUsage();
+  const result = await ReactNativePerfMemory.getMemoryUsage();
+  return { rss: result.rss };
 }
 
 async function collectOnce() {
