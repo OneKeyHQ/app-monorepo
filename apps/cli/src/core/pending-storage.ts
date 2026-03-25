@@ -191,7 +191,10 @@ export function savePending(orderId: string, data: IPendingOrder): void {
   atomicWrite(path, JSON.stringify(data, null, 2));
 }
 
-export function loadPending(orderId: string): IPendingOrder {
+export function loadPending(
+  orderId: string,
+  options?: { skipExpiry?: boolean },
+): IPendingOrder {
   const path = filePath(orderId);
   if (!isRegularFile(path)) {
     throw new AppError(
@@ -202,7 +205,7 @@ export function loadPending(orderId: string): IPendingOrder {
   }
   const order = readOrderFile(path, orderId);
 
-  if (Date.now() - order.createdAt > EXPIRY_MS) {
+  if (!options?.skipExpiry && Date.now() - order.createdAt > EXPIRY_MS) {
     throw new AppError(
       ERROR_CODES.BIZ_SWAP_EXPIRED.code,
       `Order "${orderId}" expired (created ${Math.round((Date.now() - order.createdAt) / 1000)}s ago)`,

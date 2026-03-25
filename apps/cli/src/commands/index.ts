@@ -1,4 +1,5 @@
 export { registerBalanceCommand } from './balance';
+export { registerHistoryCommand } from './history';
 export { registerImportCommand } from './import';
 export { registerLogoutCommand } from './logout';
 export { registerStatusCommand } from './status';

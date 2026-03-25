@@ -71,7 +71,7 @@ case "$SECTION" in
     ;;
 esac
 case "$SECTION" in
-  basic|wallet|transfer|token|market|swap|security|cleanup|all) ;;
+  basic|wallet|transfer|token|market|swap|security|history|cleanup|all) ;;
   *) echo -e "${RED}ERROR: Unknown section: $SECTION${NC}"; exit 1 ;;
 esac
 
@@ -305,7 +305,24 @@ section_swap() {
   else
     skip "swap execute (build failed)"
   fi
-  skip "swap status"
+  # Swap status: conditional on execute success (needs txHash)
+  if [ "$se_status" = "success" ] && [ -n "$sb_orderId" ]; then
+    local ss_output
+    ss_output=$("$BIN" --json --env test swap status --chain eth \
+      --order "$sb_orderId" 2>/dev/null) || true
+    local ss_status
+    ss_status=$(echo "$ss_output" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ "$ss_status" = "success" ] || [ "$ss_status" = "error" ]; then
+      echo -e "  ${GREEN}✓${NC} swap status on eth (status=${ss_status})"
+      pass=$((pass + 1))
+    else
+      echo -e "  ${RED}✗${NC} swap status on eth (expected valid JSON, got=${ss_status:-empty})"
+      echo -e "     output: ${ss_output:0:200}"
+      fail=$((fail + 1))
+    fi
+  else
+    skip "swap status (execute failed or skipped)"
+  fi
 }
 should_run swap && section_swap
 
@@ -324,6 +341,19 @@ section_security() {
     --data 0xa9059cbb0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000a
 }
 should_run security && section_security
+
+# ---------------------------------------------------------------------------
+# Section 9: History command
+# ---------------------------------------------------------------------------
+section_history() {
+  echo ""
+  echo "--- History command ---"
+  check_json "history" "success" \
+    "$BIN" --json --env test history
+  check_json "history --limit 5" "success" \
+    "$BIN" --json --env test history --limit 5
+}
+should_run history && section_history
 
 # ---------------------------------------------------------------------------
 # Section 4: Cleanup

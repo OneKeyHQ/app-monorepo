@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto';
 
 import {
   registerBalanceCommand,
+  registerHistoryCommand,
   registerImportCommand,
   registerLogoutCommand,
   registerMarketCommands,
@@ -75,6 +76,7 @@ registerTokenCommands(program);
 registerMarketCommands(program);
 registerSwapCommands(program);
 registerSecurityCommands(program);
+registerHistoryCommand(program);
 
 // Signal handlers: use Unix-conventional exit codes (128 + signal number)
 process.on('SIGINT', () => {
