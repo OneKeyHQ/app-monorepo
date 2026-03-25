@@ -242,8 +242,8 @@ export function updatePendingStatus(
   if (extra) {
     for (const key of Object.keys(extra)) {
       if (UPDATE_EXTRA_ALLOWLIST.has(key)) {
-        (order as Record<string, unknown>)[key] = (
-          extra as Record<string, unknown>
+        (order as unknown as Record<string, unknown>)[key] = (
+          extra as unknown as Record<string, unknown>
         )[key];
       }
     }

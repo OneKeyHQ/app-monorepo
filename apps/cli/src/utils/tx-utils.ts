@@ -94,11 +94,12 @@ export function buildNativeEncodedTx(
   from: string,
   to: string,
   amount: string,
+  nativeDecimals: number,
 ): Record<string, string> {
   return {
     from,
     to,
-    value: `0x${BigInt(amountToSmallestUnit(amount, 18)).toString(16)}`,
+    value: `0x${BigInt(amountToSmallestUnit(amount, nativeDecimals)).toString(16)}`,
   };
 }
 

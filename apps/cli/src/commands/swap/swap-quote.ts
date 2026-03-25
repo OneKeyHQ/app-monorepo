@@ -158,7 +158,19 @@ export async function fetchQuotesViaSSE(
     );
   }
 
+  // Validate content-type is SSE — reject proxy HTML pages or JSON fallbacks
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('text/event-stream')) {
+    clearTimeout(timer);
+    throw new AppError(
+      ERROR_CODES.NET_HTTP_ERROR.code,
+      `Quote SSE returned unexpected content-type: "${contentType}"`,
+      'This may indicate a proxy or API change — check network connectivity',
+    );
+  }
+
   const quotes: IQuoteResultItem[] = [];
+  let receivedAnyEvent = false;
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -184,6 +196,7 @@ export async function fetchQuotesViaSSE(
           if (jsonStr) {
             const parsed = safeParse(jsonStr);
             if (typeof parsed === 'object' && parsed !== null) {
+              receivedAnyEvent = true;
               const obj = parsed as Record<string, unknown>;
 
               // Check for error event
@@ -227,6 +240,15 @@ export async function fetchQuotesViaSSE(
     reader.releaseLock();
   }
 
+  // Fail-closed: if stream ended without any parseable SSE event, treat as protocol error
+  if (!receivedAnyEvent) {
+    throw new AppError(
+      ERROR_CODES.NET_HTTP_ERROR.code,
+      'Quote SSE stream ended without any parseable events',
+      'This may indicate a proxy, API change, or network issue',
+    );
+  }
+
   return quotes;
 }
 
@@ -242,7 +264,7 @@ async function tryGetWalletAddress(
     // Degrade to no-address mode for expected wallet-unavailable scenarios.
     // Quote still works without userAddress (just no gas estimation).
     const appErr = AppError.from(error);
-    const degradeCodes = new Set([
+    const degradeCodes: Set<string> = new Set([
       ERROR_CODES.AUTH_NO_WALLET.code,
       ERROR_CODES.SEC_KEYCHAIN_LOCKED.code,
       ERROR_CODES.SEC_KEYCHAIN_ACCESS_DENIED.code,

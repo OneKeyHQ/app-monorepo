@@ -103,13 +103,41 @@ async function checkAllowance(
   walletAddress: string,
   amount: string,
 ): Promise<IAllowanceCheckResponse> {
-  return apiClient.get<IAllowanceCheckResponse>('swap', '/swap/v1/allowance', {
-    networkId,
-    tokenAddress,
-    spenderAddress,
-    walletAddress,
-    amount,
-  });
+  const raw = await apiClient.get<IAllowanceCheckResponse>(
+    'swap',
+    '/swap/v1/allowance',
+    {
+      networkId,
+      tokenAddress,
+      spenderAddress,
+      walletAddress,
+      amount,
+    },
+  );
+  // Runtime validation: isApproved must be a boolean
+  if (typeof raw.isApproved !== 'boolean') {
+    throw new AppError(
+      ERROR_CODES.BIZ_SWAP_FAILED.code,
+      `Allowance API returned unexpected isApproved type: ${typeof raw.isApproved} (${String(raw.isApproved)})`,
+      'This may indicate an API contract change — please report this issue',
+    );
+  }
+  if (typeof raw.allowanceTarget !== 'string' || !raw.allowanceTarget) {
+    throw new AppError(
+      ERROR_CODES.BIZ_SWAP_FAILED.code,
+      'Allowance API returned missing or invalid allowanceTarget',
+      'This may indicate an API contract change — please report this issue',
+    );
+  }
+  // Verify the returned allowanceTarget matches the requested spender
+  if (raw.allowanceTarget.toLowerCase() !== spenderAddress.toLowerCase()) {
+    throw new AppError(
+      ERROR_CODES.BIZ_SWAP_FAILED.code,
+      `Allowance API returned mismatched spender: expected ${spenderAddress}, got ${raw.allowanceTarget}`,
+      'This may indicate an API contract change — please report this issue',
+    );
+  }
+  return raw;
 }
 
 /**
@@ -138,8 +166,10 @@ async function waitForApproveConfirmation(
         amount,
       );
       if (resp.isApproved) return;
-    } catch {
-      // Ignore transient API errors during polling
+    } catch (error) {
+      // Only retry on transient network errors; rethrow schema/validation errors
+      const appErr = error instanceof AppError ? error : AppError.from(error);
+      if (!appErr.code.startsWith('NET_')) throw appErr;
     }
   }
   throw new AppError(

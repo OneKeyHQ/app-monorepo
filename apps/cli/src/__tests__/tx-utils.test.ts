@@ -181,7 +181,7 @@ describe('feeToWeiHex', () => {
 
 describe('buildNativeEncodedTx', () => {
   it('builds correct native transfer tx', () => {
-    const tx = buildNativeEncodedTx('0xaaa', '0xbbb', '1');
+    const tx = buildNativeEncodedTx('0xaaa', '0xbbb', '1', 18);
     expect(tx.from).toBe('0xaaa');
     expect(tx.to).toBe('0xbbb');
     // 1 ETH = 0xde0b6b3a7640000
@@ -189,13 +189,13 @@ describe('buildNativeEncodedTx', () => {
   });
 
   it('builds correct tx for small amount', () => {
-    const tx = buildNativeEncodedTx('0xaaa', '0xbbb', '0.001');
+    const tx = buildNativeEncodedTx('0xaaa', '0xbbb', '0.001', 18);
     // 0.001 ETH = 1000000000000000 = 0x38d7ea4c68000
     expect(tx.value).toBe('0x38d7ea4c68000');
   });
 
   it('builds correct tx for zero', () => {
-    const tx = buildNativeEncodedTx('0xaaa', '0xbbb', '0');
+    const tx = buildNativeEncodedTx('0xaaa', '0xbbb', '0', 18);
     expect(tx.value).toBe('0x0');
   });
 });

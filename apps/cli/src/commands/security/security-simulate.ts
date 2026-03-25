@@ -60,11 +60,11 @@ export function registerSecuritySimulateCommand(parent: Command): void {
             );
           }
 
-          // Validate --data is hex
-          if (!/^0x[0-9a-fA-F]*$/.test(options.data)) {
+          // Validate --data is hex with complete bytes (even number of hex chars)
+          if (!/^0x(?:[0-9a-fA-F]{2})*$/.test(options.data)) {
             throw new AppError(
               ERROR_CODES.PARAM_MISSING_REQUIRED.code,
-              `Invalid --data: must be hex-encoded calldata starting with 0x`,
+              `Invalid --data: must be hex-encoded calldata (0x + even number of hex chars)`,
               'Example: 0xa9059cbb000....',
             );
           }

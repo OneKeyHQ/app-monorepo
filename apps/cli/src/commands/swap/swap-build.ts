@@ -320,6 +320,15 @@ export function registerSwapBuildCommand(parent: Command): void {
             );
           }
 
+          // Validate tx data exists and is executable
+          if (!buildTxResponse.tx || typeof buildTxResponse.tx !== 'object') {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              'Build-tx API returned success but tx data is missing',
+              'Try a different provider or amount',
+            );
+          }
+
           // Generate orderId and save pending order
           const orderId = randomUUID();
           const now = Date.now();

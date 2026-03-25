@@ -34,6 +34,15 @@ export function registerSecurityAuditCommand(parent: Command): void {
         }
 
         const resolved = await resolveToken(options.token, options.chain);
+
+        if (resolved.isNative || !resolved.contractAddress) {
+          throw new AppError(
+            ERROR_CODES.PARAM_INVALID_TOKEN.code,
+            `Security audit is not available for native tokens (${resolved.symbol})`,
+            'Provide an ERC-20 token contract address or symbol',
+          );
+        }
+
         const audit = await auditToken(
           chainConfig.networkId,
           resolved.contractAddress,

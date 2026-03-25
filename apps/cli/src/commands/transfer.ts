@@ -185,6 +185,7 @@ export function registerTransferCommand(program: Command): void {
               fromAddress,
               validated.to,
               validated.amount,
+              nativeDecimals,
             );
           }
 
@@ -419,10 +420,14 @@ export function registerTransferCommand(program: Command): void {
             },
           );
 
-          if (!broadcastResult?.result) {
+          const TX_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
+          if (
+            !broadcastResult?.result ||
+            !TX_HASH_PATTERN.test(broadcastResult.result)
+          ) {
             throw new AppError(
               ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
-              'Broadcast succeeded but API did not return txid',
+              `Broadcast returned invalid txid: "${broadcastResult?.result ?? ''}"`,
               'Check the transaction on chain explorer manually',
             );
           }
