@@ -304,14 +304,14 @@ function ProtocolSwitchTriggerRow({
 }
 
 function ProtocolSwitcher({
-  symbol,
+  tokenSymbol,
   accountId,
   fallbackProviderName,
   fallbackProviderLogoUri,
   fallbackAprText,
   protocolSwitchConfig,
 }: {
-  symbol: string;
+  tokenSymbol: string;
   accountId: string;
   fallbackProviderName?: string;
   fallbackProviderLogoUri?: string;
@@ -348,7 +348,7 @@ function ProtocolSwitcher({
       renderContent={({ closePopover }) => (
         <ProtocolListContent
           variant="switcher"
-          symbol={symbol}
+          symbol={tokenSymbol}
           accountId={accountId}
           protocols={protocolSwitchConfig.protocols}
           isLoading={protocolSwitchConfig.isLoading}
@@ -475,7 +475,7 @@ export function UniversalStake({
   );
   const [
     {
-      currencyInfo: { symbol },
+      currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
 
@@ -1067,7 +1067,7 @@ export function UniversalStake({
       if (impactInfo) {
         const userConfirmed = await showHighPriceImpactDialog(intl, {
           percent: impactInfo.percent,
-          lossAmount: `${symbol}${impactInfo.lossAmount}`,
+          lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
         });
         if (!userConfirmed) return;
       }
@@ -1115,7 +1115,7 @@ export function UniversalStake({
     providerName,
     onQuoteReset,
     intl,
-    symbol,
+    currencySymbol,
     tokenInfo?.price,
     receiveInputConfig,
     transactionConfirmation?.effectiveApy,
@@ -1750,7 +1750,7 @@ export function UniversalStake({
               }}
               valueProps={{
                 value: currentValue,
-                currency: currentValue ? symbol : undefined,
+                currency: currentValue ? currencySymbol : undefined,
               }}
               enableMaxAmount
               onSelectPercentageStage={onSelectPercentageStage}
@@ -1762,7 +1762,7 @@ export function UniversalStake({
           <ManagePageV2ReceiveInput
             receive={transactionConfirmation?.receive}
             config={effectiveReceiveInputConfig}
-            fiatSymbol={symbol}
+            fiatSymbol={currencySymbol}
             payFiatValue={currentValue}
             loading={quoteLoading}
           />
@@ -1845,7 +1845,7 @@ export function UniversalStake({
           {protocolSwitchConfig ? (
             <YStack mb={hasSummarySection ? '$3.5' : '$0'}>
               <ProtocolSwitcher
-                symbol={symbol}
+                tokenSymbol={actionSymbol}
                 accountId={accountId}
                 fallbackProviderName={providerName}
                 fallbackProviderLogoUri={providerLogo}
