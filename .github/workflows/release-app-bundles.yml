@@ -7,6 +7,11 @@ on:
         description: 'PR number to build (optional, builds from PR merge ref)'
         required: false
         type: string
+      build_web:
+        description: 'Build Web bundle'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,31 +22,31 @@ jobs:
     if: ${{ inputs.pr_number }}
     runs-on: ubuntu-24.04
     steps:
-      - name: Validate PR is merged and from same repo
+      - name: Validate PR author is trusted
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          TRUSTED_PR_AUTHORS: ${{ vars.TRUSTED_PR_AUTHORS }}
         run: |
           PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
-            --jq '{merged: .merged, head_repo: .head.repo.full_name, base_repo: .base.repo.full_name}')
+            --jq '{head_repo: .head.repo.full_name, base_repo: .base.repo.full_name, author: .user.login}')
 
-          MERGED=$(echo "$PR_DATA" | jq -r '.merged')
           HEAD_REPO=$(echo "$PR_DATA" | jq -r '.head_repo')
           BASE_REPO=$(echo "$PR_DATA" | jq -r '.base_repo')
+          AUTHOR=$(echo "$PR_DATA" | jq -r '.author')
 
-          echo "PR #$PR_NUMBER: merged=$MERGED, head=$HEAD_REPO, base=$BASE_REPO"
-
-          if [ "$MERGED" != "true" ]; then
-            echo "::error::PR #$PR_NUMBER is not merged. Only merged PRs are allowed."
-            exit 1
-          fi
+          echo "PR #$PR_NUMBER: head=$HEAD_REPO, base=$BASE_REPO, author=$AUTHOR"
 
           if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
-            echo "::error::PR #$PR_NUMBER is from a fork ($HEAD_REPO). Fork PRs are not allowed."
-            exit 1
+            # Fork PR — check if author is in the trusted whitelist
+            if [[ ! ",$TRUSTED_PR_AUTHORS," == *",$AUTHOR,"* ]]; then
+              echo "::error::PR #$PR_NUMBER is from a fork by @$AUTHOR who is not in TRUSTED_PR_AUTHORS. Configure the whitelist in repository variables."
+              exit 1
+            fi
+            echo "::notice::PR #$PR_NUMBER is from a trusted fork ($HEAD_REPO) by whitelisted author @$AUTHOR — allowed."
           fi
 
-          echo "PR #$PR_NUMBER validated: merged from same repo."
+          echo "PR #$PR_NUMBER validated successfully."
 
   prepare-params:
     needs: [validate-pr]
@@ -174,7 +179,7 @@ jobs:
 
   web-bundle:
     needs: prepare-params
-    if: ${{ !cancelled() && !failure() }}
+    if: ${{ inputs.build_web && !cancelled() && !failure() }}
     uses: ./.github/workflows/release-web.yml
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
