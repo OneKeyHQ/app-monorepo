@@ -176,6 +176,7 @@ const openPicker: IOpenPickerFunc = ({ width, height }) =>
               renderContent: (
                 <BasicImageCrop
                   src={imageSrc}
+                  // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
                   defaultSize={{
                     width,
                     height,
@@ -208,11 +209,13 @@ const openCropImage = (
       renderContent: (
         <BasicImageCrop
           src={image}
+          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
           defaultSize={{
             width,
             height,
           }}
           onConfirm={resolve as any}
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
           onCancel={() => {
             void dialog?.close();
             reject(new Error('User cancelled'));

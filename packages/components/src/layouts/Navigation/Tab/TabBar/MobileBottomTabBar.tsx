@@ -122,6 +122,7 @@ export default function MobileBottomTabBar({
           return null;
         }
 
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
         const onPress = () => {
           // Check if custom tabbarOnPress exists, use it instead of default navigation
           const customPress = (options as { tabbarOnPress?: () => void })

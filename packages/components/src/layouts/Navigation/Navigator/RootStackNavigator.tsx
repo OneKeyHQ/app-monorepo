@@ -95,6 +95,7 @@ export function RootStackNavigator<
       config
         .filter(({ disable }) => !disable)
         .map(({ name, component, type, options }) => {
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
           const routeScreenOptions = (
             optionsInfo: IScreenOptionsInfo<any>,
           ) => ({

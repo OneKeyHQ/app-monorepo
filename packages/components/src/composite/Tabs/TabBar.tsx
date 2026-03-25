@@ -781,6 +781,7 @@ export function TabBar({
         return (
           <View
             key={name}
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
             onLayout={(e: LayoutChangeEvent) => {
               const { x, width } = e.nativeEvent.layout;
               handleItemLayout(index, { x, width });

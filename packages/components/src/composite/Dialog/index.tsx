@@ -597,6 +597,7 @@ function dialogShow({
           resolve();
         }, 300);
       });
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const isExist = () => !!instanceRef?.current;
   const element = (() => {
     if (dialogContainer) {
@@ -677,6 +678,7 @@ const dialogDebugMessage = (
     }
     return stringUtils.stableStringify(props.debugMessage, null, 4);
   })();
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const copyContent = async () => {
     await setStringAsync(dataContent);
     console.log('dialogDebugMessage: object >>> ', props.debugMessage);

@@ -43,6 +43,7 @@ function BasicTabSubStackNavigator({
       {config
         .filter(({ disable }) => !disable)
         .map(({ name, component, translationId, headerShown = true }) => {
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
           const screenOptions = ({ navigation }: { navigation: any }) => ({
             freezeOnBlur: true,
             title: translationId
@@ -130,6 +131,7 @@ export function TabStackNavigator<RouteName extends string>({
           <TabSubStackNavigator config={children} />
         );
 
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
         const options = {
           // Type assertion needed because our INativeTabBarIcon uses string for sfSymbol
           // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
@@ -137,6 +139,7 @@ export function TabStackNavigator<RouteName extends string>({
           tabBarLabel: intl.formatMessage({ id: translationId }),
         };
 
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
         const listeners = {
           tabPress: () => {
             handleTabPress(name);

@@ -399,7 +399,8 @@ function BaseSortableListView<T>(
                   <div
                     style={
                       layout
-                        ? {
+                        ? // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+                          {
                             height: layout.length + insertHeight,
                           }
                         : EMPTY_STYLE
@@ -409,7 +410,8 @@ function BaseSortableListView<T>(
                 <Item
                   style={
                     !isSticky
-                      ? {
+                      ? // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+                        {
                           position: useFlashList ? undefined : 'absolute',
                           top: (layout?.offset ?? 0) + (contentPaddingTop ?? 0),
                           height: useFlashList ? undefined : layout?.length,
@@ -428,6 +430,7 @@ function BaseSortableListView<T>(
                   )}
                   isDragging={false}
                   item={item}
+                  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
                   getIndex={() => index}
                   renderItem={renderItem as any}
                   provided={provided}
@@ -469,7 +472,9 @@ function BaseSortableListView<T>(
           item={data[rubric.source.index]}
           renderItem={renderItem}
           provided={provided}
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
           getIndex={() => rubric.source.index}
+          // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
           style={{
             boxShadow: isDropping ? 'none' : '0 4px 24px rgba(0, 0, 0, 0.12)',
             borderRadius: 12,
@@ -521,6 +526,7 @@ function BaseSortableListView<T>(
             const ListViewComponent = useFlashList ? FlashList : ListView;
             return (
               <ListViewComponent
+                // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
                 ref={(_ref: any) => {
                   if (_ref) {
                     if (typeof ref === 'function') {
@@ -561,6 +567,7 @@ function BaseSortableListView<T>(
                   }
                 }}
                 data={data}
+                // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
                 contentContainerStyle={{
                   ...rawContentContainerStyle,
                   paddingBottom: overridePaddingBottom,

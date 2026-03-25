@@ -336,6 +336,7 @@ function BasicActionList({
         key={item.label}
         disabled={item.disabled}
         {...item}
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
         onClose={() => {
           handleActionListClose();
           item.onClose?.();
@@ -439,6 +440,7 @@ const showActionList = (
   const { triggerPosition, ...restProps } = props;
   dismissKeyboard();
 
+  // eslint-disable-next-line react-perf/jsx-no-jsx-as-prop
   const triggerElement =
     triggerPosition && !platformEnv.isNative ? (
       <Stack width={1} height={1} />
@@ -448,6 +450,7 @@ const showActionList = (
   // eslint-disable-next-line prefer-const
   let ref: { destroy: () => void };
 
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const handleOpenChange = (isOpen: boolean) => {
     restProps.onOpenChange?.(isOpen);
     if (!isOpen) {
@@ -505,6 +508,7 @@ const showActionList = (
   const content =
     triggerPosition && !platformEnv.isNative ? (
       <Stack
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
         style={{
           position: 'fixed' as const,
           left: triggerPosition.x,

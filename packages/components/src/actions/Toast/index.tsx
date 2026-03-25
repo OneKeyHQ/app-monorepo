@@ -271,6 +271,7 @@ function toastMessage({
     warning: '$iconCaution',
     info: '$iconInfo',
   };
+  // eslint-disable-next-line react-perf/jsx-no-jsx-as-prop
   const iconElement = icon ? (
     <Icon
       name={icon}
@@ -457,6 +458,7 @@ export const Toast = {
         }
       | undefined;
 
+    // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
     const handleClose = (extra?: { flag?: string }) =>
       new Promise<void>((resolve) => {
         // Remove the React node after the animation has finished.

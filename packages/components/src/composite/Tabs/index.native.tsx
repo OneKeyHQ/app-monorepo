@@ -1,8 +1,4 @@
-import {
-  type PropsWithChildren,
-  forwardRef,
-  useMemo,
-} from 'react';
+import { type PropsWithChildren, forwardRef, useMemo } from 'react';
 
 import { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 

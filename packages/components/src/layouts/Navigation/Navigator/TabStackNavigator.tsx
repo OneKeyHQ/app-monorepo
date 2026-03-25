@@ -33,6 +33,7 @@ function BasicTabSubStackNavigator({
       {config
         .filter(({ disable }) => !disable)
         .map(({ name, component, translationId, headerShown = true }) => {
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
           const screenOptions = ({ navigation }: { navigation: any }) => ({
             freezeOnBlur: true,
             title: translationId
@@ -123,6 +124,7 @@ export function TabStackNavigator<RouteName extends string>({
 
   const tabScreens = useMemo(() => {
     const screens = tabComponents.map(({ name, children, ...options }) => {
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
       const screenOptions = {
         ...options,
         tabBarLabel: intl.formatMessage({ id: options.translationId }),
@@ -144,6 +146,7 @@ export function TabStackNavigator<RouteName extends string>({
       const children = () => (
         <TabSubStackNavigator config={extraConfig.children} />
       );
+      // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
       const extraScreenOptions = {
         freezeOnBlur: true,
         tabBarPosition,
