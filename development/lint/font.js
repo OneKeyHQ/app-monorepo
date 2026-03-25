@@ -15,8 +15,8 @@
 // cause the native-registered font and the expo-font-registered font to have different names,
 // making the native registration ineffective.
 
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 const { exit } = require('process');
 
 const getTimestamp = () => new Date().toLocaleTimeString();

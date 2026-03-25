@@ -7,6 +7,7 @@
 // - harness/jest-compat.ts  — describe/test/it wrappers, module mock mechanism, jest shim
 // - harness/snapshots.ts    — toMatchSnapshot / toMatchInlineSnapshot matchers
 
+/* eslint-disable import-js/order */
 import './harness/polyfills';
 // eslint-disable-next-line import/order
 import './harness/jest-compat';

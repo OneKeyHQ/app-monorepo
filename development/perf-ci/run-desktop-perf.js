@@ -13,22 +13,26 @@
  * - optional Slack webhook notification on regression or failure
  */
 
+const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
 
-const { execCmd } = require('./lib/exec');
-const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
+const { execCmd } = require('./lib/exec');
+const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
-const { postSlackWebhook } = require('./lib/slack');
 const {
   ensurePerfServerRunning,
   checkPerfServer,
   stopChild,
 } = require('./lib/perfServer');
+const {
+  aggregateRuns,
+  checkRegression,
+  extractDerivedDebugMetrics,
+} = require('./lib/regression');
 const {
   listSessionIds,
   waitForNewSessionId,
@@ -36,12 +40,7 @@ const {
   readSessionMetrics,
   ensureSessionsDirWritable,
 } = require('./lib/session');
-const {
-  aggregateRuns,
-  checkRegression,
-  extractDerivedDebugMetrics,
-} = require('./lib/regression');
-
+const { postSlackWebhook } = require('./lib/slack');
 function ensureDirExists(p) {
   fs.mkdirSync(p, { recursive: true });
 }

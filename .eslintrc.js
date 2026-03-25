@@ -14,6 +14,27 @@
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
 // require('./development/lint/eslint-rule-enforce-return-type');
 
+// Register local eslint-plugin-onekey so eslint-disable-next-line onekey/no-raw-error
+// comments don't cause "unknown rule" errors (the real rule lives in oxlint)
+const Module = require('module');
+const path = require('path');
+const originalResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...args) {
+  if (request === 'eslint-plugin-onekey') {
+    return path.resolve(
+      __dirname,
+      'development/plugins/eslint-plugin-onekey.js',
+    );
+  }
+  if (request === 'eslint-plugin-import-js') {
+    return path.resolve(
+      __dirname,
+      'development/plugins/eslint-plugin-import-js.js',
+    );
+  }
+  return originalResolve.call(this, request, ...args);
+};
+
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
   // --- Rules from wesbos config (previously inherited via extends: ['wesbos']) ---
@@ -277,6 +298,8 @@ module.exports = {
     'react',
     'react-hooks',
     'import',
+    'onekey',
+    'import-js',
   ],
   settings: {
     'import/extensions': [
@@ -315,6 +338,7 @@ module.exports = {
     worker: true,
   },
   rules: {
+    'import-js/order': 'off',
     'import-path/parent-depth': ['error', 3],
     'import-path/forbidden': [
       'error',

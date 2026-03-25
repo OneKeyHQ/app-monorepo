@@ -1,5 +1,6 @@
 require('./env');
 const path = require('path');
+
 const developmentConsts = require('./developmentConsts');
 const envExposedToClient = require('./envExposedToClient');
 

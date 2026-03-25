@@ -1,6 +1,6 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 // Function to remove directory recursively
 function removeDir(dir) {
