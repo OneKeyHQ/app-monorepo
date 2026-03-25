@@ -246,8 +246,14 @@ function PerpPortfolioContentComponent({
   } | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const { chartData, fillsStats, netDeposits, accountSummary, isLoading } =
-    usePerpPortfolioData(timePeriod);
+  const {
+    chartData,
+    fillsStats,
+    netDeposits,
+    accountSummary,
+    totalPnl,
+    isLoading,
+  } = usePerpPortfolioData(timePeriod);
 
   const chartSeriesData = useMemo((): IMarketTokenChart => {
     if (!chartData) return [];
@@ -269,8 +275,9 @@ function PerpPortfolioContentComponent({
   const unrealizedPnl = formatPerpsUsd(unrealizedPnlRaw, true);
   const unrealizedColor = getPerpsValueColor(unrealizedPnlRaw);
 
-  const realizedPnl = formatPerpsUsd(fillsStats.realizedPnl, true);
-  const realizedColor = getPerpsValueColor(fillsStats.realizedPnl);
+  const totalPnlVal = totalPnl ?? fillsStats.realizedPnl;
+  const realizedPnl = formatPerpsUsd(totalPnlVal, true);
+  const realizedColor = getPerpsValueColor(totalPnlVal);
 
   const vlm = chartData?.vlm
     ? formatPerpsCompactUsd(parseFloat(chartData.vlm))
@@ -478,8 +485,8 @@ function PerpPortfolioContentComponent({
 
       {/* P&L + Win Rate summary */}
       <SectionBlock>
-        <XStack justifyContent="space-between" alignItems="center">
-          <YStack gap="$0.5">
+        <XStack alignItems="center">
+          <YStack flex={1} gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_unrealized_pnl,
@@ -489,7 +496,7 @@ function PerpPortfolioContentComponent({
               {unrealizedPnl}
             </SizableText>
           </YStack>
-          <YStack gap="$0.5" alignItems="center">
+          <YStack flex={1} gap="$0.5" alignItems="center">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_total_pnl,
@@ -499,7 +506,7 @@ function PerpPortfolioContentComponent({
               {realizedPnl}
             </SizableText>
           </YStack>
-          <YStack gap="$0.5" alignItems="flex-end">
+          <YStack flex={1} gap="$0.5" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_open_positions,
@@ -517,7 +524,64 @@ function PerpPortfolioContentComponent({
   // Win rate progress value (0-100)
   const winRateProgress = fillsStats.winRate ?? 0;
 
-  // ─── Portfolio Value (shared between mobile top + desktop stats) ────────────
+  // ─── Portfolio Value buttons (shared) ───────────────────────────────────────
+  const portfolioButtons = (
+    <XStack gap="$2">
+      <Button
+        flex={1}
+        borderRadius="$full"
+        size="medium"
+        bg="$brand8"
+        hoverStyle={{ bg: '$brand9' }}
+        pressStyle={{ bg: '$brand10' }}
+        color="$textOnColor"
+        iconColor="$iconOnColor"
+        icon="DownloadOutline"
+        onPress={() => showDepositWithdrawModal('deposit')}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_trade_deposit,
+        })}
+      </Button>
+      <Button
+        flex={1}
+        borderRadius="$full"
+        size="medium"
+        variant="secondary"
+        icon="AlignTopOutline"
+        onPress={() => showDepositWithdrawModal('withdraw')}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_trade_withdraw,
+        })}
+      </Button>
+    </XStack>
+  );
+
+  // ─── Portfolio Value — mobile layout ────────────────────────────────────────
+  const mobilePortfolioValueBlock = (
+    <YStack gap="$3">
+      <YStack gap="$1">
+        <SectionLabel>
+          {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
+        </SectionLabel>
+        <SizableText size="$heading4xl" color="$text">
+          {accountValue}
+        </SizableText>
+        <XStack gap="$1.5" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.perp_portfolio_available })}
+          </SizableText>
+          <SizableText size="$bodySm" color="$text">
+            {withdrawable}
+          </SizableText>
+        </XStack>
+      </YStack>
+      {portfolioButtons}
+    </YStack>
+  );
+
+  // ─── Portfolio Value — desktop layout ───────────────────────────────────────
   const portfolioValueBlock = (
     <SectionBlock gap="$3">
       <XStack justifyContent="space-between" alignItems="flex-start">
@@ -538,36 +602,7 @@ function PerpPortfolioContentComponent({
           </SizableText>
         </YStack>
       </XStack>
-      <XStack gap="$2">
-        <Button
-          flex={1}
-          borderRadius="$full"
-          size="medium"
-          bg="$brand8"
-          hoverStyle={{ bg: '$brand9' }}
-          pressStyle={{ bg: '$brand10' }}
-          color="$textOnColor"
-          iconColor="$iconOnColor"
-          icon="DownloadOutline"
-          onPress={() => showDepositWithdrawModal('deposit')}
-        >
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_deposit,
-          })}
-        </Button>
-        <Button
-          flex={1}
-          borderRadius="$full"
-          size="medium"
-          variant="secondary"
-          icon="AlignTopOutline"
-          onPress={() => showDepositWithdrawModal('withdraw')}
-        >
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_withdraw,
-          })}
-        </Button>
-      </XStack>
+      {portfolioButtons}
     </SectionBlock>
   );
 
@@ -758,18 +793,24 @@ function PerpPortfolioContentComponent({
           </XStack>
           {/* Win rate bar — green (win) + red (loss) */}
           <XStack height={4} borderRadius="$full" overflow="hidden">
-            <XStack
-              flex={winRateProgress}
-              bg="$green9"
-              borderTopLeftRadius="$full"
-              borderBottomLeftRadius="$full"
-            />
-            <XStack
-              flex={100 - winRateProgress}
-              bg="$red9"
-              borderTopRightRadius="$full"
-              borderBottomRightRadius="$full"
-            />
+            {fillsStats.winRate === null ? (
+              <XStack flex={1} bg="$neutral5" borderRadius="$full" />
+            ) : (
+              <>
+                <XStack
+                  flex={winRateProgress}
+                  bg="$green9"
+                  borderTopLeftRadius="$full"
+                  borderBottomLeftRadius="$full"
+                />
+                <XStack
+                  flex={100 - winRateProgress}
+                  bg="$red9"
+                  borderTopRightRadius="$full"
+                  borderBottomRightRadius="$full"
+                />
+              </>
+            )}
           </XStack>
         </YStack>
         {/* Avg Win / Loss — side by side cards */}
@@ -801,7 +842,7 @@ function PerpPortfolioContentComponent({
   if (isMobile) {
     return (
       <YStack gap="$4" px="$5" pb="$5">
-        {portfolioValueBlock}
+        {mobilePortfolioValueBlock}
         {chartPanel}
         {statsPanel}
       </YStack>
