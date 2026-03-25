@@ -19,6 +19,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
@@ -132,7 +133,7 @@ function TxActionCommonTitle({
   const intl = useIntl();
 
   return (
-    <XStack alignItems="center">
+    <XStack alignItems="center" minWidth={0}>
       <SizableText numberOfLines={1} flexShrink={1} size="$bodyLgMedium">
         {title}
       </SizableText>
@@ -261,7 +262,9 @@ function TxActionCommonChange({
 }) {
   return (
     <SizableText
+      minWidth={0}
       numberOfLines={1}
+      textAlign="right"
       size="$bodyLgMedium"
       {...(change?.includes('+') && {
         color: '$textSuccess',
@@ -278,7 +281,13 @@ function TxActionCommonChangeDescription({
   changeDescription: string;
 }) {
   return (
-    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+    <SizableText
+      size="$bodyMd"
+      color="$textSubdued"
+      numberOfLines={1}
+      minWidth={0}
+      textAlign="right"
+    >
       {changeDescription || '-'}
     </SizableText>
   );
@@ -357,6 +366,10 @@ function TxActionCommonListView(
   } = props;
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
+  let mobileChangeMaxWidth: '50%' | '65%' | undefined;
+  if (!tableLayout) {
+    mobileChangeMaxWidth = platformEnv.isNativeAndroid ? '65%' : '50%';
+  }
 
   return (
     <ListItem
@@ -379,6 +392,7 @@ function TxActionCommonListView(
         {/* token, title and subtitle */}
         <XStack
           flex={1}
+          minWidth={0}
           gap="$3"
           {...(tableLayout && {
             flexGrow: 2,
@@ -394,7 +408,7 @@ function TxActionCommonListView(
               compact={compact}
             />
           ) : null}
-          <Stack flex={1}>
+          <Stack flex={1} minWidth={0}>
             <TxActionCommonTitle
               title={title}
               status={status}
@@ -430,7 +444,9 @@ function TxActionCommonListView(
         </XStack>
         {/* changes */}
         <Stack
-          maxWidth="50%"
+          minWidth={0}
+          flexShrink={1}
+          maxWidth={mobileChangeMaxWidth}
           alignItems="flex-end"
           {...(tableLayout && {
             alignItems: 'unset',
