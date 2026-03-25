@@ -56,14 +56,16 @@ class CloudSyncItemBuilder {
   canLocalItemSyncToScene({
     item,
     syncCredential,
+    forceSync,
   }: {
     item: IDBCloudSyncItem;
     syncCredential: ICloudSyncCredential;
+    forceSync?: boolean;
   }) {
     const pwdHash = this.getPwdHash(syncCredential);
 
     return (
-      !item.localSceneUpdated &&
+      (forceSync || !item.localSceneUpdated) &&
       (item.data || item.isDeleted) &&
       item.dataTime &&
       // Check pwdHash matches current mode or is empty

@@ -714,6 +714,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
           await Promise.all([
+            // eslint-disable-next-line @typescript-eslint/await-thenable
             await createWalletFn(),
             await timerUtils.wait(1000),
           ]);
@@ -741,7 +742,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         await timerUtils.wait(2000);
 
-        const createResult = { wallet, indexedAccount, isOverrideWallet };
+        const createResult = {
+          wallet,
+          indexedAccount,
+          isOverrideWallet,
+        };
         return createResult;
       } catch (error) {
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);

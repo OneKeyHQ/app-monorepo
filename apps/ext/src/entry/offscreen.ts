@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions, import/order */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions, import-js/order */
 import '@onekeyhq/shared/src/polyfills';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 

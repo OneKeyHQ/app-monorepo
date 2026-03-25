@@ -28,6 +28,14 @@ import type {
 import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
 
+const overflowYScrollStyle = { overflowY: 'scroll' } as const;
+const scrollSnapStyle = { scrollSnapType: 'x' } as const;
+const childDivStyle = {
+  width: '100%',
+  flexShrink: 0,
+  scrollSnapAlign: 'center',
+} as const;
+
 export function ContainerChild({
   children,
   listContainerRef,
@@ -64,18 +72,11 @@ export function ContainerChild({
         ref={listContainerRef as any}
         width={containerWidth || props.width}
         overflow="hidden"
-        style={{ scrollSnapType: 'x' }}
+        style={scrollSnapStyle}
       >
         {Children.map(children, (child, index) => {
           return (
-            <div
-              style={{
-                width: '100%',
-                flexShrink: 0,
-                scrollSnapAlign: 'center',
-              }}
-              key={index}
-            >
+            <div style={childDivStyle} key={index}>
               {child}
             </div>
           );
@@ -389,7 +390,7 @@ export function Container({
       flex={1}
       className="onekey-tabs-container"
       position="relative"
-      style={disableScroll ? undefined : { overflowY: 'scroll' }}
+      style={disableScroll ? undefined : overflowYScrollStyle}
       ref={ref as React.RefObject<HTMLDivElement>}
     >
       {scrollElement ? (
@@ -415,14 +416,7 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
-                    width={containerWidth ? undefined : width}
-                    style={
-                      containerWidth
-                        ? {
-                            width: containerWidth,
-                          }
-                        : undefined
-                    }
+                    width={containerWidth || width}
                     onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({

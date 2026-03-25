@@ -1,4 +1,4 @@
-/* eslint-disable import/order, import-js/order */
+/* eslint-disable import-js/order */
 import '@walletconnect/react-native-compat'; // polyfill for react-native
 
 import {

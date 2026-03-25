@@ -1,3 +1,5 @@
+/* cspell:words SharedPrefs shared_prefs */
+
 // Jest globalTeardown for harness tests.
 // Clears the harness-mode flags written by globalSetup.mjs so that
 // reused emulators/simulators return to normal boot-recovery behavior

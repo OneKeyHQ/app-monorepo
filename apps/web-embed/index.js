@@ -1,4 +1,4 @@
-/* eslint-disable import-js/order */
+/* oxlint-disable import-js/order */
 import '@onekeyhq/shared/src/polyfills';
 
 import React, { Suspense, lazy } from 'react';

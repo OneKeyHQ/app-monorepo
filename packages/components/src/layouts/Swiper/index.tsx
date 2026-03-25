@@ -24,9 +24,11 @@ import type { ISwiperProps, ISwiperRef } from './type';
 import type { IYStackProps } from '../../primitives';
 import type { ListRenderItemInfo } from 'react-native';
 
+const EMPTY_DATA: readonly never[] = [];
+
 function BaseSwiperFlatList<T>(
   {
-    data = [],
+    data = EMPTY_DATA as unknown as T[],
     renderItem,
     index = 0,
     renderPagination,
@@ -276,25 +278,33 @@ function BaseSwiperFlatList<T>(
     };
   }, [finishMouseDrag, getPointerX, handleMouseMove, isWeb]);
 
-  const mouseDragProps = isWeb
-    ? {
-        onMouseDown: (event: MouseEvent) => handleMouseDown(event),
-        onClickCapture: (event: MouseEvent) => {
-          if (shouldPreventNextClickRef.current) {
-            event.preventDefault();
-            event.stopPropagation();
-            shouldPreventNextClickRef.current = false;
+  const handleClickCapture = useCallback((event: MouseEvent) => {
+    if (shouldPreventNextClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      shouldPreventNextClickRef.current = false;
+    }
+  }, []);
+
+  const handleClick = useCallback((event: MouseEvent) => {
+    if (shouldPreventNextClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      shouldPreventNextClickRef.current = false;
+    }
+  }, []);
+
+  const mouseDragProps = useMemo(
+    () =>
+      isWeb
+        ? {
+            onMouseDown: handleMouseDown,
+            onClickCapture: handleClickCapture,
+            onClick: handleClick,
           }
-        },
-        onClick: (event: MouseEvent) => {
-          if (shouldPreventNextClickRef.current) {
-            event.preventDefault();
-            event.stopPropagation();
-            shouldPreventNextClickRef.current = false;
-          }
-        },
-      }
-    : {};
+        : {},
+    [isWeb, handleMouseDown, handleClickCapture, handleClick],
+  );
 
   return (
     <YStack

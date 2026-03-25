@@ -135,6 +135,11 @@ const getChildProps = (
   }
 };
 
+const errorAnimationStyle = {
+  opacity: 0,
+  y: -6,
+};
+
 export function FieldDescription(props: ISizableTextProps) {
   return (
     <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued" {...props} />
@@ -207,86 +212,95 @@ function Field({
       description
     );
   }, [description]);
+
+  const renderField = useCallback(
+    ({ field }: { field: ControllerRenderProps<any, string> }) => (
+      <Fieldset p="$0" m="$0" borderWidth={0} {...(display ? { display } : {})}>
+        <Stack
+          gap={horizontal ? '$1' : undefined}
+          flexDirection={horizontal ? 'row' : 'column'}
+          jc={horizontal ? 'space-between' : undefined}
+          alignItems={horizontal ? 'center' : undefined}
+          mb={horizontal ? '$1.5' : undefined}
+        >
+          <YStack flexShrink={horizontal ? 1 : undefined}>
+            {label ? (
+              <XStack
+                mb={horizontal ? undefined : '$1.5'}
+                justifyContent="space-between"
+              >
+                <XStack>
+                  <Label htmlFor={name}>{label}</Label>
+                  {optional ? (
+                    <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                      {`(${intl.formatMessage({
+                        id: ETranslations.form_optional_indicator,
+                      })})`}
+                    </SizableText>
+                  ) : null}
+                </XStack>
+                {renderLabelAddon()}
+              </XStack>
+            ) : null}
+            {horizontal ? descriptionElement : null}
+          </YStack>
+          {Children.map(children as ReactNode[], (child) =>
+            isValidElement(child)
+              ? cloneElement(child, getChildProps(child, field, error))
+              : child,
+          )}
+        </Stack>
+        <HeightTransition>
+          {error?.message ? (
+            <SizableText
+              pt="$1.5"
+              animation="quick"
+              enterStyle={errorAnimationStyle}
+              exitStyle={errorAnimationStyle}
+              textAlign={errorMessageAlign}
+            >
+              {renderErrorMessage ? (
+                renderErrorMessage({ error })
+              ) : (
+                <SizableText
+                  color="$textCritical"
+                  size="$bodyMd"
+                  textAlign={errorMessageAlign}
+                  key={error?.message}
+                  testID={`${testID}-message`}
+                >
+                  {error?.message}
+                </SizableText>
+              )}
+            </SizableText>
+          ) : null}
+        </HeightTransition>
+        {horizontal ? null : descriptionElement}
+      </Fieldset>
+    ),
+    [
+      children,
+      descriptionElement,
+      display,
+      error,
+      errorMessageAlign,
+      horizontal,
+      intl,
+      label,
+      name,
+      optional,
+      renderErrorMessage,
+      renderLabelAddon,
+      testID,
+    ],
+  );
+
   return (
     <Controller
       name={name}
       control={control}
       rules={rules}
-      render={({ field }) => (
-        <Fieldset
-          p="$0"
-          m="$0"
-          borderWidth={0}
-          {...(display ? { display } : {})}
-        >
-          <Stack
-            gap={horizontal ? '$1' : undefined}
-            flexDirection={horizontal ? 'row' : 'column'}
-            jc={horizontal ? 'space-between' : undefined}
-            alignItems={horizontal ? 'center' : undefined}
-            mb={horizontal ? '$1.5' : undefined}
-          >
-            <YStack flexShrink={horizontal ? 1 : undefined}>
-              {label ? (
-                <XStack
-                  mb={horizontal ? undefined : '$1.5'}
-                  justifyContent="space-between"
-                >
-                  <XStack>
-                    <Label htmlFor={name}>{label}</Label>
-                    {optional ? (
-                      <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
-                        {`(${intl.formatMessage({
-                          id: ETranslations.form_optional_indicator,
-                        })})`}
-                      </SizableText>
-                    ) : null}
-                  </XStack>
-                  {renderLabelAddon()}
-                </XStack>
-              ) : null}
-              {horizontal ? descriptionElement : null}
-            </YStack>
-            {Children.map(children as ReactNode[], (child) =>
-              isValidElement(child)
-                ? cloneElement(child, getChildProps(child, field, error))
-                : child,
-            )}
-          </Stack>
-          <HeightTransition>
-            {error?.message ? (
-              <SizableText
-                pt="$1.5"
-                animation="quick"
-                enterStyle={{
-                  opacity: 0,
-                  y: -6,
-                }}
-                exitStyle={{
-                  opacity: 0,
-                  y: -6,
-                }}
-                textAlign={errorMessageAlign}
-              >
-                {renderErrorMessage ? (
-                  renderErrorMessage({ error })
-                ) : (
-                  <SizableText
-                    color="$textCritical"
-                    size="$bodyMd"
-                    textAlign={errorMessageAlign}
-                    key={error?.message}
-                    testID={`${testID}-message`}
-                  >
-                    {error?.message}
-                  </SizableText>
-                )}
-              </SizableText>
-            ) : null}
-          </HeightTransition>
-          {horizontal ? null : descriptionElement}
-        </Fieldset>
-      )}
+      render={renderField}
     />
   );
 }

@@ -367,9 +367,11 @@ class ServicePrimeCloudSync extends ServiceBase {
     let pwdHash: string | undefined;
 
     if ((await this.getActiveSyncMode()) === ECloudSyncMode.Keyless) {
-      data = await this.apiDownloadItemsKeyless({
+      const keylessResult = await this.apiDownloadItemsKeyless({
         postData,
       });
+      data = keylessResult.data;
+      pwdHash = keylessResult.pwdHash;
     } else {
       const client = await this.backgroundApi.servicePrime.getPrimeClient();
       const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
@@ -828,7 +830,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   }
 
   @backgroundMethod()
-  async syncToSceneByAllPendingItems() {
+  async syncToSceneByAllPendingItems({
+    forceSync,
+  }: {
+    forceSync?: boolean;
+  } = {}) {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
     }
@@ -842,11 +848,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       cloudSyncItemBuilder.canLocalItemSyncToScene({
         item,
         syncCredential,
+        forceSync,
       }),
     );
     return this.syncToSceneWithLocalSyncItems({
       items: pendingItems,
       syncCredential,
+      forceSync,
     });
   }
 
@@ -854,9 +862,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncToSceneWithLocalSyncItems({
     items,
     syncCredential,
+    forceSync,
   }: {
     items: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential;
+    forceSync?: boolean;
   }) {
     if (!syncCredential) {
       return;
@@ -867,6 +877,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     return this._syncToSceneWithLocalSyncItems({
       items,
       syncCredential,
+      forceSync,
     });
   }
 
@@ -1166,6 +1177,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow,
     callerName,
     noDebounceUpload,
+    forceSync,
   }: Omit<IStartServerSyncFlowParams, 'throwError'> = {}) {
     await this.startServerSyncFlowSilently({
       isFlush,
@@ -1174,6 +1186,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       throwError: true,
       callerName,
       noDebounceUpload,
+      forceSync,
     });
   }
 
@@ -1204,6 +1217,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     throwError,
     callerName,
     noDebounceUpload,
+    forceSync,
   }: IStartServerSyncFlowParams = {}) {
     try {
       // const syncMode = await this.getActiveSyncMode();
@@ -1276,7 +1290,9 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     // the server data has been downloaded, but it may not have been updated to the business scenario, so it needs to be executed again
     // checked by localSceneUpdated field
-    await this.syncToSceneByAllPendingItems();
+    await this.syncToSceneByAllPendingItems({
+      forceSync,
+    });
 
     return true;
   }
@@ -1661,9 +1677,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async syncNowKeyless({
     callerName = 'Manual Cloud Sync Keyless',
     noDebounceUpload = true,
+    forceSync,
   }: {
     callerName?: string;
     noDebounceUpload?: boolean;
+    forceSync?: boolean;
   } = {}): Promise<boolean> {
     const { isCloudSyncEnabledKeyless } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabledKeyless) {
@@ -1679,6 +1697,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     await this.startServerSyncFlow({
       callerName,
       noDebounceUpload,
+      forceSync,
     });
     await this.updateLastSyncTime({
       syncMode: ECloudSyncMode.Keyless,
@@ -2379,21 +2398,32 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
     const localItems: IDBCloudSyncItem[] = [];
     for (const item of items) {
-      const localItem = await this.convertServerItemToLocalItem({
-        serverItem: item,
-        shouldDecrypt: true,
-        syncCredential,
-        serverPwdHash: pwdHash,
-      });
-      if (localItem) {
-        localItems.push(localItem);
-      }
-      if (localItem) {
-        console.log(
-          'decryptAllServerSyncItems: ',
-          localItem?.rawDataJson?.payload,
-          localItem,
-        );
+      try {
+        const localItem = await this.convertServerItemToLocalItem({
+          serverItem: item,
+          shouldDecrypt: true,
+          syncCredential,
+          serverPwdHash: pwdHash,
+        });
+        if (localItem) {
+          localItems.push(localItem);
+          console.log(
+            'decryptAllServerSyncItems: ',
+            localItem?.rawDataJson?.payload,
+            localItem,
+          );
+        }
+      } catch (error) {
+        console.error('decryptAllServerSyncItems error', error, item);
+        const localItem = await this.convertServerItemToLocalItem({
+          serverItem: item,
+          shouldDecrypt: false,
+          syncCredential,
+          serverPwdHash: pwdHash,
+        });
+        if (localItem) {
+          localItems.push(localItem);
+        }
       }
     }
     return localItems.toSorted((a, b) => a.id.localeCompare(b.id));

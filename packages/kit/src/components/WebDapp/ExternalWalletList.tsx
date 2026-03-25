@@ -1,34 +1,80 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
   Badge,
+  Button,
+  Dialog,
   Icon,
   Image,
   SizableText,
   Spinner,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { EXT_RATE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import {
+  EKeylessWebPrivateRpcMethod,
+  type IKeylessWebOpenSidePanelPayload,
+  KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import keylessWebPendingLoginCache from '../../hooks/useWebDapp/keylessWebPendingLoginCache';
 import { useConnectExternalWallet } from '../../hooks/useWebDapp/useConnectExternalWallet';
+import { useKeylessWebFlow } from '../../hooks/useWebDapp/useKeylessWebFlow';
 import { useOneKeyWalletDetection } from '../../hooks/useWebDapp/useOneKeyWalletDetection';
 import { useWalletConnection } from '../../hooks/useWebDapp/useWalletConnection';
+import { FormatHyperlinkText } from '../HyperlinkText';
 
 import { useFallbackWallets } from './hooks/useFallbackWallets';
 
 const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
+const KEYLESS_STORE_URL_TARGET = 'onekey-extension-install-store-target';
+const KEYLESS_PROVIDER_LOADING_DURATION_MS = 2000;
+let keylessStoreWindowRef: Window | null = null;
+
+type IOneKeyPrivateProvider = {
+  request?: <T = unknown>(args: {
+    method: string;
+    params?: Record<string, unknown>;
+  }) => Promise<T>;
+};
+
+function getOneKeyPrivateProvider() {
+  const provider = (
+    globalThis as {
+      $onekey?: {
+        $private?: IOneKeyPrivateProvider;
+      };
+    }
+  ).$onekey?.$private;
+  return provider;
+}
+
+function notifyOpenKeylessSidePanelInContentScript(
+  payload: IKeylessWebOpenSidePanelPayload,
+) {
+  try {
+    const event = new CustomEvent(KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT, {
+      detail: payload,
+    });
+    globalThis.dispatchEvent(event);
+  } catch (error) {
+    console.error('notifyOpenKeylessSidePanelInContentScript', error);
+  }
+}
 
 function WalletItemView({
   onPress,
@@ -141,14 +187,7 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
         void connectToWalletWithDialog(connectionInfo);
       }
     } else {
-      // Select store URL based on browser type
-      let storeUrl = EXT_RATE_URL.chrome;
-      if (platformEnv.isRuntimeFirefox) {
-        storeUrl = EXT_RATE_URL.firefox;
-      } else if (platformEnv.isRuntimeEdge) {
-        storeUrl = EXT_RATE_URL.edge;
-      }
-      openUrlExternal(storeUrl);
+      openUrlExternal(getOneKeyExtensionStoreUrl());
     }
   }, [isOneKeyInstalled, getOneKeyConnectionInfo, connectToWalletWithDialog]);
 
@@ -213,6 +252,252 @@ function OneKeyWalletItem({ networkType }: { networkType?: string }) {
           </Stack>
         </XStack>
       </Stack>
+    </Stack>
+  );
+}
+
+function KeylessProviderButtons() {
+  const intl = useIntl();
+  const { isOneKeyInstalled, getOneKeyConnectionInfo } =
+    useOneKeyWalletDetection();
+  const { connectToWalletForKeylessSilently } = useConnectExternalWallet();
+  const [loadingProvider, setLoadingProvider] =
+    useState<EOAuthSocialLoginProvider | null>(null);
+  const loadingProviderRef = useRef<EOAuthSocialLoginProvider | null>(null);
+  const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const { startKeylessWebFlow } = useKeylessWebFlow();
+
+  const clearProviderLoading = useCallback(
+    (provider?: EOAuthSocialLoginProvider) => {
+      if (provider && loadingProviderRef.current !== provider) {
+        return;
+      }
+      loadingProviderRef.current = null;
+      setLoadingProvider(null);
+    },
+    [],
+  );
+
+  const startProviderLoading = useCallback(
+    (provider: EOAuthSocialLoginProvider) => {
+      if (loadingProviderRef.current) {
+        return false;
+      }
+      loadingProviderRef.current = provider;
+      setLoadingProvider(provider);
+      clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = setTimeout(() => {
+        clearProviderLoading(provider);
+      }, KEYLESS_PROVIDER_LOADING_DURATION_MS);
+      return true;
+    },
+    [clearProviderLoading],
+  );
+
+  useEffect(
+    () => () => {
+      clearTimeout(loadingTimerRef.current);
+      loadingProviderRef.current = null;
+    },
+    [],
+  );
+
+  const showInstallOneKeyDialog = useCallback(
+    (provider: EOAuthSocialLoginProvider) => {
+      Dialog.show({
+        title: '安装 OneKey 插件后继续',
+        description: (
+          <FormatHyperlinkText
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="center"
+            actionTextProps={{
+              color: '$textInfo',
+            }}
+            underlineTextProps={{
+              color: '$textInfo',
+            }}
+            onAction={() => {
+              globalThis.location.reload();
+            }}
+          >
+            {
+              '如果你已经安装插件，请<action>reload<underline>点击此处</underline></action>刷新页面'
+            }
+          </FormatHyperlinkText>
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_install,
+        }),
+        onConfirm: async () => {
+          await startKeylessWebFlow(provider);
+          const storeUrl = getOneKeyExtensionStoreUrl();
+          if (keylessStoreWindowRef && !keylessStoreWindowRef.closed) {
+            try {
+              keylessStoreWindowRef.location.href = storeUrl;
+              keylessStoreWindowRef.focus();
+              return;
+            } catch {
+              keylessStoreWindowRef = null;
+            }
+          }
+          keylessStoreWindowRef = window.open(
+            storeUrl,
+            KEYLESS_STORE_URL_TARGET,
+          );
+        },
+        onCancelText: intl.formatMessage({
+          id: ETranslations.global_cancel,
+        }),
+      });
+    },
+    [intl, startKeylessWebFlow],
+  );
+
+  const handleKeylessProviderPress = useCallback(
+    async (provider: EOAuthSocialLoginProvider) => {
+      if (!startProviderLoading(provider)) {
+        return;
+      }
+
+      if (!isOneKeyInstalled) {
+        showInstallOneKeyDialog(provider);
+      } else {
+        console.log('startKeylessWebFlow: OneKey Extension is installed');
+
+        const oneKeyPrivateProvider = getOneKeyPrivateProvider();
+        const keylessStatus = await oneKeyPrivateProvider
+          ?.request?.<{
+            walletExists?: boolean;
+            walletType?: EOAuthSocialLoginProvider;
+          }>({
+            method: EKeylessWebPrivateRpcMethod.GetStatus,
+            params: { provider },
+          })
+          .catch(() => undefined);
+
+        if (keylessStatus) {
+          const shouldOpenSidePanel = !keylessStatus.walletExists;
+          if (shouldOpenSidePanel) {
+            // Only write pending hash params when we actually need the
+            // side-panel onboarding flow; avoids leaving stale nonces that
+            // scanWebLoginTabs() would later treat as a new pending login.
+            await startKeylessWebFlow(provider);
+            const pendingLogin =
+              keylessWebPendingLoginCache.readKeylessPendingLogin();
+            notifyOpenKeylessSidePanelInContentScript({
+              provider,
+              nonce: pendingLogin?.nonce,
+            });
+            return;
+          }
+        }
+
+        // Wallet already exists — connect silently without writing hash params.
+        const connectionInfo = getOneKeyConnectionInfo();
+        if (connectionInfo) {
+          await connectToWalletForKeylessSilently(connectionInfo, {
+            provider,
+          });
+        } else {
+          showInstallOneKeyDialog(provider);
+        }
+      }
+    },
+    [
+      connectToWalletForKeylessSilently,
+      getOneKeyConnectionInfo,
+      isOneKeyInstalled,
+      showInstallOneKeyDialog,
+      startKeylessWebFlow,
+      startProviderLoading,
+    ],
+  );
+
+  if (!platformEnv.isWebDappMode) {
+    return null;
+  }
+
+  return (
+    <Stack px="$1.5" pb="$3" alignItems="center">
+      <YStack w="100%" maxWidth={520} gap="$2">
+        <Button
+          bg="$gray3"
+          hoverStyle={{ bg: '$gray4' }}
+          pressStyle={{ bg: '$gray5' }}
+          size="large"
+          alignSelf="stretch"
+          childrenAsText={false}
+          cursor={loadingProvider ? 'not-allowed' : 'pointer'}
+          disabled={!!loadingProvider}
+          onPress={
+            loadingProvider
+              ? undefined
+              : () => {
+                  void handleKeylessProviderPress(
+                    EOAuthSocialLoginProvider.Google,
+                  );
+                }
+          }
+        >
+          <XStack gap="$2" alignItems="center">
+            <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+              {loadingProvider === EOAuthSocialLoginProvider.Google ? (
+                <Spinner size="small" />
+              ) : (
+                <Icon name="GoogleIllus" size="$5" />
+              )}
+            </Stack>
+            <SizableText size="$bodyLgMedium">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.continue_with_social_platform,
+                },
+                { platform: 'Google' },
+              )}
+            </SizableText>
+          </XStack>
+        </Button>
+        <Button
+          bg="$gray3"
+          hoverStyle={{ bg: '$gray4' }}
+          pressStyle={{ bg: '$gray5' }}
+          size="large"
+          alignSelf="stretch"
+          childrenAsText={false}
+          cursor={loadingProvider ? 'not-allowed' : 'pointer'}
+          disabled={!!loadingProvider}
+          onPress={
+            loadingProvider
+              ? undefined
+              : () => {
+                  void handleKeylessProviderPress(
+                    EOAuthSocialLoginProvider.Apple,
+                  );
+                }
+          }
+        >
+          <XStack gap="$2" alignItems="center">
+            <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+              {loadingProvider === EOAuthSocialLoginProvider.Apple ? (
+                <Spinner size="small" />
+              ) : (
+                <Icon name="AppleBrand" size="$5" />
+              )}
+            </Stack>
+            <SizableText size="$bodyLgMedium">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.continue_with_social_platform,
+                },
+                { platform: 'Apple' },
+              )}
+            </SizableText>
+          </XStack>
+        </Button>
+      </YStack>
     </Stack>
   );
 }
@@ -305,6 +590,7 @@ function ExternalWalletList({ impl }: { impl?: string }) {
 
   return (
     <Stack px="$5" py="$4">
+      <KeylessProviderButtons />
       <XStack flexWrap="wrap" mx="$-1.5">
         {/* OneKey - always first with Recommended badge */}
         <OneKeyWalletItem networkType={networkLabel} />
