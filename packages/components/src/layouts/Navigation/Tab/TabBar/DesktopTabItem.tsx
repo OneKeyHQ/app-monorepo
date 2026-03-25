@@ -66,6 +66,9 @@ export interface IDesktopTabItemProps {
   showDot?: boolean;
   isContainerHovered?: boolean;
   onPressWhenSelected?: () => void; // New: Click event when already selected
+  closeButtonIcon?: IKeyOfIcons;
+  closeButtonTitle?: React.ReactNode;
+  alwaysShowCloseButton?: boolean;
 }
 
 function BasicDesktopTabItemImage({
@@ -121,6 +124,9 @@ export function DesktopTabItem(
     isContainerHovered = false,
     hideCloseButton = false,
     onPressWhenSelected,
+    closeButtonIcon,
+    closeButtonTitle,
+    alwaysShowCloseButton = false,
     ...rest
   } = props;
 
@@ -244,21 +250,26 @@ export function DesktopTabItem(
           </SizableText>
         ) : null}
         {!hideCloseButton &&
-        (selected || isHovered || isContainerHovered) &&
+        (alwaysShowCloseButton ||
+          selected ||
+          isHovered ||
+          isContainerHovered) &&
         actionList ? (
           <IconButton
             size="small"
-            icon="CrossedSmallOutline"
+            icon={closeButtonIcon ?? 'CrossedSmallOutline'}
+            {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
             variant="tertiary"
             focusVisibleStyle={undefined}
             title={
-              <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
-                {intl.formatMessage({
-                  id: ETranslations.global_close,
-                })}
-              </Tooltip.Text>
+              closeButtonTitle ?? (
+                <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_close,
+                  })}
+                </Tooltip.Text>
+              )
             }
-            p="$0.5"
             m={-3}
             testID="browser-bar-options"
             onPress={onClose}
@@ -303,6 +314,9 @@ export function DesktopTabItem(
       label,
       tabBarLabelStyle,
       hideCloseButton,
+      alwaysShowCloseButton,
+      closeButtonIcon,
+      closeButtonTitle,
       actionList,
       reportPopoverOpen,
       intl,
