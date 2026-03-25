@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
@@ -84,6 +84,7 @@ function BaseBulkSendAddressesInput() {
     duplicateAddressCount,
     setSelectedDeriveType,
     resolvedSenderAccountIds,
+    setResolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
@@ -225,6 +226,26 @@ function BaseBulkSendAddressesInput() {
   ]);
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const validationDependencyKey = useMemo(
+    () =>
+      [
+        selectedNetworkId ?? '',
+        selectedToken?.networkId ?? '',
+        selectedToken?.address ?? '',
+        selectedToken?.decimals ?? '',
+        selectedToken?.isNative ? '1' : '0',
+      ].join(':'),
+    [
+      selectedNetworkId,
+      selectedToken?.networkId,
+      selectedToken?.address,
+      selectedToken?.decimals,
+      selectedToken?.isNative,
+    ],
+  );
+  const previousValidationDependencyKeyRef = useRef<string | undefined>(
+    undefined,
+  );
 
   // Reset token details state when account/network/token changes (OneToMany only)
   /* eslint-disable react-hooks/exhaustive-deps */
@@ -358,6 +379,32 @@ function BaseBulkSendAddressesInput() {
     selectedAccountId,
     selectedNetworkId,
   ]);
+
+  useEffect(() => {
+    const previousValidationDependencyKey =
+      previousValidationDependencyKeyRef.current;
+    previousValidationDependencyKeyRef.current = validationDependencyKey;
+
+    if (
+      previousValidationDependencyKey === undefined ||
+      previousValidationDependencyKey === validationDependencyKey
+    ) {
+      return;
+    }
+
+    setResolvedSenderAccountIds({});
+
+    const senderAddressesValue = form.getValues('senderAddresses');
+    const receiverAddressesValue = form.getValues('receiverAddresses');
+
+    if (!isOneToMany && senderAddressesValue.trim()) {
+      void form.trigger('senderAddresses');
+    }
+
+    if (receiverAddressesValue.trim()) {
+      void form.trigger('receiverAddresses');
+    }
+  }, [form, isOneToMany, setResolvedSenderAccountIds, validationDependencyKey]);
 
   // Reset form when mode changes
   /* eslint-disable react-hooks/exhaustive-deps */
