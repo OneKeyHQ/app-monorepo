@@ -100,6 +100,7 @@ jobs:
         id: params
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_REF: ${{ needs.validate-pr.outputs.head_ref }}
         run: |
           # Read BUILD_NUMBER from .env.version
           BUILD_NUMBER=""
@@ -129,7 +130,7 @@ jobs:
           echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
           echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
           if [ -n "$PR_NUMBER" ]; then
-            BRANCH="${{ needs.validate-pr.outputs.head_ref }}"
+            BRANCH="$HEAD_REF"
             COMMIT=$(git rev-parse HEAD)
           else
             BRANCH="${{ github.ref_name }}"
