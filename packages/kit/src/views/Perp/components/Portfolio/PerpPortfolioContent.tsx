@@ -485,8 +485,8 @@ function PerpPortfolioContentComponent({
 
       {/* P&L + Win Rate summary */}
       <SectionBlock>
-        <XStack justifyContent="space-between" alignItems="center">
-          <YStack gap="$0.5">
+        <XStack alignItems="center">
+          <YStack flex={1} gap="$0.5">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_unrealized_pnl,
@@ -496,7 +496,7 @@ function PerpPortfolioContentComponent({
               {unrealizedPnl}
             </SizableText>
           </YStack>
-          <YStack gap="$0.5" alignItems="center">
+          <YStack flex={1} gap="$0.5" alignItems="center">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_total_pnl,
@@ -506,7 +506,7 @@ function PerpPortfolioContentComponent({
               {realizedPnl}
             </SizableText>
           </YStack>
-          <YStack gap="$0.5" alignItems="flex-end">
+          <YStack flex={1} gap="$0.5" alignItems="flex-end">
             <SizableText size="$bodyXs" color="$textDisabled">
               {intl.formatMessage({
                 id: ETranslations.perp_portfolio_open_positions,
