@@ -149,14 +149,19 @@ function useRecommendedItemPress(token?: IRecommendAsset) {
       return;
     }
 
+    const protocol = token.protocols[0];
+    if (!protocol) {
+      return;
+    }
+
     defaultLogger.staking.page.selectAsset({ tokenSymbol: token.symbol });
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.ManagePosition,
       params: {
-        networkId: token.protocols[0].networkId,
+        networkId: protocol.networkId,
         symbol: token.symbol,
-        provider: token.protocols[0].provider,
-        vault: token.protocols[0].vault,
+        provider: protocol.provider,
+        vault: protocol.vault,
         tokenImageUri: token.logoURI,
         tab: 'deposit',
         enableProtocolSwitch: true,
