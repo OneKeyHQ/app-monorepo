@@ -394,26 +394,55 @@ export function registerSwapExecuteCommand(parent: Command): void {
             );
           }
 
+          // Get wallet address early — needed for allowance check and address validation
+          const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
+          const addressInfo = await signer.getAddress(chainConfig.networkId);
+          const fromAddress = addressInfo.address;
+
+          // Verify current wallet matches the address used at build time.
+          const buildTimeFrom = txData.tx.from;
+          if (
+            buildTimeFrom &&
+            buildTimeFrom.toLowerCase() !== fromAddress.toLowerCase()
+          ) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_FAILED.code,
+              `Wallet address mismatch: order was built for ${buildTimeFrom}, but current wallet is ${fromAddress}`,
+              'Run "onekey swap build" again with the current wallet',
+            );
+          }
+
           // Determine if token approval is needed by calling the on-chain allowance API.
-          // The build-tx response's allowanceResult contains the spender (allowanceTarget)
-          // and required amount — but the actual approval status must be checked on-chain.
+          // For ERC-20 fromTokens, ALWAYS check — the build-tx API may or may not
+          // include allowanceResult depending on the provider.
           const buildAllowance = txData.result?.allowanceResult;
           let needsApprove = false;
           let approveSpender = '';
-          let onChainAllowance: IAllowanceCheckResponse | undefined;
 
-          if (
-            buildAllowance?.allowanceTarget &&
-            order.fromToken.contractAddress
-          ) {
-            approveSpender = buildAllowance.allowanceTarget;
-            onChainAllowance = await checkAllowance(
+          if (order.fromToken.contractAddress) {
+            // Spender: prefer allowanceResult.allowanceTarget, fall back to tx.to (router)
+            approveSpender =
+              buildAllowance?.allowanceTarget ?? txData.tx.to ?? '';
+            if (!approveSpender) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'Cannot determine approve spender address',
+                'Run "onekey swap build" to create a new order',
+              );
+            }
+
+            const txDataRecord: Record<string, unknown> = order.txData;
+            const checkAmount =
+              buildAllowance?.amount ?? txDataRecord.fromTokenAmount ?? '0';
+
+            const onChainAllowance = await checkAllowance(
               chainConfig.networkId,
               order.fromToken.contractAddress,
               approveSpender,
-              // Use build-time address if available, otherwise will be checked after signer init
-              txData.tx.from ?? '',
-              buildAllowance.amount,
+              fromAddress,
+              typeof checkAmount === 'string'
+                ? checkAmount
+                : String(checkAmount),
             );
             needsApprove = !onChainAllowance.isApproved;
           }
@@ -435,26 +464,6 @@ export function registerSwapExecuteCommand(parent: Command): void {
             output,
             skipConfirmation,
           });
-
-          // Get wallet signer and address
-          const signer = (await getSignerByImpl(chainConfig.impl)) as EvmSigner;
-          const addressInfo = await signer.getAddress(chainConfig.networkId);
-          const fromAddress = addressInfo.address;
-
-          // Verify current wallet matches the address used at build time.
-          // The swap tx calldata encodes recipient/sender — signing with a
-          // different account could send funds to the wrong address.
-          const buildTimeFrom = txData.tx.from;
-          if (
-            buildTimeFrom &&
-            buildTimeFrom.toLowerCase() !== fromAddress.toLowerCase()
-          ) {
-            throw new AppError(
-              ERROR_CODES.BIZ_SWAP_FAILED.code,
-              `Wallet address mismatch: order was built for ${buildTimeFrom}, but current wallet is ${fromAddress}`,
-              'Run "onekey swap build" again with the current wallet',
-            );
-          }
 
           // Prepare sign credentials once for both approve + swap
           const hdCredential = await signer.getHdCredential();
@@ -551,9 +560,20 @@ export function registerSwapExecuteCommand(parent: Command): void {
 
           // Sign and broadcast swap tx
           try {
+            // Normalize value: the swap API may return "0" (decimal) but
+            // estimate-fee expects "0x0" (hex) for on-chain simulation
+            const rawValue = txData.tx.value;
+            let normalizedValue = rawValue;
+            if (rawValue !== undefined && !rawValue.startsWith('0x')) {
+              normalizedValue = `0x${BigInt(rawValue).toString(16)}`;
+            }
+
             const swapEncodedTx: Record<string, string> = {
               ...txData.tx,
               from: fromAddress,
+              ...(normalizedValue !== undefined
+                ? { value: normalizedValue }
+                : {}),
             };
 
             // If approve was sent, use approveNonce+1 to ensure sequential ordering
