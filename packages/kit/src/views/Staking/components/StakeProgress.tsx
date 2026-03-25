@@ -10,6 +10,8 @@ interface IStakeProgressProps {
   /** Current step in the staking process (1, 2, or 3) */
   currentStep: number;
   approveType?: EApproveType;
+  /** Override the step 1 label */
+  step1LabelId?: ETranslations;
   /** Override the step 2 label (e.g. "Swap" for Pendle) */
   step2LabelId?: ETranslations;
   /** Optional step 3 label — when provided, renders a 3-step indicator */
@@ -25,6 +27,7 @@ export enum EStakeProgressStep {
 export function StakeProgress({
   currentStep,
   approveType,
+  step1LabelId,
   step2LabelId,
   step3LabelId,
 }: IStakeProgressProps) {
@@ -37,7 +40,21 @@ export function StakeProgress({
     if (isStep1Done) return undefined;
     return '$textDisabled' as const;
   }, [isStep2Done, isStep1Done]);
-  if (!approveType) {
+  const resolvedStep1LabelId = useMemo(() => {
+    if (step1LabelId) {
+      return step1LabelId;
+    }
+
+    if (!approveType) {
+      return undefined;
+    }
+
+    return approveType === EApproveType.Permit
+      ? ETranslations.earn_approve_permit
+      : ETranslations.global_approve;
+  }, [approveType, step1LabelId]);
+
+  if (!resolvedStep1LabelId) {
     return null;
   }
   return (
@@ -49,10 +66,7 @@ export function StakeProgress({
         >
           1.{' '}
           {intl.formatMessage({
-            id:
-              approveType === EApproveType.Permit
-                ? ETranslations.earn_approve_permit
-                : ETranslations.global_approve,
+            id: resolvedStep1LabelId,
           })}
         </SizableText>
         {isStep1Done ? (
