@@ -1647,7 +1647,7 @@ export type IRecommendAsset = {
   protocols: Array<{
     networkId: string;
     provider: string;
-    vault: string;
+    vault?: string;
   }>;
   aprWithoutFee: string;
   aprInfo: IEarnAvailableAssetAprInfo;
@@ -1656,9 +1656,12 @@ export type IRecommendAsset = {
     text: string;
     color: ColorTokens;
   };
-  badge?: {
-    text: string;
-  };
+  isRecommended: boolean;
+  isPinedRecommend: boolean;
+  badges: Array<{
+    badgeType: IBadgeType;
+    tag: string;
+  }>;
 };
 
 export interface IEarnAtomData {
