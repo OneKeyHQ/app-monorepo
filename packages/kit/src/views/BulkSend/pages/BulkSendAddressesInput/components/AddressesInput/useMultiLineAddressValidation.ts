@@ -8,6 +8,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  getBulkSendMinTransferAmount,
+  getBulkSendMinTransferDisplayAmount,
+} from '@onekeyhq/kit/src/views/BulkSend/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -65,17 +69,14 @@ function useMultiLineAddressValidation(
     [selectedNetworkId],
   );
 
-  let minTransferAmount = '0';
-  if (vaultSettings && selectedToken) {
-    if (selectedToken.isNative) {
-      minTransferAmount =
-        vaultSettings.nativeMinTransferAmount ??
-        vaultSettings.minTransferAmount ??
-        '0';
-    } else {
-      minTransferAmount = vaultSettings.minTransferAmount ?? '0';
-    }
-  }
+  const minTransferAmount = getBulkSendMinTransferAmount({
+    vaultSettings,
+    isNative: selectedToken?.isNative,
+  });
+  const minTransferDisplayAmount = getBulkSendMinTransferDisplayAmount({
+    minTransferAmount,
+    tokenDecimals: selectedToken?.decimals,
+  });
 
   const [errors, setErrors] = useState<ILineError[]>([]);
 
@@ -135,7 +136,10 @@ function useMultiLineAddressValidation(
           }),
           minAmount: intl.formatMessage(
             { id: ETranslations.send_error_minimum_amount },
-            { amount: minTransferAmount, token: selectedToken.symbol },
+            {
+              amount: minTransferDisplayAmount,
+              token: selectedToken.symbol,
+            },
           ),
           decimalPlaces: intl.formatMessage(
             {
@@ -152,7 +156,7 @@ function useMultiLineAddressValidation(
 
       return true;
     },
-    [intl, selectedToken, minTransferAmount],
+    [intl, selectedToken, minTransferAmount, minTransferDisplayAmount],
   );
 
   const parseLineMode = useCallback(

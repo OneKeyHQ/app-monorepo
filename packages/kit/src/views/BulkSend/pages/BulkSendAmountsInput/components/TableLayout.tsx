@@ -42,6 +42,7 @@ import {
 import {
   filterNumericInput,
   formatIntervalSecondsRange,
+  getBulkSendMinTransferDisplayAmount,
   validateIntervalSettings,
   validateRangeInput,
 } from '../../../utils';
@@ -191,6 +192,14 @@ function AmountCard() {
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
   const balance = tokenDetails?.balanceParsed ?? '0';
+  const minTransferDisplayAmount = useMemo(
+    () =>
+      getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals: tokenInfo?.decimals,
+      }),
+    [minTransferAmount, tokenInfo?.decimals],
+  );
 
   const { updateTransfersInfoWithAmounts } = useAmountPreview({
     tokenInfo,
@@ -262,7 +271,7 @@ function AmountCard() {
               minAmount: intl.formatMessage(
                 { id: ETranslations.send_error_minimum_amount },
                 {
-                  amount: minTransferAmount ?? '0',
+                  amount: minTransferDisplayAmount,
                   token: tokenInfo.symbol,
                 },
               ),
@@ -288,6 +297,7 @@ function AmountCard() {
       tokenInfo,
       setTransferInfoErrors,
       minTransferAmount,
+      minTransferDisplayAmount,
     ],
   );
 
@@ -311,7 +321,7 @@ function AmountCard() {
           ...amountInputErrors,
           specifiedAmount: intl.formatMessage(
             { id: ETranslations.send_error_minimum_amount },
-            { amount: minTransferAmount, token: tokenInfo.symbol },
+            { amount: minTransferDisplayAmount, token: tokenInfo.symbol },
           ),
         });
         updateTransfersInfoWithAmounts(amountInputMode, newValues);
@@ -355,6 +365,7 @@ function AmountCard() {
       updateTransfersInfoWithAmounts,
       amountInputMode,
       minTransferAmount,
+      minTransferDisplayAmount,
     ],
   );
 
@@ -405,6 +416,7 @@ function AmountCard() {
         balance: isOneToMany ? balance : undefined,
         minTransferAmount,
         tokenSymbol: tokenInfo?.symbol,
+        tokenDecimals: tokenInfo?.decimals,
       });
       setAmountInputErrors({
         ...amountInputErrorsRef.current,
@@ -474,7 +486,7 @@ function AmountCard() {
         ...amountInputErrors,
         specifiedAmount: intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
-          { amount: minTransferAmount, token: tokenInfo.symbol },
+          { amount: minTransferDisplayAmount, token: tokenInfo.symbol },
         ),
       });
     } else {
@@ -499,6 +511,7 @@ function AmountCard() {
     setAmountInputErrors,
     updateTransfersInfoWithAmounts,
     minTransferAmount,
+    minTransferDisplayAmount,
   ]);
 
   // Calculate fiat value for specified amount

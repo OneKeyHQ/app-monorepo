@@ -29,6 +29,7 @@ import {
 import {
   filterNumericInput,
   generateRandomAmountsFromRange,
+  getBulkSendMinTransferDisplayAmount,
   validateRangeInput,
 } from '../../../utils';
 
@@ -64,6 +65,14 @@ export function SpecifiedAmountInput() {
     !tokenDetailsState.initialized && tokenDetailsState.isRefreshing;
   const balance = tokenDetails?.balanceParsed ?? '0';
   const tokenSymbol = tokenInfo.symbol;
+  const minTransferDisplayAmount = useMemo(
+    () =>
+      getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals: tokenInfo.decimals,
+      }),
+    [minTransferAmount, tokenInfo.decimals],
+  );
 
   const handleChange = useCallback(
     (value: string) => {
@@ -87,7 +96,7 @@ export function SpecifiedAmountInput() {
           ...amountInputErrors,
           specifiedAmount: intl.formatMessage(
             { id: ETranslations.send_error_minimum_amount },
-            { amount: minTransferAmount, token: tokenInfo.symbol },
+            { amount: minTransferDisplayAmount, token: tokenInfo.symbol },
           ),
         });
         return;
@@ -132,6 +141,7 @@ export function SpecifiedAmountInput() {
       setAmountInputErrors,
       setPreviewState,
       minTransferAmount,
+      minTransferDisplayAmount,
     ],
   );
 
@@ -222,10 +232,17 @@ export function RangeAmountInput() {
         balance: isOneToMany ? balance : undefined,
         minTransferAmount: ctxMinTransferAmount,
         tokenSymbol: tokenInfo.symbol,
+        tokenDecimals: tokenInfo.decimals,
       });
       return error ? { rangeError: error } : {};
     },
-    [isOneToMany, balance, ctxMinTransferAmount, tokenInfo.symbol],
+    [
+      isOneToMany,
+      balance,
+      ctxMinTransferAmount,
+      tokenInfo.symbol,
+      tokenInfo.decimals,
+    ],
   );
 
   const generatePreviewAmounts = useCallback(
@@ -510,6 +527,14 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const minTransferDisplayAmount = useMemo(
+    () =>
+      getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals: tokenInfo.decimals,
+      }),
+    [minTransferAmount, tokenInfo.decimals],
+  );
 
   // Only show Custom option if receivers have custom amounts from address input
   const segmentOptions = useMemo(() => {
@@ -551,7 +576,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       return {
         specifiedAmount: intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
-          { amount: minTransferAmount, token: tokenInfo.symbol },
+          { amount: minTransferDisplayAmount, token: tokenInfo.symbol },
         ),
       };
     }
@@ -586,6 +611,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     amountInputValues.specifiedAmount,
     transfersInfo.length,
     minTransferAmount,
+    minTransferDisplayAmount,
     isOneToMany,
   ]);
 
@@ -597,6 +623,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
       balance: isOneToMany ? balance : undefined,
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
+      tokenDecimals: tokenInfo.decimals,
     });
     return error ? { rangeError: error } : {};
   }, [
@@ -605,6 +632,7 @@ export function AmountInputSection({ inDialog }: { inDialog?: boolean }) {
     amountInputValues.rangeMax,
     minTransferAmount,
     tokenInfo.symbol,
+    tokenInfo.decimals,
     isOneToMany,
   ]);
 

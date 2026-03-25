@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
@@ -36,6 +36,7 @@ import {
   EModalRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EAmountInputMode,
   EBulkSendMode,
@@ -51,7 +52,13 @@ import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
-import { calculateIsAmountValid, calculateTotalAmounts } from '../../utils';
+import {
+  calculateIsAmountValid,
+  calculateTotalAmounts,
+  getBulkSendMinTransferAmount,
+  getBulkSendMinTransferDisplayAmount,
+  validateRangeInput,
+} from '../../utils';
 
 import { AmountPreview } from './components/AmountPreview';
 import {
@@ -97,6 +104,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     senderBalancesLoading,
     senderBalancesFailed,
     senderAccountIdMap,
+    minTransferAmount,
   } = useBulkSendAmountsInputContext();
 
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
@@ -105,6 +113,14 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   const navigation = useAppNavigation();
 
   const media = useMedia();
+  const minTransferDisplayAmount = useMemo(
+    () =>
+      getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals: tokenInfo?.decimals,
+      }),
+    [minTransferAmount, tokenInfo?.decimals],
+  );
 
   const [settings] = useSettingsPersistAtom();
 
@@ -612,11 +628,32 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       ...amountInputValues,
       specifiedAmount: maxAmountPerAddress,
     });
+    const maxAmountBN = new BigNumber(maxAmountPerAddress);
+    const minTransferAmountBN = new BigNumber(minTransferAmount);
+    if (
+      !minTransferAmountBN.isZero() &&
+      !maxAmountBN.isZero() &&
+      maxAmountBN.isLessThan(minTransferAmountBN)
+    ) {
+      setAmountInputErrors({
+        ...amountInputErrors,
+        specifiedAmount: intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          {
+            amount: minTransferDisplayAmount,
+            token: tokenInfo.symbol,
+          },
+        ),
+      });
+      return;
+    }
+
     setAmountInputErrors({
       ...amountInputErrors,
       specifiedAmount: undefined,
     });
   }, [
+    intl,
     amountInputMode,
     isOneToMany,
     isMaxMode,
@@ -628,6 +665,8 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     tokenInfo,
     setAmountInputErrors,
     amountInputErrors,
+    minTransferAmount,
+    minTransferDisplayAmount,
   ]);
 
   return (
@@ -746,6 +785,7 @@ function BulkSendAmountsInputContent({
   bulkSendMode,
   isInModal,
 }: IBulkSendAmountsInputRouteParams) {
+  const intl = useIntl();
   const hasCustomAmounts = useMemo(
     () =>
       receivers?.some((r) => r.amount !== undefined && r.amount !== '') ??
@@ -930,13 +970,20 @@ function BulkSendAmountsInputContent({
   );
 
   const minTransferAmount = useMemo(() => {
-    if (!outerVaultSettings) return '0';
-    return tokenInfo?.isNative
-      ? (outerVaultSettings.nativeMinTransferAmount ??
-          outerVaultSettings.minTransferAmount ??
-          '0')
-      : (outerVaultSettings.minTransferAmount ?? '0');
+    return getBulkSendMinTransferAmount({
+      vaultSettings: outerVaultSettings,
+      isNative: tokenInfo?.isNative,
+    });
   }, [outerVaultSettings, tokenInfo?.isNative]);
+  const minTransferDisplayAmount = useMemo(
+    () =>
+      getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals: tokenInfo?.decimals,
+      }),
+    [minTransferAmount, tokenInfo?.decimals],
+  );
+  const shouldValidateInitialAmountsRef = useRef(false);
 
   const [isInsufficientBalance, setIsInsufficientBalance] = useState(false);
 
@@ -954,6 +1001,130 @@ function BulkSendAmountsInputContent({
     });
     return map;
   }, [senders]);
+
+  const validateSpecifiedAmountValue = useCallback(
+    (specifiedAmount: string): IAmountInputError => {
+      const balance = tokenDetails?.balanceParsed ?? '0';
+      const minTransferAmountBN = new BigNumber(minTransferAmount);
+      const valueBN = new BigNumber(specifiedAmount || '0');
+
+      if (
+        !minTransferAmountBN.isZero() &&
+        !valueBN.isZero() &&
+        !valueBN.isNaN() &&
+        valueBN.isLessThan(minTransferAmountBN)
+      ) {
+        return {
+          specifiedAmount: intl.formatMessage(
+            { id: ETranslations.send_error_minimum_amount },
+            {
+              amount: minTransferDisplayAmount,
+              token: tokenInfo.symbol,
+            },
+          ),
+        };
+      }
+
+      const { error } = validateTokenAmount({
+        token: tokenInfo,
+        amount: new BigNumber(specifiedAmount || '0')
+          .times(transfersInfo.length)
+          .toFixed(),
+        maxAmount: isOneToMany ? balance : undefined,
+        allowZero: false,
+        customErrorMessages: {
+          maxAmount: intl.formatMessage({
+            id: ETranslations.swap_page_button_insufficient_balance,
+          }),
+          zeroAmount: intl.formatMessage({
+            id: ETranslations.wallet_bulk_send_error_amount_zero,
+          }),
+          decimalPlaces: intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+            },
+            { decimals: tokenInfo.decimals },
+          ),
+        },
+      });
+
+      return error ? { specifiedAmount: error } : {};
+    },
+    [
+      intl,
+      isOneToMany,
+      minTransferAmount,
+      minTransferDisplayAmount,
+      tokenDetails?.balanceParsed,
+      tokenInfo,
+      transfersInfo.length,
+    ],
+  );
+
+  const validateRangeAmountValue = useCallback((): IAmountInputError => {
+    const balance = tokenDetails?.balanceParsed ?? '0';
+    const error = validateRangeInput({
+      rangeMin: amountInputValues.rangeMin,
+      rangeMax: amountInputValues.rangeMax,
+      balance: isOneToMany ? balance : undefined,
+      minTransferAmount,
+      tokenSymbol: tokenInfo.symbol,
+      tokenDecimals: tokenInfo.decimals,
+    });
+
+    return error ? { rangeError: error } : {};
+  }, [
+    amountInputValues.rangeMax,
+    amountInputValues.rangeMin,
+    isOneToMany,
+    minTransferAmount,
+    tokenDetails?.balanceParsed,
+    tokenInfo.decimals,
+    tokenInfo.symbol,
+  ]);
+
+  const validateCustomTransfers = useCallback(
+    (items: ITransferInfo[]): ITransferInfoErrors => {
+      const errors: ITransferInfoErrors = {};
+
+      items.forEach((transfer, index) => {
+        const { isValid, error } = validateTokenAmount({
+          token: tokenInfo,
+          amount: transfer.amount,
+          allowZero: false,
+          minAmount:
+            minTransferAmount && minTransferAmount !== '0'
+              ? minTransferAmount
+              : undefined,
+          customErrorMessages: {
+            zeroAmount: intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_error_amount_zero,
+            }),
+            decimalPlaces: intl.formatMessage(
+              {
+                id: ETranslations.wallet_bulk_send_error_max_decimal_places,
+              },
+              { decimals: tokenInfo.decimals },
+            ),
+            minAmount: intl.formatMessage(
+              { id: ETranslations.send_error_minimum_amount },
+              {
+                amount: minTransferDisplayAmount,
+                token: tokenInfo.symbol,
+              },
+            ),
+          },
+        });
+
+        if (!isValid && error) {
+          errors[index] = { amount: error };
+        }
+      });
+
+      return errors;
+    },
+    [intl, minTransferAmount, minTransferDisplayAmount, tokenInfo],
+  );
 
   const displaySummaryTransfersInfo = useMemo(
     () =>
@@ -1191,6 +1362,8 @@ function BulkSendAmountsInputContent({
     }
 
     setTransfersInfo(_transfersInfo);
+    setAmountInputErrors({});
+    setTransferInfoErrors({});
 
     // Custom mode starts with generated data; Specified/Range start empty
     setMobileModeData({
@@ -1201,6 +1374,7 @@ function BulkSendAmountsInputContent({
         transfersInfo: _transfersInfo,
       },
     });
+    shouldValidateInitialAmountsRef.current = true;
   }, [
     bulkSendMode,
     senders,
@@ -1208,6 +1382,52 @@ function BulkSendAmountsInputContent({
     tokenInfo,
     initialTokenDetails?.balanceParsed,
     defaultModeData,
+  ]);
+
+  useEffect(() => {
+    if (!shouldValidateInitialAmountsRef.current) {
+      return;
+    }
+    if (!outerVaultSettings || transfersInfo.length === 0) {
+      return;
+    }
+
+    if (amountInputMode === EAmountInputMode.Specified) {
+      const nextAmountErrors = amountInputValues.specifiedAmount
+        ? validateSpecifiedAmountValue(amountInputValues.specifiedAmount)
+        : {};
+      setAmountInputErrors(nextAmountErrors);
+      setTransferInfoErrors({});
+      updateCurrentModeData({ transferInfoErrors: {} });
+    } else if (amountInputMode === EAmountInputMode.Range) {
+      const nextAmountErrors =
+        amountInputValues.rangeMin || amountInputValues.rangeMax
+          ? validateRangeAmountValue()
+          : {};
+      setAmountInputErrors(nextAmountErrors);
+      setTransferInfoErrors({});
+      updateCurrentModeData({ transferInfoErrors: {} });
+    } else if (amountInputMode === EAmountInputMode.Custom) {
+      const nextTransferInfoErrors = validateCustomTransfers(transfersInfo);
+      setTransferInfoErrors(nextTransferInfoErrors);
+      updateCurrentModeData({
+        transferInfoErrors: nextTransferInfoErrors,
+      });
+      setAmountInputErrors({});
+    }
+
+    shouldValidateInitialAmountsRef.current = false;
+  }, [
+    amountInputMode,
+    amountInputValues.rangeMax,
+    amountInputValues.rangeMin,
+    amountInputValues.specifiedAmount,
+    outerVaultSettings,
+    transfersInfo,
+    updateCurrentModeData,
+    validateCustomTransfers,
+    validateRangeAmountValue,
+    validateSpecifiedAmountValue,
   ]);
 
   const context = useMemo<IBulkSendAmountsInputContext>(

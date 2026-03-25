@@ -1,7 +1,10 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  ITransferInfo,
+  IVaultSettings,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -91,6 +94,48 @@ export function calculateTotalAmounts({
     totalTokenAmount: total.isZero() ? '0' : total.toFixed(),
     totalFiatAmount: fiat,
   };
+}
+
+export function getBulkSendMinTransferAmount({
+  vaultSettings,
+  isNative,
+}: {
+  vaultSettings?: Pick<
+    IVaultSettings,
+    'minTransferAmount' | 'nativeMinTransferAmount'
+  > | null;
+  isNative?: boolean;
+}): string {
+  if (!vaultSettings) {
+    return '0';
+  }
+
+  return isNative
+    ? (vaultSettings.nativeMinTransferAmount ??
+        vaultSettings.minTransferAmount ??
+        '0')
+    : (vaultSettings.minTransferAmount ?? '0');
+}
+
+function getTokenMinAmount(tokenDecimals?: number): string {
+  if (tokenDecimals === undefined || tokenDecimals === null) {
+    return '0';
+  }
+
+  return new BigNumber(1).shiftedBy(-tokenDecimals).toFixed();
+}
+
+export function getBulkSendMinTransferDisplayAmount({
+  minTransferAmount,
+  tokenDecimals,
+}: {
+  minTransferAmount?: string;
+  tokenDecimals?: number;
+}): string {
+  return BigNumber.max(
+    getTokenMinAmount(tokenDecimals),
+    minTransferAmount ?? '0',
+  ).toFixed();
 }
 
 export function formatIntervalSecondsRange({
@@ -420,12 +465,14 @@ export function validateRangeInput({
   balance,
   minTransferAmount,
   tokenSymbol,
+  tokenDecimals,
 }: {
   rangeMin: string;
   rangeMax: string;
   balance?: string;
   minTransferAmount?: string;
   tokenSymbol?: string;
+  tokenDecimals?: number;
 }): string | undefined {
   const minBN = new BigNumber(rangeMin || '0');
   const maxBN = new BigNumber(rangeMax || '0');
@@ -459,9 +506,13 @@ export function validateRangeInput({
       !minBN.isNaN() &&
       minBN.isLessThan(minTransferBN)
     ) {
+      const minTransferDisplayAmount = getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals,
+      });
       return appLocale.intl.formatMessage(
         { id: ETranslations.send_error_minimum_amount },
-        { amount: minTransferAmount, token: tokenSymbol ?? '' },
+        { amount: minTransferDisplayAmount, token: tokenSymbol ?? '' },
       );
     }
   }
