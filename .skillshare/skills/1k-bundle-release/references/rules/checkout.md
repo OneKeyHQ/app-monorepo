@@ -42,12 +42,14 @@ If no argument, ask:
 
 > "Enter the name for your new branch (e.g., `feat/new-swap`, `fix/swap-crash`):"
 
-## Step 2: Fetch and checkout
+## Step 2: Fetch the latest remote release branch and checkout
 
 ```bash
 git fetch origin "$RELEASE_BRANCH"
 git checkout -b <branch-name> "origin/$RELEASE_BRANCH"
 ```
+
+This does not branch from a local `release/*` branch. It fetches the latest remote tip first and then creates the new branch directly from `origin/$RELEASE_BRANCH`, so the new branch always starts from the latest fetched release branch.
 
 ## Step 3: Output
 
