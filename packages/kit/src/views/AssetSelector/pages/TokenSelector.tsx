@@ -80,6 +80,7 @@ function TokenSelector() {
     keepDefaultZeroBalanceTokens,
     enableNetworkAfterSelect,
     exchangeFilter,
+    hideBalanceAndValue,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -160,6 +161,7 @@ function TokenSelector() {
               enableNetworkAfterSelect,
               hideZeroBalanceTokens,
               exchangeFilter,
+              hideBalanceAndValue,
             },
           );
           return;
@@ -301,6 +303,7 @@ function TokenSelector() {
       indexedAccountId,
       enableNetworkAfterSelect,
       hideZeroBalanceTokens,
+      hideBalanceAndValue,
       exchangeFilter,
       account,
       updateCreateAccountState,
@@ -352,13 +355,8 @@ function TokenSelector() {
   );
 
   const showActiveAccountTokenList = useMemo(() => {
-    return !!(
-      activeAccountId &&
-      activeNetworkId &&
-      activeAccountId !== accountId &&
-      activeNetworkId !== networkId
-    );
-  }, [activeAccountId, activeNetworkId, accountId, networkId]);
+    return !!(activeAccountId && activeNetworkId);
+  }, [activeAccountId, activeNetworkId]);
 
   usePromiseResult(async () => {
     if (activeAccountId && activeNetworkId && showActiveAccountTokenList) {
@@ -474,6 +472,7 @@ function TokenSelector() {
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
           exchangeFilter={exchangeFilter}
+          hideBalanceAndValue={hideBalanceAndValue}
           emptyProps={{
             mt: '18%',
           }}

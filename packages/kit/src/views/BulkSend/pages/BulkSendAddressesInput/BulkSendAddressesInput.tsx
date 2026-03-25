@@ -125,6 +125,7 @@ function BaseBulkSendAddressesInput() {
   });
 
   const navigation = useAppNavigation();
+  const senderAddresses = form.watch('senderAddresses');
 
   const initBulkSendInfo = useCallback(async () => {
     let _selectedAccountId: string | undefined;
@@ -579,7 +580,11 @@ function BaseBulkSendAddressesInput() {
             onChangeBulkSendMode={handleChangeBulkSendMode}
           />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
-            <AssetSelectorTrigger />
+            <AssetSelectorTrigger
+              senderAddresses={senderAddresses}
+              activeAccountId={activeAccount?.account?.id}
+              activeIndexedAccountId={activeAccount?.indexedAccount?.id}
+            />
             <AccountSelectorProviderMirror
               config={{
                 sceneName: EAccountSelectorSceneName.addressInput,
