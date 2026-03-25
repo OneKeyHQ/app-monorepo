@@ -28,6 +28,7 @@ import type {
 import type { SharedValue } from 'react-native-reanimated';
 import type { WindowScrollerChildProps } from 'react-virtualized';
 
+const overflowYScrollStyle = { overflowY: 'scroll' } as const;
 const scrollSnapStyle = { scrollSnapType: 'x' } as const;
 const childDivStyle = {
   width: '100%',
@@ -418,14 +419,7 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
-                    width={containerWidth ? undefined : width}
-                    style={
-                      containerWidth
-                        ? {
-                            width: containerWidth,
-                          }
-                        : undefined
-                    }
+                    width={containerWidth || width}
                     onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({

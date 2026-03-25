@@ -89,6 +89,19 @@ export const Slider = ({
     onSlideEnd?.();
   }, [onSlideEnd]);
 
+  const sliderValue = useMemo(
+    () =>
+      value !== undefined && value !== null ? [value] : undefined,
+    [value],
+  );
+  const sliderDefaultValue = useMemo(
+    () =>
+      defaultValue !== undefined && defaultValue !== null
+        ? [defaultValue]
+        : undefined,
+    [defaultValue],
+  );
+
   const sliderContent = useMemo(() => {
     return (
       <TMSlider
@@ -99,12 +112,8 @@ export const Slider = ({
         min={min}
         opacity={disabled ? 0.5 : 1}
         disabled={disabled}
-        value={value !== undefined && value !== null ? [value] : undefined}
-        defaultValue={
-          defaultValue !== undefined && defaultValue !== null
-            ? [defaultValue]
-            : undefined
-        }
+        value={sliderValue}
+        defaultValue={sliderDefaultValue}
         onValueChange={handleValueChange}
         // "onSlideStart does not work on the Web Platform"
         // onSlideStart={handleSlideStart}
@@ -132,7 +141,7 @@ export const Slider = ({
       </TMSlider>
     );
   }, [
-    defaultValue,
+    sliderDefaultValue,
     disabled,
     handleSlideEnd,
     handleSlideMove,
@@ -141,7 +150,7 @@ export const Slider = ({
     min,
     props,
     segments,
-    value,
+    sliderValue,
   ]);
   const handleMinPress = useCallback(() => {
     handleValueChange([min]);

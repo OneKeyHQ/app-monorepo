@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { ButtonFrame, SizableText, XStack } from '../../primitives';
 import { IconButton } from '../IconButton';
@@ -6,6 +6,8 @@ import { IconButton } from '../IconButton';
 import { DOTS, usePagination } from './usePagination';
 
 import type { IXStackProps } from '../../primitives';
+
+const pressStyleConst = { bg: '$bgActive' } as const;
 
 export interface IPaginationProps extends IXStackProps {
   current: number;
@@ -92,8 +94,8 @@ function PaginationFrame({
             borderRadius="$2"
             borderCurve="continuous"
             userSelect="none"
-            pressStyle={{ bg: '$bgActive' }}
-            hoverStyle={{ bg: active ? '$bgStrong' : '$bgHover' }}
+            pressStyle={pressStyleConst}
+            hoverStyle={active ? activeHoverStyle : inactiveHoverStyle}
             bg={active ? '$bgStrong' : '$transparent'}
             onPress={() => onPageChange(page)}
             role="button"

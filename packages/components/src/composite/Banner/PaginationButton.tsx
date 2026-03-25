@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import Animated, {
   useAnimatedStyle,
@@ -55,28 +55,38 @@ export function PaginationButton({
     opacity: opacity.value,
   }));
 
+  const containerStyle = useMemo(
+    () => [
+      animatedStyle,
+      {
+        position: 'absolute' as const,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
+        ...positionStyle,
+        zIndex,
+      },
+    ],
+    [animatedStyle, positionStyle, zIndex],
+  );
+
+  const iconProps = useMemo(
+    () => ({ opacity: hoverOpacity.opacity }),
+    [hoverOpacity.opacity],
+  );
+
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={[
-        animatedStyle,
-        {
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          justifyContent: 'center',
-          alignItems: 'center',
-          ...positionStyle,
-          zIndex,
-        },
-      ]}
+      style={containerStyle}
     >
       <IconButton
         disabled={!isVisible}
         variant={variant}
         icon={icon}
         onPress={onPress}
-        iconProps={{ opacity: hoverOpacity.opacity }}
+        iconProps={iconProps}
         theme={theme}
         onMouseEnter={onMouseEnter}
       />

@@ -28,6 +28,21 @@ import type {
   Layout,
 } from '@react-navigation/elements';
 
+const HEADER_TRANSPARENT_STYLE = {
+  position: 'absolute',
+  right: 0,
+  left: 0,
+} as const;
+const EMPTY_HEADER_STYLE = {} as const;
+const GTMD_FLEX_1 = { flex: 1 } as const;
+const FLEX_GROW_0_STYLE = { flexGrow: 0 } as const;
+const HEADER_TITLE_BASE_STYLE = {
+  lineHeight: 28,
+  fontWeight: '600',
+} as const;
+const EMPTY_HEADER_RIGHT_CONTAINER_STYLE = {} as const;
+const EMPTY_HEADER_TITLE_CONTAINER_STYLE = {} as const;
+
 function getHeaderTitle(
   options: { title?: string; headerTitle?: HeaderOptions['headerTitle'] },
   fallback: string,
@@ -88,8 +103,8 @@ function HeaderView({
     headerStyle,
     headerBackground,
     headerShown = true,
-    headerRightContainerStyle = {},
-    headerTitleContainerStyle = {},
+    headerRightContainerStyle = EMPTY_HEADER_RIGHT_CONTAINER_STYLE,
+    headerTitleContainerStyle = EMPTY_HEADER_TITLE_CONTAINER_STYLE,
     // native HeaderSearchBar in packages/components/src/layouts/Page/PageHeader.tsx
     headerSearchBarOptions,
     headerTitleStyle,
