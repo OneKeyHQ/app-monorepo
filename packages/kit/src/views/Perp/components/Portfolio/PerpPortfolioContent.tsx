@@ -26,6 +26,7 @@ import {
   formatPerpsUsd,
   getHyperliquidTokenImageUrl,
   getPerpsValueColor,
+  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -492,7 +493,12 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_unrealized_pnl,
               })}
             </SizableText>
-            <SizableText size="$headingSm" color={unrealizedColor}>
+            <SizableText
+              size="$headingSm"
+              color={unrealizedColor}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               {unrealizedPnl}
             </SizableText>
           </YStack>
@@ -502,7 +508,12 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_total_pnl,
               })}
             </SizableText>
-            <SizableText size="$headingSm" color={realizedColor}>
+            <SizableText
+              size="$headingSm"
+              color={realizedColor}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               {realizedPnl}
             </SizableText>
           </YStack>
@@ -696,13 +707,13 @@ function PerpPortfolioContentComponent({
               </SizableText>
               <XStack gap="$1.5" alignItems="center">
                 <Token
-                  size="xs"
+                  size="xxs"
                   tokenImageUri={getHyperliquidTokenImageUrl(
-                    fillsStats.mostTraded,
+                    parseDexCoin(fillsStats.mostTraded).displayName,
                   )}
                 />
                 <SizableText size="$headingSm" color="$text">
-                  {fillsStats.mostTraded}
+                  {parseDexCoin(fillsStats.mostTraded).displayName}
                 </SizableText>
               </XStack>
             </YStack>
