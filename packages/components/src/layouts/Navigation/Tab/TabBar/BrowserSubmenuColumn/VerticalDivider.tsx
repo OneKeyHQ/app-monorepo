@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 
 import { LinearGradient } from '@onekeyhq/components/src/content/LinearGradient';
 import { useThemeName } from '@onekeyhq/components/src/hooks/useStyle';

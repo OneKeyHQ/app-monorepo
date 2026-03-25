@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { ButtonFrame, SizableText, XStack } from '../../primitives';
 import { IconButton } from '../IconButton';

@@ -163,7 +163,7 @@ function renderPickerTrigger({
 }
 
 const SINGLE_PANEL_PROPS = { w: 300, minWidth: 300 } as const;
-const GTMD_PADDING_4 = { padding: '$4' } as const;
+const GT_MD_PADDING_4 = { padding: '$4' } as const;
 
 function BasicDatePicker({
   value,
@@ -287,7 +287,7 @@ function RangePickerContent({
           onSelect={handlePresetSelect}
         />
       ) : null}
-      <YStack padding="$3" minWidth={280} flex={1} $gtMd={GTMD_PADDING_4}>
+      <YStack padding="$3" minWidth={280} flex={1} $gtMd={GT_MD_PADDING_4}>
         <DatePickerProvider config={config}>
           <Calendar
             mode="range"
