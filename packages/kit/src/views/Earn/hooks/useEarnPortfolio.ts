@@ -13,7 +13,11 @@ import {
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
-import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnAirdropInvestmentItemV2,
+  IEarnInvestmentItemV2,
+  IEarnPortfolioInvestment,
+} from '@onekeyhq/shared/types/staking';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -23,7 +27,15 @@ import {
   useEarnPortfolioInvestmentsAtom,
 } from '../../../states/jotai/contexts/earn';
 
+import {
+  buildEarnPortfolioBatchGroups,
+  createEarnPortfolioRequestKey,
+  matchEarnPortfolioBatchRequest,
+  shouldUseEarnPortfolioBatchFetch,
+} from './earnPortfolioBatch';
 import { useEarnAccountKey } from './useEarnAccountKey';
+
+import type { IPortfolioFetchRequest } from './earnPortfolioBatch';
 
 // ============================================================================
 // Types
@@ -36,16 +48,6 @@ export interface IRefreshOptions {
   rewardSymbol?: string;
 }
 
-interface IFetchInvestmentParams {
-  publicKey?: string;
-  vault?: string;
-  accountAddress: string;
-  networkId: string;
-  provider: string;
-  symbol: string;
-  accountId: string;
-}
-
 interface IFetchInvestmentResult {
   key: string;
   investment?: IEarnPortfolioInvestment;
@@ -54,7 +56,8 @@ interface IFetchInvestmentResult {
 
 interface IAccountAssetPair {
   isAirdrop: boolean;
-  params: IFetchInvestmentParams;
+  enableBatch?: boolean;
+  params: IPortfolioFetchRequest;
 }
 
 // ============================================================================
@@ -134,7 +137,7 @@ const createInvestmentKeyFromInvestment = (
   });
   return createInvestmentKey({
     provider: investment.protocol.providerDetail.code,
-    symbol: firstAsset?.token.info.symbol || '',
+    symbol: investment.protocol.symbol || firstAsset?.token.info.symbol || '',
     vault: resolvedVault,
     networkId: investment.network.networkId,
   });
@@ -208,60 +211,64 @@ const aggregateByProtocol = (
 // Investment Fetching
 // ============================================================================
 
-async function fetchSingleInvestment(
-  params: IFetchInvestmentParams,
-  isAirdrop: boolean,
-): Promise<IFetchInvestmentResult | null> {
-  if (isAirdrop) {
-    const result =
-      await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
-        params,
-      );
+function normalizeAirdropInvestmentResult(
+  params: Pick<IPortfolioFetchRequest, 'symbol' | 'vault'>,
+  result: IEarnAirdropInvestmentItemV2,
+): IFetchInvestmentResult {
+  const resolvedVault = result.protocol.vault || params.vault;
+  const normalizedProtocol = {
+    ...result.protocol,
+    symbol: params.symbol,
+    ...(resolvedVault ? { vault: resolvedVault } : {}),
+  };
 
-    const key = createInvestmentKey({
-      provider: result.protocol.providerDetail.code,
-      symbol: result.assets?.[0]?.token.info.symbol || '',
-      vault: result.protocol.vault,
-      networkId: result.network.networkId,
-    });
+  const key = createInvestmentKey({
+    provider: result.protocol.providerDetail.code,
+    symbol: params.symbol,
+    vault: resolvedVault,
+    networkId: result.network.networkId,
+  });
 
-    const enrichedAirdropAssets = result.assets.map((asset) => ({
-      ...asset,
-      metadata: {
-        protocol: result.protocol,
-        network: result.network,
-      },
-    }));
+  const enrichedAirdropAssets = result.assets.map((asset) => ({
+    ...asset,
+    metadata: {
+      protocol: normalizedProtocol,
+      network: result.network,
+    },
+  }));
 
-    return {
-      key,
-      investment: {
-        totalFiatValue: '0',
-        totalFiatValueUsd: '0',
-        earnings24hFiatValue: '0',
-        protocol: result.protocol,
-        network: result.network,
-        assets: [],
-        airdropAssets: enrichedAirdropAssets,
-      },
-    };
-  }
+  return {
+    key,
+    investment: {
+      totalFiatValue: '0',
+      totalFiatValueUsd: '0',
+      earnings24hFiatValue: '0',
+      protocol: normalizedProtocol,
+      network: result.network,
+      assets: [],
+      airdropAssets: enrichedAirdropAssets,
+    },
+  };
+}
 
-  const result =
-    await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(params);
-
+function normalizeInvestmentResult(
+  params: Pick<IPortfolioFetchRequest, 'symbol' | 'vault'>,
+  result: IEarnInvestmentItemV2,
+): IFetchInvestmentResult {
   const resolvedProtocolVault = resolveVault({
     protocolVault: result.protocol.vault,
     // Use request vault as fallback (Pendle PT market address).
     requestVault: params.vault,
   });
-  const normalizedProtocol = resolvedProtocolVault
-    ? { ...result.protocol, vault: resolvedProtocolVault }
-    : result.protocol;
+  const normalizedProtocol = {
+    ...result.protocol,
+    ...(resolvedProtocolVault ? { vault: resolvedProtocolVault } : {}),
+    symbol: params.symbol,
+  };
 
   const key = createInvestmentKey({
     provider: result.protocol.providerDetail.code,
-    symbol: result.assets?.[0]?.token.info.symbol || '',
+    symbol: params.symbol,
     vault: resolvedProtocolVault,
     networkId: result.network.networkId,
   });
@@ -308,6 +315,25 @@ async function fetchSingleInvestment(
       airdropAssets: [],
     },
   };
+}
+
+async function fetchSingleInvestment(
+  params: IPortfolioFetchRequest,
+  isAirdrop: boolean,
+): Promise<IFetchInvestmentResult | null> {
+  if (isAirdrop) {
+    const result =
+      await backgroundApiProxy.serviceStaking.fetchAirdropInvestmentDetail(
+        params,
+      );
+
+    return normalizeAirdropInvestmentResult(params, result);
+  }
+
+  const result =
+    await backgroundApiProxy.serviceStaking.fetchInvestmentDetailV2(params);
+
+  return normalizeInvestmentResult(params, result);
 }
 
 // ============================================================================
@@ -601,6 +627,7 @@ export const useEarnPortfolio = ({
               .filter((asset) => asset.networkId === accountItem.networkId)
               .map((asset) => ({
                 isAirdrop: asset.type === 'airdrop',
+                enableBatch: asset.enableBatch,
                 params: {
                   accountId: accountIdValue || '',
                   accountAddress: accountItem.accountAddress,
@@ -608,6 +635,7 @@ export const useEarnPortfolio = ({
                   provider: asset.provider,
                   symbol: asset.symbol,
                   ...(asset.vault && { vault: asset.vault }),
+                  ...(asset.ptAddress && { ptAddress: asset.ptAddress }),
                   ...(accountItem.publicKey && {
                     publicKey: accountItem.publicKey,
                   }),
@@ -640,61 +668,181 @@ export const useEarnPortfolio = ({
           : accountAssetPairs;
 
         const keysUpdatedInThisSession = new Set<string>();
+        const failedKeysInThisSession = new Set<string>();
         const limit = pLimit(6);
+        const applyResult = (result: IFetchInvestmentResult) => {
+          const { key: resultKey, investment: newInv, remove } = result;
 
-        const tasks = pairsToFetch.map(({ params, isAirdrop }) =>
-          limit(async () => {
-            if (isRequestStale(requestId) || !isMountedRef.current) return;
-
-            let result: IFetchInvestmentResult | null = null;
-            try {
-              result = await fetchSingleInvestment(params, isAirdrop);
-            } catch (error) {
-              console.warn(
-                `[useEarnPortfolio] Failed to fetch investment for ${params.provider}/${params.symbol}:`,
-                error,
-              );
-              return;
-            }
-
-            if (isRequestStale(requestId) || !isMountedRef.current || !result) {
-              return;
-            }
-
-            // Skip outdated account responses
-            if (params.accountId && params.accountId !== accountIdValue) {
-              return;
-            }
-
-            const { key: resultKey, investment: newInv, remove } = result;
-
-            if (remove) {
-              requestMap.delete(resultKey);
-              keysUpdatedInThisSession.add(resultKey);
-              if (isMountedRef.current) {
-                throttledUIUpdate(new Map(requestMap));
-              }
-              return;
-            }
-
-            if (!newInv) return;
-
-            const existingInMap = requestMap.get(resultKey);
-            const hasUpdatedInSession = keysUpdatedInThisSession.has(resultKey);
-
-            let finalInv = newInv;
-            if (hasUpdatedInSession && existingInMap) {
-              finalInv = mergeInvestments(existingInMap, newInv);
-            }
-
+          if (remove) {
+            requestMap.delete(resultKey);
             keysUpdatedInThisSession.add(resultKey);
-            requestMap.set(resultKey, finalInv);
-
             if (isMountedRef.current) {
               throttledUIUpdate(new Map(requestMap));
             }
-          }),
-        );
+            return;
+          }
+
+          if (!newInv) {
+            return;
+          }
+
+          const existingInMap = requestMap.get(resultKey);
+          const hasUpdatedInSession = keysUpdatedInThisSession.has(resultKey);
+
+          let finalInv = newInv;
+          if (hasUpdatedInSession && existingInMap) {
+            finalInv = mergeInvestments(existingInMap, newInv);
+          }
+
+          keysUpdatedInThisSession.add(resultKey);
+          requestMap.set(resultKey, finalInv);
+
+          if (isMountedRef.current) {
+            throttledUIUpdate(new Map(requestMap));
+          }
+        };
+
+        const singlePairs: IAccountAssetPair[] = [];
+        const batchCandidateRequests: IPortfolioFetchRequest[] = [];
+
+        pairsToFetch.forEach((pair) => {
+          if (pair.isAirdrop) {
+            singlePairs.push(pair);
+            return;
+          }
+
+          if (
+            shouldUseEarnPortfolioBatchFetch({
+              enableBatch: pair.enableBatch,
+              ptAddress: pair.params.ptAddress,
+            })
+          ) {
+            batchCandidateRequests.push(pair.params);
+            return;
+          }
+
+          singlePairs.push(pair);
+        });
+
+        const { batchGroups, singleRequests } = buildEarnPortfolioBatchGroups({
+          requests: batchCandidateRequests,
+        });
+
+        singleRequests.forEach((request) => {
+          singlePairs.push({
+            isAirdrop: false,
+            params: request,
+          });
+        });
+
+        const tasks = [
+          ...singlePairs.map(({ params, isAirdrop }) =>
+            limit(async () => {
+              if (isRequestStale(requestId) || !isMountedRef.current) return;
+
+              let result: IFetchInvestmentResult | null = null;
+              try {
+                result = await fetchSingleInvestment(params, isAirdrop);
+              } catch (error) {
+                failedKeysInThisSession.add(
+                  createEarnPortfolioRequestKey(params),
+                );
+                console.warn(
+                  `[useEarnPortfolio] Failed to fetch investment for ${params.provider}/${params.symbol}:`,
+                  error,
+                );
+                return;
+              }
+
+              if (
+                isRequestStale(requestId) ||
+                !isMountedRef.current ||
+                !result
+              ) {
+                return;
+              }
+
+              // Skip outdated account responses
+              if (params.accountId && params.accountId !== accountIdValue) {
+                return;
+              }
+
+              applyResult(result);
+            }),
+          ),
+          ...batchGroups.map((group) =>
+            limit(async () => {
+              if (isRequestStale(requestId) || !isMountedRef.current) return;
+
+              let response: Awaited<
+                ReturnType<
+                  typeof backgroundApiProxy.serviceStaking.fetchInvestmentBatchDetail
+                >
+              >;
+
+              try {
+                response =
+                  await backgroundApiProxy.serviceStaking.fetchInvestmentBatchDetail(
+                    {
+                      accountId: accountIdValue || '',
+                      accountAddress: group.accountAddress,
+                      networkId: group.networkId,
+                      provider: group.provider,
+                      publicKey: group.publicKey,
+                    },
+                  );
+              } catch (error) {
+                group.requestsByKey.forEach((_request, key) => {
+                  failedKeysInThisSession.add(key);
+                });
+                console.warn(
+                  `[useEarnPortfolio] Failed to batch fetch investments for ${group.provider}/${group.networkId}:`,
+                  error,
+                );
+                return;
+              }
+
+              if (isRequestStale(requestId) || !isMountedRef.current) {
+                return;
+              }
+
+              response.items.forEach((item) => {
+                const matchedRequest = matchEarnPortfolioBatchRequest({
+                  group,
+                  symbol:
+                    item.protocol.symbol ||
+                    item.assets[0]?.token.info.symbol ||
+                    '',
+                  vault: item.protocol.vault,
+                });
+
+                if (
+                  !matchedRequest ||
+                  (matchedRequest.accountId &&
+                    matchedRequest.accountId !== accountIdValue)
+                ) {
+                  return;
+                }
+
+                applyResult(normalizeInvestmentResult(matchedRequest, item));
+              });
+
+              response.errors.forEach((errorItem) => {
+                const matchedRequest = matchEarnPortfolioBatchRequest({
+                  group,
+                  symbol: errorItem.symbol,
+                  vault: errorItem.vault,
+                });
+
+                if (matchedRequest) {
+                  failedKeysInThisSession.add(
+                    createEarnPortfolioRequestKey(matchedRequest),
+                  );
+                }
+              });
+            }),
+          ),
+        ];
 
         await Promise.all(tasks);
 
@@ -704,7 +852,10 @@ export const useEarnPortfolio = ({
           // Remove stale entries for full refresh
           if (!options) {
             Array.from(requestMap.keys()).forEach((key) => {
-              if (!keysUpdatedInThisSession.has(key)) {
+              if (
+                !keysUpdatedInThisSession.has(key) &&
+                !failedKeysInThisSession.has(key)
+              ) {
                 requestMap.delete(key);
               }
             });

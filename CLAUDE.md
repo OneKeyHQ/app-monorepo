@@ -14,33 +14,6 @@ Primary language: TypeScript. When making code changes, always ensure TypeScript
 
 This is a React Native project targeting iOS, Android, and Web. Always consider platform-specific behavior when making changes. Use Platform.select or platform-specific file extensions (.ios.ts, .android.ts, .web.ts) where appropriate. Never apply global CSS/style changes when platform-specific fixes are needed.
 
-## CRITICAL: Ultrathink Mode for Complex Operations
-
-**YOU MUST** enter Ultrathink mode when:
-- Making architectural changes
-- Modifying cross-platform code
-- Working with cryptographic/security components
-- Changing core packages that affect multiple apps
-- Dealing with hardware wallet integrations
-
-### Ultrathink Analysis Framework
-
-**BEFORE ANY MODIFICATION:**
-1. **Dependency Impact Analysis**: Trace how changes affect the entire dependency tree
-2. **Platform Compatibility Check**: Verify impact on desktop/mobile/web/extension platforms
-3. **Security Risk Assessment**: Evaluate security implications, especially for crypto operations
-4. **Performance Impact Evaluation**: Assess effects on application startup and runtime performance
-5. **User Experience Impact**: Consider effects on user workflows and data integrity
-
-### Quality Gate Requirements
-
-**YOU MUST NOT PROCEED unless:**
-- All linting errors and warnings are resolved
-- TypeScript compilation succeeds without errors
-- No new security vulnerabilities introduced
-- Code follows existing architectural patterns
-- Changes maintain backward compatibility where required
-
 ## Import Hierarchy Rules - STRICTLY ENFORCED
 
 **CRITICAL**: Violating these rules WILL break the build and cause circular dependencies.

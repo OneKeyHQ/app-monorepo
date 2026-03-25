@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const prettier = require('prettier');
+
 const lodash = require('lodash');
+const prettier = require('prettier');
 
 const base = path.resolve(__dirname, './react');
 const dirs = fs.readdirSync(base);

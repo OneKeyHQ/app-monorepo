@@ -8,18 +8,30 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EKeylessWebBridgeEvent,
+  type IKeylessWebBridgeEventPayload,
+  type IKeylessWebSessionState,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWebTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2OneKeyIDLoginMode,
+} from '@onekeyhq/shared/src/routes/onboardingv2';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type {
@@ -76,6 +88,99 @@ class ProviderApiPrivate extends ProviderApiBase {
   public providerName = IInjectedProviderNames.$private;
 
   private lastFocusUrl = '';
+
+  private static readonly MAX_KEYLESS_CACHE_SIZE = 50;
+
+  private keylessLoginDoneEventCache = new Set<string>();
+
+  private addToKeylessLoginDoneEventCache(key: string) {
+    if (
+      this.keylessLoginDoneEventCache.size >=
+      ProviderApiPrivate.MAX_KEYLESS_CACHE_SIZE
+    ) {
+      this.keylessLoginDoneEventCache.clear();
+    }
+    this.keylessLoginDoneEventCache.add(key);
+  }
+
+  private async queryTabsByOrigin(origin: string): Promise<chrome.tabs.Tab[]> {
+    if (!platformEnv.isExtension || !chrome.tabs?.query) {
+      return [];
+    }
+    try {
+      const originUrl = new URL(origin);
+      const tabPattern = `${originUrl.origin}/*`;
+      const tabs = await chrome.tabs.query({
+        url: [tabPattern],
+      });
+      return tabs;
+    } catch {
+      return [];
+    }
+  }
+
+  private async emitKeylessBridgeEventToOrigin({
+    origin,
+    payload,
+  }: {
+    origin: string;
+    payload: IKeylessWebBridgeEventPayload;
+  }) {
+    if (
+      !platformEnv.isExtension ||
+      !chrome.scripting?.executeScript ||
+      !origin
+    ) {
+      return;
+    }
+    const tabs = await this.queryTabsByOrigin(origin);
+    const eventPayload = payload;
+    await Promise.all(
+      tabs.map(async (tab) => {
+        if (typeof tab.id !== 'number') {
+          return;
+        }
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            args: [eventPayload],
+            func: (bridgePayload) => {
+              globalThis.postMessage(bridgePayload, globalThis.location.origin);
+            },
+          });
+        } catch (error) {
+          console.error('emitKeylessBridgeEventToOrigin', error);
+        }
+      }),
+    );
+  }
+
+  private async getKeylessSessionState({
+    request,
+    provider,
+    nonce,
+  }: {
+    request: IJsBridgeMessagePayload;
+    provider?: EOAuthSocialLoginProvider;
+    nonce?: string;
+  }): Promise<IKeylessWebSessionState> {
+    const keylessWallet = await this.backgroundApi.serviceAccount
+      .getKeylessWallet()
+      .catch(() => undefined);
+    const connectedAccounts = await this.backgroundApi.serviceDApp
+      .dAppGetConnectedAccountsInfo(request)
+      .catch(() => null);
+
+    return {
+      pluginInstalled: true,
+      walletExists: Boolean(keylessWallet),
+      walletType: keylessWallet?.keylessDetailsInfo?.keylessProvider,
+      siteConnected: Boolean(connectedAccounts?.length),
+      connectedAccountId: connectedAccounts?.[0]?.account?.id,
+      pendingProvider: provider,
+      pendingNonce: nonce,
+    };
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
@@ -567,6 +672,214 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async getLastFocusUrl() {
     return Promise.resolve(this.lastFocusUrl);
+  }
+
+  @providerApiMethod()
+  async wallet_keylessGetStatus(
+    request: IJsBridgeMessagePayload,
+    {
+      provider,
+      nonce,
+    }: {
+      provider?: EOAuthSocialLoginProvider;
+      nonce?: string;
+    } = {},
+  ): Promise<IKeylessWebSessionState> {
+    const sessionState = await this.getKeylessSessionState({
+      request,
+      provider,
+      nonce,
+    });
+
+    if (
+      request.origin &&
+      nonce &&
+      sessionState.siteConnected &&
+      !this.keylessLoginDoneEventCache.has(`${request.origin}:${nonce}`)
+    ) {
+      this.addToKeylessLoginDoneEventCache(`${request.origin}:${nonce}`);
+      void this.emitKeylessBridgeEventToOrigin({
+        origin: request.origin,
+        payload: {
+          type: EKeylessWebBridgeEvent.LoginDone,
+          nonce,
+          provider,
+          accountId: sessionState.connectedAccountId,
+          timestamp: Date.now(),
+        },
+      });
+    }
+
+    return sessionState;
+  }
+
+  @providerApiMethod()
+  async wallet_keylessOpenSidePanel(request: IJsBridgeMessagePayload) {
+    if (!platformEnv.isExtension || !chrome.sidePanel?.open) {
+      throw new OneKeyLocalError('keyless side panel only supports extension');
+    }
+    if (!request.origin) {
+      throw new OneKeyLocalError('origin is required');
+    }
+
+    const tabs = await this.queryTabsByOrigin(request.origin);
+    const targetTab = tabs.find((tab) => typeof tab.id === 'number');
+    if (!targetTab || typeof targetTab.id !== 'number') {
+      throw new OneKeyLocalError('active web tab not found');
+    }
+
+    const sidePanelPath = chrome.runtime.getURL('/ui-side-panel.html');
+    await chrome.sidePanel.setOptions({
+      tabId: targetTab.id,
+      path: sidePanelPath,
+      enabled: true,
+    });
+    if (targetTab.windowId) {
+      await chrome.sidePanel.open({
+        windowId: targetTab.windowId,
+      });
+    }
+
+    return {
+      success: true,
+      tabId: targetTab.id,
+      windowId: targetTab.windowId,
+    };
+  }
+
+  @providerApiMethod()
+  async wallet_keylessStartLogin(
+    request: IJsBridgeMessagePayload,
+    {
+      provider,
+      nonce,
+    }: {
+      provider?: EOAuthSocialLoginProvider;
+      nonce?: string;
+    } = {},
+  ) {
+    if (!provider || !nonce) {
+      throw new OneKeyLocalError('provider and nonce are required');
+    }
+    await this.wallet_keylessOpenSidePanel(request);
+    await timerUtils.wait(600);
+
+    if (sidePanelState.isOpen) {
+      appEventBus.emit(EAppEventBusNames.SidePanel_BgToUI, {
+        type: 'pushModal',
+        payload: {
+          modalParams: {
+            screen: EModalRoutes.OnboardingModal,
+            params: {
+              screen: EOnboardingPagesV2.OneKeyIDLogin,
+              params: {
+                mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
+                provider,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    return this.getKeylessSessionState({
+      request,
+      provider,
+      nonce,
+    });
+  }
+
+  @providerApiMethod()
+  async wallet_keylessConfirmPin(
+    request: IJsBridgeMessagePayload,
+    {
+      provider,
+      nonce,
+    }: {
+      provider?: EOAuthSocialLoginProvider;
+      nonce?: string;
+    } = {},
+  ) {
+    return this.getKeylessSessionState({
+      request,
+      provider,
+      nonce,
+    });
+  }
+
+  @providerApiMethod()
+  async wallet_keylessSelectAccount(
+    request: IJsBridgeMessagePayload,
+    {
+      provider,
+      nonce,
+      accountId,
+      accountAddress,
+    }: {
+      provider?: EOAuthSocialLoginProvider;
+      nonce?: string;
+      accountId?: string;
+      accountAddress?: string;
+    } = {},
+  ) {
+    if (!nonce) {
+      throw new OneKeyLocalError('nonce is required');
+    }
+    if (request.origin) {
+      this.addToKeylessLoginDoneEventCache(`${request.origin}:${nonce}`);
+      await this.emitKeylessBridgeEventToOrigin({
+        origin: request.origin,
+        payload: {
+          type: EKeylessWebBridgeEvent.LoginDone,
+          nonce,
+          provider,
+          accountId,
+          accountAddress,
+          timestamp: Date.now(),
+        },
+      });
+    }
+    return this.getKeylessSessionState({
+      request,
+      provider,
+      nonce,
+    });
+  }
+
+  @providerApiMethod()
+  async wallet_keylessDisconnectSite(
+    request: IJsBridgeMessagePayload,
+    {
+      nonce,
+      provider,
+    }: {
+      nonce?: string;
+      provider?: EOAuthSocialLoginProvider;
+    } = {},
+  ) {
+    if (request.origin) {
+      await this.backgroundApi.serviceDApp.disconnectWebsite({
+        origin: request.origin,
+        storageType: 'injectedProvider',
+        entry: 'ExtPanel',
+      });
+      if (nonce) {
+        await this.emitKeylessBridgeEventToOrigin({
+          origin: request.origin,
+          payload: {
+            type: EKeylessWebBridgeEvent.LoginFailed,
+            nonce,
+            provider,
+            error: 'DISCONNECTED',
+            timestamp: Date.now(),
+          },
+        });
+      }
+    }
+
+    return {
+      success: true,
+    };
   }
 
   // $onekey.$private.request({method:'wallet_showToast', params: {method: 'success',title:'2333', message: 'test'}})

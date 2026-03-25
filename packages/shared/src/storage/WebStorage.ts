@@ -6,6 +6,7 @@ import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
 import platformEnv from '../platformEnv';
+import resetUtils from '../utils/resetUtils';
 
 import WebStorageLegacy from './WebStorageLegacy';
 
@@ -136,6 +137,9 @@ class WebStorage implements AsyncStorageStatic {
 
   checkDiskFull(payload?: any) {
     if (platformEnv.isWebDappMode) {
+      return;
+    }
+    if (resetUtils.getIsResetting()) {
       return;
     }
     if (globalThis.$onekeySystemDiskIsFull) {

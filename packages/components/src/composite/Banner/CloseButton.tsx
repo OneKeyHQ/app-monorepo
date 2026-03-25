@@ -4,6 +4,8 @@ import { IconButton } from '../../actions/IconButton';
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
 import { Stack } from '../../primitives/Stack';
 
+const closeButtonIconProps = { color: '$whiteA10' } as const;
+
 const CloseButton: React.FC<{ onPress: () => void; isHovering?: boolean }> = ({
   onPress,
   isHovering,
@@ -19,9 +21,7 @@ const CloseButton: React.FC<{ onPress: () => void; isHovering?: boolean }> = ({
         onPress={onPress}
         aria-label="Close"
         testID="banner-close-button"
-        iconProps={{
-          color: '$whiteA10',
-        }}
+        iconProps={closeButtonIconProps}
       />
     </Stack>
   );

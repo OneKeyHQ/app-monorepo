@@ -3,6 +3,10 @@ import type { ToastT } from 'sonner';
 export type IToastMessageOptions = {
   renderContent: (props?: { width?: number }) => JSX.Element;
   /**
+   * Stable ID for programmatic dismissal via Toast.dismiss(id).
+   */
+  toastId?: string;
+  /**
    * Defaults to `done`.
    */
   preset?: 'done' | 'error' | 'none' | 'custom';

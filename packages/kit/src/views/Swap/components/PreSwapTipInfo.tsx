@@ -1,8 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Checkbox,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IQuoteTip } from '@onekeyhq/shared/types/swap/types';
@@ -19,6 +25,7 @@ const PreSwapTipInfo = ({
   onCancel,
 }: IPreSwapTipInfoProps) => {
   const intl = useIntl();
+  const [checked, setChecked] = useState(false);
 
   const handleLearnMore = useCallback(() => {
     if (quoteShowTip.link) {
@@ -53,6 +60,15 @@ const PreSwapTipInfo = ({
         </XStack>
       ) : null}
 
+      {/* Checkbox */}
+      {quoteShowTip.showCheckbox ? (
+        <Checkbox
+          value={checked}
+          onChange={(checkedValue) => setChecked(!!checkedValue)}
+          label={quoteShowTip.checkboxLabel}
+        />
+      ) : null}
+
       {/* Action Buttons */}
       <XStack gap="$3" pt="$2">
         {quoteShowTip.showCancelButton ? (
@@ -60,7 +76,13 @@ const PreSwapTipInfo = ({
             {intl.formatMessage({ id: ETranslations.global_cancel })}
           </Button>
         ) : null}
-        <Button flex={1} variant="primary" size="medium" onPress={onConfirm}>
+        <Button
+          flex={1}
+          variant="primary"
+          size="medium"
+          onPress={onConfirm}
+          disabled={quoteShowTip.showCheckbox ? !checked : false}
+        >
           {intl.formatMessage({ id: ETranslations.global_continue })}
         </Button>
       </XStack>

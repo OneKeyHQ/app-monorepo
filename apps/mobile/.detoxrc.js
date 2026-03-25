@@ -1,8 +1,8 @@
 // Detox config lives alongside the native app workspace so `yarn workspace @onekeyhq/mobile detox ...`
 // works without extra flags.
 
-const path = require('path');
 const { execSync } = require('child_process');
+const path = require('path');
 
 function tryDetectSimulatorDeviceType() {
   try {

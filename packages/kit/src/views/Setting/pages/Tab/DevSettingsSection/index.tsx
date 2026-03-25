@@ -1525,15 +1525,6 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
 
                       <SectionFieldItem
-                        icon="CloudOutline"
-                        name="enableKeylessCloudSyncFeature"
-                        title="启用 Keyless 云端同步"
-                        subtitle="开启后在 OneKey Cloud 展示 Keyless 同步开关"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
-
-                      <SectionFieldItem
                         icon="WalletOutline"
                         name="allowDeleteKeylessKey"
                         title="允许重置 Keyless 钱包"

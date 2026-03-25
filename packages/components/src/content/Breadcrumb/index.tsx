@@ -131,6 +131,34 @@ const BreadcrumbLinkText = styled(SizableText, {
   } as const,
 });
 
+function BreadcrumbItemWrapper({
+  item,
+  onItemPress,
+  element,
+}: {
+  item: IBreadcrumbItem;
+  onItemPress: (item: IBreadcrumbItem) => void;
+  element: React.ReactNode;
+}) {
+  const handlePress = useCallback(() => {
+    onItemPress(item);
+  }, [onItemPress, item]);
+
+  return (
+    <BreadcrumbItem
+      role={
+        !platformEnv.isNative && (item.onClick || item.href)
+          ? 'button'
+          : undefined
+      }
+      onPress={handlePress}
+      disabled={!item.onClick ? !item.href : undefined}
+    >
+      {element}
+    </BreadcrumbItem>
+  );
+}
+
 export type IBreadcrumbProps = IXStackProps & {
   items: IBreadcrumbItem[];
   breadcrumbSize?: IBreadcrumbSize;
@@ -197,17 +225,11 @@ const BreadcrumbComponent = BreadcrumbFrame.styleable<
       }
 
       return (
-        <BreadcrumbItem
-          role={
-            !platformEnv.isNative && (item.onClick || item.href)
-              ? 'button'
-              : undefined
-          }
-          onPress={() => handleItemPress(item)}
-          disabled={!item.onClick ? !item.href : undefined}
-        >
-          {element}
-        </BreadcrumbItem>
+        <BreadcrumbItemWrapper
+          item={item}
+          onItemPress={handleItemPress}
+          element={element}
+        />
       );
     },
     [breadcrumbSize, handleItemPress, renderItem],

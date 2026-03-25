@@ -56,6 +56,11 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
     [scrollViewRef],
   );
 
+  const scrollViewStyle = useMemo(
+    () => [{ flex: 1 }, style] as StyleProp<ViewStyle>,
+    [style],
+  );
+
   return useMemo(
     () => (
       <BasicPage lazyLoad={lazyLoad} fullPage={fullPage}>
@@ -65,7 +70,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
             scrollEventThrottle={30}
             {...(nativeProps as Record<string, unknown>)}
             onScroll={handleScroll}
-            style={[{ flex: 1 }, style] as StyleProp<ViewStyle>}
+            style={scrollViewStyle}
             contentContainerStyle={contentContainerStyle}
             bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
           >
@@ -85,7 +90,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
       scrollEnabled,
       nativeProps,
       handleScroll,
-      style,
+      scrollViewStyle,
       contentContainerStyle,
       contextValue,
       children,

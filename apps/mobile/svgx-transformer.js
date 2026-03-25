@@ -5,8 +5,8 @@
  * This allows us to use SVG files as React Native components for tab icons
  * while keeping the default behavior for other files.
  */
-const svgTransformer = require('react-native-svg-transformer');
 const upstreamTransformer = require('@react-native/metro-babel-transformer');
+const svgTransformer = require('react-native-svg-transformer');
 
 module.exports.transform = async ({ src, filename, options }) => {
   if (filename.endsWith('.svgx')) {

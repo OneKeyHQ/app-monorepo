@@ -294,6 +294,8 @@ export type IVaultSettings = {
   minRetryBroadcastTxInterval?: number;
 
   enabledInternalSignAndVerify?: boolean;
+
+  nativeBatchTransferEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
