@@ -49,6 +49,26 @@ function BulkSendProcessItem(props: IProps) {
   const { copyText } = useClipboard();
   const [settings] = useSettingsPersistAtom();
 
+  const shortenedFromAddress = useMemo(
+    () =>
+      accountUtils.shortenAddress({
+        address: transferInfo.from,
+        leadingLength: 6,
+        trailingLength: 4,
+      }),
+    [transferInfo.from],
+  );
+
+  const shortenedToAddress = useMemo(
+    () =>
+      accountUtils.shortenAddress({
+        address: transferInfo.to,
+        leadingLength: 6,
+        trailingLength: 4,
+      }),
+    [transferInfo.to],
+  );
+
   const fiatAmount = useMemo(() => {
     if (!tokenPrice || !transferInfo.amount) return undefined;
     return new BigNumber(transferInfo.amount).times(tokenPrice).toFixed(2);
@@ -57,7 +77,7 @@ function BulkSendProcessItem(props: IProps) {
   const renderStatusIcon = useCallback(() => {
     switch (status.status) {
       case EBulkSendTxStatus.Processing:
-        return <Spinner size="small" />;
+        return <Spinner size="small" color="$iconSubdued" />;
       case EBulkSendTxStatus.Succeeded:
         return <StatusDot color="$iconSuccess" />;
       case EBulkSendTxStatus.Failed:
@@ -81,12 +101,17 @@ function BulkSendProcessItem(props: IProps) {
         );
       case EBulkSendTxStatus.Succeeded:
         return (
-          <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodySm" color="$textSuccess">
+          <XStack alignItems="center" gap="$1.5" maxWidth="100%">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               {accountUtils.shortenAddress({
                 address: status.txId ?? '',
-                leadingLength: 6,
-                trailingLength: 5,
+                leadingLength: 8,
+                trailingLength: 6,
               })}
             </SizableText>
             <IconButton
@@ -113,8 +138,13 @@ function BulkSendProcessItem(props: IProps) {
         );
       case EBulkSendTxStatus.Failed:
         return (
-          <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodySm" color="$textCritical">
+          <XStack alignItems="center" gap="$1.5" maxWidth="100%">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               {intl.formatMessage({
                 id: ETranslations.wallet_approval_bulk_revoke_status_failed,
               })}
@@ -158,8 +188,13 @@ function BulkSendProcessItem(props: IProps) {
         );
       case EBulkSendTxStatus.Skipped:
         return (
-          <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodySm" color="$textSubdued">
+          <XStack alignItems="center" gap="$1.5" maxWidth="100%">
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+              flexShrink={1}
+            >
               Skipped
             </SizableText>
             {status.errorMessage ? (
@@ -188,7 +223,7 @@ function BulkSendProcessItem(props: IProps) {
       case EBulkSendTxStatus.Paused:
       default:
         return (
-          <SizableText size="$bodySm" color="$textCaution">
+          <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_pending })}
           </SizableText>
         );
@@ -197,33 +232,31 @@ function BulkSendProcessItem(props: IProps) {
 
   return (
     <XStack
-      py="$3"
+      py="$4"
       px="$5"
       justifyContent="space-between"
-      alignItems="flex-start"
-      borderBottomWidth={1}
-      borderColor="$neutral3"
+      alignItems="center"
     >
       {/* Left: sender + receiver */}
-      <YStack gap="$1" flex={1} mr="$3">
+      <YStack gap="$1.5" flex={1} mr="$5" justifyContent="center" minWidth={0}>
         <SizableText size="$bodyMdMedium" numberOfLines={1}>
-          {accountUtils.shortenAddress({ address: transferInfo.from })}
+          {shortenedFromAddress}
         </SizableText>
-        <XStack alignItems="center" gap="$1">
+        <XStack alignItems="center" gap="$2">
           <Icon
-            name="ArrowBottomLeftOutline"
-            size="$3.5"
+            name="ArrowRightCircleOutline"
+            size="$4"
             color="$iconSubdued"
           />
           <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {accountUtils.shortenAddress({ address: transferInfo.to })}
+            {shortenedToAddress}
           </SizableText>
         </XStack>
       </YStack>
 
       {/* Right: amount + status */}
-      <YStack alignItems="flex-end" gap="$1">
-        <XStack alignItems="center" gap="$1">
+      <YStack alignItems="flex-end" gap="$1.5" justifyContent="center">
+        <XStack alignItems="center" gap="$1" justifyContent="flex-end">
           <NumberSizeableText
             size="$bodyMdMedium"
             formatter="balance"
@@ -249,7 +282,7 @@ function BulkSendProcessItem(props: IProps) {
             </SizableText>
           ) : null}
         </XStack>
-        <XStack alignItems="center" gap="$1">
+        <XStack alignItems="center" gap="$2" justifyContent="flex-end">
           {renderStatusIcon()}
           {renderStatusText()}
         </XStack>
