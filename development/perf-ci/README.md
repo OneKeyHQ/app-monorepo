@@ -7,12 +7,12 @@ This folder provides a repeatable perf baseline runner for:
 
 High-level flow:
 
-1) App connects to `development/performance-server/` and writes a new perf `sessionId` under `PERF_SESSIONS_DIR`.
-2) Detox runs a single Jest file that loops 3 times:
+1. App connects to `development/performance-server/` and writes a new perf `sessionId` under `PERF_SESSIONS_DIR`.
+2. Detox runs a single Jest file that loops 3 times:
    - launch app (fresh instance)
    - detect the new `sessionId` folder
    - wait for mark `Home:refresh:done:tokens`
-3) The job runner derives metrics (`derive-session.js`), aggregates (median by default), checks thresholds, and optionally notifies Slack.
+3. The job runner derives metrics (`derive-session.js`), aggregates (median by default), checks thresholds, and optionally notifies Slack.
 
 ## Outputs
 
@@ -63,13 +63,13 @@ Note: no need to `npm install detox-cli --global` (we use the repo dependency).
 
 ## One-time setup (per perf machine)
 
-1) Create a sessions directory:
+1. Create a sessions directory:
 
 ```bash
 mkdir -p "$HOME/perf-sessions"
 ```
 
-2) Start performance-server (recommended as a dedicated service):
+2. Start performance-server (recommended as a dedicated service):
 
 ```bash
 yarn perf:server
@@ -77,7 +77,7 @@ yarn perf:server
 
 The job runners can auto-start perf-server if it's missing (one-shot mode), but a dedicated server is usually more stable.
 
-3) Prepare a stable app state so app launch reaches Home and emits:
+3. Prepare a stable app state so app launch reaches Home and emits:
 
 - `Home:refresh:done:tokens`
 
@@ -195,7 +195,8 @@ Slack is optional. If configured:
 
 - failures will send a message
 - regressions will send a message
-- normal success does NOT send a message
+- recovered runs will send a message after a previous failure/regression
+- normal success remains quiet
 
 Set webhook via env:
 
@@ -203,6 +204,12 @@ Set webhook via env:
 SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..." \
 yarn perf:ios:release
 ```
+
+Recommended extra config for readable links:
+
+- `PERF_DASHBOARD_BASE_URL`: a reachable performance-server URL, for example `http://perf-machine:9527`
+- `PERF_REPORT_BASE_URL`: a reachable base URL that maps to `PERF_JOB_OUTPUT_ROOT`
+- `PERF_ALERT_STATE_ROOT`: where the notifier stores last-alert state (used for recovered notifications and repeat counts)
 
 ## Local config file (avoid env vars)
 
@@ -217,7 +224,13 @@ Example:
   "slackWebhookUrl": "https://hooks.slack.com/services/...",
   "sessionsDir": "/Users/<you>/perf-sessions",
   "perfServerUrl": "http://localhost:9527",
-  "androidAvdName": "Pixel_7_Pro_API_34"
+  "androidAvdName": "Pixel_7_Pro_API_34",
+  "dashboardBaseUrl": "http://perf-machine:9527",
+  "reportBaseUrl": "https://perf.example.com/reports",
+  "alertStateRoot": "/Users/<you>/perf-alert-state",
+  "analyticsUrl": "https://perf-analytics.example.workers.dev",
+  "analyticsSecret": "your-secret-here",
+  "perfDashboardBaseUrl": "https://perf-dashboard.example.pages.dev"
 }
 ```
 
@@ -228,6 +241,12 @@ Core:
 - `PERF_SESSIONS_DIR`: where sessions are written/read (default: `$HOME/perf-sessions`)
 - `PERF_SERVER_URL`: performance-server URL for health check (default: `http://localhost:9527`)
 - `SLACK_WEBHOOK_URL`: optional Slack Incoming Webhook URL
+- `PERF_DASHBOARD_BASE_URL`: optional public dashboard base URL used in Slack links
+- `PERF_REPORT_BASE_URL`: optional public report base URL used in Slack links
+- `PERF_ALERT_STATE_ROOT`: optional directory used to persist last alert state
+- `PERF_ANALYTICS_URL`: analytics worker base URL (prefer `config.local.json` → `analyticsUrl`)
+- `PERF_ANALYTICS_SECRET`: analytics shared secret (prefer `config.local.json` → `analyticsSecret`)
+- `PERF_DASHBOARD_URL`: Cloudflare Pages dashboard base URL for Slack deep links (prefer `config.local.json` → `perfDashboardBaseUrl`)
 
 Note:
 
@@ -301,7 +320,7 @@ Android scheduling:
 
 ### Install to launchd (manual)
 
-1) Copy + edit:
+1. Copy + edit:
 
 ```bash
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/perf-logs" "$HOME/perf-sessions"
@@ -318,7 +337,7 @@ Replace in the copied plist(s):
 - `__REPO_ROOT__` with your repo root
 - `__HOME_DIR__` with your home dir (or use absolute paths you prefer)
 
-2) Load / start:
+2. Load / start:
 
 ```bash
 UID="$(id -u)"
@@ -331,7 +350,7 @@ launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/so.onekey.ios-perf-jo
 launchctl enable "gui/$UID/so.onekey.ios-perf-job"
 ```
 
-3) Inspect:
+3. Inspect:
 
 ```bash
 UID="$(id -u)"
@@ -339,7 +358,7 @@ launchctl print "gui/$UID/so.onekey.perf-server" | head
 launchctl print "gui/$UID/so.onekey.ios-perf-job" | head
 ```
 
-4) Uninstall:
+4. Uninstall:
 
 ```bash
 UID="$(id -u)"

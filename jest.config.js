@@ -1,6 +1,7 @@
 // https://jestjs.io/docs/configuration
-const { defaults } = require('jest-config');
 const util = require('node:util');
+
+const { defaults } = require('jest-config');
 const exec = util.promisify(require('node:child_process').exec);
 
 module.exports = async () => {

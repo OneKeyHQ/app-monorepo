@@ -16,10 +16,10 @@ const path = require('path');
 
 const { chromium } = require('playwright-core');
 
+const { findChromiumExecutable } = require('./lib/chromium');
+const { readPerfCiLocalConfig } = require('./lib/config');
 const { execCmd } = require('./lib/exec');
 const { ensureDir, fileExists } = require('./lib/fs');
-const { readPerfCiLocalConfig } = require('./lib/config');
-const { findChromiumExecutable } = require('./lib/chromium');
 const { startStaticServer } = require('./lib/staticServer');
 
 function ensureDirExists(p) {

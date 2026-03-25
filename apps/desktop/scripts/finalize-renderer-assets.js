@@ -1,5 +1,6 @@
-const fs = require('fs-extra');
 const path = require('path');
+
+const fs = require('fs-extra');
 
 const root = path.join(__dirname, '..');
 const webBuildDir = path.join(root, 'web-build');

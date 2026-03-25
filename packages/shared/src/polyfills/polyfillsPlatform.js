@@ -2,6 +2,7 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable no-inner-declarations */
 /* eslint-disable prefer-template */
+/* eslint-disable import-js/order */
 
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
@@ -25,6 +26,8 @@ const { shim: shimArrayToSorted } = require('array.prototype.tosorted');
 shimArrayToSorted();
 
 require('react-native-url-polyfill/auto');
+const { Base64 } = require('js-base64');
+
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
 const shimsInjectedLog = (str) => console.log(`Shims Injected log: ${str}`);
@@ -116,7 +119,6 @@ Shims Injected:
  */
 // Shim atob and btoa
 // js-base64 lib cannot import by `require` function in React Native 0.72.
-const { Base64 } = require('js-base64');
 
 if (!global.atob) {
   shimsInjectedLog('atob');
@@ -147,21 +149,22 @@ try {
     shimsInjectedLog('FileReader.prototype.readAsArrayBuffer');
     FileReader.prototype.readAsArrayBuffer = function (blob) {
       if (this.readyState === this.LOADING) {
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- polyfill runs before OneKeyLocalError is available
         throw new Error('InvalidStateError');
       }
       this._setReadyState(this.LOADING);
       this._result = null;
       this._error = null;
-      const fr = new FileReader();
-      fr.onloadend = () => {
-        const content = atob(fr.result.split(',').pop().trim());
+      const innerReader = new FileReader();
+      innerReader.onloadend = () => {
+        const content = atob(innerReader.result.split(',').pop().trim());
         const buffer = new ArrayBuffer(content.length);
         const view = new Uint8Array(buffer);
         view.set(Array.from(content).map((c) => c.charCodeAt(0)));
         this._result = buffer;
         this._setReadyState(this.DONE);
       };
-      fr.readAsDataURL(blob);
+      innerReader.readAsDataURL(blob);
     };
   }
 } catch (_error) {

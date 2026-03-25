@@ -78,6 +78,7 @@ export type IEventBusPayloadShowToast = {
   method: 'success' | 'error' | 'message';
   title: string;
   message?: string;
+  icon?: string;
   duration?: number;
   errorCode?: number;
   httpStatusCode?: number;

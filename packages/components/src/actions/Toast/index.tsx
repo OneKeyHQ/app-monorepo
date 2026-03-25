@@ -3,6 +3,7 @@ import { createRef, useEffect, useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
+import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -24,7 +25,7 @@ import {
 import { Spinner } from '../../primitives/Spinner/Spinner';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
-import { showMessage } from './showMessage';
+import { dismissToast, showMessage } from './showMessage';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IToastMessageOptions } from './type';
@@ -243,6 +244,7 @@ function toastMessage({
   toastId,
   title,
   message,
+  icon,
   duration = 5000,
   haptic,
   preset = 'custom',
@@ -253,6 +255,21 @@ function toastMessage({
 }: IToastBaseProps) {
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
+  const hapticColorMap: Record<string, ColorTokens> = {
+    success: '$iconSuccess',
+    error: '$iconCritical',
+    warning: '$iconCaution',
+    info: '$iconInfo',
+  };
+  const iconElement = icon ? (
+    <Icon
+      name={icon}
+      color={hapticColorMap[haptic ?? ''] ?? '$iconCritical'}
+      size="$5"
+    />
+  ) : (
+    iconMap[haptic as keyof typeof iconMap]
+  );
   return showMessage({
     renderContent: (props) => (
       <ToastContent
@@ -260,11 +277,12 @@ function toastMessage({
         title={title}
         maxWidth={props?.width}
         message={message}
-        icon={iconMap[haptic as keyof typeof iconMap]}
+        icon={iconElement}
         actions={actions}
         actionsAlign={actionsAlign}
       />
     ),
+    toastId,
     duration,
     haptic,
     preset,
@@ -458,6 +476,10 @@ export const Toast = {
     return r;
   },
   Close: ShowToasterClose,
+  dismiss: (id: string) => {
+    toastIdMap.delete(id);
+    dismissToast(id);
+  },
 };
 export type IToast = typeof Toast;
 

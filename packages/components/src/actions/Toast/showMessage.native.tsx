@@ -4,8 +4,17 @@ import { View, XStack } from '../../primitives';
 
 import type { IToastMessageOptions } from './type';
 
-export function showMessage({ renderContent, duration }: IToastMessageOptions) {
+export function dismissToast(id: string) {
+  toast.dismiss(id);
+}
+
+export function showMessage({
+  renderContent,
+  toastId: stableId,
+  duration,
+}: IToastMessageOptions) {
   const toastId = toast('', {
+    ...(stableId ? { id: stableId } : {}),
     duration,
     disableShadow: true,
     customToast: ({ width }) => (

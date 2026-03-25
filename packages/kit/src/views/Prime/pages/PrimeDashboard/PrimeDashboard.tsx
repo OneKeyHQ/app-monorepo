@@ -357,7 +357,7 @@ export default function PrimeDashboard({
 
               navigation.push(EPrimePages.PrimeFeatures, {
                 showAllFeatures: true,
-                selectedFeature: EPrimeFeatures.OneKeyCloud,
+                selectedFeature: EPrimeFeatures.BulkCopyAddresses,
                 selectedSubscriptionPeriod,
                 serverUserInfo,
               });
