@@ -1,7 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import type { DPMonth } from '@rehookify/datepicker';
-import { useDatePickerContext } from '@rehookify/datepicker';
+import { type DPMonth, useDatePickerContext } from '@rehookify/datepicker';
 
 import { SizableText, Stack } from '../../primitives';
 
