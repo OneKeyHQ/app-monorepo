@@ -34,6 +34,10 @@ const DONUT_COLOR = '#818cf8';
 const DONUT_SIZE = 40;
 const DONUT_STROKE = 4;
 
+function clampResourceAvailable(value: BigNumber) {
+  return value.isNegative() ? new BigNumber(0) : value;
+}
+
 function useTronAccountResources({
   accountId,
   networkId,
@@ -86,17 +90,21 @@ function useTronAccountResources({
         const netTotal = new BigNumber(resources.NetLimit ?? 0).plus(
           resources.freeNetLimit ?? 0,
         );
-        const netAvailable = netTotal
-          .minus(resources.NetUsed ?? 0)
-          .minus(resources.freeNetUsed ?? 0);
+        const netAvailable = clampResourceAvailable(
+          netTotal
+            .minus(resources.NetUsed ?? 0)
+            .minus(resources.freeNetUsed ?? 0),
+        );
 
         const energyTotal = new BigNumber(resources.EnergyLimit ?? 0).plus(
           resources.freeEnergyLimit ?? 0,
         );
 
-        const energyAvailable = energyTotal
-          .minus(resources.EnergyUsed ?? 0)
-          .minus(resources.freeEnergyUsed ?? 0);
+        const energyAvailable = clampResourceAvailable(
+          energyTotal
+            .minus(resources.EnergyUsed ?? 0)
+            .minus(resources.freeEnergyUsed ?? 0),
+        );
 
         const result = { netAvailable, netTotal, energyAvailable, energyTotal };
         lastResultRef.current = result;
