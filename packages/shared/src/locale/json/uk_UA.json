@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Коефіцієнт ціни до продажів, корисний для оцінки компаній, які ще не є прибутковими.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Рентабельність активів, вимірює, наскільки ефективно компанія перетворює загальні активи у прибуток.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Рентабельність власного капіталу, вимірює, наскільки ефективно компанія перетворює акціонерний капітал у прибуток.",
   "dexmarket_stock.shares_per_token": "Акції на токен",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "PnL",
   "perp_portfolio_chart_type_value": "Вартість",
   "perp_portfolio_fees_paid": "Сплачені комісії",
+  "perp_portfolio_health_status_healthy": "Здоровий",
+  "perp_portfolio_health_status_high_risk": "Високий ризик",
+  "perp_portfolio_health_status_moderate": "Помірний",
   "perp_portfolio_margin_used": "Використана маржа",
   "perp_portfolio_margin_used_tooltip": "Загальна маржа, виділена для відкритих позицій.",
   "perp_portfolio_mmr_tooltip": "Коефіцієнт підтримуючої маржі — мінімальна маржа для утримання позицій. Ліквідація відбувається при перевищенні 100%.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "Як я можу торгувати криптовалютами в OneKey?",
   "watch_only_desc_manage": "Ви не можете керувати гаманцем.",
   "watch_only_desc_transactions": "Спостерігайте за транзакціями інших.",
-  "word": "Слово",
-  "xmarket_stock.roa_desc": "Рентабельність активів, вимірює, наскільки ефективно компанія перетворює загальні активи у прибуток."
+  "word": "Слово"
 }

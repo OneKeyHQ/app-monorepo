@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Relación precio-ventas, útil para valorar empresas que aún no son rentables.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Retorno sobre activos, mide cuán eficientemente la empresa convierte los activos totales en ganancias.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Retorno sobre el capital, mide cuán eficientemente la empresa convierte el capital de los accionistas en ganancias.",
   "dexmarket_stock.shares_per_token": "Acciones por token",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Valor",
   "perp_portfolio_fees_paid": "Comisiones pagadas",
+  "perp_portfolio_health_status_healthy": "Saludable",
+  "perp_portfolio_health_status_high_risk": "Alto riesgo",
+  "perp_portfolio_health_status_moderate": "Moderado",
   "perp_portfolio_margin_used": "Margen usado",
   "perp_portfolio_margin_used_tooltip": "Margen total asignado a posiciones abiertas.",
   "perp_portfolio_mmr_tooltip": "Ratio de margen de mantenimiento — el margen mínimo requerido para mantener posiciones abiertas. La liquidación ocurre cuando supera el 100%.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "¿Cómo puedo operar con criptomonedas en OneKey?",
   "watch_only_desc_manage": "No puedes administrar la billetera.",
   "watch_only_desc_transactions": "Mira las transacciones de otros.",
-  "word": "Palabra",
-  "xmarket_stock.roa_desc": "Retorno sobre activos, mide cuán eficientemente la empresa convierte los activos totales en ganancias."
+  "word": "Palabra"
 }

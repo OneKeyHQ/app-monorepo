@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "อัตราส่วนราคาต่อการขาย มีประโยชน์ในการประเมินมูลค่าบริษัทที่ยังไม่มีกำไร",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "ผลตอบแทนต่อสินทรัพย์ วัดว่าบริษัทใช้สินทรัพย์รวมในการทำกำไรได้อย่างมีประสิทธิภาพเพียงใด",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "ผลตอบแทนต่อส่วนของผู้ถือหุ้น วัดว่าบริษัทใช้ส่วนของผู้ถือหุ้นในการทำกำไรได้อย่างมีประสิทธิภาพเพียงใด",
   "dexmarket_stock.shares_per_token": "หุ้นต่อโทเค็น",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "มูลค่า",
   "perp_portfolio_fees_paid": "ค่าธรรมเนียมที่จ่าย",
+  "perp_portfolio_health_status_healthy": "ดี",
+  "perp_portfolio_health_status_high_risk": "ความเสี่ยงสูง",
+  "perp_portfolio_health_status_moderate": "ปานกลาง",
   "perp_portfolio_margin_used": "มาร์จิ้นที่ใช้",
   "perp_portfolio_margin_used_tooltip": "มาร์จิ้นรวมที่จัดสรรให้กับสถานะที่เปิดอยู่",
   "perp_portfolio_mmr_tooltip": "อัตราส่วนมาร์จิ้นรักษาสถานะ — มาร์จิ้นขั้นต่ำที่จำเป็นในการรักษาสถานะเปิดไว้ การบังคับปิดสถานะเกิดขึ้นเมื่อเกิน 100%",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "ฉันจะเทรดคริปโตใน OneKey ได้อย่างไร?",
   "watch_only_desc_manage": "คุณไม่สามารถจัดการกระเป๋าเงินได้",
   "watch_only_desc_transactions": "ดูธุรกรรมของผู้อื่น",
-  "word": "คำ",
-  "xmarket_stock.roa_desc": "ผลตอบแทนต่อสินทรัพย์ วัดว่าบริษัทใช้สินทรัพย์รวมในการทำกำไรได้อย่างมีประสิทธิภาพเพียงใด"
+  "word": "คำ"
 }

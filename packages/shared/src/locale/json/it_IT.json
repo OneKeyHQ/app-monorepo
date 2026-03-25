@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Rapporto prezzo/vendite, utile per valutare le aziende che non sono ancora redditizie.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Rendimento delle attività, misura quanto efficacemente l'azienda trasforma il totale delle attività in profitto.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Rendimento del capitale proprio, misura quanto efficacemente l'azienda trasforma il capitale degli azionisti in profitto.",
   "dexmarket_stock.shares_per_token": "Azioni per token",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Valore",
   "perp_portfolio_fees_paid": "Commissioni pagate",
+  "perp_portfolio_health_status_healthy": "Sano",
+  "perp_portfolio_health_status_high_risk": "Alto rischio",
+  "perp_portfolio_health_status_moderate": "Moderato",
   "perp_portfolio_margin_used": "Margine utilizzato",
   "perp_portfolio_margin_used_tooltip": "Margine totale allocato alle posizioni aperte.",
   "perp_portfolio_mmr_tooltip": "Rapporto margine di mantenimento — il margine minimo richiesto per mantenere le posizioni aperte. La liquidazione avviene quando supera il 100%.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "Come posso fare trading di criptovalute su OneKey?",
   "watch_only_desc_manage": "Non puoi gestire il wallet.",
   "watch_only_desc_transactions": "Guarda le transazioni degli altri.",
-  "word": "Parola",
-  "xmarket_stock.roa_desc": "Rendimento delle attività, misura quanto efficacemente l'azienda trasforma il totale delle attività in profitto."
+  "word": "Parola"
 }

@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Price-to-Sales Ratio, useful for valuing companies that aren't yet profitable.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Return on Assets, measures how efficiently the company turns total assets into profit.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Return on Equity, measures how efficiently the company turns shareholder equity into profit.",
   "dexmarket_stock.shares_per_token": "Shares Per Token",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Value",
   "perp_portfolio_fees_paid": "Fees Paid",
+  "perp_portfolio_health_status_healthy": "Healthy",
+  "perp_portfolio_health_status_high_risk": "High Risk",
+  "perp_portfolio_health_status_moderate": "Moderate",
   "perp_portfolio_margin_used": "Margin Used",
   "perp_portfolio_margin_used_tooltip": "Total margin allocated to open positions.",
   "perp_portfolio_mmr_tooltip": "Maintenance Margin Ratio — the minimum margin required to keep positions open. Liquidation occurs when this exceeds 100%.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "How can I trade cryptos in OneKey?",
   "watch_only_desc_manage": "You cannot manage the wallet.",
   "watch_only_desc_transactions": "Watch others' transactions.",
-  "word": "Word",
-  "xmarket_stock.roa_desc": "Return on Assets, measures how efficiently the company turns total assets into profit."
+  "word": "Word"
 }

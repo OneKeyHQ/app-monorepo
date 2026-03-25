@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Relação Preço-Vendas, útil para avaliar empresas que ainda não são lucrativas.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Retorno sobre Ativos, mede quão eficientemente a empresa transforma os ativos totais em lucro.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Retorno sobre o Patrimônio, mede quão eficientemente a empresa transforma o patrimônio dos acionistas em lucro.",
   "dexmarket_stock.shares_per_token": "Ações por Token",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Valor",
   "perp_portfolio_fees_paid": "Taxas pagas",
+  "perp_portfolio_health_status_healthy": "Saudável",
+  "perp_portfolio_health_status_high_risk": "Alto risco",
+  "perp_portfolio_health_status_moderate": "Moderado",
   "perp_portfolio_margin_used": "Margem usada",
   "perp_portfolio_margin_used_tooltip": "Margem total alocada para posições abertas.",
   "perp_portfolio_mmr_tooltip": "Taxa de margem de manutenção — a margem mínima necessária para manter as posições abertas. A liquidação ocorre quando excede 100%.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "Como posso negociar criptomoedas no OneKey?",
   "watch_only_desc_manage": "Você não pode gerenciar a carteira.",
   "watch_only_desc_transactions": "Veja as transações de outros.",
-  "word": "Palavra",
-  "xmarket_stock.roa_desc": "Retorno sobre Ativos, mede quão eficientemente a empresa transforma os ativos totais em lucro."
+  "word": "Palavra"
 }

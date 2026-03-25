@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "株価売上高倍率、まだ利益を出していない企業を評価するのに役立ちます。",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "総資産利益率、会社が総資産をどれだけ効率的に利益に変えているかを測定します。",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "自己資本利益率、会社が株主資本をどれだけ効率的に利益に変えているかを測定します。",
   "dexmarket_stock.shares_per_token": "トークンあたりの株式数",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "価値",
   "perp_portfolio_fees_paid": "支払い手数料",
+  "perp_portfolio_health_status_healthy": "良好",
+  "perp_portfolio_health_status_high_risk": "高リスク",
+  "perp_portfolio_health_status_moderate": "中程度",
   "perp_portfolio_margin_used": "使用証拠金",
   "perp_portfolio_margin_used_tooltip": "オープンポジションに割り当てられた合計証拠金。",
   "perp_portfolio_mmr_tooltip": "維持証拠金率 — ポジションを維持するために必要な最低証拠金。100%を超えると清算が発生します。",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "OneKeyで暗号資産を取引するにはどうすればよいですか？",
   "watch_only_desc_manage": "ウォレットを管理することはできません。",
   "watch_only_desc_transactions": "他人の取引を閲覧する。",
-  "word": "ワード",
-  "xmarket_stock.roa_desc": "総資産利益率、会社が総資産をどれだけ効率的に利益に変えているかを測定します。"
+  "word": "ワード"
 }

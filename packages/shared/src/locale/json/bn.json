@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "পি/এস",
   "dexmarket_stock.ps_desc": "দাম-টু-সেলস অনুপাত, যা এমন কোম্পানিগুলির মূল্যায়নের জন্য উপযোগী যা এখনও লাভজনক নয়।",
   "dexmarket_stock.roa": "আরওএ",
+  "dexmarket_stock.roa_desc": "সম্পদের উপর রিটার্ন, যা পরিমাপ করে কোম্পানি কতটা দক্ষতার সাথে মোট সম্পদকে লাভে রূপান্তরিত করে।",
   "dexmarket_stock.roe": "আরওই",
   "dexmarket_stock.roe_desc": "ইক্যুইটির উপর রিটার্ন, যা পরিমাপ করে কোম্পানি কতটা দক্ষতার সাথে শেয়ারহোল্ডার ইক্যুইটিকে লাভে রূপান্তরিত করে।",
   "dexmarket_stock.shares_per_token": "প্রতি টোকেনে শেয়ার",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "মূল্য",
   "perp_portfolio_fees_paid": "প্রদত্ত ফি",
+  "perp_portfolio_health_status_healthy": "সুস্থ",
+  "perp_portfolio_health_status_high_risk": "উচ্চ ঝুঁকি",
+  "perp_portfolio_health_status_moderate": "মাঝারি",
   "perp_portfolio_margin_used": "ব্যবহৃত মার্জিন",
   "perp_portfolio_margin_used_tooltip": "খোলা পজিশনে বরাদ্দ মোট মার্জিন।",
   "perp_portfolio_mmr_tooltip": "রক্ষণাবেক্ষণ মার্জিন অনুপাত — পজিশন খোলা রাখতে প্রয়োজনীয় ন্যূনতম মার্জিন। এটি ১০০% ছাড়িয়ে গেলে লিকুইডেশন হয়।",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "আমি কীভাবে OneKey-এ ক্রিপ্টো ট্রেড করতে পারি?",
   "watch_only_desc_manage": "আপনি ওয়ালেটটি পরিচালনা করতে পারবেন না।",
   "watch_only_desc_transactions": "অন্যদের লেনদেন দেখুন।",
-  "word": "শব্দ",
-  "xmarket_stock.roa_desc": "সম্পদের উপর রিটার্ন, যা পরিমাপ করে কোম্পানি কতটা দক্ষতার সাথে মোট সম্পদকে লাভে রূপান্তরিত করে।"
+  "word": "শব্দ"
 }

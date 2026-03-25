@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "Rasio Harga terhadap Penjualan, berguna untuk menilai perusahaan yang belum menguntungkan.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "Pengembalian atas Aset, mengukur seberapa efisien perusahaan mengubah total aset menjadi keuntungan.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "Pengembalian atas Ekuitas, mengukur seberapa efisien perusahaan mengubah ekuitas pemegang saham menjadi keuntungan.",
   "dexmarket_stock.shares_per_token": "Saham Per Token",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "Nilai",
   "perp_portfolio_fees_paid": "Biaya dibayar",
+  "perp_portfolio_health_status_healthy": "Sehat",
+  "perp_portfolio_health_status_high_risk": "Risiko Tinggi",
+  "perp_portfolio_health_status_moderate": "Sedang",
   "perp_portfolio_margin_used": "Margin terpakai",
   "perp_portfolio_margin_used_tooltip": "Total margin yang dialokasikan untuk posisi terbuka.",
   "perp_portfolio_mmr_tooltip": "Rasio Margin Pemeliharaan — margin minimum yang diperlukan untuk menjaga posisi tetap terbuka. Likuidasi terjadi ketika melebihi 100%.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "Bagaimana cara saya memperdagangkan kripto di OneKey?",
   "watch_only_desc_manage": "Anda tidak dapat mengelola dompet.",
   "watch_only_desc_transactions": "Lihat transaksi orang lain.",
-  "word": "Kata",
-  "xmarket_stock.roa_desc": "Pengembalian atas Aset, mengukur seberapa efisien perusahaan mengubah total aset menjadi keuntungan."
+  "word": "Kata"
 }
