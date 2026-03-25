@@ -121,7 +121,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     setTransfersInfo: setTransfersInfoWithModeUpdate,
     previewState,
     setPreviewState,
-    balance: tokenDetails?.balanceParsed,
+    balance: isOneToMany ? tokenDetails?.balanceParsed : undefined,
   });
 
   // Mobile-only: preview mode means TransactionDetail is visible for Specified/Range
@@ -394,7 +394,10 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         totalFiatAmount: effectiveTotalFiatAmount,
       });
     } catch (error) {
-      console.error('Failed to build ManyToMany/ManyToOne transactions:', error);
+      console.error(
+        'Failed to build ManyToMany/ManyToOne transactions:',
+        error,
+      );
     } finally {
       setIsBuilding(false);
     }
@@ -701,6 +704,7 @@ function BulkSendAmountsInput() {
       false,
     [receivers],
   );
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
   // Redirect if required parameters are missing
   useEffect(() => {
@@ -838,9 +842,9 @@ function BulkSendAmountsInput() {
         transfersInfo: modeData.transfersInfo,
         tokenPrice: tokenDetails.price,
       });
-      const modeIsInsufficient = new BigNumber(modeTotalToken).gt(
-        tokenDetails.balanceParsed,
-      );
+      const modeIsInsufficient = isOneToMany
+        ? new BigNumber(modeTotalToken).gt(tokenDetails.balanceParsed)
+        : false;
 
       if (
         modeData.totalTokenAmount === modeTotalToken &&
@@ -864,6 +868,7 @@ function BulkSendAmountsInput() {
   }, [
     currentModeData.transfersInfo,
     amountInputMode,
+    isOneToMany,
     tokenDetails?.price,
     tokenDetails?.balanceParsed,
   ]);

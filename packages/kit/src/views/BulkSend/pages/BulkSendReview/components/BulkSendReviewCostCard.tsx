@@ -15,11 +15,13 @@ import {
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import {
   EIntervalMode,
   type IIntervalSettings,
 } from '@onekeyhq/shared/types/bulkSend';
+import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+
+import { formatIntervalSecondsRange } from '../../../utils';
 
 import { useBulkSendReviewContext } from './Context';
 
@@ -212,7 +214,10 @@ function BulkSendReviewCostCard({
               })}
             </SizableText>
             <SizableText size="$bodyMdMedium">
-              {`${intervalSettings.minSeconds || '0'} - ${intervalSettings.maxSeconds || '0'} Seconds`}
+              {formatIntervalSecondsRange({
+                minSeconds: intervalSettings.minSeconds,
+                maxSeconds: intervalSettings.maxSeconds,
+              })}
             </SizableText>
           </XStack>
         ) : null}

@@ -31,9 +31,13 @@ import {
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 
-import { filterNumericInput, validateRangeInput } from '../../../utils';
-
 import { IntervalSettingsContent } from '../../../components/IntervalSettingsContent';
+import {
+  filterNumericInput,
+  formatIntervalSecondsRange,
+  validateIntervalSettings,
+  validateRangeInput,
+} from '../../../utils';
 
 import { useBulkSendAmountsInputContext } from './Context';
 import { useAmountPreview } from './useAmountPreview';
@@ -48,14 +52,36 @@ function IntervalDialogContent({
 }) {
   const intl = useIntl();
   const [settings, setSettings] = useState<IIntervalSettings>(initialSettings);
+  const [showValidationError, setShowValidationError] = useState(false);
+
+  const intervalError = useMemo(
+    () => validateIntervalSettings(settings),
+    [settings],
+  );
+  const shouldShowIntervalError = useMemo(
+    () =>
+      settings.mode === EIntervalMode.Specified &&
+      (showValidationError ||
+        settings.minSeconds !== '' ||
+        settings.maxSeconds !== ''),
+    [settings, showValidationError],
+  );
 
   const handleConfirm = useCallback(() => {
+    if (intervalError) {
+      setShowValidationError(true);
+      return;
+    }
     onConfirm(settings);
-  }, [settings, onConfirm]);
+  }, [intervalError, settings, onConfirm]);
 
   return (
     <YStack>
-      <IntervalSettingsContent value={settings} onChange={setSettings} />
+      <IntervalSettingsContent
+        value={settings}
+        error={shouldShowIntervalError ? intervalError : undefined}
+        onChange={setSettings}
+      />
       <Dialog.Footer
         onConfirm={handleConfirm}
         onConfirmText={intl.formatMessage({
@@ -91,9 +117,10 @@ function IntervalCard() {
 
   const intervalSummary = useMemo(() => {
     if (intervalSettings.mode === EIntervalMode.Specified) {
-      const min = intervalSettings.minSeconds || '0';
-      const max = intervalSettings.maxSeconds || '0';
-      return `${min} - ${max} Seconds`;
+      return formatIntervalSecondsRange({
+        minSeconds: intervalSettings.minSeconds,
+        maxSeconds: intervalSettings.maxSeconds,
+      });
     }
     return intl.formatMessage({
       id: ETranslations.wallet_bulk_send_interval_none,
@@ -176,7 +203,7 @@ function AmountCard() {
     setTransfersInfo,
     previewState,
     setPreviewState,
-    balance: tokenDetails?.balanceParsed,
+    balance: isOneToMany ? tokenDetails?.balanceParsed : undefined,
   });
 
   // Mode select options

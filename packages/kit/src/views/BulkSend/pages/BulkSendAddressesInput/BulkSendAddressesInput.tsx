@@ -436,9 +436,35 @@ function BaseBulkSendAddressesInput() {
       return;
     }
 
+    let resolvedTokenDetails = selectedTokenDetail;
+
+    if (
+      !resolvedTokenDetails &&
+      selectedAccountId &&
+      selectedNetworkId &&
+      selectedToken
+    ) {
+      try {
+        const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          accountId: selectedAccountId,
+          networkId: selectedNetworkId,
+          contractList: [selectedToken.address],
+          withFrozenBalance: false,
+          withCheckInscription: false,
+        });
+
+        if (resp[0]) {
+          resolvedTokenDetails = resp[0];
+          setSelectedTokenDetail(resp[0]);
+        }
+      } catch (_) {
+        resolvedTokenDetails = undefined;
+      }
+    }
+
     // For non-OneToMany, construct minimal tokenDetails if not available
     const effectiveTokenDetails =
-      selectedTokenDetail ??
+      resolvedTokenDetails ??
       ({
         info: selectedToken,
         balance: '0',
@@ -480,6 +506,7 @@ function BaseBulkSendAddressesInput() {
     bulkSendMode,
     isOneToMany,
     isInModal,
+    setSelectedTokenDetail,
   ]);
 
   if (availableWallets && availableWallets.length === 0) {

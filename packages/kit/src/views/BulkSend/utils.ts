@@ -7,10 +7,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EAmountInputMode,
+  EIntervalMode,
   type IAmountInputError,
   type IAmountInputValues,
+  type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
+
+export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
 // Filter input to only allow numbers and decimal point
 export function filterNumericInput(text: string): string {
@@ -87,6 +91,76 @@ export function calculateTotalAmounts({
     totalTokenAmount: total.isZero() ? '0' : total.toFixed(),
     totalFiatAmount: fiat,
   };
+}
+
+export function formatIntervalSecondsRange({
+  minSeconds,
+  maxSeconds,
+}: {
+  minSeconds?: string;
+  maxSeconds?: string;
+}) {
+  const min = minSeconds || '0';
+  const max = maxSeconds || '0';
+
+  return appLocale.intl.formatMessage(
+    {
+      id: ETranslations.earn_number_seconds,
+    },
+    {
+      number: `${min} - ${max}`,
+    },
+  );
+}
+
+export function validateIntervalSettings({
+  mode,
+  minSeconds,
+  maxSeconds,
+}: IIntervalSettings): string | undefined {
+  if (mode !== EIntervalMode.Specified) {
+    return undefined;
+  }
+
+  const minBN = new BigNumber(minSeconds || '0');
+  const maxBN = new BigNumber(maxSeconds || '0');
+
+  if (
+    (minSeconds !== '' &&
+      (minBN.isNaN() || minBN.isGreaterThan(BULK_SEND_INTERVAL_MAX_SECONDS))) ||
+    (maxSeconds !== '' &&
+      (maxBN.isNaN() || maxBN.isGreaterThan(BULK_SEND_INTERVAL_MAX_SECONDS)))
+  ) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_proper_range,
+    });
+  }
+
+  if (minSeconds === '') {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_min_required,
+    });
+  }
+
+  if (maxSeconds === '') {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_max_required,
+    });
+  }
+
+  if (maxBN.isLessThanOrEqualTo(0)) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_max_zero,
+    });
+  }
+
+  if (minBN.isGreaterThanOrEqualTo(maxBN)) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_max_less_than_min,
+    });
+  }
+
+  return undefined;
 }
 
 /**

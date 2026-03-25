@@ -63,7 +63,7 @@ export function Radio({
     >
       <Container
         gap={gap}
-        alignItems="flex-start"
+        alignItems={orientation === 'horizontal' ? 'flex-start' : 'stretch'}
         flexWrap={orientation === 'horizontal' ? 'wrap' : undefined}
       >
         {options.map(
@@ -83,9 +83,16 @@ export function Radio({
               <ItemContainer
                 key={index}
                 py="$2"
-                alignItems="center"
+                alignItems={
+                  orientation === 'horizontal' ||
+                  (!description && !optionChildren)
+                    ? 'center'
+                    : 'flex-start'
+                }
                 gap="$2"
                 flex={itemContainerFlex}
+                w={orientation === 'horizontal' ? undefined : '100%'}
+                minWidth={0}
                 opacity={optionDisabled ? 0.5 : 1}
               >
                 <RadioGroup.Item
@@ -121,6 +128,8 @@ export function Radio({
                   py={orientation === 'horizontal' ? '$0' : '$2'}
                   my={orientation === 'horizontal' ? '$0' : '$-2'}
                   flex={orientation === 'horizontal' ? undefined : 1}
+                  minWidth={0}
+                  flexShrink={1}
                   onPress={() => handleValueChange(v)}
                 >
                   <Label

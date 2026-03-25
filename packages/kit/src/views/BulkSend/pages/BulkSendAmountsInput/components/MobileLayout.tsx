@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
 
 import { YStack } from '@onekeyhq/components';
-import { EAmountInputMode } from '@onekeyhq/shared/types/bulkSend';
+import {
+  EAmountInputMode,
+  EBulkSendMode,
+} from '@onekeyhq/shared/types/bulkSend';
 
 import BulkSendTxDetails from '../../../components/BulkSendTxDetails';
 
@@ -61,7 +64,10 @@ function MobileLayout() {
     setTransfersInfo: setModeTransfersInfo,
     previewState,
     setPreviewState,
-    balance: tokenDetails?.balanceParsed,
+    balance:
+      bulkSendMode === EBulkSendMode.OneToMany
+        ? tokenDetails?.balanceParsed
+        : undefined,
   });
 
   const isEditMode = amountInputMode === EAmountInputMode.Custom;

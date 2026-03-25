@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 
 import { IntervalSettingsContent } from '../../components/IntervalSettingsContent';
+import { validateIntervalSettings } from '../../utils';
 
 function BulkSendIntervalInput() {
   const intl = useIntl();
@@ -45,8 +46,26 @@ function BulkSendIntervalInput() {
     minSeconds: '',
     maxSeconds: '',
   });
+  const [showValidationError, setShowValidationError] = useState(false);
+
+  const intervalError = useMemo(
+    () => validateIntervalSettings(intervalSettings),
+    [intervalSettings],
+  );
+  const shouldShowIntervalError = useMemo(
+    () =>
+      intervalSettings.mode === EIntervalMode.Specified &&
+      (showValidationError ||
+        intervalSettings.minSeconds !== '' ||
+        intervalSettings.maxSeconds !== ''),
+    [intervalSettings, showValidationError],
+  );
 
   const handleConfirm = useCallback(() => {
+    if (intervalError) {
+      setShowValidationError(true);
+      return;
+    }
     navigation.push(EModalBulkSendRoutes.BulkSendReview, {
       networkId,
       accountId,
@@ -62,6 +81,7 @@ function BulkSendIntervalInput() {
       intervalSettings,
     });
   }, [
+    intervalError,
     navigation,
     networkId,
     accountId,
@@ -88,6 +108,7 @@ function BulkSendIntervalInput() {
         <YStack px="$5" pt="$2">
           <IntervalSettingsContent
             value={intervalSettings}
+            error={shouldShowIntervalError ? intervalError : undefined}
             onChange={setIntervalSettings}
           />
         </YStack>
