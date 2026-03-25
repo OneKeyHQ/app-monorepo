@@ -1,8 +1,7 @@
-/* eslint-disable import-js/order */
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/polyfills';
 
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { setupSidePanelPortInUI } from '../background/sidePanel';
@@ -11,7 +10,7 @@ import uiJsBridge from '../ui/uiJsBridge';
 
 function initUi() {
   const renderApp: typeof import('../ui/renderApp').default =
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
     require('../ui/renderApp').default;
   renderApp();
 }

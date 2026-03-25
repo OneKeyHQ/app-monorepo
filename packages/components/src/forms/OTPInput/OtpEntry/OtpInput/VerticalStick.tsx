@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import { Animated, View } from 'react-native';
 
@@ -45,16 +45,23 @@ function BasicVerticalStick({
     };
   }, [focusStickBlinkingDuration, opacityAnim]);
 
+  const animatedStyle = useMemo(
+    () => ({ opacity: opacityAnim }),
+    [opacityAnim],
+  );
+
+  const stickStyle = useMemo(
+    () => [
+      styles.stick,
+      focusColor ? { backgroundColor: focusColor } : {},
+      style,
+    ],
+    [focusColor, style],
+  );
+
   return (
-    <Animated.View style={{ opacity: opacityAnim }}>
-      <View
-        style={[
-          styles.stick,
-          focusColor ? { backgroundColor: focusColor } : {},
-          style,
-        ]}
-        testID="otp-input-stick"
-      />
+    <Animated.View style={animatedStyle}>
+      <View style={stickStyle} testID="otp-input-stick" />
     </Animated.View>
   );
 }

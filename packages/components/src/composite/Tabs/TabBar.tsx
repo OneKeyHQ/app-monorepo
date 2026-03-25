@@ -30,6 +30,15 @@ import type { SharedValue } from 'react-native-reanimated';
 
 type IItemLayout = { x: number; width: number };
 
+const TAB_HOVER_STYLE = { bg: '$bgHover' } as const;
+const TAB_PRESS_STYLE = { bg: '$bgActive' } as const;
+const TAB_LIST_VIEW_STYLE = { flexShrink: 1 } as const;
+const TAB_CONTENT_CONTAINER_STYLE = { pr: 16 } as const;
+const PILL_SCROLL_CONTENT_STYLE = {
+  px: '$pagePadding',
+  py: '$2',
+} as const;
+
 export type ITabBarVariant = 'default' | 'pill';
 
 const animatedTextStyles = StyleSheet.create({
@@ -63,11 +72,13 @@ function AnimatedPillText({
     return { color };
   });
 
+  const combinedStyle = useMemo(
+    () => [animatedTextStyles.text, animatedColorStyle],
+    [animatedColorStyle],
+  );
+
   return (
-    <Animated.Text
-      style={[animatedTextStyles.text, animatedColorStyle]}
-      numberOfLines={1}
-    >
+    <Animated.Text style={combinedStyle} numberOfLines={1}>
       {name}
     </Animated.Text>
   );
@@ -115,10 +126,10 @@ export function TabBarItem({
         borderRadius="$full"
         bg={pillBg}
         hoverStyle={
-          isFocused || animatedPillIndicator ? undefined : { bg: '$bgHover' }
+          isFocused || animatedPillIndicator ? undefined : TAB_HOVER_STYLE
         }
         pressStyle={
-          isFocused || animatedPillIndicator ? undefined : { bg: '$bgActive' }
+          isFocused || animatedPillIndicator ? undefined : TAB_PRESS_STYLE
         }
         key={name}
         onPress={handlePress}
@@ -224,6 +235,11 @@ function AnimatedTabBarItem({
     [index, onItemLayout],
   );
 
+  const combinedTextStyle = useMemo(
+    () => [animatedTextStyles.text, animatedTextStyle],
+    [animatedTextStyle],
+  );
+
   return (
     <YStack
       h={44}
@@ -237,10 +253,7 @@ function AnimatedTabBarItem({
       {...tabItemStyle}
       {...(isFocused ? focusedTabStyle : undefined)}
     >
-      <Animated.Text
-        style={[animatedTextStyles.text, animatedTextStyle]}
-        numberOfLines={1}
-      >
+      <Animated.Text style={combinedTextStyle} numberOfLines={1}>
         {name}
       </Animated.Text>
     </YStack>
@@ -300,25 +313,28 @@ function AnimatedIndicator({
     return { transform: [{ translateX }], width };
   });
 
+  const indicatorBaseStyle = useMemo(
+    () => ({
+      position: 'absolute' as const,
+      bottom: 0,
+      left: 0,
+      height: 2,
+      borderRadius: 1,
+      backgroundColor: indicatorColor,
+    }),
+    [indicatorColor],
+  );
+
+  const combinedIndicatorStyle = useMemo(
+    () => [indicatorBaseStyle, animatedStyle],
+    [indicatorBaseStyle, animatedStyle],
+  );
+
   if (itemsLayout.length === 0) {
     return null;
   }
 
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          height: 2,
-          borderRadius: 1,
-          backgroundColor: indicatorColor,
-        },
-        animatedStyle,
-      ]}
-    />
-  );
+  return <Animated.View style={combinedIndicatorStyle} />;
 }
 
 function AnimatedPillTabBarItem({
@@ -359,6 +375,11 @@ function AnimatedPillTabBarItem({
     [index, onItemLayout],
   );
 
+  const combinedPillTextStyle = useMemo(
+    () => [animatedTextStyles.text, animatedTextStyle],
+    [animatedTextStyle],
+  );
+
   return (
     <YStack
       ai="center"
@@ -372,10 +393,7 @@ function AnimatedPillTabBarItem({
       cursor="default"
       zIndex={1}
     >
-      <Animated.Text
-        style={[animatedTextStyles.text, animatedTextStyle]}
-        numberOfLines={1}
-      >
+      <Animated.Text style={combinedPillTextStyle} numberOfLines={1}>
         {name}
       </Animated.Text>
     </YStack>
@@ -455,25 +473,28 @@ function AnimatedPillIndicator({
     return { transform: [{ translateX: left }], width: right - left };
   });
 
+  const pillBaseStyle = useMemo(
+    () => ({
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      bottom: 0,
+      borderRadius: 9999,
+      backgroundColor: bgColor,
+    }),
+    [bgColor],
+  );
+
+  const combinedPillStyle = useMemo(
+    () => [pillBaseStyle, animatedStyle],
+    [pillBaseStyle, animatedStyle],
+  );
+
   if (itemsLayout.length === 0) {
     return null;
   }
 
-  return (
-    <Animated.View
-      style={[
-        {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          borderRadius: 9999,
-          backgroundColor: bgColor,
-        },
-        animatedStyle,
-      ]}
-    />
-  );
+  return <Animated.View style={combinedPillStyle} />;
 }
 
 export interface ITabBarProps extends TabBarProps<string> {
@@ -561,10 +582,7 @@ function PillTabBarContent({
           onScroll={handleScroll}
           onLayout={handleLayout}
           onContentSizeChange={handleContentSizeChange}
-          contentContainerStyle={{
-            px: '$pagePadding',
-            py: '$2',
-          }}
+          contentContainerStyle={PILL_SCROLL_CONTENT_STYLE}
         >
           <XStack position="relative" gap="$2" ai="center">
             {pillIndicator}
@@ -763,6 +781,7 @@ export function TabBar({
         return (
           <View
             key={name}
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
             onLayout={(e: LayoutChangeEvent) => {
               const { x, width } = e.nativeEvent.layout;
               handleItemLayout(index, { x, width });
@@ -910,17 +929,13 @@ export function TabBar({
     >
       <XStack alignItems="center" gap="$2" justifyContent="space-between">
         <ListView
-          style={{
-            flexShrink: 1,
-          }}
+          style={TAB_LIST_VIEW_STYLE}
           useFlashList
           data={tabNames}
           ref={listViewRef}
           horizontal
           pr="$4"
-          contentContainerStyle={{
-            pr: 16,
-          }}
+          contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
           renderItem={handleRenderItem as any}
           showsHorizontalScrollIndicator={false}
         />

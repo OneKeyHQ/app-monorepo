@@ -4,6 +4,9 @@ import { View, XStack } from '../../primitives';
 
 import type { IToastMessageOptions } from './type';
 
+const shadowOffset = { width: 0, height: 3 } as const;
+const platformAndroidStyle = { elevation: 7 } as const;
+
 export function dismissToast(id: string) {
   toast.dismiss(id);
 }
@@ -31,15 +34,10 @@ export function showMessage({
           py="$3"
           borderRadius="$2"
           shadowColor="#181821"
-          shadowOffset={{
-            width: 0,
-            height: 3,
-          }}
+          shadowOffset={shadowOffset}
           shadowOpacity={0.15}
           shadowRadius={4.65}
-          $platform-android={{
-            elevation: 7,
-          }}
+          $platform-android={platformAndroidStyle}
         >
           {renderContent({ width })}
         </View>

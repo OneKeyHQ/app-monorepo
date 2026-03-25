@@ -62,6 +62,25 @@ const PROCESSING_RESET_DELAY = 350;
 const FALLBACK_MODAL_NAVIGATOR_CONTEXT = { portalId: '' };
 const FALLBACK_PAGE_CONTEXT = { footerRef: { current: null } as any };
 
+const ACTION_LIST_ITEM_MD = { py: '$2.5', borderRadius: '$3' } as const;
+const ACTION_LIST_ICON_MD = { size: '$6' } as const;
+const ACTION_LIST_TEXT_MD = { size: '$bodyLg' } as const;
+const ACTION_LIST_HOVER_STYLE = { bg: '$bgHover' } as const;
+const ACTION_LIST_PRESS_STYLE = { bg: '$bgActive' } as const;
+const ACTION_LIST_ENABLED_STYLE = {
+  hoverStyle: ACTION_LIST_HOVER_STYLE,
+  pressStyle: ACTION_LIST_PRESS_STYLE,
+} as const;
+const ACTION_LIST_CONTENT_STYLE = {
+  p: '$1',
+  $md: { p: '$3', pt: '$0' },
+} as const;
+const ACTION_LIST_FLOATING_PANEL_PROPS = { width: '$56' } as const;
+const ACTION_LIST_MD_HEADING = {
+  size: '$headingSm',
+  paddingVertical: '$2.5',
+} as const;
+
 export function ActionListSkeletonItem() {
   return (
     <XStack
@@ -132,24 +151,12 @@ export function ActionListItem(
       py="$1.5"
       borderWidth={0}
       borderRadius="$2"
-      $md={{
-        py: '$2.5',
-        borderRadius: '$3',
-      }}
+      $md={ACTION_LIST_ITEM_MD}
       borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       aria-disabled={disabled}
-      {...(!disabled && {
-        hoverStyle: { bg: '$bgHover' },
-        pressStyle: { bg: '$bgActive' },
-        // focusable: true,
-        // focusVisibleStyle: {
-        //   outlineColor: '$focusRing',
-        //   outlineStyle: 'solid',
-        //   outlineWidth: 2,
-        // },
-      })}
+      {...(!disabled && ACTION_LIST_ENABLED_STYLE)}
       onPress={isLoading ? undefined : sharedOnPress}
       testID={testID}
     >
@@ -159,7 +166,7 @@ export function ActionListItem(
             name={icon}
             size="$5"
             mr="$3"
-            $md={{ size: '$6' }}
+            $md={ACTION_LIST_ICON_MD}
             color={destructive ? '$iconCritical' : '$icon'}
             {...iconProps}
           />
@@ -172,7 +179,7 @@ export function ActionListItem(
               size="$bodyMd"
               width="100%"
               flexShrink={1}
-              $md={{ size: '$bodyLg' }}
+              $md={ACTION_LIST_TEXT_MD}
               color={destructive ? '$textCritical' : '$text'}
             >
               {label}
@@ -322,17 +329,21 @@ function BasicActionList({
     renderItemsAsync,
   ]);
 
-  const renderActionListItem = (item: IActionListItemProps) => (
-    <ActionListItem
-      onPress={item.onPress}
-      key={item.label}
-      disabled={item.disabled}
-      {...item}
-      onClose={() => {
-        handleActionListClose();
-        item.onClose?.();
-      }}
-    />
+  const renderActionListItem = useCallback(
+    (item: IActionListItemProps) => (
+      <ActionListItem
+        onPress={item.onPress}
+        key={item.label}
+        disabled={item.disabled}
+        {...item}
+        // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+        onClose={() => {
+          handleActionListClose();
+          item.onClose?.();
+        }}
+      />
+    ),
+    [handleActionListClose],
   );
 
   const trigger = useMemo(() => {
@@ -343,54 +354,66 @@ function BasicActionList({
     );
   }, [disabled, renderTrigger, handleActionListOpen]);
 
+  const renderContentMemo = useMemo(
+    () => (
+      <YStack {...ACTION_LIST_CONTENT_STYLE}>
+        {items?.map(renderActionListItem)}
+        {sections?.map((section, sectionIdx) => (
+          <YStack key={sectionIdx}>
+            {sectionIdx > 0 && section.items.length > 0 ? (
+              <Divider mx="$2" my="$1" />
+            ) : null}
+            {section.title ? (
+              <Heading
+                size="$headingXs"
+                $md={ACTION_LIST_MD_HEADING}
+                py="$1.5"
+                px="$2"
+                color="$textSubdued"
+              >
+                {section.title}
+              </Heading>
+            ) : null}
+            {section.items.map(renderActionListItem)}
+          </YStack>
+        ))}
+
+        {/* custom render items */}
+        {renderItems?.({
+          handleActionListClose,
+          handleActionListOpen,
+        })}
+
+        {/* custom async render items - show skeleton while loading */}
+        {renderItemsAsync && !asyncItems ? (
+          <>
+            <ActionListSkeletonItem />
+            <ActionListSkeletonItem />
+          </>
+        ) : (
+          asyncItems
+        )}
+      </YStack>
+    ),
+    [
+      items,
+      sections,
+      renderActionListItem,
+      renderItems,
+      renderItemsAsync,
+      asyncItems,
+      handleActionListClose,
+      handleActionListOpen,
+    ],
+  );
+
   return (
     <Popover
       title={title || intl.formatMessage({ id: ETranslations.explore_options })}
       open={isOpen}
       onOpenChange={handleOpenStatusChange}
-      renderContent={
-        <YStack p="$1" $md={{ p: '$3', pt: '$0' }}>
-          {items?.map(renderActionListItem)}
-          {sections?.map((section, sectionIdx) => (
-            <YStack key={sectionIdx}>
-              {sectionIdx > 0 && section.items.length > 0 ? (
-                <Divider mx="$2" my="$1" />
-              ) : null}
-              {section.title ? (
-                <Heading
-                  size="$headingXs"
-                  $md={{ size: '$headingSm', paddingVertical: '$2.5' }}
-                  py="$1.5"
-                  px="$2"
-                  color="$textSubdued"
-                >
-                  {section.title}
-                </Heading>
-              ) : null}
-              {section.items.map(renderActionListItem)}
-            </YStack>
-          ))}
-
-          {/* custom render items */}
-          {renderItems?.({
-            handleActionListClose,
-            handleActionListOpen,
-          })}
-
-          {/* custom async render items - show skeleton while loading */}
-          {renderItemsAsync && !asyncItems ? (
-            <>
-              <ActionListSkeletonItem />
-              <ActionListSkeletonItem />
-            </>
-          ) : (
-            asyncItems
-          )}
-        </YStack>
-      }
-      floatingPanelProps={{
-        width: '$56',
-      }}
+      renderContent={renderContentMemo}
+      floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
       {...props}
       renderTrigger={trigger}
     />
@@ -417,6 +440,7 @@ const showActionList = (
   const { triggerPosition, ...restProps } = props;
   dismissKeyboard();
 
+  // eslint-disable-next-line react-perf/jsx-no-jsx-as-prop
   const triggerElement =
     triggerPosition && !platformEnv.isNative ? (
       <Stack width={1} height={1} />
@@ -426,6 +450,7 @@ const showActionList = (
   // eslint-disable-next-line prefer-const
   let ref: { destroy: () => void };
 
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
   const handleOpenChange = (isOpen: boolean) => {
     restProps.onOpenChange?.(isOpen);
     if (!isOpen) {
@@ -483,6 +508,7 @@ const showActionList = (
   const content =
     triggerPosition && !platformEnv.isNative ? (
       <Stack
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
         style={{
           position: 'fixed' as const,
           left: triggerPosition.x,
@@ -524,11 +550,14 @@ function ActionListFrame(props: IActionListProps) {
 
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
-  const contexts = {
-    modalNavigatorContext,
-    pageContextValue,
-  };
-  const handleActionListOpen = () => {
+  const contexts = useMemo(
+    () => ({
+      modalNavigatorContext,
+      pageContextValue,
+    }),
+    [modalNavigatorContext, pageContextValue],
+  );
+  const handleActionListOpen = useCallback(() => {
     if (isProcessing.current) return;
 
     isProcessing.current = true;
@@ -536,7 +565,7 @@ function ActionListFrame(props: IActionListProps) {
     setTimeout(() => {
       isProcessing.current = false;
     }, PROCESSING_RESET_DELAY);
-  };
+  }, [popoverProps, contexts]);
 
   if (gtMd) {
     return <BasicActionList {...props} />;

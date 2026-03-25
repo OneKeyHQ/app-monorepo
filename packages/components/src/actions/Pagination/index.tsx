@@ -7,6 +7,51 @@ import { DOTS, usePagination } from './usePagination';
 
 import type { IXStackProps } from '../../primitives';
 
+const pressStyleConst = { bg: '$bgActive' } as const;
+const activeHoverStyle = { bg: '$bgStrong' } as const;
+const inactiveHoverStyle = { bg: '$bgHover' } as const;
+
+function PageButton({
+  page,
+  active,
+  onPageChange,
+}: {
+  page: number;
+  active: boolean;
+  onPageChange: (page: number) => void;
+}) {
+  const handlePress = useCallback(() => {
+    onPageChange(page);
+  }, [onPageChange, page]);
+
+  return (
+    <ButtonFrame
+      borderWidth={0}
+      key={page}
+      py="$1"
+      px="$2.5"
+      borderRadius="$2"
+      borderCurve="continuous"
+      userSelect="none"
+      pressStyle={pressStyleConst}
+      hoverStyle={active ? activeHoverStyle : inactiveHoverStyle}
+      bg={active ? '$bgStrong' : '$transparent'}
+      onPress={handlePress}
+      role="button"
+      aria-label={`Page ${page}${active ? ', current page' : ''}`}
+      aria-current={active ? 'page' : undefined}
+    >
+      <SizableText
+        size="$bodyMdMedium"
+        textAlign="center"
+        color={active ? '$text' : '$textSubdued'}
+      >
+        {page}
+      </SizableText>
+    </ButtonFrame>
+  );
+}
+
 export interface IPaginationProps extends IXStackProps {
   current: number;
   total: number;
@@ -84,30 +129,12 @@ function PaginationFrame({
         }
         const active = page === effectiveCurrent;
         return (
-          <ButtonFrame
-            borderWidth={0}
+          <PageButton
             key={page}
-            py="$1"
-            px="$2.5"
-            borderRadius="$2"
-            borderCurve="continuous"
-            userSelect="none"
-            pressStyle={{ bg: '$bgActive' }}
-            hoverStyle={{ bg: active ? '$bgStrong' : '$bgHover' }}
-            bg={active ? '$bgStrong' : '$transparent'}
-            onPress={() => onPageChange(page)}
-            role="button"
-            aria-label={`Page ${page}${active ? ', current page' : ''}`}
-            aria-current={active ? 'page' : undefined}
-          >
-            <SizableText
-              size="$bodyMdMedium"
-              textAlign="center"
-              color={active ? '$text' : '$textSubdued'}
-            >
-              {page}
-            </SizableText>
-          </ButtonFrame>
+            page={page}
+            active={active}
+            onPageChange={onPageChange}
+          />
         );
       })}
       {showControls ? (

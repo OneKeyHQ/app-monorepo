@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -11,6 +13,12 @@ interface IGradientMaskProps {
   width?: number;
 }
 
+const animateOnlyProps = ['opacity', 'width'];
+const START_LEFT: [number, number] = [0, 0];
+const START_RIGHT: [number, number] = [1, 0];
+const END_LEFT: [number, number] = [1, 0];
+const END_RIGHT: [number, number] = [0, 0];
+
 export function GradientMask({
   position,
   opacity = 1,
@@ -18,6 +26,11 @@ export function GradientMask({
 }: IGradientMaskProps) {
   const theme = useTheme();
   const positionProps = position === 'left' ? { left: 0 } : { right: 0 };
+
+  const colors = useMemo(
+    () => [theme.bgApp.val, `${theme.bgApp.val}00`],
+    [theme.bgApp.val],
+  );
 
   return (
     <Stack
@@ -30,15 +43,15 @@ export function GradientMask({
       pointerEvents="none"
       opacity={opacity}
       animation="fast"
-      animateOnly={['opacity', 'width']}
+      animateOnly={animateOnlyProps}
       {...positionProps}
     >
       <LinearGradient
         width="100%"
         height="100%"
-        colors={[theme.bgApp.val, `${theme.bgApp.val}00`]}
-        start={position === 'left' ? [0, 0] : [1, 0]}
-        end={position === 'left' ? [1, 0] : [0, 0]}
+        colors={colors}
+        start={position === 'left' ? START_LEFT : START_RIGHT}
+        end={position === 'left' ? END_LEFT : END_RIGHT}
       />
     </Stack>
   );

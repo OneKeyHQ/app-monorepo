@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import { isNil } from 'lodash';
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import { useIntl } from 'react-intl';
 import {
   scrollTo,

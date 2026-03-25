@@ -1,4 +1,4 @@
-/* eslint-disable import/order, import-js/order */
+/* eslint-disable import-js/order */
 import '@onekeyhq/shared/src/performance/init';
 
 import './jsReady';

@@ -37,6 +37,8 @@ import type {
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 type ITabType = 'local' | 'server';
+type ISortField = 'dataType' | 'dataTime';
+type ISortOrder = 'asc' | 'desc';
 
 function SizableText({
   children,
@@ -54,6 +56,219 @@ function shortSortIndex(sortIndex: number | undefined) {
     return sortIndex;
   }
   return sortIndex.toFixed(2);
+}
+
+function getSortOrderLabel(sortOrder: ISortOrder | undefined) {
+  if (sortOrder === 'desc') {
+    return '↓';
+  }
+  if (sortOrder === 'asc') {
+    return '↑';
+  }
+  return '';
+}
+
+function shortText(
+  value: string | number | undefined | null,
+  head = 18,
+  tail = 12,
+) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  const text = String(value);
+  if (text.length <= head + tail + 3) {
+    return text;
+  }
+  return `${text.slice(0, head)}...${text.slice(-tail)}`;
+}
+
+type IRawDataSummary = {
+  title: string;
+  details: string[];
+};
+
+function buildRawDataSummary(
+  rawDataJson: ICloudSyncRawDataJson | undefined,
+): IRawDataSummary | null {
+  if (!rawDataJson) {
+    return null;
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.Lock) {
+    return {
+      title: rawDataJson.payload.message,
+      details: [
+        `cipher ${rawDataJson.payload.encryptedSecurityPasswordR1ForServer.length} chars`,
+      ],
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.Wallet) {
+    return {
+      title:
+        rawDataJson.payload.name || rawDataJson.payload.walletType || 'Wallet',
+      details: [
+        [rawDataJson.payload.walletType || '-', rawDataJson.payload.avatar?.img]
+          .filter(Boolean)
+          .join(' >> '),
+        rawDataJson.payload.passphraseState
+          ? `passphrase ${rawDataJson.payload.passphraseState}`
+          : undefined,
+        rawDataJson.payload.walletHash
+          ? `hash ${shortText(rawDataJson.payload.walletHash)}`
+          : undefined,
+        rawDataJson.payload.hwDeviceId
+          ? `device ${shortText(rawDataJson.payload.hwDeviceId)}`
+          : undefined,
+      ].filter((item): item is string => Boolean(item)),
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.IndexedAccount) {
+    return {
+      title: rawDataJson.payload.name || `#${rawDataJson.payload.index}`,
+      details: [
+        `index ${rawDataJson.payload.index}`,
+        shortText(rawDataJson.payload.walletXfp),
+      ],
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.Account) {
+    return {
+      title:
+        rawDataJson.payload.name || shortText(rawDataJson.payload.accountId),
+      details: [shortText(rawDataJson.payload.accountId, 20, 16)],
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.BrowserBookmark) {
+    const host =
+      uriUtils.getHostNameFromUrl({ url: rawDataJson.payload.url }) ||
+      rawDataJson.payload.url;
+    return {
+      title: rawDataJson.payload.title || host,
+      details: [
+        shortText(rawDataJson.payload.url, 24, 18),
+        `sort ${shortSortIndex(rawDataJson.payload.sortIndex) ?? '-'}`,
+      ],
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.AddressBook) {
+    return {
+      title:
+        rawDataJson.payload.addressBookItem.name ||
+        shortText(rawDataJson.payload.addressBookItem.address),
+      details: [
+        rawDataJson.payload.addressBookItem.networkId,
+        shortText(rawDataJson.payload.addressBookItem.address, 16, 12),
+        rawDataJson.payload.addressBookItem.memo ||
+          rawDataJson.payload.addressBookItem.note,
+      ].filter((item): item is string => Boolean(item)),
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.MarketWatchList) {
+    if (rawDataJson.payload.perpsCoin) {
+      return {
+        title: rawDataJson.payload.perpsCoin,
+        details: [
+          'perps',
+          `sort ${shortSortIndex(rawDataJson.payload.sortIndex) ?? '-'}`,
+        ],
+      };
+    }
+    return {
+      title: rawDataJson.payload.isNative
+        ? 'native'
+        : shortText(rawDataJson.payload.contractAddress, 16, 12),
+      details: [
+        rawDataJson.payload.chainId,
+        rawDataJson.payload.isNative
+          ? 'native token'
+          : shortText(rawDataJson.payload.contractAddress, 16, 12),
+        `sort ${shortSortIndex(rawDataJson.payload.sortIndex) ?? '-'}`,
+      ],
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.CustomToken) {
+    return {
+      title:
+        rawDataJson.payload.customToken.symbol ||
+        rawDataJson.payload.customToken.name ||
+        shortText(rawDataJson.payload.customToken.address),
+      details: [
+        rawDataJson.payload.customToken.name,
+        rawDataJson.payload.customToken.networkId,
+        shortText(rawDataJson.payload.customToken.address, 16, 12),
+      ].filter((item): item is string => Boolean(item)),
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.CustomNetwork) {
+    return {
+      title:
+        rawDataJson.payload.customNetwork.name ||
+        rawDataJson.payload.customNetwork.id,
+      details: [
+        rawDataJson.payload.customNetwork.id,
+        `chainId ${rawDataJson.payload.customNetwork.chainId}`,
+        shortText(rawDataJson.payload.customRpc.rpc, 24, 18),
+      ],
+    };
+  }
+
+  if (rawDataJson.dataType === EPrimeCloudSyncDataType.CustomRpc) {
+    return {
+      title:
+        rawDataJson.payload.networkId || shortText(rawDataJson.payload.rpc),
+      details: [
+        shortText(rawDataJson.payload.rpc, 24, 18),
+        rawDataJson.payload.enabled ? 'enabled' : 'disabled',
+      ],
+    };
+  }
+
+  return {
+    // @ts-ignore
+    title: rawDataJson?.dataType as string,
+    details: [
+      // @ts-ignore
+      shortText(JSON.stringify(rawDataJson?.payload as unknown), 24, 18),
+    ],
+  };
+}
+
+function buildFallbackSummary(record: IDBCloudSyncItem): IRawDataSummary {
+  return {
+    title: '未解密',
+    details: [
+      record.dataType,
+      shortText(record.rawKey || record.id),
+      record.rawData
+        ? shortText(record.rawData, 20, 16)
+        : shortText(record.data, 20, 16),
+    ],
+  };
+}
+
+function buildDebugMessage(record: IDBCloudSyncItem) {
+  if (record.rawDataJson) {
+    return record.rawDataJson;
+  }
+
+  if (record.rawData) {
+    try {
+      return JSON.parse(record.rawData) as unknown;
+    } catch {
+      return record;
+    }
+  }
+
+  return record;
 }
 
 function RawDataJsonView({
@@ -155,6 +370,37 @@ function RawDataJsonView({
   return <SizableText>{JSON.stringify(rawDataJson)}</SizableText>;
 }
 
+function RawDataSummaryView({
+  record,
+  onPressTitle,
+}: {
+  record: IDBCloudSyncItem;
+  onPressTitle: (record: IDBCloudSyncItem) => void;
+}) {
+  const summary =
+    buildRawDataSummary(record.rawDataJson) || buildFallbackSummary(record);
+
+  return (
+    <YStack
+      onPress={() => {
+        onPressTitle(record);
+      }}
+    >
+      <SizableText
+        style={{ fontWeight: 'bold', textDecorationLine: 'underline' }}
+        color="$textSuccess"
+      >
+        {summary.title}
+      </SizableText>
+      {summary.details.map((detail, index) => (
+        <SizableText key={`${record.id}-summary-${index}`}>
+          {detail}
+        </SizableText>
+      ))}
+    </YStack>
+  );
+}
+
 function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
   const { copyText } = useClipboard();
   const [isLoading, setIsLoading] = useState(false);
@@ -163,6 +409,13 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
   const [selectedDataType, setSelectedDataType] = useState<
     EPrimeCloudSyncDataType | '$ALL'
   >('$ALL');
+  const [sortState, setSortState] = useState<{
+    field?: ISortField;
+    order?: ISortOrder;
+  }>({
+    field: 'dataTime',
+    order: 'desc',
+  });
 
   const [includingServerDeleted, setIncludingServerDeleted] = useState(false);
 
@@ -203,32 +456,156 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
     return syncItems.filter((item) => item.dataType === selectedDataType);
   }, [syncItems, selectedDataType]);
 
+  const displayItems = useMemo(() => {
+    if (!sortState.field || !sortState.order) {
+      return filteredItems;
+    }
+
+    return [...filteredItems].toSorted((a, b) => {
+      if (sortState.field === 'dataType') {
+        const compareResult = a.dataType.localeCompare(b.dataType);
+        return sortState.order === 'desc' ? -compareResult : compareResult;
+      }
+
+      const timeA = a.dataTime ?? 0;
+      const timeB = b.dataTime ?? 0;
+
+      if (timeA === timeB) {
+        return a.id.localeCompare(b.id);
+      }
+
+      return sortState.order === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+  }, [filteredItems, sortState.field, sortState.order]);
+
+  const openRawDataJsonDialog = useCallback((record: IDBCloudSyncItem) => {
+    Dialog.debugMessage({
+      title: `${record.dataType} JSON`,
+      debugMessage: buildDebugMessage(record),
+    });
+  }, []);
+
+  const openRecordDialog = useCallback((record: IDBCloudSyncItem) => {
+    console.log('row data', record);
+    Dialog.debugMessage({
+      debugMessage: record,
+    });
+  }, []);
+
+  const toggleSortBy = useCallback((field: ISortField) => {
+    setSortState((prev) => {
+      if (prev.field !== field || !prev.order) {
+        return {
+          field,
+          order: 'asc',
+        };
+      }
+
+      if (prev.order === 'asc') {
+        return {
+          field,
+          order: 'desc',
+        };
+      }
+
+      return {};
+    });
+  }, []);
+
+  const dataTypeSortOrder =
+    sortState.field === 'dataType' ? sortState.order : undefined;
+  const timeSortOrder =
+    sortState.field === 'dataTime' ? sortState.order : undefined;
+
   const columns = useMemo(
     () => [
       {
-        title: 'key/dataType/data',
+        title: (
+          <XStack
+            ai="center"
+            gap="$1"
+            cursor="pointer"
+            onPress={() => {
+              toggleSortBy('dataType');
+            }}
+          >
+            <SizableText
+              style={{ fontWeight: 'bold' }}
+              color={dataTypeSortOrder ? '$textSuccess' : '$textSubdued'}
+            >
+              dataType/key/data
+            </SizableText>
+            <SizableText
+              style={{ fontWeight: 'bold' }}
+              color={dataTypeSortOrder ? '$textSuccess' : '$textSubdued'}
+            >
+              {getSortOrderLabel(dataTypeSortOrder)}
+            </SizableText>
+          </XStack>
+        ),
         dataIndex: 'id',
         columnWidth: 150,
         render: (text: string, record: IDBCloudSyncItem) => (
-          <YStack>
+          <YStack
+            onPress={() => {
+              openRecordDialog(record);
+            }}
+          >
             <SizableText style={{ fontWeight: 'bold' }} color="$textSuccess">
-              {text.slice(0, 10)}...
-            </SizableText>
-            <SizableText style={{ fontWeight: 'bold' }} color="$textSubdued">
               {record.dataType}
             </SizableText>
+            <SizableText style={{ fontWeight: 'bold' }} color="$textSubdued">
+              {text.slice(0, 10)}...
+            </SizableText>
             <SizableText color="$textSubdued">
-              {record.data?.slice(0, 10)}...
+              {record.data ? `...${record.data.slice(-10)}` : ''}
             </SizableText>
           </YStack>
         ),
       },
       {
-        title: '更新时间',
+        title: '解密字段',
+        dataIndex: 'rawDataJson',
+        columnWidth: 260,
+        render: (_text: ICloudSyncRawDataJson, record: IDBCloudSyncItem) => (
+          <RawDataSummaryView
+            record={record}
+            onPressTitle={openRawDataJsonDialog}
+          />
+        ),
+      },
+      {
+        title: (
+          <XStack
+            ai="center"
+            gap="$1"
+            cursor="pointer"
+            onPress={() => {
+              toggleSortBy('dataTime');
+            }}
+          >
+            <SizableText
+              style={{ fontWeight: 'bold' }}
+              color={timeSortOrder ? '$textSuccess' : '$textSubdued'}
+            >
+              更新时间
+            </SizableText>
+            <SizableText
+              style={{ fontWeight: 'bold' }}
+              color={timeSortOrder ? '$textSuccess' : '$textSubdued'}
+            >
+              {getSortOrderLabel(timeSortOrder)}
+            </SizableText>
+          </XStack>
+        ),
         dataIndex: 'dataTime',
-        columnWidth: 300,
+        columnWidth: 240,
         render: (text: number, record: IDBCloudSyncItem) => (
-          <YStack>
+          <YStack
+            onPress={() => {
+              openRecordDialog(record);
+            }}
+          >
             <SizableText style={{ fontWeight: 'bold' }} color="$textSuccess">
               {dateUtils.formatDate(new Date(text), {
                 formatTemplate: 'yyyy/LL/dd, HH:mm:ss',
@@ -242,7 +619,13 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
         ),
       },
     ],
-    [],
+    [
+      dataTypeSortOrder,
+      openRawDataJsonDialog,
+      openRecordDialog,
+      timeSortOrder,
+      toggleSortBy,
+    ],
   );
 
   return (
@@ -301,10 +684,10 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
           size="small"
           onPress={() => {
             // 复制 filteredItems
-            const itemsStr = JSON.stringify(filteredItems, null, 2);
+            const itemsStr = JSON.stringify(displayItems, null, 2);
             copyText(itemsStr);
             Toast.success({
-              title: `已复制 ${filteredItems.length} 条数据`,
+              title: `已复制 ${displayItems.length} 条数据`,
             });
           }}
         >
@@ -312,7 +695,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
         </Button>
       </XStack>
       <XStack gap="$1" alignItems="center">
-        <SizableText>{filteredItems?.length}条</SizableText>
+        <SizableText>{displayItems?.length}条</SizableText>
         <Stack flex={1} />
         {activeTab === 'server' ? (
           <Checkbox
@@ -328,20 +711,12 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
         </Button>
       </XStack>
       {error ? <SizableText color="$textCritical">{error}</SizableText> : null}
-      {!filteredItems?.length ? <SizableText>无数据</SizableText> : null}
+      {!displayItems?.length ? <SizableText>无数据</SizableText> : null}
       <Table
         columns={columns}
-        dataSource={filteredItems}
+        dataSource={displayItems}
         estimatedItemSize={40}
         keyExtractor={(item) => item.id}
-        onRow={(record) => ({
-          onPress: () => {
-            console.log('row data', record);
-            Dialog.debugMessage({
-              debugMessage: record,
-            });
-          },
-        })}
       />
     </YStack>
   );

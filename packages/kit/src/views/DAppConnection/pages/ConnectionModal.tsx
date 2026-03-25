@@ -17,6 +17,7 @@ import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
+import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
 import { DAppRequestedDappList } from '../components/DAppRequestContent/DAppRequestedDappList';
@@ -35,7 +36,9 @@ import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 function ConnectionModal() {
   const intl = useIntl();
   const { serviceDApp } = backgroundApiProxy;
-  const { $sourceInfo } = useDappQuery();
+  const { $sourceInfo, keylessAutoConnectNonce } = useDappQuery<{
+    keylessAutoConnectNonce?: string;
+  }>();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -47,6 +50,7 @@ function ConnectionModal() {
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
+  const { notifyKeylessWebConnectSuccess } = useKeylessWebFlowAutoConnectDapp();
 
   const [selectedAccount, setSelectedAccount] =
     useState<IAccountSelectorActiveAccountInfo | null>(null);
@@ -166,6 +170,11 @@ function ConnectionModal() {
           storageType: 'injectedProvider',
         });
       }
+      if (keylessAutoConnectNonce && $sourceInfo?.origin) {
+        void serviceDApp.notifyDAppAccountAndChainChangedWithCache({
+          targetOrigin: $sourceInfo.origin,
+        });
+      }
       await dappApprove.resolve({
         close: () => {
           close?.({ flag: EDAppModalPageStatus.Confirmed });
@@ -175,6 +184,13 @@ function ConnectionModal() {
       Toast.success({
         title: intl.formatMessage({ id: ETranslations.global_connected }),
       });
+
+      setTimeout(() => {
+        void notifyKeylessWebConnectSuccess({
+          nonce: keylessAutoConnectNonce,
+        });
+      }, 1500);
+
       defaultLogger.discovery.dapp.dappUse({
         dappName: $sourceInfo.hostname,
         dappDomain: $sourceInfo?.origin,
@@ -193,6 +209,8 @@ function ConnectionModal() {
       selectedAccount,
       rawSelectedAccount,
       connectedAccountInfo,
+      keylessAutoConnectNonce,
+      notifyKeylessWebConnectSuccess,
     ],
   );
 

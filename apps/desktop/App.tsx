@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, import/first, import/order, import-js/order */
+// oxlint-disable import-js/order
+/* eslint-disable @typescript-eslint/no-unused-vars, import/first */
 import '@onekeyhq/shared/src/polyfills';
 import '@onekeyhq/shared/src/web/index.css';
 import { KitProvider } from '@onekeyhq/kit';
