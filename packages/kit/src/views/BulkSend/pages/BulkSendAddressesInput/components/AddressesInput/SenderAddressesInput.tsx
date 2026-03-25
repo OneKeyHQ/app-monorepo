@@ -364,7 +364,7 @@ function MultiLineSenderInput() {
     selectedToken,
     allowAmounts: true,
     requireAmounts: false,
-    checkDuplicates: false,
+    checkDuplicates: true,
     checkAllowlist: false,
     selectedAccountId,
     resolveAccountId: true,
