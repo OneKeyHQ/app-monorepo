@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 
 import { Page } from '@onekeyhq/components';
-import { ETabRoutes, ETabSwapRoutes } from '@onekeyhq/shared/src/routes';
-import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ETabSwapRoutes, ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
@@ -23,8 +23,7 @@ const TAB_PARAM_MAP: Record<string, ESwapTabSwitchType> = {
 const SwapPageContainer = () => {
   useDebugComponentRemountLog({ name: 'SwapPageContainer' });
 
-  const route =
-    useAppRoute<ITabSwapParamList, ETabSwapRoutes.TabSwap>();
+  const route = useAppRoute<ITabSwapParamList, ETabSwapRoutes.TabSwap>();
   const tabParam = route.params?.tab;
 
   const swapInitParams = useMemo(() => {
