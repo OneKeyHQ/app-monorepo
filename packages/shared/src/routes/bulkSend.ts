@@ -53,6 +53,8 @@ export type IModalBulkSendParamList = {
     isInModal?: boolean;
     isMaxMode?: boolean;
     ataCount?: number;
+    intervalSettings?: IIntervalSettings;
+    onConfirmIntervalSettings?: (settings: IIntervalSettings) => void;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
   };

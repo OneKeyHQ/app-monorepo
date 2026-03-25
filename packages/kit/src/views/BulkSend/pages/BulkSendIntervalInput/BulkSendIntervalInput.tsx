@@ -1,11 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Page, YStack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalBulkSendRoutes,
   type IModalBulkSendParamList,
@@ -15,11 +12,13 @@ import {
   type IIntervalSettings,
 } from '@onekeyhq/shared/types/bulkSend';
 
-import { IntervalSettingsContent } from '../../components/IntervalSettingsContent';
+import {
+  INTERVAL_SETTINGS_TITLE,
+  IntervalSettingsContent,
+} from '../../components/IntervalSettingsContent';
 import { validateIntervalSettings } from '../../utils';
 
 function BulkSendIntervalInput() {
-  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const route = useAppRoute<
@@ -40,12 +39,14 @@ function BulkSendIntervalInput() {
     isInModal,
     isMaxMode,
     ataCount,
+    intervalSettings: initialIntervalSettings,
+    onConfirmIntervalSettings,
   } = route.params ?? {};
 
   const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
-    mode: EIntervalMode.None,
-    minSeconds: '',
-    maxSeconds: '',
+    mode: initialIntervalSettings?.mode ?? EIntervalMode.None,
+    minSeconds: initialIntervalSettings?.minSeconds ?? '',
+    maxSeconds: initialIntervalSettings?.maxSeconds ?? '',
   });
   const [showValidationError, setShowValidationError] = useState(false);
 
@@ -67,6 +68,7 @@ function BulkSendIntervalInput() {
       setShowValidationError(true);
       return;
     }
+    onConfirmIntervalSettings?.(intervalSettings);
     navigation.push(EModalBulkSendRoutes.BulkSendReview, {
       networkId,
       accountId,
@@ -98,23 +100,20 @@ function BulkSendIntervalInput() {
     isMaxMode,
     ataCount,
     intervalSettings,
+    onConfirmIntervalSettings,
   ]);
 
   return (
     <Page scrollEnabled>
       <Page.Header
-        headerTitle={intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_interval_title,
-        })}
+        headerTitle={INTERVAL_SETTINGS_TITLE}
       />
-      <Page.Body>
-        <YStack px="$5" pt="$2">
-          <IntervalSettingsContent
-            value={intervalSettings}
-            error={shouldShowIntervalError ? intervalError : undefined}
-            onChange={setIntervalSettings}
-          />
-        </YStack>
+      <Page.Body px="$5" pb="$5">
+        <IntervalSettingsContent
+          value={intervalSettings}
+          error={shouldShowIntervalError ? intervalError : undefined}
+          onChange={setIntervalSettings}
+        />
       </Page.Body>
       <Page.Footer>
         <Page.FooterActions

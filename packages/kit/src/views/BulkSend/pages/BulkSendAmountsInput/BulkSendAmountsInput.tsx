@@ -92,6 +92,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     isMaxMode,
     setIsMaxMode,
     intervalSettings,
+    setIntervalSettings,
     senderBalances,
     senderBalancesLoading,
     senderBalancesFailed,
@@ -207,14 +208,22 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       const reviewParams = media.gtMd
         ? { ...params, intervalSettings }
         : params;
+      const intervalInputParams = {
+        ...params,
+        intervalSettings,
+        onConfirmIntervalSettings: setIntervalSettings,
+      };
 
       if (shouldShowInterval) {
         if (isInModal) {
-          navigation.push(EModalBulkSendRoutes.BulkSendIntervalInput, params);
+          navigation.push(
+            EModalBulkSendRoutes.BulkSendIntervalInput,
+            intervalInputParams,
+          );
         } else {
           navigation.pushModal(EModalRoutes.BulkSendModal, {
             screen: EModalBulkSendRoutes.BulkSendIntervalInput,
-            params,
+            params: intervalInputParams,
           });
         }
       } else if (isInModal) {
@@ -226,7 +235,14 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         });
       }
     },
-    [media.gtMd, isOneToMany, intervalSettings, isInModal, navigation],
+    [
+      media.gtMd,
+      isOneToMany,
+      intervalSettings,
+      isInModal,
+      navigation,
+      setIntervalSettings,
+    ],
   );
 
   // Submit handler for OneToMany mode

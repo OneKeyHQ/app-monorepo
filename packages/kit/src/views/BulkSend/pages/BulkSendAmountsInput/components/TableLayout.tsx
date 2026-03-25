@@ -32,7 +32,13 @@ import {
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 
-import { IntervalSettingsContent } from '../../../components/IntervalSettingsContent';
+import {
+  INTERVAL_SETTINGS_CANCEL_TEXT,
+  INTERVAL_SETTINGS_CONFIRM_TEXT,
+  INTERVAL_SETTINGS_NONE_LABEL,
+  INTERVAL_SETTINGS_TITLE,
+  IntervalSettingsContent,
+} from '../../../components/IntervalSettingsContent';
 import {
   filterNumericInput,
   formatIntervalSecondsRange,
@@ -51,7 +57,6 @@ function IntervalDialogContent({
   initialSettings: IIntervalSettings;
   onConfirm: (settings: IIntervalSettings) => void;
 }) {
-  const intl = useIntl();
   const [settings, setSettings] = useState<IIntervalSettings>(initialSettings);
   const [showValidationError, setShowValidationError] = useState(false);
 
@@ -85,27 +90,20 @@ function IntervalDialogContent({
       />
       <Dialog.Footer
         onConfirm={handleConfirm}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_confirm,
-        })}
-        onCancelText={intl.formatMessage({
-          id: ETranslations.global_cancel,
-        })}
+        onConfirmText={INTERVAL_SETTINGS_CONFIRM_TEXT}
+        onCancelText={INTERVAL_SETTINGS_CANCEL_TEXT}
       />
     </YStack>
   );
 }
 
 function IntervalCard() {
-  const intl = useIntl();
   const { intervalSettings, setIntervalSettings } =
     useBulkSendAmountsInputContext();
 
   const handlePress = useCallback(() => {
     Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.wallet_bulk_send_interval_title,
-      }),
+      title: INTERVAL_SETTINGS_TITLE,
       showFooter: false,
       renderContent: (
         <IntervalDialogContent
@@ -114,7 +112,7 @@ function IntervalCard() {
         />
       ),
     });
-  }, [intl, intervalSettings, setIntervalSettings]);
+  }, [intervalSettings, setIntervalSettings]);
 
   const intervalSummary = useMemo(() => {
     if (intervalSettings.mode === EIntervalMode.Specified) {
@@ -123,10 +121,8 @@ function IntervalCard() {
         maxSeconds: intervalSettings.maxSeconds,
       });
     }
-    return intl.formatMessage({
-      id: ETranslations.wallet_bulk_send_interval_none,
-    });
-  }, [intl, intervalSettings]);
+    return INTERVAL_SETTINGS_NONE_LABEL;
+  }, [intervalSettings]);
 
   return (
     <YStack
@@ -144,9 +140,7 @@ function IntervalCard() {
       {/* Header: Title + Summary */}
       <XStack alignItems="center" justifyContent="space-between">
         <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_interval_title,
-          })}
+          {INTERVAL_SETTINGS_TITLE}
         </SizableText>
         <Button
           variant="tertiary"

@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
+import { INTERVAL_SETTINGS_TITLE } from '../../../components/IntervalSettingsContent';
 import { formatIntervalSecondsRange } from '../../../utils';
 
 import { useBulkSendReviewContext } from './Context';
@@ -232,9 +233,7 @@ function BulkSendReviewCostCard({
         {intervalSettings?.mode === EIntervalMode.Specified ? (
           <XStack gap="$2" px="$4" py="$2" alignItems="center">
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_interval_title,
-              })}
+              {INTERVAL_SETTINGS_TITLE}
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {formatIntervalSecondsRange({

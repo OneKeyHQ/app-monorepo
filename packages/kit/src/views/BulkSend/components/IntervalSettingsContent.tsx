@@ -1,48 +1,102 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import {
-  Input,
-  Radio,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
   EIntervalMode,
   type IIntervalSettings,
 } from '@onekeyhq/shared/types/bulkSend';
 
-import {
-  BULK_SEND_INTERVAL_MAX_SECONDS,
-  formatIntervalSecondsRange,
-} from '../utils';
+import { BULK_SEND_INTERVAL_MAX_SECONDS } from '../utils';
+
+export const INTERVAL_SETTINGS_TITLE = 'Set interval';
+export const INTERVAL_SETTINGS_NONE_LABEL = 'No interval';
+export const INTERVAL_SETTINGS_CANCEL_TEXT = 'Cancel';
+export const INTERVAL_SETTINGS_CONFIRM_TEXT = 'Confirm';
+
+const INTERVAL_SETTINGS_SPECIFIED_LABEL = 'Specified range';
+const INTERVAL_SETTINGS_SPECIFIED_DESC = `Set an interval between 0 and ${BULK_SEND_INTERVAL_MAX_SECONDS} seconds.`;
+const INTERVAL_SETTINGS_NONE_DESC = 'Send all transactions at the same time.';
+
+function IntervalOptionIndicator({ selected }: { selected: boolean }) {
+  return (
+    <YStack
+      mt="$0.5"
+      w="$5"
+      h="$5"
+      alignItems="center"
+      justifyContent="center"
+      borderRadius="$full"
+      borderWidth="$0.5"
+      borderColor={selected ? '$bgPrimary' : '$border'}
+      bg={selected ? '$bgPrimary' : '$transparent'}
+      flexShrink={0}
+    >
+      {selected ? <YStack w="$2.5" h="$2.5" borderRadius="$full" bg="$bg" /> : null}
+    </YStack>
+  );
+}
+
+function IntervalOptionCard({
+  title,
+  description,
+  selected,
+  onPress,
+  children,
+}: {
+  title: string;
+  description: string;
+  selected: boolean;
+  onPress: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <YStack
+      w="100%"
+      minWidth={0}
+      borderWidth="$0.5"
+      borderColor={selected ? '$borderActive' : '$border'}
+      borderRadius="$5"
+      bg="$bg"
+      p="$5"
+      gap="$3"
+      cursor="pointer"
+      pressStyle={{ opacity: 0.8 }}
+      onPress={onPress}
+    >
+      <XStack gap="$3" alignItems="flex-start" w="100%" minWidth={0}>
+        <IntervalOptionIndicator selected={selected} />
+        <YStack flex={1} minWidth={0} gap="$1.5">
+          <SizableText size="$bodyLgMedium">{title}</SizableText>
+          <SizableText size="$bodyLg" color="$textSubdued">
+            {description}
+          </SizableText>
+          {children}
+        </YStack>
+      </XStack>
+    </YStack>
+  );
+}
 
 function IntervalRangeInputs({
   minSeconds,
   maxSeconds,
-  maxPlaceholder,
   error,
   onMinChange,
   onMaxChange,
 }: {
   minSeconds: string;
   maxSeconds: string;
-  maxPlaceholder: string;
   error?: string;
   onMinChange: (value: string) => void;
   onMaxChange: (value: string) => void;
 }) {
   const filterIntegerInput = useCallback((value: string) => {
-    // Allow only digits
     return value.replace(/[^0-9]/g, '');
   }, []);
 
   return (
-    <YStack mt="$3" w="100%" minWidth={0} gap="$2">
-      <XStack gap="$2" alignItems="center" w="100%" minWidth={0}>
+    <YStack mt="$2" w="100%" minWidth={0} gap="$2">
+      <XStack gap="$3" alignItems="center" w="100%" minWidth={0}>
         <Input
           containerProps={{ flex: 1, minWidth: 0 }}
           value={minSeconds}
@@ -52,14 +106,14 @@ function IntervalRangeInputs({
           size="medium"
           error={Boolean(error)}
         />
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText size="$bodyLg" color="$textSubdued">
           -
         </SizableText>
         <Input
           containerProps={{ flex: 1, minWidth: 0 }}
           value={maxSeconds}
           onChangeText={(v) => onMaxChange(filterIntegerInput(v))}
-          placeholder={maxPlaceholder}
+          placeholder="Max (sec)"
           keyboardType="number-pad"
           size="medium"
           error={Boolean(error)}
@@ -83,17 +137,19 @@ function IntervalSettingsContent({
   error?: string;
   onChange: (settings: IIntervalSettings) => void;
 }) {
-  const intl = useIntl();
+  const handleSpecifiedModePress = useCallback(() => {
+    onChange({
+      ...value,
+      mode: EIntervalMode.Specified,
+    });
+  }, [onChange, value]);
 
-  const handleModeChange = useCallback(
-    (mode: string) => {
-      onChange({
-        ...value,
-        mode: mode as EIntervalMode,
-      });
-    },
-    [onChange, value],
-  );
+  const handleNoneModePress = useCallback(() => {
+    onChange({
+      ...value,
+      mode: EIntervalMode.None,
+    });
+  }, [onChange, value]);
 
   const handleMinChange = useCallback(
     (minSeconds: string) => {
@@ -109,52 +165,30 @@ function IntervalSettingsContent({
     [onChange, value],
   );
 
-  const options = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.global_bulk_copy_addresses_tabs_set_range,
-        }),
-        description: formatIntervalSecondsRange({
-          minSeconds: '0',
-          maxSeconds: String(BULK_SEND_INTERVAL_MAX_SECONDS),
-        }),
-        value: EIntervalMode.Specified,
-        children:
-          value.mode === EIntervalMode.Specified ? (
-            <IntervalRangeInputs
-              minSeconds={value.minSeconds}
-              maxSeconds={value.maxSeconds}
-              maxPlaceholder={intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_placeholder_max,
-              })}
-              error={error}
-              onMinChange={handleMinChange}
-              onMaxChange={handleMaxChange}
-            />
-          ) : null,
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_interval_none,
-        }),
-        value: EIntervalMode.None,
-      },
-    ],
-    [
-      intl,
-      value.mode,
-      value.minSeconds,
-      value.maxSeconds,
-      error,
-      handleMinChange,
-      handleMaxChange,
-    ],
-  );
-
   return (
-    <YStack>
-      <Radio value={value.mode} onChange={handleModeChange} options={options} />
+    <YStack w="100%" minWidth={0} gap="$4">
+      <IntervalOptionCard
+        title={INTERVAL_SETTINGS_SPECIFIED_LABEL}
+        description={INTERVAL_SETTINGS_SPECIFIED_DESC}
+        selected={value.mode === EIntervalMode.Specified}
+        onPress={handleSpecifiedModePress}
+      >
+        {value.mode === EIntervalMode.Specified ? (
+          <IntervalRangeInputs
+            minSeconds={value.minSeconds}
+            maxSeconds={value.maxSeconds}
+            error={error}
+            onMinChange={handleMinChange}
+            onMaxChange={handleMaxChange}
+          />
+        ) : null}
+      </IntervalOptionCard>
+      <IntervalOptionCard
+        title={INTERVAL_SETTINGS_NONE_LABEL}
+        description={INTERVAL_SETTINGS_NONE_DESC}
+        selected={value.mode === EIntervalMode.None}
+        onPress={handleNoneModePress}
+      />
     </YStack>
   );
 }
