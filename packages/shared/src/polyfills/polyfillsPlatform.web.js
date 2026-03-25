@@ -1,5 +1,6 @@
 // oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this */
+/* eslint-disable import-js/order */
 // check  polyfillsPlatform.ext.ts  or   polyfillsPlatform.native.js
 import './setimmediateShim';
 import './globalShim';

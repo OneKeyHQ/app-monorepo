@@ -1,15 +1,17 @@
-const path = require('path');
-const { merge } = require('webpack-merge');
-
-const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const crypto = require('crypto');
 const fs = require('fs');
-const baseConfig = require('./webpack.base.config');
+const path = require('path');
+
+const { merge } = require('webpack-merge');
+const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
+
+const babelTools = require('../babelTools');
+
+const { NODE_ENV, ENABLE_ANALYZER } = require('./constant');
 const analyzerConfig = require('./webpack.analyzer.config');
+const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
-const { NODE_ENV, ENABLE_ANALYZER } = require('./constant');
-const babelTools = require('../babelTools');
 
 // Plugin to generate metadata.json with SHA512 hashes of all output files
 const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';

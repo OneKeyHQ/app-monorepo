@@ -20,19 +20,22 @@ const path = require('path');
 
 const { chromium } = require('playwright-core');
 
-const { execCmd } = require('./lib/exec');
-const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
+const { findChromiumExecutable } = require('./lib/chromium');
 const { readPerfCiLocalConfig } = require('./lib/config');
 const { defaultDerivedOutPath, deriveSession } = require('./lib/derive');
+const { execCmd } = require('./lib/exec');
+const { ensureDir, readJson, writeJson, fileExists } = require('./lib/fs');
 const { nowId } = require('./lib/id');
-const { findChromiumExecutable } = require('./lib/chromium');
-const { startStaticServer } = require('./lib/staticServer');
-const { postSlackWebhook } = require('./lib/slack');
 const {
   ensurePerfServerRunning,
   checkPerfServer,
   stopChild,
 } = require('./lib/perfServer');
+const {
+  aggregateRuns,
+  checkRegression,
+  extractDerivedDebugMetrics,
+} = require('./lib/regression');
 const {
   ensureSessionsDirWritable,
   listSessionIds,
@@ -40,11 +43,8 @@ const {
   waitForMark,
   readSessionMetrics,
 } = require('./lib/session');
-const {
-  aggregateRuns,
-  checkRegression,
-  extractDerivedDebugMetrics,
-} = require('./lib/regression');
+const { postSlackWebhook } = require('./lib/slack');
+const { startStaticServer } = require('./lib/staticServer');
 
 function hasFlag(name) {
   return process.argv.includes(name);
