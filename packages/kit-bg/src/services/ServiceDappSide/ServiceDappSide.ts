@@ -1,5 +1,4 @@
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import type { IConnectToWalletOptions } from '@onekeyhq/kit/src/hooks/useWebDapp/useConnectExternalWallet';
 import {
   backgroundClass,
   backgroundMethod,
@@ -8,6 +7,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
+  IConnectToWalletOptions,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
   IExternalConnector,

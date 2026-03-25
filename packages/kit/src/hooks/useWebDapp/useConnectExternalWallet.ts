@@ -29,8 +29,6 @@ import useAppNavigation from '../useAppNavigation';
 
 import keylessWebPendingLoginCache from './keylessWebPendingLoginCache';
 
-export type { IConnectToWalletOptions } from '@onekeyhq/shared/types/externalWallet.types';
-
 function hasAuthorizedAddresses(
   addresses: Record<string, string> | undefined,
 ): boolean {
