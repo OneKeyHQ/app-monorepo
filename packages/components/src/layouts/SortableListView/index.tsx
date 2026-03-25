@@ -115,11 +115,7 @@ function Item<T>({
     [draggableProps.style, style],
   );
   return (
-    <div
-      ref={provided.innerRef}
-      {...draggableProps}
-      style={mergedStyle}
-    >
+    <div ref={provided.innerRef} {...draggableProps} style={mergedStyle}>
       {renderItem({
         item,
         drag,
@@ -171,7 +167,10 @@ function CellContainer<T>({
   );
 
   return (
-    <Animated.View {...(props as Record<string, any>)} style={animatedViewStyle}>
+    <Animated.View
+      {...(props as Record<string, any>)}
+      style={animatedViewStyle}
+    >
       <div ref={containerRef as any}>{children}</div>
     </Animated.View>
   );
@@ -460,17 +459,14 @@ function BaseSortableListView<T>(
           provided={provided}
           getIndex={() => rubric.source.index}
           style={{
-            boxShadow: isDropping
-              ? 'none'
-              : '0 4px 24px rgba(0, 0, 0, 0.12)',
+            boxShadow: isDropping ? 'none' : '0 4px 24px rgba(0, 0, 0, 0.12)',
             borderRadius: 12,
             // Ensure clone renders above Dialog/Sheet overlays
             zIndex: DRAG_CLONE_Z_INDEX,
             // Speed up drop animation
             ...(isDropping
               ? {
-                  transition:
-                    'transform 0.08s ease, box-shadow 0.08s ease',
+                  transition: 'transform 0.08s ease, box-shadow 0.08s ease',
                 }
               : {}),
           }}

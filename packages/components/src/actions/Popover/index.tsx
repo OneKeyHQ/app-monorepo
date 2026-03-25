@@ -622,6 +622,11 @@ function BasicPopover({
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
 
+  const webSheetProps = useMemo(
+    () => ({ ...sheetProps, modal: true }),
+    [sheetProps],
+  );
+
   if (platformEnv.isNative) {
     // on native and ipad, we add the popover to the RNScreen.FULL_WINDOW_OVERLAY
     return (
@@ -641,11 +646,6 @@ function BasicPopover({
       </>
     );
   }
-
-  const webSheetProps = useMemo(
-    () => ({ ...sheetProps, modal: true }),
-    [sheetProps],
-  );
 
   // on web, we add the popover into the RNRootView
   return (

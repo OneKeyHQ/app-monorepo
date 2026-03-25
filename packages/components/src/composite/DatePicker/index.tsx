@@ -163,6 +163,7 @@ function renderPickerTrigger({
 }
 
 const SINGLE_PANEL_PROPS = { w: 300, minWidth: 300 } as const;
+const GTMD_PADDING_4 = { padding: '$4' } as const;
 
 function BasicDatePicker({
   value,
@@ -286,7 +287,7 @@ function RangePickerContent({
           onSelect={handlePresetSelect}
         />
       ) : null}
-      <YStack padding="$3" minWidth={280} flex={1} $gtMd={{ padding: '$4' }}>
+      <YStack padding="$3" minWidth={280} flex={1} $gtMd={GTMD_PADDING_4}>
         <DatePickerProvider config={config}>
           <Calendar
             mode="range"
@@ -393,7 +394,16 @@ function RangePicker({
         close={close}
       />
     ),
-    [config, minDate, maxDate, showPreviousMonth, presets, value, onChange, close],
+    [
+      config,
+      minDate,
+      maxDate,
+      showPreviousMonth,
+      presets,
+      value,
+      onChange,
+      close,
+    ],
   );
 
   return (
@@ -471,12 +481,28 @@ function YearPicker({
     [onChange, close],
   );
 
+  const yearFloatingPanelProps = useMemo(
+    () => ({ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }),
+    [floatingPanelProps],
+  );
+
+  const yearContent = useMemo(
+    () => (
+      <YStack padding="$3" minWidth={280}>
+        <DatePickerProvider config={config}>
+          <Calendar mode="year" onYearSelect={handleYearSelect} />
+        </DatePickerProvider>
+      </YStack>
+    ),
+    [config, handleYearSelect],
+  );
+
   return (
     <PickerPopover
       title={title}
       isOpen={isOpen}
       onOpenChange={handleOpenChange}
-      floatingPanelProps={{ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }}
+      floatingPanelProps={yearFloatingPanelProps}
       sheetProps={sheetProps}
       renderTrigger={renderPickerTrigger({
         renderTrigger,
@@ -486,13 +512,7 @@ function YearPicker({
         disabled,
         onClear: () => onChange?.(null),
       })}
-      renderContent={
-        <YStack padding="$3" minWidth={280}>
-          <DatePickerProvider config={config}>
-            <Calendar mode="year" onYearSelect={handleYearSelect} />
-          </DatePickerProvider>
-        </YStack>
-      }
+      renderContent={yearContent}
     />
   );
 }
@@ -552,12 +572,28 @@ function MonthPicker({
     [onChange, close],
   );
 
+  const monthFloatingPanelProps = useMemo(
+    () => ({ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }),
+    [floatingPanelProps],
+  );
+
+  const monthContent = useMemo(
+    () => (
+      <YStack padding="$3" minWidth={280}>
+        <DatePickerProvider config={config}>
+          <Calendar mode="month" onMonthSelect={handleMonthSelect} />
+        </DatePickerProvider>
+      </YStack>
+    ),
+    [config, handleMonthSelect],
+  );
+
   return (
     <PickerPopover
       title={title}
       isOpen={isOpen}
       onOpenChange={handleOpenChange}
-      floatingPanelProps={{ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }}
+      floatingPanelProps={monthFloatingPanelProps}
       sheetProps={sheetProps}
       renderTrigger={renderPickerTrigger({
         renderTrigger,
@@ -567,13 +603,7 @@ function MonthPicker({
         disabled,
         onClear: () => onChange?.(null),
       })}
-      renderContent={
-        <YStack padding="$3" minWidth={280}>
-          <DatePickerProvider config={config}>
-            <Calendar mode="month" onMonthSelect={handleMonthSelect} />
-          </DatePickerProvider>
-        </YStack>
-      }
+      renderContent={monthContent}
     />
   );
 }
@@ -620,12 +650,28 @@ function MultiSelectPicker({
     [value, handleDatesChange, minDate, maxDate, locale],
   );
 
+  const multiFloatingPanelProps = useMemo(
+    () => ({ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }),
+    [floatingPanelProps],
+  );
+
+  const multiContent = useMemo(
+    () => (
+      <YStack padding="$3" minWidth={280}>
+        <DatePickerProvider config={config}>
+          <Calendar mode="multiple" />
+        </DatePickerProvider>
+      </YStack>
+    ),
+    [config],
+  );
+
   return (
     <PickerPopover
       title={title}
       isOpen={isOpen}
       onOpenChange={handleOpenChange}
-      floatingPanelProps={{ ...SINGLE_PANEL_PROPS, ...floatingPanelProps }}
+      floatingPanelProps={multiFloatingPanelProps}
       sheetProps={sheetProps}
       renderTrigger={renderPickerTrigger({
         renderTrigger,
@@ -635,13 +681,7 @@ function MultiSelectPicker({
         disabled,
         onClear: () => onChange?.([]),
       })}
-      renderContent={
-        <YStack padding="$3" minWidth={280}>
-          <DatePickerProvider config={config}>
-            <Calendar mode="multiple" />
-          </DatePickerProvider>
-        </YStack>
-      }
+      renderContent={multiContent}
     />
   );
 }

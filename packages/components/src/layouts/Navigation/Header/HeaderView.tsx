@@ -205,31 +205,27 @@ function HeaderView({
   );
 
   const headerRightContainerStyleMemo = useMemo(
-    () =>
-      isOnboardingScreen ? FLEX_GROW_0_STYLE : headerRightContainerStyle,
+    () => (isOnboardingScreen ? FLEX_GROW_0_STYLE : headerRightContainerStyle),
     [isOnboardingScreen, headerRightContainerStyle],
   );
 
   const headerRightView = useCallback(
-    typeof headerRight === 'function'
-      ? ({ tintColor }: { tintColor?: string }) => {
-          const ele = headerRight({ tintColor, canGoBack });
-          return ele;
-        }
-      : () => headerRight as any,
+    ({ tintColor }: { tintColor?: string }) => {
+      if (typeof headerRight === 'function') {
+        return headerRight({ tintColor, canGoBack });
+      }
+      return headerRight as any;
+    },
     [headerRight, canGoBack],
   );
 
   const headerTitleView = useCallback(
-    typeof headerTitle === 'function'
-      ? ({
-          children,
-          tintColor,
-        }: {
-          children: string;
-          tintColor?: string;
-        }) => headerTitle({ children, tintColor })
-      : () => null,
+    ({ children, tintColor }: { children: string; tintColor?: string }) => {
+      if (typeof headerTitle === 'function') {
+        return headerTitle({ children, tintColor });
+      }
+      return null;
+    },
     [headerTitle],
   );
 
@@ -245,9 +241,7 @@ function HeaderView({
     () => ({
       marginHorizontal: 0,
       ...(headerTitleContainerStyle as any),
-      ...(isOnboardingScreen
-        ? { flex: 1, alignItems: 'center' }
-        : undefined),
+      ...(isOnboardingScreen ? { flex: 1, alignItems: 'center' } : undefined),
     }),
     [headerTitleContainerStyle, isOnboardingScreen],
   );
@@ -301,9 +295,7 @@ function HeaderView({
                 : (headerRight as any)
             }
             headerTitle={
-              typeof headerTitle === 'function'
-                ? headerTitleView
-                : headerTitle
+              typeof headerTitle === 'function' ? headerTitleView : headerTitle
             }
             headerTitleAlign={headerTitleAlign}
             headerTitleStyle={headerTitleStyleMemo}

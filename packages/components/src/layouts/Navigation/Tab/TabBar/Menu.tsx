@@ -208,10 +208,7 @@ function MenuTriggerItem({
   );
 
   return (
-    <div
-      className="desktop-menu-container"
-      style={MENU_ITEM_RELATIVE_STYLE}
-    >
+    <div className="desktop-menu-container" style={MENU_ITEM_RELATIVE_STYLE}>
       <div
         role="menuitem"
         tabIndex={0}
