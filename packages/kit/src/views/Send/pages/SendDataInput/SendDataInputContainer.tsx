@@ -803,6 +803,9 @@ function SendDataInputContainer() {
                     return;
                   }
 
+                  // Fill form immediately so back-navigation shows the selection
+                  fillRecipientInput();
+
                   void (async () => {
                     if (isNavigatingRef.current) return;
                     isNavigatingRef.current = true;

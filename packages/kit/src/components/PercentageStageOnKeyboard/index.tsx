@@ -6,7 +6,10 @@ import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/Sw
 const countLeadingZeroDecimals = (value: string) => {
   const num = new BigNumber(value);
   if (num.isZero() || num.isNaN()) return 0;
-  const counts = -Math.floor(Math.log10(num.abs().toNumber()) + 1);
+  const jsNum = num.abs().toNumber();
+  // Guard against sub-normal underflow to 0 (e.g. 1e-400)
+  if (jsNum === 0) return 0;
+  const counts = -Math.floor(Math.log10(jsNum) + 1);
   return counts > 0 ? counts : 0;
 };
 
