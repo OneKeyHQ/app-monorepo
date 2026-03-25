@@ -83,6 +83,7 @@ export function registerSwapStatusCommand(parent: Command): void {
           let provider: string | undefined;
           let toTokenAddress: string | undefined;
           let orderId: string | undefined;
+          let orderStatus: string | undefined;
 
           if (options.order) {
             // Load order without expiry check — status queries should work for old orders
@@ -101,6 +102,7 @@ export function registerSwapStatusCommand(parent: Command): void {
             provider = order.provider;
             toTokenAddress = order.toToken.contractAddress;
             orderId = order.orderId;
+            orderStatus = order.status;
 
             if (!txHash) {
               throw new AppError(
@@ -136,8 +138,10 @@ export function registerSwapStatusCommand(parent: Command): void {
             );
           }
 
-          // Update pending file status when querying by orderId
-          if (options.order && result.state) {
+          // Update pending file status when querying by orderId.
+          // Skip update for approve_only orders — their txHash is the approve tx,
+          // not the swap tx, so the API state would incorrectly overwrite the status.
+          if (options.order && result.state && orderStatus !== 'approve_only') {
             const mappedStatus = mapStateToOrderStatus(result.state);
             try {
               updatePendingStatus(options.order, mappedStatus);
