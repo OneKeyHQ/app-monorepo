@@ -127,6 +127,15 @@ export function registerSwapStatusCommand(parent: Command): void {
             },
           );
 
+          // Validate response has a state field
+          if (!result.state || typeof result.state !== 'string') {
+            throw new AppError(
+              ERROR_CODES.NET_HTTP_ERROR.code,
+              'API returned invalid response: missing or invalid "state" field',
+              'The swap status API may be temporarily unavailable. Try again later.',
+            );
+          }
+
           // Update pending file status when querying by orderId
           if (options.order && result.state) {
             const mappedStatus = mapStateToOrderStatus(result.state);

@@ -418,6 +418,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
           const buildAllowance = txData.result?.allowanceResult;
           let needsApprove = false;
           let approveSpender = '';
+          let approveCheckAmount = '0';
 
           if (order.fromToken.contractAddress) {
             // Spender: prefer allowanceResult.allowanceTarget, fall back to tx.to (router)
@@ -434,15 +435,17 @@ export function registerSwapExecuteCommand(parent: Command): void {
             const txDataRecord: Record<string, unknown> = order.txData;
             const checkAmount =
               buildAllowance?.amount ?? txDataRecord.fromTokenAmount ?? '0';
+            approveCheckAmount =
+              typeof checkAmount === 'string'
+                ? checkAmount
+                : String(checkAmount);
 
             const onChainAllowance = await checkAllowance(
               chainConfig.networkId,
               order.fromToken.contractAddress,
               approveSpender,
               fromAddress,
-              typeof checkAmount === 'string'
-                ? checkAmount
-                : String(checkAmount),
+              approveCheckAmount,
             );
             needsApprove = !onChainAllowance.isApproved;
           }
@@ -553,7 +556,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
               order.fromToken.contractAddress,
               approveSpender,
               fromAddress,
-              buildAllowance!.amount,
+              approveCheckAmount,
             );
             output.info('Approve confirmed on-chain.');
           }
