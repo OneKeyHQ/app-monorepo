@@ -204,9 +204,7 @@ const ListItemFiatToken = ({
             }
             secondary={item.name}
           />
-          <YStack alignItems="flex-end">
-            {renderRightContent()}
-          </YStack>
+          <YStack alignItems="flex-end">{renderRightContent()}</YStack>
         </ListItem>
       );
     },
@@ -237,7 +235,12 @@ const ListItemFiatToken = ({
   return renderItem({});
 };
 
-export function TokenList({ items, type, isLoading, onPress }: ITokenListProps) {
+export function TokenList({
+  items,
+  type,
+  isLoading,
+  onPress,
+}: ITokenListProps) {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
     setText(value.trim());
