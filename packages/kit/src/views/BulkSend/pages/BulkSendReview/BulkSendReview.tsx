@@ -37,6 +37,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
 import BulkSendTxDetails from '../../components/BulkSendTxDetails';
+import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 
 import BulkSendApprovalCard from './components/BulkSendApprovalCard';
 import BulkSendReviewAlert from './components/BulkSendReviewAlert';
@@ -640,30 +641,26 @@ function BaseBulkSendReview({
   );
 }
 
-function BulkSendReview() {
-  const route = useAppRoute<
-    IModalBulkSendParamList,
-    EModalBulkSendRoutes.BulkSendReview
-  >();
+type IBulkSendReviewRouteParams =
+  IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendReview];
 
-  const {
-    networkId,
-    accountId,
-    tokenInfo,
-    transfersInfo,
-    approvesInfo: initialApprovesInfo,
-    unsignedTxs: initialUnsignedTxs,
-    bulkSendMode,
-    totalTokenAmount,
-    totalFiatAmount,
-    isInModal,
-    isMaxMode,
-    ataCount,
-    intervalSettings,
-    onSuccess,
-    onFail,
-  } = route.params ?? {};
-
+function BulkSendReviewContent({
+  networkId,
+  accountId,
+  tokenInfo,
+  transfersInfo,
+  approvesInfo: initialApprovesInfo,
+  unsignedTxs: initialUnsignedTxs,
+  bulkSendMode,
+  totalTokenAmount,
+  totalFiatAmount,
+  isInModal,
+  isMaxMode,
+  ataCount,
+  intervalSettings,
+  onSuccess,
+  onFail,
+}: IBulkSendReviewRouteParams) {
   // Local state for approves info (can be modified by editor)
   const [approvesInfo, setApprovesInfo] = useState<IApproveInfo[]>(
     initialApprovesInfo ?? [],
@@ -761,6 +758,39 @@ function BulkSendReview() {
       <BaseBulkSendReview onSuccess={onSuccess} onFail={onFail} />
     </BulkSendReviewContext.Provider>
   );
+}
+
+function BulkSendReview() {
+  const route = useAppRoute<
+    IModalBulkSendParamList,
+    EModalBulkSendRoutes.BulkSendReview
+  >();
+
+  const params = route.params;
+  const hasRequiredParams = Boolean(
+    params?.networkId &&
+    params?.tokenInfo &&
+    params?.bulkSendMode &&
+    params?.transfersInfo?.length &&
+    params?.unsignedTxs?.length &&
+    params?.totalTokenAmount !== undefined &&
+    params?.totalFiatAmount !== undefined,
+  );
+
+  useRedirectToBulkSendAddressesInput({
+    networkId: params?.networkId,
+    accountId: params?.accountId,
+    tokenInfo: params?.tokenInfo,
+    isInModal: params?.isInModal,
+    bulkSendMode: params?.bulkSendMode,
+    hasRequiredParams,
+  });
+
+  if (!hasRequiredParams || !params) {
+    return null;
+  }
+
+  return <BulkSendReviewContent {...params} />;
 }
 
 export default BulkSendReview;

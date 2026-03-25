@@ -16,6 +16,7 @@ import type { IActionListItemProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  EBulkSendMode,
   EIntervalMode,
   type IIntervalSettings,
 } from '@onekeyhq/shared/types/bulkSend';
@@ -48,7 +49,7 @@ function BulkSendReviewCostCard({
 }: Props) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const { feeState, ataCount } = useBulkSendReviewContext();
+  const { feeState, ataCount, bulkSendMode } = useBulkSendReviewContext();
   const {
     feeStatus,
     totalFeeNative: networkFee,
@@ -72,7 +73,7 @@ function BulkSendReviewCostCard({
   const isError = feeStatus === ESendFeeStatus.Error;
 
   const displayTxCount = transferTxCount ?? 0;
-  const showSplit = isTransferSplit;
+  const showSplit = bulkSendMode === EBulkSendMode.OneToMany && isTransferSplit;
 
   return (
     <YStack px="$5" gap="$3">

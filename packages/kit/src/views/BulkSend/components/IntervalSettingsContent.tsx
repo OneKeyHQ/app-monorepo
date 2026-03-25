@@ -12,6 +12,7 @@ export const INTERVAL_SETTINGS_TITLE = 'Set interval';
 export const INTERVAL_SETTINGS_NONE_LABEL = 'No interval';
 export const INTERVAL_SETTINGS_CANCEL_TEXT = 'Cancel';
 export const INTERVAL_SETTINGS_CONFIRM_TEXT = 'Confirm';
+export const INTERVAL_SETTINGS_REVIEW_TEXT = 'Review';
 
 const INTERVAL_SETTINGS_SPECIFIED_LABEL = 'Specified range';
 const INTERVAL_SETTINGS_SPECIFIED_DESC = `Set an interval between 0 and ${BULK_SEND_INTERVAL_MAX_SECONDS} seconds.`;
@@ -31,7 +32,9 @@ function IntervalOptionIndicator({ selected }: { selected: boolean }) {
       bg={selected ? '$bgPrimary' : '$transparent'}
       flexShrink={0}
     >
-      {selected ? <YStack w="$2.5" h="$2.5" borderRadius="$full" bg="$bg" /> : null}
+      {selected ? (
+        <YStack w="$2.5" h="$2.5" borderRadius="$full" bg="$bg" />
+      ) : null}
     </YStack>
   );
 }

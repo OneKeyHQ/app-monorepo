@@ -13,35 +13,33 @@ import {
 } from '@onekeyhq/shared/types/bulkSend';
 
 import {
+  INTERVAL_SETTINGS_REVIEW_TEXT,
   INTERVAL_SETTINGS_TITLE,
   IntervalSettingsContent,
 } from '../../components/IntervalSettingsContent';
+import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import { validateIntervalSettings } from '../../utils';
 
-function BulkSendIntervalInput() {
+type IBulkSendIntervalInputRouteParams =
+  IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendIntervalInput];
+
+function BulkSendIntervalInputContent({
+  networkId,
+  accountId,
+  unsignedTxs,
+  approvesInfo,
+  tokenInfo,
+  transfersInfo,
+  bulkSendMode,
+  totalTokenAmount,
+  totalFiatAmount,
+  isInModal,
+  isMaxMode,
+  ataCount,
+  intervalSettings: initialIntervalSettings,
+  onConfirmIntervalSettings,
+}: IBulkSendIntervalInputRouteParams) {
   const navigation = useAppNavigation();
-
-  const route = useAppRoute<
-    IModalBulkSendParamList,
-    EModalBulkSendRoutes.BulkSendIntervalInput
-  >();
-
-  const {
-    networkId,
-    accountId,
-    unsignedTxs,
-    approvesInfo,
-    tokenInfo,
-    transfersInfo,
-    bulkSendMode,
-    totalTokenAmount,
-    totalFiatAmount,
-    isInModal,
-    isMaxMode,
-    ataCount,
-    intervalSettings: initialIntervalSettings,
-    onConfirmIntervalSettings,
-  } = route.params ?? {};
 
   const [intervalSettings, setIntervalSettings] = useState<IIntervalSettings>({
     mode: initialIntervalSettings?.mode ?? EIntervalMode.None,
@@ -105,9 +103,7 @@ function BulkSendIntervalInput() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header
-        headerTitle={INTERVAL_SETTINGS_TITLE}
-      />
+      <Page.Header headerTitle={INTERVAL_SETTINGS_TITLE} />
       <Page.Body px="$5" pb="$5">
         <IntervalSettingsContent
           value={intervalSettings}
@@ -117,9 +113,7 @@ function BulkSendIntervalInput() {
       </Page.Body>
       <Page.Footer>
         <Page.FooterActions
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.wallet_bulk_send_btn_review,
-          })}
+          onConfirmText={INTERVAL_SETTINGS_REVIEW_TEXT}
           confirmButtonProps={{
             onPress: handleConfirm,
           }}
@@ -127,6 +121,39 @@ function BulkSendIntervalInput() {
       </Page.Footer>
     </Page>
   );
+}
+
+function BulkSendIntervalInput() {
+  const route = useAppRoute<
+    IModalBulkSendParamList,
+    EModalBulkSendRoutes.BulkSendIntervalInput
+  >();
+
+  const params = route.params;
+  const hasRequiredParams = Boolean(
+    params?.networkId &&
+    params?.tokenInfo &&
+    params?.bulkSendMode &&
+    params?.transfersInfo?.length &&
+    params?.unsignedTxs?.length &&
+    params?.totalTokenAmount !== undefined &&
+    params?.totalFiatAmount !== undefined,
+  );
+
+  useRedirectToBulkSendAddressesInput({
+    networkId: params?.networkId,
+    accountId: params?.accountId,
+    tokenInfo: params?.tokenInfo,
+    isInModal: params?.isInModal,
+    bulkSendMode: params?.bulkSendMode,
+    hasRequiredParams,
+  });
+
+  if (!hasRequiredParams || !params) {
+    return null;
+  }
+
+  return <BulkSendIntervalInputContent {...params} />;
 }
 
 export default BulkSendIntervalInput;

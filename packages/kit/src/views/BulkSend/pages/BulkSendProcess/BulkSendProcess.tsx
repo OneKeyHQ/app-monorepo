@@ -37,9 +37,9 @@ import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalBulkSendRoutes,
-  ETabRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -54,6 +54,8 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+
+import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 
 import BulkSendProcessItem from './BulkSendProcessItem';
 
@@ -86,27 +88,25 @@ function getIntervalDelay(intervalSettings?: {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function BulkSendProcess() {
+type IBulkSendProcessRouteParams =
+  IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendProcess];
+
+function BulkSendProcessContent({
+  networkId,
+  accountId,
+  isInModal,
+  isMaxMode,
+  unsignedTxs: initialUnsignedTxs,
+  tokenInfo,
+  transfersInfo,
+  totalTokenAmount,
+  totalFiatAmount,
+  intervalSettings,
+  onSuccess,
+  onFail,
+}: IBulkSendProcessRouteParams) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const route = useAppRoute<
-    IModalBulkSendParamList,
-    EModalBulkSendRoutes.BulkSendProcess
-  >();
-
-  const {
-    networkId,
-    accountId,
-    isInModal,
-    isMaxMode,
-    tokenInfo,
-    transfersInfo,
-    totalTokenAmount,
-    totalFiatAmount,
-    intervalSettings,
-    onSuccess,
-    onFail,
-  } = route.params ?? {};
 
   const tokenPrice = useMemo(() => {
     if (!totalTokenAmount || !totalFiatAmount) return undefined;
@@ -117,15 +117,14 @@ function BulkSendProcess() {
   }, [totalTokenAmount, totalFiatAmount]);
 
   // Use first sender's accountId for fill-up receive screen
-  const firstAccountId =
-    route.params?.unsignedTxs?.[0]?.accountId || accountId || '';
+  const firstAccountId = initialUnsignedTxs[0]?.accountId || accountId || '';
   const { handleOnReceive } = useReceiveToken({
     accountId: firstAccountId,
     networkId,
     walletId: accountUtils.getWalletIdFromAccountId({
       accountId: firstAccountId,
     }),
-    indexedAccountId: route.params?.unsignedTxs?.[0]?.indexedAccountId ?? '',
+    indexedAccountId: initialUnsignedTxs[0]?.indexedAccountId ?? '',
   });
 
   const { result: nativeToken } = usePromiseResult(
@@ -143,9 +142,8 @@ function BulkSendProcess() {
     }
   }, [handleOnReceive, nativeToken]);
 
-  const [unsignedTxs, setUnsignedTxs] = useState<IUnsignedTxPro[]>(
-    route.params?.unsignedTxs ?? [],
-  );
+  const [unsignedTxs, setUnsignedTxs] =
+    useState<IUnsignedTxPro[]>(initialUnsignedTxs);
 
   const [transfersInfoState, setTransfersInfoState] = useState(
     transfersInfo ?? [],
@@ -823,6 +821,39 @@ function BulkSendProcess() {
       </Page.Footer>
     </Page>
   );
+}
+
+function BulkSendProcess() {
+  const route = useAppRoute<
+    IModalBulkSendParamList,
+    EModalBulkSendRoutes.BulkSendProcess
+  >();
+
+  const params = route.params;
+  const hasRequiredParams = Boolean(
+    params?.networkId &&
+    params?.tokenInfo &&
+    params?.bulkSendMode &&
+    params?.transfersInfo?.length &&
+    params?.unsignedTxs?.length &&
+    params?.totalTokenAmount !== undefined &&
+    params?.totalFiatAmount !== undefined,
+  );
+
+  useRedirectToBulkSendAddressesInput({
+    networkId: params?.networkId,
+    accountId: params?.accountId,
+    tokenInfo: params?.tokenInfo,
+    isInModal: params?.isInModal,
+    bulkSendMode: params?.bulkSendMode,
+    hasRequiredParams,
+  });
+
+  if (!hasRequiredParams || !params) {
+    return null;
+  }
+
+  return <BulkSendProcessContent {...params} />;
 }
 
 export default BulkSendProcess;
