@@ -38,6 +38,7 @@ function BulkSendIntervalInput() {
     totalTokenAmount,
     totalFiatAmount,
     isInModal,
+    isMaxMode,
     ataCount,
   } = route.params ?? {};
 
@@ -77,6 +78,7 @@ function BulkSendIntervalInput() {
       totalTokenAmount,
       totalFiatAmount,
       isInModal,
+      isMaxMode,
       ataCount,
       intervalSettings,
     });
@@ -93,6 +95,7 @@ function BulkSendIntervalInput() {
     totalTokenAmount,
     totalFiatAmount,
     isInModal,
+    isMaxMode,
     ataCount,
     intervalSettings,
   ]);

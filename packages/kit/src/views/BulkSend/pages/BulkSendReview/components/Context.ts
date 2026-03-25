@@ -55,6 +55,7 @@ export type IBulkSendReviewContext = {
   totalTokenAmount: string;
   totalFiatAmount: string;
   isInModal?: boolean;
+  isMaxMode?: boolean;
   ataCount?: number;
   intervalSettings?: IIntervalSettings;
 
@@ -94,6 +95,7 @@ export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
   totalTokenAmount: '0',
   totalFiatAmount: '0',
   isInModal: undefined,
+  isMaxMode: undefined,
   ataCount: undefined,
   intervalSettings: undefined,
 

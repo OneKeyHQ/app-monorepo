@@ -196,6 +196,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       transfersInfo: ITransferInfo[];
       bulkSendMode: EBulkSendMode;
       isInModal?: boolean;
+      isMaxMode?: boolean;
       totalTokenAmount: string;
       totalFiatAmount: string;
       ataCount?: number;
@@ -419,6 +420,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
         transfersInfo: resolvedTransfersInfo,
         bulkSendMode,
         isInModal,
+        isMaxMode,
         totalTokenAmount: finalTotalTokenAmount,
         totalFiatAmount: finalTotalFiatAmount,
       });

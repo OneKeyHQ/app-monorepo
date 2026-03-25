@@ -51,6 +51,7 @@ export type IModalBulkSendParamList = {
     totalTokenAmount: string;
     totalFiatAmount: string;
     isInModal?: boolean;
+    isMaxMode?: boolean;
     ataCount?: number;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
@@ -66,6 +67,7 @@ export type IModalBulkSendParamList = {
     totalTokenAmount: string;
     totalFiatAmount: string;
     isInModal?: boolean;
+    isMaxMode?: boolean;
     ataCount?: number;
     intervalSettings?: IIntervalSettings;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
@@ -75,8 +77,9 @@ export type IModalBulkSendParamList = {
     networkId: string;
     accountId: string | undefined;
     isInModal?: boolean;
+    isMaxMode?: boolean;
     unsignedTxs: IUnsignedTxPro[];
-    feeInfo: ISendSelectedFeeInfo;
+    feeInfo?: ISendSelectedFeeInfo;
     tokenInfo: IToken;
     transfersInfo: ITransferInfo[];
     bulkSendMode: EBulkSendMode;

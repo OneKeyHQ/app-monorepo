@@ -1,26 +1,34 @@
+/* eslint-disable no-continue */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
+import BigNumber from 'bignumber.js';
+import { isNil, isUndefined } from 'lodash';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
-  Badge,
+  Alert,
   Button,
-  Icon,
-  NumberSizeableText,
+  Dialog,
   Page,
-  Progress,
   SizableText,
-  Spinner,
-  Toast,
+  Stack,
   XStack,
   YStack,
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
   popModalPages,
   popToTabRootScreen,
   switchTab,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { EResponseCode } from '@onekeyhq/shared/src/consts/requestConsts';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyRpcError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareInterruptErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalBulkSendRoutes,
@@ -28,21 +36,42 @@ import {
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EIntervalMode } from '@onekeyhq/shared/types/bulkSend';
+import {
+  EBulkSendProgressState,
+  EBulkSendTxStatus,
+  EIntervalMode,
+  type IBulkSendTxStatus,
+} from '@onekeyhq/shared/types/bulkSend';
+import type {
+  IFeeInfoUnit,
+  ISendSelectedFeeInfo,
+} from '@onekeyhq/shared/types/fee';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-type ITxStatus = 'pending' | 'signing' | 'waiting' | 'success' | 'failed';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 
-type ITxProgressItem = {
-  index: number;
-  status: ITxStatus;
-  txid?: string;
-  error?: string;
-};
+import BulkSendProcessItem from './BulkSendProcessItem';
 
-type IOverallStatus = 'idle' | 'processing' | 'completed' | 'partial';
+function getConfirmText({
+  intl,
+  progressState,
+}: {
+  intl: IntlShape;
+  progressState: EBulkSendProgressState;
+}) {
+  if (progressState === EBulkSendProgressState.Finished) {
+    return intl.formatMessage({ id: ETranslations.global_finish });
+  }
+  return progressState === EBulkSendProgressState.InProgress
+    ? intl.formatMessage({ id: ETranslations.global_pause })
+    : intl.formatMessage({ id: ETranslations.global_resume });
+}
 
 function getIntervalDelay(intervalSettings?: {
   mode: string;
@@ -61,7 +90,6 @@ function getIntervalDelay(intervalSettings?: {
 function BulkSendProcess() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-
   const route = useAppRoute<
     IModalBulkSendParamList,
     EModalBulkSendRoutes.BulkSendProcess
@@ -71,49 +99,109 @@ function BulkSendProcess() {
     networkId,
     accountId,
     isInModal,
-    unsignedTxs,
+    isMaxMode,
     tokenInfo,
     transfersInfo,
+    totalTokenAmount,
+    totalFiatAmount,
     intervalSettings,
     onSuccess,
     onFail,
   } = route.params ?? {};
 
-  const txCount = unsignedTxs?.length ?? 0;
+  const tokenPrice = useMemo(() => {
+    if (!totalTokenAmount || !totalFiatAmount) return undefined;
+    const tokenBN = new BigNumber(totalTokenAmount);
+    const fiatBN = new BigNumber(totalFiatAmount);
+    if (tokenBN.isZero() || tokenBN.isNaN() || fiatBN.isNaN()) return undefined;
+    return fiatBN.div(tokenBN).toNumber();
+  }, [totalTokenAmount, totalFiatAmount]);
 
-  const [txProgress, setTxProgress] = useState<ITxProgressItem[]>(() =>
-    Array.from({ length: txCount }, (_, i) => ({
-      index: i,
-      status: 'pending' as ITxStatus,
-    })),
+  // Use first sender's accountId for fill-up receive screen
+  const firstAccountId =
+    route.params?.unsignedTxs?.[0]?.accountId || accountId || '';
+  const { handleOnReceive } = useReceiveToken({
+    accountId: firstAccountId,
+    networkId,
+    walletId: accountUtils.getWalletIdFromAccountId({
+      accountId: firstAccountId,
+    }),
+    indexedAccountId: route.params?.unsignedTxs?.[0]?.indexedAccountId ?? '',
+  });
+
+  const { result: nativeToken } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceToken.getNativeToken({
+        accountId: '',
+        networkId,
+      }),
+    [networkId],
   );
 
-  const [overallStatus, setOverallStatus] = useState<IOverallStatus>('idle');
-  const [isCancelled, setIsCancelled] = useState(false);
-  const isCancelledRef = useRef(false);
-  const isProcessingRef = useRef(false);
+  const handleFillUp = useCallback(() => {
+    if (nativeToken) {
+      void handleOnReceive({ token: nativeToken });
+    }
+  }, [handleOnReceive, nativeToken]);
+
+  const [unsignedTxs, setUnsignedTxs] = useState<IUnsignedTxPro[]>(
+    route.params?.unsignedTxs ?? [],
+  );
+
+  const [txStatusMap, setTxStatusMap] = useState<
+    Record<number, IBulkSendTxStatus>
+  >({});
+
+  const [progressState, setProgressState] = useState<EBulkSendProgressState>(
+    EBulkSendProgressState.InProgress,
+  );
+
+  const [currentProcessIndex, setCurrentProcessIndex] = useState(0);
+
+  const isAborted = useRef(false);
+  const progressStateRef = useRef(progressState);
   const resultsRef = useRef<ISendTxOnSuccessData[]>([]);
 
-  const successCount = useMemo(
-    () => txProgress.filter((t) => t.status === 'success').length,
-    [txProgress],
-  );
-  const failedCount = useMemo(
-    () => txProgress.filter((t) => t.status === 'failed').length,
-    [txProgress],
-  );
-  const processedCount = successCount + failedCount;
+  // Track native balance per sender (keyed by networkId:accountAddress)
+  const networkStatusRef = useRef<
+    Record<
+      string,
+      {
+        isInsufficientFunds: boolean;
+        nativeBalance: string;
+        nativeSymbol: string;
+      }
+    >
+  >({});
 
-  const updateTxStatus = useCallback(
-    (index: number, status: ITxStatus, txid?: string, error?: string) => {
-      setTxProgress((prev) =>
-        prev.map((item) =>
-          item.index === index ? { ...item, status, txid, error } : item,
-        ),
-      );
-    },
-    [],
-  );
+  // Fee overflow only needs to be checked once (same network for all txs)
+  const feeOverflowCheckedRef = useRef(false);
+
+  const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
+    if (
+      progressStateRef.current === EBulkSendProgressState.InProgress ||
+      isAborted.current
+    )
+      return Promise.resolve(true);
+    await timerUtils.wait(1000);
+    return waitUntilInProgress();
+  }, []);
+
+  const { succeededTxCount, failedTxCount, skippedTxCount } = useMemo(() => {
+    let _succeeded = 0;
+    let _failed = 0;
+    let _skipped = 0;
+    Object.values(txStatusMap).forEach((s) => {
+      if (s.status === EBulkSendTxStatus.Succeeded) _succeeded += 1;
+      else if (s.status === EBulkSendTxStatus.Failed) _failed += 1;
+      else if (s.status === EBulkSendTxStatus.Skipped) _skipped += 1;
+    });
+    return {
+      succeededTxCount: _succeeded,
+      failedTxCount: _failed,
+      skippedTxCount: _skipped,
+    };
+  }, [txStatusMap]);
 
   const navigateAfterDone = useCallback(async () => {
     if (accountUtils.isQrAccount({ accountId: accountId ?? '' })) {
@@ -130,265 +218,604 @@ function BulkSendProcess() {
     }
   }, [isInModal, navigation, accountId]);
 
-  const processTransactions = useCallback(async () => {
-    if (
-      isProcessingRef.current ||
-      !unsignedTxs ||
-      unsignedTxs.length === 0 ||
-      !networkId
-    ) {
-      return;
-    }
-
-    isProcessingRef.current = true;
-    setOverallStatus('processing');
-
-    const { serviceSend } = backgroundApiProxy;
-
+  // Main processing loop
+  usePromiseResult(async () => {
     for (let i = 0; i < unsignedTxs.length; i += 1) {
-      if (isCancelledRef.current) break;
+      const tx = unsignedTxs[i];
+      setCurrentProcessIndex(i);
 
-      // Interval delay (skip for first tx)
+      if (isAborted.current) break;
+      await waitUntilInProgress();
+
+      const txAccountId = tx.accountId || accountId || '';
+
+      // Interval delay (skip first tx)
       if (i > 0) {
         const delay = getIntervalDelay(intervalSettings);
         if (delay > 0) {
-          updateTxStatus(i, 'waiting');
-          await waitAsync(delay);
+          setTxStatusMap((prev) => ({
+            ...prev,
+            [i]: { status: EBulkSendTxStatus.Processing },
+          }));
+          // Wait in chunks so we can check abort/pause
+          const chunkSize = 1000;
+          let waited = 0;
+          while (waited < delay) {
+            if (isAborted.current) break;
+            await waitUntilInProgress();
+            const waitTime = Math.min(chunkSize, delay - waited);
+            await timerUtils.wait(waitTime);
+            waited += waitTime;
+          }
         }
       }
 
-      if (isCancelledRef.current) break;
-
-      updateTxStatus(i, 'signing');
+      if (isAborted.current) break;
+      await waitUntilInProgress();
 
       try {
-        const unsignedTx = unsignedTxs[i];
-        const txAccountId = unsignedTx.accountId || accountId || '';
+        // Fetch native balance for this sender (if not cached)
+        let accountAddress = '';
+        try {
+          accountAddress =
+            await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              networkId,
+              accountId: txAccountId,
+            });
+        } catch {
+          // fallback
+        }
 
-        const signedTx = await serviceSend.signAndSendTransaction({
-          networkId,
+        const balanceKey = `${networkId}:${accountAddress}`;
+
+        if (isNil(networkStatusRef.current[balanceKey]?.nativeBalance)) {
+          try {
+            const nativeTokenAddress =
+              await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+                networkId,
+              });
+            const resp =
+              await backgroundApiProxy.serviceToken.fetchTokensDetails({
+                accountId: txAccountId,
+                networkId,
+                contractList: [nativeTokenAddress],
+              });
+            if (resp?.[0] && !isNil(resp[0].balanceParsed)) {
+              networkStatusRef.current[balanceKey] = {
+                ...networkStatusRef.current[balanceKey],
+                isInsufficientFunds: false,
+                nativeBalance: resp[0].balanceParsed,
+                nativeSymbol: resp[0].info?.symbol ?? '',
+              };
+            }
+          } catch (error) {
+            console.error('fetchAccountNativeBalance error', error);
+          }
+        }
+
+        if (isAborted.current) break;
+        await waitUntilInProgress();
+
+        // Check if sender already marked as insufficient
+        if (networkStatusRef.current[balanceKey]?.isInsufficientFunds) {
+          const nativeSymbol =
+            networkStatusRef.current[balanceKey]?.nativeSymbol;
+          setTxStatusMap((prev) => ({
+            ...prev,
+            [i]: {
+              isInsufficientFunds: true,
+              status: EBulkSendTxStatus.Skipped,
+              errorMessage: `Insufficient ${nativeSymbol} for network fees`,
+            },
+          }));
+          continue;
+        }
+
+        // Set processing status
+        setTxStatusMap((prev) => ({
+          ...prev,
+          [i]: { status: EBulkSendTxStatus.Processing },
+        }));
+
+        // Estimate fees
+        const { encodedTx, estimateFeeParams } =
+          await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+            accountId: txAccountId,
+            networkId,
+            encodedTx: tx.encodedTx,
+          });
+
+        const resp = await backgroundApiProxy.serviceGas.estimateFee({
           accountId: txAccountId,
-          unsignedTx,
-          signOnly: false,
+          networkId,
+          encodedTx,
+          accountAddress,
         });
 
-        if (signedTx) {
-          resultsRef.current.push({
-            signedTx,
-          } as ISendTxOnSuccessData);
-          updateTxStatus(i, 'success', signedTx.txid);
-        } else {
-          updateTxStatus(i, 'failed', undefined, 'No signed tx returned');
+        const feeInfo: IFeeInfoUnit = {
+          common: {
+            baseFee: resp.common.baseFee,
+            feeDecimals: resp.common.feeDecimals,
+            feeSymbol: resp.common.feeSymbol,
+            nativeDecimals: resp.common.nativeDecimals,
+            nativeSymbol: resp.common.nativeSymbol,
+            nativeTokenPrice: resp.common.nativeTokenPrice,
+          },
+          gas: resp.gas?.[1] ?? resp.gas?.[0],
+          gasEIP1559: resp.gasEIP1559?.[1] ?? resp.gasEIP1559?.[0],
+          feeTron: resp.feeTron?.[1] ?? resp.feeTron?.[0],
+        };
+
+        const feeResult = calculateFeeForSend({
+          feeInfo,
+          nativeTokenPrice: resp.common.nativeTokenPrice ?? 0,
+          txSize: tx.txSize,
+          estimateFeeParams,
+        });
+
+        if (isAborted.current) break;
+        await waitUntilInProgress();
+
+        // Balance vs fee check
+        if (
+          !isNil(networkStatusRef.current[balanceKey]?.nativeBalance) &&
+          new BigNumber(networkStatusRef.current[balanceKey]?.nativeBalance).lt(
+            feeResult.totalNativeForDisplay ?? feeResult.totalNative,
+          )
+        ) {
+          networkStatusRef.current[balanceKey].isInsufficientFunds = true;
+          networkStatusRef.current[balanceKey].nativeSymbol =
+            feeInfo.common.nativeSymbol;
+          setTxStatusMap((prev) => ({
+            ...prev,
+            [i]: {
+              isInsufficientFunds: true,
+              status: EBulkSendTxStatus.Failed,
+              errorMessage: `Insufficient ${feeInfo.common.nativeSymbol} for network fees`,
+            },
+          }));
+          continue;
         }
-      } catch (error) {
-        updateTxStatus(
-          i,
-          'failed',
-          undefined,
-          (error as Error).message || 'Unknown error',
-        );
+
+        // Native Token + Max mode: deduct fee from send amount
+        let updatedTx = tx;
+        if (isMaxMode && tokenInfo?.isNative) {
+          const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+            networkId,
+          });
+          const currentBalance =
+            networkStatusRef.current[balanceKey]?.nativeBalance ?? '0';
+          const feeWithRatio = new BigNumber(feeResult.totalNative).times(
+            network.feeMeta?.maxSendFeeUpRatio ?? 1,
+          );
+          const maxSendAmount = new BigNumber(currentBalance).minus(
+            feeWithRatio,
+          );
+
+          if (maxSendAmount.lte(0)) {
+            networkStatusRef.current[balanceKey].isInsufficientFunds = true;
+            setTxStatusMap((prev) => ({
+              ...prev,
+              [i]: {
+                isInsufficientFunds: true,
+                status: EBulkSendTxStatus.Failed,
+                errorMessage: `Insufficient balance for send amount and fees`,
+              },
+            }));
+            continue;
+          }
+
+          updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
+            networkId,
+            accountId: txAccountId,
+            unsignedTx: updatedTx,
+            feeInfo,
+            nativeAmountInfo: { maxSendAmount: maxSendAmount.toFixed() },
+          });
+        }
+
+        // Fee overflow check — only once (same network for all txs)
+        if (!feeOverflowCheckedRef.current) {
+          const isFeeInfoOverflow =
+            await backgroundApiProxy.serviceSend.preCheckIsFeeInfoOverflow({
+              encodedTx: updatedTx.encodedTx,
+              feeAmount: feeResult.totalNative,
+              feeTokenSymbol: feeInfo.common.nativeSymbol,
+              networkId,
+              accountAddress,
+            });
+
+          feeOverflowCheckedRef.current = true;
+
+          if (isAborted.current) break;
+          await waitUntilInProgress();
+
+          if (isFeeInfoOverflow) {
+            // Fee is abnormally high — abort all remaining txs
+            for (let j = i; j < unsignedTxs.length; j += 1) {
+              // oxlint-disable-next-line no-loop-func
+              setTxStatusMap((prev) => ({
+                ...prev,
+                [j]: {
+                  status: EBulkSendTxStatus.Skipped,
+                  errorMessage: 'Excessive gas fee detected',
+                },
+              }));
+            }
+            break;
+          }
+        }
+
+        // Nonce management
+        if (isUndefined(updatedTx.nonce)) {
+          const nonce = await backgroundApiProxy.serviceSend.getNextNonce({
+            accountId: txAccountId,
+            networkId,
+            accountAddress,
+          });
+          updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
+            networkId,
+            accountId: txAccountId,
+            unsignedTx: updatedTx,
+            nonceInfo: { nonce },
+            feeInfo,
+          });
+        }
+
+        if (isAborted.current) break;
+        await waitUntilInProgress();
+
+        // Build fee info for signing
+        const sendSelectedFeeInfo: ISendSelectedFeeInfo = {
+          feeInfo,
+          total: feeResult.total,
+          totalNative: feeResult.totalNative,
+          totalFiat: feeResult.totalFiat,
+          totalNativeForDisplay: feeResult.totalNativeForDisplay,
+          totalFiatForDisplay: feeResult.totalFiatForDisplay,
+        };
+
+        // Sign and send
+        const result =
+          await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
+            accountId: txAccountId,
+            networkId,
+            unsignedTxs: [updatedTx],
+            feeInfos: [sendSelectedFeeInfo],
+            transferPayload: undefined,
+          });
+
+        // Deduct fee from tracked balance
+        if (!isNil(networkStatusRef.current[balanceKey]?.nativeBalance)) {
+          let deduction = new BigNumber(
+            feeResult.totalNativeForDisplay ?? feeResult.totalNative,
+          );
+          // For max mode native token, also deduct the sent amount
+          if (isMaxMode && tokenInfo?.isNative && transfersInfo?.[i]) {
+            deduction = deduction.plus(transfersInfo[i].amount || '0');
+          }
+          networkStatusRef.current[balanceKey].nativeBalance = new BigNumber(
+            networkStatusRef.current[balanceKey]?.nativeBalance,
+          )
+            .minus(deduction)
+            .toFixed();
+        }
+
+        if (isAborted.current) break;
+        await waitUntilInProgress();
+
+        // Record success
+        resultsRef.current.push({
+          signedTx: result[0].signedTx,
+        } as ISendTxOnSuccessData);
+
+        setTxStatusMap((prev) => ({
+          ...prev,
+          [i]: {
+            status: EBulkSendTxStatus.Succeeded,
+            txId: result[0].signedTx.txid,
+            feeNative: feeResult.totalNativeForDisplay,
+            feeSymbol: resp.common.nativeSymbol,
+            feeFiat: feeResult.totalFiatForDisplay,
+          },
+        }));
+      } catch (error: unknown) {
+        let passphraseEnabled;
+        let deviceCommunicationError;
+
+        // Hardware interrupt error
+        if (
+          isHardwareInterruptErrorByCode({
+            error: error as IOneKeyError,
+          })
+        ) {
+          i -= 1;
+          deviceCommunicationError = true;
+          setProgressState(EBulkSendProgressState.Paused);
+          progressStateRef.current = EBulkSendProgressState.Paused;
+          setTxStatusMap((prev) => ({
+            ...prev,
+            [i + 1]: { status: EBulkSendTxStatus.Paused },
+          }));
+        }
+
+        // Passphrase not opened
+        if (
+          errorUtils.isErrorByClassName({
+            error,
+            className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+          })
+        ) {
+          const p = (error as IOneKeyError).payload as
+            | { connectId: string; deviceId: string }
+            | undefined;
+          passphraseEnabled = await new Promise((resolve) => {
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.passphrase_disabled_dialog_title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.passphrase_disabled_dialog_desc,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_enable,
+              }),
+              onCancel: (close) => {
+                void close();
+                resolve(false);
+              },
+              onConfirm: async () => {
+                try {
+                  await backgroundApiProxy.serviceHardware.setPassphraseEnabled(
+                    {
+                      walletId: '',
+                      connectId: p?.connectId,
+                      featuresDeviceId: p?.deviceId,
+                      passphraseEnabled: true,
+                    },
+                  );
+                  resolve(true);
+                  i -= 1;
+                } catch {
+                  resolve(false);
+                }
+              },
+            });
+          });
+        }
+
+        if (!passphraseEnabled && !deviceCommunicationError) {
+          if (
+            (error as { code: number }).code ===
+            EResponseCode.insufficient_funds_for_tx_fee
+          ) {
+            const accountAddress2 = await backgroundApiProxy.serviceAccount
+              .getAccountAddressForApi({
+                networkId,
+                accountId: tx.accountId || accountId || '',
+              })
+              .catch(() => '');
+            const key2 = `${networkId}:${accountAddress2}`;
+            if (networkStatusRef.current[key2]) {
+              networkStatusRef.current[key2].isInsufficientFunds = true;
+            }
+          }
+
+          // oxlint-disable-next-line no-loop-func
+          setTxStatusMap((prev) => ({
+            ...prev,
+            [i]: {
+              isInsufficientFunds:
+                (error as { code: number }).code ===
+                EResponseCode.insufficient_funds_for_tx_fee,
+              status: EBulkSendTxStatus.Failed,
+              errorMessage:
+                (error as { data: { data: IOneKeyRpcError } }).data?.data?.res
+                  ?.error?.message ??
+                (error as Error).message ??
+                String(error),
+            },
+          }));
+        }
       }
     }
 
-    const results = resultsRef.current;
-    const total = unsignedTxs.length;
+    setProgressState(EBulkSendProgressState.Finished);
 
-    if (results.length === total) {
-      setOverallStatus('completed');
-      onSuccess?.(results);
-    } else if (results.length > 0) {
-      setOverallStatus('partial');
+    // Call callbacks
+    const results = resultsRef.current;
+    if (results.length > 0) {
       onSuccess?.(results);
     } else {
-      setOverallStatus('partial');
-      onFail?.(new Error(`All ${total} transactions failed`));
+      onFail?.(new Error(`All ${unsignedTxs.length} transactions failed`));
     }
-
-    isProcessingRef.current = false;
-  }, [
-    unsignedTxs,
-    networkId,
-    accountId,
-    intervalSettings,
-    onSuccess,
-    onFail,
-    updateTxStatus,
-  ]);
-
-  // Start processing on mount
-  useEffect(() => {
-    void processTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [unsignedTxs, waitUntilInProgress, intl]);
 
-  // Prevent back navigation while processing — handled by disabling back gesture
-  // and not showing back button (Page.Header without headerLeft)
+  // Sync progressStateRef
+  useEffect(() => {
+    progressStateRef.current = progressState;
+  }, [progressState]);
 
-  const handleCancel = useCallback(() => {
-    isCancelledRef.current = true;
-    setIsCancelled(true);
-  }, []);
+  // Auto-pause when app loses focus
+  useEffect(() => {
+    const handleVisibilityStateChange = (visible: boolean) => {
+      if (
+        visible === false &&
+        progressState === EBulkSendProgressState.InProgress
+      ) {
+        setProgressState(EBulkSendProgressState.Paused);
+        setTxStatusMap((prev) => ({
+          ...prev,
+          [currentProcessIndex]: {
+            ...prev[currentProcessIndex],
+            status: EBulkSendTxStatus.Paused,
+          },
+        }));
+      }
+    };
+    handleVisibilityStateChange(getCurrentVisibilityState());
+    const removeSubscription = onVisibilityStateChange(
+      handleVisibilityStateChange,
+    );
+    return removeSubscription;
+  }, [currentProcessIndex, progressState]);
 
-  const handleDone = useCallback(async () => {
-    if (successCount > 0 && successCount < txCount) {
-      Toast.success({
-        title: `${successCount}/${txCount} transactions sent`,
-      });
-    } else if (successCount === txCount) {
-      Toast.success({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_transaction_submitted,
-        }),
-      });
+  const handleOnConfirm = useCallback(() => {
+    if (progressState === EBulkSendProgressState.Finished) {
+      void navigateAfterDone();
+      return;
     }
-    await navigateAfterDone();
-  }, [txCount, successCount, intl, navigateAfterDone]);
+    if (progressState === EBulkSendProgressState.InProgress) {
+      setProgressState(EBulkSendProgressState.Paused);
+      setTxStatusMap((prev) => ({
+        ...prev,
+        [currentProcessIndex]: {
+          ...prev[currentProcessIndex],
+          status: EBulkSendTxStatus.Paused,
+        },
+      }));
+    } else {
+      setProgressState(EBulkSendProgressState.InProgress);
+      setTxStatusMap((prev) => ({
+        ...prev,
+        [currentProcessIndex]: {
+          ...prev[currentProcessIndex],
+          status: EBulkSendTxStatus.Processing,
+        },
+      }));
+    }
+  }, [progressState, currentProcessIndex, navigateAfterDone]);
 
-  const isProcessing = overallStatus === 'processing';
-  const isDone = overallStatus === 'completed' || overallStatus === 'partial';
-  const progressValue = txCount > 0 ? (processedCount / txCount) * 100 : 0;
+  const handleOnCancel = useCallback(() => {
+    if (
+      progressState === EBulkSendProgressState.Finished &&
+      (failedTxCount > 0 || skippedTxCount > 0)
+    ) {
+      // Retry: filter out succeeded txs, reset and restart
+      setProgressState(EBulkSendProgressState.InProgress);
+      networkStatusRef.current = {};
+      const failedIndices = new Set<number>();
+      Object.entries(txStatusMap).forEach(([idx, s]) => {
+        if (s.status !== EBulkSendTxStatus.Succeeded) {
+          failedIndices.add(Number(idx));
+        }
+      });
+      setUnsignedTxs((prev) => prev.filter((_, idx) => failedIndices.has(idx)));
+      setTxStatusMap({});
+      resultsRef.current = [];
+      return;
+    }
+
+    // Abort
+    isAborted.current = true;
+    setProgressState(EBulkSendProgressState.Aborted);
+    navigation.popStack();
+  }, [progressState, failedTxCount, skippedTxCount, txStatusMap, navigation]);
 
   return (
-    <Page scrollEnabled>
+    <Page
+      scrollEnabled
+      onClose={() => {
+        if (progressState !== EBulkSendProgressState.Finished) {
+          isAborted.current = true;
+          setProgressState(EBulkSendProgressState.Aborted);
+        }
+      }}
+    >
       <Page.Header
         headerTitle={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_title,
         })}
-        headerLeft={isProcessing ? () => null : undefined}
       />
       <Page.Body>
-        <YStack px="$5" gap="$4">
-          {/* Progress summary */}
-          <YStack gap="$2">
-            <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {`${processedCount} / ${txCount}`}
-              </SizableText>
-              {isDone ? (
-                <XStack gap="$2">
-                  {successCount > 0 ? (
-                    <Badge badgeType="success" badgeSize="sm">
-                      {`${successCount} ${intl.formatMessage({ id: ETranslations.global_success })}`}
-                    </Badge>
-                  ) : null}
-                  {failedCount > 0 ? (
-                    <Badge badgeType="critical" badgeSize="sm">
-                      {`${failedCount} failed`}
-                    </Badge>
-                  ) : null}
-                </XStack>
-              ) : null}
-            </XStack>
-            <Progress value={progressValue} />
-          </YStack>
-
-          {/* Transaction list */}
-          <YStack gap="$1">
-            {txProgress.map((item) => {
-              const transfer = transfersInfo?.[item.index];
-              if (!transfer) return null;
-
-              return (
-                <XStack
-                  key={item.index}
-                  gap="$3"
-                  py="$2"
-                  px="$3"
-                  bg="$bgSubdued"
-                  borderRadius="$2"
-                  alignItems="center"
-                >
-                  {/* Status icon */}
-                  <YStack width="$5" alignItems="center">
-                    {item.status === 'pending' ? (
-                      <SizableText size="$bodySm" color="$textDisabled">
-                        {item.index + 1}
-                      </SizableText>
-                    ) : null}
-                    {item.status === 'waiting' ? (
-                      <Icon
-                        name="ClockTimeHistoryOutline"
-                        size="$4"
-                        color="$iconSubdued"
-                      />
-                    ) : null}
-                    {item.status === 'signing' ? (
-                      <Spinner size="small" />
-                    ) : null}
-                    {item.status === 'success' ? (
-                      <Icon
-                        name="CheckRadioSolid"
-                        size="$4"
-                        color="$iconSuccess"
-                      />
-                    ) : null}
-                    {item.status === 'failed' ? (
-                      <Icon
-                        name="XCircleSolid"
-                        size="$4"
-                        color="$iconCritical"
-                      />
-                    ) : null}
-                  </YStack>
-
-                  {/* Transfer info */}
-                  <YStack flex={1} gap="$0.5">
-                    <SizableText
-                      size="$bodySm"
-                      numberOfLines={1}
-                      color="$textSubdued"
-                    >
-                      {accountUtils.shortenAddress({
-                        address: transfer.from,
-                      })}{' '}
-                      →{' '}
-                      {accountUtils.shortenAddress({
-                        address: transfer.to,
-                      })}
-                    </SizableText>
-                    {item.error ? (
-                      <SizableText
-                        size="$bodySm"
-                        color="$textCritical"
-                        numberOfLines={1}
-                      >
-                        {item.error}
-                      </SizableText>
-                    ) : null}
-                  </YStack>
-
-                  {/* Amount */}
-                  <NumberSizeableText
-                    size="$bodySmMedium"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: tokenInfo?.symbol }}
-                  >
-                    {transfer.amount || '0'}
-                  </NumberSizeableText>
-                </XStack>
-              );
-            })}
-          </YStack>
-        </YStack>
+        <Stack pb="$2" px="$5">
+          <Alert
+            icon="InfoCircleOutline"
+            title="Please keep the page active. Exiting will pause the process."
+            type="warning"
+          />
+        </Stack>
+        <Stack flex={1} pb="$5">
+          {unsignedTxs.map((tx, index) => {
+            const transfer = transfersInfo?.[index];
+            if (!transfer) return null;
+            const status = txStatusMap[index] ?? {
+              status: EBulkSendTxStatus.Pending,
+            };
+            return (
+              <BulkSendProcessItem
+                key={`${index}-${tx.uuid ?? ''}`}
+                transferInfo={transfer}
+                tokenInfo={tokenInfo}
+                status={status}
+                networkId={networkId}
+                tokenPrice={tokenPrice}
+                onFillUp={handleFillUp}
+              />
+            );
+          })}
+        </Stack>
       </Page.Body>
       <Page.Footer>
-        <YStack px="$5" pb="$5" gap="$3">
-          {isDone ? (
-            <Button variant="primary" size="large" onPress={handleDone}>
-              {intl.formatMessage({ id: ETranslations.global_done })}
-            </Button>
-          ) : null}
-          {isProcessing ? (
-            <Button
-              variant="secondary"
-              size="large"
-              onPress={handleCancel}
-              disabled={isCancelled}
+        <Page.FooterActions
+          onConfirm={handleOnConfirm}
+          onConfirmText={getConfirmText({ intl, progressState })}
+          cancelButton={
+            progressState === EBulkSendProgressState.Finished &&
+            failedTxCount === 0 &&
+            skippedTxCount === 0 ? undefined : (
+              <Button
+                $md={
+                  {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                    size: 'large',
+                  } as any
+                }
+                onPress={handleOnCancel}
+              >
+                {progressState === EBulkSendProgressState.Finished &&
+                (failedTxCount !== 0 || skippedTxCount !== 0)
+                  ? `${intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    })} (${failedTxCount + skippedTxCount})`
+                  : intl.formatMessage({
+                      id: ETranslations.global_cancel,
+                    })}
+              </Button>
+            )
+          }
+        >
+          <YStack
+            gap="$1"
+            $md={{
+              width: '100%',
+              pb: '$2.5',
+            }}
+          >
+            <XStack
+              alignItems="center"
+              gap="$2"
+              $md={{
+                justifyContent: 'space-between',
+              }}
             >
-              {intl.formatMessage({ id: ETranslations.global_cancel })}
-            </Button>
-          ) : null}
-        </YStack>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.global_process })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {`${currentProcessIndex + 1}/${unsignedTxs.length} (${succeededTxCount} ${intl.formatMessage(
+                  {
+                    id: ETranslations.global_success,
+                  },
+                )}, ${failedTxCount} ${intl.formatMessage({
+                  id: ETranslations.wallet_approval_bulk_revoke_status_failed,
+                })})`}
+              </SizableText>
+            </XStack>
+          </YStack>
+        </Page.FooterActions>
       </Page.Footer>
     </Page>
   );

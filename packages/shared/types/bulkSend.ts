@@ -47,3 +47,29 @@ export type IIntervalSettings = {
   minSeconds: string;
   maxSeconds: string;
 };
+
+export enum EBulkSendProgressState {
+  InProgress = 'InProgress',
+  Paused = 'Paused',
+  Finished = 'Finished',
+  Aborted = 'Aborted',
+}
+
+export enum EBulkSendTxStatus {
+  Pending = 'pending',
+  Processing = 'processing',
+  Succeeded = 'succeeded',
+  Failed = 'failed',
+  Skipped = 'skipped',
+  Paused = 'paused',
+}
+
+export type IBulkSendTxStatus = {
+  status: EBulkSendTxStatus;
+  txId?: string;
+  errorMessage?: string;
+  isInsufficientFunds?: boolean;
+  feeFiat?: string;
+  feeNative?: string;
+  feeSymbol?: string;
+};

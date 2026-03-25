@@ -76,6 +76,7 @@ function BaseBulkSendReview({
     isSubmitting,
     setIsSubmitting,
     isInModal,
+    isMaxMode,
     ataCount,
     intervalSettings,
   } = useBulkSendReviewContext();
@@ -403,6 +404,7 @@ function BaseBulkSendReview({
         networkId,
         accountId,
         isInModal,
+        isMaxMode,
         unsignedTxs: newUnsignedTxs,
         feeInfo: feeState.feeInfos[0],
         tokenInfo,
@@ -563,6 +565,7 @@ function BaseBulkSendReview({
     totalFiatAmount,
     intervalSettings,
     isInModal,
+    isMaxMode,
   ]);
 
   // Determine if confirm button should be disabled
@@ -654,6 +657,7 @@ function BulkSendReview() {
     totalTokenAmount,
     totalFiatAmount,
     isInModal,
+    isMaxMode,
     ataCount,
     intervalSettings,
     onSuccess,
@@ -714,6 +718,7 @@ function BulkSendReview() {
       totalTokenAmount,
       totalFiatAmount,
       isInModal,
+      isMaxMode,
       ataCount,
       intervalSettings,
       networkImageUri: networkInfo?.logoURI,
@@ -736,6 +741,7 @@ function BulkSendReview() {
       totalTokenAmount,
       totalFiatAmount,
       isInModal,
+      isMaxMode,
       ataCount,
       intervalSettings,
       networkInfo?.logoURI,
