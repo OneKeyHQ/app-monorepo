@@ -136,10 +136,15 @@ function MessageConfirmActions(props: IProps) {
             action: isChecked ? 'checked' : 'unchecked',
           },
         );
-        // Snooze banner when user unchecks the checkbox
+        // Snooze banner when user unchecks the checkbox, clear snooze when re-checked
         if (!isChecked) {
           void backgroundApiProxy.serviceHyperliquidReferral.snoozeReferralBanner(
             { userAddress: accountAddress },
+          );
+        } else {
+          void backgroundApiProxy.simpleDb.perp.setReferralBannerSnoozedUntil(
+            accountAddress,
+            0,
           );
         }
       }

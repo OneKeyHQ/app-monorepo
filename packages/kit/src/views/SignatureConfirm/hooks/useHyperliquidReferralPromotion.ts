@@ -193,6 +193,9 @@ export function useHyperliquidReferralPromotion({
             referralCode: HYPERLIQUID_REFERRAL_CODE,
           },
         );
+        await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
+          { userAddress },
+        );
       } else {
         void backgroundApiProxy.serviceHyperliquidReferral.logReferralBindingStep(
           {
