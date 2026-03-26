@@ -36,6 +36,10 @@ type IAmountPreviewProps = {
   rangePreviewAmounts?: string[];
   onMaxPress?: () => void;
   isInsufficientBalance?: boolean;
+  // Max mode (ManyToOne/ManyToMany): send full balance per sender
+  isMaxMode?: boolean;
+  // Whether to hide the balance display (non-OneToMany modes)
+  hideBalance?: boolean;
 };
 
 export function AmountPreview({
@@ -52,6 +56,8 @@ export function AmountPreview({
   containerProps,
   onMaxPress,
   isInsufficientBalance,
+  isMaxMode,
+  hideBalance,
 }: IAmountPreviewProps) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -95,8 +101,15 @@ export function AmountPreview({
 
   // Determine if we should show Available section
   // In preview mode for Specified/Range, hide Available
-  const showAvailable =
-    inDialog || !isInPreviewMode || amountInputMode === EAmountInputMode.Custom;
+  // Hide for non-OneToMany modes (hideBalance)
+  const showAvailable = useMemo(() => {
+    if (hideBalance) return false;
+    return (
+      inDialog ||
+      !isInPreviewMode ||
+      amountInputMode === EAmountInputMode.Custom
+    );
+  }, [hideBalance, inDialog, isInPreviewMode, amountInputMode]);
 
   const { totalTokenAmount, totalFiatAmount } = useMemo(() => {
     // In preview mode, use pre-calculated values
@@ -172,43 +185,66 @@ export function AmountPreview({
     <YStack {...containerProps}>
       {showTotalAmount ? (
         <>
-          <YStack>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.wallet_bulk_send_total_amount,
-              })}
-            </SizableText>
-            <XStack alignItems="center" gap="$1">
-              {totalTokenAmount === '--' ? (
-                <SizableText size="$bodyLgMedium">--</SizableText>
-              ) : (
-                <>
-                  <NumberSizeableText
-                    size="$bodyLgMedium"
-                    formatter="balance"
-                    formatterOptions={{
-                      tokenSymbol: tokenDetails?.info.symbol,
-                    }}
-                  >
-                    {totalTokenAmount}
-                  </NumberSizeableText>
-                  <SizableText size="$bodyLgMedium" color="$textSubdued">
-                    (
-                    <NumberSizeableText
-                      size="$bodyLgMedium"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
-                      }}
-                    >
-                      {totalFiatAmount}
-                    </NumberSizeableText>
-                    )
-                  </SizableText>
-                </>
-              )}
-            </XStack>
-          </YStack>
+          <XStack
+            alignItems={hideBalance && onMaxPress ? 'flex-end' : 'stretch'}
+            justifyContent="space-between"
+            gap="$4"
+          >
+            <YStack flex={1} minWidth={0}>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_total_amount,
+                })}
+              </SizableText>
+              <XStack alignItems="center" gap="$1">
+                {(() => {
+                  if (totalTokenAmount === '--') {
+                    return <SizableText size="$bodyLgMedium">--</SizableText>;
+                  }
+                  return (
+                    <>
+                      <NumberSizeableText
+                        size="$bodyLgMedium"
+                        formatter="balance"
+                        formatterOptions={{
+                          tokenSymbol: tokenDetails?.info.symbol,
+                        }}
+                      >
+                        {totalTokenAmount}
+                      </NumberSizeableText>
+                      <SizableText size="$bodyLgMedium" color="$textSubdued">
+                        (
+                        <NumberSizeableText
+                          size="$bodyLgMedium"
+                          formatter="value"
+                          formatterOptions={{
+                            currency: settings.currencyInfo.symbol,
+                          }}
+                        >
+                          {totalFiatAmount}
+                        </NumberSizeableText>
+                        )
+                      </SizableText>
+                    </>
+                  );
+                })()}
+              </XStack>
+            </YStack>
+            {hideBalance && onMaxPress ? (
+              <SizableText
+                size="$bodyMdMedium"
+                color={isMaxMode ? '$textSuccess' : '$textInteractive'}
+                cursor="default"
+                onPress={onMaxPress}
+                hitSlop={8}
+                flexShrink={0}
+              >
+                {isMaxMode
+                  ? `${intl.formatMessage({ id: ETranslations.global_cancel })} ${intl.formatMessage({ id: ETranslations.global_max })}`
+                  : intl.formatMessage({ id: ETranslations.global_max })}
+              </SizableText>
+            ) : null}
+          </XStack>
           {showAvailable ? (
             <YStack pt="$3" pb="$2">
               <Divider />
