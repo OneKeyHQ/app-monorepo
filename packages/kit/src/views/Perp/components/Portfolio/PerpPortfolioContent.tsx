@@ -11,6 +11,7 @@ import {
   SegmentControl,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useTheme,
@@ -26,6 +27,7 @@ import {
   formatPerpsUsd,
   getHyperliquidTokenImageUrl,
   getPerpsValueColor,
+  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -92,6 +94,37 @@ function gaugeColor(pct: number): string {
   if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
   if (pct <= GAUGE_CAUTION_THRESHOLD) return COLOR_CAUTION;
   return COLOR_DANGER;
+}
+
+// Margin Used gauge: green/yellow only (no red — high utilization ≠ liquidation risk)
+function marginUsedGaugeColor(pct: number): string {
+  if (pct <= GAUGE_SAFE_THRESHOLD) return COLOR_SAFE;
+  return COLOR_CAUTION;
+}
+
+// Composite risk score: MMR×3 + Leverage×2 + MarginUsed×1
+function computeAccountHealthRisk(
+  mmrPct: number,
+  leverageX: number,
+  marginUsedPct: number,
+): { level: 'safe' | 'caution' | 'danger'; color: string } {
+  let mmrScore = 2;
+  if (mmrPct <= 30) mmrScore = 0;
+  else if (mmrPct <= 60) mmrScore = 1;
+
+  let levScore = 2;
+  if (leverageX <= 5) levScore = 0;
+  else if (leverageX <= 15) levScore = 1;
+
+  let marginScore = 2;
+  if (marginUsedPct <= 60) marginScore = 0;
+  else if (marginUsedPct <= 85) marginScore = 1;
+
+  const total = mmrScore * 3 + levScore * 2 + marginScore * 1;
+
+  if (total >= 6) return { level: 'danger', color: COLOR_DANGER };
+  if (total >= 3) return { level: 'caution', color: COLOR_CAUTION };
+  return { level: 'safe', color: COLOR_SAFE };
 }
 
 function SemiCircleGauge({
@@ -314,6 +347,35 @@ function PerpPortfolioContentComponent({
     ? `${mmrData.mmrPercent}%`
     : '--';
 
+  const hasPosition =
+    leverageRaw > 0 || marginUsedRaw > 0 || marginPercentRaw > 0;
+
+  const accountHealthRisk = useMemo(
+    () =>
+      computeAccountHealthRisk(
+        marginPercentRaw,
+        leverageRaw,
+        marginUsedGaugePct,
+      ),
+    [marginPercentRaw, leverageRaw, marginUsedGaugePct],
+  );
+  const accountHealthText = useMemo(() => {
+    switch (accountHealthRisk.level) {
+      case 'danger':
+        return intl.formatMessage({
+          id: ETranslations.perp_portfolio_health_status_high_risk,
+        });
+      case 'caution':
+        return intl.formatMessage({
+          id: ETranslations.perp_portfolio_health_status_moderate,
+        });
+      default:
+        return intl.formatMessage({
+          id: ETranslations.perp_portfolio_health_status_healthy,
+        });
+    }
+  }, [accountHealthRisk.level, intl]);
+
   const handleTimePeriodChange = useCallback(
     (v: string | number) => setTimePeriod(v as IPortfolioTimePeriod),
     [],
@@ -492,7 +554,12 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_unrealized_pnl,
               })}
             </SizableText>
-            <SizableText size="$headingSm" color={unrealizedColor}>
+            <SizableText
+              size="$headingSm"
+              color={unrealizedColor}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               {unrealizedPnl}
             </SizableText>
           </YStack>
@@ -502,7 +569,12 @@ function PerpPortfolioContentComponent({
                 id: ETranslations.perp_portfolio_total_pnl,
               })}
             </SizableText>
-            <SizableText size="$headingSm" color={realizedColor}>
+            <SizableText
+              size="$headingSm"
+              color={realizedColor}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               {realizedPnl}
             </SizableText>
           </YStack>
@@ -611,11 +683,31 @@ function PerpPortfolioContentComponent({
     <YStack gap="$3">
       {/* Account Health */}
       <SectionBlock>
-        <SectionLabel>
-          {intl.formatMessage({
-            id: ETranslations.perp_portfolio_account_health,
-          })}
-        </SectionLabel>
+        <XStack justifyContent="space-between" alignItems="center">
+          <SectionLabel>
+            {intl.formatMessage({
+              id: ETranslations.perp_portfolio_account_health,
+            })}
+          </SectionLabel>
+          {hasPosition ? (
+            <XStack gap="$1.5" alignItems="center">
+              <Stack
+                width={6}
+                height={6}
+                borderRadius="$full"
+                bg={accountHealthRisk.color}
+              />
+              <SizableText
+                size="$bodyXs"
+                color={accountHealthRisk.color}
+                textTransform="uppercase"
+                letterSpacing={1.2}
+              >
+                {accountHealthText}
+              </SizableText>
+            </XStack>
+          ) : null}
+        </XStack>
         <XStack justifyContent="space-around" alignItems="flex-end">
           <SemiCircleGauge
             percentage={leverageGaugePct}
@@ -646,7 +738,7 @@ function PerpPortfolioContentComponent({
               </DashText>
             }
             value={marginUsedText}
-            color={gaugeColor(marginUsedGaugePct)}
+            color={marginUsedGaugeColor(marginUsedGaugePct)}
           />
           <SemiCircleGauge
             percentage={marginPercentRaw}
@@ -696,13 +788,13 @@ function PerpPortfolioContentComponent({
               </SizableText>
               <XStack gap="$1.5" alignItems="center">
                 <Token
-                  size="xs"
+                  size="xxs"
                   tokenImageUri={getHyperliquidTokenImageUrl(
-                    fillsStats.mostTraded,
+                    parseDexCoin(fillsStats.mostTraded).displayName,
                   )}
                 />
                 <SizableText size="$headingSm" color="$text">
-                  {fillsStats.mostTraded}
+                  {parseDexCoin(fillsStats.mostTraded).displayName}
                 </SizableText>
               </XStack>
             </YStack>
