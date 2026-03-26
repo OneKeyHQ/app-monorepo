@@ -1,6 +1,6 @@
 ---
 name: 1k-bundle-release
-description: Release branch management — checkout from release, prepare builds, pre-release diff checks, publish tracking, and sync back to x. Use this skill when managing release branches, creating branches for bundle releases, running pre-release diff checks, finalizing releases, or syncing release changes to x. Triggers on "bundle release", "release diff", "release publish", "release sync", "release checkout", "发布管理", "release 分支", "release management", "bundle-release", "bundle branch".
+description: Release branch management — checkout from release, prepare builds, pre-release diff checks, security audits, publish tracking, and sync back to x. Use this skill when managing release branches, creating branches for bundle releases, running pre-release diff checks, auditing release security, finalizing releases, or syncing release changes to x. Triggers on "bundle release", "release diff", "release publish", "release sync", "release checkout", "release audit", "发布管理", "release 分支", "release management", "bundle-release", "bundle branch", "发布审计", "安全审计 release".
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 disable-model-invocation: true
 ---
@@ -55,7 +55,8 @@ If the user wants a different branch, let them specify it manually.
 |------------|-------------|-------|
 | `checkout` | Start working on a bundle release feature | [checkout.md](references/rules/checkout.md) |
 | `prepare` | Set BUILD_NUMBER before triggering CI | [prepare.md](references/rules/prepare.md) |
-| `diff-check` | Before publishing — review changeset | [diff-check.md](references/rules/diff-check.md) |
+| `diff-check` | Before publishing — quick changeset review | [diff-check.md](references/rules/diff-check.md) |
+| `audit` | Before publishing — full security & supply-chain audit | [audit.md](references/rules/audit.md) |
 | `publish` | Diff check passed — record release | [publish.md](references/rules/publish.md) |
 | `sync` | After publishing — rebase to x | [sync.md](references/rules/sync.md) |
 
@@ -66,6 +67,7 @@ Parse the argument passed to this skill:
 - **`checkout [branch-name]`** → Read and follow [checkout.md](references/rules/checkout.md)
 - **`prepare`** → Read and follow [prepare.md](references/rules/prepare.md)
 - **`diff-check`** → Read and follow [diff-check.md](references/rules/diff-check.md)
+- **`audit`** → Read and follow [audit.md](references/rules/audit.md)
 - **`publish`** → Read and follow [publish.md](references/rules/publish.md)
 - **`sync`** → Read and follow [sync.md](references/rules/sync.md)
 - **No argument** → Show this quick reference and ask which subcommand to run
@@ -76,7 +78,8 @@ Parse the argument passed to this skill:
 /1k-bundle-release checkout feat/my-fix   ← Branch from release/* to start work
   ... develop, create PR targeting release/*, QA verifies, merge ...
 /1k-bundle-release prepare                ← Set BUILD_NUMBER
-/1k-bundle-release diff-check             ← Review changeset before publishing
+/1k-bundle-release diff-check             ← Quick changeset review
+/1k-bundle-release audit                  ← Full security audit (optional, recommended)
 /1k-bundle-release publish                ← Record release in RELEASES.json
 /1k-bundle-release sync                   ← Rebase changes to x
 ```
