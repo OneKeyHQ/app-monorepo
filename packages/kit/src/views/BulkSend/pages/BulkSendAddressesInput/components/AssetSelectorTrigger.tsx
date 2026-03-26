@@ -15,11 +15,25 @@ import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useBulkSendAddressesInputContext } from './Context';
 
-function AssetSelectorTrigger() {
+type IResolvedSelectorAccount = {
+  accountId: string;
+  indexedAccountId?: string;
+};
+
+function AssetSelectorTrigger({
+  senderAddresses,
+  activeAccountId,
+  activeIndexedAccountId,
+}: {
+  senderAddresses?: string;
+  activeAccountId?: string;
+  activeIndexedAccountId?: string;
+}) {
   const intl = useIntl();
   const media = useMedia();
   const {
@@ -29,11 +43,15 @@ function AssetSelectorTrigger() {
     setSelectedToken,
     selectedIndexedAccountId,
     setSelectedAccountId,
+    setSelectedIndexedAccountId,
     setSelectedNetworkId,
+    bulkSendMode,
+    resolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
   const navigation = useAppNavigation();
 
   const openChainSelector = useConfigurableChainSelector();
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
   const { network } = useAccountData({
     networkId: selectedNetworkId,
@@ -53,6 +71,13 @@ function AssetSelectorTrigger() {
     result: { availableNetworkIds, unavailableNetworkIds },
   } = usePromiseResult(
     async () => {
+      if (!isOneToMany) {
+        return {
+          availableNetworkIds: [],
+          unavailableNetworkIds: [],
+        };
+      }
+
       const _availableNetworkIds =
         bulkSendUtils.getBulkSendSupportedNetworkIds();
 
@@ -75,7 +100,7 @@ function AssetSelectorTrigger() {
         unavailableNetworkIds: unavailableItems.map((o) => o.id),
       };
     },
-    [selectedAccountId],
+    [isOneToMany, selectedAccountId],
     {
       initResult: {
         availableNetworkIds: [],
@@ -85,34 +110,205 @@ function AssetSelectorTrigger() {
     },
   );
 
+  const resolveAccountContextForAddress = useCallback(
+    async ({
+      address,
+      networkId,
+      skipValidation = false,
+    }: {
+      address: string;
+      networkId: string;
+      skipValidation?: boolean;
+    }): Promise<IResolvedSelectorAccount | undefined> => {
+      const trimmedAddress = address.trim();
+      if (!trimmedAddress) {
+        return undefined;
+      }
+
+      if (!skipValidation) {
+        const validationResult =
+          await backgroundApiProxy.serviceValidator.localValidateAddress({
+            networkId,
+            address: trimmedAddress,
+          });
+        if (!validationResult.isValid) {
+          return undefined;
+        }
+      }
+
+      try {
+        const walletAccountItems =
+          await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+            networkId,
+            address: trimmedAddress,
+          });
+
+        for (const item of walletAccountItems) {
+          if (!accountUtils.isWatchingAccount({ accountId: item.accountId })) {
+            if (
+              accountUtils.isHdAccount({ accountId: item.accountId }) ||
+              accountUtils.isHwAccount({ accountId: item.accountId })
+            ) {
+              const networkAccounts =
+                await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+                  {
+                    indexedAccountId: item.accountId,
+                    networkIds: [networkId],
+                  },
+                );
+
+              if (networkAccounts[0]?.account?.id) {
+                return {
+                  accountId: networkAccounts[0].account.id,
+                  indexedAccountId: item.accountId,
+                };
+              }
+            } else if (
+              accountUtils.isExternalAccount({ accountId: item.accountId }) ||
+              accountUtils.isImportedAccount({ accountId: item.accountId }) ||
+              accountUtils.isOthersAccount({ accountId: item.accountId })
+            ) {
+              return {
+                accountId: item.accountId,
+              };
+            }
+          }
+        }
+      } catch {
+        return undefined;
+      }
+
+      return undefined;
+    },
+    [],
+  );
+
+  const resolveAccountContextFromSenders = useCallback(
+    async (
+      networkId: string,
+    ): Promise<IResolvedSelectorAccount | undefined> => {
+      const nonEmptyLines = (senderAddresses ?? '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      for (let index = 0; index < nonEmptyLines.length; index += 1) {
+        const address = nonEmptyLines[index].split(',')[0]?.trim();
+        if (address) {
+          const resolvedAccountId = resolvedSenderAccountIds[index];
+          const resolved = await resolveAccountContextForAddress({
+            address,
+            networkId,
+            skipValidation: Boolean(resolvedAccountId),
+          });
+
+          if (resolved) {
+            return resolvedAccountId
+              ? {
+                  ...resolved,
+                  accountId: resolvedAccountId,
+                }
+              : resolved;
+          }
+        }
+      }
+
+      return undefined;
+    },
+    [
+      senderAddresses,
+      resolvedSenderAccountIds,
+      resolveAccountContextForAddress,
+    ],
+  );
+
+  const resolveFallbackActiveAccountContext = useCallback(
+    async (
+      networkId: string,
+    ): Promise<IResolvedSelectorAccount | undefined> => {
+      if (!activeAccountId) {
+        return undefined;
+      }
+
+      if (
+        accountUtils.isOthersAccount({ accountId: activeAccountId }) ||
+        !activeIndexedAccountId
+      ) {
+        return {
+          accountId: activeAccountId,
+          indexedAccountId: activeIndexedAccountId,
+        };
+      }
+
+      const networkAccounts =
+        await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+          {
+            networkIds: [networkId],
+            indexedAccountId: activeIndexedAccountId,
+          },
+        );
+
+      if (!networkAccounts[0]?.account?.id) {
+        return undefined;
+      }
+
+      return {
+        accountId: networkAccounts[0].account.id,
+        indexedAccountId: activeIndexedAccountId,
+      };
+    },
+    [activeAccountId, activeIndexedAccountId],
+  );
+
   const handleSelectAsset = useCallback(() => {
     openChainSelector({
-      networkIds: availableNetworkIds,
-      disableNetworkIds: unavailableNetworkIds,
+      networkIds: isOneToMany ? availableNetworkIds : undefined,
+      disableNetworkIds: isOneToMany ? unavailableNetworkIds : undefined,
       defaultNetworkId: selectedNetworkId,
-      showNetworkValues: true,
+      showNetworkValues: isOneToMany,
       indexedAccountId: selectedIndexedAccountId ?? undefined,
       accountId: selectedAccountId ?? undefined,
       onSelect: async (_network) => {
-        let accountId = '';
-        if (
-          accountUtils.isOthersAccount({ accountId: selectedAccountId }) ||
-          (networkUtils.isAllNetwork({ networkId: selectedNetworkId }) &&
-            selectedAccountId)
-        ) {
-          accountId = selectedAccountId ?? '';
-        } else {
-          const networkAccounts =
-            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
-              {
-                networkIds: [_network.id],
-                indexedAccountId: selectedIndexedAccountId ?? '',
-              },
-            );
-          accountId = networkAccounts[0].account?.id ?? '';
+        let resolvedAccountContext = await resolveAccountContextFromSenders(
+          _network.id,
+        );
+
+        if (!resolvedAccountContext) {
+          resolvedAccountContext = await resolveFallbackActiveAccountContext(
+            _network.id,
+          );
         }
 
-        if (accountId) {
+        if (!resolvedAccountContext && selectedAccountId) {
+          if (
+            accountUtils.isOthersAccount({ accountId: selectedAccountId }) ||
+            (networkUtils.isAllNetwork({ networkId: selectedNetworkId }) &&
+              selectedAccountId)
+          ) {
+            resolvedAccountContext = {
+              accountId: selectedAccountId,
+              indexedAccountId: selectedIndexedAccountId,
+            };
+          } else if (selectedIndexedAccountId) {
+            const networkAccounts =
+              await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountId(
+                {
+                  networkIds: [_network.id],
+                  indexedAccountId: selectedIndexedAccountId,
+                },
+              );
+            if (networkAccounts[0]?.account?.id) {
+              resolvedAccountContext = {
+                accountId: networkAccounts[0].account.id,
+                indexedAccountId: selectedIndexedAccountId,
+              };
+            }
+          }
+        }
+
+        if (resolvedAccountContext?.accountId) {
+          const { accountId, indexedAccountId } = resolvedAccountContext;
+
           const vaultSettings =
             await backgroundApiProxy.serviceNetwork.getVaultSettings({
               networkId: _network.id,
@@ -136,12 +332,17 @@ function AssetSelectorTrigger() {
           }
 
           navigation.push(EChainSelectorPages.TokenSelector, {
+            accountId,
+            networkId: _network.id,
             activeAccountId: accountId,
             activeNetworkId: _network.id,
-            indexedAccountId: selectedIndexedAccountId ?? '',
+            forceShowActiveAccountTokenList: true,
+            indexedAccountId: indexedAccountId ?? '',
+            hideBalanceAndValue: !isOneToMany,
             onSelect: (token: IToken) => {
               setSelectedToken(token);
               setSelectedAccountId(accountId);
+              setSelectedIndexedAccountId(indexedAccountId);
               setSelectedNetworkId(_network.id);
               navigation.popStack();
             },
@@ -149,6 +350,7 @@ function AssetSelectorTrigger() {
         } else {
           navigation.popStack();
           setSelectedAccountId(undefined);
+          setSelectedIndexedAccountId(undefined);
           setSelectedNetworkId(_network.id);
           setSelectedToken(undefined);
         }
@@ -160,12 +362,16 @@ function AssetSelectorTrigger() {
   }, [
     openChainSelector,
     availableNetworkIds,
+    isOneToMany,
+    resolveAccountContextFromSenders,
+    resolveFallbackActiveAccountContext,
     selectedNetworkId,
     selectedAccountId,
     selectedIndexedAccountId,
     navigation,
     setSelectedToken,
     setSelectedAccountId,
+    setSelectedIndexedAccountId,
     setSelectedNetworkId,
     unavailableNetworkIds,
   ]);
