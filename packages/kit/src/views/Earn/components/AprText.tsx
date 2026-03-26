@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
@@ -8,12 +10,14 @@ const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 // APR text component with aprInfo support
 export function AprText({
   asset,
+  size = '$bodyLgMedium',
 }: {
   asset: {
     aprInfo?: IEarnAvailableAsset['aprInfo'];
     aprWithoutFee: IEarnAvailableAsset['aprWithoutFee'];
     rewardUnit?: IEarnAvailableAsset['rewardUnit'];
   };
+  size?: ComponentProps<typeof SizableText>['size'];
 }) {
   const { aprInfo, aprWithoutFee, rewardUnit = 'APR' } = asset;
 
@@ -31,7 +35,7 @@ export function AprText({
             />
           ) : null}
           <SizableText
-            size="$bodyLgMedium"
+            size={size}
             textAlign="right"
             color={highlight.color || '$textSuccess'}
           >
@@ -78,7 +82,7 @@ export function AprText({
     const { normal } = aprInfo;
     return (
       <SizableText
-        size="$bodyLgMedium"
+        size={size}
         textAlign="right"
         color={normal.color || '$text'}
       >
@@ -92,7 +96,7 @@ export function AprText({
     const { deprecated } = aprInfo;
     return (
       <SizableText
-        size="$bodyLgMedium"
+        size={size}
         textAlign="right"
         color={deprecated.color || '$textSubdued'}
         textDecorationLine="line-through"
@@ -104,7 +108,7 @@ export function AprText({
 
   // Priority 4: fallback to current logic
   return (
-    <SizableText size="$bodyLgMedium" textAlign="right">
+    <SizableText size={size} textAlign="right">
       {buildAprText(aprWithoutFee, rewardUnit as IEarnRewardUnit)}
     </SizableText>
   );
