@@ -29,7 +29,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-          fetch-depth: 0
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
@@ -105,6 +104,8 @@ jobs:
           if [ -f .apk-build-commit ] && [ -f apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk ]; then
             CACHED_COMMIT=$(cat .apk-build-commit)
             echo "Cached APK built from commit: $CACHED_COMMIT"
+            # Fetch the cached commit so git diff can compare
+            git fetch --depth=1 origin "$CACHED_COMMIT" 2>/dev/null || true
             if ./development/scripts/check-native-changes.sh "$CACHED_COMMIT"; then
               echo "No native changes since $CACHED_COMMIT — reusing cached APK"
               echo "rebuild=false" >> "$GITHUB_OUTPUT"
