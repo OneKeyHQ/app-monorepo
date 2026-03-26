@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "市销率",
   "dexmarket_stock.ps_desc": "市销率，对尚未盈利的公司估值有用。",
   "dexmarket_stock.roa": "总资产收益率",
+  "dexmarket_stock.roa_desc": "总资产收益率，衡量公司将总资产转化为利润的效率。",
   "dexmarket_stock.roe": "净资产收益率",
   "dexmarket_stock.roe_desc": "净资产收益率，衡量公司将股东权益转化为利润的效率。",
   "dexmarket_stock.shares_per_token": "币股比例",
@@ -2872,9 +2873,12 @@
   "perp_portfolio_chart_type_pnl": "盈亏",
   "perp_portfolio_chart_type_value": "净值",
   "perp_portfolio_fees_paid": "已付手续费",
+  "perp_portfolio_health_status_healthy": "健康",
+  "perp_portfolio_health_status_high_risk": "高风险",
+  "perp_portfolio_health_status_moderate": "中等风险",
   "perp_portfolio_margin_used": "已用保证金",
   "perp_portfolio_margin_used_tooltip": "分配给持仓的总保证金。",
-  "perp_portfolio_mmr_tooltip": "维持保证金率 — 保持仓位所需的最低保证金。当该比率超过 100% 时，仓位将被强制平仓。",
+  "perp_portfolio_mmr_tooltip": "维持保证金率（仅含全仓）— 保持全仓仓位所需的最低保证金，不含逐仓仓位。当该比率超过 100% 时，仓位将被强制平仓。",
   "perp_portfolio_most_traded": "最多交易",
   "perp_portfolio_net_deposits": "净入金",
   "perp_portfolio_net_deposits_tooltip": "该时段内总入金减去总出金。",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "如何在 OneKey 中交易加密货币?",
   "watch_only_desc_manage": "您无法管理该钱包。",
   "watch_only_desc_transactions": "查看他人的交易。",
-  "word": "助记词",
-  "xmarket_stock.roa_desc": "总资产收益率，衡量公司将总资产转化为利润的效率。"
+  "word": "助记词"
 }

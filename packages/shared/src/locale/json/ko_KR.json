@@ -777,6 +777,7 @@
   "dexmarket_stock.ps": "P/S",
   "dexmarket_stock.ps_desc": "주가매출비율, 아직 수익을 내지 못하는 회사를 평가하는 데 유용합니다.",
   "dexmarket_stock.roa": "ROA",
+  "dexmarket_stock.roa_desc": "총자산이익률, 회사가 총 자산을 얼마나 효율적으로 이익으로 전환하는지를 측정합니다.",
   "dexmarket_stock.roe": "ROE",
   "dexmarket_stock.roe_desc": "자기자본이익률, 회사가 주주 자본을 얼마나 효율적으로 이익으로 전환하는지를 측정합니다.",
   "dexmarket_stock.shares_per_token": "토큰당 주식 수",
@@ -2872,6 +2873,9 @@
   "perp_portfolio_chart_type_pnl": "P&L",
   "perp_portfolio_chart_type_value": "가치",
   "perp_portfolio_fees_paid": "지불한 수수료",
+  "perp_portfolio_health_status_healthy": "양호",
+  "perp_portfolio_health_status_high_risk": "높은 위험",
+  "perp_portfolio_health_status_moderate": "보통",
   "perp_portfolio_margin_used": "사용 증거금",
   "perp_portfolio_margin_used_tooltip": "미결제 포지션에 할당된 총 증거금.",
   "perp_portfolio_mmr_tooltip": "유지 증거금 비율 — 포지션을 유지하는 데 필요한 최소 증거금. 100%를 초과하면 청산이 발생합니다.",
@@ -4787,6 +4791,5 @@
   "wallet_empty_article_trade": "OneKey에서 암호화폐를 거래하려면 어떻게 하나요?",
   "watch_only_desc_manage": "지갑을 관리할 수 없습니다.",
   "watch_only_desc_transactions": "다른 사람들의 거래를 확인하세요.",
-  "word": "워드",
-  "xmarket_stock.roa_desc": "총자산이익률, 회사가 총 자산을 얼마나 효율적으로 이익으로 전환하는지를 측정합니다."
+  "word": "워드"
 }

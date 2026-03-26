@@ -527,7 +527,8 @@ function WalletBanner() {
   });
 
   // --- Perps Referral Banner ---
-  const [referralBannerHidden, setReferralBannerHidden] = useState(false);
+  const [referralBannerHiddenForAccount, setReferralBannerHiddenForAccount] =
+    useState<string | null>(null);
 
   const { result: referralEligibility } = usePromiseResult(async () => {
     if (!account?.id) {
@@ -550,38 +551,47 @@ function WalletBanner() {
       return;
     const { resolvedAccountId, resolvedAddress } = referralEligibility;
 
-    const { typedData, action, nonce } =
-      await backgroundApiProxy.serviceHyperliquidReferral.buildSetReferrerTypedData(
-        { code: HYPERLIQUID_REFERRAL_CODE },
-      );
+    try {
+      const { typedData, action, nonce } =
+        await backgroundApiProxy.serviceHyperliquidReferral.buildSetReferrerTypedData(
+          { code: HYPERLIQUID_REFERRAL_CODE },
+        );
 
-    const signatureHex = await backgroundApiProxy.serviceSend.signMessage({
-      unsignedMessage: {
-        type: EMessageTypesEth.TYPED_DATA_V4,
-        message: JSON.stringify(typedData),
-        payload: [resolvedAddress, JSON.stringify(typedData)],
-      },
-      accountId: resolvedAccountId,
-      networkId: PERPS_NETWORK_ID,
-    });
+      const signatureHex = await backgroundApiProxy.serviceSend.signMessage({
+        unsignedMessage: {
+          type: EMessageTypesEth.TYPED_DATA_V4,
+          message: JSON.stringify(typedData),
+          payload: [resolvedAddress, JSON.stringify(typedData)],
+        },
+        accountId: resolvedAccountId,
+        networkId: PERPS_NETWORK_ID,
+      });
 
-    if (!signatureHex || typeof signatureHex !== 'string') return;
+      if (!signatureHex || typeof signatureHex !== 'string') return;
 
-    const submitResult =
-      await backgroundApiProxy.serviceHyperliquidReferral.submitSetReferrerWithSignature(
-        { action, nonce, signatureHex },
-      );
+      const submitResult =
+        await backgroundApiProxy.serviceHyperliquidReferral.submitSetReferrerWithSignature(
+          { action, nonce, signatureHex },
+        );
 
-    if (submitResult.status === 'ok') {
-      await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
-        { userAddress: resolvedAddress },
-      );
-      setReferralBannerHidden(true);
-      Toast.success({
+      if (submitResult.status === 'ok') {
+        await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
+          { userAddress: resolvedAddress },
+        );
+        setReferralBannerHiddenForAccount(resolvedAddress);
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.perps__fee_discount_activated__msg,
+          }),
+        });
+      }
+    } catch (e) {
+      Toast.error({
         title: intl.formatMessage({
-          id: ETranslations.perps__fee_discount_activated__msg,
+          id: ETranslations.perps__claim_failed__msg,
         }),
       });
+      throw e;
     }
   }, [referralEligibility, intl]);
 
@@ -590,7 +600,7 @@ function WalletBanner() {
     await backgroundApiProxy.serviceHyperliquidReferral.snoozeReferralBanner({
       userAddress: referralEligibility.resolvedAddress,
     });
-    setReferralBannerHidden(true);
+    setReferralBannerHiddenForAccount(referralEligibility.resolvedAddress);
   }, [referralEligibility]);
 
   const handleReferralBannerPress = useCallback(() => {
@@ -619,7 +629,11 @@ function WalletBanner() {
   }, [handleReferralBind, handleSnoozeReferralBanner, intl]);
 
   const referralBannerItem: IWalletBanner | null = useMemo(() => {
-    if (referralBannerHidden || !referralEligibility?.shouldShow) return null;
+    if (
+      referralBannerHiddenForAccount === referralEligibility?.resolvedAddress ||
+      !referralEligibility?.shouldShow
+    )
+      return null;
     return {
       _id: PERPS_REFERRAL_BANNER_ID,
       id: PERPS_REFERRAL_BANNER_ID,
@@ -639,7 +653,12 @@ function WalletBanner() {
       position: 'home',
       icon: 'GiftSolid',
     };
-  }, [referralBannerHidden, referralEligibility?.shouldShow, intl]);
+  }, [
+    referralBannerHiddenForAccount,
+    referralEligibility?.resolvedAddress,
+    referralEligibility?.shouldShow,
+    intl,
+  ]);
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
