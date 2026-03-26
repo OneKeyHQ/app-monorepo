@@ -4,8 +4,8 @@ import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { MarketBannerList } from '../components/MarketBanner';
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
+import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';

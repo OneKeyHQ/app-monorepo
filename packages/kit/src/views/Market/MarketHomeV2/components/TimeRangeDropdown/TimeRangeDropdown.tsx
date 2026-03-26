@@ -9,8 +9,8 @@ import {
 } from '@onekeyhq/components';
 
 import {
-  TIME_RANGE_OPTIONS,
   type ITimeRangeSelectorValue,
+  TIME_RANGE_OPTIONS,
 } from '../TimeRangeSelector';
 
 interface ITimeRangeDropdownProps {
@@ -56,7 +56,11 @@ function TimeRangeDropdownContent({
   );
 }
 
-function TimeRangeDropdownImpl({ value, onChange, compact }: ITimeRangeDropdownProps) {
+function TimeRangeDropdownImpl({
+  value,
+  onChange,
+  compact,
+}: ITimeRangeDropdownProps) {
   const currentLabel = useMemo(
     () => TIME_RANGE_OPTIONS.find((o) => o.value === value)?.label ?? value,
     [value],
@@ -65,18 +69,16 @@ function TimeRangeDropdownImpl({ value, onChange, compact }: ITimeRangeDropdownP
   const renderTrigger = useMemo(
     () => (
       <XStack
-        {...(compact ? {} : { bg: '$bgStrong', borderRadius: '$full', px: '$2.5', py: '$1' })}
+        {...(compact
+          ? {}
+          : { bg: '$bgStrong', borderRadius: '$full', px: '$2.5', py: '$1' })}
         gap={compact ? '$1' : '$2'}
         alignItems="center"
         cursor="pointer"
         userSelect="none"
       >
         <SizableText size="$bodyMdMedium">{currentLabel}</SizableText>
-        <Icon
-          name="ChevronDownSmallOutline"
-          size="$4.5"
-          color="$iconSubdued"
-        />
+        <Icon name="ChevronDownSmallOutline" size="$4.5" color="$iconSubdued" />
       </XStack>
     ),
     [currentLabel, compact],
