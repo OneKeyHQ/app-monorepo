@@ -788,9 +788,10 @@ function BulkSendAmountsInputContent({
   const intl = useIntl();
   const hasCustomAmounts = useMemo(
     () =>
-      receivers?.some((r) => r.amount !== undefined && r.amount !== '') ??
+      (receivers?.some((r) => r.amount !== undefined && r.amount !== '') ||
+        senders?.some((s) => s.amount !== undefined && s.amount !== '')) ??
       false,
-    [receivers],
+    [receivers, senders],
   );
   const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
 
