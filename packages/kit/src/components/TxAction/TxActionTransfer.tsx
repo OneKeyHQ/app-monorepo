@@ -321,6 +321,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     src: '',
     isNFT: !!(sendNFTIcon || receiveNFTIcon),
   };
+  const isStackedLayout = !tableLayout;
   let title = '';
   let change: React.ReactNode = '';
   let changeSymbol = '';
@@ -410,6 +411,12 @@ function TxActionTransferListView(props: ITxActionProps) {
       }}
       numberOfLines={1}
       size="$bodyLgMedium"
+      {...(isStackedLayout && {
+        minWidth: 0,
+        maxWidth: '100%',
+        textAlign: 'right',
+        flexShrink: 1,
+      })}
       {...((change as string)?.includes('+') && {
         color: '$textSuccess',
       })}
@@ -437,7 +444,12 @@ function TxActionTransferListView(props: ITxActionProps) {
       size="$bodyMd"
       color="$textSubdued"
       numberOfLines={1}
-      maxWidth="$40"
+      maxWidth={isStackedLayout ? '100%' : '$40'}
+      {...(isStackedLayout && {
+        minWidth: 0,
+        textAlign: 'right',
+        flexShrink: 1,
+      })}
     >
       {changeDescription as string}
     </NumberSizeableTextWrapper>
@@ -447,6 +459,12 @@ function TxActionTransferListView(props: ITxActionProps) {
       size="$bodyMd"
       color="$textSubdued"
       formatter="value"
+      {...(isStackedLayout && {
+        minWidth: 0,
+        maxWidth: '100%',
+        textAlign: 'right',
+        flexShrink: 1,
+      })}
     >
       -
     </NumberSizeableTextWrapper>

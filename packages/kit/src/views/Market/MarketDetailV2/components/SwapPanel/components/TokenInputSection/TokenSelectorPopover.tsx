@@ -18,6 +18,7 @@ export interface ITokenSelectorPopoverProps {
   disabledOnSwitchToTrade?: boolean;
   onTradePress?: () => void;
   currentSelectToken?: ISwapToken;
+  disableNativeToken?: boolean;
 }
 
 export function TokenSelectorPopover({
@@ -28,6 +29,7 @@ export function TokenSelectorPopover({
   disabledOnSwitchToTrade,
   onTradePress,
   currentSelectToken,
+  disableNativeToken,
 }: ITokenSelectorPopoverProps) {
   const intl = useIntl();
   return (
@@ -55,6 +57,7 @@ export function TokenSelectorPopover({
             tokens={tokens}
             onTokenPress={onTokenPress}
             disabledOnSwitchToTrade={disabledOnSwitchToTrade}
+            disableNativeToken={disableNativeToken}
           />
         </AccountSelectorProviderMirror>
       }

@@ -19,6 +19,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
@@ -132,7 +133,7 @@ function TxActionCommonTitle({
   const intl = useIntl();
 
   return (
-    <XStack alignItems="center">
+    <XStack alignItems="center" minWidth={0}>
       <SizableText numberOfLines={1} flexShrink={1} size="$bodyLgMedium">
         {title}
       </SizableText>
@@ -254,15 +255,19 @@ function TxActionCommonDescription({
 
 function TxActionCommonChange({
   change,
-  tableLayout: _tableLayout,
+  tableLayout,
   compact: _compact,
 }: Pick<ITxActionCommonListViewProps, 'tableLayout' | 'compact'> & {
   change: string;
 }) {
   return (
     <SizableText
+      minWidth={0}
       numberOfLines={1}
       size="$bodyLgMedium"
+      {...(!tableLayout && {
+        textAlign: 'right',
+      })}
       {...(change?.includes('+') && {
         color: '$textSuccess',
       })}
@@ -274,11 +279,21 @@ function TxActionCommonChange({
 
 function TxActionCommonChangeDescription({
   changeDescription,
+  tableLayout,
 }: {
   changeDescription: string;
+  tableLayout?: boolean;
 }) {
   return (
-    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+    <SizableText
+      size="$bodyMd"
+      color="$textSubdued"
+      numberOfLines={1}
+      minWidth={0}
+      {...(!tableLayout && {
+        textAlign: 'right',
+      })}
+    >
       {changeDescription || '-'}
     </SizableText>
   );
@@ -357,6 +372,10 @@ function TxActionCommonListView(
   } = props;
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
+  let changeMaxWidth: '50%' | '65%' = '50%';
+  if (!tableLayout && platformEnv.isNativeAndroid) {
+    changeMaxWidth = '65%';
+  }
 
   return (
     <ListItem
@@ -379,6 +398,7 @@ function TxActionCommonListView(
         {/* token, title and subtitle */}
         <XStack
           flex={1}
+          minWidth={0}
           gap="$3"
           {...(tableLayout && {
             flexGrow: 2,
@@ -394,7 +414,7 @@ function TxActionCommonListView(
               compact={compact}
             />
           ) : null}
-          <Stack flex={1}>
+          <Stack flex={1} minWidth={0}>
             <TxActionCommonTitle
               title={title}
               status={status}
@@ -430,8 +450,12 @@ function TxActionCommonListView(
         </XStack>
         {/* changes */}
         <Stack
-          maxWidth="50%"
+          minWidth={0}
+          maxWidth={changeMaxWidth}
           alignItems="flex-end"
+          {...(!tableLayout && {
+            flexShrink: 1,
+          })}
           {...(tableLayout && {
             alignItems: 'unset',
             flexGrow: 1,
@@ -450,6 +474,7 @@ function TxActionCommonListView(
           {typeof changeDescription === 'string' ? (
             <TxActionCommonChangeDescription
               changeDescription={changeDescription}
+              tableLayout={tableLayout}
             />
           ) : (
             changeDescription
