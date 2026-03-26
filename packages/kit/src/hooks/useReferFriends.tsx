@@ -296,7 +296,11 @@ export const useReferFriends = () => {
         icon: 'GiftOutline',
         title: sourceConfig?.title,
         description:
-          source === 'Perps' ? undefined : (
+          source === 'Perps' ? (
+            intl.formatMessage({
+              id: ETranslations.perps_referral_campaign__desc,
+            })
+          ) : (
             <FormatHyperlinkText
               size="$bodyMd"
               underlineTextProps={{ color: '$textInfo' }}
@@ -378,11 +382,7 @@ export const useReferFriends = () => {
               </YStack>
             ) : null}
           </YStack>
-        ) : source === 'Perps' ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {'邀请好友，一起抽奖 99U。更有天梯排名冲击大奖！'}
-          </SizableText>
-        ) : (
+        ) : source === 'Perps' ? null : (
           <YStack gap="$5">
             <XStack gap="$4">
               <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgSuccess">
