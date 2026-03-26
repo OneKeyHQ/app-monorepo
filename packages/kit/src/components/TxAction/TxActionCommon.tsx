@@ -255,7 +255,7 @@ function TxActionCommonDescription({
 
 function TxActionCommonChange({
   change,
-  tableLayout: _tableLayout,
+  tableLayout,
   compact: _compact,
 }: Pick<ITxActionCommonListViewProps, 'tableLayout' | 'compact'> & {
   change: string;
@@ -264,8 +264,10 @@ function TxActionCommonChange({
     <SizableText
       minWidth={0}
       numberOfLines={1}
-      textAlign="right"
       size="$bodyLgMedium"
+      {...(!tableLayout && {
+        textAlign: 'right',
+      })}
       {...(change?.includes('+') && {
         color: '$textSuccess',
       })}
@@ -277,8 +279,10 @@ function TxActionCommonChange({
 
 function TxActionCommonChangeDescription({
   changeDescription,
+  tableLayout,
 }: {
   changeDescription: string;
+  tableLayout?: boolean;
 }) {
   return (
     <SizableText
@@ -286,7 +290,9 @@ function TxActionCommonChangeDescription({
       color="$textSubdued"
       numberOfLines={1}
       minWidth={0}
-      textAlign="right"
+      {...(!tableLayout && {
+        textAlign: 'right',
+      })}
     >
       {changeDescription || '-'}
     </SizableText>
@@ -366,9 +372,9 @@ function TxActionCommonListView(
   } = props;
   const [settings] = useSettingsPersistAtom();
   const currencySymbol = settings.currencyInfo.symbol;
-  let mobileChangeMaxWidth: '50%' | '65%' | undefined;
-  if (!tableLayout) {
-    mobileChangeMaxWidth = platformEnv.isNativeAndroid ? '65%' : '50%';
+  let changeMaxWidth: '50%' | '65%' = '50%';
+  if (!tableLayout && platformEnv.isNativeAndroid) {
+    changeMaxWidth = '65%';
   }
 
   return (
@@ -445,9 +451,11 @@ function TxActionCommonListView(
         {/* changes */}
         <Stack
           minWidth={0}
-          flexShrink={1}
-          maxWidth={mobileChangeMaxWidth}
+          maxWidth={changeMaxWidth}
           alignItems="flex-end"
+          {...(!tableLayout && {
+            flexShrink: 1,
+          })}
           {...(tableLayout && {
             alignItems: 'unset',
             flexGrow: 1,
@@ -466,6 +474,7 @@ function TxActionCommonListView(
           {typeof changeDescription === 'string' ? (
             <TxActionCommonChangeDescription
               changeDescription={changeDescription}
+              tableLayout={tableLayout}
             />
           ) : (
             changeDescription
