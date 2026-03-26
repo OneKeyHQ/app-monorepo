@@ -112,10 +112,7 @@ webFrame.executeJavaScript(${JSON.stringify(fullProviderCode)}).catch(function (
 });
 `;
 
-  fs.writeFileSync(
-    './apps/desktop/public/static/preload.js',
-    preloadContent,
-  );
+  fs.writeFileSync('./apps/desktop/public/static/preload.js', preloadContent);
   console.log('Generated preload.js (webview preload with embedded provider)');
 })();
 

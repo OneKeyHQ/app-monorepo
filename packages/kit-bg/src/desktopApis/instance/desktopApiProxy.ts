@@ -4,10 +4,7 @@ import platformEnvLite from '@onekeyhq/shared/src/platformEnvLite';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
-import type {
-  IDesktopApi,
-  IDesktopApiKeys,
-} from '../base/types';
+import type { IDesktopApi, IDesktopApiKeys } from '../base/types';
 import type DesktopApiAppleAuth from '../DesktopApiAppleAuth';
 import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
 import type DesktopApiBluetooth from '../DesktopApiBluetooth';

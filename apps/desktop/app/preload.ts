@@ -60,9 +60,7 @@ const validChannels = new Set([
 
 // --- Platform info (fetched once from main process, sandbox-compatible) ---
 
-const platformInfo = ipcRenderer.sendSync(
-  ipcMessageKeys.GET_PLATFORM_INFO,
-) as {
+const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   arch: string;
   platform: string;
   systemVersion: string;
@@ -229,8 +227,7 @@ const desktopApi = {
     ipcRenderer.send(ipcMessageKeys.SET_CONSECUTIVE_BOOT_FAIL_COUNT, count),
   recoveryExportLogs: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_EXPORT_LOGS),
-  recoveryTryAgain: () =>
-    ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
+  recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
 };
@@ -256,12 +253,11 @@ const exposeToMainWorld = (key: string, value: unknown) => {
 exposeToMainWorld('desktopApi', desktopApi);
 exposeToMainWorld('desktopApiBridge', desktopApiBridge);
 
-exposeToMainWorld('$mmkvSync', (args: {
-  method: string;
-  id: string;
-  key?: string;
-  value?: unknown;
-}) => ipcRenderer.sendSync('mmkv:sync', args));
+exposeToMainWorld(
+  '$mmkvSync',
+  (args: { method: string; id: string; key?: string; value?: unknown }) =>
+    ipcRenderer.sendSync('mmkv:sync', args),
+);
 
 // Expose getters for globals managed by IPC events
 exposeToMainWorld('ONEKEY_DESKTOP_GLOBALS_GETTER', () => desktopGlobals);
