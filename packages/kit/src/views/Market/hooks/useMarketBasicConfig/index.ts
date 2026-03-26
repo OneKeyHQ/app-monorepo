@@ -9,6 +9,8 @@ import {
   getRefreshInterval,
 } from './utils';
 
+const EMPTY_ARRAY: any[] = [];
+
 /**
  * Hook to fetch and manage market basic configuration
  * Provides default network, recommended tokens, and other market settings
@@ -33,7 +35,7 @@ export function useMarketBasicConfig() {
       const networkList = getNetworkList(configData);
 
       const perpsCategories = configData.perpsCategories ?? [];
-
+      const spotCategories = configData.spotCategories ?? [];
       return {
         // Raw config data
         basicConfig: configData,
@@ -45,6 +47,7 @@ export function useMarketBasicConfig() {
         formattedMinLiquidity,
         networkList,
         perpsCategories,
+        spotCategories,
       };
     },
     [],
@@ -61,11 +64,12 @@ export function useMarketBasicConfig() {
     // Provide default values when data is not loaded yet
     basicConfig: result?.basicConfig,
     defaultNetworkId: result?.defaultNetworkId,
-    recommendedTokens: result?.recommendedTokens || [],
-    minLiquidity: result?.minLiquidity || 5000,
-    refreshInterval: result?.refreshInterval || 5,
-    formattedMinLiquidity: result?.formattedMinLiquidity || '5K',
-    networkList: result?.networkList || [],
-    perpsCategories: result?.perpsCategories || [],
+    recommendedTokens: result?.recommendedTokens ?? EMPTY_ARRAY,
+    minLiquidity: result?.minLiquidity ?? 5000,
+    refreshInterval: result?.refreshInterval ?? 5,
+    formattedMinLiquidity: result?.formattedMinLiquidity ?? '5K',
+    networkList: result?.networkList ?? EMPTY_ARRAY,
+    perpsCategories: result?.perpsCategories ?? EMPTY_ARRAY,
+    spotCategories: result?.spotCategories ?? EMPTY_ARRAY,
   };
 }
