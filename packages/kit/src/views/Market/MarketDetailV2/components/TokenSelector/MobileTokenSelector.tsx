@@ -363,6 +363,7 @@ function MobileTokenSelectorContent() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const tokenDetailActions = useTokenDetailActions();
+  const { navigateToPerps } = usePerpsNavigation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
@@ -375,6 +376,13 @@ function MobileTokenSelectorContent() {
 
   const handleSelectToken = useCallback(
     (item: IMarketToken) => {
+      // Perps token — navigate to Perps tab (same as Market home)
+      if (item.perpsCoin) {
+        navigation.popStack();
+        navigateToPerps(item.perpsCoin);
+        return;
+      }
+
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
@@ -390,7 +398,6 @@ function MobileTokenSelectorContent() {
       navigation.popStack();
 
       // Sync URL: navigate to detail page with new params via root navigator
-      // This updates the route params without creating a new stack entry
       const targetTab = platformEnv.isNative
         ? ETabRoutes.Discovery
         : ETabRoutes.Market;
@@ -409,7 +416,7 @@ function MobileTokenSelectorContent() {
         });
       }, 100);
     },
-    [tokenDetailActions, navigation],
+    [tokenDetailActions, navigation, navigateToPerps],
   );
 
   const tabNames = useMemo(

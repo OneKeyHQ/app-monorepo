@@ -369,22 +369,34 @@ function DesktopFuturesList({
 // ---------------------------------------------------------------------------
 // Popover content
 // ---------------------------------------------------------------------------
+// Persist tab selection across popover open/close
+let lastActiveTab: IMarketTokenSelectorTab = 'watchlist';
+
 function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
   const intl = useIntl();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
+  const { navigateToPerps } = usePerpsNavigation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
   const [activeTab, setActiveTab] =
-    useState<IMarketTokenSelectorTab>('watchlist');
+    useState<IMarketTokenSelectorTab>(lastActiveTab);
 
-  // Reset search when popover closes
+  // Reset search when popover closes, persist tab
   useEffect(() => {
     if (!isOpen) {
       setSearchQuery('');
     }
   }, [isOpen]);
+
+  const handleTabChangeWithPersist = useCallback(
+    (tab: IMarketTokenSelectorTab) => {
+      lastActiveTab = tab;
+      setActiveTab(tab);
+    },
+    [],
+  );
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchQuery(text.slice(0, 64));
@@ -392,6 +404,13 @@ function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
 
   const handleSelectToken = useCallback(
     (item: IMarketToken) => {
+      // Perps token — navigate to Perps tab (same as Market home)
+      if (item.perpsCoin) {
+        closePopover?.();
+        navigateToPerps(item.perpsCoin);
+        return;
+      }
+
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
@@ -423,7 +442,7 @@ function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
         });
       }, 100);
     },
-    [tokenDetailActions, closePopover],
+    [tokenDetailActions, closePopover, navigateToPerps],
   );
 
   const tabNames = useMemo(
@@ -444,11 +463,14 @@ function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
     [tabNames],
   );
 
-  const handleTabPress = useCallback((tabId: string) => {
-    startTransition(() => {
-      setActiveTab(tabId as IMarketTokenSelectorTab);
-    });
-  }, []);
+  const handleTabPress = useCallback(
+    (tabId: string) => {
+      startTransition(() => {
+        handleTabChangeWithPersist(tabId as IMarketTokenSelectorTab);
+      });
+    },
+    [handleTabChangeWithPersist],
+  );
 
   const renderTabItem = useCallback(
     (tab: { id: string; name: string }) => (
