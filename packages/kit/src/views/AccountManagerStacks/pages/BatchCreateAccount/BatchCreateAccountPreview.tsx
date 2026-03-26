@@ -624,6 +624,8 @@ function BatchCreateAccountPreviewPage({
       networkId,
       showPopoverDeriveTypeInfo,
       networkIdsCompatibleAccount,
+      saveDeselectionToCache,
+      restoreDeselectionFromCache,
     ],
   );
 
