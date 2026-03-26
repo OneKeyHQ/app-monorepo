@@ -5,6 +5,10 @@ import { memo, useEffect, useMemo, useState } from 'react';
 
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from 'react-native-safe-area-context';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -235,7 +239,9 @@ function PortalContainer(props: {
   return (
     <>
       {children}
-      <Root />
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <Root />
+      </SafeAreaProvider>
     </>
   );
 }
