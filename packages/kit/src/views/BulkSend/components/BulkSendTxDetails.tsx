@@ -8,7 +8,9 @@ import {
   Icon,
   IconButton,
   Input,
+  NumberSizeableText,
   SizableText,
+  Skeleton,
   Stack,
   Toast,
   Tooltip,
@@ -30,8 +32,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { filterNumericInput } from '../utils';
 
 const INPUT_WIDTH = 130;
-const ADDRESS_WIDTH = 120;
-
 const INITIAL_BATCH = 20;
 const BATCH_SIZE = 50;
 const BATCH_INTERVAL = 100;
@@ -77,11 +77,15 @@ type IProps = {
   onDeleteTransfer?: (index: number) => void;
   onAmountChange?: (index: number, amount: string) => void;
   containerProps?: IYStackProps;
+  isMaxMode?: boolean;
+  senderBalances?: Record<string, string>;
+  senderBalancesLoading?: boolean;
+  senderBalancesFailed?: Set<string>;
 };
 
 type ITransferListItemProps = {
   address: string;
-  amount: string;
+  amount?: string;
   tokenSymbol: string;
   type: 'send' | 'receive';
   addressError?: string;
@@ -92,6 +96,9 @@ type ITransferListItemProps = {
   canDelete?: boolean;
   onDeleteTransfers?: (indices: number[]) => void;
   onAmountChangeByIndex?: (index: number, amount: string) => void;
+  balance?: string;
+  balanceLoading?: boolean;
+  balanceFailed?: boolean;
 };
 
 function TransferListItemBase({
@@ -107,13 +114,18 @@ function TransferListItemBase({
   canDelete,
   onDeleteTransfers,
   onAmountChangeByIndex,
+  balance,
+  balanceLoading,
+  balanceFailed,
 }: ITransferListItemProps) {
+  const intl = useIntl();
   const media = useMedia();
   const shortenedAddress = accountUtils.shortenAddress({
     address,
     leadingLength: media.gtMd ? 8 : 6,
     trailingLength: media.gtMd ? 6 : 4,
   });
+  const isCompactLayout = !media.gtMd;
   const isSend = type === 'send';
   const hasAddressError = !!addressError;
   const hasAmountError = !!amountError;
@@ -181,18 +193,42 @@ function TransferListItemBase({
       );
     }
 
-    const displayAmount = isSend ? `-${amount}` : `+${amount}`;
+    if (!amount) {
+      return (
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textSubdued"
+          textAlign="right"
+          flexShrink={0}
+          numberOfLines={1}
+        >
+          -
+        </SizableText>
+      );
+    }
+
     const textColor = isSend ? '$text' : '$textSuccess';
+    const displayAmount = isSend
+      ? new BigNumber(amount).negated().toFixed()
+      : amount;
 
     return (
-      <SizableText
+      <NumberSizeableText
         size="$bodyMdMedium"
         color={textColor}
         textAlign="right"
-        flexShrink={0}
+        minWidth={0}
+        flexShrink={1}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol,
+          showPlusMinusSigns: true,
+        }}
       >
-        {`${displayAmount} ${tokenSymbol}`}
-      </SizableText>
+        {displayAmount}
+      </NumberSizeableText>
     );
   };
 
@@ -212,7 +248,10 @@ function TransferListItemBase({
       <SizableText
         size="$bodyMdMedium"
         color={hasAddressError ? '$textCritical' : '$text'}
+        minWidth={0}
+        flexShrink={1}
         numberOfLines={1}
+        ellipsizeMode="middle"
       >
         {shortenedAddress}
       </SizableText>
@@ -228,27 +267,110 @@ function TransferListItemBase({
   };
 
   return (
-    <XStack gap="$3" py="$2" alignItems={editMode ? 'center' : 'flex-start'}>
+    <XStack gap="$3" py="$2" minWidth={0} alignItems="center">
       <YStack
         justifyContent="center"
-        flexShrink={0}
-        {...(!media.gtMd && {
-          width: ADDRESS_WIDTH,
-          minWidth: ADDRESS_WIDTH,
-        })}
+        minWidth={0}
+        {...(isCompactLayout ? { flex: 1 } : { flexShrink: 0 })}
       >
         {renderAddress()}
+        {(() => {
+          if (type !== 'send') return null;
+          if (balance !== undefined) {
+            return (
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_balance,
+                  })}
+                </SizableText>
+                <NumberSizeableText
+                  size="$bodySm"
+                  minWidth={0}
+                  flexShrink={1}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  color={
+                    amount && new BigNumber(amount).gt(balance)
+                      ? '$textCritical'
+                      : '$textSubdued'
+                  }
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol }}
+                >
+                  {balance}
+                </NumberSizeableText>
+              </XStack>
+            );
+          }
+          if (balanceFailed) {
+            return (
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_balance,
+                  })}
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color="$textCaution"
+                  numberOfLines={1}
+                >
+                  -
+                </SizableText>
+              </XStack>
+            );
+          }
+          if (balanceLoading) {
+            return (
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={0}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_balance,
+                  })}
+                </SizableText>
+                <Skeleton.BodySm width="$12" />
+              </XStack>
+            );
+          }
+          return null;
+        })()}
         {hasAddressError ? (
-          <XStack gap="$1" alignItems="center">
+          <XStack gap="$1" alignItems="center" minWidth={0}>
             <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
-            <SizableText size="$bodyMd" color="$textCritical" numberOfLines={1}>
+            <SizableText
+              size="$bodyMd"
+              color="$textCritical"
+              flex={1}
+              minWidth={0}
+              numberOfLines={1}
+            >
               {addressError}
             </SizableText>
           </XStack>
         ) : null}
       </YStack>
 
-      <Stack flex={1} alignItems="flex-end">
+      <Stack
+        alignItems="flex-end"
+        minWidth={0}
+        {...(isCompactLayout ? { flexShrink: 0 } : { flex: 1 })}
+      >
         {renderAmount()}
       </Stack>
 
@@ -288,6 +410,9 @@ const TransferListItem = memo(
     prev.canDelete === next.canDelete &&
     prev.onDeleteTransfers === next.onDeleteTransfers &&
     prev.onAmountChangeByIndex === next.onAmountChangeByIndex &&
+    prev.balance === next.balance &&
+    prev.balanceLoading === next.balanceLoading &&
+    prev.balanceFailed === next.balanceFailed &&
     arraysEqual(prev.indices, next.indices),
 );
 
@@ -320,6 +445,10 @@ function BulkSendTxDetails(props: IProps) {
     onDeleteTransfer,
     onAmountChange,
     containerProps,
+    isMaxMode,
+    senderBalances,
+    senderBalancesLoading,
+    senderBalancesFailed,
   } = props;
 
   const intl = useIntl();
@@ -332,6 +461,8 @@ function BulkSendTxDetails(props: IProps) {
   const canEditReceiver =
     bulkSendMode === EBulkSendMode.OneToMany ||
     bulkSendMode === EBulkSendMode.ManyToMany;
+  const shouldResolveMaxAmounts =
+    Boolean(isMaxMode) && bulkSendMode !== EBulkSendMode.OneToMany;
 
   const tokenSymbol = tokenInfo.symbol;
 
@@ -339,38 +470,57 @@ function BulkSendTxDetails(props: IProps) {
   const { senders, receivers } = useMemo(() => {
     const senderMap = new Map<
       string,
-      { address: string; amount: string; indices: number[] }
+      { address: string; amount?: string; indices: number[] }
     >();
     const receiverMap = new Map<
       string,
-      { address: string; amount: string; indices: number[] }
+      { address: string; amount?: string; indices: number[] }
     >();
 
+    const mergeAmounts = (
+      currentAmount: string | undefined,
+      nextAmount: string | undefined,
+    ): string | undefined => {
+      if (currentAmount === undefined || nextAmount === undefined) {
+        return undefined;
+      }
+
+      return new BigNumber(currentAmount || '0')
+        .plus(nextAmount || '0')
+        .toFixed();
+    };
+
     transfersInfo.forEach((transfer, index) => {
+      const resolvedAmount = shouldResolveMaxAmounts
+        ? senderBalances?.[transfer.from]
+        : transfer.amount;
+
       const existingSender = senderMap.get(transfer.from);
       if (existingSender) {
-        existingSender.amount = new BigNumber(existingSender.amount || '0')
-          .plus(transfer.amount || '0')
-          .toFixed();
+        existingSender.amount = mergeAmounts(
+          existingSender.amount,
+          resolvedAmount,
+        );
         existingSender.indices.push(index);
       } else {
         senderMap.set(transfer.from, {
           address: transfer.from,
-          amount: transfer.amount ?? '',
+          amount: resolvedAmount,
           indices: [index],
         });
       }
 
       const existingReceiver = receiverMap.get(transfer.to);
       if (existingReceiver) {
-        existingReceiver.amount = new BigNumber(existingReceiver.amount || '0')
-          .plus(transfer.amount || '0')
-          .toFixed();
+        existingReceiver.amount = mergeAmounts(
+          existingReceiver.amount,
+          resolvedAmount,
+        );
         existingReceiver.indices.push(index);
       } else {
         receiverMap.set(transfer.to, {
           address: transfer.to,
-          amount: transfer.amount ?? '',
+          amount: resolvedAmount,
           indices: [index],
         });
       }
@@ -380,7 +530,7 @@ function BulkSendTxDetails(props: IProps) {
       senders: Array.from(senderMap.values()),
       receivers: Array.from(receiverMap.values()),
     };
-  }, [transfersInfo]);
+  }, [transfersInfo, shouldResolveMaxAmounts, senderBalances]);
 
   const visibleSenders = useProgressiveList(senders);
   const visibleReceivers = useProgressiveList(receivers);
@@ -450,6 +600,9 @@ function BulkSendTxDetails(props: IProps) {
             }
             onDeleteTransfers={handleDeleteTransfers}
             onAmountChangeByIndex={handleAmountChange}
+            balance={senderBalances?.[sender.address]}
+            balanceLoading={senderBalancesLoading}
+            balanceFailed={senderBalancesFailed?.has(sender.address)}
           />
         ))}
         {visibleSenders.length < senders.length ? (

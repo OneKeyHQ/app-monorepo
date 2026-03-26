@@ -25,6 +25,7 @@ export type ITokenListItemProps = {
   isAllNetworks?: boolean;
   isTokenSelector?: boolean;
   hideValue?: boolean;
+  hideBalanceAndValue?: boolean;
   withSwapAction?: boolean;
   showNetworkIcon?: boolean;
   withAggregateBadge?: boolean;
@@ -41,6 +42,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     withNetwork,
     isTokenSelector,
     hideValue,
+    hideBalanceAndValue,
     withSwapAction,
     showNetworkIcon,
     withAggregateBadge,
@@ -166,6 +168,10 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   ]);
 
   const renderSecondColumn = useCallback(() => {
+    if (hideBalanceAndValue) {
+      return null;
+    }
+
     if (isTokenSelector) {
       return (
         <YStack
@@ -220,7 +226,13 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         />
       </YStack>
     );
-  }, [hideValue, tableLayout, token.$key, isTokenSelector]);
+  }, [
+    hideValue,
+    hideBalanceAndValue,
+    tableLayout,
+    token.$key,
+    isTokenSelector,
+  ]);
 
   const renderThirdColumn = useCallback(() => {
     if (isTokenSelector || !tableLayout) {

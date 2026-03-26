@@ -5,7 +5,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import type { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
-function BulkSendHeader({ bulkSendMode }: { bulkSendMode: EBulkSendMode }) {
+function BulkSendHeader({
+  bulkSendMode,
+  onChangeBulkSendMode,
+}: {
+  bulkSendMode: EBulkSendMode;
+  onChangeBulkSendMode?: () => void;
+}) {
   const intl = useIntl();
   const media = useMedia();
 
@@ -16,10 +22,21 @@ function BulkSendHeader({ bulkSendMode }: { bulkSendMode: EBulkSendMode }) {
       <SizableText size="$heading2xl">
         {intl.formatMessage({ id: ETranslations.wallet_bulk_send_title })}
       </SizableText>
-      <XStack gap="$1" alignItems="center">
+      <XStack gap="$2" alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {bulkSendUtils.getBulkSendModeLabel(bulkSendMode)}
+          {`Mode: ${bulkSendUtils.getBulkSendModeLabel(bulkSendMode)}`}
         </SizableText>
+        {onChangeBulkSendMode ? (
+          <SizableText
+            size="$bodyMd"
+            color="$textInteractive"
+            cursor="pointer"
+            hoverStyle={{ opacity: 0.8 }}
+            onPress={onChangeBulkSendMode}
+          >
+            Change
+          </SizableText>
+        ) : null}
       </XStack>
     </YStack>
   );
