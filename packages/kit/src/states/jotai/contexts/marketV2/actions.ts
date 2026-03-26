@@ -94,6 +94,21 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(perpsInfoAtom(), undefined);
   });
 
+  changeActiveToken = contextAtomMethod(
+    async (
+      _get,
+      set,
+      payload: { tokenAddress: string; networkId: string; isNative: boolean },
+    ) => {
+      const { tokenAddress, networkId, isNative } = payload;
+      this.clearTokenDetail.call(set);
+      this.setTokenAddress.call(set, tokenAddress);
+      this.setNetworkId.call(set, networkId);
+      this.setIsNative.call(set, isNative);
+      await this.fetchTokenDetail.call(set, tokenAddress, networkId);
+    },
+  );
+
   // ShowWatchlistOnly Actions
   setShowWatchlistOnly = contextAtomMethod((_, set, payload: boolean) => {
     set(showWatchlistOnlyAtom(), payload);
@@ -491,6 +506,7 @@ export function useTokenDetailActions() {
   const setPerpsInfo = actions.setPerpsInfo.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
+  const changeActiveToken = actions.changeActiveToken.use();
 
   return useRef({
     setTokenDetail,
@@ -502,6 +518,7 @@ export function useTokenDetailActions() {
     setPerpsInfo,
     fetchTokenDetail,
     clearTokenDetail,
+    changeActiveToken,
   });
 }
 
