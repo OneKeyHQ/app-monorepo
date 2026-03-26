@@ -33,7 +33,8 @@ export const registerHandler: IRegisterHandler = (
     globalThis.ONEKEY_DESKTOP_DEEP_LINKS;
   if (cachedDeepLinks?.length > 0) {
     const links = [...cachedDeepLinks];
-    // Clear the original array if it was the legacy global
+    // Drain the preload-side queue so re-registration doesn't re-consume
+    globalThis.ONEKEY_DESKTOP_DEEP_LINKS_CLEAR?.();
     if (globalThis.ONEKEY_DESKTOP_DEEP_LINKS) {
       globalThis.ONEKEY_DESKTOP_DEEP_LINKS = [];
     }

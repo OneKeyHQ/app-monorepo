@@ -90,6 +90,7 @@ declare global {
     $mmkvSync: (args: { method: string; id: string; key?: string; value?: unknown }) => any;
     ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
     ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
+    ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;
 
     ONEKEY_DESKTOP_DEEP_LINKS: any[];
   }
@@ -110,6 +111,7 @@ declare global {
   var $mmkvSync: (args: { method: string; id: string; key?: string; value?: unknown }) => any;
   var ONEKEY_DESKTOP_GLOBALS_GETTER: () => IDesktopGlobals | undefined;
   var ONEKEY_DESKTOP_DEEP_LINKS_GETTER: () => any[];
+  var ONEKEY_DESKTOP_DEEP_LINKS_CLEAR: () => void;
 
   // Ext internal (ui,background,contentScript)
   var extJsBridgeUiToBg: JsBridgeBase;

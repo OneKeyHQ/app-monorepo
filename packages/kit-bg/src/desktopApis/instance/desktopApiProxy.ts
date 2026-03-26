@@ -96,4 +96,11 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
 }
 
 const desktopApiProxy = new DesktopApiProxy();
+
+// With contextIsolation enabled, preload can no longer assign to renderer's globalThis.
+// Assign here so that ~29 consumer files accessing globalThis.desktopApiProxy still work.
+if (typeof globalThis !== 'undefined') {
+  globalThis.desktopApiProxy = desktopApiProxy;
+}
+
 export default desktopApiProxy;

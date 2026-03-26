@@ -257,3 +257,7 @@ contextBridge.exposeInMainWorld('$mmkvSync', (args: {
 // Expose getters for globals managed by IPC events
 contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_GLOBALS_GETTER', () => desktopGlobals);
 contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_GETTER', () => [...deepLinks]);
+// Drain the deep link queue after the renderer has consumed them
+contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_CLEAR', () => {
+  deepLinks.length = 0;
+});
