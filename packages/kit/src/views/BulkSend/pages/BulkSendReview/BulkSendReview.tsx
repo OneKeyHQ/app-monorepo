@@ -383,7 +383,11 @@ function BaseBulkSendReview({
       if (bulkSendMode !== EBulkSendMode.OneToMany) {
         const accountIdxGroups = new Map<
           string,
-          { indices: number[]; txs: IUnsignedTxPro[]; fees: ISendSelectedFeeInfo[] }
+          {
+            indices: number[];
+            txs: IUnsignedTxPro[];
+            fees: ISendSelectedFeeInfo[];
+          }
         >();
         unsignedTxs.forEach((tx, idx) => {
           const txAccId = tx.accountId || accountId;
