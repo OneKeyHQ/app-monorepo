@@ -8,10 +8,17 @@ const MarketDetailV2Modal = LazyLoadPage(() => import('../MarketDetailV2'));
 const MarketBannerDetailModal = LazyLoadPage(
   () => import('../MarketBannerDetail'),
 );
+const MobileTokenSelectorModal = LazyLoadPage(
+  () =>
+    import(
+      '../MarketDetailV2/components/TokenSelector/MobileTokenSelector'
+    ),
+);
 
 export enum EModalMarketRoutes {
   MarketDetailV2 = 'MarketDetailV2',
   MarketBannerDetail = 'MarketBannerDetail',
+  MobileTokenSelector = 'MobileTokenSelector',
 }
 
 export type IModalMarketParamList = {
@@ -25,6 +32,7 @@ export type IModalMarketParamList = {
     title: string;
     type?: EMarketBannerType;
   };
+  [EModalMarketRoutes.MobileTokenSelector]: undefined;
 };
 
 export const ModalMarketStack: IModalFlowNavigatorConfig<
@@ -39,5 +47,9 @@ export const ModalMarketStack: IModalFlowNavigatorConfig<
   {
     name: EModalMarketRoutes.MarketBannerDetail,
     component: MarketBannerDetailModal,
+  },
+  {
+    name: EModalMarketRoutes.MobileTokenSelector,
+    component: MobileTokenSelectorModal,
   },
 ];
