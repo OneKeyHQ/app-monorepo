@@ -307,11 +307,7 @@ function BasicEditAddress() {
             </AddressInputContext.Provider>
             <YStack gap="$3" mt="$1.5">
               <XStack gap="$2" ai="center">
-                <Icon
-                  name="CheckRadioOutline"
-                  size="$5"
-                  color="$iconSuccess"
-                />
+                <Icon name="CheckRadioOutline" size="$5" color="$iconSuccess" />
                 <SizableText size="$bodyMd">
                   {intl.formatMessage({
                     id: ETranslations.referral_use_onekey_address,
@@ -319,11 +315,7 @@ function BasicEditAddress() {
                 </SizableText>
               </XStack>
               <XStack gap="$2" ai="center">
-                <Icon
-                  name="BlockOutline"
-                  size="$5"
-                  color="$iconCritical"
-                />
+                <Icon name="BlockOutline" size="$5" color="$iconCritical" />
                 <SizableText size="$bodyMd">
                   {intl.formatMessage({
                     id: ETranslations.referral_avoid_exchange_address,
