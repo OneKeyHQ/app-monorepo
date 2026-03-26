@@ -4,15 +4,15 @@ Pre-release validation: displays the changeset since the last release so the tea
 
 ## Pre-flight Checks
 
-### 1. Read release branch
+### 1. Detect release branch
 
-```bash
-VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
-RELEASE_BRANCH="release/v${VERSION}"
-current_branch=$(git branch --show-current)
-```
+Use the **Release Branch Detection** logic from SKILL.md:
 
-If current branch is not the expected release branch, offer to switch:
+1. If already on a `release/v*` branch → use it directly
+2. Otherwise → find the latest `release/v*` from remote (excluding `mock` branches)
+3. Confirm with the user before proceeding
+
+If not on the release branch, offer to switch:
 
 > "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
 

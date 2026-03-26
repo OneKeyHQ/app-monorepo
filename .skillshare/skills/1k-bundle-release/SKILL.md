@@ -13,7 +13,41 @@ Manages the bundle release workflow: developers branch from `release/*`, PRs tar
 
 OneKey ships periodic App Shell releases (tagged `v{X.Y.Z}` on the `x` branch). After each App Shell release, a release branch (`release/v{X.Y.Z}`) is created from the tag. Bundle release features are developed directly on this branch — PRs target `release/*`, not `x`. After bundle publishing, changes are synced back to `x` via rebase.
 
-**Release branch auto-detection:** All subcommands read `VERSION` from `.env.version` and construct `release/v${VERSION}` automatically.
+**Release branch auto-detection:** All subcommands use the shared detection logic below to determine the release branch. On a `release/v*` branch it's used directly; otherwise the latest release branch is discovered from the remote.
+
+## Release Branch Detection (Shared)
+
+All subcommands MUST use this logic instead of reading `.env.version` directly. The reason: `.env.version` on `x` contains the **next** version (e.g., `6.2.0`), while the release branch uses the **current** version (e.g., `release/v6.1.0`). Reading `.env.version` from `x` produces the wrong branch name.
+
+```bash
+current_branch=$(git branch --show-current)
+
+if [[ "$current_branch" == release/v* ]]; then
+  # Already on a release branch — use it directly
+  RELEASE_BRANCH="$current_branch"
+else
+  # Not on a release branch — find the latest one from remote
+  git fetch origin
+  RELEASE_BRANCH=$(git branch -r \
+    | grep 'origin/release/v' \
+    | grep -v mock \
+    | sed 's|origin/||' \
+    | sort -V \
+    | tail -1 \
+    | tr -d ' ')
+fi
+
+if [[ -z "$RELEASE_BRANCH" ]]; then
+  echo "No release branch found on origin."
+  exit 1
+fi
+```
+
+After detection, confirm with the user:
+
+> "Detected release branch: `$RELEASE_BRANCH`. Proceed? (y/n)"
+
+If the user wants a different branch, let them specify it manually.
 
 ## Quick Reference
 
@@ -53,7 +87,7 @@ These steps are designed to run in sequence, but each can also run independently
 
 | File | Location | Purpose |
 |------|----------|---------|
-| Version source | `.env.version` (`VERSION` field) | Determines release branch name |
+| Version source | Auto-detected from current branch or remote `release/v*` branches | Determines release branch name |
 | Release tracking | `RELEASES.json` (release branch root) | Each entry: seq, commit SHA, date, PR list, notes |
 
 ## Related Skills
