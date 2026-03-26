@@ -308,6 +308,29 @@ function AssetSelectorTrigger({
 
         if (resolvedAccountContext?.accountId) {
           const { accountId, indexedAccountId } = resolvedAccountContext;
+
+          const vaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: _network.id,
+            });
+
+          if (vaultSettings.isSingleToken) {
+            const nativeToken =
+              await backgroundApiProxy.serviceToken.getNativeToken({
+                accountId,
+                networkId: _network.id,
+                tokenInfoOnly: true,
+              });
+
+            if (nativeToken) {
+              setSelectedToken(nativeToken);
+              setSelectedAccountId(accountId);
+              setSelectedNetworkId(_network.id);
+              navigation.popStack();
+              return;
+            }
+          }
+
           navigation.push(EChainSelectorPages.TokenSelector, {
             accountId,
             networkId: _network.id,
