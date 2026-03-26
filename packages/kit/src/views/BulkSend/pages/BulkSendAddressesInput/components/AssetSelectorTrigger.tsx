@@ -113,6 +113,28 @@ function AssetSelectorTrigger() {
         }
 
         if (accountId) {
+          const vaultSettings =
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: _network.id,
+            });
+
+          if (vaultSettings.isSingleToken) {
+            const nativeToken =
+              await backgroundApiProxy.serviceToken.getNativeToken({
+                accountId,
+                networkId: _network.id,
+                tokenInfoOnly: true,
+              });
+
+            if (nativeToken) {
+              setSelectedToken(nativeToken);
+              setSelectedAccountId(accountId);
+              setSelectedNetworkId(_network.id);
+              navigation.popStack();
+              return;
+            }
+          }
+
           navigation.push(EChainSelectorPages.TokenSelector, {
             activeAccountId: accountId,
             activeNetworkId: _network.id,
