@@ -22,7 +22,6 @@ import {
   rootNavigationRef,
   usePopoverContext,
 } from '@onekeyhq/components';
-import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import {
@@ -60,7 +59,6 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import type { LayoutChangeEvent } from 'react-native';
 
 const LIST_HEIGHT = 400;
 
@@ -79,7 +77,6 @@ const TabItem = memo(
     isFocused: boolean;
     onPress: (id: string) => void;
   }) => {
-    const { handleItemLayout } = useScrollableFilterBar();
     const handlePress = useCallback(() => onPress(id), [id, onPress]);
     return (
       <XStack
@@ -92,7 +89,6 @@ const TabItem = memo(
         cursor="default"
         backgroundColor={isFocused ? '$bgActive' : '$transparent'}
         onPress={handlePress}
-        onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
       >
         <SizableText
           numberOfLines={1}

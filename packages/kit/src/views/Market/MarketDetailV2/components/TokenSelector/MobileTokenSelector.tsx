@@ -20,7 +20,6 @@ import {
   YStack,
   rootNavigationRef,
 } from '@onekeyhq/components';
-import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useMarketWatchListV2Atom,
@@ -58,7 +57,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-import type { LayoutChangeEvent } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Tab item component (reusable pill-shaped tab)
@@ -75,7 +73,6 @@ const TabItem = memo(
     isFocused: boolean;
     onPress: (id: string) => void;
   }) => {
-    const { handleItemLayout } = useScrollableFilterBar();
     const handlePress = useCallback(() => onPress(id), [id, onPress]);
     return (
       <XStack
@@ -88,7 +85,6 @@ const TabItem = memo(
         cursor="default"
         backgroundColor={isFocused ? '$bgActive' : '$transparent'}
         onPress={handlePress}
-        onLayout={(event: LayoutChangeEvent) => handleItemLayout(id, event)}
       >
         <SizableText
           numberOfLines={1}
