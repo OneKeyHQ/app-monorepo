@@ -902,7 +902,10 @@ async function createMainWindow() {
   ipcMain.removeHandler('DESKTOP_API_CALL');
   ipcMain.handle(
     'DESKTOP_API_CALL',
-    async (_event, payload: { module: string; method: string; params: any[] }) => {
+    async (
+      _event,
+      payload: { module: string; method: string; params: any[] },
+    ) => {
       const { module, method, params } = payload;
       return desktopApi.callDesktopApiMethod({
         type: 'DESKTOP_API_IPC_MESSAGE',
@@ -950,12 +953,6 @@ async function createMainWindow() {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'background';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-  });
-
-  app.removeAllListeners('login');
-  app.on('login', (event, webContents, request, authInfo, callback) => {
-    event.preventDefault();
-    callback('onekey', 'juDUIpz3lVnubZ2aHOkwBB6SJotYynyb');
   });
 
   // Prevents clicking on links to open new Windows
