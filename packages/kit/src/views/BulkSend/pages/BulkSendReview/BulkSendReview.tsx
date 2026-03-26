@@ -333,14 +333,33 @@ function BaseBulkSendReview({
     setIsSubmitting(true);
 
     // Step 1: Pre-check unsigned transactions
+    // For multi-sender modes, pre-check per accountId group
     try {
-      await serviceSend.precheckUnsignedTxs({
-        networkId,
-        accountId,
-        unsignedTxs,
-        precheckTiming: ESendPreCheckTimingEnum.Confirm,
-        feeInfos: feeState.feeInfos,
-      });
+      if (bulkSendMode !== EBulkSendMode.OneToMany) {
+        const accountGroups = new Map<string, IUnsignedTxPro[]>();
+        for (const tx of unsignedTxs) {
+          const txAccId = tx.accountId || accountId;
+          if (!accountGroups.has(txAccId)) accountGroups.set(txAccId, []);
+          accountGroups.get(txAccId)!.push(tx);
+        }
+        for (const [accId, groupTxs] of accountGroups) {
+          await serviceSend.precheckUnsignedTxs({
+            networkId,
+            accountId: accId,
+            unsignedTxs: groupTxs,
+            precheckTiming: ESendPreCheckTimingEnum.Confirm,
+            feeInfos: feeState.feeInfos,
+          });
+        }
+      } else {
+        await serviceSend.precheckUnsignedTxs({
+          networkId,
+          accountId,
+          unsignedTxs,
+          precheckTiming: ESendPreCheckTimingEnum.Confirm,
+          feeInfos: feeState.feeInfos,
+        });
+      }
     } catch (e: any) {
       setIsSubmitting(false);
       onFail?.(e as Error);
@@ -360,12 +379,44 @@ function BaseBulkSendReview({
 
     let newUnsignedTxs: IUnsignedTxPro[];
     try {
-      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
-        accountId,
-        networkId,
-        unsignedTxs,
-        feeInfos: expandedFeeInfos,
-      });
+      // For multi-sender modes, update per accountId to use correct vault context
+      if (bulkSendMode !== EBulkSendMode.OneToMany) {
+        const accountIdxGroups = new Map<
+          string,
+          { indices: number[]; txs: IUnsignedTxPro[]; fees: ISendSelectedFeeInfo[] }
+        >();
+        unsignedTxs.forEach((tx, idx) => {
+          const txAccId = tx.accountId || accountId;
+          if (!accountIdxGroups.has(txAccId)) {
+            accountIdxGroups.set(txAccId, { indices: [], txs: [], fees: [] });
+          }
+          const group = accountIdxGroups.get(txAccId)!;
+          group.indices.push(idx);
+          group.txs.push(tx);
+          group.fees.push(expandedFeeInfos[idx]);
+        });
+
+        const result: IUnsignedTxPro[] = new Array(unsignedTxs.length);
+        for (const [accId, group] of accountIdxGroups) {
+          const updated = await serviceSend.updateUnSignedTxBeforeSending({
+            accountId: accId,
+            networkId,
+            unsignedTxs: group.txs,
+            feeInfos: group.fees,
+          });
+          group.indices.forEach((origIdx, groupIdx) => {
+            result[origIdx] = updated[groupIdx];
+          });
+        }
+        newUnsignedTxs = result;
+      } else {
+        newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
+          accountId,
+          networkId,
+          unsignedTxs,
+          feeInfos: expandedFeeInfos,
+        });
+      }
     } catch (e: any) {
       setIsSubmitting(false);
       onFail?.(e as Error);

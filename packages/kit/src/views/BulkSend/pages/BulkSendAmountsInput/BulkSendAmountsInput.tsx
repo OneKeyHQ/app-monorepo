@@ -1062,11 +1062,24 @@ function BulkSendAmountsInputContent({
   );
 
   const validateRangeAmountValue = useCallback((): IAmountInputError => {
-    const balance = tokenDetails?.balanceParsed ?? '0';
+    // For OneToMany, use the single account balance.
+    // For ManyToMany/ManyToOne, use the minimum sender balance so range min
+    // doesn't exceed any sender's balance.
+    let balance: string | undefined;
+    if (isOneToMany) {
+      balance = tokenDetails?.balanceParsed ?? '0';
+    } else {
+      const balanceValues = Object.values(senderBalances);
+      if (balanceValues.length > 0) {
+        balance = balanceValues.reduce((min, val) =>
+          new BigNumber(val).lt(min) ? val : min,
+        );
+      }
+    }
     const error = validateRangeInput({
       rangeMin: amountInputValues.rangeMin,
       rangeMax: amountInputValues.rangeMax,
-      balance: isOneToMany ? balance : undefined,
+      balance,
       minTransferAmount,
       tokenSymbol: tokenInfo.symbol,
       tokenDecimals: tokenInfo.decimals,
@@ -1078,6 +1091,7 @@ function BulkSendAmountsInputContent({
     amountInputValues.rangeMin,
     isOneToMany,
     minTransferAmount,
+    senderBalances,
     tokenDetails?.balanceParsed,
     tokenInfo.decimals,
     tokenInfo.symbol,

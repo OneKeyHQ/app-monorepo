@@ -222,6 +222,9 @@ function BulkSendProcessContent({
   // Fee overflow only needs to be checked once (same network for all txs)
   const feeOverflowCheckedRef = useRef(false);
 
+  // Guard against concurrent processing loops (e.g. retry re-triggers usePromiseResult)
+  const isProcessingRef = useRef(false);
+
   // Fee estimation cache — same network/structure, refresh every 30s
   const FEE_CACHE_TTL_MS = 30_000;
   const feeCacheRef = useRef<{
@@ -340,6 +343,11 @@ function BulkSendProcessContent({
 
   // Main processing loop
   usePromiseResult(async () => {
+    // Prevent concurrent loop execution on retry re-trigger
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    try {
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const tx = unsignedTxs[i];
       setCurrentProcessIndex(i);
@@ -420,18 +428,43 @@ function BulkSendProcessContent({
           [i]: { status: EBulkSendTxStatus.Processing },
         }));
 
-        // Estimate fees (cached with TTL refresh)
+        // Rebuild tx with current chain state before sending.
+        // This fixes stale instructions (e.g. Solana ATA creation that
+        // was already handled by a previous tx in this batch).
+        let updatedTx = tx;
+        if (transfersInfoState[i]) {
+          try {
+            const rebuiltTx =
+              await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+                networkId,
+                accountId: txAccountId,
+                transfersInfo: [transfersInfoState[i]],
+              });
+            updatedTx = {
+              ...rebuiltTx,
+              accountId: tx.accountId,
+              indexedAccountId: tx.indexedAccountId,
+            };
+          } catch {
+            // Keep pre-built tx on rebuild failure
+          }
+        }
+
+        if (isAborted.current) break;
+        await waitUntilInProgress();
+
+        // Estimate fees using the rebuilt tx for accuracy
         const feeContext = await getCachedFeeContext({
           txAccountId,
           accountAddress,
-          encodedTx: tx.encodedTx,
+          encodedTx: updatedTx.encodedTx,
         });
         const { feeInfo, estimateFeeParams, nativeTokenPrice } = feeContext;
 
         const feeResult = calculateFeeForSend({
           feeInfo,
           nativeTokenPrice,
-          txSize: tx.txSize,
+          txSize: updatedTx.txSize,
           estimateFeeParams,
         });
 
@@ -439,7 +472,6 @@ function BulkSendProcessContent({
         await waitUntilInProgress();
 
         // Native token + max mode: update the tx with the latest max amount.
-        let updatedTx = tx;
         let updatedMaxSendAmount: string | undefined;
         if (isMaxMode && tokenInfo?.isNative) {
           const network = await backgroundApiProxy.serviceNetwork.getNetwork({
@@ -696,6 +728,9 @@ function BulkSendProcessContent({
     } else {
       onFail?.(new Error(`All ${unsignedTxs.length} transactions failed`));
     }
+    } finally {
+      isProcessingRef.current = false;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCachedFeeContext, unsignedTxs, waitUntilInProgress, intl]);
 
@@ -760,7 +795,6 @@ function BulkSendProcessContent({
       (failedTxCount > 0 || skippedTxCount > 0)
     ) {
       // Retry: filter out succeeded txs, reset and restart
-      setProgressState(EBulkSendProgressState.InProgress);
       networkStatusRef.current = {};
       const failedIndices = new Set<number>();
       Object.entries(txStatusMap).forEach(([idx, s]) => {
@@ -768,14 +802,17 @@ function BulkSendProcessContent({
           failedIndices.add(Number(idx));
         }
       });
-      setUnsignedTxs((prev) => prev.filter((_, idx) => failedIndices.has(idx)));
-      setTransfersInfoState((prev) =>
-        prev.filter((_, idx) => failedIndices.has(idx)),
-      );
       setTxStatusMap({});
       feeOverflowCheckedRef.current = false;
       feeCacheRef.current = null;
       resultsRef.current = [];
+      // Reset processing guard before updating unsignedTxs to allow the new loop
+      isProcessingRef.current = false;
+      setUnsignedTxs((prev) => prev.filter((_, idx) => failedIndices.has(idx)));
+      setTransfersInfoState((prev) =>
+        prev.filter((_, idx) => failedIndices.has(idx)),
+      );
+      setProgressState(EBulkSendProgressState.InProgress);
       return;
     }
 
