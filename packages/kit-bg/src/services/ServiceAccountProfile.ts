@@ -287,7 +287,7 @@ class ServiceAccountProfile extends ServiceBase {
     });
     if (
       checkInteractionStatus &&
-      toAddress.toLowerCase() !== fromAddress &&
+      toAddress.toLowerCase() !== fromAddress.toLowerCase() &&
       fromAddress
     ) {
       result.addressInteractionStatus = interacted;
@@ -553,11 +553,11 @@ class ServiceAccountProfile extends ServiceBase {
           const targetLower = resolveAddress.toLowerCase();
           let isInRecipients = false;
 
-          // Check EVM aggregate transfer-recipient API
+          // Check transfer-recipient API using current networkId
           const { data: recipients } =
             await this.backgroundApi.serviceHistory.fetchTransferRecipients({
               accountId,
-              networkId: 'evm--1',
+              networkId,
               limit: 10,
             });
           isInRecipients = recipients.some(
