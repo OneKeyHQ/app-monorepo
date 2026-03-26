@@ -1,5 +1,11 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketBasicConfigToken,
+  IMarketPerpsCategory,
+  IMarketSpotCategory,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   formatLiquidityValue,
@@ -9,7 +15,10 @@ import {
   getRefreshInterval,
 } from './utils';
 
-const EMPTY_ARRAY: any[] = [];
+const EMPTY_TOKENS: IMarketBasicConfigToken[] = [];
+const EMPTY_NETWORKS: IMarketBasicConfigNetwork[] = [];
+const EMPTY_PERPS_CATEGORIES: IMarketPerpsCategory[] = [];
+const EMPTY_SPOT_CATEGORIES: IMarketSpotCategory[] = [];
 
 /**
  * Hook to fetch and manage market basic configuration
@@ -64,12 +73,12 @@ export function useMarketBasicConfig() {
     // Provide default values when data is not loaded yet
     basicConfig: result?.basicConfig,
     defaultNetworkId: result?.defaultNetworkId,
-    recommendedTokens: result?.recommendedTokens ?? EMPTY_ARRAY,
+    recommendedTokens: result?.recommendedTokens ?? EMPTY_TOKENS,
     minLiquidity: result?.minLiquidity ?? 5000,
     refreshInterval: result?.refreshInterval ?? 5,
     formattedMinLiquidity: result?.formattedMinLiquidity ?? '5K',
-    networkList: result?.networkList ?? EMPTY_ARRAY,
-    perpsCategories: result?.perpsCategories ?? EMPTY_ARRAY,
-    spotCategories: result?.spotCategories ?? EMPTY_ARRAY,
+    networkList: result?.networkList ?? EMPTY_NETWORKS,
+    perpsCategories: result?.perpsCategories ?? EMPTY_PERPS_CATEGORIES,
+    spotCategories: result?.spotCategories ?? EMPTY_SPOT_CATEGORIES,
   };
 }
