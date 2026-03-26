@@ -10,9 +10,7 @@ const MarketBannerDetailModal = LazyLoadPage(
 );
 const MobileTokenSelectorModal = LazyLoadPage(
   () =>
-    import(
-      '../MarketDetailV2/components/TokenSelector/MobileTokenSelector'
-    ),
+    import('../MarketDetailV2/components/TokenSelector/MobileTokenSelector'),
 );
 
 export enum EModalMarketRoutes {

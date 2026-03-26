@@ -35,6 +35,7 @@ import {
   useTokenDetailActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import { MarketPerpsCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsCategorySelector';
 import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
@@ -43,7 +44,6 @@ import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketWatchlistCategorySelector';
-import { MarketPerpsCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsCategorySelector';
 import { MarketTokenListNetworkSelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -149,11 +149,7 @@ function DesktopWatchlistList({
 
   if (isLoading && data.length === 0) {
     return (
-      <Stack
-        height={LIST_HEIGHT}
-        alignItems="center"
-        justifyContent="center"
-      >
+      <Stack height={LIST_HEIGHT} alignItems="center" justifyContent="center">
         <Spinner size="small" />
       </Stack>
     );
@@ -239,11 +235,7 @@ function DesktopSpotList({
 
   if (isLoading && data.length === 0) {
     return (
-      <Stack
-        height={LIST_HEIGHT}
-        alignItems="center"
-        justifyContent="center"
-      >
+      <Stack height={LIST_HEIGHT} alignItems="center" justifyContent="center">
         <Spinner size="small" />
       </Stack>
     );
@@ -334,11 +326,7 @@ function DesktopFuturesList({
 
   if (isLoading && data.length === 0) {
     return (
-      <Stack
-        height={LIST_HEIGHT}
-        alignItems="center"
-        justifyContent="center"
-      >
+      <Stack height={LIST_HEIGHT} alignItems="center" justifyContent="center">
         <Spinner size="small" />
       </Stack>
     );
@@ -368,11 +356,7 @@ function DesktopFuturesList({
 // ---------------------------------------------------------------------------
 // Popover content
 // ---------------------------------------------------------------------------
-function MarketTokenSelectorContent({
-  isOpen,
-}: {
-  isOpen: boolean;
-}) {
+function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
   const intl = useIntl();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
