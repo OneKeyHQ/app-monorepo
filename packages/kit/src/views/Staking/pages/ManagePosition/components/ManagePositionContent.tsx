@@ -134,6 +134,7 @@ export function ManagePositionContent({
     type,
     reserveAddress,
     marketAddress,
+    revalidateOnFocus: !isInModalContext,
   });
 
   const resolvedProtocolInfo = useMemo(() => {
