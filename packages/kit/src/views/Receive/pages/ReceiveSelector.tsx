@@ -495,6 +495,7 @@ function ReceiveSelectorContent() {
                 onPress={() => handleExchangePress(config)}
                 gap="$4"
                 nativePressableStyle={{ flexShrink: 0 }}
+                userSelect="none"
               >
                 <Image
                   w="$10"
