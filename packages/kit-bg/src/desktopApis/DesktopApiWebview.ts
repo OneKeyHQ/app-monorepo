@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 
 import { session } from 'electron';
@@ -113,7 +114,7 @@ class DesktopApiNetwork {
 
   async getPreloadJsContent(): Promise<string> {
     const staticPath = getStaticPath();
-    const preloadJsPath = path.join(staticPath, 'preload.js');
+    const preloadJsPath = path.join(staticPath, 'preload-webview.js');
     logger.info('getPreloadJsContent', preloadJsPath);
     if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
       const bundleDirPath = getBundleDirPath();
@@ -139,6 +140,53 @@ class DesktopApiNetwork {
     return isDev
       ? `file://${preloadJsPath}?t=${Date.now()}`
       : `file://${preloadJsPath}`;
+  }
+
+  private injectedJsContentCache: string | null = null;
+
+  async getInjectedJsContent(): Promise<string> {
+    if (this.injectedJsContentCache) {
+      return this.injectedJsContentCache;
+    }
+    const staticPath = getStaticPath();
+    const injectedJsPath = path.join(staticPath, 'injected-provider.js');
+    logger.info('getInjectedJsContent', injectedJsPath);
+
+    if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
+      const bundleDirPath = getBundleDirPath();
+      const bundleData = store.getUpdateBundleData();
+      const metadata = bundleDirPath
+        ? await getMetadata({
+            bundleDir: bundleDirPath,
+            appVersion: bundleData.appVersion,
+            bundleVersion: bundleData.bundleVersion,
+            signature: bundleData.signature,
+          })
+        : {};
+      const driveLetter = getDriveLetter();
+      checkFileHash({
+        bundleDirPath,
+        metadata,
+        driveLetter,
+        url: injectedJsPath.replace(`${bundleDirPath}/`, ''),
+      });
+    }
+
+    const content = fs.readFileSync(injectedJsPath, 'utf-8');
+    // Wrap with a require shim so the bundled script can resolve require("electron")
+    // using the __onekeyDesktopBridge exposed by preload-webview.js via contextBridge.
+    const shimmedContent = `(function(){
+var require=function(m){
+if(m==="electron"){return{ipcRenderer:{
+on:function(ch,cb){window.__onekeyDesktopBridge.onHostMessage(function(d){cb({},d);});},
+sendToHost:function(ch,d){window.__onekeyDesktopBridge.sendToHost(ch,d);}
+}};}
+throw new Error("Cannot require "+m);
+};
+${content}
+})();`;
+    this.injectedJsContentCache = shimmedContent;
+    return shimmedContent;
   }
 }
 

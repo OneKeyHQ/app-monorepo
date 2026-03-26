@@ -488,7 +488,7 @@ const DesktopWebView = forwardRef(
           // @ts-expect-error
           nodeintegration="false"
           allowpopups={allowpopups}
-          webpreferences="contextIsolation=0, nativeWindowOpen=1, sandbox=1"
+          webpreferences="contextIsolation=1, nativeWindowOpen=1, sandbox=1"
           // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/platform/runtime_enabled_features.json5
           disableblinkfeatures="Notifications"
           // mobile user-agent
