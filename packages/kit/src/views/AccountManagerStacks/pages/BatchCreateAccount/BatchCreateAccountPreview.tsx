@@ -159,6 +159,9 @@ function BatchCreateAccountPreviewPage({
   const deselectedExistingAccountsRef = useRef<{
     [pathIndex: number]: IBatchCreateAccount;
   }>({});
+  const deselectedExistingIndexesRef = useRef<{
+    [pathIndex: number]: true;
+  }>({});
   // Store deselection state per network+deriveType so switching preserves selections
   const deselectedCacheRef = useRef<{
     [cacheKey: string]: {
@@ -174,6 +177,8 @@ function BatchCreateAccountPreviewPage({
     () => Object.values(deselectedExistingIndexes).filter(Boolean).length,
     [deselectedExistingIndexes],
   );
+  // Keep ref in sync with state to avoid stale closures
+  deselectedExistingIndexesRef.current = deselectedExistingIndexes;
 
   const pageSize = 10;
   const minPage = 1;
@@ -230,6 +235,7 @@ function BatchCreateAccountPreviewPage({
       setAdvancedExcludedIndexes({});
       setNormalSelectedIndexes({});
       setDeselectedExistingIndexes({});
+      deselectedExistingIndexesRef.current = {};
       deselectedExistingAccountsRef.current = {};
       deselectedCacheRef.current = {};
       setFrom(values.from);
@@ -336,18 +342,18 @@ function BatchCreateAccountPreviewPage({
   const prevNetworkIdRef = useRef<string | undefined>(networkId);
   const prevDeriveTypeRef = useRef<string | undefined>(deriveType);
 
-  // Save current deselection state to cache
+  // Save current deselection state to cache (reads from refs to avoid stale closures)
   const saveDeselectionToCache = useCallback(() => {
     const prevNet = prevNetworkIdRef.current;
     const prevDt = prevDeriveTypeRef.current;
     if (prevNet) {
       const key = `${prevNet}__${prevDt ?? ''}`;
       deselectedCacheRef.current[key] = {
-        indexes: { ...deselectedExistingIndexes },
+        indexes: { ...deselectedExistingIndexesRef.current },
         accounts: { ...deselectedExistingAccountsRef.current },
       };
     }
-  }, [deselectedExistingIndexes]);
+  }, []);
 
   // Restore deselection state from cache, or reset
   const restoreDeselectionFromCache = useCallback(
@@ -356,9 +362,11 @@ function BatchCreateAccountPreviewPage({
       const saved = deselectedCacheRef.current[key];
       if (saved) {
         setDeselectedExistingIndexes(saved.indexes);
+        deselectedExistingIndexesRef.current = saved.indexes;
         deselectedExistingAccountsRef.current = saved.accounts;
       } else {
         setDeselectedExistingIndexes({});
+        deselectedExistingIndexesRef.current = {};
         deselectedExistingAccountsRef.current = {};
       }
     },
