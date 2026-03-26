@@ -15,7 +15,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -79,11 +78,9 @@ function CustomCheckbox({
 export function HyperliquidTermsContent({
   onConfirm,
   onClose,
-  renderDelay = 0,
 }: {
   onConfirm: () => void;
   onClose?: () => void;
-  renderDelay?: number;
 }) {
   const intl = useIntl();
   const [isAccountActivatedChecked, setIsAccountActivatedChecked] =
@@ -108,7 +105,6 @@ export function HyperliquidTermsContent({
         alignItems="center"
         justifyContent="center"
       >
-        <DelayedRender delay={renderDelay}>
           <Stack px="$2" py="$4" position="relative">
             <YStack {...confirmationSlideStyle}>
               <Stack
@@ -253,7 +249,6 @@ export function HyperliquidTermsContent({
               </YStack>
             </YStack>
           </Stack>
-        </DelayedRender>
       </Stack>
     </Stack>
   );
@@ -270,7 +265,6 @@ export async function showHyperliquidTermsDialog(): Promise<boolean> {
     const dialog = Dialog.show({
       renderContent: (
         <HyperliquidTermsContent
-          renderDelay={300}
           onConfirm={async () => {
             await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
               true,
