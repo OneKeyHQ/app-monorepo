@@ -27,6 +27,7 @@ import {
 } from '../../../components/PerpsBadges';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
+import { MarketTokenSelector } from '../TokenSelector/MarketTokenSelector';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
 import { ShareButton } from './ShareButton';
@@ -114,28 +115,36 @@ export function TokenDetailHeaderLeft({
         : {})}
     >
       <XStack gap="$3" ai="center">
-        <Token
-          size="md"
-          tokenImageUri={logoUrl}
-          tokenImageUris={logoUrls}
-          networkImageUri={effectiveNetworkLogoUri}
-          fallbackIcon="CryptoCoinOutline"
-        />
+        {md ? (
+          <Token
+            size="md"
+            tokenImageUri={logoUrl}
+            tokenImageUris={logoUrls}
+            networkImageUri={effectiveNetworkLogoUri}
+            fallbackIcon="CryptoCoinOutline"
+          />
+        ) : (
+          <MarketTokenSelector
+            tokenDetail={tokenDetail}
+            networkId={networkId}
+            networkLogoUri={effectiveNetworkLogoUri}
+            isNative={isNative}
+          />
+        )}
 
         <YStack>
           <XStack ai="center" gap="$1">
-            <SizableText
-              size="$headingLg"
-              $gtMd={{
-                size: '$heading2xl',
-              }}
-              color="$text"
-              numberOfLines={1}
-              maxWidth="$60"
-              flexShrink={1}
-            >
-              {symbol}
-            </SizableText>
+            {md ? (
+              <SizableText
+                size="$headingLg"
+                color="$text"
+                numberOfLines={1}
+                maxWidth="$60"
+                flexShrink={1}
+              >
+                {symbol}
+              </SizableText>
+            ) : null}
             {md ? (
               <TokenTagsPopover
                 communityRecognized={communityRecognized}
