@@ -16,6 +16,10 @@ export interface ISortSwapQuotesOptions {
   fromTokenAmount?: string;
 }
 
+export interface ISelectBestQuoteOptions {
+  manualSelect?: IFetchQuoteResult;
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -220,4 +224,35 @@ export function sortSwapQuotes(
       p.quoteId === receivedOriginalSorted[0]?.quoteId && !!p.toAmount,
     minGasCost: p.quoteId === gasFeeSorted[0]?.quoteId && !!p.toAmount,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// selectBestQuote – pure function, 1:1 parity with atoms.ts:409-433
+// ---------------------------------------------------------------------------
+
+export function selectBestQuote(
+  sortedQuotes: IFetchQuoteResult[],
+  options?: ISelectBestQuoteOptions,
+): IFetchQuoteResult | undefined {
+  if (sortedQuotes.length === 0) return undefined;
+
+  const manual = options?.manualSelect;
+  if (manual) {
+    const matched = sortedQuotes.find(
+      (item) =>
+        item.info.provider === manual.info.provider &&
+        item.info.providerName === manual.info.providerName,
+    );
+    if (matched?.toAmount) {
+      return matched;
+    }
+    // Manual set but no match — check unSupportReceiveAddressDifferent
+    if (!manual.unSupportReceiveAddressDifferent) {
+      return sortedQuotes.find(
+        (item) => !item.unSupportReceiveAddressDifferent,
+      );
+    }
+  }
+
+  return sortedQuotes[0];
 }

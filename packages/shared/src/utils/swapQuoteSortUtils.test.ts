@@ -1,6 +1,6 @@
 import { ESwapProviderSort } from '../../types/swap/SwapProvider.constants';
 
-import { sortSwapQuotes } from './swapQuoteSortUtils';
+import { selectBestQuote, sortSwapQuotes } from './swapQuoteSortUtils';
 
 import type { IFetchQuoteResult } from '../../types/swap/types';
 
@@ -486,5 +486,130 @@ describe('sortSwapQuotes', () => {
     // PRE should no longer have isBest or minGasCost (BETTER is better)
     expect(pre!.isBest).toBeFalsy();
     expect(pre!.minGasCost).toBeFalsy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// selectBestQuote
+// ---------------------------------------------------------------------------
+
+describe('selectBestQuote', () => {
+  // Fixtures specific to selectBestQuote
+  const sqA = makeQuote({
+    quoteId: 'SQ_A',
+    toAmount: '100',
+    info: { provider: 'providerA', providerName: 'Provider A' },
+  });
+  const sqB = makeQuote({
+    quoteId: 'SQ_B',
+    toAmount: '90',
+    info: { provider: 'providerB', providerName: 'Provider B' },
+  });
+  const sqC = makeQuote({
+    quoteId: 'SQ_C',
+    toAmount: '110',
+    info: { provider: 'providerC', providerName: 'Provider C' },
+  });
+
+  it('returns undefined for empty list', () => {
+    expect(selectBestQuote([])).toBeUndefined();
+  });
+
+  it('returns first in list when no manual select', () => {
+    const result = selectBestQuote([sqA, sqB, sqC]);
+    expect(result?.quoteId).toBe('SQ_A');
+  });
+
+  it('returns matching quote when manual select matches by provider AND providerName', () => {
+    const manual = makeQuote({
+      quoteId: 'MANUAL',
+      toAmount: '50',
+      info: { provider: 'providerB', providerName: 'Provider B' },
+    });
+    const result = selectBestQuote([sqA, sqB, sqC], {
+      manualSelect: manual,
+    });
+    expect(result?.quoteId).toBe('SQ_B');
+  });
+
+  it('falls through to first when manual match has no toAmount', () => {
+    const noAmount = makeQuote({
+      quoteId: 'SQ_NO_AMT',
+      info: { provider: 'providerB', providerName: 'Provider B' },
+      // no toAmount
+    });
+    const list = [sqA, noAmount, sqC];
+    const manual = makeQuote({
+      quoteId: 'MANUAL',
+      toAmount: '50',
+      info: { provider: 'providerB', providerName: 'Provider B' },
+    });
+    // matched quote has no toAmount → falls through
+    // manual.unSupportReceiveAddressDifferent is undefined (falsy)
+    // → finds first quote without unSupportReceiveAddressDifferent
+    const result = selectBestQuote(list, { manualSelect: manual });
+    expect(result?.quoteId).toBe('SQ_A');
+  });
+
+  it('manual select with unSupportReceiveAddressDifferent=false and no match: finds first compatible quote', () => {
+    const unsupported = makeQuote({
+      quoteId: 'SQ_UNSUP',
+      toAmount: '200',
+      info: { provider: 'providerX', providerName: 'Provider X' },
+      unSupportReceiveAddressDifferent: true,
+    });
+    const supported = makeQuote({
+      quoteId: 'SQ_SUP',
+      toAmount: '80',
+      info: { provider: 'providerY', providerName: 'Provider Y' },
+    });
+    const manual = makeQuote({
+      quoteId: 'MANUAL',
+      toAmount: '50',
+      info: { provider: 'providerZ', providerName: 'Provider Z' },
+      unSupportReceiveAddressDifferent: false,
+    });
+    // No match for providerZ in list.
+    // manual.unSupportReceiveAddressDifferent is false (falsy)
+    // → finds first quote without unSupportReceiveAddressDifferent=true
+    const result = selectBestQuote([unsupported, supported], {
+      manualSelect: manual,
+    });
+    expect(result?.quoteId).toBe('SQ_SUP');
+  });
+
+  it('manual select with unSupportReceiveAddressDifferent=true and no match: returns first in list', () => {
+    const unsupported = makeQuote({
+      quoteId: 'SQ_UNSUP',
+      toAmount: '200',
+      info: { provider: 'providerX', providerName: 'Provider X' },
+      unSupportReceiveAddressDifferent: true,
+    });
+    const manual = makeQuote({
+      quoteId: 'MANUAL',
+      toAmount: '50',
+      info: { provider: 'providerZ', providerName: 'Provider Z' },
+      unSupportReceiveAddressDifferent: true,
+    });
+    // No match for providerZ. manual.unSupportReceiveAddressDifferent is true
+    // → does NOT enter the unSupportReceiveAddressDifferent filter
+    // → falls through to return sortedQuotes[0]
+    const result = selectBestQuote([unsupported], {
+      manualSelect: manual,
+    });
+    expect(result?.quoteId).toBe('SQ_UNSUP');
+  });
+
+  it('does not match if only provider matches but providerName differs', () => {
+    const manual = makeQuote({
+      quoteId: 'MANUAL',
+      toAmount: '50',
+      info: { provider: 'providerA', providerName: 'Different Name' },
+    });
+    // provider matches sqA but providerName does not
+    // manual.unSupportReceiveAddressDifferent is undefined (falsy)
+    // → finds first quote without unSupportReceiveAddressDifferent
+    const result = selectBestQuote([sqA, sqB], { manualSelect: manual });
+    expect(result?.quoteId).toBe('SQ_A');
   });
 });
