@@ -192,8 +192,6 @@ const RecommendedItem = memo(
         gap="$4"
         px="$4"
         py="$3.5"
-        minHeight={CARD_MIN_HEIGHT}
-        width="100%"
         borderRadius="$3"
         borderCurve="continuous"
         bg="$bgSubdued"
@@ -224,14 +222,13 @@ const RecommendedItem = memo(
           <RecommendedBadges token={token} />
         </XStack>
         <YStack alignItems="flex-start" width="100%">
-          <SizableText size="$headingXl">
-            <AprText
-              asset={{
-                aprWithoutFee: token.aprWithoutFee ?? '',
-                aprInfo: token.aprInfo,
-              }}
-            />
-          </SizableText>
+          <AprText
+            size="$headingMd"
+            asset={{
+              aprWithoutFee: token.aprWithoutFee ?? '',
+              aprInfo: token.aprInfo,
+            }}
+          />
           {!noWalletConnected ? (
             <XStack gap="$1" ai="center" pt="$3">
               <Icon name="WalletOutline" size="$3.5" color="$iconSubdued" />
@@ -631,23 +628,25 @@ function RecommendedSectionSkeleton({
 
   const skeletonCards = Array.from({ length: SKELETON_ITEM_COUNT }).map(
     (_, index) => (
-      <YStack key={index} width={CARD_WIDTH} flexShrink={0}>
+      <YStack
+        key={index}
+        minWidth={CARD_WIDTH}
+        flexGrow={1}
+        flexBasis={0}
+        overflow="hidden"
+      >
         <RecommendedCardSkeletonItem noWalletConnected={noWalletConnected} />
       </YStack>
     ),
   );
 
+  const Scroller = platformEnv.isNative
+    ? NativeRecommendedScroller
+    : WebRecommendedScroller;
+
   return (
     <RecommendedSectionContainer withHeader={withHeader} variant={variant}>
-      {platformEnv.isNative ? (
-        <NativeRecommendedScroller itemCount={SKELETON_ITEM_COUNT}>
-          {skeletonCards}
-        </NativeRecommendedScroller>
-      ) : (
-        <WebRecommendedScroller itemCount={SKELETON_ITEM_COUNT}>
-          {skeletonCards}
-        </WebRecommendedScroller>
-      )}
+      <Scroller itemCount={SKELETON_ITEM_COUNT}>{skeletonCards}</Scroller>
     </RecommendedSectionContainer>
   );
 }
@@ -709,7 +708,13 @@ export function RecommendedSection({
   }
 
   const cardItems = visibleTokens.map((token) => (
-    <YStack key={token.symbol} width={CARD_WIDTH} flexShrink={0}>
+    <YStack
+      key={token.symbol}
+      minWidth={CARD_WIDTH}
+      flexGrow={1}
+      flexBasis={0}
+      overflow="hidden"
+    >
       <RecommendedItem
         token={token}
         noWalletConnected={noWalletConnected}
@@ -718,18 +723,14 @@ export function RecommendedSection({
     </YStack>
   ));
 
+  const Scroller = platformEnv.isNative
+    ? NativeRecommendedScroller
+    : WebRecommendedScroller;
+
   return (
     <RecommendedSectionContainer withHeader={withHeader} variant={variant}>
       <YStack>
-        {platformEnv.isNative ? (
-          <NativeRecommendedScroller itemCount={visibleTokens.length}>
-            {cardItems}
-          </NativeRecommendedScroller>
-        ) : (
-          <WebRecommendedScroller itemCount={visibleTokens.length}>
-            {cardItems}
-          </WebRecommendedScroller>
-        )}
+        <Scroller itemCount={visibleTokens.length}>{cardItems}</Scroller>
         {showMoreButton}
       </YStack>
     </RecommendedSectionContainer>
