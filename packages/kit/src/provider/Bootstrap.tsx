@@ -19,6 +19,10 @@ import {
   useSplitSubView,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+// Side-effect import: initializes the desktopApiProxy singleton and assigns
+// it to globalThis.desktopApiProxy so all consumer files can access it.
+// With contextIsolation enabled, the preload script can no longer do this.
+import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,

@@ -99,7 +99,7 @@ const desktopApiProxy = new DesktopApiProxy();
 
 // With contextIsolation enabled, preload can no longer assign to renderer's globalThis.
 // Assign here so that ~29 consumer files accessing globalThis.desktopApiProxy still work.
-if (typeof globalThis !== 'undefined') {
+if (typeof globalThis !== 'undefined' && platformEnvLite.isDesktop) {
   globalThis.desktopApiProxy = desktopApiProxy;
 }
 
