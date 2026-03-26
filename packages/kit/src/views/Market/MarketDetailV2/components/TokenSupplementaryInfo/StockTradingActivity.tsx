@@ -23,7 +23,7 @@ export function StockTradingActivity() {
     <YStack px="$3" pt="$3" gap="$3">
       <SizableText size="$bodyLgMedium">
         {intl.formatMessage({
-          id: ETranslations.dexmarket_stock_trading_activity,
+          id: ETranslations.dexmarket_stock_asset_analysis,
         })}
       </SizableText>
 
