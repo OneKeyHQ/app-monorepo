@@ -251,8 +251,12 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
 // OneToMany: multi-line, address-only or address+amount (auto-detect)
 function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
   const intl = useIntl();
-  const { selectedAccountId, selectedNetworkId, selectedToken } =
-    useBulkSendAddressesInputContext();
+  const {
+    selectedAccountId,
+    selectedNetworkId,
+    selectedToken,
+    setDuplicateAddressCount,
+  } = useBulkSendAddressesInputContext();
 
   const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
     selectedNetworkId,
@@ -263,6 +267,8 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     checkDuplicates: true,
     checkAllowlist: true,
     selectedAccountId,
+    duplicateWarningMode: true,
+    onDuplicateAddressCountChange: setDuplicateAddressCount,
   });
 
   const validate = useCallback(

@@ -20,7 +20,7 @@ import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import type { ILineError } from './LineNumberedTextArea';
+import { ELineAnnotationType, type ILineError } from './LineNumberedTextArea';
 
 type IUseMultiLineAddressValidationParams = {
   selectedNetworkId: string | undefined;
@@ -33,6 +33,8 @@ type IUseMultiLineAddressValidationParams = {
   selectedAccountId?: string;
   resolveAccountId?: boolean;
   onResolvedAccountIds?: (ids: Record<number, string>) => void;
+  onDuplicateAddressCountChange?: (count: number) => void;
+  duplicateWarningMode?: boolean;
 };
 
 function useMultiLineAddressValidation(
@@ -50,14 +52,20 @@ function useMultiLineAddressValidation(
     selectedAccountId: _selectedAccountId,
     resolveAccountId,
     onResolvedAccountIds,
+    onDuplicateAddressCountChange,
+    duplicateWarningMode = false,
   } = params;
 
   const intl = useIntl();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const onResolvedAccountIdsRef = useRef(onResolvedAccountIds);
+  const onDuplicateAddressCountChangeRef = useRef(
+    onDuplicateAddressCountChange,
+  );
   const validationSeqRef = useRef(0);
   onResolvedAccountIdsRef.current = onResolvedAccountIds;
+  onDuplicateAddressCountChangeRef.current = onDuplicateAddressCountChange;
 
   const { result: vaultSettings } = usePromiseResult(
     async () =>
@@ -239,6 +247,7 @@ function useMultiLineAddressValidation(
 
       if (!value) {
         setErrors([]);
+        onDuplicateAddressCountChangeRef.current?.(0);
         if (resolveAccountId) {
           onResolvedAccountIdsRef.current?.({});
         }
@@ -248,6 +257,7 @@ function useMultiLineAddressValidation(
       const lines = value.split('\n');
       const nonEmptyLines = lines.filter((l) => l.trim());
       const lineErrors: ILineError[] = [];
+      let duplicateAddressCount = 0;
 
       // Check max lines limit (based on non-empty lines)
       if (maxLines && nonEmptyLines.length > maxLines) {
@@ -258,6 +268,7 @@ function useMultiLineAddressValidation(
             { max: maxLines, current: nonEmptyLines.length },
           ),
         });
+        onDuplicateAddressCountChangeRef.current?.(0);
         setErrors(lineErrors);
         return lineErrors[0].message;
       }
@@ -407,6 +418,7 @@ function useMultiLineAddressValidation(
             if (checkDuplicates) {
               const seenIndex = seenNormalizedAddresses.get(normalizedAddress);
               if (seenIndex !== undefined) {
+                duplicateAddressCount += 1;
                 lineErrors.push({
                   lineNumber: index + 1,
                   message: intl.formatMessage(
@@ -415,11 +427,17 @@ function useMultiLineAddressValidation(
                     },
                     { line: seenIndex },
                   ),
+                  type: duplicateWarningMode
+                    ? ELineAnnotationType.Warning
+                    : ELineAnnotationType.Error,
                 });
-              } else {
-                seenNormalizedAddresses.set(normalizedAddress, index + 1);
-                validAddresses.push({ index, address });
               }
+
+              if (seenIndex === undefined) {
+                seenNormalizedAddresses.set(normalizedAddress, index + 1);
+              }
+
+              validAddresses.push({ index, address });
             } else {
               validAddresses.push({ index, address });
             }
@@ -566,15 +584,23 @@ function useMultiLineAddressValidation(
       }
 
       setErrors(lineErrors);
-      if (lineErrors.length > 0) {
+      onDuplicateAddressCountChangeRef.current?.(
+        duplicateWarningMode ? duplicateAddressCount : 0,
+      );
+
+      const blockingErrors = lineErrors.filter(
+        (error) => error.type !== ELineAnnotationType.Warning,
+      );
+
+      if (blockingErrors.length > 0) {
         const maxErrorsToDisplay = 5;
-        const errorsToDisplay = lineErrors.slice(0, maxErrorsToDisplay);
-        if (lineErrors.length > maxErrorsToDisplay) {
+        const errorsToDisplay = blockingErrors.slice(0, maxErrorsToDisplay);
+        if (blockingErrors.length > maxErrorsToDisplay) {
           errorsToDisplay.push({
             lineNumber: -1,
             message: intl.formatMessage(
               { id: ETranslations.wallet_bulk_send_error_more_errors },
-              { count: lineErrors.length - maxErrorsToDisplay },
+              { count: blockingErrors.length - maxErrorsToDisplay },
             ),
           });
         }
@@ -610,6 +636,7 @@ function useMultiLineAddressValidation(
       checkAllowlist,
       resolveAccountId,
       resolveAccountIdForAddress,
+      duplicateWarningMode,
     ],
   );
 

@@ -74,6 +74,7 @@ function TokenSelector() {
     footerTipText,
     activeAccountId,
     activeNetworkId,
+    forceShowActiveAccountTokenList,
     aggregateTokenSelectorScreen,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
@@ -355,8 +356,22 @@ function TokenSelector() {
   );
 
   const showActiveAccountTokenList = useMemo(() => {
-    return !!(activeAccountId && activeNetworkId);
-  }, [activeAccountId, activeNetworkId]);
+    if (!activeAccountId || !activeNetworkId) {
+      return false;
+    }
+
+    if (forceShowActiveAccountTokenList) {
+      return true;
+    }
+
+    return activeAccountId !== accountId && activeNetworkId !== networkId;
+  }, [
+    activeAccountId,
+    activeNetworkId,
+    accountId,
+    forceShowActiveAccountTokenList,
+    networkId,
+  ]);
 
   usePromiseResult(async () => {
     if (activeAccountId && activeNetworkId && showActiveAccountTokenList) {

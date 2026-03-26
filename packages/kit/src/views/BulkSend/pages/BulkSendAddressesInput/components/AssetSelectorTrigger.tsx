@@ -313,6 +313,7 @@ function AssetSelectorTrigger({
             networkId: _network.id,
             activeAccountId: accountId,
             activeNetworkId: _network.id,
+            forceShowActiveAccountTokenList: true,
             indexedAccountId: indexedAccountId ?? '',
             hideBalanceAndValue: !isOneToMany,
             onSelect: (token: IToken) => {

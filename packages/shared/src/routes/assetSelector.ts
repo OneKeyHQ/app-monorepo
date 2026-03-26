@@ -46,6 +46,7 @@ export type ITokenSelectorParamList = {
   indexedAccountId?: string;
   activeAccountId?: string;
   activeNetworkId?: string;
+  forceShowActiveAccountTokenList?: boolean;
   tokens?: ITokenData;
   onSelect: (token: IToken) => void | Promise<void>;
   closeAfterSelect?: boolean;
