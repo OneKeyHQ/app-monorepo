@@ -22,13 +22,7 @@ function setAndroidHarnessFlag() {
   );
   execFileSync(
     'adb',
-    [
-      'shell',
-      'run-as',
-      'so.onekey.app.wallet',
-      'touch',
-      'files/harness_mode',
-    ],
+    ['shell', 'run-as', 'so.onekey.app.wallet', 'touch', 'files/harness_mode'],
     adbOpts,
   );
   console.log('[harness-globalSetup] Android harness_mode flag set');
