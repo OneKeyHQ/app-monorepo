@@ -335,6 +335,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         },
         renderContent: (
           <MarketSwapReviewDialogContent
+            activeAccount={activeAccount}
             quoteResult={reviewQuote}
             fromTokenAmount={reviewQuote.fromAmount ?? ''}
             slippage={slippage}
@@ -351,7 +352,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         ),
       });
     },
-    [closeReviewDialog, intl, onCloseDialog, slippage],
+    [activeAccount, closeReviewDialog, intl, onCloseDialog, slippage],
   );
 
   const handleSwap = useCallback(async () => {

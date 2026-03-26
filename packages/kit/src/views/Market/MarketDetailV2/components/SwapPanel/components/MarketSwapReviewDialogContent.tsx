@@ -18,7 +18,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import PreSwapInfoItem from '@onekeyhq/kit/src/views/Swap/components/PreSwapInfoItem';
 import { PreSwapTipInfo } from '@onekeyhq/kit/src/views/Swap/components/PreSwapTipInfo';
 import { ProtocolFeeComparisonList } from '@onekeyhq/kit/src/views/Swap/components/ProtocolFeeComparisonList';
@@ -268,6 +268,7 @@ function MarketSwapReviewInfoGroup({
 }
 
 type IMarketSwapReviewDialogContentProps = {
+  activeAccount: IAccountSelectorActiveAccountInfo;
   fromTokenAmount: string;
   onConfirm: () => Promise<void>;
   quoteResult: IFetchQuoteResult;
@@ -275,13 +276,13 @@ type IMarketSwapReviewDialogContentProps = {
 };
 
 export function MarketSwapReviewDialogContent({
+  activeAccount,
   fromTokenAmount,
   onConfirm,
   quoteResult,
   slippage,
 }: IMarketSwapReviewDialogContentProps) {
   const intl = useIntl();
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const [isConfirming, setIsConfirming] = useState(false);
   const [showPreSwapTipInfo, setShowPreSwapTipInfo] =
     useState<IFetchQuoteResult['quoteShowTip']>(undefined);
