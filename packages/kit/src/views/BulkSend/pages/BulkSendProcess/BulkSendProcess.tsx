@@ -810,8 +810,9 @@ function BulkSendProcessContent({
       feeOverflowCheckedRef.current = false;
       feeCacheRef.current = null;
       resultsRef.current = [];
-      // Reset processing guard before updating unsignedTxs to allow the new loop
+      // Reset processing guard and progress index before updating unsignedTxs to allow the new loop
       isProcessingRef.current = false;
+      setCurrentProcessIndex(0);
       setUnsignedTxs((prev) => prev.filter((_, idx) => failedIndices.has(idx)));
       setTransfersInfoState((prev) =>
         prev.filter((_, idx) => failedIndices.has(idx)),
