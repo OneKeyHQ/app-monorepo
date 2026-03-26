@@ -5,6 +5,11 @@ const baseElectronBuilderConfig = require('./electron-builder-base.config');
 module.exports = {
   ...baseElectronBuilderConfig,
   'linux': {
+    'files': [
+      '!**/prebuilds/android-*/**',
+      '!**/prebuilds/darwin-*/**',
+      '!**/prebuilds/win32-*/**',
+    ],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/linux-${arch}',

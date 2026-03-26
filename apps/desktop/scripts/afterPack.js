@@ -40,8 +40,8 @@ exports.default = async function fileOperation(context) {
     console.log('remove file finish..');
   }
 
-  // Cross-OS prebuilds cleanup has been moved to beforePack.js so that
-  // unwanted files are removed BEFORE asar indexing (fixes GitHub #10814).
+  // Cross-OS prebuilds are excluded via platform-specific `files` patterns
+  // in electron-builder configs, so they never enter the asar (fixes #10814).
 
   if (
     electronPlatformName === 'darwin' ||

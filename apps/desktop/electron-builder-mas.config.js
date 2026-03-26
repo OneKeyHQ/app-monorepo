@@ -9,6 +9,11 @@ module.exports = {
     'sign': false,
   },
   'mac': {
+    'files': [
+      '!**/prebuilds/android-*/**',
+      '!**/prebuilds/linux-*/**',
+      '!**/prebuilds/win32-*/**',
+    ],
     'identity': null,
     'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',

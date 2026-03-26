@@ -15,6 +15,11 @@ module.exports = {
     deleteAppDataOnUninstall: true,
   },
   win: {
+    files: [
+      '!**/prebuilds/android-*/**',
+      '!**/prebuilds/darwin-*/**',
+      '!**/prebuilds/linux-*/**',
+    ],
     extraResources: [
       {
         from: 'app/build/static/bin/bridge/win-${arch}',

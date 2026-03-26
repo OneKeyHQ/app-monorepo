@@ -29,6 +29,11 @@ module.exports = {
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
+    'files': [
+      '!**/prebuilds/android-*/**',
+      '!**/prebuilds/linux-*/**',
+      '!**/prebuilds/win32-*/**',
+    ],
     'x64ArchFiles': '*',
     'extraResources': [
       {
@@ -70,6 +75,11 @@ module.exports = {
     },
   },
   'win': {
+    'files': [
+      '!**/prebuilds/android-*/**',
+      '!**/prebuilds/darwin-*/**',
+      '!**/prebuilds/linux-*/**',
+    ],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/win-${arch}',
@@ -83,6 +93,11 @@ module.exports = {
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
   'linux': {
+    'files': [
+      '!**/prebuilds/android-*/**',
+      '!**/prebuilds/darwin-*/**',
+      '!**/prebuilds/win32-*/**',
+    ],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/linux-${arch}',

@@ -47,7 +47,6 @@ const baseElectronBuilderConfig = {
     'repo': 'app-monorepo',
     'owner': 'OneKeyHQ',
   },
-  'beforePack': getPath('scripts/beforePack.js'),
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
 };
