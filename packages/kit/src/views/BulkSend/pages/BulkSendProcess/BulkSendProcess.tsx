@@ -809,7 +809,8 @@ function BulkSendProcessContent({
       setTxStatusMap({});
       feeOverflowCheckedRef.current = false;
       feeCacheRef.current = null;
-      resultsRef.current = [];
+      // Preserve original successful results so onSuccess receives all successes
+      // resultsRef.current is NOT cleared here — retry appends new successes
       // Reset processing guard and progress index before updating unsignedTxs to allow the new loop
       isProcessingRef.current = false;
       setCurrentProcessIndex(0);
