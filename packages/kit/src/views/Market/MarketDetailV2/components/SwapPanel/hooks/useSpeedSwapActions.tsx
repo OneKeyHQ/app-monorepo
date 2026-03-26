@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  OrderBalance,
+  hashify,
+  normalizeBuyTokenBalance,
+  timestamp,
+} from '@cowprotocol/contracts';
 import BigNumber from 'bignumber.js';
+import { ethers } from 'ethers';
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -34,6 +41,10 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  EMessageTypesEth,
+  ESigningScheme,
+} from '@onekeyhq/shared/types/message';
 import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapApproveTransaction,
@@ -113,6 +124,7 @@ export function useSpeedSwapActions(props: {
   const [speedCheckError, setSpeedCheckError] = useState('');
   const [speedCheckLoading, setSpeedCheckLoading] = useState(false);
   const [checkSpenderAddress, setCheckSpenderAddress] = useState('');
+  const [isStock, setIsStock] = useState(false);
   const speedCheckRequestIdRef = useRef(0);
 
   const effectiveSpenderAddress = checkSpenderAddress || spenderAddress;
@@ -185,10 +197,11 @@ export function useSpeedSwapActions(props: {
     };
   }, [netAccountRes]);
 
-  const { navigationToTxConfirm } = useSignatureConfirm({
-    accountId: netAccountRes.result?.id ?? '',
-    networkId: marketToken?.networkId,
-  });
+  const { navigationToTxConfirm, navigationToMessageConfirmAsync } =
+    useSignatureConfirm({
+      accountId: netAccountRes.result?.id ?? '',
+      networkId: marketToken?.networkId,
+    });
   const fromTokenAmountDebounced = useDebounce(fromTokenAmount, 300, {
     leading: true,
   });
@@ -384,6 +397,300 @@ export function useSpeedSwapActions(props: {
   const speedSwapBuildTx = useCallback(async () => {
     setSpeedSwapBuildTxLoading(true);
     const userAddress = netAccountRes.result?.addressDetail.address ?? '';
+    const accountId = netAccountRes.result?.id ?? '';
+
+    // isStock flow: quote-market/speed -> signMessage -> build
+    if (isStock) {
+      try {
+        const quoteRes =
+          await backgroundApiProxy.serviceSwap.fetchSpeedMarketQuote({
+            fromToken,
+            toToken,
+            fromTokenAmount: fromTokenAmountDebounced,
+            userAddress,
+            receivingAddress: userAddress,
+            slippagePercentage: slippage,
+            accountId,
+          });
+        if (!quoteRes?.swapShouldSignedData) {
+          setSpeedSwapBuildTxLoading(false);
+          Toast.error({
+            title:
+              quoteRes?.errorMessage ||
+              intl.formatMessage({
+                id: ETranslations.global_server_error,
+              }),
+          });
+          return;
+        }
+
+        let signedQuoteResultCtx = quoteRes.quoteResultCtx;
+        if (quoteRes.swapShouldSignedData) {
+          const {
+            unSignedInfo,
+            unSignedMessage,
+            unSignedData,
+            oneInchFusionOrder,
+          } = quoteRes.swapShouldSignedData;
+
+          if (oneInchFusionOrder) {
+            // 1inchFusion flow
+            const { makerAddress, typedData } = oneInchFusionOrder;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            const fusionOrderCtx = signedQuoteResultCtx?.oneInchFusionOrderCtx;
+            if (makerAddress && typedData && fusionOrderCtx) {
+              const dataMessage = JSON.stringify(typedData);
+              const signHash = await navigationToMessageConfirmAsync({
+                unsignedMessage: {
+                  type:
+                    unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+                  message: dataMessage,
+                  payload: [userAddress.toLowerCase(), dataMessage],
+                },
+                networkId: fromToken.networkId,
+                accountId,
+              });
+              if (!signHash) {
+                setSpeedSwapBuildTxLoading(false);
+                return;
+              }
+              signedQuoteResultCtx = {
+                ...signedQuoteResultCtx,
+                oneInchFusionOrderCtx: {
+                  ...fusionOrderCtx,
+                  signature: signHash,
+                },
+              };
+            }
+          } else if (
+            (unSignedMessage || unSignedData) &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            signedQuoteResultCtx?.cowSwapUnSignedOrder
+          ) {
+            // cowSwap flow
+            const unSignedOrder: {
+              sellTokenBalance: string;
+              buyTokenBalance: string;
+              validTo: number;
+              appData: string;
+              receiver: string;
+              buyAmount: string;
+              sellAmount: string;
+              partiallyFillable: boolean;
+            } =
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              signedQuoteResultCtx?.cowSwapUnSignedOrder;
+            unSignedOrder.receiver = userAddress;
+
+            let dataMessage = unSignedMessage;
+            if (!dataMessage && unSignedData) {
+              const normalizeData = {
+                ...unSignedOrder,
+                sellTokenBalance:
+                  (unSignedOrder.sellTokenBalance as OrderBalance) ??
+                  OrderBalance.ERC20,
+                buyTokenBalance: normalizeBuyTokenBalance(
+                  unSignedOrder.buyTokenBalance as OrderBalance,
+                ),
+                validTo: timestamp(unSignedOrder.validTo),
+                appData: hashify(unSignedOrder.appData),
+              };
+              const populated =
+                await ethers.utils._TypedDataEncoder.resolveNames(
+                  unSignedData.domain,
+                  unSignedData.types,
+                  normalizeData,
+                  async (value: string) => value,
+                );
+              dataMessage = JSON.stringify(
+                ethers.utils._TypedDataEncoder.getPayload(
+                  populated.domain,
+                  unSignedData.types,
+                  populated.value,
+                ),
+              );
+            }
+            if (dataMessage) {
+              const signHash = await navigationToMessageConfirmAsync({
+                unsignedMessage: {
+                  type:
+                    unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+                  message: dataMessage,
+                  payload: [userAddress.toLowerCase(), dataMessage],
+                },
+                networkId: fromToken.networkId,
+                accountId,
+              });
+              if (!signHash) {
+                setSpeedSwapBuildTxLoading(false);
+                return;
+              }
+              signedQuoteResultCtx = {
+                ...signedQuoteResultCtx,
+                cowSwapUnSignedOrder: unSignedOrder,
+                signedResult: {
+                  signature: signHash,
+                  signingScheme: ESigningScheme.EIP712,
+                },
+              };
+            }
+          }
+        }
+
+        const buildParams = {
+          fromToken,
+          toToken,
+          fromTokenAmount: fromTokenAmountDebounced,
+          provider: quoteRes.info?.provider || provider,
+          userAddress,
+          receivingAddress: userAddress,
+          slippagePercentage: slippage,
+          accountId,
+          protocol: EProtocolOfExchange.SWAP,
+          kind: ESwapQuoteKind.SELL,
+          quoteResultCtx: signedQuoteResultCtx,
+        };
+        const buildRes =
+          await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx(
+            buildParams,
+          );
+        setSpeedSwapBuildTxLoading(false);
+        if (buildRes) {
+          const swapInfo: ISwapTxInfo = {
+            protocol: EProtocolOfExchange.SWAP,
+            sender: {
+              amount: fromTokenAmount,
+              token: fromToken,
+              accountInfo: { accountId, networkId: fromToken.networkId },
+            },
+            receiver: {
+              amount: buildRes.result.toAmount ?? '',
+              token: toToken,
+              accountInfo: { accountId, networkId: toToken.networkId },
+            },
+            accountAddress: userAddress,
+            receivingAddress: userAddress,
+            swapBuildResData: {
+              ...buildRes,
+              result: {
+                ...buildRes.result,
+                slippage: buildRes.result?.slippage ?? slippage,
+              },
+            },
+          };
+          const fromNetworkPreset = Object.values(presetNetworksMap).find(
+            (item) => item.id === fromToken.networkId,
+          );
+          const toNetworkPreset = Object.values(presetNetworksMap).find(
+            (item) => item.id === toToken.networkId,
+          );
+          const swapHistoryItem: ISwapTxHistory = {
+            status: ESwapTxHistoryStatus.PENDING,
+            currency: settingsAtom.currencyInfo?.symbol,
+            accountInfo: {
+              sender: { accountId, networkId: fromToken.networkId },
+              receiver: { accountId, networkId: toToken.networkId },
+            },
+            baseInfo: {
+              toAmount: swapInfo.receiver.amount,
+              fromAmount: swapInfo.sender.amount,
+              fromToken,
+              toToken,
+              fromNetwork: {
+                networkId: fromNetworkPreset?.id ?? '',
+                name: fromNetworkPreset?.name ?? '',
+                symbol: fromNetworkPreset?.symbol ?? '',
+                logoURI: fromNetworkPreset?.logoURI ?? '',
+                shortcode: fromNetworkPreset?.shortcode ?? '',
+              },
+              toNetwork: {
+                networkId: toNetworkPreset?.id ?? '',
+                name: toNetworkPreset?.name ?? '',
+                symbol: toNetworkPreset?.symbol ?? '',
+                logoURI: toNetworkPreset?.logoURI ?? '',
+                shortcode: toNetworkPreset?.shortcode ?? '',
+              },
+            },
+            txInfo: {
+              txId: undefined,
+              useOrderId: true,
+              orderId:
+                buildRes.orderId ??
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                buildRes.ctx?.oneInchFusionOrderHash,
+              sender: userAddress,
+              receiver: userAddress,
+            },
+            date: { created: Date.now(), updated: Date.now() },
+            swapInfo: {
+              instantRate: buildRes.result?.instantRate ?? '0',
+              provider: buildRes.result?.info,
+              socketBridgeScanUrl: buildRes.socketBridgeScanUrl,
+              oneKeyFee: buildRes.result?.fee?.percentageFee ?? 0,
+              protocolFee: buildRes.result?.fee?.protocolFees ?? 0,
+              otherFeeInfos: buildRes.result?.fee?.otherFeeInfos ?? [],
+              orderId: buildRes.orderId ?? buildRes.result?.quoteId,
+              supportUrl: buildRes.result?.supportUrl,
+              orderSupportUrl: buildRes.result?.orderSupportUrl,
+              oneKeyFeeExtraInfo: buildRes.result?.oneKeyFeeExtraInfo,
+            },
+            ctx: buildRes.ctx,
+          };
+          await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
+            swapHistoryItem,
+          );
+          appEventBus.emit(EAppEventBusNames.SwapSpeedBuildTxSuccess, {
+            fromToken,
+            toToken,
+            fromAmount: fromTokenAmount,
+            toAmount: buildRes.result.toAmount ?? '',
+          });
+          defaultLogger.swap.createSwapOrder.swapCreateOrder({
+            fromTokenAmount,
+            fromAddress: userAddress,
+            toAddress: userAddress,
+            toTokenAmount: buildRes.result?.toAmount ?? '',
+            status: ESwapEventAPIStatus.SUCCESS,
+            swapProvider: buildRes.result?.info.provider ?? '',
+            swapProviderName: buildRes.result?.info.providerName ?? '',
+            swapType: ESwapTabSwitchType.SWAP,
+            slippage: slippage.toString(),
+            sourceChain: fromToken.networkId ?? '',
+            receivedChain: toToken.networkId ?? '',
+            sourceTokenSymbol: fromToken.symbol ?? '',
+            receivedTokenSymbol: toToken.symbol ?? '',
+            feeType: buildRes.result?.fee?.percentageFee?.toString() ?? '0',
+            router: JSON.stringify(buildRes.result?.routesData ?? ''),
+            isFirstTime: isFirstTimeSwap,
+            createFrom: 'marketDex',
+          });
+        }
+        return buildRes;
+      } catch (_e) {
+        setSpeedSwapBuildTxLoading(false);
+        defaultLogger.swap.createSwapOrder.swapCreateOrder({
+          fromTokenAmount,
+          fromAddress: userAddress,
+          toAddress: userAddress,
+          toTokenAmount: '',
+          status: ESwapEventAPIStatus.FAIL,
+          swapProvider: '',
+          swapProviderName: '',
+          swapType: ESwapTabSwitchType.SWAP,
+          slippage: slippage.toString(),
+          sourceChain: fromToken.networkId ?? '',
+          receivedChain: toToken.networkId ?? '',
+          sourceTokenSymbol: fromToken.symbol ?? '',
+          receivedTokenSymbol: toToken.symbol ?? '',
+          feeType: '0',
+          router: '',
+          isFirstTime: isFirstTimeSwap,
+          createFrom: 'marketDex',
+        });
+      }
+      return;
+    }
+
     const buildParams = {
       fromToken,
       toToken,
@@ -392,7 +699,7 @@ export function useSpeedSwapActions(props: {
       userAddress,
       receivingAddress: userAddress,
       slippagePercentage: slippage,
-      accountId: netAccountRes.result?.id ?? '',
+      accountId,
       protocol: EProtocolOfExchange.SWAP,
       kind: ESwapQuoteKind.SELL,
     };
@@ -523,6 +830,10 @@ export function useSpeedSwapActions(props: {
     cancelSpeedSwapBuildTx,
     antiMEV,
     isFirstTimeSwap,
+    isStock,
+    settingsAtom.currencyInfo?.symbol,
+    navigationToMessageConfirmAsync,
+    intl,
     // onCloseDialog,
   ]);
 
@@ -1070,6 +1381,9 @@ export function useSpeedSwapActions(props: {
           return;
         }
 
+        const stockFlag = !!checkResult?.isStock && !checkResult?.errorMessage;
+        setIsStock(stockFlag);
+
         if (checkResult?.errorMessage) {
           setSpeedCheckError(checkResult.errorMessage);
           setSpeedCheckLoading(false);
@@ -1101,6 +1415,7 @@ export function useSpeedSwapActions(props: {
       } catch (_e) {
         if (currentRequestId === speedCheckRequestIdRef.current) {
           setSpeedCheckLoading(false);
+          setIsStock(false);
         }
       }
     },
@@ -1140,6 +1455,7 @@ export function useSpeedSwapActions(props: {
       setCheckSpenderAddress('');
       setShouldApprove(false);
       setShouldResetApprove(false);
+      setIsStock(false);
     }
   }, [
     isWrapped,

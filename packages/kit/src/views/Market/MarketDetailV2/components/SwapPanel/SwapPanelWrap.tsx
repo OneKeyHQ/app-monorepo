@@ -209,6 +209,8 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     return result?.mergeDeriveAssetsEnabled;
   }, [balanceToken?.networkId]);
 
+  const isStockToken = !!tokenDetail?.stock;
+
   const filterDefaultTokens = useMemo(() => {
     if (defaultTokens?.length === 1) {
       return [...defaultTokens];
@@ -262,43 +264,57 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   );
 
   // Initialize paymentToken: prefer saved preference, fallback to first default
+  // For stock tokens in BUY mode, exclude native tokens from selection
   useEffect(() => {
-    if (filterDefaultTokens.length > 0 && !paymentToken?.networkId) {
+    const isStockBuyMode = isStockToken && tradeType === ESwapDirection.BUY;
+    const candidates = isStockBuyMode
+      ? filterDefaultTokens.filter((t) => !t.isNative)
+      : filterDefaultTokens;
+
+    if (candidates.length > 0 && !paymentToken?.networkId) {
       const preferred = savedPreference
-        ? filterDefaultTokens.find(
+        ? candidates.find(
             (t) =>
               t.networkId === savedPreference.networkId &&
               t.contractAddress.toLowerCase() ===
                 savedPreference.contractAddress.toLowerCase(),
           )
         : undefined;
-      setPaymentToken(preferred || filterDefaultTokens[0]);
+      setPaymentToken(preferred || candidates[0]);
+      return;
+    }
+    // Stock BUY mode: auto-switch away from native token
+    if (isStockBuyMode && paymentToken?.isNative && candidates.length > 0) {
+      setPaymentToken(candidates[0]);
       return;
     }
     if (
-      filterDefaultTokens.length > 0 &&
-      filterDefaultTokens.every(
+      candidates.length > 0 &&
+      candidates.every(
         (token) =>
           token.networkId !== paymentToken?.networkId ||
           token.contractAddress !== paymentToken?.contractAddress,
       )
     ) {
       const preferred = savedPreference
-        ? filterDefaultTokens.find(
+        ? candidates.find(
             (t) =>
               t.networkId === savedPreference.networkId &&
               t.contractAddress.toLowerCase() ===
                 savedPreference.contractAddress.toLowerCase(),
           )
         : undefined;
-      setPaymentToken(preferred || filterDefaultTokens[0]);
+      setPaymentToken(preferred || candidates[0]);
     }
   }, [
     paymentToken?.networkId,
     paymentToken?.contractAddress,
+    paymentToken?.isNative,
     setPaymentToken,
     filterDefaultTokens,
     savedPreference,
+    isStockToken,
+    tradeType,
   ]);
 
   useEffect(() => {
@@ -397,6 +413,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
+      disableNativeToken={Boolean(
+        isStockToken && tradeType === ESwapDirection.BUY,
+      )}
     />
   );
 }

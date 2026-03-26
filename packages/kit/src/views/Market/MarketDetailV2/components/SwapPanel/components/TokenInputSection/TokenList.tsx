@@ -29,6 +29,7 @@ interface ITokenListProps {
   onTradePress: () => void;
   disabledOnSwitchToTrade?: boolean;
   currentSelectToken?: ISwapToken;
+  disableNativeToken?: boolean;
 }
 
 export function TokenList({
@@ -37,6 +38,7 @@ export function TokenList({
   onTradePress,
   disabledOnSwitchToTrade,
   currentSelectToken,
+  disableNativeToken,
 }: ITokenListProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const currencySymbol = '$';
@@ -141,11 +143,12 @@ export function TokenList({
       <YStack px="$1" py="$1">
         {displayTokens?.map((token: IEnhancedToken) => {
           const isDisabled = Boolean(
-            currentSelectToken &&
-            equalTokenNoCaseSensitive({
-              token1: currentSelectToken,
-              token2: token,
-            }),
+            (currentSelectToken &&
+              equalTokenNoCaseSensitive({
+                token1: currentSelectToken,
+                token2: token,
+              })) ||
+            (disableNativeToken && token.isNative),
           );
           const onPress = () => {
             if (isDisabled) return;

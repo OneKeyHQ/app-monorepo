@@ -66,6 +66,7 @@ export type ISwapPanelContentProps = {
   enableAddressTypeSelector: boolean;
   activeAccount: IAccountSelectorActiveAccountInfo;
   speedCheckError?: string;
+  disableNativeToken?: boolean;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -91,6 +92,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     hasInitialReady,
     currentMarketToken,
     speedCheckError,
+    disableNativeToken,
   } = props;
 
   const {
@@ -247,6 +249,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
           onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
+          disableNativeToken={disableNativeToken}
         />
         <TokenInputSection
           ref={tokenSellInputRef}

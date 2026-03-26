@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IFormFieldProps } from '../types';
 
@@ -67,6 +68,9 @@ export function Switch({
           true: theme.bgPrimary.val,
         },
         thumbColor: theme.bg.val,
+        ...(platformEnv.isNativeAndroid && {
+          style: { opacity: disabled ? 0.5 : 1 },
+        }),
       }}
       {...restProps}
     >
