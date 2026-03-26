@@ -90,17 +90,29 @@ exports.default = async function beforePack(context) {
   };
 
   // --- scan source node_modules ---
+  // electron-builder resolves deps from appDir, projectDir, and workspaceRoot
+  // (see computeNodeModuleFileSets in app-builder-lib). In a yarn workspace
+  // monorepo, native packages with prebuilds are typically hoisted to the root
+  // node_modules, so we must scan both the project and root directories.
 
   const projectDir = context.packager.projectDir; // apps/desktop
-  const nodeModulesDir = path.join(projectDir, 'node_modules');
+  const monorepoRoot = path.resolve(projectDir, '../..');
+  const searchDirs = [
+    ...new Set([
+      path.join(projectDir, 'node_modules'),
+      path.join(monorepoRoot, 'node_modules'),
+    ]),
+  ];
 
   console.log(
     `[beforePack:prebuilds] Cleaning cross-OS prebuilds from source (keeping: ${platformPrefix}-*)`,
   );
 
-  if (fs.existsSync(nodeModulesDir)) {
-    console.log(`[beforePack:prebuilds] Searching: ${nodeModulesDir}`);
-    findPrebuildsRecursive(nodeModulesDir);
+  for (const dir of searchDirs) {
+    if (fs.existsSync(dir)) {
+      console.log(`[beforePack:prebuilds] Searching: ${dir}`);
+      findPrebuildsRecursive(dir);
+    }
   }
 
   console.log(
