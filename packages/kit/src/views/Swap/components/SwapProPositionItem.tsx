@@ -70,10 +70,10 @@ const SwapProPositionItem = ({
     if (isNegative) prefix = '-';
 
     return {
-      text: `${prefix}${currencyInfo.symbol}${unrealizedBN.abs().toFixed(2)} (${pnl.unrealizedPnlPercent}%)`,
+      text: `${prefix}$${unrealizedBN.abs().toFixed(2)} (${pnl.unrealizedPnlPercent}%)`,
       color,
     };
-  }, [pnl, currencyInfo.symbol]);
+  }, [pnl]);
 
   return (
     <Stack
