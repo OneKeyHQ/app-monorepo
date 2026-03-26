@@ -321,6 +321,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     src: '',
     isNFT: !!(sendNFTIcon || receiveNFTIcon),
   };
+  const isStackedLayout = !tableLayout;
   let title = '';
   let change: React.ReactNode = '';
   let changeSymbol = '';
@@ -408,12 +409,14 @@ function TxActionTransferListView(props: ITxActionProps) {
         tokenSymbol: changeSymbol,
         showPlusMinusSigns: true,
       }}
-      minWidth={0}
-      maxWidth="100%"
       numberOfLines={1}
       size="$bodyLgMedium"
-      textAlign="right"
-      flexShrink={1}
+      {...(isStackedLayout && {
+        minWidth: 0,
+        maxWidth: '100%',
+        textAlign: 'right',
+        flexShrink: 1,
+      })}
       {...((change as string)?.includes('+') && {
         color: '$textSuccess',
       })}
@@ -440,11 +443,13 @@ function TxActionTransferListView(props: ITxActionProps) {
       }}
       size="$bodyMd"
       color="$textSubdued"
-      minWidth={0}
-      maxWidth="100%"
       numberOfLines={1}
-      textAlign="right"
-      flexShrink={1}
+      maxWidth={isStackedLayout ? '100%' : '$40'}
+      {...(isStackedLayout && {
+        minWidth: 0,
+        textAlign: 'right',
+        flexShrink: 1,
+      })}
     >
       {changeDescription as string}
     </NumberSizeableTextWrapper>
@@ -454,10 +459,12 @@ function TxActionTransferListView(props: ITxActionProps) {
       size="$bodyMd"
       color="$textSubdued"
       formatter="value"
-      minWidth={0}
-      maxWidth="100%"
-      textAlign="right"
-      flexShrink={1}
+      {...(isStackedLayout && {
+        minWidth: 0,
+        maxWidth: '100%',
+        textAlign: 'right',
+        flexShrink: 1,
+      })}
     >
       -
     </NumberSizeableTextWrapper>
