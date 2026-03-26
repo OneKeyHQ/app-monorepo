@@ -42,27 +42,31 @@ function BasicTabSubStackNavigator({
     <Stack.Navigator>
       {config
         .filter(({ disable }) => !disable)
-        .map(({ name, component, translationId, headerShown = true }) => (
-          <Stack.Screen
-            key={name}
-            name={name}
-            component={component}
-            options={({ navigation }: { navigation: any }) => ({
-              freezeOnBlur: true,
-              title: translationId
-                ? intl.formatMessage({
-                    id: translationId,
-                  })
-                : '',
-              ...makeTabScreenOptions({
-                navigation,
-                bgColor: theme.bgApp.val,
-                titleColor: theme.text.val,
-              }),
-              headerShown,
-            })}
-          />
-        ))}
+        .map(({ name, component, translationId, headerShown = true }) => {
+          // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+          const screenOptions = ({ navigation }: { navigation: any }) => ({
+            freezeOnBlur: true,
+            title: translationId
+              ? intl.formatMessage({
+                  id: translationId,
+                })
+              : '',
+            ...makeTabScreenOptions({
+              navigation,
+              bgColor: theme.bgApp.val,
+              titleColor: theme.text.val,
+            }),
+            headerShown,
+          });
+          return (
+            <Stack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={screenOptions}
+            />
+          );
+        })}
     </Stack.Navigator>
   );
 }
@@ -72,6 +76,16 @@ const TabSubStackNavigatorMemo = memo(BasicTabSubStackNavigator);
 export const TabSubStackNavigator = TabSubStackNavigatorMemo;
 
 const NativeTab = createNativeBottomTabNavigator();
+
+const extraScreenOptions = {
+  tabBarItemHidden: true,
+};
+
+const nativeTabScreenOptions = {
+  freezeOnBlur: true,
+  preventsDefault: false,
+  lazy: false,
+};
 
 export function TabStackNavigator<RouteName extends string>({
   config,
@@ -117,24 +131,30 @@ export function TabStackNavigator<RouteName extends string>({
           <TabSubStackNavigator config={children} />
         );
 
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+        const options = {
+          // Type assertion needed because our INativeTabBarIcon uses string for sfSymbol
+          // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
+          tabBarIcon: nativeTabBarIcon as any,
+          tabBarLabel: intl.formatMessage({ id: translationId }),
+        };
+
+        // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
+        const listeners = {
+          tabPress: () => {
+            handleTabPress(name);
+            if (trackId) {
+              defaultLogger.app.page.tabBarClick(trackId);
+            }
+          },
+        };
+
         return (
           <NativeTab.Screen
             key={name}
             name={name}
-            options={{
-              // Type assertion needed because our INativeTabBarIcon uses string for sfSymbol
-              // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
-              tabBarIcon: nativeTabBarIcon as any,
-              tabBarLabel: intl.formatMessage({ id: translationId }),
-            }}
-            listeners={{
-              tabPress: () => {
-                handleTabPress(name);
-                if (trackId) {
-                  defaultLogger.app.page.tabBarClick(trackId);
-                }
-              },
-            }}
+            options={options}
+            listeners={listeners}
           >
             {ScreenComponent}
           </NativeTab.Screen>
@@ -152,9 +172,7 @@ export function TabStackNavigator<RouteName extends string>({
         <NativeTab.Screen
           key={extraConfig.name}
           name={extraConfig.name}
-          options={{
-            tabBarItemHidden: true,
-          }}
+          options={extraScreenOptions}
         >
           {ExtraScreenComponent}
         </NativeTab.Screen>,
@@ -176,6 +194,14 @@ export function TabStackNavigator<RouteName extends string>({
         return tabBarHidden;
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
+  const tabBarStyle = useMemo(
+    () =>
+      platformEnv.isNativeAndroid
+        ? { backgroundColor: theme.bg.val }
+        : undefined,
+    [theme.bg.val],
+  );
+
   return (
     <NativeTab.Navigator
       labeled
@@ -186,16 +212,8 @@ export function TabStackNavigator<RouteName extends string>({
       tabBarHidden={hidden}
       tabBarActiveTintColor={theme.iconActive.val}
       tabBarInactiveTintColor={theme.iconSubdued.val}
-      tabBarStyle={
-        platformEnv.isNativeAndroid
-          ? { backgroundColor: theme.bg.val }
-          : undefined
-      }
-      screenOptions={{
-        freezeOnBlur: true,
-        preventsDefault: false,
-        lazy: false,
-      }}
+      tabBarStyle={tabBarStyle}
+      screenOptions={nativeTabScreenOptions}
     >
       {tabScreens}
     </NativeTab.Navigator>

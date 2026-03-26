@@ -1,4 +1,4 @@
-name: 03-harness-test
+name: 03-react-native-unittest
 
 on:
   schedule:
@@ -87,7 +87,39 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: yarn install --immutable
 
+      - name: Restore cached APK
+        id: apk-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk
+            .apk-build-commit
+          key: android-debug-apk-${{ github.sha }}
+          restore-keys: |
+            android-debug-apk-
+
+      - name: Check if native rebuild needed
+        id: native-check
+        run: |
+          if [ -f .apk-build-commit ] && [ -f apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk ]; then
+            CACHED_COMMIT=$(cat .apk-build-commit)
+            echo "Cached APK built from commit: $CACHED_COMMIT"
+            # Fetch the cached commit so git diff can compare
+            git fetch --depth=1 origin "$CACHED_COMMIT" 2>/dev/null || true
+            if ./development/scripts/check-native-changes.sh "$CACHED_COMMIT"; then
+              echo "No native changes since $CACHED_COMMIT — reusing cached APK"
+              echo "rebuild=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "Native changes detected — rebuild required"
+              echo "rebuild=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "No cached APK found — build required"
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build Android Debug APK
+        if: steps.native-check.outputs.rebuild == 'true'
         timeout-minutes: 80
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -97,8 +129,21 @@ jobs:
         run: ./gradlew assembleProdDebug -PreactNativeArchitectures=x86_64
 
       - name: Stop Gradle daemon to free memory
+        if: steps.native-check.outputs.rebuild == 'true'
         working-directory: apps/mobile/android
         run: ./gradlew --stop
+
+      - name: Save APK cache
+        if: steps.native-check.outputs.rebuild == 'true'
+        run: echo "${{ github.sha }}" > .apk-build-commit
+      - name: Upload APK cache
+        if: steps.native-check.outputs.rebuild == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            apps/mobile/android/app/build/outputs/apk/prod/debug/app-prod-debug.apk
+            .apk-build-commit
+          key: android-debug-apk-${{ github.sha }}
 
       - name: Start Android Emulator
         run: |
@@ -154,11 +199,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = `Nightly harness tests failed on ${new Date().toISOString().split('T')[0]}`;
+            const title = `Nightly RN unit tests failed on ${new Date().toISOString().split('T')[0]}`;
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: 'harness-test-failure',
+              labels: 'rn-unittest-failure',
               state: 'open',
             });
             if (issues.length > 0) {
@@ -173,7 +218,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title,
-                body: `The nightly harness test run failed.\n\n[View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
-                labels: ['harness-test-failure'],
+                body: `The nightly RN unit test run failed.\n\n[View workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+                labels: ['rn-unittest-failure'],
               });
             }

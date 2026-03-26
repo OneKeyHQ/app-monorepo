@@ -11,7 +11,6 @@
 
 // Initialize debug timestamp as early as possible (dev only)
 // This must run before any other imports to avoid NaN in LANDING_DEBUG logs
-// oxlint-disable-next-line import/first
 import { isPerfMonitorEnabled } from './enabled';
 
 if (process.env.NODE_ENV !== 'production') {

@@ -1,6 +1,7 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { useRoute } from '@react-navigation/core';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import Svg, {
@@ -12,12 +13,13 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
-import type { IYStackProps } from '@onekeyhq/components';
+import type { IDialogInstance, IYStackProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   BlurView,
   Button,
   DecorativeOneKeyLogo,
+  Dialog,
   Icon,
   Page,
   SizableText,
@@ -37,6 +39,7 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -46,7 +49,9 @@ import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { useAutoStartKeylessProvider } from '../hooks/useAutoStartKeylessProvider';
 
+import type { RouteProp } from '@react-navigation/core';
 import type { LayoutChangeEvent } from 'react-native';
 
 const DEVICE_SIZE = 24;
@@ -309,6 +314,10 @@ AnimatedDeviceAvatar.displayName = 'AnimatedDeviceAvatar';
 
 function GetStarted() {
   const navigation = useAppNavigation();
+  const route =
+    useRoute<
+      RouteProp<IOnboardingParamListV2, EOnboardingPagesV2.GetStarted>
+    >();
   const handleGetStarted = () => {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
     defaultLogger.account.wallet.onboard({ onboardMethod: 'connectHWWallet' });
@@ -327,19 +336,35 @@ function GetStarted() {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
   };
 
+  const autoLoginKeylessProvider = route?.params?.autoLoginKeylessProvider;
+  const autoConnectNonce = route?.params?.autoConnectNonce;
+  const loadingDialogRef = useRef<IDialogInstance | null>(null);
+
   const handleGoogleLogin = useCallback(async () => {
     setLoadingProvider(EOAuthSocialLoginProvider.Google);
     try {
       defaultLogger.account.wallet.onboard({
         onboardMethod: 'createKeylessWallet',
       });
+      if (autoLoginKeylessProvider) {
+        loadingDialogRef.current = Dialog.loading({
+          title: intl.formatMessage(
+            {
+              id: ETranslations.continue_with_social_platform,
+            },
+            { platform: 'Google' },
+          ),
+          description: 'OneKey is connecting to your Google account...',
+        });
+      }
       await checkKeylessWalletLocalExistence({
         signInProvider: EOAuthSocialLoginProvider.Google,
       });
     } finally {
       setLoadingProvider(null);
+      void loadingDialogRef.current?.close();
     }
-  }, [checkKeylessWalletLocalExistence]);
+  }, [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider]);
 
   const handleAppleLogin = useCallback(async () => {
     setLoadingProvider(EOAuthSocialLoginProvider.Apple);
@@ -347,13 +372,33 @@ function GetStarted() {
       defaultLogger.account.wallet.onboard({
         onboardMethod: 'createKeylessWallet',
       });
+      if (autoLoginKeylessProvider) {
+        loadingDialogRef.current = Dialog.loading({
+          title: intl.formatMessage(
+            {
+              id: ETranslations.continue_with_social_platform,
+            },
+            { platform: 'Apple' },
+          ),
+          description: 'OneKey is connecting to your Apple account...',
+        });
+      }
       await checkKeylessWalletLocalExistence({
         signInProvider: EOAuthSocialLoginProvider.Apple,
       });
     } finally {
       setLoadingProvider(null);
+      void loadingDialogRef.current?.close();
     }
-  }, [checkKeylessWalletLocalExistence]);
+  }, [checkKeylessWalletLocalExistence, intl, autoLoginKeylessProvider]);
+
+  useAutoStartKeylessProvider({
+    autoStartProvider: autoLoginKeylessProvider,
+    autoStartTriggerKey: autoConnectNonce,
+    enabled: isKeylessWalletEnabled && !enableKeylessWalletLoading,
+    onGoogleLogin: handleGoogleLogin,
+    onAppleLogin: handleAppleLogin,
+  });
 
   // Cache theme values to avoid multiple useThemeValue calls during render
   const theme = useTheme();

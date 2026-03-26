@@ -103,21 +103,20 @@ export function ImageV2({
     [onError, reFetchImage],
   );
 
+  const fallbackStyle = useMemo(
+    () => ({
+      overflow: 'hidden' as const,
+      display: 'flex' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      ...style,
+    }),
+    [style],
+  );
+
   if (!image) {
     if (hasError || isEmptyResolvedSource(source as ImageSource | null)) {
-      return (
-        <Stack
-          style={{
-            overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...style,
-          }}
-        >
-          {fallback}
-        </Stack>
-      );
+      return <Stack style={fallbackStyle}>{fallback}</Stack>;
     }
     return skeleton || <Skeleton width={style.width} height={style.height} />;
   }

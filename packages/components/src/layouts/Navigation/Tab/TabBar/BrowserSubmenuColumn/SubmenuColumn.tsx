@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { Stack, XStack, YStack } from '@onekeyhq/components/src/primitives';
@@ -14,10 +15,19 @@ export interface ISubmenuColumnProps {
   isExpanded?: boolean;
 }
 
+const dragRegionStyle = { WebkitAppRegion: 'drag' } as any;
+
 export function SubmenuColumn({
   webPageTabBar,
   isExpanded = false,
 }: ISubmenuColumnProps) {
+  const boxShadowStyle = useMemo(
+    () => ({
+      boxShadow: isExpanded ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)' : 'none',
+    }),
+    [isExpanded],
+  );
+
   return (
     <Stack width={COLLAPSED_SUBMENU_WIDTH} flex={1}>
       {/* Desktop drag area - always bgSidebar, not affected by expand */}
@@ -29,10 +39,7 @@ export function SubmenuColumn({
           right={0}
           h={HEADER_ALIGNMENT_HEIGHT}
           zIndex={11}
-          style={{
-            // @ts-expect-error - Electron drag region
-            WebkitAppRegion: 'drag',
-          }}
+          style={dragRegionStyle}
         />
       ) : null}
       {/* Content area that expands on hover */}
@@ -53,11 +60,7 @@ export function SubmenuColumn({
         borderBottomWidth={1}
         borderRightWidth={1}
         borderColor={isExpanded ? '$neutral3' : 'transparent'}
-        style={{
-          boxShadow: isExpanded
-            ? '10px 0 30px -10px rgba(0, 0, 0, 0.10)'
-            : 'none',
-        }}
+        style={boxShadowStyle}
       >
         {webPageTabBar}
       </YStack>

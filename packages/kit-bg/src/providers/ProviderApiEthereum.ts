@@ -21,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { isKeylessWebAutoConnectOriginAllowed } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EVM_SAFE_RPC_METHODS } from '@onekeyhq/shared/src/rpcCache/constants';
 import { RpcCache } from '@onekeyhq/shared/src/rpcCache/RpcCache';
@@ -259,10 +260,21 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+  async eth_requestAccounts(
+    request: IJsBridgeMessagePayload,
+    params?: Record<string, unknown>,
+  ) {
+    const _requestOneKeyKeylessAccount = params?.requestOneKeyKeylessAccount;
+
     return this.semaphore.runExclusive(async () => {
       const accounts = await this.eth_accounts(request);
       if (accounts && accounts.length) {
+        return accounts;
+      }
+      const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
+        request.origin,
+      );
+      if (_requestOneKeyKeylessAccount && isAllowedKeylessOrigin) {
         return accounts;
       }
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
@@ -301,9 +313,22 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     _permissions: Record<string, unknown>,
   ) {
+    const _requestOneKeyKeylessAccount =
+      _permissions?.requestOneKeyKeylessAccount;
+
     defaultLogger.discovery.dapp.dappRequest({ request });
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    const accounts = await this.eth_accounts(request);
+    const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
+      request.origin,
+    );
+    let accounts = await this.eth_accounts(request);
+    if (
+      !accounts.length ||
+      !_requestOneKeyKeylessAccount ||
+      !isAllowedKeylessOrigin
+    ) {
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      accounts = await this.eth_accounts(request);
+    }
     const chainId = await this.eth_chainId(request);
 
     const id = request.id?.toString() ?? generateUUID();

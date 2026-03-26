@@ -4,18 +4,17 @@ import { Stack } from '../../primitives';
 
 import type { IDesktopDragZoneBoxProps } from './index.type';
 
+const dragZoneStyle = {
+  userSelect: 'none',
+  cursor: 'default',
+} as const;
+
 function BaseDesktopDragZoneBox({
   children,
   ...rest
 }: IDesktopDragZoneBoxProps) {
   return (
-    <Stack
-      {...rest}
-      style={{
-        userSelect: 'none',
-        cursor: 'default',
-      }}
-    >
+    <Stack {...rest} style={dragZoneStyle}>
       {children}
     </Stack>
   );
@@ -36,10 +35,7 @@ function DesktopDragZoneBoxMac({
       key="false"
       {...rest}
       className="app-region-drag"
-      style={{
-        userSelect: 'none',
-        cursor: 'default',
-      }}
+      style={dragZoneStyle}
     >
       {children}
     </Stack>

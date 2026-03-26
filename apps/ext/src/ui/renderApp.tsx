@@ -1,9 +1,9 @@
-/* eslint-disable import-js/order */
+/* oxlint-disable import-js/order */
 // fix missing setimmediate on react-dom
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import 'setimmediate';
 
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import { createRoot } from 'react-dom/client';
 
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
