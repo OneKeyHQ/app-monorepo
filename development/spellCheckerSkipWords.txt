@@ -1421,3 +1421,4 @@ prefs
 Prefs
 oxlintrc
 crosschain
+prebuilds
