@@ -16,6 +16,29 @@ export type IDesktopAppState = 'active' | 'background' | 'blur';
 export type IDesktopEventUnSubscribe = () => void;
 
 // Type for the legacy desktopApi exposed via contextBridge in preload.ts
+export type INobleBleApi = {
+  enumerate: () => Promise<{ id: string; name: string }[]>;
+  getDevice: (uuid: string) => Promise<{ id: string; name: string } | null>;
+  connect: (uuid: string) => Promise<void>;
+  disconnect: (uuid: string) => Promise<void>;
+  subscribe: (uuid: string) => Promise<void>;
+  unsubscribe: (uuid: string) => Promise<void>;
+  write: (uuid: string, data: string) => Promise<void>;
+  cancelPairing: () => Promise<void>;
+  onNotification: (
+    callback: (deviceId: string, data: string) => void,
+  ) => () => void;
+  onDeviceDisconnected: (
+    callback: (device: { id: string; name: string }) => void,
+  ) => () => void;
+  checkAvailability: () => Promise<{
+    available: boolean;
+    state: string;
+    unsupported: boolean;
+    initialized: boolean;
+  }>;
+};
+
 export type IDesktopApiLegacy = {
   on: (
     channel: string,
@@ -67,7 +90,7 @@ export type IDesktopApiLegacy = {
   stopServer: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
-  nobleBle: any;
+  nobleBle: INobleBleApi;
   getCpuUsage: () => Promise<{ usage: number }>;
   getMemoryUsage: () => Promise<{
     private: number;

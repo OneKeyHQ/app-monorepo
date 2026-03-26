@@ -41,11 +41,12 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
   }): Promise<any> {
     const { module, method, params } = options;
     // Use contextBridge-exposed desktopApiBridge (invoke-based, no JsBridge needed)
-    return (globalThis as any).desktopApiBridge.call(
+    const result: unknown = await globalThis.desktopApiBridge.call(
       module as string,
       method,
       ...params,
     );
+    return result;
   }
 
   system: DesktopApiSystem = this._createProxyModule<IDesktopApiKeys>('system');

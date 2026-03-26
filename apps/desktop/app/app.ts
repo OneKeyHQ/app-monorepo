@@ -907,12 +907,13 @@ async function createMainWindow() {
       payload: { module: string; method: string; params: any[] },
     ) => {
       const { module, method, params } = payload;
-      return desktopApi.callDesktopApiMethod({
+      const result: unknown = await desktopApi.callDesktopApiMethod({
         type: 'DESKTOP_API_IPC_MESSAGE',
         module: module as any,
         method,
         params,
       });
+      return result;
     },
   );
 

@@ -54,7 +54,7 @@ const injectedCode = fs.readFileSync(injectedDesktopSrc, 'utf-8');
     'throw new Error("Cannot require "+m);',
     '};',
   ].join('');
-  const content = requireShim + '\n' + injectedCode;
+  const content = `${requireShim}\n${injectedCode}`;
   fs.writeFileSync(
     './packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
     content,
@@ -74,7 +74,7 @@ const injectedCode = fs.readFileSync(injectedDesktopSrc, 'utf-8');
     'throw new Error("Cannot require "+m);',
     '};',
   ].join('');
-  const fullProviderCode = requireShim + '\n' + injectedCode;
+  const fullProviderCode = `${requireShim}\n${injectedCode}`;
 
   const preloadContent = `/* eslint-disable */
 /**

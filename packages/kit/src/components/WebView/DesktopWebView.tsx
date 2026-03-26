@@ -479,12 +479,10 @@ const DesktopWebView = forwardRef(
             'height': '100%',
             ...style,
           }}
-          // blinkfeatures="false" — Electron interprets the value as a feature
-          // name to enable, so "false" triggers a security warning
-          // (enableBlinkFeatures) without actually disabling anything.
-          // Added in #4874 intending to disable blink features, but the correct
-          // way is to simply omit this attribute.
-          // blinkfeatures="false"
+          // Electron interprets blinkFeatures="false" as a feature name to
+          // enable, triggering a security warning (enableBlinkFeatures) without
+          // actually disabling anything. Added in #4874 intending to disable
+          // blink features, but the correct way is to simply omit the attribute.
           // @ts-expect-error
           nodeintegration="false"
           allowpopups={allowpopups}
