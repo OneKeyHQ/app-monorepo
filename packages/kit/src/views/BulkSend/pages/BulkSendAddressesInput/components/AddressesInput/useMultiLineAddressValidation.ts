@@ -435,9 +435,11 @@ function useMultiLineAddressValidation(
 
               if (seenIndex === undefined) {
                 seenNormalizedAddresses.set(normalizedAddress, index + 1);
+                validAddresses.push({ index, address });
+              } else if (duplicateWarningMode) {
+                // In warning mode, duplicates are still valid (user can confirm)
+                validAddresses.push({ index, address });
               }
-
-              validAddresses.push({ index, address });
             } else {
               validAddresses.push({ index, address });
             }

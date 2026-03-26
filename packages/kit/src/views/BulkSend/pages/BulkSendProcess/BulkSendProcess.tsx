@@ -654,7 +654,7 @@ function BulkSendProcessContent({
           }
 
           // Passphrase not opened
-          if (
+          else if (
             errorUtils.isErrorByClassName({
               error,
               className: EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,

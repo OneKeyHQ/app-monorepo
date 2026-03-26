@@ -440,7 +440,7 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
             accountId: senderAccountId,
             transfersInfo: [transfer],
           });
-        unsignedTxs.push(unsignedTx);
+        unsignedTxs.push({ ...unsignedTx, accountId: senderAccountId });
       }
 
       navigateToReviewOrInterval({
