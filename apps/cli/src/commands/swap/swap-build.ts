@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
+import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+
 import { CHAINS, ConfigManager } from '../../config';
 import { auditToken, resolveToken, savePending } from '../../core';
 import { AppError, ERROR_CODES } from '../../errors';
@@ -10,6 +13,7 @@ import {
   validateAmountDecimals,
 } from '../../utils/tx-utils';
 
+import { parseSortMode, renderQuoteTable } from './swap-display-utils';
 import { fetchQuotesViaSSE } from './swap-quote';
 
 import type { IEndpointEnv } from '../../config';
@@ -64,9 +68,14 @@ export function registerSwapBuildCommand(parent: Command): void {
       'Destination token (contract address or symbol)',
     )
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
-    .requiredOption(
+    .option(
       '--provider <provider>',
-      'Swap provider ID from quote output (e.g., Swap1inch)',
+      'Swap provider ID (auto-selected if omitted)',
+    )
+    .option(
+      '--sort <mode>',
+      'Sort providers: recommended (default), gas_fee, swap_duration, received',
+      'recommended',
     )
     .option('--slippage <percent>', 'Slippage tolerance percentage')
     .option('--force', 'Override high-risk token security check')
@@ -77,7 +86,8 @@ export function registerSwapBuildCommand(parent: Command): void {
           from: string;
           to: string;
           amount: string;
-          provider: string;
+          provider?: string;
+          sort?: string;
           slippage?: string;
           force?: boolean;
         },
@@ -218,26 +228,51 @@ export function registerSwapBuildCommand(parent: Command): void {
           };
 
           const quotes = await fetchQuotesViaSSE(env, quoteParams);
+          const sortMode = parseSortMode(options.sort);
+          const sortedQuotes = sortSwapQuotes(quotes, {
+            sort: sortMode,
+            fromTokenAmount,
+          });
 
-          // Find the quote matching the requested provider (case-insensitive)
-          const matchedQuote = quotes.find(
-            (q) =>
-              q.info.provider.toLowerCase() ===
-                options.provider.toLowerCase() && q.toAmount,
-          );
-
-          if (!matchedQuote || !matchedQuote.toAmount) {
-            const available = quotes
-              .filter((q) => q.toAmount)
-              .map((q) => q.info.provider);
-            throw new AppError(
-              ERROR_CODES.BIZ_SWAP_FAILED.code,
-              `Provider "${options.provider}" not available for this pair`,
-              available.length > 0
-                ? `Available providers: ${available.join(', ')}`
-                : 'No providers returned quotes for this pair',
+          let matchedQuote: IFetchQuoteResult | undefined;
+          if (options.provider) {
+            // Manual provider override
+            matchedQuote = sortedQuotes.find(
+              (q) =>
+                q.info.provider.toLowerCase() ===
+                  options.provider!.toLowerCase() && q.toAmount,
             );
+            if (!matchedQuote) {
+              const available = sortedQuotes
+                .filter((q) => q.toAmount)
+                .map((q) => q.info.provider);
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                `Provider "${options.provider}" not available for this pair`,
+                available.length > 0
+                  ? `Available providers: ${available.join(', ')}`
+                  : 'No providers returned quotes for this pair',
+              );
+            }
+          } else {
+            // Auto-select best provider
+            matchedQuote = sortedQuotes.find((q) => q.toAmount);
+            if (!matchedQuote) {
+              throw new AppError(
+                ERROR_CODES.BIZ_SWAP_FAILED.code,
+                'No provider returned a usable quote',
+                'Try a different token pair, amount, or slippage',
+              );
+            }
           }
+
+          // Render table with selected marker to stderr
+          const table = renderQuoteTable(
+            sortedQuotes,
+            toResolved.symbol,
+            matchedQuote.info.provider,
+          );
+          process.stderr.write(`\n${table}\n\n`);
 
           // Step 2: POST /swap/v1/build-tx with toTokenAmount from quote
           const buildTxResponse = await apiClient.post<IBuildTxResponse>(
@@ -275,11 +310,12 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // Validate response provider matches request
+          const selectedProvider = matchedQuote.info.provider;
           const resultProvider = buildTxResponse.result.info.provider;
-          if (resultProvider.toLowerCase() !== options.provider.toLowerCase()) {
+          if (resultProvider.toLowerCase() !== selectedProvider.toLowerCase()) {
             throw new AppError(
               ERROR_CODES.BIZ_SWAP_FAILED.code,
-              `Build-tx provider mismatch: requested "${options.provider}", got "${resultProvider}"`,
+              `Build-tx provider mismatch: requested "${selectedProvider}", got "${resultProvider}"`,
               'API returned data for a different provider',
             );
           }
