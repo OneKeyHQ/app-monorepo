@@ -32,6 +32,12 @@ Module._resolveFilename = function (request, ...args) {
       'development/plugins/eslint-plugin-import-js.js',
     );
   }
+  if (request === 'eslint-plugin-react-perf') {
+    return path.resolve(
+      __dirname,
+      'development/plugins/eslint-plugin-react-perf.js',
+    );
+  }
   return originalResolve.call(this, request, ...args);
 };
 
@@ -303,6 +309,7 @@ module.exports = {
     'import',
     'onekey',
     'import-js',
+    'react-perf',
   ],
   settings: {
     'import/extensions': [
