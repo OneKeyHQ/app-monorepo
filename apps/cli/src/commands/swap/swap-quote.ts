@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
+import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+
 import { CHAINS, ConfigManager, getHost } from '../../config';
 import { auditToken, resolveToken } from '../../core';
 import { AppError, ERROR_CODES } from '../../errors';
@@ -9,41 +12,12 @@ import {
   validateAmountDecimals,
 } from '../../utils/tx-utils';
 
+import { parseSortMode, renderQuoteTable } from './swap-display-utils';
+
 import type { IEndpointEnv } from '../../config';
 import type { IAuditSummary } from '../../core';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
-
-/** Token stub from quote response — aligned with ISwapTokenBase */
-export interface IQuoteTokenInfo {
-  networkId?: string;
-  contractAddress?: string;
-}
-
-/** Minimal quote info returned from SSE — aligned with IFetchQuoteResult */
-export interface IQuoteResultItem {
-  info: { provider: string; providerName: string };
-  toAmount?: string;
-  estimatedTime?: string | number;
-  fee?: {
-    percentageFee: number;
-    protocolFees?: number;
-    estimatedFeeFiatValue?: number;
-  };
-  instantRate?: string;
-  fromAmount?: string;
-  minToAmount?: string;
-  isBest?: boolean;
-  errorMessage?: string;
-  fromTokenInfo?: IQuoteTokenInfo;
-  toTokenInfo?: IQuoteTokenInfo;
-  allowanceResult?: {
-    allowanceTarget: string;
-    amount: string;
-    shouldResetApprove?: boolean;
-  };
-  quoteResultCtx?: unknown;
-}
 
 /** SSE event data types — aligned with ISwapQuoteEventData */
 interface ISseEventInfo {
@@ -52,7 +26,7 @@ interface ISseEventInfo {
 }
 
 interface ISseEventQuoteResult {
-  data: IQuoteResultItem[];
+  data: IFetchQuoteResult[];
 }
 
 interface ISseEventError {
@@ -76,7 +50,7 @@ function computeOverallRisk(audit: IAuditSummary): 'high' | 'caution' | 'low' {
   return 'low';
 }
 
-function isValidQuoteItem(v: unknown): v is IQuoteResultItem {
+function isValidQuoteItem(v: unknown): v is IFetchQuoteResult {
   if (typeof v !== 'object' || v === null) return false;
   const r = v as Record<string, unknown>;
   if (typeof r.info !== 'object' || r.info === null) return false;
@@ -86,7 +60,7 @@ function isValidQuoteItem(v: unknown): v is IQuoteResultItem {
   );
 }
 
-function formatQuoteItem(q: IQuoteResultItem) {
+function formatQuoteItem(q: IFetchQuoteResult) {
   return {
     provider: q.info.provider,
     providerName: q.info.providerName || q.info.provider,
@@ -122,7 +96,7 @@ function buildSSEUrl(
 export async function fetchQuotesViaSSE(
   env: IEndpointEnv,
   params: Record<string, string | number>,
-): Promise<IQuoteResultItem[]> {
+): Promise<IFetchQuoteResult[]> {
   const url = buildSSEUrl(env, params);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SSE_TIMEOUT_MS);
@@ -176,7 +150,7 @@ export async function fetchQuotesViaSSE(
     );
   }
 
-  const quotes: IQuoteResultItem[] = [];
+  const quotes: IFetchQuoteResult[] = [];
   let receivedAnyEvent = false;
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -232,7 +206,26 @@ export async function fetchQuotesViaSSE(
               if (Array.isArray(asQuoteResult.data)) {
                 for (const item of asQuoteResult.data) {
                   if (isValidQuoteItem(item)) {
-                    quotes.push(item);
+                    const quoteItem: IFetchQuoteResult = {
+                      ...item,
+                      fromTokenInfo:
+                        (item as any).fromTokenInfo ??
+                        ({
+                          networkId: '',
+                          symbol: '',
+                          contractAddress: '',
+                          decimals: 0,
+                        } as any),
+                      toTokenInfo:
+                        (item as any).toTokenInfo ??
+                        ({
+                          networkId: '',
+                          symbol: '',
+                          contractAddress: '',
+                          decimals: 0,
+                        } as any),
+                    };
+                    quotes.push(quoteItem);
                   }
                 }
               }
@@ -298,6 +291,11 @@ export function registerSwapQuoteCommand(parent: Command): void {
     )
     .requiredOption('--amount <amount>', 'Amount of source token to swap')
     .option('--slippage <percent>', 'Slippage tolerance percentage')
+    .option(
+      '--sort <mode>',
+      'Sort providers: recommended (default), gas_fee, swap_duration, received',
+      'recommended',
+    )
     .action(
       async (
         options: {
@@ -306,6 +304,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
           to: string;
           amount: string;
           slippage?: string;
+          sort?: string;
         },
         command,
       ) => {
@@ -510,6 +509,17 @@ export function registerSwapQuoteCommand(parent: Command): void {
               checks: {},
             };
           }
+
+          // Sort quotes using shared logic
+          const sortMode = parseSortMode(options.sort);
+          const sortedQuotes = sortSwapQuotes(validQuotes, {
+            sort: sortMode,
+            fromTokenAmount,
+          });
+
+          // Render table to stderr (human-friendly supplement, stdout reserved for JSON)
+          const table = renderQuoteTable(sortedQuotes, toResolved.symbol);
+          process.stderr.write(`\n${table}\n\n`);
 
           output.success(
             {
