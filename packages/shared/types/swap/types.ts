@@ -1056,6 +1056,7 @@ export interface ISpeedSwapConfig {
 
 export interface IFetchSpeedCheckResult {
   errorMessage?: string;
+  isStock?: boolean;
   protocol: string;
   spenderAddress: string;
   info: {

@@ -156,6 +156,16 @@ if (platformEnv.isExtensionUi) {
 export abstract class VaultBaseChainOnly extends VaultContext {
   coreApi: CoreChainApiBase | undefined;
 
+  async getSignatureStatuses(
+    _signatures: string[],
+  ): Promise<
+    ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
+  > {
+    throw new OneKeyLocalError(
+      'getSignatureStatuses is not supported for this vault',
+    );
+  }
+
   async getXpubFromAccount(
     networkAccount: INetworkAccount,
   ): Promise<string | undefined> {
