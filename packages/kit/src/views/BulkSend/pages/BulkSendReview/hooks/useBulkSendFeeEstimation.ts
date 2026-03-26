@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import {
   calculateFeeForSend,
@@ -14,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/utils/feeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import {
   EFeeType,
   ESendFeeStatus,
@@ -25,6 +27,7 @@ import {
   type IGasLegacy,
   type ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { IBulkSendFeeState } from '../components/Context';
 
@@ -40,6 +43,10 @@ type IUseBulkSendFeeEstimationParams = {
   feeState: IBulkSendFeeState;
   setFeeState: React.Dispatch<React.SetStateAction<IBulkSendFeeState>>;
   ataCount?: number;
+  tokenInfo?: IToken;
+  totalTokenAmount?: string;
+  bulkSendMode?: EBulkSendMode;
+  isSubmitting?: boolean;
 };
 
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
@@ -83,9 +90,15 @@ export function useBulkSendFeeEstimation({
   feeState,
   setFeeState,
   ataCount,
+  tokenInfo,
+  totalTokenAmount,
+  bulkSendMode,
+  isSubmitting = false,
 }: IUseBulkSendFeeEstimationParams) {
   const intl = useIntl();
   const isEstimating = useRef(false);
+  const isFocused = useIsFocused();
+  const shouldPollFeeRef = useRef(isFocused && !isSubmitting);
 
   // Get vault settings for polling interval
   const { result: vaultSettings } = usePromiseResult(
@@ -94,6 +107,10 @@ export function useBulkSendFeeEstimation({
     [networkId],
   );
 
+  useEffect(() => {
+    shouldPollFeeRef.current = isFocused && !isSubmitting;
+  }, [isFocused, isSubmitting]);
+
   // Estimate fee function
   // forceLoading: true for initial load or tx update, false for polling
   const estimateFee = useCallback(
@@ -101,6 +118,10 @@ export function useBulkSendFeeEstimation({
       const { forceLoading = false } = options ?? {};
 
       if (!unsignedTxs || unsignedTxs.length === 0 || !accountId) {
+        return null;
+      }
+
+      if (!shouldPollFeeRef.current && !forceLoading) {
         return null;
       }
 
@@ -123,6 +144,8 @@ export function useBulkSendFeeEstimation({
         }
 
         const isMultiTxs = unsignedTxs.length > 1;
+        const isManyToManyOrManyToOne =
+          bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
 
         let txFee: IFeesInfoUnit | undefined;
         let estimateFeeParams: IEstimateFeeParams | undefined;
@@ -132,7 +155,7 @@ export function useBulkSendFeeEstimation({
           | undefined;
 
         // Try batch estimate for multi-txs
-        if (isMultiTxs) {
+        if (isMultiTxs && !isManyToManyOrManyToOne) {
           const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
@@ -268,7 +291,10 @@ export function useBulkSendFeeEstimation({
         let totalNative = new BigNumber(0);
         let totalFiat = new BigNumber(0);
 
-        for (let i = 0; i < unsignedTxs.length; i += 1) {
+        // ManyToMany/ManyToOne: only calculate fee for the first tx, then multiply
+        const txCountForLoop = isManyToManyOrManyToOne ? 1 : unsignedTxs.length;
+
+        for (let i = 0; i < txCountForLoop; i += 1) {
           const unsignedTx = unsignedTxs[i];
           // Use per-tx fee info if available (from batch estimation)
           // Otherwise use the shared selectedFeeInfo
@@ -308,6 +334,19 @@ export function useBulkSendFeeEstimation({
           });
         }
 
+        // ManyToMany/ManyToOne: multiply single tx fee by total tx count
+        let singleTxFeeNative: string | undefined;
+        let singleTxFeeFiat: string | undefined;
+        let txCountForFeeDisplay: number | undefined;
+
+        if (isManyToManyOrManyToOne && unsignedTxs.length > 1) {
+          singleTxFeeNative = totalNative.toFixed();
+          singleTxFeeFiat = totalFiat.toFixed();
+          txCountForFeeDisplay = unsignedTxs.length;
+          totalNative = totalNative.times(unsignedTxs.length);
+          totalFiat = totalFiat.times(unsignedTxs.length);
+        }
+
         // Calculate ATA rent and check SOL balance for Solana transfers
         let ataRentFeeNative: string | undefined;
         let insufficientSol: boolean | undefined;
@@ -320,27 +359,44 @@ export function useBulkSendFeeEstimation({
               .toFixed();
           }
 
-          const totalSolNeeded = totalNative
-            .plus(ataRentFeeNative ?? '0')
-            .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
-            .toFixed();
-          solBalanceNeeded = totalSolNeeded;
+          // Skip SOL balance check for ManyToOne/ManyToMany.
+          // Those transactions are handled one by one in BulkSendProcess.
+          if (!isManyToManyOrManyToOne) {
+            const nativeTransferAmount = tokenInfo?.isNative
+              ? new BigNumber(totalTokenAmount ?? '0')
+              : new BigNumber(0);
+            const totalSolNeeded = totalNative
+              .plus(ataRentFeeNative ?? '0')
+              .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+              .plus(nativeTransferAmount)
+              .toFixed();
+            solBalanceNeeded = totalSolNeeded;
 
-          try {
-            const accountDetails =
-              await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
-                {
-                  accountId: accountId ?? '',
-                  networkId,
-                  withNetWorth: false,
-                },
-              );
-            const solBalance = accountDetails?.balanceParsed ?? '0';
-            insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
-          } catch {
-            // If balance fetch fails, don't block the user
-            insufficientSol = undefined;
+            try {
+              const accountDetails =
+                await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails(
+                  {
+                    accountId: accountId ?? '',
+                    networkId,
+                    withNetWorth: false,
+                  },
+                );
+              const solBalance = accountDetails?.balanceParsed ?? '0';
+              insufficientSol = new BigNumber(totalSolNeeded).gt(solBalance);
+
+              setFeeState((prev) => ({
+                ...prev,
+                solBalance,
+              }));
+            } catch {
+              // If balance fetch fails, don't block the user
+              insufficientSol = undefined;
+            }
           }
+        }
+
+        if (!shouldPollFeeRef.current && !forceLoading) {
+          return null;
         }
 
         setFeeState((prev) => ({
@@ -361,6 +417,9 @@ export function useBulkSendFeeEstimation({
           ataRentFeeNative,
           insufficientSol,
           solBalanceNeeded,
+          singleTxFeeNative,
+          singleTxFeeFiat,
+          txCountForFeeDisplay,
         }));
 
         return {
@@ -380,7 +439,10 @@ export function useBulkSendFeeEstimation({
 
         // For polling errors when already initialized, don't show error state
         // Just keep the current fee data
-        if (!forceLoading && feeState.isInitialized) {
+        if (
+          (!shouldPollFeeRef.current && !forceLoading) ||
+          (!forceLoading && feeState.isInitialized)
+        ) {
           // Silently fail for polling updates
           return null;
         }
@@ -403,7 +465,10 @@ export function useBulkSendFeeEstimation({
       intl,
       networkId,
       setFeeState,
+      tokenInfo?.isNative,
+      totalTokenAmount,
       unsignedTxs,
+      bulkSendMode,
     ],
   );
 
@@ -419,6 +484,10 @@ export function useBulkSendFeeEstimation({
       return;
     }
 
+    if (!isFocused || isSubmitting) {
+      return;
+    }
+
     const pollingInterval = timerUtils.getTimeDurationMs({
       seconds: vaultSettings.estimatedFeePollingInterval,
     });
@@ -431,7 +500,12 @@ export function useBulkSendFeeEstimation({
     return () => {
       clearInterval(intervalId);
     };
-  }, [estimateFee, vaultSettings?.estimatedFeePollingInterval]);
+  }, [
+    estimateFee,
+    isFocused,
+    isSubmitting,
+    vaultSettings?.estimatedFeePollingInterval,
+  ]);
 
   // Handle fee level change
   const handleFeeChange = useCallback(
@@ -447,8 +521,11 @@ export function useBulkSendFeeEstimation({
       const feeInfos: ISendSelectedFeeInfo[] = [];
 
       const isMultiTxs = unsignedTxs.length > 1;
+      const isManyToManyOrManyToOne =
+        bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
+      const txCountForLoop = isManyToManyOrManyToOne ? 1 : unsignedTxs.length;
 
-      for (let i = 0; i < unsignedTxs.length; i += 1) {
+      for (let i = 0; i < txCountForLoop; i += 1) {
         const unsignedTx = unsignedTxs[i];
         // Use per-tx fee info if available (from batch estimation)
         let txFeeInfo = selectedFeeInfo;
@@ -486,23 +563,65 @@ export function useBulkSendFeeEstimation({
         });
       }
 
-      setFeeState((prev) => ({
-        ...prev,
-        selectedFee: {
-          feeType: EFeeType.Standard,
-          presetIndex,
-        },
-        totalFeeNative: totalNative.toFixed(),
-        totalFeeFiat: totalFiat.toFixed(),
-        feeInfos,
-      }));
+      // ManyToMany/ManyToOne: multiply single tx fee
+      let newSingleTxFeeNative: string | undefined;
+      let newSingleTxFeeFiat: string | undefined;
+      let newTxCountForFeeDisplay: number | undefined;
+
+      if (isManyToManyOrManyToOne && unsignedTxs.length > 1) {
+        newSingleTxFeeNative = totalNative.toFixed();
+        newSingleTxFeeFiat = totalFiat.toFixed();
+        newTxCountForFeeDisplay = unsignedTxs.length;
+        totalNative = totalNative.times(unsignedTxs.length);
+        totalFiat = totalFiat.times(unsignedTxs.length);
+      }
+
+      setFeeState((prev) => {
+        const updated: Partial<IBulkSendFeeState> = {
+          selectedFee: {
+            feeType: EFeeType.Standard,
+            presetIndex,
+          },
+          totalFeeNative: totalNative.toFixed(),
+          totalFeeFiat: totalFiat.toFixed(),
+          feeInfos,
+          singleTxFeeNative: newSingleTxFeeNative,
+          singleTxFeeFiat: newSingleTxFeeFiat,
+          txCountForFeeDisplay: newTxCountForFeeDisplay,
+        };
+
+        // Recalculate insufficientSol when fee level changes
+        if (
+          networkUtils.isSolanaNetworkByNetworkId(networkId) &&
+          prev.solBalance
+        ) {
+          const nativeTransferAmount = tokenInfo?.isNative
+            ? new BigNumber(totalTokenAmount ?? '0')
+            : new BigNumber(0);
+          const newTotalSolNeeded = totalNative
+            .plus(prev.ataRentFeeNative ?? '0')
+            .plus(SOL_ACCOUNT_RENT_EXEMPT_MIN)
+            .plus(nativeTransferAmount)
+            .toFixed();
+          updated.insufficientSol = new BigNumber(newTotalSolNeeded).gt(
+            prev.solBalance,
+          );
+          updated.solBalanceNeeded = newTotalSolNeeded;
+        }
+
+        return { ...prev, ...updated };
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       feeState.feeSelectorItems,
       feeState.perTxFeeInfos,
+      networkId,
       setFeeState,
+      tokenInfo?.isNative,
+      totalTokenAmount,
       unsignedTxs,
+      bulkSendMode,
     ],
   );
 

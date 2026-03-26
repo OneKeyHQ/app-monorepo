@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -11,6 +11,8 @@ import type {
   ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
+
+import { getBulkSendMinTransferDisplayAmount } from '../../../utils';
 
 type IUseTransferInfoActionsParams = {
   tokenInfo: IToken;
@@ -30,6 +32,14 @@ export function useTransferInfoActions({
   minTransferAmount,
 }: IUseTransferInfoActionsParams) {
   const intl = useIntl();
+  const minTransferDisplayAmount = useMemo(
+    () =>
+      getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals: tokenInfo.decimals,
+      }),
+    [minTransferAmount, tokenInfo.decimals],
+  );
 
   // Ref to access latest errors in debounced callback without dependency churn
   const transferInfoErrorsRef = useRef(transferInfoErrors);
@@ -86,7 +96,10 @@ export function useTransferInfoActions({
           }),
           minAmount: intl.formatMessage(
             { id: ETranslations.send_error_minimum_amount },
-            { amount: minTransferAmount ?? '0', token: tokenInfo.symbol },
+            {
+              amount: minTransferDisplayAmount,
+              token: tokenInfo.symbol,
+            },
           ),
           decimalPlaces: intl.formatMessage(
             {

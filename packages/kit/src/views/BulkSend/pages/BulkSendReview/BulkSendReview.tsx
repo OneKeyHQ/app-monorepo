@@ -19,7 +19,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  type EModalBulkSendRoutes,
+  EModalBulkSendRoutes,
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   ETabRoutes,
@@ -29,6 +29,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -36,6 +37,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
 import BulkSendTxDetails from '../../components/BulkSendTxDetails';
+import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 
 import BulkSendApprovalCard from './components/BulkSendApprovalCard';
 import BulkSendReviewAlert from './components/BulkSendReviewAlert';
@@ -64,6 +66,7 @@ function BaseBulkSendReview({
     transfersInfo,
     bulkSendMode,
     totalTokenAmount,
+    totalFiatAmount,
     approvesInfo,
     unsignedTxs,
     setApprovesInfo,
@@ -74,7 +77,9 @@ function BaseBulkSendReview({
     isSubmitting,
     setIsSubmitting,
     isInModal,
+    isMaxMode,
     ataCount,
+    intervalSettings,
   } = useBulkSendReviewContext();
 
   const intl = useIntl();
@@ -92,6 +97,10 @@ function BaseBulkSendReview({
       feeState,
       setFeeState,
       ataCount,
+      tokenInfo,
+      totalTokenAmount,
+      bulkSendMode,
+      isSubmitting,
     });
 
   // Approval recheck hook - polls allowance after partial batch failure
@@ -234,6 +243,9 @@ function BaseBulkSendReview({
   // Track how many txs were successfully sent (used by Tron one-by-one flow)
   const sentTxCountRef = useRef(0);
 
+  // Track successfully sent transaction UUIDs to prevent duplicate sends on retry
+  const successfullySentTxs = useRef<string[]>([]);
+
   // Handle Tron transactions one by one
   const handleTronTxsOneByOne = useCallback(
     async (txs: IUnsignedTxPro[], txFeeInfos: ISendSelectedFeeInfo[]) => {
@@ -321,14 +333,33 @@ function BaseBulkSendReview({
     setIsSubmitting(true);
 
     // Step 1: Pre-check unsigned transactions
+    // For multi-sender modes, pre-check per accountId group
     try {
-      await serviceSend.precheckUnsignedTxs({
-        networkId,
-        accountId,
-        unsignedTxs,
-        precheckTiming: ESendPreCheckTimingEnum.Confirm,
-        feeInfos: feeState.feeInfos,
-      });
+      if (bulkSendMode !== EBulkSendMode.OneToMany) {
+        const accountGroups = new Map<string, IUnsignedTxPro[]>();
+        for (const tx of unsignedTxs) {
+          const txAccId = tx.accountId || accountId;
+          if (!accountGroups.has(txAccId)) accountGroups.set(txAccId, []);
+          accountGroups.get(txAccId)!.push(tx);
+        }
+        for (const [accId, groupTxs] of accountGroups) {
+          await serviceSend.precheckUnsignedTxs({
+            networkId,
+            accountId: accId,
+            unsignedTxs: groupTxs,
+            precheckTiming: ESendPreCheckTimingEnum.Confirm,
+            feeInfos: feeState.feeInfos,
+          });
+        }
+      } else {
+        await serviceSend.precheckUnsignedTxs({
+          networkId,
+          accountId,
+          unsignedTxs,
+          precheckTiming: ESendPreCheckTimingEnum.Confirm,
+          feeInfos: feeState.feeInfos,
+        });
+      }
     } catch (e: any) {
       setIsSubmitting(false);
       onFail?.(e as Error);
@@ -336,23 +367,71 @@ function BaseBulkSendReview({
     }
 
     // Step 2: Update unsigned transactions before sending
+    // For ManyToMany/ManyToOne, expand single fee info to match tx count
+    const expandedFeeInfos =
+      bulkSendMode !== EBulkSendMode.OneToMany &&
+      feeState.feeInfos.length === 1 &&
+      unsignedTxs.length > 1
+        ? (Array(unsignedTxs.length).fill(
+            feeState.feeInfos[0],
+          ) as ISendSelectedFeeInfo[])
+        : feeState.feeInfos;
+
     let newUnsignedTxs: IUnsignedTxPro[];
     try {
-      newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
-        accountId,
-        networkId,
-        unsignedTxs,
-        feeInfos: feeState.feeInfos,
-      });
+      // For multi-sender modes, update per accountId to use correct vault context
+      if (bulkSendMode !== EBulkSendMode.OneToMany) {
+        const accountIdxGroups = new Map<
+          string,
+          {
+            indices: number[];
+            txs: IUnsignedTxPro[];
+            fees: ISendSelectedFeeInfo[];
+          }
+        >();
+        unsignedTxs.forEach((tx, idx) => {
+          const txAccId = tx.accountId || accountId;
+          if (!accountIdxGroups.has(txAccId)) {
+            accountIdxGroups.set(txAccId, { indices: [], txs: [], fees: [] });
+          }
+          const group = accountIdxGroups.get(txAccId)!;
+          group.indices.push(idx);
+          group.txs.push(tx);
+          group.fees.push(expandedFeeInfos[idx]);
+        });
+
+        const result: IUnsignedTxPro[] = new Array(unsignedTxs.length);
+        for (const [accId, group] of accountIdxGroups) {
+          const updated = await serviceSend.updateUnSignedTxBeforeSending({
+            accountId: accId,
+            networkId,
+            unsignedTxs: group.txs,
+            feeInfos: group.fees,
+          });
+          group.indices.forEach((origIdx, groupIdx) => {
+            result[origIdx] = updated[groupIdx];
+          });
+        }
+        newUnsignedTxs = result;
+      } else {
+        newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
+          accountId,
+          networkId,
+          unsignedTxs,
+          feeInfos: expandedFeeInfos,
+        });
+      }
     } catch (e: any) {
       setIsSubmitting(false);
       onFail?.(e as Error);
       throw e;
     }
 
-    // Step 3: Check fee overflow for each transaction
-    for (let i = 0; i < newUnsignedTxs.length; i += 1) {
-      const feeInfo = feeState.feeInfos[i];
+    // Step 3: Check fee overflow (for ManyToMany/ManyToOne, only check first tx)
+    const feeOverflowCheckCount =
+      bulkSendMode !== EBulkSendMode.OneToMany ? 1 : newUnsignedTxs.length;
+    for (let i = 0; i < feeOverflowCheckCount; i += 1) {
+      const feeInfo = expandedFeeInfos[i];
       if (feeInfo) {
         const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
           accountId,
@@ -372,6 +451,40 @@ function BaseBulkSendReview({
           break;
         }
       }
+    }
+
+    // Step 3.5: ManyToMany/ManyToOne — navigate to BulkSendProcess
+    if (bulkSendMode !== EBulkSendMode.OneToMany) {
+      setIsSubmitting(false);
+
+      const processParams = {
+        networkId,
+        accountId,
+        isInModal,
+        isMaxMode,
+        unsignedTxs: newUnsignedTxs,
+        feeInfo: feeState.feeInfos[0],
+        feePresetIndex: feeState.selectedFee.presetIndex,
+        tokenInfo,
+        transfersInfo,
+        bulkSendMode,
+        totalTokenAmount,
+        totalFiatAmount,
+        intervalSettings,
+        onSuccess,
+        onFail,
+      };
+
+      if (isInModal) {
+        navigation.push(EModalBulkSendRoutes.BulkSendProcess, processParams);
+      } else {
+        await popModalPages();
+        navigation.pushModal(EModalRoutes.BulkSendModal, {
+          screen: EModalBulkSendRoutes.BulkSendProcess,
+          params: processParams,
+        });
+      }
+      return;
     }
 
     // Step 4: Check if Tron network - confirm transactions one by one
@@ -429,6 +542,7 @@ function BaseBulkSendReview({
           feeInfos: feeState.feeInfos.slice(0, approveCount),
           signOnly: false,
           transferPayload: undefined,
+          successfullySentTxs: successfullySentTxs.current,
         });
         approveTxsSent = true;
       } catch (e: any) {
@@ -451,6 +565,7 @@ function BaseBulkSendReview({
         feeInfos: feeState.feeInfos.slice(approveCount),
         signOnly: false,
         transferPayload: undefined,
+        successfullySentTxs: successfullySentTxs.current,
       });
 
       // Step 6: Show success toast
@@ -490,6 +605,7 @@ function BaseBulkSendReview({
     networkId,
     unsignedTxs,
     feeState.feeInfos,
+    feeState.selectedFee.presetIndex,
     setIsSubmitting,
     onFail,
     onSuccess,
@@ -502,8 +618,13 @@ function BaseBulkSendReview({
     startApprovalRecheck,
     approvesInfo.length,
     bulkSendMode,
-    transfersInfo.length,
-    tokenInfo?.symbol,
+    transfersInfo,
+    tokenInfo,
+    totalTokenAmount,
+    totalFiatAmount,
+    intervalSettings,
+    isInModal,
+    isMaxMode,
   ]);
 
   // Determine if confirm button should be disabled
@@ -548,6 +669,7 @@ function BaseBulkSendReview({
               editFeeEnabled={vaultSettings?.editFeeEnabled}
               transferTxCount={transferTxCount}
               isTransferSplit={isTransferSplit}
+              intervalSettings={intervalSettings}
             />
           </YStack>
 
@@ -577,28 +699,26 @@ function BaseBulkSendReview({
   );
 }
 
-function BulkSendReview() {
-  const route = useAppRoute<
-    IModalBulkSendParamList,
-    EModalBulkSendRoutes.BulkSendReview
-  >();
+type IBulkSendReviewRouteParams =
+  IModalBulkSendParamList[EModalBulkSendRoutes.BulkSendReview];
 
-  const {
-    networkId,
-    accountId,
-    tokenInfo,
-    transfersInfo,
-    approvesInfo: initialApprovesInfo,
-    unsignedTxs: initialUnsignedTxs,
-    bulkSendMode,
-    totalTokenAmount,
-    totalFiatAmount,
-    isInModal,
-    ataCount,
-    onSuccess,
-    onFail,
-  } = route.params ?? {};
-
+function BulkSendReviewContent({
+  networkId,
+  accountId,
+  tokenInfo,
+  transfersInfo,
+  approvesInfo: initialApprovesInfo,
+  unsignedTxs: initialUnsignedTxs,
+  bulkSendMode,
+  totalTokenAmount,
+  totalFiatAmount,
+  isInModal,
+  isMaxMode,
+  ataCount,
+  intervalSettings,
+  onSuccess,
+  onFail,
+}: IBulkSendReviewRouteParams) {
   // Local state for approves info (can be modified by editor)
   const [approvesInfo, setApprovesInfo] = useState<IApproveInfo[]>(
     initialApprovesInfo ?? [],
@@ -653,7 +773,9 @@ function BulkSendReview() {
       totalTokenAmount,
       totalFiatAmount,
       isInModal,
+      isMaxMode,
       ataCount,
+      intervalSettings,
       networkImageUri: networkInfo?.logoURI,
       initialApprovesInfoRef,
       approvesInfo,
@@ -674,7 +796,9 @@ function BulkSendReview() {
       totalTokenAmount,
       totalFiatAmount,
       isInModal,
+      isMaxMode,
       ataCount,
+      intervalSettings,
       networkInfo?.logoURI,
       approvesInfo,
       unsignedTxs,
@@ -692,6 +816,39 @@ function BulkSendReview() {
       <BaseBulkSendReview onSuccess={onSuccess} onFail={onFail} />
     </BulkSendReviewContext.Provider>
   );
+}
+
+function BulkSendReview() {
+  const route = useAppRoute<
+    IModalBulkSendParamList,
+    EModalBulkSendRoutes.BulkSendReview
+  >();
+
+  const params = route.params;
+  const hasRequiredParams = Boolean(
+    params?.networkId &&
+    params?.tokenInfo &&
+    params?.bulkSendMode &&
+    params?.transfersInfo?.length &&
+    params?.unsignedTxs?.length &&
+    params?.totalTokenAmount !== undefined &&
+    params?.totalFiatAmount !== undefined,
+  );
+
+  useRedirectToBulkSendAddressesInput({
+    networkId: params?.networkId,
+    accountId: params?.accountId,
+    tokenInfo: params?.tokenInfo,
+    isInModal: params?.isInModal,
+    bulkSendMode: params?.bulkSendMode,
+    hasRequiredParams,
+  });
+
+  if (!hasRequiredParams || !params) {
+    return null;
+  }
+
+  return <BulkSendReviewContent {...params} />;
 }
 
 export default BulkSendReview;
