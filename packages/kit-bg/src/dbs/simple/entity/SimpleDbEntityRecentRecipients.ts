@@ -132,10 +132,21 @@ export class SimpleDbEntityRecentRecipients extends SimpleDbEntityBase<IRecentRe
   }
 
   @backgroundMethod()
-  async deleteRecentRecipient({ recipientId }: { recipientId: string }) {
+  async deleteRecentRecipient({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    const storageKey =
+      networkUtils.getNetworkImplOrNetworkId({ networkId }) ?? networkId;
     await this.setRawData((rawData) => {
       const recentRecipients = rawData?.recentRecipients ?? {};
-      delete recentRecipients[recipientId];
+      const networkRecipients = recentRecipients[storageKey];
+      if (networkRecipients) {
+        delete networkRecipients[address];
+      }
       return { recentRecipients };
     });
   }

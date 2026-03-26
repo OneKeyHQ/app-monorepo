@@ -608,16 +608,8 @@ class ServiceAccountProfile extends ServiceBase {
           if (isInRecipients) {
             result.addressInteractionStatus =
               EAddressInteractionStatus.INTERACTED;
-            // Keep badges consistent with overridden status:
-            // remove interaction badges (warning/critical) that would contradict INTERACTED
-            if (result.addressBadges) {
-              result.addressBadges = result.addressBadges.filter(
-                (badge) =>
-                  badge.type === 'default' ||
-                  badge.type === 'info' ||
-                  badge.type === 'success',
-              );
-            }
+            // Only override interaction status, never filter out warning/critical
+            // badges — those may indicate phishing/sanctioned addresses
           }
         } catch {
           // Keep original badges API result on failure

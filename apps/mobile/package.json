@@ -65,6 +65,7 @@
     "@onekeyfe/react-native-lite-card": "1.1.36",
     "@onekeyfe/react-native-native-logger": "1.1.36",
     "@onekeyfe/react-native-perf-memory": "1.1.36",
+    "@onekeyfe/react-native-scroll-guard": "1.1.36",
     "@onekeyfe/react-native-skeleton": "1.1.36",
     "@onekeyfe/react-native-sni-connect": "1.1.0",
     "@onekeyfe/react-native-splash-screen": "1.1.36",

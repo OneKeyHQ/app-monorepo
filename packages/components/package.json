@@ -4,6 +4,7 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@onekeyfe/react-native-scroll-guard": "1.1.36",
     "@onekeyfe/react-native-tab-view": "1.1.36",
     "@react-navigation/bottom-tabs": "7.10.1",
     "@react-navigation/elements": "2.9.5",
