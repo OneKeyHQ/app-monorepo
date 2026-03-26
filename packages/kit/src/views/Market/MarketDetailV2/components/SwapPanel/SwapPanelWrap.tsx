@@ -315,10 +315,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   }, []);
 
   const openReviewDialog = useCallback(
-    (
-      submitAction: typeof speedSwapBuildTx | typeof speedSwapWrappedTx,
-      reviewQuote: Awaited<ReturnType<typeof fetchSpeedSwapReviewQuote>>,
-    ) => {
+    (reviewQuote: Awaited<ReturnType<typeof fetchSpeedSwapReviewQuote>>) => {
       if (!reviewQuote) {
         return;
       }
@@ -335,24 +332,17 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         },
         renderContent: (
           <MarketSwapReviewDialogContent
-            activeAccount={activeAccount}
             quoteResult={reviewQuote}
-            fromTokenAmount={reviewQuote.fromAmount ?? ''}
             slippage={slippage}
-            onConfirm={async () => {
-              await submitAction({
-                reviewQuote,
-                onSuccess: () => {
-                  closeReviewDialog();
-                  onCloseDialog?.();
-                },
-              });
+            onDone={() => {
+              closeReviewDialog();
+              onCloseDialog?.();
             }}
           />
         ),
       });
     },
-    [activeAccount, closeReviewDialog, intl, onCloseDialog, slippage],
+    [closeReviewDialog, intl, onCloseDialog, slippage],
   );
 
   const handleSwap = useCallback(async () => {
@@ -368,7 +358,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         await speedSwapBuildTx();
         return;
       }
-      openReviewDialog(speedSwapBuildTx, reviewQuote);
+      openReviewDialog(reviewQuote);
     } finally {
       reviewLoadingRef.current = false;
       setReviewLoading(false);
@@ -388,7 +378,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         await speedSwapWrappedTx();
         return;
       }
-      openReviewDialog(speedSwapWrappedTx, reviewQuote);
+      openReviewDialog(reviewQuote);
     } finally {
       reviewLoadingRef.current = false;
       setReviewLoading(false);

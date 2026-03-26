@@ -1,454 +1,360 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import { Dialog, Spinner, YStack } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  Badge,
-  Button,
-  Divider,
-  HeightTransition,
-  Icon,
-  Image,
-  NumberSizeableText,
-  Popover,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import PreSwapInfoItem from '@onekeyhq/kit/src/views/Swap/components/PreSwapInfoItem';
-import { PreSwapTipInfo } from '@onekeyhq/kit/src/views/Swap/components/PreSwapTipInfo';
-import { ProtocolFeeComparisonList } from '@onekeyhq/kit/src/views/Swap/components/ProtocolFeeComparisonList';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  ProviderJotaiContextSwap,
+  useSwapFromTokenAmountAtom,
+  useSwapQuoteListAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+  useSwapStepsAtom,
+  useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import TransactionLossNetworkFeeExceedDialog from '@onekeyhq/kit/src/views/Swap/components/TransactionLossNetworkFeeExceedDialog';
+import { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import { useSwapBuildTx } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapBuiltTx';
+import {
+  ESwapBatchTransferType,
+  useSwapBatchTransferType,
+} from '@onekeyhq/kit/src/views/Swap/hooks/useSwapState';
+import PreSwapDialogContent from '@onekeyhq/kit/src/views/Swap/pages/components/PreSwapDialogContent';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type {
-  IFetchQuoteResult,
-  ISwapPreSwapData,
-  ISwapToken,
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapDirectionType,
+  ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
+  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  buildMarketSwapReviewData,
-  getMarketSwapReviewActionTranslationId,
-} from '../utils/reviewUtils';
+import { buildMarketSwapReviewState } from '../utils/reviewUtils';
 
-function MarketSwapReviewTokenItem({
-  token,
-  amount,
-  isFloating,
-}: {
-  token?: ISwapToken;
-  amount: string;
-  isFloating?: boolean;
-}) {
-  const [settings] = useSettingsPersistAtom();
-
-  const fiatValue = useMemo(() => {
-    return token?.price && amount
-      ? new BigNumber(token.price).multipliedBy(amount).toFixed()
-      : '0';
-  }, [amount, token?.price]);
-
-  const networkImageUri = useMemo(() => {
-    if (token?.networkLogoURI) {
-      return token.networkLogoURI;
-    }
-    if (token?.networkId) {
-      return networkUtils.getLocalNetworkInfo(token.networkId)?.logoURI;
-    }
-    return '';
-  }, [token?.networkId, token?.networkLogoURI]);
-
-  return (
-    <XStack
-      alignItems="center"
-      justifyContent="space-between"
-      flex={1}
-      mr="$0.5"
-    >
-      <YStack gap="$1" flex={1}>
-        <XStack alignItems="center">
-          {isFloating ? (
-            <Icon name="TildeOutline" size="$5" color="$text" />
-          ) : null}
-          <NumberSizeableText
-            size="$heading3xl"
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: token?.symbol ?? '-',
-            }}
-          >
-            {amount}
-          </NumberSizeableText>
-        </XStack>
-        <NumberSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="value"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-          }}
-          numberOfLines={1}
-        >
-          {fiatValue}
-        </NumberSizeableText>
-      </YStack>
-
-      <Stack position="relative" width="$10" height="$10">
-        <Image
-          source={{ uri: token?.logoURI ?? '' }}
-          width="$10"
-          height="$10"
-          borderRadius="$full"
-          bg="$gray5"
-        />
-        {networkImageUri ? (
-          <Stack
-            position="absolute"
-            right="$-1"
-            bottom="$-1"
-            p="$0.5"
-            bg="$bgApp"
-            borderRadius="$full"
-          >
-            <Image
-              source={{ uri: networkImageUri }}
-              width="$4"
-              height="$4"
-              borderRadius="$full"
-            />
-          </Stack>
-        ) : null}
-      </Stack>
-    </XStack>
-  );
-}
-
-function MarketSwapReviewInfoGroup({
-  preSwapData,
-}: {
-  preSwapData: ISwapPreSwapData;
-}) {
-  const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
-
-  const serviceFee = Number(preSwapData.fee?.percentageFee ?? 0.3);
-
-  const slippage = useMemo(() => {
-    if (!preSwapData.unSupportSlippage && preSwapData.slippage !== undefined) {
-      return new BigNumber(preSwapData.slippage)
-        .decimalPlaces(2, BigNumber.ROUND_DOWN)
-        .toNumber();
-    }
-
-    return undefined;
-  }, [preSwapData.slippage, preSwapData.unSupportSlippage]);
-
-  const fee = useMemo(() => {
-    if (
-      new BigNumber(preSwapData.fee?.percentageFee ?? '0').isZero() ||
-      new BigNumber(preSwapData.fee?.percentageFee ?? '0').isNaN()
-    ) {
-      return (
-        <Badge badgeSize="sm" badgeType="success" gap="$1.5">
-          <Icon name="PartyCelebrateSolid" size="$3" color="$iconSuccess" />
-          <SizableText size="$bodySmMedium" color="$textSuccess">
-            {intl.formatMessage({
-              id: ETranslations.swap_stablecoin_0_fee,
-            })}
-          </SizableText>
-        </Badge>
-      );
-    }
-
-    return `${preSwapData.fee?.percentageFee ?? '-'}%`;
-  }, [intl, preSwapData.fee?.percentageFee]);
-
-  return (
-    <YStack gap="$3">
-      <PreSwapInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_provider_provider,
-        })}
-        value={preSwapData.providerInfo?.providerName ?? ''}
-        popoverContent={intl.formatMessage({
-          id: ETranslations.swap_review_provider_popover_content,
-        })}
-      />
-      {!isNil(slippage) ? (
-        <PreSwapInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.swap_page_provider_slippage_tolerance,
-          })}
-          value={`${slippage}%`}
-          popoverContent={intl.formatMessage({
-            id: ETranslations.slippage_tolerance_warning_message_1,
-          })}
-        />
-      ) : null}
-      {!isNil(preSwapData.minToAmount) &&
-      new BigNumber(preSwapData.minToAmount).gt(0) ? (
-        <PreSwapInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.swap_review_min_receive,
-          })}
-          value={
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="balance"
-              formatterOptions={{
-                tokenSymbol: preSwapData.toToken?.symbol ?? '-',
-              }}
-            >
-              {preSwapData.minToAmount}
-            </NumberSizeableText>
-          }
-          popoverContent={intl.formatMessage({
-            id: ETranslations.swap_review_min_receive_popover,
-          })}
-        />
-      ) : null}
-      <PreSwapInfoItem
-        title={intl.formatMessage({
-          id: ETranslations.provider_ios_popover_wallet_fee,
-        })}
-        value={fee}
-        popoverContent={
-          <Stack gap="$4">
-            <Stack gap="$1">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.provider_ios_popover_onekey_fee_content,
-                  },
-                  { num: `${serviceFee}%` },
-                )}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.provider_ios_popover_onekey_fee_content_2,
-                  },
-                  { num: `${serviceFee}%` },
-                )}
-              </SizableText>
-            </Stack>
-            <ProtocolFeeComparisonList serviceFee={serviceFee} />
-          </Stack>
-        }
-      />
-      {preSwapData.fee?.estimatedFeeFiatValue ? (
-        <PreSwapInfoItem
-          title={intl.formatMessage({
-            id: ETranslations.provider_network_fee,
-          })}
-          value={
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="value"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
-            >
-              {preSwapData.fee.estimatedFeeFiatValue}
-            </NumberSizeableText>
-          }
-          popoverContent={intl.formatMessage({
-            id: ETranslations.swap_review_network_cost_popover_content,
-          })}
-        />
-      ) : null}
-    </YStack>
-  );
-}
-
-type IMarketSwapReviewDialogContentProps = {
-  activeAccount: IAccountSelectorActiveAccountInfo;
-  fromTokenAmount: string;
-  onConfirm: () => Promise<void>;
-  quoteResult: IFetchQuoteResult;
-  slippage: number;
-};
-
-export function MarketSwapReviewDialogContent({
-  activeAccount,
-  fromTokenAmount,
-  onConfirm,
+function MarketSwapReviewDialogContentInner({
+  onDone,
   quoteResult,
   slippage,
-}: IMarketSwapReviewDialogContentProps) {
+}: {
+  onDone: () => void;
+  quoteResult: IFetchQuoteResult;
+  slippage: number;
+}) {
   const intl = useIntl();
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [showPreSwapTipInfo, setShowPreSwapTipInfo] =
-    useState<IFetchQuoteResult['quoteShowTip']>(undefined);
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
+  const [, setSwapSelectToToken] = useSwapSelectToTokenAtom();
+  const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
+  const [, setSwapQuoteList] = useSwapQuoteListAtom();
+  const [, setSwapSteps] = useSwapStepsAtom();
+  const [settings, setSettings] = useSettingsAtom();
+  const initialSettingsRef = useRef({
+    swapSlippagePercentageCustomValue:
+      settings.swapSlippagePercentageCustomValue,
+    swapSlippagePercentageMode: settings.swapSlippagePercentageMode,
+    swapToAnotherAccountSwitchOn: settings.swapToAnotherAccountSwitchOn,
+  });
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
+  const initialAccountNetworkRef = useRef({
+    fromNetworkId: swapFromAddressInfo.networkId,
+    toNetworkId: swapToAddressInfo.networkId,
+  });
+  const [accountSelectorSynced, setAccountSelectorSynced] = useState(false);
+  const [reviewStateSeeded, setReviewStateSeeded] = useState(false);
+  const { preSwapBeforeStepActions, preSwapStepsStart } = useSwapBuildTx();
+  const formatMessage = useCallback(
+    (
+      descriptor: {
+        id: ETranslations;
+      },
+      values?: Record<string, string | number>,
+    ) => String(intl.formatMessage(descriptor, values)),
+    [intl],
+  );
 
-  const isExternalWallet = useMemo(
-    () =>
-      accountUtils.isExternalWallet({
-        walletId: activeAccount?.wallet?.id ?? '',
-      }),
-    [activeAccount?.wallet?.id],
+  const swapBatchTransferType = useSwapBatchTransferType(
+    quoteResult.fromTokenInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
+    quoteResult.providerDisableBatchTransfer,
+    Boolean(quoteResult.swapShouldSignedData),
+    Boolean(quoteResult.allowanceResult),
   );
-  const isHwWallet = useMemo(
-    () =>
-      accountUtils.isHwWallet({
-        walletId: activeAccount?.wallet?.id ?? '',
-      }),
-    [activeAccount?.wallet?.id],
-  );
-  const isHWAndExBatchTransfer = useMemo(() => {
-    const accountId = activeAccount?.account?.id ?? '';
+
+  const shouldSignEveryTime = useMemo(() => {
+    const accountId = swapFromAddressInfo.accountInfo?.account?.id ?? '';
+    const isExternalAccount = accountUtils.isExternalAccount({
+      accountId,
+    });
+    const isHDAccount = accountUtils.isHwOrQrAccount({
+      accountId,
+    });
     return (
-      !!quoteResult.allowanceResult &&
-      (accountUtils.isExternalAccount({ accountId }) ||
-        accountUtils.isHwOrQrAccount({ accountId }))
+      (isExternalAccount || isHDAccount) && Boolean(quoteResult.allowanceResult)
     );
-  }, [activeAccount?.account?.id, quoteResult.allowanceResult]);
+  }, [
+    quoteResult.allowanceResult,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  ]);
 
-  const preSwapData = useMemo(
+  const supportPreBuild = useMemo(() => {
+    if (quoteResult.isWrapped) {
+      return false;
+    }
+    if (!quoteResult.allowanceResult) {
+      return true;
+    }
+    return !(
+      quoteResult.providerDisableBatchTransfer ||
+      SwapBuildUseMultiplePopoversNetworkIds.includes(
+        quoteResult.fromTokenInfo.networkId,
+      )
+    );
+  }, [
+    quoteResult.allowanceResult,
+    quoteResult.fromTokenInfo.networkId,
+    quoteResult.isWrapped,
+    quoteResult.providerDisableBatchTransfer,
+  ]);
+
+  const needFetchGas = useMemo(() => {
+    if (!quoteResult.allowanceResult) {
+      return false;
+    }
+
+    return ![
+      ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP,
+      ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP,
+    ].includes(swapBatchTransferType);
+  }, [quoteResult.allowanceResult, swapBatchTransferType]);
+
+  const reviewState = useMemo(
     () =>
-      buildMarketSwapReviewData({
-        quoteResult,
+      buildMarketSwapReviewState({
+        formatMessage,
         fromToken: quoteResult.fromTokenInfo,
-        toToken: quoteResult.toTokenInfo,
-        fromTokenAmount,
+        fromTokenAmount: quoteResult.fromAmount ?? '',
+        isHWAndExBatchTransfer: shouldSignEveryTime,
+        needFetchGas,
+        quoteResult,
+        shouldFallback: false,
         slippage,
-        isHWAndExBatchTransfer,
-      }),
-    [quoteResult, fromTokenAmount, slippage, isHWAndExBatchTransfer],
-  );
-
-  const actionText = useMemo(
-    () =>
-      intl.formatMessage({
-        id: getMarketSwapReviewActionTranslationId({
-          isExternalWallet,
-          isHWAndExBatchTransfer,
-          isHwWallet,
-          shouldResetApprove: !!quoteResult.allowanceResult?.shouldResetApprove,
-        }),
+        supportPreBuild,
+        swapBatchTransferType,
+        toToken: quoteResult.toTokenInfo,
       }),
     [
-      intl,
-      isExternalWallet,
-      isHWAndExBatchTransfer,
-      isHwWallet,
-      quoteResult.allowanceResult?.shouldResetApprove,
+      formatMessage,
+      needFetchGas,
+      quoteResult,
+      shouldSignEveryTime,
+      slippage,
+      supportPreBuild,
+      swapBatchTransferType,
     ],
   );
 
-  const runConfirm = useCallback(async () => {
-    if (isConfirming) {
+  useEffect(() => {
+    setReviewStateSeeded(false);
+    let cancelled = false;
+    const initialSettings = initialSettingsRef.current;
+    const initialAccountNetworks = initialAccountNetworkRef.current;
+
+    setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+    setSwapSelectFromToken(quoteResult.fromTokenInfo);
+    setSwapSelectToToken(quoteResult.toTokenInfo);
+    setSwapFromTokenAmount({
+      value: reviewState.preSwapData.fromTokenAmount ?? '',
+      isInput: true,
+    });
+    setSwapToTokenAmount({
+      value: reviewState.preSwapData.toTokenAmount ?? '',
+      isInput: false,
+    });
+    setSwapQuoteList([quoteResult]);
+    setSettings((prev) => ({
+      ...prev,
+      swapSlippagePercentageMode: ESwapSlippageSegmentKey.CUSTOM,
+      swapSlippagePercentageCustomValue: slippage,
+      swapToAnotherAccountSwitchOn: false,
+    }));
+
+    void (async () => {
+      await updateSelectedAccountNetwork({
+        num: 0,
+        networkId: quoteResult.fromTokenInfo.networkId,
+      });
+      await updateSelectedAccountNetwork({
+        num: 1,
+        networkId: quoteResult.toTokenInfo.networkId,
+      });
+
+      if (!cancelled) {
+        setAccountSelectorSynced(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      const { fromNetworkId, toNetworkId } = initialAccountNetworks;
+      if (fromNetworkId) {
+        void updateSelectedAccountNetwork({
+          num: 0,
+          networkId: fromNetworkId,
+        });
+      }
+      if (toNetworkId) {
+        void updateSelectedAccountNetwork({
+          num: 1,
+          networkId: toNetworkId,
+        });
+      }
+      setSwapQuoteList([]);
+      setSwapSteps({
+        steps: [],
+        preSwapData: {},
+      });
+      setSwapFromTokenAmount({
+        value: '',
+        isInput: false,
+      });
+      setSwapToTokenAmount({
+        value: '',
+        isInput: false,
+      });
+      setSettings((prev) => ({
+        ...prev,
+        ...initialSettings,
+      }));
+    };
+  }, [
+    quoteResult,
+    reviewState.preSwapData.fromTokenAmount,
+    reviewState.preSwapData.toTokenAmount,
+    setSettings,
+    setSwapFromTokenAmount,
+    setSwapQuoteList,
+    setSwapSelectFromToken,
+    setSwapSelectToToken,
+    setSwapSteps,
+    setSwapToTokenAmount,
+    setSwapTypeSwitch,
+    slippage,
+    updateSelectedAccountNetwork,
+  ]);
+
+  const isSwapContextReady = useMemo(() => {
+    return (
+      accountSelectorSynced &&
+      swapFromAddressInfo.networkId === quoteResult.fromTokenInfo.networkId &&
+      swapToAddressInfo.networkId === quoteResult.toTokenInfo.networkId &&
+      !!swapFromAddressInfo.address &&
+      !!swapToAddressInfo.address
+    );
+  }, [
+    accountSelectorSynced,
+    quoteResult.fromTokenInfo.networkId,
+    quoteResult.toTokenInfo.networkId,
+    swapFromAddressInfo.address,
+    swapFromAddressInfo.networkId,
+    swapToAddressInfo.address,
+    swapToAddressInfo.networkId,
+  ]);
+
+  useEffect(() => {
+    if (!isSwapContextReady) {
+      setReviewStateSeeded(false);
       return;
     }
 
-    setIsConfirming(true);
-    try {
-      await onConfirm();
-    } finally {
-      setIsConfirming(false);
-    }
-  }, [isConfirming, onConfirm]);
+    setSwapSteps(reviewState);
+    setReviewStateSeeded(true);
+  }, [isSwapContextReady, reviewState, setSwapSteps]);
 
-  const handleConfirmPress = useCallback(() => {
-    if (quoteResult.quoteShowTip) {
-      setShowPreSwapTipInfo(quoteResult.quoteShowTip);
+  const handleConfirm = useCallback(() => {
+    if (quoteResult.networkCostExceedInfo && !quoteResult.allowanceResult) {
+      Dialog.confirm({
+        title: intl.formatMessage({
+          id: ETranslations.swap_network_cost_dialog_title,
+        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.swap_network_cost_dialog_description,
+          },
+          {
+            number: ` ${quoteResult.networkCostExceedInfo.exceedPercent}%`,
+          },
+        ),
+        renderContent: (
+          <TransactionLossNetworkFeeExceedDialog
+            protocol={quoteResult.protocol ?? EProtocolOfExchange.SWAP}
+            networkCostExceedInfo={quoteResult.networkCostExceedInfo}
+          />
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        onConfirm: () => {
+          void preSwapStepsStart();
+        },
+      });
       return;
     }
 
-    void runConfirm();
-  }, [quoteResult.quoteShowTip, runConfirm]);
+    void preSwapStepsStart();
+  }, [intl, preSwapStepsStart, quoteResult]);
 
-  const handleTipConfirm = useCallback(() => {
-    setShowPreSwapTipInfo(undefined);
-    void runConfirm();
-  }, [runConfirm]);
-
-  const handleTipCancel = useCallback(() => {
-    setShowPreSwapTipInfo(undefined);
-  }, []);
+  if (!isSwapContextReady || !reviewStateSeeded) {
+    return (
+      <YStack py="$10" alignItems="center" justifyContent="center">
+        <Spinner />
+      </YStack>
+    );
+  }
 
   return (
-    <HeightTransition initialHeight={355}>
-      <YStack gap="$4">
-        <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
-          </SizableText>
-          <MarketSwapReviewTokenItem
-            token={preSwapData.fromToken}
-            amount={preSwapData.fromTokenAmount ?? '0'}
-          />
-        </YStack>
+    <PreSwapDialogContent
+      preSwapBeforeStepActions={preSwapBeforeStepActions}
+      preSwapStepsStart={preSwapStepsStart}
+      onConfirm={handleConfirm}
+      onDone={onDone}
+    />
+  );
+}
 
-        <YStack gap="$1">
-          <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.provider_sort_item_received,
-              })}
-            </SizableText>
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.provider_sort_item_received,
-              })}
-              renderTrigger={
-                <Icon
-                  cursor="pointer"
-                  name="InfoCircleOutline"
-                  size="$3.5"
-                  color="$iconSubdued"
-                />
-              }
-              renderContent={() => (
-                <Stack p="$4">
-                  <SizableText size="$bodyMd">
-                    {intl.formatMessage({
-                      id: quoteResult.isFloating
-                        ? ETranslations.provider_route_changelly_float
-                        : ETranslations.provider_ios_popover_onekey_fee_content_sub,
-                    })}
-                  </SizableText>
-                </Stack>
-              )}
-            />
-          </XStack>
-
-          <MarketSwapReviewTokenItem
-            token={preSwapData.toToken}
-            amount={preSwapData.toTokenAmount ?? '0'}
-            isFloating={quoteResult.isFloating}
-          />
-        </YStack>
-
-        <Divider />
-
-        {showPreSwapTipInfo ? (
-          <PreSwapTipInfo
-            quoteShowTip={showPreSwapTipInfo}
-            onConfirm={handleTipConfirm}
-            onCancel={handleTipCancel}
-          />
-        ) : (
-          <YStack gap="$4">
-            <MarketSwapReviewInfoGroup preSwapData={preSwapData} />
-            <Button
-              variant="primary"
-              size="medium"
-              onPress={handleConfirmPress}
-              loading={isConfirming}
-              disabled={isConfirming}
-            >
-              {actionText}
-            </Button>
-          </YStack>
-        )}
-      </YStack>
-    </HeightTransition>
+export function MarketSwapReviewDialogContent({
+  onDone,
+  quoteResult,
+  slippage,
+}: {
+  onDone: () => void;
+  quoteResult: IFetchQuoteResult;
+  slippage: number;
+}) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.swap,
+        sceneUrl: '',
+      }}
+      enabledNum={[0, 1]}
+    >
+      <ProviderJotaiContextSwap>
+        <MarketSwapReviewDialogContentInner
+          onDone={onDone}
+          quoteResult={quoteResult}
+          slippage={slippage}
+        />
+      </ProviderJotaiContextSwap>
+    </AccountSelectorProviderMirror>
   );
 }

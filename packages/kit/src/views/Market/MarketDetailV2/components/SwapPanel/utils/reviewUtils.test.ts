@@ -1,15 +1,17 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   EProtocolOfExchange,
+  ESwapStepType,
   type IFetchQuoteResult,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketSwapApproveInfos,
-  buildMarketSwapReviewData,
+  buildMarketSwapReviewState,
   createWrappedMarketSwapReviewQuote,
-  getMarketSwapReviewActionTranslationId,
+  marketSwapBatchTransferTypes,
 } from './reviewUtils';
 
 const mockFromToken: ISwapToken = {
@@ -48,6 +50,8 @@ const mockQuoteResult: IFetchQuoteResult = {
     percentageFee: 0.3,
   },
 };
+
+const formatMessage = ({ id }: { id: ETranslations }) => id;
 
 describe('buildMarketSwapApproveInfos', () => {
   it('returns empty approve infos when allowance result is missing', () => {
@@ -109,44 +113,145 @@ describe('buildMarketSwapApproveInfos', () => {
   });
 });
 
-describe('buildMarketSwapReviewData', () => {
-  it('builds review data with slippage for normal quotes', () => {
-    const reviewData = buildMarketSwapReviewData({
-      quoteResult: mockQuoteResult,
+describe('buildMarketSwapReviewState', () => {
+  it('builds wrap review state for wrapped pairs', () => {
+    const reviewState = buildMarketSwapReviewState({
+      formatMessage,
+      fromToken: mockFromToken,
+      toToken: mockToToken,
+      fromTokenAmount: '1.5',
+      isHWAndExBatchTransfer: false,
+      needFetchGas: false,
+      quoteResult: createWrappedMarketSwapReviewQuote({
+        fromToken: mockFromToken,
+        toToken: mockToToken,
+        fromTokenAmount: '1.5',
+        providerLogo: 'https://example.com/wrapped.png',
+      }),
+      shouldFallback: false,
+      slippage: 0.5,
+      supportPreBuild: false,
+      swapBatchTransferType: marketSwapBatchTransferTypes.normal,
+    });
+
+    expect(reviewState.steps).toHaveLength(1);
+    expect(reviewState.steps[0].type).toBe(ESwapStepType.WRAP_TX);
+    expect(reviewState.preSwapData).toMatchObject({
+      fromTokenAmount: '1.5',
+      toTokenAmount: '1.5',
+      supportNetworkFeeLevel: true,
+      supportPreBuild: false,
+      shouldFallback: false,
+    });
+    expect(reviewState.preSwapData.slippage).toBeUndefined();
+  });
+
+  it('builds approve + sign steps when the quote needs a signature', () => {
+    const reviewState = buildMarketSwapReviewState({
+      formatMessage,
       fromToken: mockFromToken,
       toToken: mockToToken,
       fromTokenAmount: '1',
-      slippage: 0.5,
       isHWAndExBatchTransfer: true,
+      needFetchGas: true,
+      quoteResult: {
+        ...mockQuoteResult,
+        allowanceResult: {
+          allowanceTarget: '0xspender',
+          amount: '1',
+          shouldResetApprove: true,
+        },
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'https://app.onekey.so',
+            scope: 'market-review',
+            signedType: EMessageTypesEth.TYPED_DATA_V4,
+          },
+        } as IFetchQuoteResult['swapShouldSignedData'],
+      },
+      shouldFallback: false,
+      slippage: 0.5,
+      supportPreBuild: true,
+      swapBatchTransferType: marketSwapBatchTransferTypes.normal,
     });
 
-    expect(reviewData).toMatchObject({
+    expect(reviewState.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.APPROVE_TX,
+      ESwapStepType.APPROVE_TX,
+      ESwapStepType.SIGN_MESSAGE,
+    ]);
+    expect(reviewState.preSwapData.supportNetworkFeeLevel).toBeUndefined();
+    expect(reviewState.preSwapData.isHWAndExBatchTransfer).toBe(true);
+    expect(reviewState.preSwapData.needFetchGas).toBe(true);
+  });
+
+  it('builds a batch approve step when batch transfer is available', () => {
+    const reviewState = buildMarketSwapReviewState({
+      formatMessage,
+      fromToken: mockFromToken,
+      toToken: mockToToken,
+      fromTokenAmount: '1',
+      isHWAndExBatchTransfer: false,
+      needFetchGas: false,
+      quoteResult: {
+        ...mockQuoteResult,
+        allowanceResult: {
+          allowanceTarget: '0xspender',
+          amount: '1',
+        },
+      },
+      shouldFallback: false,
+      slippage: 0.5,
+      supportPreBuild: true,
+      swapBatchTransferType: marketSwapBatchTransferTypes.batchApproveAndSwap,
+    });
+
+    expect(reviewState.steps).toHaveLength(1);
+    expect(reviewState.steps[0]).toMatchObject({
+      type: ESwapStepType.BATCH_APPROVE_SWAP,
+      stepActionsLabel: ETranslations.swap_page_approve_and_swap,
+    });
+  });
+
+  it('builds approve + swap state for standard speed swap quotes', () => {
+    const reviewState = buildMarketSwapReviewState({
+      formatMessage,
+      fromToken: mockFromToken,
+      toToken: mockToToken,
+      fromTokenAmount: '1',
+      isHWAndExBatchTransfer: false,
+      needFetchGas: true,
+      quoteResult: {
+        ...mockQuoteResult,
+        allowanceResult: {
+          allowanceTarget: '0xspender',
+          amount: '1',
+        },
+      },
+      shouldFallback: true,
+      slippage: 0.5,
+      supportPreBuild: true,
+      swapBatchTransferType: marketSwapBatchTransferTypes.normal,
+    });
+
+    expect(reviewState.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.APPROVE_TX,
+      ESwapStepType.SEND_TX,
+    ]);
+    expect(reviewState.preSwapData).toMatchObject({
       fromToken: mockFromToken,
       toToken: mockToToken,
       fromTokenAmount: '1',
       toTokenAmount: '2500',
       minToAmount: '2475',
+      providerInfo: mockQuoteResult.info,
       slippage: 0.5,
       unSupportSlippage: false,
-      supportNetworkFeeLevel: false,
-      isHWAndExBatchTransfer: true,
+      supportNetworkFeeLevel: true,
+      supportPreBuild: true,
+      needFetchGas: true,
+      shouldFallback: true,
     });
-  });
-
-  it('drops slippage when quote does not support slippage', () => {
-    const reviewData = buildMarketSwapReviewData({
-      quoteResult: {
-        ...mockQuoteResult,
-        unSupportSlippage: true,
-      },
-      fromToken: mockFromToken,
-      toToken: mockToToken,
-      fromTokenAmount: '1',
-      slippage: 0.5,
-    });
-
-    expect(reviewData.slippage).toBeUndefined();
-    expect(reviewData.unSupportSlippage).toBe(true);
   });
 });
 
@@ -176,40 +281,5 @@ describe('createWrappedMarketSwapReviewQuote', () => {
       },
     });
     expect(wrappedQuote.unSupportSlippage).toBe(true);
-  });
-});
-
-describe('getMarketSwapReviewActionTranslationId', () => {
-  it('returns 3 confirmations for hardware wallets with reset approve', () => {
-    expect(
-      getMarketSwapReviewActionTranslationId({
-        isExternalWallet: false,
-        isHWAndExBatchTransfer: true,
-        isHwWallet: true,
-        shouldResetApprove: true,
-      }),
-    ).toBe(ETranslations.swap_review_confirm_3_on_device);
-  });
-
-  it('returns 2 confirmations for external wallets without reset approve', () => {
-    expect(
-      getMarketSwapReviewActionTranslationId({
-        isExternalWallet: true,
-        isHWAndExBatchTransfer: true,
-        isHwWallet: false,
-        shouldResetApprove: false,
-      }),
-    ).toBe(ETranslations.swap_review_confirm_2_on_wallet);
-  });
-
-  it('falls back to the default confirm action', () => {
-    expect(
-      getMarketSwapReviewActionTranslationId({
-        isExternalWallet: false,
-        isHWAndExBatchTransfer: false,
-        isHwWallet: false,
-        shouldResetApprove: false,
-      }),
-    ).toBe(ETranslations.global_confirm);
   });
 });

@@ -1,11 +1,15 @@
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IFetchQuoteResult,
-  ISwapPreSwapData,
-  ISwapToken,
+import {
+  EProtocolOfExchange,
+  ESwapStepStatus,
+  ESwapStepType,
+  ESwapTabSwitchType,
+  type IFetchQuoteResult,
+  type ISwapPreSwapData,
+  type ISwapStep,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 type IBuildMarketSwapApproveInfosParams = {
   allowanceResult?: IFetchQuoteResult['allowanceResult'];
@@ -17,18 +21,41 @@ type IBuildMarketSwapApproveInfosParams = {
 type IBuildMarketSwapReviewDataParams = {
   quoteResult: IFetchQuoteResult;
   fromToken: ISwapToken;
-  toToken: ISwapToken;
   fromTokenAmount: string;
-  slippage: number;
   isHWAndExBatchTransfer?: boolean;
+  toToken: ISwapToken;
+  slippage: number;
 };
 
-type IGetMarketSwapReviewActionTranslationIdParams = {
-  isExternalWallet: boolean;
-  isHWAndExBatchTransfer: boolean;
-  isHwWallet: boolean;
-  shouldResetApprove: boolean;
+type IBuildMarketSwapReviewStateParams = {
+  formatMessage: IFormatMessage;
+  fromToken: ISwapToken;
+  fromTokenAmount: string;
+  isHWAndExBatchTransfer?: boolean;
+  needFetchGas: boolean;
+  quoteResult: IFetchQuoteResult;
+  shouldFallback: boolean;
+  slippage: number;
+  supportPreBuild: boolean;
+  swapBatchTransferType: IMarketSwapBatchTransferType;
+  toToken: ISwapToken;
 };
+
+export const marketSwapBatchTransferTypes = {
+  batchApproveAndSwap: 'batch_approve_and_swap',
+  continuousApproveAndSwap: 'continuous_approve_and_swap',
+  normal: 'normal',
+} as const;
+
+export type IMarketSwapBatchTransferType =
+  (typeof marketSwapBatchTransferTypes)[keyof typeof marketSwapBatchTransferTypes];
+
+type IFormatMessage = (
+  descriptor: {
+    id: ETranslations;
+  },
+  values?: Record<string, string | number>,
+) => string;
 
 function buildApproveInfo(params: {
   allowanceTarget: string;
@@ -89,15 +116,16 @@ export function buildMarketSwapApproveInfos({
   return approveInfos;
 }
 
-export function buildMarketSwapReviewData({
+function buildMarketSwapReviewData({
   quoteResult,
   fromToken,
-  toToken,
   fromTokenAmount,
-  slippage,
   isHWAndExBatchTransfer,
+  toToken,
+  slippage,
 }: IBuildMarketSwapReviewDataParams): ISwapPreSwapData {
   return {
+    swapType: ESwapTabSwitchType.SWAP,
     fromToken,
     toToken,
     fromTokenAmount: quoteResult.fromAmount ?? fromTokenAmount,
@@ -111,8 +139,219 @@ export function buildMarketSwapReviewData({
         : slippage,
     unSupportSlippage: quoteResult.unSupportSlippage ?? false,
     fee: quoteResult.fee,
-    supportNetworkFeeLevel: false,
     isHWAndExBatchTransfer,
+  };
+}
+
+function createApproveStep(params: {
+  formatMessage: IFormatMessage;
+  isResetApprove: boolean;
+  stepTitle: string;
+  stepActionsTranslationId: ETranslations;
+}): ISwapStep {
+  const { formatMessage, isResetApprove, stepTitle, stepActionsTranslationId } =
+    params;
+
+  return {
+    type: ESwapStepType.APPROVE_TX,
+    status: ESwapStepStatus.READY,
+    isResetApprove,
+    canRetry: true,
+    stepActionsLabel: formatMessage({
+      id: stepActionsTranslationId,
+    }),
+    stepTitle,
+    shouldWaitApproved: true,
+  };
+}
+
+export function buildMarketSwapReviewState({
+  formatMessage,
+  fromToken,
+  fromTokenAmount,
+  isHWAndExBatchTransfer,
+  needFetchGas,
+  quoteResult,
+  shouldFallback,
+  slippage,
+  supportPreBuild,
+  swapBatchTransferType,
+  toToken,
+}: IBuildMarketSwapReviewStateParams): {
+  preSwapData: ISwapPreSwapData;
+  quoteResult: IFetchQuoteResult;
+  steps: ISwapStep[];
+} {
+  let steps: ISwapStep[] = [];
+  const isBatchApproveSwap =
+    swapBatchTransferType ===
+      marketSwapBatchTransferTypes.batchApproveAndSwap ||
+    swapBatchTransferType ===
+      marketSwapBatchTransferTypes.continuousApproveAndSwap;
+
+  if (quoteResult.isWrapped) {
+    steps = [
+      {
+        type: ESwapStepType.WRAP_TX,
+        status: ESwapStepStatus.READY,
+        stepTitle: formatMessage({
+          id: ETranslations.swap_page_button_wrap,
+        }),
+        stepActionsLabel: formatMessage({
+          id: ETranslations.swap_page_button_wrap,
+        }),
+      },
+    ];
+  } else if (quoteResult.swapShouldSignedData) {
+    if (quoteResult.allowanceResult?.shouldResetApprove) {
+      steps = [
+        createApproveStep({
+          formatMessage,
+          isResetApprove: true,
+          stepTitle: formatMessage(
+            {
+              id: ETranslations.global_revoke_approve,
+            },
+            {
+              symbol: fromToken.symbol,
+            },
+          ),
+          stepActionsTranslationId: ETranslations.swap_page_approve_and_sign,
+        }),
+      ];
+    }
+
+    if (quoteResult.allowanceResult) {
+      steps = [
+        ...steps,
+        createApproveStep({
+          formatMessage,
+          isResetApprove: false,
+          stepTitle: formatMessage(
+            {
+              id: ETranslations.swap_page_approve_button,
+            },
+            {
+              token: fromToken.symbol,
+            },
+          ),
+          stepActionsTranslationId: ETranslations.swap_page_approve_and_sign,
+        }),
+      ];
+    }
+
+    steps = [
+      ...steps,
+      {
+        type: ESwapStepType.SIGN_MESSAGE,
+        status: ESwapStepStatus.READY,
+        stepTitle: formatMessage({
+          id: ETranslations.swap_review_sign_and_submit,
+        }),
+        stepActionsLabel: formatMessage({
+          id: ETranslations.global_sign,
+        }),
+      },
+    ];
+  } else if (isBatchApproveSwap && quoteResult.allowanceResult) {
+    steps = [
+      {
+        type: ESwapStepType.BATCH_APPROVE_SWAP,
+        status: ESwapStepStatus.READY,
+        stepTitle:
+          swapBatchTransferType ===
+          marketSwapBatchTransferTypes.continuousApproveAndSwap
+            ? `${formatMessage({
+                id: ETranslations.swap_page_approve_and_swap,
+              })} [ 0 / ${
+                quoteResult.allowanceResult.shouldResetApprove ? 3 : 2
+              } ]`
+            : formatMessage({
+                id: ETranslations.swap_page_approve_and_swap,
+              }),
+        stepActionsLabel: formatMessage({
+          id: ETranslations.swap_page_approve_and_swap,
+        }),
+      },
+    ];
+  } else {
+    if (quoteResult.allowanceResult?.shouldResetApprove) {
+      steps = [
+        createApproveStep({
+          formatMessage,
+          isResetApprove: true,
+          stepTitle: formatMessage(
+            {
+              id: ETranslations.global_revoke_approve,
+            },
+            {
+              symbol: fromToken.symbol,
+            },
+          ),
+          stepActionsTranslationId: ETranslations.swap_page_approve_and_swap,
+        }),
+      ];
+    }
+
+    if (quoteResult.allowanceResult) {
+      steps = [
+        ...steps,
+        createApproveStep({
+          formatMessage,
+          isResetApprove: false,
+          stepTitle: formatMessage(
+            {
+              id: ETranslations.swap_page_approve_button,
+            },
+            {
+              token: fromToken.symbol,
+              target: quoteResult.info.providerName,
+            },
+          ),
+          stepActionsTranslationId: ETranslations.swap_page_approve_and_swap,
+        }),
+      ];
+    }
+
+    steps = [
+      ...steps,
+      {
+        type: ESwapStepType.SEND_TX,
+        status: ESwapStepStatus.READY,
+        stepTitle: formatMessage({
+          id: ETranslations.swap_review_confirm_swap,
+        }),
+        stepActionsLabel: formatMessage({
+          id: ETranslations.global_swap,
+        }),
+      },
+    ];
+  }
+
+  return {
+    steps,
+    preSwapData: {
+      ...buildMarketSwapReviewData({
+        quoteResult,
+        fromToken,
+        fromTokenAmount,
+        isHWAndExBatchTransfer,
+        toToken,
+        slippage,
+      }),
+      shouldFallback,
+      supportPreBuild,
+      needFetchGas,
+      ...(!(
+        steps.length > 0 &&
+        steps[steps.length - 1].type === ESwapStepType.SIGN_MESSAGE
+      )
+        ? {
+            supportNetworkFeeLevel: true,
+          }
+        : {}),
+    },
+    quoteResult: { ...quoteResult },
   };
 }
 
@@ -141,28 +380,4 @@ export function createWrappedMarketSwapReviewQuote(params: {
     },
     unSupportSlippage: true,
   };
-}
-
-export function getMarketSwapReviewActionTranslationId({
-  isExternalWallet,
-  isHWAndExBatchTransfer,
-  isHwWallet,
-  shouldResetApprove,
-}: IGetMarketSwapReviewActionTranslationIdParams): ETranslations {
-  if (isHWAndExBatchTransfer) {
-    if (isHwWallet) {
-      return shouldResetApprove
-        ? ETranslations.swap_review_confirm_3_on_device
-        : ETranslations.swap_review_confirm_2_on_device;
-    }
-    if (isExternalWallet) {
-      return shouldResetApprove
-        ? ETranslations.swap_review_confirm_3_on_wallet
-        : ETranslations.swap_review_confirm_2_on_wallet;
-    }
-  }
-
-  return isHwWallet
-    ? ETranslations.global_confirm_on_device
-    : ETranslations.global_confirm;
 }
