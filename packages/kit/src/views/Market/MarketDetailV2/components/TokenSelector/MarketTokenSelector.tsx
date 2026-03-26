@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { MarketListColumnHeader } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListColumnHeader';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketPerpsToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { MarketPerpsCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsCategorySelector';
@@ -77,16 +78,15 @@ const TabItem = memo(
   }) => {
     const handlePress = useCallback(() => onPress(id), [id, onPress]);
     return (
-      <XStack
+      <YStack
         alignItems="center"
         justifyContent="center"
-        px="$2.5"
-        py="$1.5"
-        borderRadius="$full"
+        h={44}
+        ml="$5"
         userSelect="none"
         cursor="default"
-        backgroundColor={isFocused ? '$bgActive' : '$transparent'}
         onPress={handlePress}
+        position="relative"
       >
         <SizableText
           numberOfLines={1}
@@ -95,7 +95,18 @@ const TabItem = memo(
         >
           {name}
         </SizableText>
-      </XStack>
+        {isFocused ? (
+          <Stack
+            position="absolute"
+            bottom={0}
+            left={0}
+            right={0}
+            h="$0.5"
+            bg="$text"
+            borderRadius={1}
+          />
+        ) : null}
+      </YStack>
     );
   },
 );
@@ -159,6 +170,7 @@ function DesktopWatchlistList({
         onSelectFilter={setSelectedFilter}
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
+      <MarketListColumnHeader />
       <YStack height={LIST_HEIGHT}>
         <ListView
           data={filteredData}
@@ -239,6 +251,7 @@ function DesktopSpotList({
         placement="bottom-start"
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
+      <MarketListColumnHeader />
       <YStack height={LIST_HEIGHT}>
         <ListView
           data={filteredData}
@@ -466,8 +479,7 @@ function BaseMarketTokenSelectorContent() {
       <XStack
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
-        bg="$bg"
-        px="$0"
+        bg="$bgApp"
       >
         <TabItem
           id="watchlist"
