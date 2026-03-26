@@ -6,6 +6,7 @@ import { CommonScene } from './scenes/common';
 import { PerpDepositScene } from './scenes/deposit';
 import { HyperLiquidScene } from './scenes/hyperliquid';
 import { PerpTokenSelectorScene } from './scenes/tokenSelector';
+import { DialogLayoutScene } from './scenes/dialogLayout';
 
 export class PerpScope extends BaseScope {
   protected override scopeName = EScopeName.perp;
@@ -19,4 +20,6 @@ export class PerpScope extends BaseScope {
   deposit = this.createScene('deposit', PerpDepositScene);
 
   tokenSelector = this.createScene('tokenSelector', PerpTokenSelectorScene);
+
+  dialogLayout = this.createScene('dialogLayout', DialogLayoutScene);
 }

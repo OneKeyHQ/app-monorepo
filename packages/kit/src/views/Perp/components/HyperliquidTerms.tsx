@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Dimensions, PixelRatio, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
@@ -15,6 +17,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -90,6 +93,57 @@ export function HyperliquidTermsContent({
   const { hyperliquidLogo } = usePerpsLogo();
 
   const { gtMd } = useMedia();
+  const safeAreaInsets = useSafeAreaInsets();
+
+  const layoutData = useRef<{
+    outerContainer?: { height: number; width: number; y: number };
+    content?: { height: number; width: number; y: number };
+    footer?: { height: number; width: number; y: number };
+    disclaimer?: { height: number; width: number; y: number };
+  }>({});
+  const loggedRef = useRef(false);
+
+  const tryLogLayout = useCallback(() => {
+    const d = layoutData.current;
+    if (!d.outerContainer || !d.content || !d.footer || !d.disclaimer) return;
+    if (loggedRef.current) return;
+    loggedRef.current = true;
+
+    const screen = Dimensions.get('screen');
+    const window = Dimensions.get('window');
+
+    defaultLogger.perp.dialogLayout.termsDialogLayout({
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      windowWidth: window.width,
+      windowHeight: window.height,
+      safeAreaTop: safeAreaInsets.top,
+      safeAreaBottom: safeAreaInsets.bottom,
+      safeAreaLeft: safeAreaInsets.left,
+      safeAreaRight: safeAreaInsets.right,
+      outerContainerHeight: d.outerContainer.height,
+      outerContainerWidth: d.outerContainer.width,
+      outerContainerY: d.outerContainer.y,
+      contentHeight: d.content.height,
+      contentWidth: d.content.width,
+      contentY: d.content.y,
+      footerHeight: d.footer.height,
+      footerWidth: d.footer.width,
+      footerY: d.footer.y,
+      disclaimerHeight: d.disclaimer.height,
+      disclaimerWidth: d.disclaimer.width,
+      disclaimerY: d.disclaimer.y,
+      disclaimerBottomEdge: d.disclaimer.y + d.disclaimer.height,
+      visibleBottomEdge: screen.height - safeAreaInsets.bottom,
+      isDisclaimerFullyVisible:
+        d.disclaimer.y + d.disclaimer.height <=
+        screen.height - safeAreaInsets.bottom,
+      pixelRatio: PixelRatio.get(),
+      fontScale: PixelRatio.getFontScale(),
+      platform: Platform.OS,
+      osVersion: String(Platform.Version),
+    });
+  }, [safeAreaInsets]);
 
   const confirmationSlideStyle: IYStackProps | undefined = platformEnv.isNative
     ? undefined
@@ -98,12 +152,27 @@ export function HyperliquidTermsContent({
       };
 
   return (
-    <Stack>
+    <Stack
+      onLayout={(e) => {
+        const { height, width } = e.nativeEvent.layout;
+        e.target.measureInWindow((x, y) => {
+          layoutData.current.outerContainer = { height, width, y };
+          tryLogLayout();
+        });
+      }}
+    >
       <Stack
         minHeight={200}
         display="flex"
         alignItems="center"
         justifyContent="center"
+        onLayout={(e) => {
+          const { height, width } = e.nativeEvent.layout;
+          e.target.measureInWindow((x, y) => {
+            layoutData.current.content = { height, width, y };
+            tryLogLayout();
+          });
+        }}
       >
           <Stack px="$2" py="$4" position="relative">
             <YStack {...confirmationSlideStyle}>
@@ -169,6 +238,13 @@ export function HyperliquidTermsContent({
                 justifyContent="center"
                 pb={gtMd ? '$3' : '$1'}
                 gap="$1"
+                onLayout={(e) => {
+                  const { height, width } = e.nativeEvent.layout;
+                  e.target.measureInWindow((x, y) => {
+                    layoutData.current.footer = { height, width, y };
+                    tryLogLayout();
+                  });
+                }}
               >
                 <Button
                   variant="primary"
@@ -184,7 +260,17 @@ export function HyperliquidTermsContent({
                   })}
                 </Button>
 
-                <XStack justifyContent="center" pt="$2">
+                <XStack
+                  justifyContent="center"
+                  pt="$2"
+                  onLayout={(e) => {
+                    const { height, width } = e.nativeEvent.layout;
+                    e.target.measureInWindow((x, y) => {
+                      layoutData.current.disclaimer = { height, width, y };
+                      tryLogLayout();
+                    });
+                  }}
+                >
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
