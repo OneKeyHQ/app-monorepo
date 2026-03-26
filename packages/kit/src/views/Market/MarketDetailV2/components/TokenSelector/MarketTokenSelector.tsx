@@ -35,7 +35,11 @@ import {
   useTokenDetailActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import type { IMarketPerpsToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { MarketPerpsCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsCategorySelector';
+import { MarketPerpsTokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsTokenListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
@@ -265,16 +269,18 @@ function DesktopSpotList({
 }
 
 // ---------------------------------------------------------------------------
-// Futures list (desktop)
+// Futures/Perps list (desktop) — navigates to Perps tab
 // ---------------------------------------------------------------------------
 function DesktopFuturesList({
   searchQuery,
-  onSelectToken,
+  onClosePopover,
 }: {
   searchQuery: string;
-  onSelectToken: (item: IMarketToken) => void;
+  onClosePopover: () => void;
 }) {
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
+  const { navigateToPerps } = usePerpsNavigation();
+
   const perpsCategories = useMemo(
     () =>
       rawPerpsCategories.map((c) => ({
@@ -294,37 +300,44 @@ function DesktopFuturesList({
     }
   }, [selectedCategoryId, perpsCategories]);
 
-  const { data, isLoading } = useMarketTokenList({
-    networkId: '',
-    initialSortBy: 'v24hUSD',
-    initialSortType: 'desc',
-    pageSize: 50,
+  const { tokens, isLoading } = useMarketPerpsTokenList({
+    selectedCategoryId,
   });
 
-  const filteredData = useMemo(() => {
-    if (!searchQuery) return data;
+  const filteredTokens = useMemo(() => {
+    if (!searchQuery) return tokens;
     const query = searchQuery.toLowerCase();
-    return data.filter(
+    return tokens.filter(
       (item) =>
-        item.symbol.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query),
+        item.name.toLowerCase().includes(query) ||
+        item.displayName.toLowerCase().includes(query),
     );
-  }, [data, searchQuery]);
+  }, [tokens, searchQuery]);
+
+  const handleSelectPerpsToken = useCallback(
+    (coin: string) => {
+      onClosePopover();
+      navigateToPerps(coin);
+    },
+    [onClosePopover, navigateToPerps],
+  );
 
   const renderItem = useCallback(
-    ({ item }: { item: IMarketToken }) => (
-      <TokenListItem item={item} onPress={() => onSelectToken(item)} />
+    ({ item }: { item: IMarketPerpsToken }) => (
+      <MarketPerpsTokenListItem
+        item={item}
+        onPress={() => handleSelectPerpsToken(item.name)}
+      />
     ),
-    [onSelectToken],
+    [handleSelectPerpsToken],
   );
 
   const keyExtractor = useCallback(
-    (item: IMarketToken) =>
-      `futures-${item.address}-${item.symbol}-${item.networkId}`,
+    (item: IMarketPerpsToken) => `futures-${item.name}`,
     [],
   );
 
-  if (isLoading && data.length === 0) {
+  if (isLoading && tokens.length === 0) {
     return (
       <Stack height={LIST_HEIGHT} alignItems="center" justifyContent="center">
         <Spinner size="small" />
@@ -342,7 +355,7 @@ function DesktopFuturesList({
       />
       <YStack height={LIST_HEIGHT}>
         <ListView
-          data={filteredData}
+          data={filteredTokens}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           estimatedItemSize={60}
@@ -482,7 +495,7 @@ function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
       {activeTab === 'futures' ? (
         <DesktopFuturesList
           searchQuery={debouncedQuery}
-          onSelectToken={handleSelectToken}
+          onClosePopover={() => closePopover?.()}
         />
       ) : null}
     </YStack>
