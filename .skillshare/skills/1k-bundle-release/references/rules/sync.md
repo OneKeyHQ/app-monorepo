@@ -4,12 +4,13 @@ Syncs release branch changes to `x` via rebase after a bundle release. Creates a
 
 ## Pre-flight Checks
 
-### 1. Read release branch name
+### 1. Detect release branch
 
-```bash
-VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
-RELEASE_BRANCH="release/v${VERSION}"
-```
+Use the **Release Branch Detection** logic from SKILL.md:
+
+1. If already on a `release/v*` branch → use it directly
+2. Otherwise → find the latest `release/v*` from remote (excluding `mock` branches)
+3. Confirm with the user before proceeding
 
 ### 2. Confirm latest release is published
 
@@ -36,6 +37,8 @@ git fetch origin "$RELEASE_BRANCH" x
 Create a sync branch based on `x`, not on the release branch:
 
 ```bash
+# Extract version from RELEASE_BRANCH (e.g., "release/v6.1.0" → "6.1.0")
+VERSION="${RELEASE_BRANCH#release/v}"
 SYNC_BRANCH="sync/${VERSION}-$(date +%Y%m%d)"
 git checkout -b "$SYNC_BRANCH" origin/x
 ```
