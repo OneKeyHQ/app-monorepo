@@ -60,6 +60,7 @@ function AggregateTokenListItem({
   allNetworksState,
   refreshAllNetworkState,
   processingTokenKey,
+  hideBalanceAndValue,
 }: {
   token: IAccountToken;
   onPress: ({
@@ -79,6 +80,7 @@ function AggregateTokenListItem({
     alwaysSetState?: boolean;
   }) => void;
   processingTokenKey: string | null;
+  hideBalanceAndValue?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -222,29 +224,31 @@ function AggregateTokenListItem({
           : intl.formatMessage({ id: ETranslations.global_create_address }),
       })}
     >
-      <ListItem.Text
-        align="right"
-        primary={
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="balance"
-            textAlign="right"
-          >
-            {tokenInfo?.balanceParsed}
-          </NumberSizeableText>
-        }
-        secondary={
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            textAlign="right"
-          >
-            {tokenInfo?.fiatValue}
-          </NumberSizeableText>
-        }
-      />
+      {hideBalanceAndValue ? null : (
+        <ListItem.Text
+          align="right"
+          primary={
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="balance"
+              textAlign="right"
+            >
+              {tokenInfo?.balanceParsed}
+            </NumberSizeableText>
+          }
+          secondary={
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              textAlign="right"
+            >
+              {tokenInfo?.fiatValue}
+            </NumberSizeableText>
+          }
+        />
+      )}
       {showSpinner ? (
         <Stack p="$0.5">
           <Spinner />
@@ -276,6 +280,7 @@ function AggregateTokenSelector() {
     enableNetworkAfterSelect,
     hideZeroBalanceTokens,
     exchangeFilter,
+    hideBalanceAndValue,
   } = route.params;
 
   const intl = useIntl();
@@ -456,6 +461,7 @@ function AggregateTokenSelector() {
         allNetworksState={allNetworksState}
         refreshAllNetworkState={refreshAllNetworkState}
         processingTokenKey={processingTokenKey}
+        hideBalanceAndValue={hideBalanceAndValue}
       />
     ));
   }, [
@@ -465,6 +471,7 @@ function AggregateTokenSelector() {
     allNetworksState,
     refreshAllNetworkState,
     processingTokenKey,
+    hideBalanceAndValue,
   ]);
 
   return (
