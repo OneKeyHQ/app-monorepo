@@ -15,7 +15,15 @@ import {
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EBulkSendMode,
+  EIntervalMode,
+  type IIntervalSettings,
+} from '@onekeyhq/shared/types/bulkSend';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+
+import { INTERVAL_SETTINGS_TITLE } from '../../../components/IntervalSettingsContent';
+import { formatIntervalSecondsRange } from '../../../utils';
 
 import { useBulkSendReviewContext } from './Context';
 
@@ -27,6 +35,7 @@ type Props = {
   editFeeEnabled?: boolean;
   transferTxCount?: number;
   isTransferSplit?: boolean;
+  intervalSettings?: IIntervalSettings;
 };
 
 function BulkSendReviewCostCard({
@@ -36,10 +45,11 @@ function BulkSendReviewCostCard({
   editFeeEnabled,
   transferTxCount,
   isTransferSplit,
+  intervalSettings,
 }: Props) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const { feeState, ataCount } = useBulkSendReviewContext();
+  const { feeState, ataCount, bulkSendMode } = useBulkSendReviewContext();
   const {
     feeStatus,
     totalFeeNative: networkFee,
@@ -51,6 +61,8 @@ function BulkSendReviewCostCard({
     ataRentFeeNative,
     insufficientSol,
     solBalanceNeeded,
+    singleTxFeeNative,
+    txCountForFeeDisplay,
   } = feeState;
 
   const showAtaRent = ataRentFeeNative && new BigNumber(ataRentFeeNative).gt(0);
@@ -61,7 +73,7 @@ function BulkSendReviewCostCard({
   const isError = feeStatus === ESendFeeStatus.Error;
 
   const displayTxCount = transferTxCount ?? 0;
-  const showSplit = isTransferSplit;
+  const showSplit = bulkSendMode === EBulkSendMode.OneToMany && isTransferSplit;
 
   return (
     <YStack px="$5" gap="$3">
@@ -118,13 +130,34 @@ function BulkSendReviewCostCard({
                     <SizableText size="$bodyMdMedium">-</SizableText>
                   ) : (
                     <>
-                      <NumberSizeableText
-                        size="$bodyMdMedium"
-                        formatter="balance"
-                        formatterOptions={{ tokenSymbol: nativeSymbol }}
-                      >
-                        {networkFee}
-                      </NumberSizeableText>
+                      {txCountForFeeDisplay && txCountForFeeDisplay > 1 ? (
+                        <>
+                          <SizableText size="$bodyMdMedium">~</SizableText>
+                          <NumberSizeableText
+                            size="$bodyMdMedium"
+                            formatter="balance"
+                            formatterOptions={{
+                              tokenSymbol: nativeSymbol,
+                            }}
+                          >
+                            {singleTxFeeNative ?? '0'}
+                          </NumberSizeableText>
+                          <SizableText
+                            size="$bodyMdMedium"
+                            color="$textSubdued"
+                          >
+                            {` × ${txCountForFeeDisplay}`}
+                          </SizableText>
+                        </>
+                      ) : (
+                        <NumberSizeableText
+                          size="$bodyMdMedium"
+                          formatter="balance"
+                          formatterOptions={{ tokenSymbol: nativeSymbol }}
+                        >
+                          {networkFee}
+                        </NumberSizeableText>
+                      )}
                       <SizableText size="$bodyMdMedium">
                         (
                         <NumberSizeableText
@@ -196,6 +229,21 @@ function BulkSendReviewCostCard({
             )}
           </YStack>
         </XStack>
+
+        {/* Interval Row */}
+        {intervalSettings?.mode === EIntervalMode.Specified ? (
+          <XStack gap="$2" px="$4" py="$2" alignItems="center">
+            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
+              {INTERVAL_SETTINGS_TITLE}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {formatIntervalSecondsRange({
+                minSeconds: intervalSettings.minSeconds,
+                maxSeconds: intervalSettings.maxSeconds,
+              })}
+            </SizableText>
+          </XStack>
+        ) : null}
 
         {/* ATA Rent Row (Solana SPL token transfers) */}
         {showAtaRent ? (
