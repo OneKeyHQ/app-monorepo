@@ -23,6 +23,7 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
 import { useNavigateToApprovalList } from '../../../Home/hooks/useNavigateToApprovalList';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -91,6 +92,7 @@ export function PrimeBenefitsList({
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const navigateToBulkSend = useNavigateToBulkSend();
+  const showBulkSendModeDialog = useBulkSendModeDialog();
   const navigateToApprovalList = useNavigateToApprovalList();
 
   return (
@@ -206,10 +208,15 @@ export function PrimeBenefitsList({
         })}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
-            void navigateToBulkSend({
-              networkId: network?.id,
-              accountId: account?.id,
-              indexedAccountId: indexedAccount?.id,
+            showBulkSendModeDialog({
+              onSelect: (mode) => {
+                void navigateToBulkSend({
+                  networkId: network?.id,
+                  accountId: account?.id,
+                  indexedAccountId: indexedAccount?.id,
+                  bulkSendMode: mode,
+                });
+              },
             });
           } else {
             defaultLogger.prime.subscription.primeEntryClick({
