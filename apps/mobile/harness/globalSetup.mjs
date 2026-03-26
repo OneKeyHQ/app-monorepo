@@ -9,17 +9,21 @@ import { execFileSync } from 'node:child_process';
 function setAndroidHarnessFlag() {
   // Create a marker file in the app's data directory.
   // MainApplication.java checks for this file and skips recovery.
+  //
+  // Split into two adb calls because `adb shell` concatenates all
+  // arguments into a single string for the remote shell, which causes
+  // `&&` to be interpreted as a command separator — breaking the
+  // `run-as` scope.
+  const adbOpts = { stdio: 'pipe', timeout: 5000 };
   execFileSync(
     'adb',
-    [
-      'shell',
-      'run-as',
-      'so.onekey.app.wallet',
-      'sh',
-      '-c',
-      'mkdir -p files && touch files/harness_mode',
-    ],
-    { stdio: 'pipe', timeout: 5000 },
+    ['shell', 'run-as', 'so.onekey.app.wallet', 'mkdir', '-p', 'files'],
+    adbOpts,
+  );
+  execFileSync(
+    'adb',
+    ['shell', 'run-as', 'so.onekey.app.wallet', 'touch', 'files/harness_mode'],
+    adbOpts,
   );
   console.log('[harness-globalSetup] Android harness_mode flag set');
 }
