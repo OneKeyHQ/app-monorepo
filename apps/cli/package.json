@@ -1,7 +1,6 @@
 {
   "name": "@onekeyhq/cli",
   "version": "0.1.0",
-  "private": false,
   "description": "OneKey wallet CLI for developers and AI agents",
   "bin": {
     "onekey": "./bin/onekey"
