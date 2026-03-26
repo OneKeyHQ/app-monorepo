@@ -322,13 +322,21 @@ function AppDataSection() {
         onConfirmText: intl.formatMessage({
           id: ETranslations.create_and_switch__action,
         }),
-        onConfirm: () => handleCreateKeylessWallet(),
+        onConfirm: async () => {
+          await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
+            true,
+          );
+          handleCreateKeylessWallet();
+        },
       });
       return;
     }
     // Has KW → proceed directly (no extra confirm — "Switch Now" is already explicit intent)
     isSubmittingRef.current = true;
     try {
+      await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
+        false,
+      );
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
@@ -739,14 +747,16 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <AppDataSection />
-        <MultipleClickStack
-          flex={1}
-          h="$10"
-          showDevBgColor
-          onPress={() => {
-            navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-          }}
-        />
+        <Stack>
+          <MultipleClickStack
+            flex={1}
+            h="$10"
+            showDevBgColor
+            onPress={() => {
+              navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+            }}
+          />
+        </Stack>
       </Page.Body>
     </Page>
   );
