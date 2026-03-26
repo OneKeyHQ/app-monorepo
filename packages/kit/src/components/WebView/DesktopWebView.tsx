@@ -55,9 +55,11 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 let preloadJsUrl = '';
 
-void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url: string) => {
-  preloadJsUrl = url;
-});
+void globalThis.desktopApiProxy.webview
+  .getPreloadJsContent()
+  .then((url: string) => {
+    preloadJsUrl = url;
+  });
 
 // Used for webview type referencing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -477,7 +479,12 @@ const DesktopWebView = forwardRef(
             'height': '100%',
             ...style,
           }}
-          blinkfeatures="false"
+          // blinkfeatures="false" — Electron interprets the value as a feature
+          // name to enable, so "false" triggers a security warning
+          // (enableBlinkFeatures) without actually disabling anything.
+          // Added in #4874 intending to disable blink features, but the correct
+          // way is to simply omit this attribute.
+          // blinkfeatures="false"
           // @ts-expect-error
           nodeintegration="false"
           allowpopups={allowpopups}
