@@ -25,7 +25,7 @@ try {
     `Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`,
   );
   const oxlintResult = execSync(
-    `npx oxlint --tsconfig ./tsconfig.json --type-aware --threads=${cpus} .${fixFlag}`,
+    `npx oxlint --tsconfig ./tsconfig.json --type-aware --deny-warnings --threads=${cpus} .${fixFlag}`,
     { encoding: 'utf-8', stdio: 'pipe' },
   );
 

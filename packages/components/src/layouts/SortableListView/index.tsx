@@ -136,7 +136,7 @@ function CellContainer<T>({
 }: Omit<CellRendererProps<T>, 'ref'> & {
   ref: RefObject<HTMLDivElement>;
 }) {
-  const { ref, index } = props;
+  const { ref, index, style } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | undefined>(undefined);
   useLayoutEffect(() => {
@@ -164,14 +164,11 @@ function CellContainer<T>({
     () =>
       height
         ? {
-            ...((props as Record<string, unknown>).style as Record<
-              string,
-              unknown
-            >),
+            ...(style as Record<string, unknown>),
             height,
           }
-        : props.style,
-    [height, props.style],
+        : style,
+    [height, style],
   );
 
   return (
