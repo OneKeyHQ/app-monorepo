@@ -23,7 +23,6 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useMarketWatchListV2Atom,
-  useSelectedNetworkIdAtom,
   useTokenDetailActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -56,7 +55,6 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-
 
 // ---------------------------------------------------------------------------
 // Tab item component (reusable pill-shaped tab)
@@ -174,24 +172,17 @@ function WatchlistList({
 function SpotList({
   searchQuery,
   onSelectToken,
+  selectedNetworkId,
+  onNetworkIdChange,
 }: {
   searchQuery: string;
   onSelectToken: (item: IMarketToken) => void;
+  selectedNetworkId: string;
+  onNetworkIdChange: (id: string) => void;
 }) {
-  const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
-
-  useEffect(() => {
-    if (!selectedNetworkId) {
-      const allNetworkId = getNetworkIdsMap().onekeyall;
-      setSelectedNetworkId(allNetworkId);
-    }
-  }, [selectedNetworkId, setSelectedNetworkId]);
-
-  const effectiveNetworkId = selectedNetworkId || getNetworkIdsMap().onekeyall;
-
   const { data, isLoading, isLoadingMore, canLoadMore, loadMore } =
     useMarketTokenList({
-      networkId: effectiveNetworkId,
+      networkId: selectedNetworkId,
       initialSortBy: 'v24hUSD',
       initialSortType: 'desc',
       pageSize: 20,
@@ -237,8 +228,8 @@ function SpotList({
   return (
     <YStack flex={1}>
       <MarketTokenListNetworkSelector
-        selectedNetworkId={effectiveNetworkId}
-        onSelectNetworkId={setSelectedNetworkId}
+        selectedNetworkId={selectedNetworkId}
+        onSelectNetworkId={onNetworkIdChange}
         placement="bottom-start"
         containerStyle={{ px: '$5', pt: '$3', pb: '$2' }}
       />
@@ -261,31 +252,17 @@ function SpotList({
 function FuturesList({
   searchQuery,
   onCloseModal,
+  perpsCategories,
+  selectedCategoryId,
+  onSelectCategory,
 }: {
   searchQuery: string;
   onCloseModal: () => void;
+  perpsCategories: { tabId: string; name: string }[];
+  selectedCategoryId: string;
+  onSelectCategory: (id: string) => void;
 }) {
-  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
   const { navigateToPerps } = usePerpsNavigation();
-
-  const perpsCategories = useMemo(
-    () =>
-      rawPerpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [rawPerpsCategories],
-  );
-
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    perpsCategories[0]?.tabId ?? '',
-  );
-
-  useEffect(() => {
-    if (!selectedCategoryId && perpsCategories[0]?.tabId) {
-      setSelectedCategoryId(perpsCategories[0].tabId);
-    }
-  }, [selectedCategoryId, perpsCategories]);
 
   const { tokens, isLoading } = useMarketPerpsTokenList({
     selectedCategoryId,
@@ -337,7 +314,7 @@ function FuturesList({
       <MarketPerpsCategorySelector
         categories={perpsCategories}
         selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
+        onSelectCategory={onSelectCategory}
         containerStyle={{ px: '$5', pt: '$3', pb: '$2' }}
       />
       <ListView
@@ -360,13 +337,40 @@ function MobileTokenSelectorContent() {
   const tokenDetailActions = useTokenDetailActions();
   const { navigateToPerps } = usePerpsNavigation();
 
+  // --- Tab state (persisted atom) ---
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
   const activeTab = selectorConfig.activeTab;
 
+  // --- Search state ---
   const [searchQuery, setSearchQueryRaw] = useState('');
   const setSearchQuery = useCallback((query: string) => {
     setSearchQueryRaw(query.trim().slice(0, 64));
+  }, []);
+
+  // --- Spot: network selection (lifted) ---
+  const [spotNetworkId, setSpotNetworkId] = useState(
+    () => getNetworkIdsMap().onekeyall,
+  );
+
+  // --- Futures: category selection (lifted) ---
+  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
+  const perpsCategories = useMemo(
+    () =>
+      rawPerpsCategories.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+      })),
+    [rawPerpsCategories],
+  );
+  const [perpsCategoryId, setPerpsCategoryId] = useState(
+    () => perpsCategories[0]?.tabId ?? '',
+  );
+  useEffect(() => {
+    if (!perpsCategoryId && perpsCategories[0]?.tabId) {
+      setPerpsCategoryId(perpsCategories[0].tabId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setActiveTab = useCallback(
@@ -491,12 +495,17 @@ function MobileTokenSelectorContent() {
               <SpotList
                 searchQuery={searchQuery}
                 onSelectToken={handleSelectToken}
+                selectedNetworkId={spotNetworkId}
+                onNetworkIdChange={setSpotNetworkId}
               />
             ) : null}
             {activeTab === 'futures' ? (
               <FuturesList
                 searchQuery={searchQuery}
                 onCloseModal={() => navigation.popStack()}
+                perpsCategories={perpsCategories}
+                selectedCategoryId={perpsCategoryId}
+                onSelectCategory={setPerpsCategoryId}
               />
             ) : null}
           </YStack>

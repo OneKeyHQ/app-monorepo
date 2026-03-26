@@ -26,7 +26,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import {
   useMarketWatchListV2Atom,
-  useSelectedNetworkIdAtom,
   useTokenDetailActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
@@ -58,7 +57,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
-
 
 const LIST_HEIGHT = 400;
 
@@ -180,24 +178,17 @@ function DesktopWatchlistList({
 function DesktopSpotList({
   searchQuery,
   onSelectToken,
+  selectedNetworkId,
+  onNetworkIdChange,
 }: {
   searchQuery: string;
   onSelectToken: (item: IMarketToken) => void;
+  selectedNetworkId: string;
+  onNetworkIdChange: (id: string) => void;
 }) {
-  const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
-
-  useEffect(() => {
-    if (!selectedNetworkId) {
-      const allNetworkId = getNetworkIdsMap().onekeyall;
-      setSelectedNetworkId(allNetworkId);
-    }
-  }, [selectedNetworkId, setSelectedNetworkId]);
-
-  const effectiveNetworkId = selectedNetworkId || getNetworkIdsMap().onekeyall;
-
   const { data, isLoading, isLoadingMore, canLoadMore, loadMore } =
     useMarketTokenList({
-      networkId: effectiveNetworkId,
+      networkId: selectedNetworkId,
       initialSortBy: 'v24hUSD',
       initialSortType: 'desc',
       pageSize: 20,
@@ -243,8 +234,8 @@ function DesktopSpotList({
   return (
     <YStack>
       <MarketTokenListNetworkSelector
-        selectedNetworkId={effectiveNetworkId}
-        onSelectNetworkId={setSelectedNetworkId}
+        selectedNetworkId={selectedNetworkId}
+        onSelectNetworkId={onNetworkIdChange}
         placement="bottom-start"
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
@@ -269,31 +260,17 @@ function DesktopSpotList({
 function DesktopFuturesList({
   searchQuery,
   onClosePopover,
+  perpsCategories,
+  selectedCategoryId,
+  onSelectCategory,
 }: {
   searchQuery: string;
   onClosePopover: () => void;
+  perpsCategories: { tabId: string; name: string }[];
+  selectedCategoryId: string;
+  onSelectCategory: (id: string) => void;
 }) {
-  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
   const { navigateToPerps } = usePerpsNavigation();
-
-  const perpsCategories = useMemo(
-    () =>
-      rawPerpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [rawPerpsCategories],
-  );
-
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    perpsCategories[0]?.tabId ?? '',
-  );
-
-  useEffect(() => {
-    if (!selectedCategoryId && perpsCategories[0]?.tabId) {
-      setSelectedCategoryId(perpsCategories[0].tabId);
-    }
-  }, [selectedCategoryId, perpsCategories]);
 
   const { tokens, isLoading } = useMarketPerpsTokenList({
     selectedCategoryId,
@@ -345,7 +322,7 @@ function DesktopFuturesList({
       <MarketPerpsCategorySelector
         categories={perpsCategories}
         selectedCategoryId={selectedCategoryId}
-        onSelectCategory={setSelectedCategoryId}
+        onSelectCategory={onSelectCategory}
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
       <YStack height={LIST_HEIGHT}>
@@ -370,13 +347,41 @@ function BaseMarketTokenSelectorContent() {
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
 
+  // --- Tab state (persisted atom) ---
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
   const activeTab = selectorConfig.activeTab;
 
+  // --- Search state ---
   const [searchQuery, setSearchQueryRaw] = useState('');
   const setSearchQuery = useCallback((query: string) => {
     setSearchQueryRaw(query.trim().slice(0, 64));
+  }, []);
+
+  // --- Spot: network selection (lifted from child to survive tab switches) ---
+  const [spotNetworkId, setSpotNetworkId] = useState(
+    () => getNetworkIdsMap().onekeyall,
+  );
+
+  // --- Futures: category selection (lifted from child) ---
+  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
+  const perpsCategories = useMemo(
+    () =>
+      rawPerpsCategories.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+      })),
+    [rawPerpsCategories],
+  );
+  const [perpsCategoryId, setPerpsCategoryId] = useState(
+    () => perpsCategories[0]?.tabId ?? '',
+  );
+  // Only set initial category if never set (lazy init handles first render)
+  useEffect(() => {
+    if (!perpsCategoryId && perpsCategories[0]?.tabId) {
+      setPerpsCategoryId(perpsCategories[0].tabId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setActiveTab = useCallback(
@@ -496,12 +501,17 @@ function BaseMarketTokenSelectorContent() {
           <DesktopSpotList
             searchQuery={searchQuery}
             onSelectToken={handleSelectToken}
+            selectedNetworkId={spotNetworkId}
+            onNetworkIdChange={setSpotNetworkId}
           />
         ) : null}
         {activeTab === 'futures' ? (
           <DesktopFuturesList
             searchQuery={searchQuery}
             onClosePopover={() => closePopover?.()}
+            perpsCategories={perpsCategories}
+            selectedCategoryId={perpsCategoryId}
+            onSelectCategory={setPerpsCategoryId}
           />
         ) : null}
       </YStack>
