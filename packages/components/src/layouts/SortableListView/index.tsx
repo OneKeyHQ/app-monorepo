@@ -164,7 +164,7 @@ function CellContainer<T>({
     () =>
       height
         ? {
-            ...((style as Record<string, unknown>) ?? {}),
+            ...(style as Record<string, unknown>),
             height,
           }
         : style,
