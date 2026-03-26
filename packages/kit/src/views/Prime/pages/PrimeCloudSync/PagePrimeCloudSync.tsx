@@ -14,6 +14,7 @@ import {
   SizableText,
   Stack,
   Switch,
+  popModalPages,
   startViewTransition,
   useMedia,
 } from '@onekeyhq/components';
@@ -26,6 +27,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -54,6 +56,8 @@ function formatSyncLastUpdateTime(syncTime?: number): string {
   }
   return ' - ';
 }
+
+const listItemNativePressableStyle = { flexShrink: 0 } as const;
 
 function AutoLockUpdateDialogContent({
   onContinue,
@@ -293,8 +297,8 @@ function AppDataSection() {
   // --- Handlers ---
 
   // Navigate to KW creation flow (Scenario 1)
-  const handleCreateKeylessWallet = useCallback(() => {
-    navigation.navigate(ERootRoutes.Onboarding, {
+  const handleCreateKeylessWallet = useCallback(async () => {
+    const onboardingParams = {
       screen: EOnboardingV2Routes.OnboardingV2,
       params: {
         screen: EOnboardingPagesV2.OneKeyIDLogin,
@@ -302,7 +306,18 @@ function AppDataSection() {
           mode: EOnboardingV2OneKeyIDLoginMode.KeylessCreateOrRestore,
         },
       },
-    });
+    } as const;
+
+    if (platformEnv.isNative) {
+      await popModalPages();
+      appGlobals.$rootAppNavigation?.push(
+        ERootRoutes.Onboarding,
+        onboardingParams,
+      );
+      return;
+    }
+
+    navigation.navigate(ERootRoutes.Onboarding, onboardingParams);
   }, [navigation]);
 
   // Migrate ID → Keyless (Scenario 4 "Switch Now")
@@ -326,7 +341,7 @@ function AppDataSection() {
           await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
             true,
           );
-          handleCreateKeylessWallet();
+          await handleCreateKeylessWallet();
         },
       });
       return;
@@ -600,6 +615,7 @@ function AppDataSection() {
             title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
             icon="RefreshCwOutline"
             drillIn
+            nativePressableStyle={listItemNativePressableStyle}
             onPress={handleManualSyncKeyless}
           />
         </>
@@ -647,6 +663,7 @@ function AppDataSection() {
             title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
             icon="RefreshCwOutline"
             drillIn
+            nativePressableStyle={listItemNativePressableStyle}
             onPress={handleSyncNowKwRemoved}
           />
         </>
@@ -694,6 +711,7 @@ function AppDataSection() {
             title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
             icon="RefreshCwOutline"
             drillIn
+            nativePressableStyle={listItemNativePressableStyle}
             onPress={handleManualSyncOneKeyId}
           />
           <ListItem
@@ -702,6 +720,7 @@ function AppDataSection() {
             })}
             icon="Key2Outline"
             drillIn
+            nativePressableStyle={listItemNativePressableStyle}
             onPress={async () => {
               try {
                 await backgroundApiProxy.serviceMasterPassword.startChangePassword();
@@ -747,16 +766,13 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <AppDataSection />
-        <Stack>
-          <MultipleClickStack
-            flex={1}
-            h="$10"
-            showDevBgColor
-            onPress={() => {
-              navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-            }}
-          />
-        </Stack>
+        <MultipleClickStack
+          h="$10"
+          showDevBgColor
+          onPress={() => {
+            navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
+          }}
+        />
       </Page.Body>
     </Page>
   );
