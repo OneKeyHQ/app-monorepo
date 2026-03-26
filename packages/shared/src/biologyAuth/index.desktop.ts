@@ -7,7 +7,6 @@ import {
   getDefaultLocale,
   getLocaleMessages,
 } from '../locale/getDefaultLocale';
-import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
 import type {
@@ -15,21 +14,13 @@ import type {
   LocalAuthenticationResult,
 } from 'expo-local-authentication';
 
-const isSupportBiologyAuthFn = () =>
+export const isSupportBiologyAuth = () =>
   platformEnv.isE2E
     ? Promise.resolve(false)
     : globalThis?.desktopApiProxy?.security?.canPromptTouchID();
 
-export const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn, {
-  promise: true,
-});
-
-const getBiologyAuthTypeFn: () => Promise<AuthenticationType[]> = () =>
+export const getBiologyAuthType: () => Promise<AuthenticationType[]> = () =>
   Promise.resolve([AuthenticationType.FINGERPRINT]);
-
-export const getBiologyAuthType = memoizee(getBiologyAuthTypeFn, {
-  promise: true,
-});
 
 export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
   async () => {

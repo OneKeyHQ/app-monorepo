@@ -7,7 +7,7 @@ import {
 
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
-import { memoizee } from '../utils/cacheUtils';
+import { defaultLogger } from '../logger/logger';
 
 import type { IBiologyAuth } from './types';
 import type {
@@ -16,20 +16,18 @@ import type {
   LocalAuthenticationResult,
 } from 'expo-local-authentication';
 
-const isSupportBiologyAuthFn = async () => {
+const isSupportBiologyAuth = async () => {
   const supported = await hasHardwareAsync();
   const isEnrolled = await isEnrolledAsync();
+  defaultLogger.setting.biologyAuth.isSupportBiologyAuth({
+    hasHardware: supported,
+    isEnrolled,
+  });
   return supported && isEnrolled;
 };
 
-const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn, {
-  promise: true,
-});
-
-const getBiologyAuthTypeFn: () => Promise<AuthenticationType[]> = async () =>
+const getBiologyAuthType: () => Promise<AuthenticationType[]> = async () =>
   supportedAuthenticationTypesAsync();
-
-const getBiologyAuthType = memoizee(getBiologyAuthTypeFn, { promise: true });
 
 export const biologyAuthenticate = async () => {
   if (!(await isSupportBiologyAuth())) {

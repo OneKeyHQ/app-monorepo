@@ -211,7 +211,15 @@ function SuspenseBiologyAuthListItem(props: ICustomElementProps) {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
+  const shouldShow =
+    isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport);
+  defaultLogger.setting.biologyAuth.listItemVisibility({
+    isPasswordSet,
+    biologyAuthIsSupport,
+    webAuthIsSupport,
+    shouldShow,
+  });
+  return shouldShow ? (
     <TabSettingsListItem {...props}>
       <UniversalContainerWithSuspense />
     </TabSettingsListItem>

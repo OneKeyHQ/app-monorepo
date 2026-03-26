@@ -1,5 +1,6 @@
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
@@ -156,8 +157,14 @@ export const {
 >(async (get) => {
   const authType = await biologyAuthUtils.getBiologyAuthType();
   const isSupport = await biologyAuthUtils.isSupportBiologyAuth();
-  const isEnable =
-    isSupport && get(settingsPersistAtom.atom()).isBiologyAuthSwitchOn;
+  const { isBiologyAuthSwitchOn } = get(settingsPersistAtom.atom());
+  const isEnable = isSupport && isBiologyAuthSwitchOn;
+  defaultLogger.setting.biologyAuth.authInfoAtomComputed({
+    isSupport,
+    isBiologyAuthSwitchOn,
+    isEnable,
+    authType: JSON.stringify(authType),
+  });
   return { authType, isSupport, isEnable };
 });
 
