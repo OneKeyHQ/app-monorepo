@@ -295,6 +295,8 @@ function BulkSendProcessContent({
       };
 
       feeCacheRef.current = nextFeeContext;
+      // Reset fee overflow check when fee is re-fetched
+      feeOverflowCheckedRef.current = false;
       return nextFeeContext;
     },
     [feePresetIndex, networkId],
