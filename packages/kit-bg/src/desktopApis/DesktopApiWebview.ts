@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 
 import { session } from 'electron';
@@ -13,6 +12,9 @@ import {
 } from '@onekeyhq/desktop/app/bundle';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
+
+// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
+import injectedDesktopCode from './injectedDesktopCode.text-js';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -114,7 +116,7 @@ class DesktopApiNetwork {
 
   async getPreloadJsContent(): Promise<string> {
     const staticPath = getStaticPath();
-    const preloadJsPath = path.join(staticPath, 'preload-webview.js');
+    const preloadJsPath = path.join(staticPath, 'preload.js');
     logger.info('getPreloadJsContent', preloadJsPath);
     if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
       const bundleDirPath = getBundleDirPath();
@@ -142,51 +144,8 @@ class DesktopApiNetwork {
       : `file://${preloadJsPath}`;
   }
 
-  private injectedJsContentCache: string | null = null;
-
   async getInjectedJsContent(): Promise<string> {
-    if (this.injectedJsContentCache) {
-      return this.injectedJsContentCache;
-    }
-    const staticPath = getStaticPath();
-    const injectedJsPath = path.join(staticPath, 'injected-provider.js');
-    logger.info('getInjectedJsContent', injectedJsPath);
-
-    if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
-      const bundleDirPath = getBundleDirPath();
-      const bundleData = store.getUpdateBundleData();
-      const metadata = bundleDirPath
-        ? await getMetadata({
-            bundleDir: bundleDirPath,
-            appVersion: bundleData.appVersion,
-            bundleVersion: bundleData.bundleVersion,
-            signature: bundleData.signature,
-          })
-        : {};
-      const driveLetter = getDriveLetter();
-      checkFileHash({
-        bundleDirPath,
-        metadata,
-        driveLetter,
-        url: injectedJsPath.replace(`${bundleDirPath}/`, ''),
-      });
-    }
-
-    const content = fs.readFileSync(injectedJsPath, 'utf-8');
-    // Wrap with a require shim so the bundled script can resolve require("electron")
-    // using the __onekeyDesktopBridge exposed by preload-webview.js via contextBridge.
-    const shimmedContent = `(function(){
-var require=function(m){
-if(m==="electron"){return{ipcRenderer:{
-on:function(ch,cb){window.__onekeyDesktopBridge.onHostMessage(function(d){cb({},d);});},
-sendToHost:function(ch,d){window.__onekeyDesktopBridge.sendToHost(ch,d);}
-}};}
-throw new Error("Cannot require "+m);
-};
-${content}
-})();`;
-    this.injectedJsContentCache = shimmedContent;
-    return shimmedContent;
+    return injectedDesktopCode as string;
   }
 }
 

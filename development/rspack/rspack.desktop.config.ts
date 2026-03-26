@@ -61,17 +61,10 @@ class FileHashMetadataPlugin implements RspackPluginInstance {
           );
         }
 
-        if (!fs.existsSync(path.join(destStaticPath, 'preload-webview.js'))) {
+        if (!fs.existsSync(path.join(destStaticPath, 'preload.js'))) {
           fs.copyFileSync(
-            path.join(srcStaticPath, 'preload-webview.js'),
-            path.join(destStaticPath, 'preload-webview.js'),
-          );
-        }
-
-        if (!fs.existsSync(path.join(destStaticPath, 'injected-provider.js'))) {
-          fs.copyFileSync(
-            path.join(srcStaticPath, 'injected-provider.js'),
-            path.join(destStaticPath, 'injected-provider.js'),
+            path.join(srcStaticPath, 'preload.js'),
+            path.join(destStaticPath, 'preload.js'),
           );
         }
 

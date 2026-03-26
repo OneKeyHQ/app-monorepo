@@ -37,20 +37,33 @@ function ensureDirectoryExistence(dirPath) {
   }
 }
 
-// Copy injectedDesktop.js as injected-provider.js (raw content, used by getInjectedJsContent)
-copyFile(
-  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedDesktop.js',
-  './apps/desktop/public/static/injected-provider.js',
-);
+// Read injectedDesktop.js once for both generated outputs
+const injectedDesktopSrc =
+  './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedDesktop.js';
+const injectedCode = fs.readFileSync(injectedDesktopSrc, 'utf-8');
+
+// Generate injectedDesktopCode.text-js: text module imported by DesktopApiWebview.ts
+// Contains the require shim + injectedDesktop.js, ready to executeJavaScript in page world.
+(function generateInjectedTextModule() {
+  const requireShim = [
+    'var require=function(m){',
+    'if(m==="electron"){return{ipcRenderer:{',
+    'on:function(ch,cb){window.__onekeyDesktopBridge.onHostMessage(function(d){cb({},d);});},',
+    'sendToHost:function(ch,d){window.__onekeyDesktopBridge.sendToHost(ch,d);}',
+    '}};}',
+    'throw new Error("Cannot require "+m);',
+    '};',
+  ].join('');
+  const content = requireShim + '\n' + injectedCode;
+  fs.writeFileSync(
+    './packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
+    content,
+  );
+  console.log('Generated injectedDesktopCode.text-js');
+})();
 
 // Generate preload-webview.js: contextBridge preload + embedded provider injection
-// The provider code is injected into the page's main world via a synchronous DOM <script>
-// tag, ensuring window.ethereum etc. are available before any page scripts execute.
 (function generatePreloadWebview() {
-  const injectedCode = fs.readFileSync(
-    './node_modules/@onekeyfe/cross-inpage-provider-injected/dist/injected/injectedDesktop.js',
-    'utf-8',
-  );
   // require("electron") shim: maps to window.__onekeyDesktopBridge exposed by contextBridge
   const requireShim = [
     'var require=function(m){',
@@ -100,10 +113,10 @@ webFrame.executeJavaScript(${JSON.stringify(fullProviderCode)}).catch(function (
 `;
 
   fs.writeFileSync(
-    './apps/desktop/public/static/preload-webview.js',
+    './apps/desktop/public/static/preload.js',
     preloadContent,
   );
-  console.log('Generated preload-webview.js with embedded provider');
+  console.log('Generated preload.js (webview preload with embedded provider)');
 })();
 
 // Copy to Extension injected.js
