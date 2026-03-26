@@ -73,7 +73,7 @@ function MobileNetworkDropdownImpl({
 
   const displayName = isAllNetworks
     ? intl.formatMessage({ id: ETranslations.global_all })
-    : selectedNetwork?.name ?? '';
+    : (selectedNetwork?.name ?? '');
 
   const handleNetworkSelect = useCallback(
     (network: IServerNetwork) => {
@@ -84,18 +84,9 @@ function MobileNetworkDropdownImpl({
 
   const renderTrigger = useMemo(
     () => (
-      <XStack
-        gap="$1"
-        alignItems="center"
-        cursor="pointer"
-        userSelect="none"
-      >
+      <XStack gap="$1" alignItems="center" cursor="pointer" userSelect="none">
         {isAllNetworks || !selectedNetwork?.logoURI ? (
-          <Icon
-            name="AllNetworksSolid"
-            size="$4.5"
-            color="$icon"
-          />
+          <Icon name="AllNetworksSolid" size="$4.5" color="$icon" />
         ) : (
           <Image
             width={18}
@@ -105,11 +96,7 @@ function MobileNetworkDropdownImpl({
           />
         )}
         <SizableText size="$bodyMdMedium">{displayName}</SizableText>
-        <Icon
-          name="ChevronDownSmallOutline"
-          size="$4.5"
-          color="$iconSubdued"
-        />
+        <Icon name="ChevronDownSmallOutline" size="$4.5" color="$iconSubdued" />
       </XStack>
     ),
     [displayName, isAllNetworks, selectedNetwork],

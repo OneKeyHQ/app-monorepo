@@ -92,7 +92,16 @@ export function useMarketTokenList({
         total: response.total,
       };
     },
-    [hasNetworkId, apiNetworkId, sortBy, sortType, pageSize, minLiquidity, type, timeFrame],
+    [
+      hasNetworkId,
+      apiNetworkId,
+      sortBy,
+      sortType,
+      pageSize,
+      minLiquidity,
+      type,
+      timeFrame,
+    ],
     {
       watchLoading: hasNetworkId,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
@@ -100,6 +109,7 @@ export function useMarketTokenList({
       revalidateOnReconnect: true,
     },
   );
+
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
 
   useEffect(() => {
