@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
+  PERPS_CAMPAIGN_HELP_LINK,
   REFERRAL_HELP_LINK,
   buildReferralUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -294,17 +295,18 @@ export const useReferFriends = () => {
       const dialog = Dialog.show({
         icon: 'GiftOutline',
         title: sourceConfig?.title,
-        description: (
-          <FormatHyperlinkText
-            size="$bodyMd"
-            underlineTextProps={{ color: '$textInfo' }}
-            onAction={() => {
-              void dialog.close();
-            }}
-          >
-            {sourceConfig?.subtitle}
-          </FormatHyperlinkText>
-        ),
+        description:
+          source === 'Perps' ? undefined : (
+            <FormatHyperlinkText
+              size="$bodyMd"
+              underlineTextProps={{ color: '$textInfo' }}
+              onAction={() => {
+                void dialog.close();
+              }}
+            >
+              {sourceConfig?.subtitle}
+            </FormatHyperlinkText>
+          ),
         renderContent: isLogin ? (
           <YStack gap="$5">
             <YStack gap="$2">
@@ -376,6 +378,10 @@ export const useReferFriends = () => {
               </YStack>
             ) : null}
           </YStack>
+        ) : source === 'Perps' ? (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {'邀请好友，一起抽奖 99U。更有天梯排名冲击大奖！'}
+          </SizableText>
         ) : (
           <YStack gap="$5">
             <XStack gap="$4">
@@ -410,10 +416,12 @@ export const useReferFriends = () => {
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
+          const learnMoreUrl =
+            source === 'Perps' ? PERPS_CAMPAIGN_HELP_LINK : REFERRAL_HELP_LINK;
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
+            openUrlInDiscovery({ url: learnMoreUrl });
           } else {
-            openUrlExternal(REFERRAL_HELP_LINK);
+            openUrlExternal(learnMoreUrl);
           }
         },
         onConfirmText: intl.formatMessage({
