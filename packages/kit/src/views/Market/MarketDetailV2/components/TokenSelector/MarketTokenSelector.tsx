@@ -405,7 +405,7 @@ function MarketTokenSelectorContent({
         isNative: item.isNative ?? false,
       });
 
-      closePopover();
+      closePopover?.();
 
       // Sync URL
       const targetTab = platformEnv.isNative
