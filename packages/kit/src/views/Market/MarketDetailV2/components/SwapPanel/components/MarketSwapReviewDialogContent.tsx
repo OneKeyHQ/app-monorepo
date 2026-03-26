@@ -10,6 +10,7 @@ import {
   Divider,
   HeightTransition,
   Icon,
+  Image,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -20,20 +21,113 @@ import {
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import PreSwapInfoItem from '@onekeyhq/kit/src/views/Swap/components/PreSwapInfoItem';
 import { PreSwapTipInfo } from '@onekeyhq/kit/src/views/Swap/components/PreSwapTipInfo';
-import PreSwapTokenItem from '@onekeyhq/kit/src/views/Swap/components/PreSwapTokenItem';
 import { ProtocolFeeComparisonList } from '@onekeyhq/kit/src/views/Swap/components/ProtocolFeeComparisonList';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IFetchQuoteResult,
   ISwapPreSwapData,
+  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketSwapReviewData,
   getMarketSwapReviewActionTranslationId,
 } from '../utils/reviewUtils';
+
+function MarketSwapReviewTokenItem({
+  token,
+  amount,
+  isFloating,
+}: {
+  token?: ISwapToken;
+  amount: string;
+  isFloating?: boolean;
+}) {
+  const [settings] = useSettingsPersistAtom();
+
+  const fiatValue = useMemo(() => {
+    return token?.price && amount
+      ? new BigNumber(token.price).multipliedBy(amount).toFixed()
+      : '0';
+  }, [amount, token?.price]);
+
+  const networkImageUri = useMemo(() => {
+    if (token?.networkLogoURI) {
+      return token.networkLogoURI;
+    }
+    if (token?.networkId) {
+      return networkUtils.getLocalNetworkInfo(token.networkId)?.logoURI;
+    }
+    return '';
+  }, [token?.networkId, token?.networkLogoURI]);
+
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      flex={1}
+      mr="$0.5"
+    >
+      <YStack gap="$1" flex={1}>
+        <XStack alignItems="center">
+          {isFloating ? (
+            <Icon name="TildeOutline" size="$5" color="$text" />
+          ) : null}
+          <NumberSizeableText
+            size="$heading3xl"
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: token?.symbol ?? '-',
+            }}
+          >
+            {amount}
+          </NumberSizeableText>
+        </XStack>
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{
+            currency: settings.currencyInfo.symbol,
+          }}
+          numberOfLines={1}
+        >
+          {fiatValue}
+        </NumberSizeableText>
+      </YStack>
+
+      <Stack position="relative" width="$10" height="$10">
+        <Image
+          source={{ uri: token?.logoURI ?? '' }}
+          width="$10"
+          height="$10"
+          borderRadius="$full"
+          bg="$gray5"
+        />
+        {networkImageUri ? (
+          <Stack
+            position="absolute"
+            right="$-1"
+            bottom="$-1"
+            p="$0.5"
+            bg="$bgApp"
+            borderRadius="$full"
+          >
+            <Image
+              source={{ uri: networkImageUri }}
+              width="$4"
+              height="$4"
+              borderRadius="$full"
+            />
+          </Stack>
+        ) : null}
+      </Stack>
+    </XStack>
+  );
+}
 
 function MarketSwapReviewInfoGroup({
   preSwapData,
@@ -285,7 +379,7 @@ export function MarketSwapReviewDialogContent({
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.swap_review_you_pay })}
           </SizableText>
-          <PreSwapTokenItem
+          <MarketSwapReviewTokenItem
             token={preSwapData.fromToken}
             amount={preSwapData.fromTokenAmount ?? '0'}
           />
@@ -324,7 +418,7 @@ export function MarketSwapReviewDialogContent({
             />
           </XStack>
 
-          <PreSwapTokenItem
+          <MarketSwapReviewTokenItem
             token={preSwapData.toToken}
             amount={preSwapData.toTokenAmount ?? '0'}
             isFloating={quoteResult.isFloating}
