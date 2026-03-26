@@ -27,3 +27,18 @@ export const {
   name: EAtomNames.marketBannerListSortAtom,
   initialValue: { sortBy: undefined, sortType: undefined },
 });
+
+export type IMarketTokenSelectorTab = 'watchlist' | 'spot' | 'futures';
+
+export interface IMarketTokenSelectorConfigAtom {
+  activeTab: IMarketTokenSelectorTab;
+}
+
+export const {
+  target: marketTokenSelectorConfigAtom,
+  use: useMarketTokenSelectorConfigAtom,
+} = globalAtom<IMarketTokenSelectorConfigAtom>({
+  persist: true,
+  name: EAtomNames.marketTokenSelectorConfigAtom,
+  initialValue: { activeTab: 'watchlist' },
+});

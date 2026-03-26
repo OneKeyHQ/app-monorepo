@@ -22,12 +22,8 @@ import {
   rootNavigationRef,
   usePopoverContext,
 } from '@onekeyhq/components';
-import {
-  ScrollableFilterBar,
-  useScrollableFilterBar,
-} from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import {
   useMarketWatchListV2Atom,
@@ -49,6 +45,10 @@ import {
   MarketWatchlistCategorySelector,
 } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketWatchlistCategorySelector';
 import { MarketTokenListNetworkSelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
+import {
+  type IMarketTokenSelectorTab,
+  useMarketTokenSelectorConfigAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -60,7 +60,6 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import type { IMarketTokenSelectorTab } from './useMarketTokenSelector';
 import type { LayoutChangeEvent } from 'react-native';
 
 const LIST_HEIGHT = 400;
@@ -367,40 +366,34 @@ function DesktopFuturesList({
 }
 
 // ---------------------------------------------------------------------------
-// Popover content
+// Popover content (inner — only rendered when open, like Perps pattern)
 // ---------------------------------------------------------------------------
-// Persist tab selection across popover open/close
-let lastActiveTab: IMarketTokenSelectorTab = 'watchlist';
-
-function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
+function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedQuery = useDebounce(searchQuery, 300);
-  const [activeTab, setActiveTab] =
-    useState<IMarketTokenSelectorTab>(lastActiveTab);
+  const [selectorConfig, setSelectorConfig] =
+    useMarketTokenSelectorConfigAtom();
+  const activeTab = selectorConfig.activeTab;
 
-  // Reset search when popover closes, persist tab
-  useEffect(() => {
-    if (!isOpen) {
-      setSearchQuery('');
-    }
-  }, [isOpen]);
-
-  const handleTabChangeWithPersist = useCallback(
-    (tab: IMarketTokenSelectorTab) => {
-      lastActiveTab = tab;
-      setActiveTab(tab);
-    },
-    [],
-  );
-
-  const handleSearchChange = useCallback((text: string) => {
-    setSearchQuery(text.slice(0, 64));
+  const [searchQuery, setSearchQueryRaw] = useState('');
+  const setSearchQuery = useCallback((query: string) => {
+    setSearchQueryRaw(query.trim().slice(0, 64));
   }, []);
+
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      startTransition(() => {
+        setSelectorConfig((prev) => ({
+          ...prev,
+          activeTab: tab as IMarketTokenSelectorTab,
+        }));
+      });
+    },
+    [setSelectorConfig],
+  );
 
   const handleSelectToken = useCallback(
     (item: IMarketToken) => {
@@ -454,74 +447,75 @@ function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
     [intl],
   );
 
-  const tabs = useMemo(
-    () => [
-      { id: 'watchlist', name: tabNames.watchlist },
-      { id: 'spot', name: tabNames.spot },
-      { id: 'futures', name: tabNames.futures },
-    ],
-    [tabNames],
-  );
-
-  const handleTabPress = useCallback(
-    (tabId: string) => {
-      startTransition(() => {
-        handleTabChangeWithPersist(tabId as IMarketTokenSelectorTab);
-      });
-    },
-    [handleTabChangeWithPersist],
-  );
-
-  const renderTabItem = useCallback(
-    (tab: { id: string; name: string }) => (
-      <TabItem
-        key={tab.id}
-        id={tab.id}
-        name={tab.name}
-        isFocused={activeTab === tab.id}
-        onPress={handleTabPress}
-      />
-    ),
-    [activeTab, handleTabPress],
-  );
-
   return (
-    <YStack p="$3" gap="$2">
-      {/* Search */}
-      <SearchBar
-        value={searchQuery}
-        onChangeText={handleSearchChange}
-        placeholder={intl.formatMessage({
-          id: ETranslations.global_search,
-        })}
-      />
+    <YStack p="$3" gap="$1">
+      {/* Search — uncontrolled value to let debounce work (Perps pattern) */}
+      <XStack px="$2" pt="$2">
+        <SearchBar
+          containerProps={{ borderRadius: '$2', mx: '$2', mt: '$2', flex: 1 }}
+          autoFocus
+          placeholder={intl.formatMessage({
+            id: ETranslations.global_search_asset,
+          })}
+          onChangeText={setSearchQuery}
+        />
+      </XStack>
 
-      {/* Tabs */}
-      <ScrollableFilterBar selectedItemId={activeTab}>
-        {tabs.map(renderTabItem)}
-      </ScrollableFilterBar>
+      {/* Tab bar — direct TabItem rendering (Perps pattern) */}
+      <XStack
+        borderBottomWidth="$px"
+        borderBottomColor="$borderSubdued"
+        bg="$bg"
+        px="$0"
+      >
+        <TabItem
+          id="watchlist"
+          name={tabNames.watchlist}
+          isFocused={activeTab === 'watchlist'}
+          onPress={setActiveTab}
+        />
+        <TabItem
+          id="spot"
+          name={tabNames.spot}
+          isFocused={activeTab === 'spot'}
+          onPress={setActiveTab}
+        />
+        <TabItem
+          id="futures"
+          name={tabNames.futures}
+          isFocused={activeTab === 'futures'}
+          onPress={setActiveTab}
+        />
+      </XStack>
 
-      {/* List content */}
-      {activeTab === 'watchlist' ? (
-        <DesktopWatchlistList
-          searchQuery={debouncedQuery}
-          onSelectToken={handleSelectToken}
-        />
-      ) : null}
-      {activeTab === 'spot' ? (
-        <DesktopSpotList
-          searchQuery={debouncedQuery}
-          onSelectToken={handleSelectToken}
-        />
-      ) : null}
-      {activeTab === 'futures' ? (
-        <DesktopFuturesList
-          searchQuery={debouncedQuery}
-          onClosePopover={() => closePopover?.()}
-        />
-      ) : null}
+      {/* List content — key={activeTab} forces list reset on tab switch (Perps pattern) */}
+      <YStack>
+        {activeTab === 'watchlist' ? (
+          <DesktopWatchlistList
+            searchQuery={searchQuery}
+            onSelectToken={handleSelectToken}
+          />
+        ) : null}
+        {activeTab === 'spot' ? (
+          <DesktopSpotList
+            searchQuery={searchQuery}
+            onSelectToken={handleSelectToken}
+          />
+        ) : null}
+        {activeTab === 'futures' ? (
+          <DesktopFuturesList
+            searchQuery={searchQuery}
+            onClosePopover={() => closePopover?.()}
+          />
+        ) : null}
+      </YStack>
     </YStack>
   );
+}
+
+// Only render content when open (Perps pattern — avoids unnecessary rendering)
+function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
+  return isOpen ? <BaseMarketTokenSelectorContent /> : null;
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
