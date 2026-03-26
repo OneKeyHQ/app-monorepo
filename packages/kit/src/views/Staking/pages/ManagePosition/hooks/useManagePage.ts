@@ -34,6 +34,7 @@ export const useManagePage = ({
   type = EManagePositionType.Staking,
   reserveAddress,
   marketAddress,
+  revalidateOnFocus = true,
 }: {
   accountId: string;
   indexedAccountId: string | undefined;
@@ -44,6 +45,7 @@ export const useManagePage = ({
   type?: EManagePositionType;
   reserveAddress?: string;
   marketAddress?: string;
+  revalidateOnFocus?: boolean;
 }) => {
   const {
     result,
@@ -117,7 +119,7 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
     ],
-    { watchLoading: true, revalidateOnFocus: true },
+    { watchLoading: true, revalidateOnFocus },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};
@@ -231,6 +233,7 @@ export const useManagePage = ({
       maxRepayBalance: managePageData.repay?.data?.maxBalance,
       // debt balance for collateral repay mode
       debtBalance: managePageData.debt?.data?.balance,
+      needsSetupLut: managePageData.needsSetupLut,
       // supply max balance for supply max button
       maxSupplyBalance: managePageData.supply?.data?.maxBalance,
       // approve
