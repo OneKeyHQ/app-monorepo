@@ -1874,14 +1874,16 @@ class ServiceHardware extends ServiceBase {
       return device?.connectId || connectId;
     }
 
-    if (hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK) {
+    // BACKGROUND_TASK and SILENT_CALL should never trigger BLE pairing UI or
+    // fall through to shouldSwitchTransportType — resolve connectId immediately.
+    // In BLE mode, return bleConnectId or '' (returning a USB serial like
+    // "PRB09B0045A" would cause Noble to scan for a non-UUID, timing out every time).
+    if (
+      hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
+      hardwareCallContext === EHardwareCallContext.SILENT_CALL
+    ) {
       const currentTransportType = await this.getCurrentTransportType();
       if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
-        // In BLE mode: only proceed if we have a valid BLE connectId.
-        // Returning the USB connectId (e.g. a serial number like "PRB09B0045A")
-        // would cause Noble to receive a non-UUID identifier that can never match
-        // a peripheral, resulting in a 1.5 s targeted-scan timeout every time.
-        // Background tasks handle DeviceNotFound silently, so returning '' is safe.
         return device?.bleConnectId || '';
       }
       return device?.connectId || connectId;
@@ -1914,17 +1916,6 @@ class ServiceHardware extends ServiceBase {
         return device.connectId;
       }
       if (device && !device.bleConnectId) {
-        if (hardwareCallContext === EHardwareCallContext.SILENT_CALL) {
-          // BLE mode with no bleConnectId: throw instead of returning USB serial
-          throw new deviceErrors.DeviceNotFound({
-            payload: {
-              connectId,
-              deviceId: featuresDeviceId || undefined,
-              message:
-                'BLE mode with no bleConnectId, silent call cannot pair',
-            },
-          });
-        }
         // Use servicePromise to wait for UI dialog to complete BLE pairing
         const bleConnectId = await new Promise<string>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
