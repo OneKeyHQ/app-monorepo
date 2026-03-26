@@ -1366,6 +1366,7 @@ jsbundle
 avd
 AVD
 oxlint
+oxlintrc
 serviceworker
 newtab
 hrstart
@@ -1419,3 +1420,4 @@ vbyte
 prefs
 Prefs
 oxlintrc
+crosschain

@@ -109,6 +109,7 @@ import { vaultFactory } from '../vaults/factory';
 import { pendleFlowConfig } from '../vaults/impls/evm/settings';
 
 import ServiceBase from './ServiceBase';
+import { pollSolTxFinalization } from './utils/pollSolTxFinalization';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -2470,6 +2471,68 @@ class ServiceStaking extends ServiceBase {
       amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
     });
     return response.data.data;
+  }
+
+  @backgroundMethod()
+  async borrowBuildSetupLutTransaction(params: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    collateralReserveAddress: string;
+    accountId: string;
+  }) {
+    const { accountId, ...rest } = params;
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: params.networkId,
+        accountId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.post<{
+      data: IBorrowUnsignedTransaction;
+    }>('/earn/v1/borrow/build-setup-lut-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async waitForSolTxFinalized(params: {
+    networkId: string;
+    txId: string;
+    maxAttempts?: number;
+    intervalMs?: number;
+  }): Promise<'finalized' | 'failed' | 'timeout'> {
+    const { networkId, txId, maxAttempts = 40, intervalMs = 3000 } = params;
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+
+    return pollSolTxFinalization({
+      txId,
+      maxAttempts,
+      intervalMs,
+      getSignatureStatuses: async (signatures) => {
+        const statuses = await vault.getSignatureStatuses(signatures);
+        return statuses?.map((status) =>
+          status
+            ? {
+                ...status,
+                confirmationStatus: status.confirmationStatus ?? undefined,
+              }
+            : status,
+        );
+      },
+      onStatusError: (error) => {
+        defaultLogger.app.error.log(
+          `[waitForSolTxFinalized] getSignatureStatuses failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      },
+    });
   }
 
   @backgroundMethod()

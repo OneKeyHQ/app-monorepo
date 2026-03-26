@@ -535,17 +535,16 @@ class ServiceHistory extends ServiceBase {
     ]);
 
     const localHistoryConfirmedTxs =
-      await this.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountAddress,
-        xpub,
-      });
-    const localHistoryPendingTxs =
       await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
         accountAddress,
         xpub,
       });
+    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
+      networkId,
+      accountAddress,
+      xpub,
+    });
 
     const result = unionBy(
       [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
