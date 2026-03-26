@@ -14,6 +14,12 @@ export type IDependencies = {
 
 let bridgeInstance: BridgeProcess;
 export const launchBridge = async () => {
+  // Windows uses WebUSB directly, no bridge needed
+  if (process.platform === 'win32') {
+    logger.info('bridge: Skipped on Windows (WebUSB is used directly)');
+    return;
+  }
+
   const bridge = new BridgeProcess();
 
   try {
