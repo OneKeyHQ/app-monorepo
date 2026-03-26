@@ -17,6 +17,71 @@ export interface ISortSwapQuotesOptions {
 }
 
 // ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Factory that builds a received-amount comparator.
+ * When `useSlippage` is true the effective toAmount is adjusted by
+ * `toAmountSlippage`; otherwise raw `toAmount` is used.
+ */
+function makeReceivedComparator(
+  useSlippage: boolean,
+  fromTokenAmountBN: BigNumber | undefined,
+): (a: IFetchQuoteResult, b: IFetchQuoteResult) => number {
+  return (a, b) => {
+    const aVal = useSlippage
+      ? new BigNumber(a.toAmount || 0).multipliedBy(
+          new BigNumber(a.toAmountSlippage || 0).plus(1),
+        )
+      : new BigNumber(a.toAmount || 0);
+    const bVal = useSlippage
+      ? new BigNumber(b.toAmount || 0).multipliedBy(
+          new BigNumber(b.toAmountSlippage || 0).plus(1),
+        )
+      : new BigNumber(b.toAmount || 0);
+
+    const aHasLimit = !!a.limit;
+    const bHasLimit = !!b.limit;
+
+    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
+      return -1;
+    }
+    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
+      return 1;
+    }
+
+    if (fromTokenAmountBN) {
+      if (
+        aVal.isZero() ||
+        aVal.isNaN() ||
+        fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
+        fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
+      ) {
+        return 1;
+      }
+      if (
+        bVal.isZero() ||
+        bVal.isNaN() ||
+        fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
+        fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
+      ) {
+        return -1;
+      }
+    } else {
+      if (aVal.isZero() || aVal.isNaN()) {
+        return 1;
+      }
+      if (bVal.isZero() || bVal.isNaN()) {
+        return -1;
+      }
+    }
+
+    return bVal.comparedTo(aVal);
+  };
+}
+
+// ---------------------------------------------------------------------------
 // sortSwapQuotes – pure function, 1:1 parity with atoms.ts:227-407
 // ---------------------------------------------------------------------------
 
@@ -55,94 +120,14 @@ export function sortSwapQuotes(
   });
 
   // ---- Received sort (descending, with slippage adjustment) ----
-  const receivedSorted = [...resetList].sort((a, b) => {
-    const aToAmountSlippage = new BigNumber(a.toAmountSlippage || 0).plus(1);
-    const bToAmountSlippage = new BigNumber(b.toAmountSlippage || 0).plus(1);
-    const aVal = new BigNumber(a.toAmount || 0).multipliedBy(aToAmountSlippage);
-    const bVal = new BigNumber(b.toAmount || 0).multipliedBy(bToAmountSlippage);
-
-    const aHasLimit = !!a.limit;
-    const bHasLimit = !!b.limit;
-
-    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
-      return -1;
-    }
-    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
-      return 1;
-    }
-
-    if (fromTokenAmountBN) {
-      if (
-        aVal.isZero() ||
-        aVal.isNaN() ||
-        fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
-        fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
-      ) {
-        return 1;
-      }
-      if (
-        bVal.isZero() ||
-        bVal.isNaN() ||
-        fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
-        fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
-      ) {
-        return -1;
-      }
-    } else {
-      if (aVal.isZero() || aVal.isNaN()) {
-        return 1;
-      }
-      if (bVal.isZero() || bVal.isNaN()) {
-        return -1;
-      }
-    }
-
-    return bVal.comparedTo(aVal);
-  });
+  const receivedSorted = [...resetList].sort(
+    makeReceivedComparator(true, fromTokenAmountBN),
+  );
 
   // ---- Received original sort (no slippage, for receivedBest badge) ----
-  const receivedOriginalSorted = [...resetList].sort((a, b) => {
-    const aVal = new BigNumber(a.toAmount || 0);
-    const bVal = new BigNumber(b.toAmount || 0);
-
-    const aHasLimit = !!a.limit;
-    const bHasLimit = !!b.limit;
-
-    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
-      return -1;
-    }
-    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
-      return 1;
-    }
-
-    if (fromTokenAmountBN) {
-      if (
-        aVal.isZero() ||
-        aVal.isNaN() ||
-        fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
-        fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
-      ) {
-        return 1;
-      }
-      if (
-        bVal.isZero() ||
-        bVal.isNaN() ||
-        fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
-        fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
-      ) {
-        return -1;
-      }
-    } else {
-      if (aVal.isZero() || aVal.isNaN()) {
-        return 1;
-      }
-      if (bVal.isZero() || bVal.isNaN()) {
-        return -1;
-      }
-    }
-
-    return bVal.comparedTo(aVal);
-  });
+  const receivedOriginalSorted = [...resetList].sort(
+    makeReceivedComparator(false, fromTokenAmountBN),
+  );
 
   // Step 3: Recommended sort – starts from receivedSorted + approved boost
   let recommendedSorted = receivedSorted.slice();
@@ -187,18 +172,21 @@ export function sortSwapQuotes(
   }
 
   // Step 4: Select the sorted list based on sort type
-  let sortedList = [...resetList];
-  if (sortType === ESwapProviderSort.GAS_FEE) {
-    sortedList = [...gasFeeSorted];
-  }
-  if (sortType === ESwapProviderSort.SWAP_DURATION) {
-    sortedList = [...durationSorted];
-  }
-  if (sortType === ESwapProviderSort.RECEIVED) {
-    sortedList = [...receivedSorted];
-  }
-  if (sortType === ESwapProviderSort.RECOMMENDED) {
-    sortedList = [...recommendedSorted];
+  let sortedList: IFetchQuoteResult[];
+  switch (sortType) {
+    case ESwapProviderSort.GAS_FEE:
+      sortedList = [...gasFeeSorted];
+      break;
+    case ESwapProviderSort.SWAP_DURATION:
+      sortedList = [...durationSorted];
+      break;
+    case ESwapProviderSort.RECEIVED:
+      sortedList = [...receivedSorted];
+      break;
+    case ESwapProviderSort.RECOMMENDED:
+    default:
+      sortedList = [...recommendedSorted];
+      break;
   }
 
   // Step 5: Post-sort limit re-ordering (stable sort)
@@ -224,21 +212,12 @@ export function sortSwapQuotes(
     return 0;
   });
 
-  // Step 6: Badge assignment (spread to avoid mutation)
-  return sortedList.map((p) => {
-    let result = { ...p };
-    if (result.quoteId === recommendedSorted?.[0]?.quoteId && result.toAmount) {
-      result = { ...result, isBest: true };
-    }
-    if (
-      result.quoteId === receivedOriginalSorted?.[0]?.quoteId &&
-      result.toAmount
-    ) {
-      result = { ...result, receivedBest: true };
-    }
-    if (result.quoteId === gasFeeSorted?.[0]?.quoteId && result.toAmount) {
-      result = { ...result, minGasCost: true };
-    }
-    return result;
-  });
+  // Step 6: Badge assignment (single spread per item)
+  return sortedList.map((p) => ({
+    ...p,
+    isBest: p.quoteId === recommendedSorted[0]?.quoteId && !!p.toAmount,
+    receivedBest:
+      p.quoteId === receivedOriginalSorted[0]?.quoteId && !!p.toAmount,
+    minGasCost: p.quoteId === gasFeeSorted[0]?.quoteId && !!p.toAmount,
+  }));
 }
