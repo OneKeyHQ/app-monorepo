@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -13,6 +15,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
+import { MarketSwapReviewDialogContent } from './components/MarketSwapReviewDialogContent';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
@@ -32,6 +35,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     networkId: networkId || 'evm--1',
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const reviewLoadingRef = useRef(false);
+  const reviewDialogRef = useRef<IDialogInstance | null>(null);
 
   const {
     setPaymentToken,
@@ -178,20 +184,16 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         ? paymentAmount.toFixed()
         : sellAmount.toFixed(),
     antiMEV: swapMevNetConfig?.includes(swapPanel.networkId ?? ''),
-    onCloseDialog,
   };
 
   const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
 
   const {
     speedSwapBuildTx,
+    fetchSpeedSwapReviewQuote,
     speedSwapWrappedTx,
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
-    speedSwapApproveHandler,
-    speedSwapApproveActionLoading,
-    speedSwapApproveTransactionLoading,
-    shouldApprove,
     balance,
     balanceToken,
     fetchBalanceLoading,
@@ -307,35 +309,107 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     }
   }, [speedConfig?.slippage, setSlippage]);
 
-  const handleApprove = useCallback(() => {
-    void speedSwapApproveHandler();
-  }, [speedSwapApproveHandler]);
+  const closeReviewDialog = useCallback(() => {
+    void reviewDialogRef.current?.close();
+    reviewDialogRef.current = null;
+  }, []);
 
-  const handleSwap = useCallback(() => {
-    void speedSwapBuildTx();
-  }, [speedSwapBuildTx]);
+  const openReviewDialog = useCallback(
+    (
+      submitAction: typeof speedSwapBuildTx | typeof speedSwapWrappedTx,
+      reviewQuote: Awaited<ReturnType<typeof fetchSpeedSwapReviewQuote>>,
+    ) => {
+      if (!reviewQuote) {
+        return;
+      }
 
-  const handleWrappedSwap = useCallback(() => {
-    void speedSwapWrappedTx();
-  }, [speedSwapWrappedTx]);
+      reviewDialogRef.current = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.global_review_order,
+        }),
+        showFooter: false,
+        showCancelButton: false,
+        showConfirmButton: false,
+        onClose: () => {
+          reviewDialogRef.current = null;
+        },
+        renderContent: (
+          <MarketSwapReviewDialogContent
+            quoteResult={reviewQuote}
+            fromTokenAmount={reviewQuote.fromAmount ?? ''}
+            slippage={slippage}
+            onConfirm={async () => {
+              await submitAction({
+                reviewQuote,
+                onSuccess: () => {
+                  closeReviewDialog();
+                  onCloseDialog?.();
+                },
+              });
+            }}
+          />
+        ),
+      });
+    },
+    [closeReviewDialog, intl, onCloseDialog, slippage],
+  );
+
+  const handleSwap = useCallback(async () => {
+    if (reviewLoadingRef.current) {
+      return;
+    }
+
+    reviewLoadingRef.current = true;
+    setReviewLoading(true);
+    try {
+      const reviewQuote = await fetchSpeedSwapReviewQuote();
+      if (!reviewQuote) {
+        await speedSwapBuildTx();
+        return;
+      }
+      openReviewDialog(speedSwapBuildTx, reviewQuote);
+    } finally {
+      reviewLoadingRef.current = false;
+      setReviewLoading(false);
+    }
+  }, [fetchSpeedSwapReviewQuote, openReviewDialog, speedSwapBuildTx]);
+
+  const handleWrappedSwap = useCallback(async () => {
+    if (reviewLoadingRef.current) {
+      return;
+    }
+
+    reviewLoadingRef.current = true;
+    setReviewLoading(true);
+    try {
+      const reviewQuote = await fetchSpeedSwapReviewQuote();
+      if (!reviewQuote) {
+        await speedSwapWrappedTx();
+        return;
+      }
+      openReviewDialog(speedSwapWrappedTx, reviewQuote);
+    } finally {
+      reviewLoadingRef.current = false;
+      setReviewLoading(false);
+    }
+  }, [fetchSpeedSwapReviewQuote, openReviewDialog, speedSwapWrappedTx]);
 
   useEffect(() => {
     return () => {
+      closeReviewDialog();
       dismissKeyboard();
     };
-  }, []);
+  }, [closeReviewDialog]);
 
   const isActionLoading = useMemo(() => {
     return (
-      speedSwapApproveActionLoading ||
-      speedSwapApproveTransactionLoading ||
+      reviewLoading ||
       speedSwapBuildTxLoading ||
       checkTokenAllowanceLoading ||
       speedCheckLoading
     );
   }, [
-    speedSwapApproveActionLoading,
-    speedSwapApproveTransactionLoading,
+    reviewLoading,
     speedSwapBuildTxLoading,
     checkTokenAllowanceLoading,
     speedCheckLoading,
@@ -389,11 +463,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       isLoading={isActionLoading}
       hasInitialReady={hasInitialReady}
       onSwap={handleSwap}
-      isApproved={!shouldApprove}
       slippageAutoValue={speedConfig?.slippage}
       supportSpeedSwap={supportSpeedSwap}
       defaultTokens={filterDefaultTokens}
-      onApprove={handleApprove}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
