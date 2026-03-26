@@ -74,12 +74,14 @@ function TokenSelector() {
     footerTipText,
     activeAccountId,
     activeNetworkId,
+    forceShowActiveAccountTokenList,
     aggregateTokenSelectorScreen,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
     keepDefaultZeroBalanceTokens,
     enableNetworkAfterSelect,
     exchangeFilter,
+    hideBalanceAndValue,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -160,6 +162,7 @@ function TokenSelector() {
               enableNetworkAfterSelect,
               hideZeroBalanceTokens,
               exchangeFilter,
+              hideBalanceAndValue,
             },
           );
           return;
@@ -301,6 +304,7 @@ function TokenSelector() {
       indexedAccountId,
       enableNetworkAfterSelect,
       hideZeroBalanceTokens,
+      hideBalanceAndValue,
       exchangeFilter,
       account,
       updateCreateAccountState,
@@ -352,13 +356,22 @@ function TokenSelector() {
   );
 
   const showActiveAccountTokenList = useMemo(() => {
-    return !!(
-      activeAccountId &&
-      activeNetworkId &&
-      activeAccountId !== accountId &&
-      activeNetworkId !== networkId
-    );
-  }, [activeAccountId, activeNetworkId, accountId, networkId]);
+    if (!activeAccountId || !activeNetworkId) {
+      return false;
+    }
+
+    if (forceShowActiveAccountTokenList) {
+      return true;
+    }
+
+    return activeAccountId !== accountId && activeNetworkId !== networkId;
+  }, [
+    activeAccountId,
+    activeNetworkId,
+    accountId,
+    forceShowActiveAccountTokenList,
+    networkId,
+  ]);
 
   usePromiseResult(async () => {
     if (activeAccountId && activeNetworkId && showActiveAccountTokenList) {
@@ -474,6 +487,7 @@ function TokenSelector() {
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
           exchangeFilter={exchangeFilter}
+          hideBalanceAndValue={hideBalanceAndValue}
           emptyProps={{
             mt: '18%',
           }}
