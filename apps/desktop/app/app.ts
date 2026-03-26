@@ -424,6 +424,20 @@ function handleDeepLinkUrl(
   argv?: string[],
   isColdStartup?: boolean,
 ) {
+  // Validate deep link scheme before forwarding to renderer
+  if (url) {
+    const allowedSchemes = [
+      ONEKEY_APP_DEEP_LINK_NAME,
+      WALLET_CONNECT_DEEP_LINK_NAME,
+      'ethereum:',
+    ];
+    const isAllowed = allowedSchemes.some((scheme) => url.startsWith(scheme));
+    if (!isAllowed) {
+      logger.warn('[DeepLink] Rejected URL with unknown scheme:', url);
+      return;
+    }
+  }
+
   const eventData: IDesktopOpenUrlEventData = {
     url,
     argv,
@@ -574,10 +588,9 @@ async function createMainWindow() {
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
-      // webview injected js needs isolation=false, because property can not be exposeInMainWorld() when isolation enabled.
-      contextIsolation: false,
+      contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      sandbox: false,
+      sandbox: true,
       nodeIntegration: false,
       nodeIntegrationInWorker: false,
       autoplayPolicy: 'user-gesture-required',
@@ -769,6 +782,28 @@ async function createMainWindow() {
     event.returnValue = isDevServer;
   });
 
+  ipcMain.removeAllListeners(ipcMessageKeys.GET_PLATFORM_INFO);
+  ipcMain.on(ipcMessageKeys.GET_PLATFORM_INFO, (event) => {
+    let channel: string | undefined;
+    if (process.platform === 'linux') {
+      if (process.env.APPIMAGE) {
+        channel = 'appImage';
+      } else if (process.env.SNAP) {
+        channel = 'snap';
+      } else if (process.env.FLATPAK) {
+        channel = 'flatpak';
+      }
+    }
+    event.returnValue = {
+      arch: process.arch,
+      platform: process.platform,
+      systemVersion: process.getSystemVersion(),
+      isMas: !!(process as any).mas,
+      channel,
+      deskChannel: process.env.DESK_CHANNEL || '',
+    };
+  });
+
   ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
   ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
     event.returnValue = path.dirname(logger.transports.file.getFile().path);
@@ -862,6 +897,21 @@ async function createMainWindow() {
 
   ipcMain.removeAllListeners(CALL_DESKTOP_API_EVENT_NAME);
   desktopApi.desktopApiSetup();
+
+  // New invoke-based handler for contextIsolation-compatible API calls
+  ipcMain.removeHandler('DESKTOP_API_CALL');
+  ipcMain.handle(
+    'DESKTOP_API_CALL',
+    async (_event, payload: { module: string; method: string; params: any[] }) => {
+      const { module, method, params } = payload;
+      return desktopApi.callDesktopApiMethod({
+        type: 'DESKTOP_API_IPC_MESSAGE',
+        module: module as any,
+        method,
+        params,
+      });
+    },
+  );
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
@@ -1022,6 +1072,18 @@ async function createMainWindow() {
       callback({ cancel: false, requestHeaders: details.requestHeaders });
     },
   );
+
+  // Inject security response headers for defense-in-depth
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'X-Content-Type-Options': ['nosniff'],
+        'X-Frame-Options': ['DENY'],
+        'Referrer-Policy': ['strict-origin-when-cross-origin'],
+      },
+    });
+  });
 
   if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
@@ -1645,10 +1707,10 @@ app.on('before-quit', () => {
 
 // ==================== End Memory Protection ====================
 
-// Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
-app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
-
-if (isDevServer) {
+// Dev-only switches — NEVER run in production builds
+if (isDevServer && !app.isPackaged) {
+  // https://onekeyhq.atlassian.net/browse/OK-8096
+  app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');

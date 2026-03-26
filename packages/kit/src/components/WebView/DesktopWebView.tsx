@@ -55,7 +55,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 let preloadJsUrl = '';
 
-void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url) => {
+void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url: string) => {
   preloadJsUrl = url;
 });
 

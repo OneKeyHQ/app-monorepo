@@ -79,7 +79,7 @@ module.exports = {
     'extraFiles': DLLs,
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
-    'verifyUpdateCodeSignature': false,
+    'verifyUpdateCodeSignature': true,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
   'linux': {

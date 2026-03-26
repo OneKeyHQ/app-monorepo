@@ -145,13 +145,23 @@ exports.default = async function fileOperation(context) {
     );
   }
 
-  if (electronPlatformName === 'darwin' || electronPlatformName === 'win32') {
+  if (
+    electronPlatformName === 'darwin' ||
+    electronPlatformName === 'win32' ||
+    electronPlatformName === 'linux'
+  ) {
     await context.packager.addElectronFuses(context, {
       version: FuseVersion.V1,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableCookieEncryption]: true,
+      // Prevent ELECTRON_RUN_AS_NODE from turning the app into a plain Node.js process
+      [FuseV1Options.RunAsNode]: false,
+      // Prevent NODE_OPTIONS env var from injecting debug flags or inspect ports
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+      // Prevent file:// protocol from gaining extra fetch/XHR-like privileges
+      [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
     });
   }
 };
