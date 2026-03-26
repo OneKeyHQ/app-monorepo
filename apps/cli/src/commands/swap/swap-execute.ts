@@ -4,7 +4,7 @@ import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
 import { confirmTransaction } from '../../utils/confirm-transaction';
-import { feeToWeiHex } from '../../utils/tx-utils';
+import { amountToSmallestUnit, feeToWeiHex } from '../../utils/tx-utils';
 
 import type { IEndpointEnv } from '../../config';
 import type { OutputFormatter } from '../../output';
@@ -73,24 +73,26 @@ const TX_VALUE_PATTERN = /^(?:0x[a-fA-F0-9]+|\d+)$/i;
 
 // ERC-20 approve(address,uint256) function selector
 const APPROVE_SELECTOR = '095ea7b3';
-
-// MaxUint256 — unlimited approval
-const MAX_UINT256_HEX =
-  'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+const MAX_UINT256_HEX = 'f'.repeat(64);
+const ZERO_AMOUNT_HEX = '0'.repeat(64);
 
 function buildApproveEncodedTx(
   from: string,
   tokenContract: string,
   spender: string,
+  amount: string, // '0' for reset, decimal string for exact, 'unlimited' for MAX_UINT256
 ): Record<string, string> {
   const paddedSpender = spender.slice(2).toLowerCase().padStart(64, '0');
-  const data = `0x${APPROVE_SELECTOR}${paddedSpender}${MAX_UINT256_HEX}`;
-  return {
-    from,
-    to: tokenContract,
-    data,
-    value: '0x0',
-  };
+  let paddedAmount: string;
+  if (amount === '0') {
+    paddedAmount = ZERO_AMOUNT_HEX;
+  } else if (amount === 'unlimited') {
+    paddedAmount = MAX_UINT256_HEX;
+  } else {
+    paddedAmount = BigInt(amount).toString(16).padStart(64, '0');
+  }
+  const data = `0x${APPROVE_SELECTOR}${paddedSpender}${paddedAmount}`;
+  return { from, to: tokenContract, data, value: '0x0' };
 }
 
 /**
@@ -176,6 +178,42 @@ async function waitForApproveConfirmation(
     ERROR_CODES.BIZ_SWAP_FAILED.code,
     'Approve transaction not confirmed within 30 seconds',
     'Check the approve tx on chain explorer, then retry "onekey swap execute"',
+  );
+}
+
+/**
+ * Wait for a tx to confirm by polling nonce increment.
+ * Used for reset-approve where waitForApproveConfirmation doesn't apply.
+ */
+async function waitForTxConfirmation(
+  networkId: string,
+  accountAddress: string,
+  txNonce: number,
+): Promise<void> {
+  const maxAttempts = 15;
+  const intervalMs = 2000;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, intervalMs);
+    });
+    try {
+      const accountInfo = await apiClient.get<{ nonce?: number }>(
+        'wallet',
+        '/wallet/v1/account/get-account',
+        { networkId, accountAddress, withNonce: true },
+      );
+      if (accountInfo.nonce !== undefined && accountInfo.nonce > txNonce) {
+        return;
+      }
+    } catch (error) {
+      const appErr = error instanceof AppError ? error : AppError.from(error);
+      if (!appErr.code.startsWith('NET_')) throw appErr;
+    }
+  }
+  throw new AppError(
+    ERROR_CODES.BIZ_SWAP_FAILED.code,
+    'Transaction not confirmed within 30 seconds',
+    'Check the transaction on chain explorer, then retry',
   );
 }
 
@@ -327,11 +365,16 @@ export function registerSwapExecuteCommand(parent: Command): void {
     .description('Execute a pending swap order (sign + broadcast)')
     .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
     .requiredOption('--order <orderId>', 'Order ID from swap build output')
+    .option(
+      '--approve-unlimited',
+      'Approve unlimited token allowance (MAX_UINT256) instead of exact amount',
+    )
     .action(
       async (
         options: {
           chain: string;
           order: string;
+          approveUnlimited?: boolean;
         },
         command,
       ) => {
@@ -442,48 +485,111 @@ export function registerSwapExecuteCommand(parent: Command): void {
             );
           }
 
+          // Balance pre-check for ERC-20 fromToken
+          if (order.fromToken.contractAddress) {
+            try {
+              const tokenResults = await apiClient.post<
+                Array<{ info: { balance?: string; balanceParsed?: string } }>
+              >('wallet', '/wallet/v1/account/token/search', {
+                networkId: chainConfig.networkId,
+                contractList: [order.fromToken.contractAddress],
+                accountAddress: fromAddress,
+              });
+              const tokenBalance = tokenResults?.[0]?.info?.balance;
+              if (tokenBalance !== undefined) {
+                const txDataRecord = order.txData as {
+                  fromTokenAmount?: string;
+                };
+                const requiredAmount = txDataRecord.fromTokenAmount ?? '0';
+                if (
+                  BigInt(tokenBalance) < BigInt(requiredAmount) &&
+                  BigInt(requiredAmount) > 0n
+                ) {
+                  throw new AppError(
+                    ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code,
+                    `Insufficient ${order.fromToken.symbol} balance: have ${tokenBalance}, need ${requiredAmount} (smallest unit)`,
+                    'Deposit more tokens to your wallet before swapping',
+                  );
+                }
+              }
+            } catch (err) {
+              if (
+                err instanceof AppError &&
+                err.code === ERROR_CODES.BIZ_INSUFFICIENT_BALANCE.code
+              ) {
+                throw err;
+              }
+              // Balance check is best-effort — don't block the flow on API errors
+            }
+          }
+
           // Determine if token approval is needed by calling the on-chain allowance API.
           // For ERC-20 fromTokens, ALWAYS check — the build-tx API may or may not
           // include allowanceResult depending on the provider.
-          const buildAllowance = txData.result?.allowanceResult;
           let needsApprove = false;
+          let shouldResetApprove = false;
           let approveSpender = '';
           let approveCheckAmount = '0';
+          // Human-readable amount for /swap/v1/allowance API calls
+          const allowanceCheckAmountHuman = order.amount;
 
           if (order.fromToken.contractAddress) {
-            // Spender: prefer allowanceResult.allowanceTarget, fall back to tx.to (router)
-            approveSpender =
-              buildAllowance?.allowanceTarget ?? txData.tx.to ?? '';
-            if (!approveSpender) {
-              throw new AppError(
-                ERROR_CODES.BIZ_SWAP_FAILED.code,
-                'Cannot determine approve spender address',
-                'Run "onekey swap build" to create a new order',
+            // Read allowanceResult from persisted quote data (primary source)
+            const orderAllowance = order.allowanceResult;
+            const buildAllowance = (txData.result as Record<string, unknown>)
+              ?.allowanceResult as
+              | {
+                  allowanceTarget?: string;
+                  amount?: string;
+                  shouldResetApprove?: boolean;
+                }
+              | undefined;
+
+            // Determine the correct spender (allowanceTarget).
+            // Only proceed with approve check if we have a known spender from
+            // the quote or build-tx response. When allowanceResult is null,
+            // the API determined no approval is needed — trust that decision.
+            // Falling back to tx.to is WRONG (it's the router, not the approve contract).
+            const knownSpender =
+              orderAllowance?.allowanceTarget ??
+              buildAllowance?.allowanceTarget;
+
+            if (knownSpender) {
+              approveSpender = knownSpender;
+              approveCheckAmount =
+                orderAllowance?.amount ??
+                buildAllowance?.amount ??
+                order.amount;
+
+              const onChainAllowance = await checkAllowance(
+                chainConfig.networkId,
+                order.fromToken.contractAddress,
+                approveSpender,
+                fromAddress,
+                allowanceCheckAmountHuman,
               );
+              needsApprove = !onChainAllowance.isApproved;
+
+              shouldResetApprove =
+                orderAllowance?.shouldResetApprove ??
+                buildAllowance?.shouldResetApprove ??
+                onChainAllowance.shouldResetApprove ??
+                false;
             }
-
-            const txDataRecord: Record<string, unknown> = order.txData;
-            const checkAmount =
-              buildAllowance?.amount ?? txDataRecord.fromTokenAmount ?? '0';
-            approveCheckAmount =
-              typeof checkAmount === 'string'
-                ? checkAmount
-                : String(checkAmount);
-
-            const onChainAllowance = await checkAllowance(
-              chainConfig.networkId,
-              order.fromToken.contractAddress,
-              approveSpender,
-              fromAddress,
-              approveCheckAmount,
-            );
-            needsApprove = !onChainAllowance.isApproved;
+            // else: no allowanceResult means the API determined no approval
+            // is needed (on-chain allowance already sufficient). Skip approve.
           }
 
           // Build confirmation action string — include approve info if applicable
           let confirmAction = `Swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol}`;
           if (needsApprove) {
-            confirmAction = `Approve unlimited ${order.fromToken.symbol} allowance to ${approveSpender}, then swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol} (2 transactions)`;
+            const approveDesc = options.approveUnlimited
+              ? 'unlimited'
+              : order.amount;
+            const txCount = shouldResetApprove
+              ? '3 transactions'
+              : '2 transactions';
+            confirmAction = `Approve ${approveDesc} ${order.fromToken.symbol} allowance to ${approveSpender}, then swap ${order.amount} ${order.fromToken.symbol} → ${order.toToken.symbol} (${txCount})`;
           }
 
           // Confirm execution — show real tx.to (router contract), not just provider name
@@ -512,7 +618,6 @@ export function registerSwapExecuteCommand(parent: Command): void {
           let approveNonce: number | undefined;
 
           if (needsApprove) {
-            // Validate fromToken contract address is a legitimate EVM address
             if (!EVM_ADDRESS_PATTERN.test(order.fromToken.contractAddress)) {
               throw new AppError(
                 ERROR_CODES.BIZ_SWAP_FAILED.code,
@@ -528,67 +633,160 @@ export function registerSwapExecuteCommand(parent: Command): void {
               );
             }
 
-            output.info(
-              `Approving ${order.fromToken.symbol} for spender ${approveSpender}...`,
-            );
+            let lastApproveNonce: number | undefined;
+            let resetTxHash: string | undefined;
 
-            const approveEncodedTx = buildApproveEncodedTx(
-              fromAddress,
-              order.fromToken.contractAddress,
-              approveSpender,
-            );
+            try {
+              // Phase 1: Reset approve if needed (e.g., USDT)
+              if (shouldResetApprove) {
+                output.info(
+                  `Resetting ${order.fromToken.symbol} allowance to 0...`,
+                );
+                const resetEncodedTx = buildApproveEncodedTx(
+                  fromAddress,
+                  order.fromToken.contractAddress,
+                  approveSpender,
+                  '0',
+                );
+                const resetBuilt = await buildSignableTx(
+                  chainConfig.networkId,
+                  fromAddress,
+                  resetEncodedTx,
+                  chainConfig.feeDecimals,
+                );
+                const resetSigned = await signer.signTransaction({
+                  networkInfo,
+                  password: encodedPassword,
+                  credentials: { hd: hdCredential },
+                  account: accountForSign,
+                  unsignedTx: { encodedTx: resetBuilt.encodedTx },
+                });
+                const resetResult =
+                  await apiClient.post<ISendTransactionResult>(
+                    'wallet',
+                    '/wallet/v1/account/send-transaction',
+                    {
+                      networkId: chainConfig.networkId,
+                      accountAddress: fromAddress,
+                      tx: resetSigned.rawTx,
+                    },
+                  );
+                if (
+                  !resetResult?.result ||
+                  !TX_HASH_PATTERN.test(resetResult.result)
+                ) {
+                  throw new AppError(
+                    ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                    `Reset approve broadcast returned invalid txid: "${resetResult?.result ?? ''}"`,
+                    'Check the transaction on chain explorer manually',
+                  );
+                }
+                resetTxHash = resetResult.result;
+                output.info(
+                  `Reset approve tx: ${resetTxHash}. Waiting for confirmation...`,
+                );
+                // Wait for reset tx to confirm by polling nonce
+                await waitForTxConfirmation(
+                  chainConfig.networkId,
+                  fromAddress,
+                  resetBuilt.nonce,
+                );
+                output.info('Reset approve confirmed.');
+                lastApproveNonce = resetBuilt.nonce;
+              }
 
-            const approveBuilt = await buildSignableTx(
-              chainConfig.networkId,
-              fromAddress,
-              approveEncodedTx,
-              chainConfig.feeDecimals,
-            );
-            approveNonce = approveBuilt.nonce;
-
-            const approveSignedTx = await signer.signTransaction({
-              networkInfo,
-              password: encodedPassword,
-              credentials: { hd: hdCredential },
-              account: accountForSign,
-              unsignedTx: { encodedTx: approveBuilt.encodedTx },
-            });
-
-            const approveResult = await apiClient.post<ISendTransactionResult>(
-              'wallet',
-              '/wallet/v1/account/send-transaction',
-              {
-                networkId: chainConfig.networkId,
-                accountAddress: fromAddress,
-                tx: approveSignedTx.rawTx,
-              },
-            );
-
-            if (
-              !approveResult?.result ||
-              !TX_HASH_PATTERN.test(approveResult.result)
-            ) {
-              throw new AppError(
-                ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
-                `Approve broadcast returned invalid txid: "${approveResult?.result ?? ''}"`,
-                'Check the transaction on chain explorer manually',
+              // Phase 2: Actual approve
+              // approveCheckAmount is human-readable (e.g. "0.2"), but the ERC-20
+              // approve calldata needs smallest unit. Convert using token decimals.
+              const approveAmountSmallest = amountToSmallestUnit(
+                approveCheckAmount,
+                order.fromToken.decimals,
               );
+              const approveAmount = options.approveUnlimited
+                ? 'unlimited'
+                : approveAmountSmallest;
+              output.info(
+                `Approving ${options.approveUnlimited ? 'unlimited' : order.amount} ${order.fromToken.symbol} for spender ${approveSpender}...`,
+              );
+              const approveEncodedTx = buildApproveEncodedTx(
+                fromAddress,
+                order.fromToken.contractAddress,
+                approveSpender,
+                approveAmount,
+              );
+              const approveBuilt = await buildSignableTx(
+                chainConfig.networkId,
+                fromAddress,
+                approveEncodedTx,
+                chainConfig.feeDecimals,
+                lastApproveNonce !== undefined
+                  ? lastApproveNonce + 1
+                  : undefined,
+              );
+              const approveSigned = await signer.signTransaction({
+                networkInfo,
+                password: encodedPassword,
+                credentials: { hd: hdCredential },
+                account: accountForSign,
+                unsignedTx: { encodedTx: approveBuilt.encodedTx },
+              });
+              const approveResult =
+                await apiClient.post<ISendTransactionResult>(
+                  'wallet',
+                  '/wallet/v1/account/send-transaction',
+                  {
+                    networkId: chainConfig.networkId,
+                    accountAddress: fromAddress,
+                    tx: approveSigned.rawTx,
+                  },
+                );
+              if (
+                !approveResult?.result ||
+                !TX_HASH_PATTERN.test(approveResult.result)
+              ) {
+                throw new AppError(
+                  ERROR_CODES.BIZ_TRANSACTION_FAILED.code,
+                  `Approve broadcast returned invalid txid: "${approveResult?.result ?? ''}"`,
+                  'Check the transaction on chain explorer manually',
+                );
+              }
+              approveTxHash = approveResult.result;
+              output.info(
+                `Approve tx: ${approveTxHash}. Waiting for confirmation...`,
+              );
+              // MUST wait for approve to confirm before swap estimate-fee
+              // Use human-readable amount — the /swap/v1/allowance API expects it
+              await waitForApproveConfirmation(
+                chainConfig.networkId,
+                order.fromToken.contractAddress,
+                approveSpender,
+                fromAddress,
+                allowanceCheckAmountHuman,
+              );
+              output.info('Approve confirmed on-chain.');
+              approveNonce = approveBuilt.nonce;
+            } catch (approveError) {
+              // Partial approve failure: reset succeeded but actual approve failed
+              if (resetTxHash && !approveTxHash) {
+                const appErr = AppError.from(approveError);
+                try {
+                  updatePendingStatus(options.order, 'approve_only', {
+                    txHash: resetTxHash,
+                  });
+                } catch {
+                  // non-fatal
+                }
+                output.error({
+                  code: appErr.code,
+                  message: `Reset approve succeeded (tx: ${resetTxHash}) but actual approve failed: ${appErr.message}. Token allowance is now 0.`,
+                  suggestion:
+                    'Run "onekey swap build" then "onekey swap execute" to retry',
+                });
+                process.exitCode = appErr.exitCode;
+                return;
+              }
+              throw approveError;
             }
-
-            approveTxHash = approveResult.result;
-            output.info(
-              `Approve tx broadcast: ${approveTxHash}. Waiting for confirmation...`,
-            );
-
-            // Wait for approve to be confirmed on-chain before swap gas estimation
-            await waitForApproveConfirmation(
-              chainConfig.networkId,
-              order.fromToken.contractAddress,
-              approveSpender,
-              fromAddress,
-              approveCheckAmount,
-            );
-            output.info('Approve confirmed on-chain.');
           }
 
           // Sign and broadcast swap tx
@@ -620,6 +818,22 @@ export function registerSwapExecuteCommand(parent: Command): void {
               chainConfig.feeDecimals,
               swapNonceOverride,
             );
+
+            // gasLimit override from quote/build-tx response
+            const txDataResult = txData.result as
+              | { gasLimit?: number }
+              | undefined;
+            const quoteGasLimit = txDataResult?.gasLimit;
+            if (quoteGasLimit && quoteGasLimit > 0) {
+              const swapEncodedTxRecord = swapBuilt.encodedTx;
+              const currentGasLimit = parseInt(
+                String(swapEncodedTxRecord.gasLimit ?? '0'),
+                10,
+              );
+              if (quoteGasLimit > currentGasLimit) {
+                swapEncodedTxRecord.gasLimit = quoteGasLimit.toString();
+              }
+            }
 
             const swapSignedTx = await signer.signTransaction({
               networkInfo,

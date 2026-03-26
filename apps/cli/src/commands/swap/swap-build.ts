@@ -23,7 +23,12 @@ interface IBuildTxResultInfo {
 
 interface IBuildTxResult {
   info: IBuildTxResultInfo;
-  allowanceResult?: unknown;
+  allowanceResult?: {
+    allowanceTarget: string;
+    amount: string;
+    shouldResetApprove?: boolean;
+  };
+  gasLimit?: number;
   fromTokenInfo?: { networkId?: string; contractAddress?: string };
   toTokenInfo?: { networkId?: string; contractAddress?: string };
   [key: string]: unknown;
@@ -153,13 +158,16 @@ export function registerSwapBuildCommand(parent: Command): void {
           // Validate amount decimal places against token decimals
           validateAmountDecimals(options.amount, fromResolved.decimals);
 
-          const fromTokenAmount = amountToSmallestUnit(
+          const fromTokenAmountSmallest = amountToSmallestUnit(
             options.amount,
             fromResolved.decimals,
           );
+          // The swap API expects human-readable amounts (e.g. "0.2"),
+          // NOT smallest unit (e.g. "200000"). Use the raw user input.
+          const fromTokenAmount = options.amount;
 
           // Reject zero-value amounts
-          if (fromTokenAmount === '0') {
+          if (fromTokenAmountSmallest === '0') {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_AMOUNT.code,
               'Amount must be greater than zero',
@@ -248,6 +256,7 @@ export function registerSwapBuildCommand(parent: Command): void {
               slippagePercentage: slippage,
               protocol: 'Swap',
               kind: 'sell',
+              quoteResultCtx: matchedQuote.quoteResultCtx,
             },
           );
 
@@ -353,11 +362,11 @@ export function registerSwapBuildCommand(parent: Command): void {
             amount: options.amount,
             txData: buildTxResponse as Record<string, unknown>,
             provider: matchedQuote.info.provider,
+            allowanceResult:
+              matchedQuote.allowanceResult ??
+              buildTxResponse.result?.allowanceResult ??
+              null,
           });
-
-          // Determine if allowance approval is required
-          const allowanceRequired =
-            buildTxResponse.result.allowanceResult ?? null;
 
           output.success(
             {
@@ -376,11 +385,14 @@ export function registerSwapBuildCommand(parent: Command): void {
                 decimals: toResolved.decimals,
               },
               amount: options.amount,
-              amountSmallestUnit: fromTokenAmount,
+              amountSmallestUnit: fromTokenAmountSmallest,
               slippage,
               walletAddress,
               hasTxData: buildTxResponse.tx !== undefined,
-              allowanceRequired: allowanceRequired ?? null,
+              allowanceResult:
+                matchedQuote.allowanceResult ??
+                buildTxResponse.result?.allowanceResult ??
+                null,
             },
             { chain: options.chain },
           );

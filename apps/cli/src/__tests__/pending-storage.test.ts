@@ -275,6 +275,27 @@ describe('orderId validation — path traversal prevention', () => {
   });
 });
 
+describe('allowanceResult field', () => {
+  it('loads orders without allowanceResult (backward compat)', () => {
+    const order = makeOrder();
+    savePending(order.orderId, order);
+    const loaded = loadPending(order.orderId);
+    expect(loaded.allowanceResult).toBeUndefined();
+  });
+
+  it('round-trips orders with allowanceResult', () => {
+    const allowanceResult = {
+      allowanceTarget: '0xspender',
+      amount: '1000000',
+      shouldResetApprove: true,
+    };
+    const order = makeOrder({ allowanceResult });
+    savePending(order.orderId, order);
+    const loaded = loadPending(order.orderId);
+    expect(loaded.allowanceResult).toEqual(allowanceResult);
+  });
+});
+
 describe('corrupted file handling', () => {
   it('loadPending throws BIZ_SWAP_FAILED for corrupted JSON', () => {
     writeFileSync(join(tempDir, 'corrupt.json'), 'not-json', 'utf-8');

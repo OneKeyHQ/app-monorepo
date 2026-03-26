@@ -38,6 +38,48 @@ function isTruthy(value: boolean | number | string): boolean {
   return s === 'yes' || s === 'true' || s === '1';
 }
 
+export function classifySecurityData(data: ISecurityAuditResult): {
+  isHighRisk: boolean;
+  riskItems: string[];
+  cautionItems: string[];
+} {
+  const riskItems: string[] = [];
+  const cautionItems: string[] = [];
+  for (const [key, raw] of Object.entries(data)) {
+    if (!isValidSecurityItem(raw)) {
+      throw new AppError(
+        ERROR_CODES.NET_HTTP_ERROR.code,
+        `Malformed security item for key "${key}": missing value/content/riskType`,
+        'This may indicate an API contract change',
+      );
+    }
+    if (raw.riskType === 'risk') riskItems.push(key);
+    if (raw.riskType === 'caution') cautionItems.push(key);
+    if (HONEYPOT_KEYS.has(key) && isTruthy(raw.value)) riskItems.push(key);
+  }
+
+  // TODO: Remove once backend downgrades owner_change_balance for GoPlus-trusted tokens.
+  // See useTokenSecurity.ts:40 — App removed client-side trusted_token handling,
+  // deferring to backend. This is a temporary CLI workaround because the CLI has
+  // no interactive "accept risk" modal — --force is bad UX for USDT/USDC.
+  const trustListEntry = data.trust_list;
+  if (trustListEntry && String(trustListEntry.value) === 'Yes') {
+    const idx = riskItems.indexOf('owner_change_balance');
+    if (idx !== -1) {
+      riskItems.splice(idx, 1);
+      if (!cautionItems.includes('owner_change_balance')) {
+        cautionItems.push('owner_change_balance');
+      }
+    }
+  }
+
+  return {
+    isHighRisk: new Set(riskItems).size > 0,
+    riskItems: [...new Set(riskItems)],
+    cautionItems: [...new Set(cautionItems)],
+  };
+}
+
 export async function auditToken(
   chainId: string,
   contractAddress: string,
@@ -71,25 +113,6 @@ export async function auditToken(
     );
   }
 
-  const riskItems: string[] = [];
-  const cautionItems: string[] = [];
-  for (const [key, raw] of Object.entries(data)) {
-    if (!isValidSecurityItem(raw)) {
-      throw new AppError(
-        ERROR_CODES.NET_HTTP_ERROR.code,
-        `Malformed security item for key "${key}": missing value/content/riskType`,
-        'This may indicate an API contract change',
-      );
-    }
-    if (raw.riskType === 'risk') riskItems.push(key);
-    if (raw.riskType === 'caution') cautionItems.push(key);
-    if (HONEYPOT_KEYS.has(key) && isTruthy(raw.value)) riskItems.push(key);
-  }
-
-  return {
-    data,
-    isHighRisk: riskItems.length > 0,
-    riskItems: [...new Set(riskItems)],
-    cautionItems: [...new Set(cautionItems)],
-  };
+  const { isHighRisk, riskItems, cautionItems } = classifySecurityData(data);
+  return { data, isHighRisk, riskItems, cautionItems };
 }

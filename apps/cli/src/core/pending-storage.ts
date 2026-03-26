@@ -26,6 +26,11 @@ export interface IPendingOrder {
   txData: Record<string, unknown>; // raw build-tx response
   txHash?: string;
   provider?: string;
+  allowanceResult?: {
+    allowanceTarget: string;
+    amount: string;
+    shouldResetApprove?: boolean;
+  } | null;
 }
 
 const VALID_STATUSES = new Set([

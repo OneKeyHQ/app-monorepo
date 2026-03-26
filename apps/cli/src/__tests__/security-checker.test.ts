@@ -1,4 +1,4 @@
-import { auditToken } from '../core/security-checker';
+import { auditToken, classifySecurityData } from '../core/security-checker';
 import { apiClient } from '../infra';
 
 jest.mock('../infra', () => ({
@@ -157,5 +157,64 @@ describe('auditToken', () => {
 
     expect(result.isHighRisk).toBe(false);
     expect(result.data).toHaveProperty('buy_tax');
+  });
+});
+
+describe('trust_list downgrade', () => {
+  it('downgrades owner_change_balance from risk to caution when trust_list is Yes', () => {
+    const result = classifySecurityData({
+      owner_change_balance: {
+        value: 'Yes',
+        content: 'Owner can change balance',
+        riskType: 'risk',
+      },
+      trust_list: {
+        value: 'Yes',
+        content: 'Trust by GoPlus',
+        riskType: 'normal',
+      },
+      is_honeypot: {
+        value: 'No',
+        content: 'Is honeypot',
+        riskType: 'safe',
+      },
+    });
+    expect(result.riskItems).not.toContain('owner_change_balance');
+    expect(result.cautionItems).toContain('owner_change_balance');
+    expect(result.isHighRisk).toBe(false);
+  });
+
+  it('keeps owner_change_balance as risk when trust_list is not Yes', () => {
+    const result = classifySecurityData({
+      owner_change_balance: {
+        value: 'Yes',
+        content: 'Owner can change balance',
+        riskType: 'risk',
+      },
+      trust_list: {
+        value: 'No',
+        content: 'Trust by GoPlus',
+        riskType: 'normal',
+      },
+    });
+    expect(result.riskItems).toContain('owner_change_balance');
+    expect(result.isHighRisk).toBe(true);
+  });
+
+  it('does not downgrade is_honeypot even when trust_list is Yes', () => {
+    const result = classifySecurityData({
+      is_honeypot: {
+        value: 'Yes',
+        content: 'Is honeypot',
+        riskType: 'risk',
+      },
+      trust_list: {
+        value: 'Yes',
+        content: 'Trust by GoPlus',
+        riskType: 'normal',
+      },
+    });
+    expect(result.riskItems).toContain('is_honeypot');
+    expect(result.isHighRisk).toBe(true);
   });
 });

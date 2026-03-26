@@ -84,6 +84,8 @@ export function registerSwapStatusCommand(parent: Command): void {
           let toTokenAddress: string | undefined;
           let orderId: string | undefined;
           let orderStatus: string | undefined;
+          let receivedAddress: string | undefined;
+          let buildTxCtx: unknown;
 
           if (options.order) {
             // Load order without expiry check — status queries should work for old orders
@@ -101,8 +103,19 @@ export function registerSwapStatusCommand(parent: Command): void {
             txHash = order.txHash;
             provider = order.provider;
             toTokenAddress = order.toToken.contractAddress;
-            orderId = order.orderId;
             orderStatus = order.status;
+
+            // Use the build-tx API's orderId (provider-specific), NOT our local UUID.
+            // The state-tx API needs the provider's orderId to look up swap status.
+            const txDataObj = order.txData;
+            orderId = (txDataObj.orderId as string) ?? undefined;
+            buildTxCtx = txDataObj.ctx ?? undefined;
+
+            // receivedAddress: align with App's fetchTxState
+            receivedAddress =
+              (txDataObj.receivingAddress as string) ??
+              (txDataObj.userAddress as string) ??
+              undefined;
 
             if (!txHash) {
               throw new AppError(
@@ -122,10 +135,12 @@ export function registerSwapStatusCommand(parent: Command): void {
             {
               txId: txHash,
               networkId: chainConfig.networkId,
-              protocol: 'swap',
+              protocol: 'Swap',
               ...(provider ? { provider } : {}),
               ...(toTokenAddress ? { toTokenAddress } : {}),
               ...(orderId ? { orderId } : {}),
+              ...(receivedAddress ? { receivedAddress } : {}),
+              ...(buildTxCtx !== undefined ? { ctx: buildTxCtx } : {}),
             },
           );
 

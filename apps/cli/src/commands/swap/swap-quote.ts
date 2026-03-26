@@ -37,6 +37,12 @@ export interface IQuoteResultItem {
   errorMessage?: string;
   fromTokenInfo?: IQuoteTokenInfo;
   toTokenInfo?: IQuoteTokenInfo;
+  allowanceResult?: {
+    allowanceTarget: string;
+    amount: string;
+    shouldResetApprove?: boolean;
+  };
+  quoteResultCtx?: unknown;
 }
 
 /** SSE event data types — aligned with ISwapQuoteEventData */
@@ -92,6 +98,7 @@ function formatQuoteItem(q: IQuoteResultItem) {
     isBest: q.isBest ?? false,
     fee: q.fee ?? null,
     ...(q.errorMessage ? { errorMessage: q.errorMessage } : {}),
+    ...(q.allowanceResult ? { allowanceResult: q.allowanceResult } : {}),
   };
 }
 
@@ -348,13 +355,16 @@ export function registerSwapQuoteCommand(parent: Command): void {
           // Validate amount decimal places against token decimals
           validateAmountDecimals(options.amount, fromResolved.decimals);
 
-          const fromTokenAmount = amountToSmallestUnit(
+          const fromTokenAmountSmallest = amountToSmallestUnit(
             options.amount,
             fromResolved.decimals,
           );
+          // The swap API expects human-readable amounts (e.g. "0.2"),
+          // NOT smallest unit (e.g. "200000"). Use the raw user input.
+          const fromTokenAmount = options.amount;
 
           // Reject zero-value amounts (covers "0", "0.0", "00", "000.000")
-          if (fromTokenAmount === '0') {
+          if (fromTokenAmountSmallest === '0') {
             throw new AppError(
               ERROR_CODES.PARAM_INVALID_AMOUNT.code,
               'Amount must be greater than zero',
@@ -517,7 +527,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
                   decimals: toResolved.decimals,
                 },
                 amount: options.amount,
-                amountSmallestUnit: fromTokenAmount,
+                amountSmallestUnit: fromTokenAmountSmallest,
                 slippage,
                 networkId: chainConfig.networkId,
                 walletAddress: walletAddress ?? null,
