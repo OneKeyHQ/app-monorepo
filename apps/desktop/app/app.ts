@@ -427,8 +427,8 @@ function handleDeepLinkUrl(
   // Validate deep link scheme before forwarding to renderer
   if (url) {
     const allowedSchemes = [
-      ONEKEY_APP_DEEP_LINK_NAME,
-      WALLET_CONNECT_DEEP_LINK_NAME,
+      `${ONEKEY_APP_DEEP_LINK_NAME}:`,
+      `${WALLET_CONNECT_DEEP_LINK_NAME}:`,
       'ethereum:',
     ];
     const isAllowed = allowedSchemes.some((scheme) => url.startsWith(scheme));
