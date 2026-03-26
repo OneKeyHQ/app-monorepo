@@ -85,6 +85,7 @@ jobs:
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
           env_file_name: '.env'
           sentry_project: 'web'
           covalent_key: ${{ secrets.COVALENT_KEY }}
@@ -161,6 +162,8 @@ jobs:
             echo "$COMMIT_MESSAGE"
             echo "${DELIMITER}"
           } >> "$GITHUB_ENV"
+          # Override GITHUB_SHA in .env with resolved commit (shared-env writes github.sha which is wrong for workflow_call)
+          sed -i "s/^GITHUB_SHA=.*/GITHUB_SHA=$COMMIT/" .env
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -217,6 +220,7 @@ jobs:
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
           env_file_name: '.env'
           sentry_project: 'web'
           covalent_key: ${{ secrets.COVALENT_KEY }}
@@ -293,6 +297,8 @@ jobs:
             echo "$COMMIT_MESSAGE"
             echo "${DELIMITER}"
           } >> "$GITHUB_ENV"
+          # Override GITHUB_SHA in .env with resolved commit (shared-env writes github.sha which is wrong for workflow_call)
+          sed -i "s/^GITHUB_SHA=.*/GITHUB_SHA=$COMMIT/" .env
           # Override PUBLIC_URL with resolved commit (replaces github.sha set by Setup ENV)
           echo "PUBLIC_URL=https://app-assets.onekey.so/${COMMIT}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
 
@@ -334,6 +340,7 @@ jobs:
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
           env_file_name: '.env'
           sentry_project: 'web'
           covalent_key: ${{ secrets.COVALENT_KEY }}
