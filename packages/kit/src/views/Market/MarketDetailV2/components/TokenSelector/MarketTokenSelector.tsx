@@ -1,11 +1,4 @@
-import {
-  memo,
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -273,17 +266,44 @@ function DesktopSpotList({
 function DesktopFuturesList({
   searchQuery,
   onClosePopover,
-  perpsCategories,
-  selectedCategoryId,
-  onSelectCategory,
+  categoryRef,
 }: {
   searchQuery: string;
   onClosePopover: () => void;
-  perpsCategories: { tabId: string; name: string }[];
-  selectedCategoryId: string;
-  onSelectCategory: (id: string) => void;
+  categoryRef: React.MutableRefObject<string>;
 }) {
   const { navigateToPerps } = usePerpsNavigation();
+  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
+
+  const perpsCategories = useMemo(
+    () =>
+      rawPerpsCategories.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+      })),
+    [rawPerpsCategories],
+  );
+
+  // Use ref to persist across unmount/remount, local state for rendering
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    () => categoryRef.current || perpsCategories[0]?.tabId || '',
+  );
+
+  // Sync ref on change
+  const handleSelectCategory = useCallback(
+    (id: string) => {
+      categoryRef.current = id;
+      setSelectedCategoryId(id);
+    },
+    [categoryRef],
+  );
+
+  // Set initial value once data loads
+  useEffect(() => {
+    if (!selectedCategoryId && perpsCategories[0]?.tabId) {
+      handleSelectCategory(perpsCategories[0].tabId);
+    }
+  }, [selectedCategoryId, perpsCategories, handleSelectCategory]);
 
   const { tokens, isLoading } = useMarketPerpsTokenList({
     selectedCategoryId,
@@ -335,7 +355,7 @@ function DesktopFuturesList({
       <MarketPerpsCategorySelector
         categories={perpsCategories}
         selectedCategoryId={selectedCategoryId}
-        onSelectCategory={onSelectCategory}
+        onSelectCategory={handleSelectCategory}
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
       <YStack height={LIST_HEIGHT}>
@@ -371,40 +391,17 @@ function BaseMarketTokenSelectorContent() {
     setSearchQueryRaw(query.trim().slice(0, 64));
   }, []);
 
-  // --- Spot: network selection (lifted from child to survive tab switches) ---
+  // --- Spot: network selection (lifted to survive tab switches) ---
   const [spotNetworkId, setSpotNetworkId] = useState(
     () => getNetworkIdsMap().onekeyall,
   );
 
-  // --- Futures: category selection (lifted from child) ---
-  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
-  const perpsCategories = useMemo(
-    () =>
-      rawPerpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [rawPerpsCategories],
-  );
-  const [perpsCategoryId, setPerpsCategoryId] = useState(
-    () => perpsCategories[0]?.tabId ?? '',
-  );
-  // Only set initial category if never set (lazy init handles first render)
-  useEffect(() => {
-    if (!perpsCategoryId && perpsCategories[0]?.tabId) {
-      setPerpsCategoryId(perpsCategories[0].tabId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // --- Futures: category persisted across tab switches via ref ---
+  const perpsCategoryRef = useRef('');
 
   const setActiveTab = useCallback(
     (tab: string) => {
-      startTransition(() => {
-        setSelectorConfig((prev) => ({
-          ...prev,
-          activeTab: tab as IMarketTokenSelectorTab,
-        }));
-      });
+      setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
     },
     [setSelectorConfig],
   );
@@ -521,9 +518,7 @@ function BaseMarketTokenSelectorContent() {
           <DesktopFuturesList
             searchQuery={searchQuery}
             onClosePopover={() => closePopover?.()}
-            perpsCategories={perpsCategories}
-            selectedCategoryId={perpsCategoryId}
-            onSelectCategory={setPerpsCategoryId}
+            categoryRef={perpsCategoryRef}
           />
         ) : null}
       </YStack>

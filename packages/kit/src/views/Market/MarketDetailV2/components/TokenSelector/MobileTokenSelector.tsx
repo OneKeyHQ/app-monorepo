@@ -1,11 +1,4 @@
-import {
-  memo,
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -265,17 +258,41 @@ function SpotList({
 function FuturesList({
   searchQuery,
   onCloseModal,
-  perpsCategories,
-  selectedCategoryId,
-  onSelectCategory,
+  categoryRef,
 }: {
   searchQuery: string;
   onCloseModal: () => void;
-  perpsCategories: { tabId: string; name: string }[];
-  selectedCategoryId: string;
-  onSelectCategory: (id: string) => void;
+  categoryRef: React.MutableRefObject<string>;
 }) {
   const { navigateToPerps } = usePerpsNavigation();
+  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
+
+  const perpsCategories = useMemo(
+    () =>
+      rawPerpsCategories.map((c) => ({
+        tabId: c.categoryId,
+        name: c.name,
+      })),
+    [rawPerpsCategories],
+  );
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    () => categoryRef.current || perpsCategories[0]?.tabId || '',
+  );
+
+  const handleSelectCategory = useCallback(
+    (id: string) => {
+      categoryRef.current = id;
+      setSelectedCategoryId(id);
+    },
+    [categoryRef],
+  );
+
+  useEffect(() => {
+    if (!selectedCategoryId && perpsCategories[0]?.tabId) {
+      handleSelectCategory(perpsCategories[0].tabId);
+    }
+  }, [selectedCategoryId, perpsCategories, handleSelectCategory]);
 
   const { tokens, isLoading } = useMarketPerpsTokenList({
     selectedCategoryId,
@@ -327,7 +344,7 @@ function FuturesList({
       <MarketPerpsCategorySelector
         categories={perpsCategories}
         selectedCategoryId={selectedCategoryId}
-        onSelectCategory={onSelectCategory}
+        onSelectCategory={handleSelectCategory}
         containerStyle={{ px: '$5', pt: '$3', pb: '$2' }}
       />
       <ListView
@@ -361,39 +378,17 @@ function MobileTokenSelectorContent() {
     setSearchQueryRaw(query.trim().slice(0, 64));
   }, []);
 
-  // --- Spot: network selection (lifted) ---
+  // --- Spot: network selection (lifted to survive tab switches) ---
   const [spotNetworkId, setSpotNetworkId] = useState(
     () => getNetworkIdsMap().onekeyall,
   );
 
-  // --- Futures: category selection (lifted) ---
-  const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
-  const perpsCategories = useMemo(
-    () =>
-      rawPerpsCategories.map((c) => ({
-        tabId: c.categoryId,
-        name: c.name,
-      })),
-    [rawPerpsCategories],
-  );
-  const [perpsCategoryId, setPerpsCategoryId] = useState(
-    () => perpsCategories[0]?.tabId ?? '',
-  );
-  useEffect(() => {
-    if (!perpsCategoryId && perpsCategories[0]?.tabId) {
-      setPerpsCategoryId(perpsCategories[0].tabId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // --- Futures: category persisted across tab switches via ref ---
+  const perpsCategoryRef = useRef('');
 
   const setActiveTab = useCallback(
     (tab: string) => {
-      startTransition(() => {
-        setSelectorConfig((prev) => ({
-          ...prev,
-          activeTab: tab as IMarketTokenSelectorTab,
-        }));
-      });
+      setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
     },
     [setSelectorConfig],
   );
@@ -515,9 +510,7 @@ function MobileTokenSelectorContent() {
               <FuturesList
                 searchQuery={searchQuery}
                 onCloseModal={() => navigation.popStack()}
-                perpsCategories={perpsCategories}
-                selectedCategoryId={perpsCategoryId}
-                onSelectCategory={setPerpsCategoryId}
+                categoryRef={perpsCategoryRef}
               />
             ) : null}
           </YStack>
