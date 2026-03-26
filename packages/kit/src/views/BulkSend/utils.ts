@@ -1,16 +1,23 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
-import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  ITransferInfo,
+  IVaultSettings,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EAmountInputMode,
+  EIntervalMode,
   type IAmountInputError,
   type IAmountInputValues,
+  type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
+
+export const BULK_SEND_INTERVAL_MAX_SECONDS = 600;
 
 // Filter input to only allow numbers and decimal point
 export function filterNumericInput(text: string): string {
@@ -37,6 +44,10 @@ export function calculateIsAmountValid({
 }): boolean {
   switch (amountInputMode) {
     case EAmountInputMode.Specified: {
+      // Max mode is always valid (send full balance per sender)
+      if (amountInputValues.isMaxMode) {
+        return true;
+      }
       const specifiedAmountBN = new BigNumber(
         amountInputValues.specifiedAmount || '0',
       );
@@ -83,6 +94,118 @@ export function calculateTotalAmounts({
     totalTokenAmount: total.isZero() ? '0' : total.toFixed(),
     totalFiatAmount: fiat,
   };
+}
+
+export function getBulkSendMinTransferAmount({
+  vaultSettings,
+  isNative,
+}: {
+  vaultSettings?: Pick<
+    IVaultSettings,
+    'minTransferAmount' | 'nativeMinTransferAmount'
+  > | null;
+  isNative?: boolean;
+}): string {
+  if (!vaultSettings) {
+    return '0';
+  }
+
+  return isNative
+    ? (vaultSettings.nativeMinTransferAmount ??
+        vaultSettings.minTransferAmount ??
+        '0')
+    : (vaultSettings.minTransferAmount ?? '0');
+}
+
+function getTokenMinAmount(tokenDecimals?: number): string {
+  if (tokenDecimals === undefined || tokenDecimals === null) {
+    return '0';
+  }
+
+  return new BigNumber(1).shiftedBy(-tokenDecimals).toFixed();
+}
+
+export function getBulkSendMinTransferDisplayAmount({
+  minTransferAmount,
+  tokenDecimals,
+}: {
+  minTransferAmount?: string;
+  tokenDecimals?: number;
+}): string {
+  return BigNumber.max(
+    getTokenMinAmount(tokenDecimals),
+    minTransferAmount ?? '0',
+  ).toFixed();
+}
+
+export function formatIntervalSecondsRange({
+  minSeconds,
+  maxSeconds,
+}: {
+  minSeconds?: string;
+  maxSeconds?: string;
+}) {
+  const min = minSeconds || '0';
+  const max = maxSeconds || '0';
+
+  return appLocale.intl.formatMessage(
+    {
+      id: ETranslations.earn_number_seconds,
+    },
+    {
+      number: `${min} - ${max}`,
+    },
+  );
+}
+
+export function validateIntervalSettings({
+  mode,
+  minSeconds,
+  maxSeconds,
+}: IIntervalSettings): string | undefined {
+  if (mode !== EIntervalMode.Specified) {
+    return undefined;
+  }
+
+  const minBN = new BigNumber(minSeconds || '0');
+  const maxBN = new BigNumber(maxSeconds || '0');
+
+  if (
+    (minSeconds !== '' &&
+      (minBN.isNaN() || minBN.isGreaterThan(BULK_SEND_INTERVAL_MAX_SECONDS))) ||
+    (maxSeconds !== '' &&
+      (maxBN.isNaN() || maxBN.isGreaterThan(BULK_SEND_INTERVAL_MAX_SECONDS)))
+  ) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_proper_range,
+    });
+  }
+
+  if (minSeconds === '') {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_min_required,
+    });
+  }
+
+  if (maxSeconds === '') {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_max_required,
+    });
+  }
+
+  if (maxBN.isLessThanOrEqualTo(0)) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_max_zero,
+    });
+  }
+
+  if (minBN.isGreaterThanOrEqualTo(maxBN)) {
+    return appLocale.intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_error_max_less_than_min,
+    });
+  }
+
+  return undefined;
 }
 
 /**
@@ -342,22 +465,36 @@ export function validateRangeInput({
   balance,
   minTransferAmount,
   tokenSymbol,
+  tokenDecimals,
 }: {
   rangeMin: string;
   rangeMax: string;
-  balance: string;
+  balance?: string;
   minTransferAmount?: string;
   tokenSymbol?: string;
+  tokenDecimals?: number;
 }): string | undefined {
   const minBN = new BigNumber(rangeMin || '0');
   const maxBN = new BigNumber(rangeMax || '0');
-  const balanceBN = new BigNumber(balance);
 
-  // When balance is zero, no valid non-zero range can be generated
-  if (balanceBN.isZero()) {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.swap_page_button_insufficient_balance,
-    });
+  // Balance checks only when balance is provided
+  if (balance !== undefined) {
+    const balanceBN = new BigNumber(balance);
+
+    // When balance is zero, no valid non-zero range can be generated
+    if (balanceBN.isZero()) {
+      return appLocale.intl.formatMessage({
+        id: ETranslations.swap_page_button_insufficient_balance,
+      });
+    }
+
+    // Only check if min exceeds balance (min must be achievable)
+    // max > balance is allowed - generation logic will use balance/count as effective max
+    if (minBN.isGreaterThan(balanceBN)) {
+      return appLocale.intl.formatMessage({
+        id: ETranslations.swap_page_button_insufficient_balance,
+      });
+    }
   }
 
   // Check if range min is below chain minimum transfer amount
@@ -369,19 +506,15 @@ export function validateRangeInput({
       !minBN.isNaN() &&
       minBN.isLessThan(minTransferBN)
     ) {
+      const minTransferDisplayAmount = getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals,
+      });
       return appLocale.intl.formatMessage(
         { id: ETranslations.send_error_minimum_amount },
-        { amount: minTransferAmount, token: tokenSymbol ?? '' },
+        { amount: minTransferDisplayAmount, token: tokenSymbol ?? '' },
       );
     }
-  }
-
-  // Only check if min exceeds balance (min must be achievable)
-  // max > balance is allowed - generation logic will use balance/count as effective max
-  if (minBN.isGreaterThan(balanceBN)) {
-    return appLocale.intl.formatMessage({
-      id: ETranslations.swap_page_button_insufficient_balance,
-    });
   }
 
   // Check if min >= max (invalid range)

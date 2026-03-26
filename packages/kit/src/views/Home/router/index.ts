@@ -35,6 +35,10 @@ const BulkSendAmountsInput = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendAmountsInput'),
 );
 
+const BulkSendProcess = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/BulkSend/pages/BulkSendProcess'),
+);
+
 const ApprovalListPage = LazyLoadPage(
   () => import('../pages/ApprovalListPage'),
 );
@@ -107,6 +111,11 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabHomeRoutes.TabHomeBulkSendAmountsInput,
     component: BulkSendAmountsInput,
     rewrite: '/bulk-send-amounts',
+  },
+  {
+    name: ETabHomeRoutes.TabHomeBulkSendProcess,
+    component: BulkSendProcess,
+    rewrite: '/bulk-send-process',
   },
   {
     name: ETabHomeRoutes.TabHomeApprovalList,

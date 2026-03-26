@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
@@ -8,6 +8,7 @@ import {
   Dialog,
   Form,
   Page,
+  Toast,
   YStack,
   useForm,
   useMedia,
@@ -44,6 +45,7 @@ import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
+import { useBulkSendModeDialog } from '../../hooks/useBulkSendModeDialog';
 
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
@@ -78,12 +80,28 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
     tokenDetailsState,
     bulkSendMode,
+    setBulkSendMode,
     duplicateAddressCount,
     setSelectedDeriveType,
+    resolvedSenderAccountIds,
+    setResolvedSenderAccountIds,
   } = useBulkSendAddressesInputContext();
 
   const media = useMedia();
-  const { headerTitle } = useBulkSendMobileHeader({ bulkSendMode });
+  const showBulkSendModeDialog = useBulkSendModeDialog();
+
+  const handleChangeBulkSendMode = useCallback(() => {
+    showBulkSendModeDialog({
+      onSelect: (mode) => {
+        setBulkSendMode(mode);
+      },
+    });
+  }, [showBulkSendModeDialog, setBulkSendMode]);
+
+  const { headerTitle, headerRight } = useBulkSendMobileHeader({
+    bulkSendMode,
+    onChangeBulkSendMode: handleChangeBulkSendMode,
+  });
 
   const { result: availableWallets } = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
@@ -108,6 +126,7 @@ function BaseBulkSendAddressesInput() {
   });
 
   const navigation = useAppNavigation();
+  const senderAddresses = form.watch('senderAddresses');
 
   const initBulkSendInfo = useCallback(async () => {
     let _selectedAccountId: string | undefined;
@@ -206,11 +225,38 @@ function BaseBulkSendAddressesInput() {
     setSelectedIndexedAccountId,
   ]);
 
-  // Reset token details state when account/network/token changes
+  const isOneToMany = bulkSendMode === EBulkSendMode.OneToMany;
+  const validationDependencyKey = useMemo(
+    () =>
+      [
+        selectedNetworkId ?? '',
+        selectedToken?.networkId ?? '',
+        selectedToken?.address ?? '',
+        selectedToken?.decimals ?? '',
+        selectedToken?.isNative ? '1' : '0',
+      ].join(':'),
+    [
+      selectedNetworkId,
+      selectedToken?.networkId,
+      selectedToken?.address,
+      selectedToken?.decimals,
+      selectedToken?.isNative,
+    ],
+  );
+  const previousValidationDependencyKeyRef = useRef<string | undefined>(
+    undefined,
+  );
+
+  // Reset token details state when account/network/token changes (OneToMany only)
   /* eslint-disable react-hooks/exhaustive-deps */
   /* oxlint-disable react/exhaustive-deps */
   useEffect(() => {
-    if (selectedAccountId && selectedNetworkId && selectedToken) {
+    if (
+      isOneToMany &&
+      selectedAccountId &&
+      selectedNetworkId &&
+      selectedToken
+    ) {
       setTokenDetailsState({
         initialized: false,
         isRefreshing: true,
@@ -218,6 +264,7 @@ function BaseBulkSendAddressesInput() {
       void form.trigger();
     }
   }, [
+    isOneToMany,
     selectedAccountId,
     selectedNetworkId,
     selectedToken,
@@ -226,8 +273,10 @@ function BaseBulkSendAddressesInput() {
   /* eslint-enable react-hooks/exhaustive-deps */
   /* oxlint-enable react/exhaustive-deps */
 
+  // Balance polling — only needed for OneToMany mode
   usePromiseResult(
     async () => {
+      if (!isOneToMany) return;
       if (
         selectedAccountId &&
         selectedNetworkId &&
@@ -278,6 +327,7 @@ function BaseBulkSendAddressesInput() {
       }
     },
     [
+      isOneToMany,
       availableWallets,
       selectedAccountId,
       selectedNetworkId,
@@ -287,7 +337,7 @@ function BaseBulkSendAddressesInput() {
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      pollingInterval: isOneToMany ? POLLING_INTERVAL_FOR_TOKEN : undefined,
     },
   );
 
@@ -320,44 +370,113 @@ function BaseBulkSendAddressesInput() {
   }, [selectedNetworkId, setSelectedDeriveType]);
 
   useEffect(() => {
-    if (selectedAccountId && selectedNetworkId) {
+    if (isOneToMany && selectedAccountId && selectedNetworkId) {
       void fetchSelectedAccountAddress();
     }
-  }, [fetchSelectedAccountAddress, selectedAccountId, selectedNetworkId]);
+  }, [
+    isOneToMany,
+    fetchSelectedAccountAddress,
+    selectedAccountId,
+    selectedNetworkId,
+  ]);
+
+  useEffect(() => {
+    const previousValidationDependencyKey =
+      previousValidationDependencyKeyRef.current;
+    previousValidationDependencyKeyRef.current = validationDependencyKey;
+
+    if (
+      previousValidationDependencyKey === undefined ||
+      previousValidationDependencyKey === validationDependencyKey
+    ) {
+      return;
+    }
+
+    setResolvedSenderAccountIds({});
+
+    const senderAddressesValue = form.getValues('senderAddresses');
+    const receiverAddressesValue = form.getValues('receiverAddresses');
+
+    if (!isOneToMany && senderAddressesValue.trim()) {
+      void form.trigger('senderAddresses');
+    }
+
+    if (receiverAddressesValue.trim()) {
+      void form.trigger('receiverAddresses');
+    }
+  }, [form, isOneToMany, setResolvedSenderAccountIds, validationDependencyKey]);
+
+  // Reset form when mode changes
+  /* eslint-disable react-hooks/exhaustive-deps */
+  /* oxlint-disable react/exhaustive-deps */
+  useEffect(() => {
+    form.setValue('senderAddresses', '');
+    form.setValue('receiverAddresses', '');
+    form.clearErrors();
+    if (isOneToMany && selectedAccountId && selectedNetworkId) {
+      void fetchSelectedAccountAddress();
+      setTokenDetailsState({ initialized: false, isRefreshing: true });
+    } else {
+      setTokenDetailsState({ initialized: true, isRefreshing: false });
+    }
+  }, [bulkSendMode]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+  /* oxlint-enable react/exhaustive-deps */
 
   const isSubmitDisabled = useMemo(() => {
-    const isTokenLoading =
-      !tokenDetailsState.initialized ||
-      (tokenDetailsState.isRefreshing && !selectedTokenDetail);
-    return (
-      !form.formState.isValid || form.formState.isValidating || isTokenLoading
-    );
+    const baseDisabled = !form.formState.isValid || form.formState.isValidating;
+    if (isOneToMany) {
+      const isTokenLoading =
+        !tokenDetailsState.initialized ||
+        (tokenDetailsState.isRefreshing && !selectedTokenDetail);
+      return baseDisabled || isTokenLoading;
+    }
+    return baseDisabled;
   }, [
     form.formState.isValid,
     form.formState.isValidating,
+    isOneToMany,
     tokenDetailsState.initialized,
     tokenDetailsState.isRefreshing,
     selectedTokenDetail,
   ]);
 
   const navigateToNextStep = useCallback(async () => {
-    if (
-      !selectedNetworkId ||
-      !selectedAccountId ||
-      !selectedToken ||
-      !selectedTokenDetail
-    ) {
+    if (!selectedNetworkId || !selectedToken) {
+      return;
+    }
+
+    // For OneToMany, require selectedAccountId and selectedTokenDetail
+    if (isOneToMany && (!selectedAccountId || !selectedTokenDetail)) {
+      return;
+    }
+
+    // For non-OneToMany, selectedAccountId is not from single-line wallet lookup
+    if (!isOneToMany && !selectedAccountId) {
       return;
     }
 
     const formValues = form.getValues();
+
+    // Parse sender addresses — extract amounts for ManyToOne/ManyToMany
+    let senderLineIndex = 0;
     const senders = formValues.senderAddresses
       .split('\n')
       .filter((line) => line.trim())
       .map((line) => {
-        const [address] = line.trim().split(',');
-        return { address: address.trim(), amount: undefined };
+        const [address, amount] = line.trim().split(',');
+        const currentIndex = senderLineIndex;
+        senderLineIndex += 1;
+        return {
+          address: address.trim(),
+          amount:
+            !isOneToMany && amount !== undefined
+              ? new BigNumber(amount.trim()).toFixed()
+              : undefined,
+          accountId: resolvedSenderAccountIds[currentIndex],
+        };
       });
+
     const receivers = formValues.receiverAddresses
       .split('\n')
       .filter((line) => line.trim())
@@ -371,29 +490,76 @@ function BaseBulkSendAddressesInput() {
         };
       });
 
+    // ManyToMany: defensive count check
+    if (
+      bulkSendMode === EBulkSendMode.ManyToMany &&
+      senders.length !== receivers.length
+    ) {
+      Toast.error({
+        title: `Sender and receiver count must match (senders: ${senders.length}, receivers: ${receivers.length})`,
+      });
+      return;
+    }
+
+    let resolvedTokenDetails = selectedTokenDetail;
+
+    if (
+      !resolvedTokenDetails &&
+      selectedAccountId &&
+      selectedNetworkId &&
+      selectedToken
+    ) {
+      try {
+        const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          accountId: selectedAccountId,
+          networkId: selectedNetworkId,
+          contractList: [selectedToken.address],
+          withFrozenBalance: false,
+          withCheckInscription: false,
+        });
+
+        if (resp[0]) {
+          resolvedTokenDetails = resp[0];
+          setSelectedTokenDetail(resp[0]);
+        }
+      } catch (_) {
+        resolvedTokenDetails = undefined;
+      }
+    }
+
+    // For non-OneToMany, construct minimal tokenDetails if not available
+    const effectiveTokenDetails =
+      resolvedTokenDetails ??
+      ({
+        info: selectedToken,
+        balance: '0',
+        balanceParsed: '0',
+        fiatValue: '0',
+        price: 0,
+        price24h: 0,
+        value: '0',
+        value24h: '0',
+      } as { info: IToken } & ITokenFiat);
+
+    const navParams = {
+      networkId: selectedNetworkId,
+      accountId: selectedAccountId ?? '',
+      senders,
+      receivers,
+      tokenInfo: selectedToken,
+      tokenDetails: effectiveTokenDetails,
+      bulkSendMode,
+    };
+
     if (isInModal) {
       navigation.push(EModalBulkSendRoutes.BulkSendAmountsInput, {
-        networkId: selectedNetworkId,
-        accountId: selectedAccountId,
-        senders,
-        receivers,
-        tokenInfo: selectedToken,
-        tokenDetails: selectedTokenDetail,
-        bulkSendMode,
+        ...navParams,
         isInModal,
       });
     } else {
       navigation.switchTab(ETabRoutes.Home);
       await timerUtils.wait(50);
-      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, {
-        networkId: selectedNetworkId,
-        accountId: selectedAccountId,
-        senders,
-        receivers,
-        tokenInfo: selectedToken,
-        tokenDetails: selectedTokenDetail,
-        bulkSendMode,
-      });
+      navigation.push(ETabHomeRoutes.TabHomeBulkSendAmountsInput, navParams);
     }
   }, [
     form,
@@ -403,7 +569,10 @@ function BaseBulkSendAddressesInput() {
     selectedTokenDetail,
     navigation,
     bulkSendMode,
+    isOneToMany,
     isInModal,
+    setSelectedTokenDetail,
+    resolvedSenderAccountIds,
   ]);
 
   const handleSubmit = useCallback(async () => {
@@ -435,7 +604,9 @@ function BaseBulkSendAddressesInput() {
   if (availableWallets && availableWallets.length === 0) {
     return (
       <Page>
-        {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
+        {media.gtMd ? null : (
+          <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+        )}
         <Page.Body>
           <EmptyNoWalletView />
         </Page.Body>
@@ -445,13 +616,22 @@ function BaseBulkSendAddressesInput() {
 
   return (
     <Page scrollEnabled>
-      {media.gtMd ? null : <Page.Header headerTitle={headerTitle} />}
+      {media.gtMd ? null : (
+        <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+      )}
       <BulkSendBar />
       <Page.Body>
         <BulkSendContentWrapper>
-          <BulkSendHeader bulkSendMode={bulkSendMode} />
+          <BulkSendHeader
+            bulkSendMode={bulkSendMode}
+            onChangeBulkSendMode={handleChangeBulkSendMode}
+          />
           <YStack gap="$6" $gtMd={{ gap: '$8' }}>
-            <AssetSelectorTrigger />
+            <AssetSelectorTrigger
+              senderAddresses={senderAddresses}
+              activeAccountId={activeAccount?.account?.id}
+              activeIndexedAccountId={activeAccount?.indexedAccount?.id}
+            />
             <AccountSelectorProviderMirror
               config={{
                 sceneName: EAccountSelectorSceneName.addressInput,
@@ -505,6 +685,11 @@ function BaseBulkSendAddressesInput() {
 }
 
 function BulkSendAddressesInput() {
+  const route = useAppRoute<
+    IModalBulkSendParamList,
+    EModalBulkSendRoutes.BulkSendAddressesInput
+  >();
+
   const [selectedAccountId, setSelectedAccountId] = useState<
     string | undefined
   >(undefined);
@@ -522,20 +707,23 @@ function BulkSendAddressesInput() {
     ({ info: IToken } & ITokenFiat) | undefined
   >(undefined);
 
+  const initialMode = route.params?.bulkSendMode ?? EBulkSendMode.OneToMany;
   const [tokenDetailsState, setTokenDetailsState] = useState<{
     initialized: boolean;
     isRefreshing: boolean;
   }>({
-    initialized: false,
-    isRefreshing: false,
+    initialized: initialMode !== EBulkSendMode.OneToMany,
+    isRefreshing: initialMode === EBulkSendMode.OneToMany,
   });
-  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(
-    EBulkSendMode.OneToMany,
-  );
+  const [bulkSendMode, setBulkSendMode] = useState<EBulkSendMode>(initialMode);
   const [duplicateAddressCount, setDuplicateAddressCount] = useState(0);
   const [selectedDeriveType, setSelectedDeriveType] = useState<
     IAccountDeriveTypes | undefined
   >(undefined);
+
+  const [resolvedSenderAccountIds, setResolvedSenderAccountIds] = useState<
+    Record<number, string>
+  >({});
 
   const context = useMemo(
     () => ({
@@ -557,6 +745,8 @@ function BulkSendAddressesInput() {
       setDuplicateAddressCount,
       selectedDeriveType,
       setSelectedDeriveType,
+      resolvedSenderAccountIds,
+      setResolvedSenderAccountIds,
     }),
     [
       selectedAccountId,
@@ -575,6 +765,7 @@ function BulkSendAddressesInput() {
       setBulkSendMode,
       duplicateAddressCount,
       selectedDeriveType,
+      resolvedSenderAccountIds,
     ],
   );
 
