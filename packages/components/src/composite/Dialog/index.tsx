@@ -379,7 +379,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
-              {...({ trapFocus: effectiveTrapFocus } as any)}
+              trapFocus={effectiveTrapFocus}
               onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}

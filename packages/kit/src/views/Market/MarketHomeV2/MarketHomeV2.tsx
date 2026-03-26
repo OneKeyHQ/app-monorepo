@@ -28,7 +28,8 @@ const useMarketHomeLayoutProps = () => {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
-  const { formattedMinLiquidity, spotCategories: apiSpotCategories } = useMarketBasicConfig();
+  const { formattedMinLiquidity, spotCategories: apiSpotCategories } =
+    useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
 
   // Track market entry analytics

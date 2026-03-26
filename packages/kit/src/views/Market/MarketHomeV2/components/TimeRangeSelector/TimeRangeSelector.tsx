@@ -9,7 +9,10 @@ interface ITimeRangeSelectorProps {
   onChange: (value: ITimeRangeSelectorValue) => void;
 }
 
-export const TIME_RANGE_OPTIONS: { label: string; value: ITimeRangeSelectorValue }[] = [
+export const TIME_RANGE_OPTIONS: {
+  label: string;
+  value: ITimeRangeSelectorValue;
+}[] = [
   { label: '5m', value: '5m' },
   { label: '1h', value: '1h' },
   { label: '4h', value: '4h' },
