@@ -242,12 +242,21 @@ const desktopApiBridge = {
     ipcRenderer.invoke('DESKTOP_API_CALL', { module, method, params }),
 };
 
-// --- Expose everything via contextBridge (renderer cannot access ipcRenderer directly) ---
+// --- Expose everything to renderer ---
 
-contextBridge.exposeInMainWorld('desktopApi', desktopApi);
-contextBridge.exposeInMainWorld('desktopApiBridge', desktopApiBridge);
+const exposeToMainWorld = (key: string, value: unknown) => {
+  try {
+    contextBridge.exposeInMainWorld(key, value);
+  } catch {
+    // contextBridge requires contextIsolation; fall back to globalThis
+    (globalThis as any)[key] = value;
+  }
+};
 
-contextBridge.exposeInMainWorld('$mmkvSync', (args: {
+exposeToMainWorld('desktopApi', desktopApi);
+exposeToMainWorld('desktopApiBridge', desktopApiBridge);
+
+exposeToMainWorld('$mmkvSync', (args: {
   method: string;
   id: string;
   key?: string;
@@ -255,9 +264,9 @@ contextBridge.exposeInMainWorld('$mmkvSync', (args: {
 }) => ipcRenderer.sendSync('mmkv:sync', args));
 
 // Expose getters for globals managed by IPC events
-contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_GLOBALS_GETTER', () => desktopGlobals);
-contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_GETTER', () => [...deepLinks]);
+exposeToMainWorld('ONEKEY_DESKTOP_GLOBALS_GETTER', () => desktopGlobals);
+exposeToMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_GETTER', () => [...deepLinks]);
 // Drain the deep link queue after the renderer has consumed them
-contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_CLEAR', () => {
+exposeToMainWorld('ONEKEY_DESKTOP_DEEP_LINKS_CLEAR', () => {
   deepLinks.length = 0;
 });
