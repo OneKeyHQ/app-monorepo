@@ -409,8 +409,6 @@ function TxActionTransferListView(props: ITxActionProps) {
         tokenSymbol: changeSymbol,
         showPlusMinusSigns: true,
       }}
-      minWidth={0}
-      maxWidth="100%"
       numberOfLines={1}
       size="$bodyLgMedium"
       {...(isStackedLayout && {
@@ -445,8 +443,6 @@ function TxActionTransferListView(props: ITxActionProps) {
       }}
       size="$bodyMd"
       color="$textSubdued"
-      minWidth={0}
-      maxWidth="100%"
       numberOfLines={1}
       maxWidth={isStackedLayout ? '100%' : '$40'}
       {...(isStackedLayout && {
