@@ -29,10 +29,14 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
   const previousActEnvironment = (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
-  // Detect whether the callback is async
+  // Run the callback inside syncAct so that sync callbacks get proper React
+  // batching and effect flushing. After syncAct completes, check whether the
+  // callback returned a Promise (async). If so, await it and flush again.
   let cbResult: void | Promise<void>;
   try {
-    cbResult = callback();
+    syncAct(() => {
+      cbResult = callback();
+    });
   } catch (error) {
     (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
     throw error;
@@ -45,8 +49,9 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
     typeof (cbResult as any).then === 'function';
 
   if (isAsync) {
-    // Async path: await the callback, then flush pending React work with a
-    // sync act() pass. This avoids React.act(async) which hangs on Hermes.
+    // Async path: the callback returned a Promise. React.act(async) hangs on
+    // Hermes, so we await the promise ourselves and then do a sync act() pass
+    // to flush any remaining effects scheduled during the async work.
     return (cbResult as Promise<void>).then(
       () => {
         try {
@@ -63,12 +68,7 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
     );
   }
 
-  // Sync path: wrap in TestRenderer.act to flush effects
-  try {
-    syncAct(() => {});
-  } catch {
-    // ignore flush errors
-  }
+  // Sync path: syncAct already batched and flushed everything.
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
   return undefined;
 }
