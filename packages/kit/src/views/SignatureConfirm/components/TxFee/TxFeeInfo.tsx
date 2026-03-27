@@ -1,4 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
@@ -103,6 +110,7 @@ function TxFeeInfo(props: IProps) {
   const intl = useIntl();
   const feeInTxUpdated = useRef(false);
   const tronRentalUpdated = useRef(false);
+  const lastTxUuidRef = useRef<string | undefined>(undefined);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -121,6 +129,10 @@ function TxFeeInfo(props: IProps) {
   const [tokenTransferAmount] = useTokenTransferAmountAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
+  const currentTxUuid = unsignedTxs[0]?.uuid;
+  const feeRequestIdRef = useRef(0);
+  const currentTxUuidRef = useRef<string | undefined>(currentTxUuid);
+  currentTxUuidRef.current = currentTxUuid;
   const {
     isResourceRentalNeeded,
     isResourceRentalEnabled,
@@ -137,9 +149,13 @@ function TxFeeInfo(props: IProps) {
     updateIsSinglePreset,
     updateTxAdvancedSettings,
     updateTronResourceRentalInfo,
+    resetTronResourceRentalInfo,
     updatePayWithTokenInfo,
+    resetPayWithTokenInfo,
     updateMegafuelEligible,
+    resetMegafuelEligible,
     updateTxFeeInfoInit,
+    resetTxFeeState,
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -186,27 +202,47 @@ function TxFeeInfo(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { result, run } = usePromiseResult(
+  const { result, run, setResult } = usePromiseResult(
     async () => {
+      const staleResult = {
+        r: undefined,
+        e: undefined,
+        m: undefined,
+      };
+
       if (!unsignedTxs || unsignedTxs.length === 0) {
-        return {
-          r: undefined,
-          e: undefined,
-          m: undefined,
-        };
+        return staleResult;
       }
+
+      feeRequestIdRef.current += 1;
+      const requestId = feeRequestIdRef.current;
+      const requestTxUuid = unsignedTxs[0]?.uuid;
+      const getStaleResult = () =>
+        requestId !== feeRequestIdRef.current ||
+        requestTxUuid !== currentTxUuidRef.current
+          ? staleResult
+          : undefined;
 
       try {
         await backgroundApiProxy.serviceGas.abortEstimateFee();
 
+        if (getStaleResult()) {
+          return staleResult;
+        }
+
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
+          errMessage: '',
+          discountPercent: 0,
         });
 
         if (isMultiTxs) {
           const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
+          if (getStaleResult()) {
+            return staleResult;
+          }
           if (vs?.supportBatchEstimateFee?.[networkId]) {
             try {
               const encodedTxList = unsignedTxs.map((tx) => tx.encodedTx);
@@ -216,6 +252,9 @@ function TxFeeInfo(props: IProps) {
                   networkId,
                   encodedTxs: encodedTxList,
                 });
+              if (getStaleResult()) {
+                return staleResult;
+              }
               updateSendFeeStatus({
                 status: ESendFeeStatus.Success,
                 errMessage: '',
@@ -238,6 +277,9 @@ function TxFeeInfo(props: IProps) {
             networkId,
             accountId,
           });
+        if (getStaleResult()) {
+          return staleResult;
+        }
 
         const { encodedTx, estimateFeeParams: e } =
           await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -245,9 +287,15 @@ function TxFeeInfo(props: IProps) {
             networkId,
             encodedTx: unsignedTxs[0].encodedTx,
           });
+        if (getStaleResult()) {
+          return staleResult;
+        }
 
         if (isSingleTxWithFeesInfo) {
           const r = unsignedTxs[0].feesInfo;
+          if (getStaleResult()) {
+            return staleResult;
+          }
           updateSendFeeStatus({
             status: ESendFeeStatus.Success,
             errMessage: '',
@@ -266,6 +314,9 @@ function TxFeeInfo(props: IProps) {
           unsignedTxs[0].feeInfo
         ) {
           const r = unsignedTxs[0].feeInfo;
+          if (getStaleResult()) {
+            return staleResult;
+          }
           updateSendFeeStatus({
             status: ESendFeeStatus.Success,
             errMessage: '',
@@ -297,12 +348,18 @@ function TxFeeInfo(props: IProps) {
           accountAddress,
           transfersInfo: unsignedTxs[0].transfersInfo,
         });
+        if (getStaleResult()) {
+          return staleResult;
+        }
 
         if (r.megafuelEligible) {
           const customRpcInfo =
             await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
               networkId,
             );
+          if (getStaleResult()) {
+            return staleResult;
+          }
           // if custom rpc is enabled, disable megafuel eligible
           if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
             r.megafuelEligible = undefined;
@@ -317,6 +374,8 @@ function TxFeeInfo(props: IProps) {
           } else {
             updateMegafuelEligible(r.megafuelEligible);
           }
+        } else {
+          resetMegafuelEligible();
         }
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
@@ -376,25 +435,24 @@ function TxFeeInfo(props: IProps) {
             tronRentalUpdated.current = true;
 
             if (payWithUSDT) {
+              // Preserve the enabled state derived from resource rental config.
               updatePayWithTokenInfo({
                 address: tokenAddress,
                 balance: balances[tokenAddress] ?? '0',
                 symbol: info.payCoinCode,
               });
+            } else {
+              resetPayWithTokenInfo();
             }
           } else {
-            updateTronResourceRentalInfo({
-              isResourceRentalNeeded: false,
-              isResourceRentalEnabled: false,
-              isSwapTrxEnabled: false,
-            });
-            updatePayWithTokenInfo({
-              enabled: false,
-              address: '',
-              balance: '0',
-              logoURI: '',
-            });
+            resetTronResourceRentalInfo();
+            resetPayWithTokenInfo();
+            tronRentalUpdated.current = false;
           }
+        } else {
+          resetTronResourceRentalInfo();
+          resetPayWithTokenInfo();
+          tronRentalUpdated.current = false;
         }
 
         updateSendFeeStatus({
@@ -409,6 +467,9 @@ function TxFeeInfo(props: IProps) {
           m: undefined,
         };
       } catch (e) {
+        if (getStaleResult()) {
+          return staleResult;
+        }
         updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
@@ -430,6 +491,9 @@ function TxFeeInfo(props: IProps) {
       network?.isTestnet,
       networkId,
       unsignedTxs,
+      resetMegafuelEligible,
+      resetPayWithTokenInfo,
+      resetTronResourceRentalInfo,
       updateMegafuelEligible,
       updatePayWithTokenInfo,
       updateSendFeeStatus,
@@ -986,8 +1050,8 @@ function TxFeeInfo(props: IProps) {
     let totalNativeMinForDisplay = new BigNumber(0);
     let totalFiatForDisplay = new BigNumber(0);
     let totalFiatMinForDisplay = new BigNumber(0);
-    let originalTotalNative = new BigNumber(0);
-    let originalTotalFiat = new BigNumber(0);
+    let originalTotalNative: BigNumber | undefined;
+    let originalTotalFiat: BigNumber | undefined;
 
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const selectedFeeInfo = selectedFeeInfos[i];
@@ -1089,14 +1153,16 @@ function TxFeeInfo(props: IProps) {
         feeResult.totalFiatMinForDisplay,
       );
 
-      if (feeResult.originalTotalNative) {
-        originalTotalNative = originalTotalNative.plus(
+      if (!isNil(feeResult.originalTotalNative)) {
+        originalTotalNative = (originalTotalNative ?? new BigNumber(0)).plus(
           feeResult.originalTotalNative,
         );
       }
 
-      if (feeResult.originalTotalFiat) {
-        originalTotalFiat = originalTotalFiat.plus(feeResult.originalTotalFiat);
+      if (!isNil(feeResult.originalTotalFiat)) {
+        originalTotalFiat = (originalTotalFiat ?? new BigNumber(0)).plus(
+          feeResult.originalTotalFiat,
+        );
       }
 
       feeInfos.push({
@@ -1145,8 +1211,8 @@ function TxFeeInfo(props: IProps) {
         totalNativeMinForDisplay: totalNativeMinForDisplay.toFixed(),
         totalFiatForDisplay: totalFiatForDisplay.toFixed(),
         totalFiatMinForDisplay: totalFiatMinForDisplay.toFixed(),
-        originalTotalNative: originalTotalNative.toFixed(),
-        originalTotalFiat: originalTotalFiat.toFixed(),
+        originalTotalNative: originalTotalNative?.toFixed(),
+        originalTotalFiat: originalTotalFiat?.toFixed(),
       },
     };
   }, [
@@ -1195,6 +1261,25 @@ function TxFeeInfo(props: IProps) {
     [networkId, updateCustomFee, updateSendSelectedFee],
   );
 
+  useLayoutEffect(() => {
+    if (!currentTxUuid || lastTxUuidRef.current === currentTxUuid) {
+      return;
+    }
+
+    lastTxUuidRef.current = currentTxUuid;
+    feeRequestIdRef.current += 1;
+    feeInTxUpdated.current = false;
+    tronRentalUpdated.current = false;
+    setResult(undefined);
+    resetTxFeeState();
+    updateSendFeeStatus({
+      status: ESendFeeStatus.Loading,
+      errMessage: '',
+      discountPercent: 0,
+    });
+    void backgroundApiProxy.serviceGas.abortEstimateFee();
+  }, [currentTxUuid, resetTxFeeState, setResult, updateSendFeeStatus]);
+
   useEffect(() => {
     if (selectedFee && !isEmpty(selectedFee.feeInfos)) {
       updateSendSelectedFeeInfo(selectedFee);
@@ -1204,10 +1289,17 @@ function TxFeeInfo(props: IProps) {
   useEffect(() => {
     if (!isNil(vaultSettings?.defaultFeePresetIndex)) {
       updateSendSelectedFee({
+        feeType: EFeeType.Standard,
         presetIndex: vaultSettings?.defaultFeePresetIndex,
+        source: 'wallet',
       });
     }
-  }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
+  }, [
+    currentTxUuid,
+    networkId,
+    updateSendSelectedFee,
+    vaultSettings?.defaultFeePresetIndex,
+  ]);
 
   useEffect(() => {
     if (!txFeeInfoInit) return;
@@ -1330,10 +1422,10 @@ function TxFeeInfo(props: IProps) {
   }, [run]);
 
   useEffect(() => {
-    if (unsignedTxs?.[0]?.uuid) {
+    if (currentTxUuid) {
       updateTxFeeInfoInit(false);
     }
-  }, [unsignedTxs, updateTxFeeInfoInit]);
+  }, [currentTxUuid, updateTxFeeInfoInit]);
 
   const handlePress = useCallback(() => {
     Dialog.show({
@@ -1557,11 +1649,12 @@ function TxFeeInfo(props: IProps) {
     const textColor = megafuelEligible.sponsorable ? '$text' : '$textSubdued';
 
     let totalNative = megafuelEligible.sponsorable
-      ? selectedFee?.originalTotalNative
+      ? (selectedFee?.originalTotalNative ??
+        selectedFee?.totalNativeMinForDisplay)
       : selectedFee?.totalNativeMinForDisplay;
 
     let totalFiat = megafuelEligible.sponsorable
-      ? selectedFee?.originalTotalFiat
+      ? (selectedFee?.originalTotalFiat ?? selectedFee?.totalFiatMinForDisplay)
       : selectedFee?.totalFiatMinForDisplay;
 
     if (
@@ -1697,7 +1790,12 @@ function TxFeeInfo(props: IProps) {
       updateSendFeeStatus({
         discountPercent,
       });
+      return;
     }
+
+    updateSendFeeStatus({
+      discountPercent: 0,
+    });
   }, [
     isResourceRentalEnabled,
     isResourceRentalNeeded,
