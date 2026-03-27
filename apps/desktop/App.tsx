@@ -32,16 +32,21 @@ const SentryKitProvider = withSentryHOC(
   SentryErrorBoundaryFallback,
 );
 
+// Remove HTML splash before React mounts (safe: runs once at module load)
+if (
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('render') === 'tray'
+) {
+  const splash = document.querySelector('.onekey-index-html-preload-image');
+  if (splash) splash.remove();
+}
+
 export default function App(props: any) {
   const isTrayPanel =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('render') === 'tray';
 
   if (isTrayPanel) {
-    // Remove the HTML template splash image that covers the tray panel
-    const splash = document.querySelector('.onekey-index-html-preload-image');
-    if (splash) splash.remove();
-
     const isDark =
       window.matchMedia('(prefers-color-scheme: dark)').matches;
     const defaultTheme = isDark ? 'dark' : 'light';
