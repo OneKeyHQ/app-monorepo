@@ -30,6 +30,21 @@ export function assertMarketReviewQuoteResult(
   return quoteResult;
 }
 
+export function areMarketApproveAmountsEqual(value1?: string, value2?: string) {
+  if (!value1 || !value2) {
+    return false;
+  }
+
+  const value1BN = new BigNumber(value1);
+  const value2BN = new BigNumber(value2);
+
+  if (value1BN.isNaN() || value2BN.isNaN()) {
+    return value1 === value2;
+  }
+
+  return value1BN.eq(value2BN);
+}
+
 function areQuoteAmountsEqual(value1?: string, value2?: string) {
   if (!value1 && !value2) {
     return true;
