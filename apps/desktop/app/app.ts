@@ -1244,6 +1244,13 @@ if (!singleInstance && !process.mas) {
     // Menu is needed in both normal and recovery mode
     initMenu();
 
+    // In recovery mode, skip heavy app initialization.
+    // createMainWindow() increments bootFailCount; if >= 3 it returned
+    // a standalone recovery window that doesn't need these services.
+    if (store.getConsecutiveBootFailCount() >= 3) {
+      return;
+    }
+
     if (isMac) {
       initTrayManager(
         getSafelyMainWindow,
@@ -1261,13 +1268,6 @@ if (!singleInstance && !process.mas) {
           }
         },
       );
-    }
-
-    // In recovery mode, skip heavy app initialization.
-    // createMainWindow() increments bootFailCount; if >= 3 it returned
-    // a standalone recovery window that doesn't need these services.
-    if (store.getConsecutiveBootFailCount() >= 3) {
-      return;
     }
 
     startServices();
