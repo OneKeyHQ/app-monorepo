@@ -148,6 +148,7 @@ const validChannels = new Set([
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
   ipcMessageKeys.TRAY_DATA_REQUEST,
   ipcMessageKeys.TRAY_UPDATE,
+  ipcMessageKeys.TRAY_ACTION,
   'memory-pressure-warning',
   'memory-pressure-critical',
   'gpu-process-crashed',

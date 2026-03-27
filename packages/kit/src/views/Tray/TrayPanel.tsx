@@ -31,17 +31,16 @@ export function TrayPanel() {
 
   const handleTickerPress = useCallback(
     (ticker: ITrayWatchlistItem) => {
-      if (ticker.type === 'perps' && ticker.perpsCoin) {
-        // Navigate to perps detail
-        handleNavigate(`/market/perps/${ticker.perpsCoin}`);
-      } else if (ticker.tokenAddress && ticker.networkId) {
-        // Navigate to spot market detail V2
-        handleNavigate(
-          `/market/detail?tokenAddress=${encodeURIComponent(ticker.tokenAddress)}&network=${encodeURIComponent(ticker.networkId)}&isNative=${ticker.isNative || false}`,
-        );
-      }
+      // Send structured navigation action — main window renderer handles routing
+      sendTrayAction({
+        type: 'market-detail-v2',
+        tokenAddress: ticker.tokenAddress || '',
+        networkId: ticker.networkId || '',
+        isNative: ticker.isNative || false,
+        perpsCoin: ticker.perpsCoin || '',
+      } as any);
     },
-    [handleNavigate],
+    [],
   );
 
   if (!data) {

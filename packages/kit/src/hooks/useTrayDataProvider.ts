@@ -1,8 +1,13 @@
 import { useEffect, useCallback, useRef } from 'react';
 
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -207,15 +212,44 @@ export function useTrayDataProvider() {
     }
   }, []);
 
+  // Handle tray navigation events — navigate within main window
+  const handleTrayNavigation = useCallback((_event: any, action: any) => {
+    const nav = rootNavigationRef.current;
+    if (!nav) return;
+
+    if (action?.type === 'market-detail-v2' && action.tokenAddress && action.networkId) {
+      nav.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: {
+            tokenAddress: action.tokenAddress,
+            network: action.networkId,
+            isNative: action.isNative || false,
+          },
+        },
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!platformEnv.isDesktop) return;
 
     window.addEventListener('onekey-tray-data-request', handleTrayDataRequest);
+    (globalThis as any).desktopApi?.addIpcEventListener(
+      TRAY_IPC.ACTION,
+      handleTrayNavigation,
+    );
+
     return () => {
       window.removeEventListener(
         'onekey-tray-data-request',
         handleTrayDataRequest,
       );
+      (globalThis as any).desktopApi?.removeIpcEventListener(
+        TRAY_IPC.ACTION,
+        handleTrayNavigation,
+      );
     };
-  }, [handleTrayDataRequest]);
+  }, [handleTrayDataRequest, handleTrayNavigation]);
 }

@@ -41,16 +41,13 @@ export function registerTrayIpcHandlers(
 
   ipcMain.on(
     ipcMessageKeys.TRAY_ACTION,
-    (_event, action: { type: string; route?: string; txId?: string }) => {
+    (_event, action: any) => {
       showMainWindow();
 
-      if (action.type === 'open-page' && action.route) {
-        const mainWindow = getMainWindow();
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(ipcMessageKeys.EVENT_OPEN_URL, {
-            url: action.route,
-          });
-        }
+      // Forward the action to main window renderer for navigation
+      const mainWindow = getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, action);
       }
     },
   );
