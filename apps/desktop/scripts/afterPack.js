@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { logAsarDiagnostics } = require('./asarDiagnostics');
 
 // Electron fuses are configured declaratively via the `electronFuses`
 // property in electron-builder-base.config.js.
@@ -41,5 +40,4 @@ exports.default = async function fileOperation(context) {
     }
     console.log('remove file finish..');
   }
-  logAsarDiagnostics('afterPack', context, { hook: 'afterPack.js' });
 };
