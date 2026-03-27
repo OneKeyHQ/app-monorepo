@@ -20,6 +20,7 @@ export function diffAndNotify(currentTxs: IPendingTx[]): void {
 
     if (!currentTx && prevTx.status === 'pending') {
       const notification = new Notification({
+        // TODO: i18n tray.notification_tx_confirmed
         title: 'Transaction Confirmed',
         body: `${prevTx.amount} → ${truncateAddress(prevTx.to)}`,
         silent: false,
@@ -32,6 +33,7 @@ export function diffAndNotify(currentTxs: IPendingTx[]): void {
 
     if (currentTx && currentTx.status === 'failed' && prevTx.status !== 'failed') {
       const notification = new Notification({
+        // TODO: i18n tray.notification_tx_failed
         title: 'Transaction Failed',
         body: `${prevTx.amount} → ${truncateAddress(prevTx.to)}`,
         silent: false,

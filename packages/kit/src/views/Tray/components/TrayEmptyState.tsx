@@ -2,6 +2,12 @@ import { Stack, SizableText } from '@onekeyhq/components';
 
 type IEmptyStateType = 'loading' | 'locked' | 'noWallet' | 'offline';
 
+// TODO: i18n — replace with ETranslations keys when available
+// Keys to register on server:
+//   tray.loading_title / tray.loading_subtitle
+//   tray.locked_title / tray.locked_subtitle
+//   tray.no_wallet_title / tray.no_wallet_subtitle
+//   tray.offline_title / tray.offline_subtitle
 const MESSAGES: Record<IEmptyStateType, { title: string; subtitle: string }> = {
   loading: { title: 'Loading...', subtitle: 'Connecting to OneKey' },
   locked: { title: 'App is Locked', subtitle: 'Click to unlock' },

@@ -1,6 +1,8 @@
 import { Stack, SizableText } from '@onekeyhq/components';
 import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
 
+// TODO: i18n — replace with ETranslations keys when available
+// Keys: tray.tx_send / tray.tx_swap / tray.tx_contract / tray.tx_approve
 const TX_TYPE_LABELS: Record<string, string> = {
   send: 'Send',
   swap: 'Swap',
@@ -47,6 +49,7 @@ export function PendingTransactions({
     return (
       <Stack padding="$4">
         <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
+{/* TODO: i18n tray.no_pending_transactions */}
           No pending transactions
         </SizableText>
       </Stack>
@@ -59,6 +62,7 @@ export function PendingTransactions({
   return (
     <Stack>
       <SizableText fontSize="$bodySm" color="$textSubdued" paddingHorizontal="$4" paddingTop="$3" paddingBottom="$1">
+{/* TODO: i18n tray.pending_transactions */}
         Pending Transactions
       </SizableText>
       {displayTxs.map((tx) => (
@@ -66,6 +70,7 @@ export function PendingTransactions({
       ))}
       {hasMore ? (
         <Stack padding="$3" onPress={() => onTxPress('')} cursor="pointer">
+          {/* TODO: i18n tray.view_all */}
           <SizableText fontSize="$bodySm" color="$textInteractive" textAlign="center">View all →</SizableText>
         </Stack>
       ) : null}
