@@ -264,6 +264,7 @@ function TxActionCommonChange({
     <SizableText
       minWidth={0}
       numberOfLines={1}
+      textAlign="right"
       size="$bodyLgMedium"
       {...(!tableLayout && {
         textAlign: 'right',
