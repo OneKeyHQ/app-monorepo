@@ -49,6 +49,16 @@ export function useTrayDataProvider() {
               // avatar is not JSON
             }
           }
+          // Fallback emoji by wallet type
+          if (!trayData.wallet.emoji) {
+            if (wallet?.type === 'watching') {
+              trayData.wallet.emoji = '👁';
+            } else if (wallet?.type === 'hw') {
+              trayData.wallet.emoji = '🔑';
+            } else {
+              trayData.wallet.emoji = '💰';
+            }
+          }
         }
       } catch {
         trayData.wallet.name = 'Wallet';

@@ -70,13 +70,19 @@ export function createTrayWindow(
 
   loadUrl(trayWindow);
 
-  // Hide the HTML template splash image immediately via CSS injection
+  // Hide splash image + remove focus outline in tray panel
+  const trayCSS = `
+    .onekey-index-html-preload-image { display: none !important; visibility: hidden !important; }
+    *:focus { outline: none !important; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  `;
   trayWindow.webContents.on('did-start-loading', () => {
-    void trayWindow?.webContents.insertCSS(
-      '.onekey-index-html-preload-image { display: none !important; }',
-    );
+    void trayWindow?.webContents.insertCSS(trayCSS);
   });
   trayWindow.webContents.on('dom-ready', () => {
+    void trayWindow?.webContents.insertCSS(trayCSS);
     void trayWindow?.webContents.executeJavaScript(`
       document.querySelectorAll('.onekey-index-html-preload-image').forEach(e => e.remove());
     `);

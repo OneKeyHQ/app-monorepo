@@ -13,10 +13,13 @@ export function PortfolioOverview({
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
+  const cur = (totalBalance.currency || '').toLowerCase();
   const currencySymbol =
-    totalBalance.currency === 'USD' ? '$' :
-    totalBalance.currency === 'CNY' ? '¥' :
-    totalBalance.currency === 'EUR' ? '€' : '';
+    cur === 'usd' ? '$' :
+    cur === 'cny' ? '¥' :
+    cur === 'eur' ? '€' :
+    cur === 'gbp' ? '£' :
+    cur === 'jpy' ? '¥' : '$';
   const formattedAmount = Number(totalBalance.amount).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
