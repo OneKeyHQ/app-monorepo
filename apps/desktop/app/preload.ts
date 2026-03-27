@@ -272,7 +272,10 @@ const exposeToMainWorld = (key: string, value: unknown) => {
   } catch (err) {
     // contextBridge requires contextIsolation; log the error for diagnostics.
     // The globalThis fallback only works when contextIsolation is disabled.
-    console.error(`[preload] Failed to expose '${key}' via contextBridge:`, err);
+    console.error(
+      `[preload] Failed to expose '${key}' via contextBridge:`,
+      err,
+    );
     (globalThis as any)[key] = value;
   }
 };
