@@ -434,14 +434,15 @@ function TxFeeInfo(props: IProps) {
 
             tronRentalUpdated.current = true;
 
-            resetPayWithTokenInfo();
-
             if (payWithUSDT) {
+              // Preserve the enabled state derived from resource rental config.
               updatePayWithTokenInfo({
                 address: tokenAddress,
                 balance: balances[tokenAddress] ?? '0',
                 symbol: info.payCoinCode,
               });
+            } else {
+              resetPayWithTokenInfo();
             }
           } else {
             resetTronResourceRentalInfo();
