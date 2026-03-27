@@ -1049,8 +1049,8 @@ function TxFeeInfo(props: IProps) {
     let totalNativeMinForDisplay = new BigNumber(0);
     let totalFiatForDisplay = new BigNumber(0);
     let totalFiatMinForDisplay = new BigNumber(0);
-    let originalTotalNative = new BigNumber(0);
-    let originalTotalFiat = new BigNumber(0);
+    let originalTotalNative: BigNumber | undefined;
+    let originalTotalFiat: BigNumber | undefined;
 
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const selectedFeeInfo = selectedFeeInfos[i];
@@ -1152,14 +1152,16 @@ function TxFeeInfo(props: IProps) {
         feeResult.totalFiatMinForDisplay,
       );
 
-      if (feeResult.originalTotalNative) {
-        originalTotalNative = originalTotalNative.plus(
+      if (!isNil(feeResult.originalTotalNative)) {
+        originalTotalNative = (originalTotalNative ?? new BigNumber(0)).plus(
           feeResult.originalTotalNative,
         );
       }
 
-      if (feeResult.originalTotalFiat) {
-        originalTotalFiat = originalTotalFiat.plus(feeResult.originalTotalFiat);
+      if (!isNil(feeResult.originalTotalFiat)) {
+        originalTotalFiat = (originalTotalFiat ?? new BigNumber(0)).plus(
+          feeResult.originalTotalFiat,
+        );
       }
 
       feeInfos.push({
@@ -1208,8 +1210,8 @@ function TxFeeInfo(props: IProps) {
         totalNativeMinForDisplay: totalNativeMinForDisplay.toFixed(),
         totalFiatForDisplay: totalFiatForDisplay.toFixed(),
         totalFiatMinForDisplay: totalFiatMinForDisplay.toFixed(),
-        originalTotalNative: originalTotalNative.toFixed(),
-        originalTotalFiat: originalTotalFiat.toFixed(),
+        originalTotalNative: originalTotalNative?.toFixed(),
+        originalTotalFiat: originalTotalFiat?.toFixed(),
       },
     };
   }, [
@@ -1646,11 +1648,12 @@ function TxFeeInfo(props: IProps) {
     const textColor = megafuelEligible.sponsorable ? '$text' : '$textSubdued';
 
     let totalNative = megafuelEligible.sponsorable
-      ? selectedFee?.originalTotalNative
+      ? (selectedFee?.originalTotalNative ??
+        selectedFee?.totalNativeMinForDisplay)
       : selectedFee?.totalNativeMinForDisplay;
 
     let totalFiat = megafuelEligible.sponsorable
-      ? selectedFee?.originalTotalFiat
+      ? (selectedFee?.originalTotalFiat ?? selectedFee?.totalFiatMinForDisplay)
       : selectedFee?.totalFiatMinForDisplay;
 
     if (
