@@ -1,8 +1,4 @@
-/**
- * @jest-environment jsdom
- */
-
-import { renderHook } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-native';
 import { BigNumber } from 'bignumber.js';
 
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';

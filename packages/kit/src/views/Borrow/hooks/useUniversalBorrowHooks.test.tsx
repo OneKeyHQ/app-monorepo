@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 /* eslint-disable import/first */
 
 jest.mock('react-intl', () => {
@@ -15,6 +12,16 @@ jest.mock('react-intl', () => {
     }),
   };
 });
+
+// Mock the leaf module directly — in the harness, Metro's `export *` creates
+// non-configurable getter descriptors on barrel modules, so mutating the barrel
+// fails silently. Mocking the leaf ensures the getter chain resolves to our mock.
+jest.mock('@onekeyhq/components/src/actions/Toast', () => ({
+  __esModule: true,
+  Toast: {
+    error: jest.fn(),
+  },
+}));
 
 jest.mock('@onekeyhq/components', () => ({
   __esModule: true,
@@ -68,7 +75,7 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   },
 }));
 
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 
@@ -170,9 +177,6 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
           networkId: 'sol--101',
           accountId: 'hd-1--m/44',
         }),
-      {
-        reactStrictMode: false,
-      },
     );
 
     await act(async () => {
@@ -267,9 +271,6 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
           networkId: 'sol--101',
           accountId: 'hd-1--m/44',
         }),
-      {
-        reactStrictMode: false,
-      },
     );
 
     await act(async () => {
@@ -376,9 +377,6 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
           networkId: 'sol--101',
           accountId: 'hd-1--m/44',
         }),
-      {
-        reactStrictMode: false,
-      },
     );
 
     await act(async () => {
@@ -477,9 +475,6 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
           networkId: 'sol--101',
           accountId: 'hd-1--m/44',
         }),
-      {
-        reactStrictMode: false,
-      },
     );
 
     await act(async () => {
