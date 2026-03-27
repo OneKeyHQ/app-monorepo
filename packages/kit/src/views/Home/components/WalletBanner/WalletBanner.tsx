@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 import { type GestureResponderEvent, StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -11,7 +12,10 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
+import type { ICheckedState } from '@onekeyhq/components';
 import {
+  Checkbox,
+  Dialog,
   HeaderScrollGestureWrapper,
   Icon,
   IconButton,
@@ -19,6 +23,7 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -31,9 +36,17 @@ import {
   useWalletTopBannersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  HYPERLIQUID_REFERRAL_CODE,
+  PERPS_NETWORK_ID,
+} from '@onekeyhq/shared/src/consts/perp';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+
+const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
 
 const BANNER_ITEM_WIDTH = 280;
 const BANNER_GAP = 12;
@@ -441,10 +454,64 @@ function WebBannerScroller({
   );
 }
 
+function PerpsReferralDialogContent({
+  onConfirm,
+  onSnoozeChange,
+}: {
+  onConfirm: () => Promise<void>;
+  onSnoozeChange: (checked: boolean) => void;
+}) {
+  const intl = useIntl();
+  const [snoozed, setSnoozed] = useState<ICheckedState>(false);
+
+  const handleSnoozeChange = useCallback(
+    (val: ICheckedState) => {
+      setSnoozed(val);
+      onSnoozeChange(!!val);
+    },
+    [onSnoozeChange],
+  );
+
+  return (
+    <YStack gap="$5">
+      <SizableText size="$bodyMd">
+        {intl.formatMessage({
+          id: ETranslations.perps__claim_fee_discount__desc,
+        })}
+      </SizableText>
+
+      <Checkbox
+        label={intl.formatMessage({
+          id: ETranslations.perps__snooze_remind_later__action,
+        })}
+        value={snoozed}
+        onChange={handleSnoozeChange}
+      />
+
+      <Dialog.Footer
+        onConfirm={onConfirm}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.perps__claim_now__action,
+        })}
+        showCancelButton={false}
+      />
+    </YStack>
+  );
+}
+
 function WalletBanner() {
   const {
-    activeAccount: { account, network, wallet, vaultSettings },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      vaultSettings,
+      indexedAccount,
+      deriveType,
+    },
   } = useActiveAccount({ num: 0 });
+
+  const intl = useIntl();
 
   const closedBannerInitRef = useRef(false);
 
@@ -458,6 +525,140 @@ function WalletBanner() {
     network,
     wallet,
   });
+
+  // --- Perps Referral Banner ---
+  const [referralBannerHiddenForAccount, setReferralBannerHiddenForAccount] =
+    useState<string | null>(null);
+
+  const { result: referralEligibility } = usePromiseResult(async () => {
+    if (!account?.id) {
+      return null;
+    }
+    return backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
+      {
+        accountId: account.id,
+        indexedAccountId: indexedAccount?.id || undefined,
+        deriveType: deriveType || 'default',
+      },
+    );
+  }, [account?.id, indexedAccount?.id, deriveType]);
+
+  const handleReferralBind = useCallback(async () => {
+    if (
+      !referralEligibility?.resolvedAddress ||
+      !referralEligibility?.resolvedAccountId
+    )
+      return;
+    const { resolvedAccountId, resolvedAddress } = referralEligibility;
+
+    try {
+      const { typedData, action, nonce } =
+        await backgroundApiProxy.serviceHyperliquidReferral.buildSetReferrerTypedData(
+          { code: HYPERLIQUID_REFERRAL_CODE },
+        );
+
+      const signatureHex = await backgroundApiProxy.serviceSend.signMessage({
+        unsignedMessage: {
+          type: EMessageTypesEth.TYPED_DATA_V4,
+          message: JSON.stringify(typedData),
+          payload: [resolvedAddress, JSON.stringify(typedData)],
+        },
+        accountId: resolvedAccountId,
+        networkId: PERPS_NETWORK_ID,
+      });
+
+      if (!signatureHex || typeof signatureHex !== 'string') return;
+
+      const submitResult =
+        await backgroundApiProxy.serviceHyperliquidReferral.submitSetReferrerWithSignature(
+          { action, nonce, signatureHex },
+        );
+
+      if (submitResult.status === 'ok') {
+        await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
+          { userAddress: resolvedAddress },
+        );
+        setReferralBannerHiddenForAccount(resolvedAddress);
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.perps__fee_discount_activated__msg,
+          }),
+        });
+      }
+    } catch (e) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.perps__claim_failed__msg,
+        }),
+      });
+      throw e;
+    }
+  }, [referralEligibility, intl]);
+
+  const handleSnoozeReferralBanner = useCallback(async () => {
+    if (!referralEligibility?.resolvedAddress) return;
+    await backgroundApiProxy.serviceHyperliquidReferral.snoozeReferralBanner({
+      userAddress: referralEligibility.resolvedAddress,
+    });
+    setReferralBannerHiddenForAccount(referralEligibility.resolvedAddress);
+  }, [referralEligibility]);
+
+  const handleReferralBannerPress = useCallback(() => {
+    let snoozed = false;
+    Dialog.show({
+      icon: 'GiftSolid',
+      tone: 'success',
+      title: intl.formatMessage({
+        id: ETranslations.perps__claim_fee_discount__title,
+      }),
+      showFooter: false,
+      renderContent: (
+        <PerpsReferralDialogContent
+          onConfirm={handleReferralBind}
+          onSnoozeChange={(checked) => {
+            snoozed = checked;
+          }}
+        />
+      ),
+      onClose: () => {
+        if (snoozed) {
+          void handleSnoozeReferralBanner();
+        }
+      },
+    });
+  }, [handleReferralBind, handleSnoozeReferralBanner, intl]);
+
+  const referralBannerItem: IWalletBanner | null = useMemo(() => {
+    if (
+      referralBannerHiddenForAccount === referralEligibility?.resolvedAddress ||
+      !referralEligibility?.shouldShow
+    )
+      return null;
+    return {
+      _id: PERPS_REFERRAL_BANNER_ID,
+      id: PERPS_REFERRAL_BANNER_ID,
+      title: intl.formatMessage({
+        id: ETranslations.perps__claim_fee_discount__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.perps__claim_fee_discount_short__desc,
+      }),
+      src: '',
+      button: '',
+      rank: 0,
+      closeable: false,
+      closeForever: false,
+      useSystemBrowser: false,
+      theme: 'light',
+      position: 'home',
+      icon: 'GiftSolid',
+    };
+  }, [
+    referralBannerHiddenForAccount,
+    referralEligibility?.resolvedAddress,
+    referralEligibility?.shouldShow,
+    intl,
+  ]);
 
   const [closedForeverBanners, setClosedForeverBanners] = useState<
     Record<string, boolean>
@@ -495,8 +696,12 @@ function WalletBanner() {
       }
       return !closedForeverBanners[banner.id];
     });
+    // Inject Perps referral banner at the beginning
+    const allBanners = referralBannerItem
+      ? [referralBannerItem, ...filteredBanners]
+      : filteredBanners;
     updateWalletTopBanners({
-      banners: filteredBanners,
+      banners: allBanners,
     });
     await backgroundApiProxy.serviceWalletBanner.updateLocalTopBanners({
       topBanners: filteredBanners,
@@ -506,6 +711,7 @@ function WalletBanner() {
     closedForeverBanners,
     updateWalletTopBanners,
     network?.id,
+    referralBannerItem,
   ]);
 
   const handleDismiss = useCallback(async (item: IWalletBanner) => {
@@ -561,6 +767,17 @@ function WalletBanner() {
     [vaultSettings?.hasResource, account?.id, network?.id],
   );
 
+  const wrappedHandleBannerOnPress = useCallback(
+    (item: IWalletBanner) => {
+      if (item.id === PERPS_REFERRAL_BANNER_ID) {
+        handleReferralBannerPress();
+        return;
+      }
+      void handleBannerOnPress(item);
+    },
+    [handleBannerOnPress, handleReferralBannerPress],
+  );
+
   if (banners.length === 0 && !tronCard) {
     return null;
   }
@@ -569,7 +786,7 @@ function WalletBanner() {
     return (
       <NativeBannerScroller
         banners={banners}
-        handleBannerOnPress={handleBannerOnPress}
+        handleBannerOnPress={wrappedHandleBannerOnPress}
         handleDismiss={handleDismiss}
         leadingContent={tronCard}
         leadingContentWidth={tronCard ? 220 : 0}
@@ -580,7 +797,7 @@ function WalletBanner() {
   return (
     <WebBannerScroller
       banners={banners}
-      handleBannerOnPress={handleBannerOnPress}
+      handleBannerOnPress={wrappedHandleBannerOnPress}
       handleDismiss={handleDismiss}
       leadingContent={tronCard}
     />
