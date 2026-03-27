@@ -63,7 +63,7 @@ export function createTrayWindow(
       webviewTag: false,
       webSecurity: !isDev,
       contextIsolation: false,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preloadTray.js'),
       sandbox: false,
       nodeIntegration: false,
     },
