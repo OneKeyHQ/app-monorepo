@@ -1,6 +1,9 @@
 // oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
-const { baseFiles, macExcludePrebuilds } = require('./electron-builder-files.config');
+const {
+  baseFiles,
+  macExcludePrebuilds,
+} = require('./electron-builder-files.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
