@@ -95,6 +95,8 @@ type IDesktopAPILegacy = {
   recoveryExportLogs: () => Promise<{ error?: string }>;
   recoveryTryAgain: () => Promise<void>;
   recoveryAutoRepair: () => Promise<{ error?: string }>;
+  sendTrayData: (data: any) => void;
+  sendTrayAction: (action: any) => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -144,6 +146,8 @@ const validChannels = new Set([
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
+  ipcMessageKeys.TRAY_DATA_REQUEST,
+  ipcMessageKeys.TRAY_UPDATE,
   'memory-pressure-warning',
   'memory-pressure-critical',
   'gpu-process-crashed',
@@ -336,11 +340,20 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
+  sendTrayData: (data: any) =>
+    ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
+  sendTrayAction: (action: any) =>
+    ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
 });
 
 globalThis.desktopApi = desktopApi;
 // contextBridge.exposeInMainWorld('desktopApi', desktopApi);
 globalThis.desktopApiProxy = desktopApiProxy;
+
+// Forward tray data requests to renderer via custom event
+ipcRenderer.on(ipcMessageKeys.TRAY_DATA_REQUEST, () => {
+  window.dispatchEvent(new Event('onekey-tray-data-request'));
+});
 
 // Expose synchronous MMKV IPC bridge for renderer-side syncStorage.
 // The main process registers the handler in react-native-mmkv-desktop-main.ts.
