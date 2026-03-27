@@ -9,14 +9,20 @@ import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchQuoteResult,
   ISwapApproveTransaction,
+  ISwapStep,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapApproveTransactionStatus,
+  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import type { IMarketGasInfoEntry } from './marketDirectSendTx';
+
+function shouldEnableMarketReviewFeeLevel(steps: ISwapStep[]) {
+  return steps.some((step) => step.type === ESwapStepType.APPROVE_TX);
+}
 
 export function buildMarketReviewState({
   accountId,
@@ -41,7 +47,7 @@ export function buildMarketReviewState({
   slippage?: number;
   texts: ISwapReviewStepTexts;
 }) {
-  return buildSwapReviewState({
+  const reviewState = buildSwapReviewState({
     accountId,
     networkId,
     // Market preview reuses the Swap interaction only.
@@ -60,6 +66,15 @@ export function buildMarketReviewState({
     slippage,
     texts,
   });
+
+  if (shouldEnableMarketReviewFeeLevel(reviewState.steps)) {
+    reviewState.preSwapData = {
+      ...reviewState.preSwapData,
+      supportNetworkFeeLevel: true,
+    };
+  }
+
+  return reviewState;
 }
 
 export function findMarketTxConfirmFeeInfo({

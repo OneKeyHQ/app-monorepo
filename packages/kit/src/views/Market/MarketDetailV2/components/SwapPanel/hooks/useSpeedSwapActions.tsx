@@ -74,6 +74,7 @@ import type {
 import { buildMarketExecutionPayload } from './marketBuildExecutionUtils';
 import {
   type IMarketGasInfoEntry,
+  estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   sendMarketDirectUnsignedTxs,
 } from './marketDirectSendTx';
@@ -1041,29 +1042,47 @@ export function useSpeedSwapActions(props: {
           accountId: snapshot.accountId,
           networkId: snapshot.networkId,
         });
-        const feeState = await estimateMarketDirectGasInfos({
-          accountAddress: snapshot.accountAddress,
-          accountId: snapshot.accountId,
-          networkId: snapshot.networkId,
-          buildUnsignedParams: snapshot.buildUnsignedParams,
-          approveUnsignedTxArr,
-          networkFeeLevel,
-        });
-
         if (
-          !snapshot.buildUnsignedParams.encodedTx &&
-          feeState.preparedUnsignedTx.encodedTx
+          snapshot.quoteResult.swapShouldSignedData &&
+          approveUnsignedTxArr?.length
         ) {
-          snapshot.buildUnsignedParams = {
-            ...snapshot.buildUnsignedParams,
-            encodedTx: feeState.preparedUnsignedTx.encodedTx,
+          const feeState = await estimateMarketApproveGasInfos({
+            accountAddress: snapshot.accountAddress,
+            accountId: snapshot.accountId,
+            networkId: snapshot.networkId,
+            approveUnsignedTxArr,
+            networkFeeLevel,
+          });
+
+          netWorkFee = {
+            gasInfos: feeState.gasInfos,
+            gasFeeFiatValue: feeState.gasFeeFiatValue,
+          };
+        } else {
+          const feeState = await estimateMarketDirectGasInfos({
+            accountAddress: snapshot.accountAddress,
+            accountId: snapshot.accountId,
+            networkId: snapshot.networkId,
+            buildUnsignedParams: snapshot.buildUnsignedParams,
+            approveUnsignedTxArr,
+            networkFeeLevel,
+          });
+
+          if (
+            !snapshot.buildUnsignedParams.encodedTx &&
+            feeState.preparedUnsignedTx.encodedTx
+          ) {
+            snapshot.buildUnsignedParams = {
+              ...snapshot.buildUnsignedParams,
+              encodedTx: feeState.preparedUnsignedTx.encodedTx,
+            };
+          }
+
+          netWorkFee = {
+            gasInfos: feeState.gasInfos,
+            gasFeeFiatValue: feeState.gasFeeFiatValue,
           };
         }
-
-        netWorkFee = {
-          gasInfos: feeState.gasInfos,
-          gasFeeFiatValue: feeState.gasFeeFiatValue,
-        };
       } catch {
         netWorkFee = undefined;
       }
