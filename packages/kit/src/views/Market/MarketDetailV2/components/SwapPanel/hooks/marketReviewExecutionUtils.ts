@@ -1,0 +1,103 @@
+import { isEqual } from 'lodash';
+
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import {
+  type ISwapReviewStepTexts,
+  buildSwapReviewState,
+} from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFetchQuoteResult,
+  ISwapApproveTransaction,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapApproveTransactionStatus,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
+
+import type { IMarketGasInfoEntry } from './marketDirectSendTx';
+
+export function buildMarketReviewState({
+  accountId,
+  networkId,
+  fromToken,
+  toToken,
+  fromTokenAmount,
+  toTokenAmount,
+  quoteResult,
+  shouldFallback,
+  slippage,
+  texts,
+}: {
+  accountId?: string;
+  networkId?: string;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenAmount?: string;
+  toTokenAmount?: string;
+  quoteResult?: IFetchQuoteResult;
+  shouldFallback?: boolean;
+  slippage?: number;
+  texts: ISwapReviewStepTexts;
+}) {
+  return buildSwapReviewState({
+    accountId,
+    networkId,
+    // Market preview reuses the Swap interaction only.
+    // The old Market execution stays approve -> confirm -> send, no batch shortcut.
+    batchApproveAndSwapEnabled: false,
+    fromToken,
+    toToken,
+    fromTokenAmount,
+    toTokenAmount,
+    quoteResult,
+    swapType: ESwapTabSwitchType.SWAP,
+    shouldFallback,
+    // Old Market tx confirm supported fee editing for wrap/swap,
+    // so preview prebuild should stay enabled for every path.
+    supportPreBuild: true,
+    slippage,
+    texts,
+  });
+}
+
+export function findMarketTxConfirmFeeInfo({
+  gasInfos,
+  encodedTx,
+}: {
+  gasInfos?: IMarketGasInfoEntry[];
+  encodedTx?: IEncodedTx;
+}): IFeeInfoUnit | undefined {
+  if (!gasInfos?.length || !encodedTx) {
+    return undefined;
+  }
+
+  return gasInfos.find(
+    (item) =>
+      isEqual(item.encodeTx, encodedTx) ||
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      ((item.encodeTx as any)?.rawSignTx &&
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (encodedTx as any)?.rawSignTx &&
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (item.encodeTx as any)?.rawSignTx ===
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          (encodedTx as any)?.rawSignTx),
+  )?.gasInfo as IFeeInfoUnit | undefined;
+}
+
+export function shouldAutoContinueMarketResetApprove({
+  approvedSwapInfo,
+  isReviewDialogOpen,
+}: {
+  approvedSwapInfo?: ISwapApproveTransaction;
+  isReviewDialogOpen?: boolean;
+}) {
+  return Boolean(
+    !isReviewDialogOpen &&
+    approvedSwapInfo?.status === ESwapApproveTransactionStatus.SUCCESS &&
+    approvedSwapInfo.resetApproveValue &&
+    Number(approvedSwapInfo.resetApproveValue) > 0,
+  );
+}
