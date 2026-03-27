@@ -162,6 +162,8 @@ jobs:
             echo "$COMMIT_MESSAGE"
             echo "GHEOF"
           } >> "$GITHUB_ENV"
+          # Override GITHUB_SHA in .env with resolved commit (shared-env writes github.sha which is wrong for workflow_call)
+          sed -i "s/^GITHUB_SHA=.*/GITHUB_SHA=$COMMIT/" .env
 
       - name: Setup Node
         uses: actions/setup-node@v6
