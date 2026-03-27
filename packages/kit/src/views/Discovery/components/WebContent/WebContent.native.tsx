@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
+import { Dialog, Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
@@ -20,6 +20,7 @@ import BlockAccessView from '../BlockAccessView';
 import type { IWebTab } from '../../types';
 import type {
   WebView as ReactNativeWebview,
+  WebViewMessageEvent,
   WebViewNavigation,
   WebViewProps,
 } from 'react-native-webview';
@@ -27,6 +28,25 @@ import type {
   ShouldStartLoadRequest,
   WebViewNavigationEvent,
 } from 'react-native-webview/lib/WebViewTypes';
+
+// Injected before page content loads; intercepts getUserMedia calls and
+// notifies React Native so we can show a permission confirmation dialog.
+const MEDIA_PERMISSION_INTERCEPT_JS = `
+(function() {
+  if (!window.navigator || !window.navigator.mediaDevices) return;
+  var _orig = window.navigator.mediaDevices.getUserMedia.bind(window.navigator.mediaDevices);
+  window.navigator.mediaDevices.getUserMedia = function(constraints) {
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'ONEKEY_MEDIA_PERMISSION_REQUEST',
+        origin: window.location.origin,
+      }));
+    }
+    return _orig(constraints);
+  };
+})();
+true;
+`;
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
@@ -51,12 +71,43 @@ function WebContent({
   const [progress, setProgress] = useState(5);
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const [grantedOrigins, setGrantedOrigins] = useState<string[]>([]);
   const [{ fiatPaySiteWhitelist }] =
     useSettingsFiatPaySiteWhitelistPersistAtom();
   const { onNavigation, gotoSite, validateWebviewSrc } =
     useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
+
+  const onMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      try {
+        const data = JSON.parse(event.nativeEvent.data) as {
+          type: string;
+          origin: string;
+        };
+        if (data.type === 'ONEKEY_MEDIA_PERMISSION_REQUEST' && data.origin) {
+          const { origin } = data;
+          if (
+            fiatPaySiteWhitelist.includes(origin) ||
+            grantedOrigins.includes(origin)
+          ) {
+            return;
+          }
+          Dialog.confirm({
+            title: 'Camera / Microphone Access',
+            description: `Allow "${origin}" to access your camera and microphone?`,
+            onConfirm: () => {
+              setGrantedOrigins((prev) => [...prev, origin]);
+            },
+          });
+        }
+      } catch {
+        // ignore non-JSON messages from the page
+      }
+    },
+    [fiatPaySiteWhitelist, grantedOrigins],
+  );
 
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     setBackEnabled(siteInfo.canGoBack);
@@ -151,7 +202,14 @@ function WebContent({
         androidLayerType={androidLayerType}
         pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
-        mediaPermissionWhitelist={fiatPaySiteWhitelist}
+        mediaPermissionWhitelist={[...fiatPaySiteWhitelist, ...grantedOrigins]}
+        mediaCapturePermissionGrantType={
+          platformEnv.isNativeIOS ? 'grantIfSameHostElsePrompt' : undefined
+        }
+        nativeInjectedJavaScriptBeforeContentLoaded={
+          MEDIA_PERMISSION_INTERCEPT_JS
+        }
+        onMessage={onMessage}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
@@ -194,8 +252,10 @@ function WebContent({
     [
       androidLayerType,
       fiatPaySiteWhitelist,
+      grantedOrigins,
       gotoSite,
       id,
+      onMessage,
       showHome,
       siteMode,
       url,
