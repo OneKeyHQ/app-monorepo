@@ -44,9 +44,7 @@ jest.mock('react-native/Libraries/Image/AssetSourceResolver', () => ({
 jest.mock('react-native/Libraries/Image/AssetUtils', () => ({
   pickScale: (scales: number[], pixelRatio: number) =>
     scales.reduce((prev, curr) =>
-      Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio)
-        ? curr
-        : prev,
+      Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio) ? curr : prev,
     ),
 }));
 
