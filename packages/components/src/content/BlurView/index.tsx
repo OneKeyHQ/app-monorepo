@@ -1,5 +1,5 @@
 import type { ForwardedRef } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 
 import { BlurView as NativeBlurView } from 'expo-blur';
 import { type View as IView, type ViewStyle } from 'react-native';
@@ -39,15 +39,24 @@ function BasicBlurView(
     resolveValues: 'auto',
   });
 
+  const optimizationViewStyle = useMemo(
+    () => ({
+      ...(style as ViewStyle),
+      overflow: 'hidden' as const,
+    }),
+    [style],
+  );
+
+  const fallbackContentStyle = useMemo(() => ({ flex: 1 as const }), []);
+
   return (
-    <OptimizationView
-      style={{
-        ...(style as ViewStyle),
-        overflow: 'hidden',
-      }}
-    >
+    <OptimizationView style={optimizationViewStyle}>
       <NativeBlurView
-        style={contentStyle ? (resolvedContentStyle as ViewStyle) : { flex: 1 }}
+        style={
+          contentStyle
+            ? (resolvedContentStyle as ViewStyle)
+            : fallbackContentStyle
+        }
         tint={themeName}
         experimentalBlurMethod={experimentalBlurMethod || 'dimezisBlurView'}
         {...restProps}

@@ -2,6 +2,11 @@ name: Shared Environment Variables Setup
 description: Setup environment variables for the project
 
 inputs:
+  checkout_ref:
+    required: false
+    type: string
+    default: ''
+    description: "Git ref to checkout (commit SHA, branch, or tag). If empty, defaults to the triggering event ref."
   additional_env:
     required: false
     type: string
@@ -60,6 +65,7 @@ runs:
       uses: actions/checkout@v3
       with:
         lfs: true
+        ref: ${{ inputs.checkout_ref || '' }}
 
     - name: Download workflow parameters
       if: ${{ github.event.workflow_run }}

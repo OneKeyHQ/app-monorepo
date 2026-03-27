@@ -4,15 +4,15 @@ Pre-release validation: displays the changeset since the last release so the tea
 
 ## Pre-flight Checks
 
-### 1. Read release branch
+### 1. Detect release branch
 
-```bash
-VERSION=$(grep -E '^VERSION=' .env.version | cut -d '=' -f 2)
-RELEASE_BRANCH="release/v${VERSION}"
-current_branch=$(git branch --show-current)
-```
+Use the **Release Branch Detection** logic from SKILL.md:
 
-If current branch is not the expected release branch, offer to switch:
+1. If already on a `release/v*` branch → use it directly
+2. Otherwise → find the latest `release/v*` from remote (excluding `mock` branches)
+3. Confirm with the user before proceeding
+
+If not on the release branch, offer to switch:
 
 > "You're on `$current_branch`, but the release branch is `$RELEASE_BRANCH`. Switch now? (y/n)"
 
@@ -28,37 +28,56 @@ git fetch origin "$RELEASE_BRANCH" x
 
 Shows what changed since the last published release for smoke testing scope and release notes.
 
-### Get the baseline commit
+### Determine baselines
 
-Read `RELEASES.json` from the release branch root:
+Two baselines are needed to show both full and incremental views:
 
-```bash
-cat RELEASES.json
-```
-
-Parse the JSON and get the `commit` field from the entry with the highest `seq`.
-
-If the file doesn't exist or is empty (first release for this branch), fall back to the App Shell tag:
+1. **App Shell tag** — the starting point of this release branch:
 
 ```bash
-base_sha=$(git rev-parse "v${VERSION}")
+# Extract version from RELEASE_BRANCH (e.g., "release/v6.1.0" → "6.1.0")
+VERSION="${RELEASE_BRANCH#release/v}"
+tag_sha=$(git rev-parse "v${VERSION}")
 ```
+
+2. **Last bundle release** — read `RELEASES.json` from the release branch:
+
+```bash
+git show "$RELEASE_BRANCH:RELEASES.json" 2>/dev/null
+```
+
+Parse the JSON and get the `commit` field from the entry with the highest `seq`. If the file doesn't exist or is empty (first bundle release), `last_release_sha` is the same as `tag_sha`.
 
 ### Show the changeset
 
-```bash
-# Commit history
-git log $base_sha..$RELEASE_BRANCH --oneline
+Display both views — full (since tag) and incremental (since last bundle release):
 
-# File change statistics
-git diff --stat $base_sha..$RELEASE_BRANCH
+```bash
+# === Full changeset (tag → HEAD) ===
+git log $tag_sha..$RELEASE_BRANCH --oneline
+git diff --stat $tag_sha..$RELEASE_BRANCH
+
+# === Incremental changeset (last release → HEAD) ===
+# Only show if last_release_sha != tag_sha (i.e., not the first release)
+git log $last_release_sha..$RELEASE_BRANCH --oneline
+git diff --stat $last_release_sha..$RELEASE_BRANCH
 ```
 
-### Generate GitHub compare link
+### Generate GitHub compare links
 
 ```bash
 repo_url=$(git remote get-url origin | sed 's/git@github.com:/https:\/\/github.com\//' | sed 's/\.git$//')
-echo "${repo_url}/compare/${base_sha}...${RELEASE_BRANCH}"
+
+# Full: tag → release branch
+echo "${repo_url}/compare/${tag_sha}...${RELEASE_BRANCH}"
+
+# Incremental: last release → release branch (only if different from full)
+if [ "$last_release_sha" != "$tag_sha" ]; then
+  echo "${repo_url}/compare/${last_release_sha}...${RELEASE_BRANCH}"
+fi
+
+# Sync gap: what's on release but not yet on x
+echo "${repo_url}/compare/x...${RELEASE_BRANCH}"
 ```
 
 ### Identify included PRs
@@ -67,10 +86,16 @@ Since PRs are merged directly to the release branch, extract PR numbers from com
 - Merge commit: `Merge pull request #1234 from user/branch`
 - Squash merge: `feat: description (#1234)`
 
-Extract all PR numbers with:
+Extract from both ranges:
 
 ```bash
-git log $base_sha..$RELEASE_BRANCH --format="%s" | grep -oE '#[0-9]+' | sort -u
+# Full (all PRs since tag)
+git log $tag_sha..$RELEASE_BRANCH --format="%s" | grep -oE '#[0-9]+' | sort -u
+
+# Incremental (new PRs since last release, only if applicable)
+if [ "$last_release_sha" != "$tag_sha" ]; then
+  git log $last_release_sha..$RELEASE_BRANCH --format="%s" | grep -oE '#[0-9]+' | sort -u
+fi
 ```
 
 ## Check 2: Sync Status (Informational)
@@ -93,15 +118,28 @@ If count > 0:
 
 ## Output Summary
 
-```
+IMPORTANT: Do NOT put compare URLs inside code blocks — they must be rendered as clickable markdown links. Use this format:
+
+---
+
 === Release Diff Check Report ===
 
-📦 Changes since last release (seq #$last_seq, sha: $base_sha):
-   - $commit_count commits, $file_count files changed
-   - PRs included: #1270, #1275, #1278
-   - 🔗 Compare: $compare_url
+📦 **Full changeset** (tag v$VERSION → $RELEASE_BRANCH):
+- $full_commit_count commits, $full_file_count files changed
+- PRs included: #1270, #1275, #1278
+- 🔗 Compare: $full_compare_url
 
-ℹ️  Sync status: $unsync_count commit(s) pending sync to x
+📦 **Incremental changeset** (seq #$last_seq → $RELEASE_BRANCH):
+*Only shown when last_release_sha ≠ tag_sha (i.e., not the first bundle release)*
+- $incr_commit_count new commits, $incr_file_count files changed
+- New PRs: #1290, #1292
+- 🔗 Compare: $incr_compare_url
 
-Conclusion: ✅ Ready for /1k-bundle-release publish
-```
+🔄 **Sync gap** ($RELEASE_BRANCH vs x):
+- 🔗 Compare: $sync_compare_url
+
+ℹ️ Sync status: $unsync_count commit(s) pending sync to x
+
+Conclusion: ✅ Ready for `/1k-bundle-release publish`
+
+💡 Tip: Run `/1k-bundle-release audit` for a full security audit before publishing.

@@ -92,13 +92,36 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
       return stylesArray;
     };
 
-    const placeholderStyle = {
-      opacity: placeholder ? 0.5 : pinCodeTextStyle?.opacity || 1,
-      ...(placeholder ? placeholderTextStyle : {}),
-    };
+    const placeholderStyle = useMemo(
+      () => ({
+        opacity: placeholder ? 0.5 : pinCodeTextStyle?.opacity || 1,
+        ...(placeholder ? placeholderTextStyle : {}),
+      }),
+      [placeholder, pinCodeTextStyle?.opacity, placeholderTextStyle],
+    );
+
+    const containerViewStyle = useMemo(
+      () => [styles.container, containerStyle, inputsContainerStyle],
+      [containerStyle, inputsContainerStyle],
+    );
+
+    const hiddenInputStyle = useMemo(
+      () => [styles.hiddenInput, textInputProps?.style],
+      [textInputProps?.style],
+    );
+
+    const codeTextPlaceholderStyle = useMemo(
+      () => [styles.codeText, pinCodeTextStyle, placeholderStyle],
+      [pinCodeTextStyle, placeholderStyle],
+    );
+
+    const codeTextNormalStyle = useMemo(
+      () => [styles.codeText, pinCodeTextStyle],
+      [pinCodeTextStyle],
+    );
 
     return (
-      <View style={[styles.container, containerStyle, inputsContainerStyle]}>
+      <View style={containerViewStyle}>
         {Array(numberOfDigits)
           .fill(0)
           .map((_, index) => {
@@ -129,11 +152,11 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
                   />
                 ) : (
                   <Text
-                    style={[
-                      styles.codeText,
-                      pinCodeTextStyle,
-                      isPlaceholderCell ? placeholderStyle : {},
-                    ]}
+                    style={
+                      isPlaceholderCell
+                        ? codeTextPlaceholderStyle
+                        : codeTextNormalStyle
+                    }
                   >
                     {char && secureTextEntry ? '•' : char}
                   </Text>
@@ -160,7 +183,7 @@ export const OtpInput = forwardRef<IOtpInputRef, IOtpInputProps>(
           caretHidden={Platform.OS === 'ios'}
           accessibilityLabel="OTP input field"
           {...textInputProps}
-          style={[styles.hiddenInput, textInputProps?.style]}
+          style={hiddenInputStyle}
         />
       </View>
     );

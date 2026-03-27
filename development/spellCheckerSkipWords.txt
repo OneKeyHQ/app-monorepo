@@ -1366,6 +1366,7 @@ jsbundle
 avd
 AVD
 oxlint
+oxlintrc
 serviceworker
 newtab
 hrstart
@@ -1416,3 +1417,7 @@ pwdhash
 wesbos
 entrancy
 vbyte
+prefs
+Prefs
+oxlintrc
+crosschain

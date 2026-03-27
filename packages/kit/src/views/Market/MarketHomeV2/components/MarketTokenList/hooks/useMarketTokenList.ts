@@ -8,6 +8,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
+import { TIME_RANGE_TO_API_MAP } from '../../../types';
 import {
   getNetworkLogoUri,
   transformApiItemToToken,
@@ -20,6 +21,8 @@ interface IUseMarketTokenListParams {
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
+  type?: string;
+  timeRange?: string;
 }
 
 export function useMarketTokenList({
@@ -27,7 +30,10 @@ export function useMarketTokenList({
   initialSortBy = 'v24hUSD',
   initialSortType = 'desc',
   pageSize = 20,
+  type,
+  timeRange,
 }: IUseMarketTokenListParams) {
+  const timeFrame = timeRange ? TIME_RANGE_TO_API_MAP[timeRange] : undefined;
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
   const { trackNetworkLoading } = useNetworkLoadingAnalytics();
@@ -77,13 +83,24 @@ export function useMarketTokenList({
           page: 1,
           limit: pageSize,
           minLiquidity,
+          type,
+          timeFrame,
         });
       return {
         list: response.list,
         total: response.total,
       };
     },
-    [hasNetworkId, apiNetworkId, sortBy, sortType, pageSize, minLiquidity],
+    [
+      hasNetworkId,
+      apiNetworkId,
+      sortBy,
+      sortType,
+      pageSize,
+      minLiquidity,
+      type,
+      timeFrame,
+    ],
     {
       watchLoading: hasNetworkId,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
@@ -91,6 +108,7 @@ export function useMarketTokenList({
       revalidateOnReconnect: true,
     },
   );
+
   const effectiveIsLoading = hasNetworkId ? isLoading : false;
 
   useEffect(() => {
@@ -122,7 +140,7 @@ export function useMarketTokenList({
     setHasReachedEnd(false);
     // Don't clear data immediately to avoid UI flicker
     // The data will be replaced when new API result arrives
-  }, [networkId, sortBy, sortType]);
+  }, [networkId, sortBy, sortType, type, timeFrame]);
 
   // Handle network switching - separate effect to track networkId changes specifically
   useEffect(() => {
@@ -170,6 +188,8 @@ export function useMarketTokenList({
           page: nextPage,
           limit: pageSize,
           minLiquidity,
+          type,
+          timeFrame,
         });
 
       if (response?.list?.length > 0) {
@@ -208,6 +228,8 @@ export function useMarketTokenList({
     sortType,
     pageSize,
     minLiquidity,
+    type,
+    timeFrame,
     trackNetworkLoading,
     networkLogoUri,
   ]);

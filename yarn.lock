@@ -9066,7 +9066,7 @@ __metadata:
     "@wagmi/core": "npm:2.21.0"
     "@walletconnect/sign-client": "npm:2.21.9"
     "@walletconnect/universal-provider": "npm:2.21.9"
-    agentation: "npm:^2.3.0"
+    agentation: "npm:^2.3.3"
     allotment: "npm:^1.20.5"
     array.prototype.toreversed: "npm:^1.1.2"
     axios: "npm:^1.13.2"
@@ -9539,7 +9539,6 @@ __metadata:
     "@types/webextension-polyfill": "npm:^0.8.2"
     async-mutex: "npm:^0.3.2"
     fast-safe-stringify: "npm:^2.1.1"
-    flatted: "npm:^3.4.0"
     folderslint: "npm:1.2.0"
     js-base64: "npm:3.7.5"
     jsonschema: "npm:^1.4.1"
@@ -19976,9 +19975,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"agentation@npm:^2.3.0":
-  version: 2.3.0
-  resolution: "agentation@npm:2.3.0"
+"agentation@npm:^2.3.3":
+  version: 2.3.3
+  resolution: "agentation@npm:2.3.3"
   peerDependencies:
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
@@ -19987,7 +19986,7 @@ __metadata:
       optional: true
     react-dom:
       optional: true
-  checksum: 10/8c076feddef83242db18358e1fd4b61ce62763c33912442528c92f331e76b98ce2148cf779944c49d4beb29504f380dd73ce21b756b43ad679f08214a86c91ac
+  checksum: 10/c7c0af104ea3b2b4c34eaef0253aae3324ceb971f9ee30f35f31045ddd73660c3021349fc0be7abef05a4bbd5bcf1460d8c9532e6b98217d29be0de0e34d22ec
   languageName: node
   linkType: hard
 
@@ -29462,13 +29461,6 @@ __metadata:
   version: 3.3.3
   resolution: "flatted@npm:3.3.3"
   checksum: 10/8c96c02fbeadcf4e8ffd0fa24983241e27698b0781295622591fc13585e2f226609d95e422bcf2ef044146ffacb6b68b1f20871454eddf75ab3caa6ee5f4a1fe
-  languageName: node
-  linkType: hard
-
-"flatted@npm:^3.4.0":
-  version: 3.4.1
-  resolution: "flatted@npm:3.4.1"
-  checksum: 10/39a308e2ef82d2d8c80ebc74b67d4ff3f668be168137b649440b6735eb9c115d1e0c13ab0d9958b3d2ea9c85087ab7e14c14aa6f625a22b2916d89bbd91bc4a0
   languageName: node
   linkType: hard
 

@@ -9,10 +9,17 @@
     { "name": "import-js", "specifier": "eslint-plugin-import" },
     "./development/plugins/eslint-plugin-onekey.js"
   ],
-  "extends": [
-    "eslint-config-prettier",
+  "extends": ["eslint-config-prettier"],
+  "plugins": [
+    "unicorn",
+    "typescript",
+    "oxc",
+    "react",
+    "react_perf",
+    "import",
+    "jest",
+    "jsx-a11y"
   ],
-  "plugins": ["unicorn", "typescript", "oxc", "react", "import", "jest", "jsx-a11y"],
   // NOTE: JavaScript ESLint plugins (experimental feature) are not used yet
   // because some plugin configurations are not compatible with oxlint
   // https://oxc.rs/docs/guide/usage/linter/migrate-from-eslint.html#local-custom-eslint-plugins
@@ -224,8 +231,11 @@
         "additionalHooks": "(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)"
       }
     ],
-    "react/jsx-curly-brace-presence": ["error", { "props": "never", "children": "never" }],
-    // react_perf rules — disabled, too many existing violations to fix at once
+    "react/jsx-curly-brace-presence": [
+      "error",
+      { "props": "never", "children": "never" }
+    ],
+    // react_perf rules — enabled only for packages/components (see overrides)
     "react_perf/jsx-no-new-function-as-prop": "off",
     "react_perf/jsx-no-new-object-as-prop": "off",
     "react_perf/jsx-no-new-array-as-prop": "off",
@@ -444,7 +454,7 @@
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [
     {
-      // packages/components - cannot import from kit or kit-bg
+      // packages/components - cannot import from kit or kit-bg + react_perf rules
       "files": [
         "packages/components/src/**/*.ts",
         "packages/components/src/**/*.tsx"
@@ -461,7 +471,11 @@
               }
             ]
           }
-        ]
+        ],
+        "react_perf/jsx-no-new-function-as-prop": "error",
+        "react_perf/jsx-no-new-object-as-prop": "error",
+        "react_perf/jsx-no-new-array-as-prop": "error",
+        "react_perf/jsx-no-jsx-as-prop": "error"
       }
     },
     {
@@ -584,8 +598,7 @@
     {
       // Test files - relax some rules
       "files": ["test/**/*.js", "test/**/*.ts", "**/*.test.ts"],
-      "rules": {
-      }
+      "rules": {}
     },
     {
       // JS/JSX files - disable TypeScript-specific rules
@@ -606,7 +619,7 @@
         "typescript/no-unsafe-call": "off",
         "typescript/no-unsafe-return": "off",
         "typescript/no-unsafe-function-type": "off",
-        "typescript/no-empty-object-type": "off",
+        "typescript/no-empty-object-type": "off"
       }
     }
   ],
