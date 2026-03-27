@@ -505,7 +505,9 @@ function BulkSendProcessContent({
                 [i]: {
                   isInsufficientFunds: true,
                   status: EBulkSendTxStatus.Failed,
-                  errorMessage: `Insufficient balance for send amount and fees`,
+                  errorMessage: intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_error_insufficient_balance_and_fees,
+                  }),
                 },
               }));
               continue;
@@ -553,7 +555,9 @@ function BulkSendProcessContent({
                   ...prev,
                   [j]: {
                     status: EBulkSendTxStatus.Skipped,
-                    errorMessage: 'Excessive gas fee detected',
+                    errorMessage: intl.formatMessage({
+                      id: ETranslations.wallet_bulk_send_error_excessive_gas_fee,
+                    }),
                   },
                 }));
               }
@@ -847,7 +851,9 @@ function BulkSendProcessContent({
         <Stack pb="$2" px="$5">
           <Alert
             icon="InfoCircleOutline"
-            title="Please keep the page active. Exiting will pause the process."
+            title={intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_alert_keep_page_active,
+            })}
             type="warning"
           />
         </Stack>
