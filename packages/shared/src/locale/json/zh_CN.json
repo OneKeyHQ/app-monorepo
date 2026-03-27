@@ -2878,7 +2878,7 @@
   "perp_portfolio_health_status_moderate": "中等风险",
   "perp_portfolio_margin_used": "已用保证金",
   "perp_portfolio_margin_used_tooltip": "分配给持仓的总保证金。",
-  "perp_portfolio_mmr_tooltip": "维持保证金率 — 保持仓位所需的最低保证金。当该比率超过 100% 时，仓位将被强制平仓。",
+  "perp_portfolio_mmr_tooltip": "维持保证金率（仅含全仓）— 保持全仓仓位所需的最低保证金，不含逐仓仓位。当该比率超过 100% 时，仓位将被强制平仓。",
   "perp_portfolio_most_traded": "最多交易",
   "perp_portfolio_net_deposits": "净入金",
   "perp_portfolio_net_deposits_tooltip": "该时段内总入金减去总出金。",

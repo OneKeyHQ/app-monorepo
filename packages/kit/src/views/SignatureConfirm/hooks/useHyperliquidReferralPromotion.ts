@@ -54,24 +54,24 @@ export function useHyperliquidReferralPromotion({
     }
   }, [origin, unsignedMessage]);
 
-  // Check opt-out preference and set default checkbox state
-  const { result: optOutResult } = usePromiseResult(async () => {
+  // Check snooze state and set default checkbox state
+  const { result: snoozeResult } = usePromiseResult(async () => {
     if (!userAddress) {
-      return { optedOut: false };
+      return { snoozed: false };
     }
-    const optedOut =
-      await backgroundApiProxy.serviceHyperliquidReferral.getReferralPromptOptedOut(
+    const snoozedUntil =
+      await backgroundApiProxy.serviceHyperliquidReferral.getReferralBannerSnoozedUntil(
         { userAddress },
       );
-    return { optedOut };
+    return { snoozed: snoozedUntil > Date.now() };
   }, [userAddress]);
 
-  // Update checkbox state based on opt-out preference
+  // Update checkbox state based on snooze preference
   useEffect(() => {
-    if (optOutResult?.optedOut) {
+    if (snoozeResult?.snoozed) {
       setIsReferralChecked(false);
     }
-  }, [optOutResult?.optedOut]);
+  }, [snoozeResult?.snoozed]);
 
   const { result, isLoading } = usePromiseResult(
     async () => {
@@ -193,6 +193,9 @@ export function useHyperliquidReferralPromotion({
             referralCode: HYPERLIQUID_REFERRAL_CODE,
           },
         );
+        await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
+          { userAddress },
+        );
       } else {
         void backgroundApiProxy.serviceHyperliquidReferral.logReferralBindingStep(
           {
@@ -232,16 +235,13 @@ export function useHyperliquidReferralPromotion({
       );
 
       // If user rejected/cancelled signing (HW wallet rejection or user cancel),
-      // save opt-out preference so checkbox defaults to unchecked next time
+      // snooze the banner so checkbox defaults to unchecked next time
       const isUserRejection =
         (error as OneKeyHardwareError)?.code ===
         HardwareErrorCode.ActionCancelled;
       if (isUserRejection) {
-        void backgroundApiProxy.serviceHyperliquidReferral.setReferralPromptOptedOut(
-          {
-            userAddress,
-            optedOut: true,
-          },
+        void backgroundApiProxy.serviceHyperliquidReferral.snoozeReferralBanner(
+          { userAddress },
         );
       }
       // Silent failure - don't affect signing result
