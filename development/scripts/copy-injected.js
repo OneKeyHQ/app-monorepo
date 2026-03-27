@@ -54,7 +54,7 @@ const injectedCode = fs.readFileSync(injectedDesktopSrc, 'utf-8');
     'throw new Error("Cannot require "+m);',
     '};',
   ].join('');
-  const content = `${requireShim}\n${injectedCode}`;
+  const content = `(function(){${requireShim}\n${injectedCode}})();`;
   fs.writeFileSync(
     './packages/kit-bg/src/desktopApis/injectedDesktopCode.text-js',
     content,
@@ -74,7 +74,7 @@ const injectedCode = fs.readFileSync(injectedDesktopSrc, 'utf-8');
     'throw new Error("Cannot require "+m);',
     '};',
   ].join('');
-  const fullProviderCode = `${requireShim}\n${injectedCode}`;
+  const fullProviderCode = `(function(){${requireShim}\n${injectedCode}})();`;
 
   const preloadContent = `/* eslint-disable */
 /**
@@ -85,6 +85,7 @@ const injectedCode = fs.readFileSync(injectedDesktopSrc, 'utf-8');
  * 2. Injects the Web3 provider (injectedDesktop.js) into the page's main world
  *    via webFrame.executeJavaScript (DOM is not available at preload time).
  */
+(function () {
 var electron = require('electron');
 var contextBridge = electron.contextBridge;
 var ipcRenderer = electron.ipcRenderer;
@@ -110,6 +111,7 @@ contextBridge.exposeInMainWorld('__onekeyDesktopBridge', {
 webFrame.executeJavaScript(${JSON.stringify(fullProviderCode)}).catch(function (err) {
   console.error('[OneKey] Failed to inject provider', err);
 });
+})();
 `;
 
   fs.writeFileSync('./apps/desktop/public/static/preload.js', preloadContent);
