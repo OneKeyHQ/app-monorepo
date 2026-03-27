@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -51,15 +52,53 @@ function TxActionCommonAvatar({
   avatar,
   networkLogoURI,
   compact,
+  tableLayout,
+  networkId,
 }: Pick<
   ITxActionCommonListViewProps,
-  'avatar' | 'tableLayout' | 'networkLogoURI' | 'compact'
+  'avatar' | 'tableLayout' | 'networkLogoURI' | 'compact' | 'networkId'
 >) {
   const containerSize = compact ? '$8' : '$10';
 
   const {
     activeAccount: { network: activeNetwork },
   } = useActiveAccount({ num: 0 });
+
+  if (tableLayout) {
+    const showNetworkBadge = activeNetwork?.isAllNetworks;
+    return (
+      <Stack position="relative" w="$10" h="$10">
+        <Stack
+          w="$10"
+          h="$10"
+          borderColor="$gray3"
+          bg="$gray2"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderRadius="$full"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon
+            name={avatar.fallbackIcon ?? 'Document2Outline'}
+            color="$icon"
+            size="$6"
+          />
+        </Stack>
+        {showNetworkBadge ? (
+          <Stack
+            position="absolute"
+            right="$-1"
+            bottom="$-0.5"
+            p="$0.5"
+            bg="$bgApp"
+            borderRadius="$full"
+          >
+            <NetworkAvatar networkId={networkId} size="$4" />
+          </Stack>
+        ) : null}
+      </Stack>
+    );
+  }
 
   if (!avatar.src || typeof avatar.src === 'string') {
     return (
@@ -121,7 +160,7 @@ function TxActionCommonAvatar({
 
 function TxActionCommonTitle({
   title,
-  tableLayout: _tableLayout,
+  tableLayout,
   replaceType,
   status,
   riskyLevel,
@@ -134,7 +173,11 @@ function TxActionCommonTitle({
 
   return (
     <XStack alignItems="center" minWidth={0}>
-      <SizableText numberOfLines={1} flexShrink={1} size="$bodyLgMedium">
+      <SizableText
+        numberOfLines={1}
+        flexShrink={1}
+        size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
+      >
         {title}
       </SizableText>
       {replaceType && status === EDecodedTxStatus.Pending ? (
@@ -218,10 +261,12 @@ function TxActionCommonDescription({
     });
     if (addressesInfo[addressInfoKey]) {
       return (
-        <TxHistoryAddressInfo
-          address={description.originalAddress}
-          badge={addressesInfo[addressInfoKey]}
-        />
+        <Stack flexShrink={1} minWidth={0}>
+          <TxHistoryAddressInfo
+            address={description.originalAddress}
+            badge={addressesInfo[addressInfoKey]}
+          />
+        </Stack>
       );
     }
   }
@@ -319,8 +364,8 @@ function TxActionCommonFee({
   }
 
   return (
-    <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1}>
-      <SizableText size="$bodyLg" color="$textSubdued">
+    <Stack flexGrow={0.6} flexBasis={0} opacity={hideFeeInfo ? 0 : 1} gap="$1">
+      <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.swap_history_detail_network_fee,
         })}
@@ -330,6 +375,9 @@ function TxActionCommonFee({
           size="$bodyMd"
           formatter="balance"
           formatterOptions={{ tokenSymbol: feeSymbol }}
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
         >
           {fee}
         </NumberSizeableText>
@@ -338,6 +386,9 @@ function TxActionCommonFee({
           color="$textSubdued"
           formatter="value"
           formatterOptions={{ currency: currencySymbol }}
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
         >
           {feeFiatValue}
         </NumberSizeableText>
@@ -391,6 +442,7 @@ function TxActionCommonListView(
           ? 0.5
           : 1
       }
+      {...(tableLayout && { py: '$3' })}
       {...rest}
     >
       {/* Content */}
@@ -401,7 +453,7 @@ function TxActionCommonListView(
           minWidth={0}
           gap="$3"
           {...(tableLayout && {
-            flexGrow: 2,
+            flexGrow: 1,
             flexBasis: 0,
           })}
           alignItems="center"
@@ -412,9 +464,10 @@ function TxActionCommonListView(
               tableLayout={tableLayout}
               networkLogoURI={networkLogoURI}
               compact={compact}
+              networkId={networkId}
             />
           ) : null}
-          <Stack flex={1} minWidth={0}>
+          <Stack flex={1} minWidth={0} {...(tableLayout && { gap: '$1' })}>
             <TxActionCommonTitle
               title={title}
               status={status}
@@ -460,6 +513,7 @@ function TxActionCommonListView(
             alignItems: 'unset',
             flexGrow: 1,
             flexBasis: 0,
+            gap: '$1',
           })}
         >
           {typeof change === 'string' ? (

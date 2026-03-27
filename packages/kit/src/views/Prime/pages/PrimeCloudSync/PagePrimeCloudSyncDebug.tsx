@@ -16,6 +16,7 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useTabContainerWidth,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -28,6 +29,7 @@ import {
   usePrimeMasterPasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import dateUtils from '@onekeyhq/shared/src/utils/dateUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
@@ -629,7 +631,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
   );
 
   return (
-    <YStack p="$1" gap="$1">
+    <YStack flex={1} minHeight={0} p="$1" gap="$1">
       <XStack gap="$1" alignItems="center">
         <Select
           title="数据类型"
@@ -717,6 +719,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
         dataSource={displayItems}
         estimatedItemSize={40}
         keyExtractor={(item) => item.id}
+        tabIntegrated
       />
     </YStack>
   );
@@ -1059,6 +1062,8 @@ function DebugPanel() {
 }
 
 export default function PagePrimeCloudSyncDebug() {
+  const tabContainerWidth = useTabContainerWidth();
+
   const localItemsTable = useCallback(
     () => <SyncItemTable activeTab="local" />,
     [],
@@ -1070,15 +1075,27 @@ export default function PagePrimeCloudSyncDebug() {
   );
 
   const statusPanel = useCallback(() => {
-    return <StatusPanel />;
+    return (
+      <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+        <StatusPanel />
+      </Tabs.ScrollView>
+    );
   }, []);
 
   const debugPanel = useCallback(() => {
-    return <DebugPanel />;
+    return (
+      <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+        <DebugPanel />
+      </Tabs.ScrollView>
+    );
   }, []);
 
   const scenarioPanel = useCallback(() => {
-    return <ScenarioPanel />;
+    return (
+      <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+        <ScenarioPanel />
+      </Tabs.ScrollView>
+    );
   }, []);
 
   const tabs = useMemo(() => {
@@ -1113,11 +1130,14 @@ export default function PagePrimeCloudSyncDebug() {
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header title="云同步数据调试" />
       <Page.Body>
-        <Stack>
-          <Tabs.Container renderTabBar={(props) => <Tabs.TabBar {...props} />}>
+        <Stack flex={1} minHeight={0}>
+          <Tabs.Container
+            width={platformEnv.isNative ? Number(tabContainerWidth) : undefined}
+            renderTabBar={(props) => <Tabs.TabBar {...props} />}
+          >
             {tabs.map((tab) => (
               <Tabs.Tab key={tab.title} name={tab.title}>
                 {tab.page()}
