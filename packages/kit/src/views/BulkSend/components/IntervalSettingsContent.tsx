@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EIntervalMode,
   type IIntervalSettings,
@@ -8,15 +12,43 @@ import {
 
 import { BULK_SEND_INTERVAL_MAX_SECONDS } from '../utils';
 
-export const INTERVAL_SETTINGS_TITLE = 'Set interval';
-export const INTERVAL_SETTINGS_NONE_LABEL = 'No interval';
-export const INTERVAL_SETTINGS_CANCEL_TEXT = 'Cancel';
-export const INTERVAL_SETTINGS_CONFIRM_TEXT = 'Confirm';
-export const INTERVAL_SETTINGS_REVIEW_TEXT = 'Review';
+export const INTERVAL_SETTINGS_TITLE = appLocale.intl.formatMessage({
+  id: ETranslations.wallet_bulk_send_interval_title,
+});
+export const INTERVAL_SETTINGS_NONE_LABEL = appLocale.intl.formatMessage({
+  id: ETranslations.wallet_bulk_send_interval_none,
+});
+export const INTERVAL_SETTINGS_CANCEL_TEXT = appLocale.intl.formatMessage({
+  id: ETranslations.wallet_bulk_send_btn_cancel,
+});
+export const INTERVAL_SETTINGS_CONFIRM_TEXT = appLocale.intl.formatMessage({
+  id: ETranslations.wallet_bulk_send_btn_confirm,
+});
+export const INTERVAL_SETTINGS_REVIEW_TEXT = appLocale.intl.formatMessage({
+  id: ETranslations.wallet_bulk_send_btn_review,
+});
 
-const INTERVAL_SETTINGS_SPECIFIED_LABEL = 'Specified range';
-const INTERVAL_SETTINGS_SPECIFIED_DESC = `Set an interval between 0 and ${BULK_SEND_INTERVAL_MAX_SECONDS} seconds.`;
-const INTERVAL_SETTINGS_NONE_DESC = 'Send all transactions at the same time.';
+function useIntervalLabels() {
+  const intl = useIntl();
+  return {
+    specifiedLabel: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_interval_specified_range,
+    }),
+    specifiedDesc: intl.formatMessage(
+      { id: ETranslations.wallet_bulk_send_interval_specified_desc },
+      { maxSeconds: BULK_SEND_INTERVAL_MAX_SECONDS },
+    ),
+    noneDesc: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_interval_none_desc,
+    }),
+    noneLabel: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_interval_none,
+    }),
+    maxSecPlaceholder: intl.formatMessage({
+      id: ETranslations.wallet_bulk_send_interval_max_sec_placeholder,
+    }),
+  };
+}
 
 function IntervalOptionIndicator({ selected }: { selected: boolean }) {
   return (
@@ -84,12 +116,14 @@ function IntervalRangeInputs({
   minSeconds,
   maxSeconds,
   error,
+  maxSecPlaceholder,
   onMinChange,
   onMaxChange,
 }: {
   minSeconds: string;
   maxSeconds: string;
   error?: string;
+  maxSecPlaceholder: string;
   onMinChange: (value: string) => void;
   onMaxChange: (value: string) => void;
 }) {
@@ -116,7 +150,7 @@ function IntervalRangeInputs({
           containerProps={{ flex: 1, minWidth: 0 }}
           value={maxSeconds}
           onChangeText={(v) => onMaxChange(filterIntegerInput(v))}
-          placeholder="Max (sec)"
+          placeholder={maxSecPlaceholder}
           keyboardType="number-pad"
           size="medium"
           error={Boolean(error)}
@@ -140,6 +174,14 @@ function IntervalSettingsContent({
   error?: string;
   onChange: (settings: IIntervalSettings) => void;
 }) {
+  const {
+    specifiedLabel,
+    specifiedDesc,
+    noneDesc,
+    noneLabel,
+    maxSecPlaceholder,
+  } = useIntervalLabels();
+
   const handleSpecifiedModePress = useCallback(() => {
     onChange({
       ...value,
@@ -171,8 +213,8 @@ function IntervalSettingsContent({
   return (
     <YStack w="100%" minWidth={0} gap="$4">
       <IntervalOptionCard
-        title={INTERVAL_SETTINGS_SPECIFIED_LABEL}
-        description={INTERVAL_SETTINGS_SPECIFIED_DESC}
+        title={specifiedLabel}
+        description={specifiedDesc}
         selected={value.mode === EIntervalMode.Specified}
         onPress={handleSpecifiedModePress}
       >
@@ -181,14 +223,15 @@ function IntervalSettingsContent({
             minSeconds={value.minSeconds}
             maxSeconds={value.maxSeconds}
             error={error}
+            maxSecPlaceholder={maxSecPlaceholder}
             onMinChange={handleMinChange}
             onMaxChange={handleMaxChange}
           />
         ) : null}
       </IntervalOptionCard>
       <IntervalOptionCard
-        title={INTERVAL_SETTINGS_NONE_LABEL}
-        description={INTERVAL_SETTINGS_NONE_DESC}
+        title={noneLabel}
+        description={noneDesc}
         selected={value.mode === EIntervalMode.None}
         onPress={handleNoneModePress}
       />

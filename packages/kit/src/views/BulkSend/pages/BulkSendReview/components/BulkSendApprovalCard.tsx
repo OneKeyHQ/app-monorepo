@@ -125,7 +125,11 @@ function ApprovalItem({
         </YStack>
         <XStack gap="$3" alignItems="center">
           <YStack alignItems="flex-end">
-            <SizableText size="$bodyMdMedium">OneKey Bulk Send</SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_approval_spender_name,
+              })}
+            </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
               {shortenedSpender}
             </SizableText>
