@@ -181,7 +181,10 @@ if (process.env.RN_HARNESS === 'true') {
     if (moduleName === '@testing-library/react-native') {
       return {
         type: 'sourceFile',
-        filePath: path.resolve(projectRoot, 'harness/testing-library-react-native-shim.tsx'),
+        filePath: path.resolve(
+          projectRoot,
+          'harness/testing-library-react-native-shim.tsx',
+        ),
       };
     }
     // Map lodash-es to lodash (same as Jest moduleNameMapper: '^lodash-es$': 'lodash')

@@ -1,6 +1,6 @@
 // Lightweight shim for @testing-library/react-native in the harness environment.
-// RNTL imports Node.js built-ins (console, util, picocolors) that Metro can't
-// resolve. This shim re-implements renderHook/act/waitFor following RNTL's
+// @testing-library/react-native imports Node.js built-ins (console, util, picocolors) that Metro can't
+// resolve. This shim re-implements renderHook/act/waitFor following @testing-library/react-native's
 // source patterns, using react-test-renderer (pure JS, no Node.js or DOM deps).
 //
 // Reference: @testing-library/react-native v13.3.3
@@ -12,10 +12,11 @@
 
 import type { ComponentType } from 'react';
 import React from 'react';
+
 import TestRenderer from 'react-test-renderer';
 
 // ---------------------------------------------------------------------------
-// act — mirrors RNTL's withGlobalActEnvironment wrapper
+// act — mirrors @testing-library/react-native's withGlobalActEnvironment wrapper
 // Sets IS_REACT_ACT_ENVIRONMENT=true during execution (React 18+ requirement)
 // ---------------------------------------------------------------------------
 
@@ -30,7 +31,7 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
     const result = actFn(() => {
       const cbResult = callback();
       isCallbackAsync =
-        cbResult != null &&
+        cbResult !== null && cbResult !== undefined &&
         typeof cbResult === 'object' &&
         typeof (cbResult as any).then === 'function';
       return cbResult;
@@ -43,13 +44,11 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
     ) {
       return (result as Promise<void>).then(
         (returnValue) => {
-          (globalThis as any).IS_REACT_ACT_ENVIRONMENT =
-            previousActEnvironment;
+          (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
           return returnValue;
         },
         (error) => {
-          (globalThis as any).IS_REACT_ACT_ENVIRONMENT =
-            previousActEnvironment;
+          (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
           throw error;
         },
       );
@@ -63,8 +62,8 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// renderHook — mirrors RNTL's render-hook.js
-// Uses React.createRef + useEffect for result capture (same as RNTL)
+// renderHook — mirrors @testing-library/react-native's render-hook.js
+// Uses React.createRef + useEffect for result capture (same as @testing-library/react-native)
 // ---------------------------------------------------------------------------
 
 function renderHook<Result, Props = undefined>(
@@ -88,7 +87,7 @@ function renderHook<Result, Props = undefined>(
   const { initialProps, wrapper: Wrapper, ...renderOptions } = options ?? {};
 
   let renderer: TestRenderer.ReactTestRenderer;
-  act(() => {
+  void act(() => {
     const element = React.createElement(HookContainer, {
       hookProps: initialProps as Props,
     }) as any;
@@ -107,12 +106,12 @@ function renderHook<Result, Props = undefined>(
       const wrappedElement = Wrapper
         ? (React.createElement(Wrapper, null, element) as any)
         : element;
-      act(() => {
+      void act(() => {
         renderer!.update(wrappedElement);
       });
     },
     unmount: () => {
-      act(() => {
+      void act(() => {
         renderer!.unmount();
       });
     },
@@ -120,7 +119,7 @@ function renderHook<Result, Props = undefined>(
 }
 
 // ---------------------------------------------------------------------------
-// waitFor — mirrors RNTL's wait-for.js (real-timer path only)
+// waitFor — mirrors @testing-library/react-native's wait-for.js (real-timer path only)
 // Harness does not support fake timers, so we only implement the real-timer
 // branch: setInterval polling + overall timeout.
 // ---------------------------------------------------------------------------
@@ -191,9 +190,7 @@ async function waitFor<T>(
       const error =
         lastError instanceof Error
           ? lastError
-          : new Error(
-              lastError ? String(lastError) : 'Timed out in waitFor.',
-            );
+          : new Error(lastError ? String(lastError) : 'Timed out in waitFor.');
       onDone({ type: 'error', error });
     }
   });

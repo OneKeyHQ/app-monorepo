@@ -171,12 +171,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
     const onSetupLutReadyForRepay = jest.fn();
     const onSuccess = jest.fn();
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
@@ -265,12 +264,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
@@ -371,12 +369,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
@@ -469,12 +466,11 @@ describe('useUniversalBorrowRepayWithCollateral', () => {
       },
     );
 
-    const { result } = renderHook(
-      () =>
-        useUniversalBorrowRepayWithCollateral({
-          networkId: 'sol--101',
-          accountId: 'hd-1--m/44',
-        }),
+    const { result } = renderHook(() =>
+      useUniversalBorrowRepayWithCollateral({
+        networkId: 'sol--101',
+        accountId: 'hd-1--m/44',
+      }),
     );
 
     await act(async () => {
