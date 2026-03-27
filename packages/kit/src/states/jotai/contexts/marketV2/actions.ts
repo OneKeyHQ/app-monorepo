@@ -139,9 +139,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(perpsInfoAtom(), responseData.data.perpsInfo);
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
-        set(tokenDetailAtom(), undefined);
-        set(tokenDetailWebsocketAtom(), undefined);
-        set(perpsInfoAtom(), undefined);
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+          isStale = true;
+        } else {
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
+        }
       } finally {
         // Skip loading reset when stale — another caller (fetchTokenDetail
         // from useAutoRefreshTokenDetail) may already be in-flight with
