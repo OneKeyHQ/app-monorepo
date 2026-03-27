@@ -1,3 +1,257 @@
+diff --git a/node_modules/app-builder-lib/out/asar/asarUtil.js b/node_modules/app-builder-lib/out/asar/asarUtil.js
+index 39cc030..5814116 100644
+--- a/node_modules/app-builder-lib/out/asar/asarUtil.js
++++ b/node_modules/app-builder-lib/out/asar/asarUtil.js
+@@ -11,6 +11,7 @@ const appFileCopier_1 = require("../util/appFileCopier");
+ const unpackDetector_1 = require("./unpackDetector");
+ const stream_1 = require("stream");
+ const os = require("os");
++let asarPackSequence = 0;
+ const resolvePath = async (file) => (file && (await (0, fs_1.exists)(file)) ? fs.realpath(file).catch(() => path.resolve(file)) : undefined);
+ const resolvePaths = async (filepaths) => {
+     return Promise.all(filepaths.map(resolvePath)).then(paths => paths.filter((it) => it != null));
+@@ -35,6 +36,177 @@ const ALLOWLIST = resolvePaths([
+     os.tmpdir(), // always allow temp dir
+     os.homedir(), // always allow home dir
+ ]);
++const formatDiagBytes = (bytes) => {
++    if (typeof bytes !== "number" || Number.isNaN(bytes)) {
++        return "n/a";
++    }
++    if (bytes < 1024) {
++        return `${bytes} B`;
++    }
++    const units = ["KB", "MB", "GB"];
++    let value = bytes;
++    let unitIndex = -1;
++    while (value >= 1024 && unitIndex < units.length - 1) {
++        value /= 1024;
++        unitIndex += 1;
++    }
++    return `${value.toFixed(2)} ${units[unitIndex]}`;
++};
++const normalizeArchivePath = (filePath) => filePath.startsWith("/") ? filePath.slice(1) : filePath;
++const summarizeFileSetsForLog = (projectDir, fileSets) => {
++    const sets = fileSets.map((set, index) => {
++        var _a;
++        return ({
++            index,
++            src: path.relative(projectDir, set.src),
++            destination: path.relative(projectDir, set.destination),
++            filesCount: set.files.length,
++            transformedFilesCount: ((_a = set.transformedFiles) === null || _a === void 0 ? void 0 : _a.size) || 0,
++            firstFiles: set.files.slice(0, 3).map(file => path.relative(set.src, file)),
++            lastFiles: set.files.slice(-3).map(file => path.relative(set.src, file)),
++        });
++    });
++    return {
++        fileSetCount: fileSets.length,
++        totalFiles: fileSets.reduce((sum, set) => sum + set.files.length, 0),
++        totalTransformedFiles: fileSets.reduce((sum, set) => {
++            var _a;
++            return sum + (((_a = set.transformedFiles) === null || _a === void 0 ? void 0 : _a.size) || 0);
++        }, 0),
++        sets: sets.slice(0, 20),
++        omittedSets: Math.max(0, sets.length - 20),
++    };
++};
++const summarizeStreamsForLog = (streams) => {
++    const fileStreams = streams.filter(stream => stream.type === "file");
++    return {
++        streamCount: streams.length,
++        fileStreamCount: fileStreams.length,
++        directoryStreamCount: streams.filter(stream => stream.type === "directory").length,
++        linkStreamCount: streams.filter(stream => stream.type === "link").length,
++        unpackedFileStreamCount: fileStreams.filter(stream => stream.unpacked).length,
++        packedFileStreamCount: fileStreams.filter(stream => !stream.unpacked).length,
++        firstStreams: streams.slice(0, 12).map(stream => ({
++            type: stream.type,
++            path: stream.path,
++            unpacked: !!stream.unpacked,
++            size: stream.stat ? stream.stat.size : undefined,
++        })),
++        lastStreams: streams.slice(-12).map(stream => ({
++            type: stream.type,
++            path: stream.path,
++            unpacked: !!stream.unpacked,
++            size: stream.stat ? stream.stat.size : undefined,
++        })),
++    };
++};
++const summarizeAsarForLog = async (asarPath) => {
++    if (!(await fs.pathExists(asarPath))) {
++        return {
++            exists: false,
++            asarPath,
++        };
++    }
++    if (typeof asar_1.uncache === "function") {
++        try {
++            asar_1.uncache(asarPath);
++        }
++        catch (_a) {
++            // Ignore cache reset failures for diagnostics.
++        }
++    }
++    const stat = await fs.stat(asarPath);
++    const { headerSize } = asar_1.getRawHeader(asarPath);
++    const physicalContentOffset = 8 + headerSize;
++    const list = asar_1.listPackage(asarPath);
++    const entries = [];
++    for (const rawPath of list) {
++        const info = asar_1.statFile(asarPath, normalizeArchivePath(rawPath), false);
++        if (info.files) {
++            continue;
++        }
++        entries.push({
++            path: rawPath,
++            size: Number(info.size || 0),
++            offset: info.offset == null ? null : Number(info.offset),
++            unpacked: !!info.unpacked,
++        });
++    }
++    const packedEntries = entries
++        .filter(entry => entry.offset != null && !entry.unpacked)
++        .sort((a, b) => a.offset - b.offset);
++    const unpackedEntries = entries.filter(entry => entry.unpacked);
++    const topLevelSummary = Array.from(entries.reduce((map, entry) => {
++        const topLevel = normalizeArchivePath(entry.path).split("/")[0] || ".";
++        const current = map.get(topLevel) || {
++            path: topLevel,
++            size: 0,
++            packedSize: 0,
++            unpackedSize: 0,
++            fileCount: 0,
++        };
++        current.size += entry.size;
++        current.fileCount += 1;
++        if (entry.unpacked) {
++            current.unpackedSize += entry.size;
++        }
++        else {
++            current.packedSize += entry.size;
++        }
++        map.set(topLevel, current);
++        return map;
++    }, new Map()).values())
++        .sort((a, b) => b.size - a.size)
++        .slice(0, 8)
++        .map(group => ({
++        path: group.path,
++        size: group.size,
++        sizeText: formatDiagBytes(group.size),
++        packedSize: group.packedSize,
++        packedSizeText: formatDiagBytes(group.packedSize),
++        unpackedSize: group.unpackedSize,
++        unpackedSizeText: formatDiagBytes(group.unpackedSize),
++        fileCount: group.fileCount,
++    }));
++    const firstPacked = packedEntries[0] || null;
++    const lastPacked = packedEntries.length === 0
++        ? null
++        : packedEntries.reduce((current, entry) => {
++            return current == null || entry.offset + entry.size > current.offset + current.size
++                ? entry
++                : current;
++        }, null);
++    return {
++        exists: true,
++        asarPath,
++        actualSize: stat.size,
++        actualSizeText: formatDiagBytes(stat.size),
++        headerSize,
++        headerSizeText: formatDiagBytes(headerSize),
++        physicalContentOffset,
++        packedFileCount: packedEntries.length,
++        unpackedFileCount: unpackedEntries.length,
++        packedBytes: packedEntries.reduce((sum, entry) => sum + entry.size, 0),
++        packedBytesText: formatDiagBytes(packedEntries.reduce((sum, entry) => sum + entry.size, 0)),
++        unpackedBytes: unpackedEntries.reduce((sum, entry) => sum + entry.size, 0),
++        unpackedBytesText: formatDiagBytes(unpackedEntries.reduce((sum, entry) => sum + entry.size, 0)),
++        prefixGapBeforeFirstPacked: firstPacked == null ? null : firstPacked.offset,
++        firstPacked,
++        lastPacked,
++        listFirst10: list.slice(0, 10),
++        packedByOffsetFirst10: packedEntries.slice(0, 10),
++        packedByOffsetLast10: packedEntries.slice(-10),
++        topLevelSummary,
++    };
++};
++const emitAsarDiagLog = (stage, payload) => {
++    try {
++        console.log(`[asar-diag:${stage}] ${JSON.stringify(payload, null, 2)}`);
++    }
++    catch (error) {
++        console.log(`[asar-diag:${stage}:error] ${error && error.stack ? error.stack : String(error)}`);
++    }
++};
+ /** @internal */
+ class AsarPackager {
+     constructor(packager, config) {
+@@ -43,16 +215,39 @@ class AsarPackager {
+         this.outFile = path.join(config.resourcePath, `app.asar`);
+     }
+     async pack(fileSets) {
++        const packSequence = ++asarPackSequence;
++        emitAsarDiagLog("pack:fileSets", {
++            stage: "pack:fileSets",
++            packSequence,
++            outFile: this.outFile,
++            summary: summarizeFileSetsForLog(this.packager.projectDir, fileSets),
++        });
+         const orderedFileSets = [
+             // Write dependencies first to minimize offset changes to asar header
+             ...fileSets.slice(1),
+             // Finish with the app files that change most often
+             fileSets[0],
+         ].map(set => this.orderFileSet(set));
++        emitAsarDiagLog("pack:fileSetsOrdered", {
++            stage: "pack:fileSetsOrdered",
++            packSequence,
++            outFile: this.outFile,
++            summary: summarizeFileSetsForLog(this.packager.projectDir, orderedFileSets),
++        });
+         const streams = await this.processFileSets(orderedFileSets);
+-        await this.executeElectronAsar(streams);
++        await this.executeElectronAsar(streams, packSequence);
+     }
+-    async executeElectronAsar(streams) {
++    async executeElectronAsar(streams, packSequence) {
++        var _a;
++        const existingStat = await fs.stat(this.outFile).catch(() => null);
++        emitAsarDiagLog("pack:beforeCreatePackageFromStreams", {
++            stage: "pack:beforeCreatePackageFromStreams",
++            packSequence,
++            outFile: this.outFile,
++            existingAsarSize: existingStat ? existingStat.size : null,
++            existingAsarSizeText: existingStat ? formatDiagBytes(existingStat.size) : null,
++            streamSummary: summarizeStreamsForLog(streams),
++        });
+         // override logger temporarily to clean up console (electron/asar does some internal logging that blogs up the default electron-builder logs)
+         const consoleLogger = console.log;
+         console.log = (...args) => {
+@@ -61,8 +256,19 @@ class AsarPackager {
+             }
+             builder_util_1.log.info({ args }, "logging @electron/asar");
+         };
+-        await (0, asar_1.createPackageFromStreams)(this.outFile, streams);
+-        console.log = consoleLogger;
++        try {
++            await (0, asar_1.createPackageFromStreams)(this.outFile, streams);
++        }
++        finally {
++            console.log = consoleLogger;
++        }
++        emitAsarDiagLog("pack:afterCreatePackageFromStreams", {
++            stage: "pack:afterCreatePackageFromStreams",
++            packSequence,
++            outFile: this.outFile,
++            summary: await summarizeAsarForLog(this.outFile),
++            workspaceRoot: (_a = await this.packager.info.getWorkspaceRoot()) !== null && _a !== void 0 ? _a : null,
++        });
+     }
+     async processFileSets(fileSets) {
+         var _a;
 diff --git a/node_modules/app-builder-lib/out/macPackager.js b/node_modules/app-builder-lib/out/macPackager.js
 index a52a853..1815f53 100644
 --- a/node_modules/app-builder-lib/out/macPackager.js
