@@ -53,6 +53,7 @@ const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 const platformEnvObj = platformEnv?.default ?? platformEnv;
 if (platformEnvObj && typeof platformEnvObj === 'object') {
   platformEnvObj.isJest = true;
+  platformEnvObj.isHarness = true;
 }
 
 // Polyfill TextDecoder/TextEncoder for Hermes.
