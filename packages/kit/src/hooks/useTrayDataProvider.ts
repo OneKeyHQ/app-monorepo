@@ -281,6 +281,17 @@ export function useTrayDataProvider() {
     const nav = rootNavigationRef.current;
     if (!nav) return;
 
+    if (action?.type === 'open-page') {
+      // Simple navigation — just show main window and switch to the target tab
+      if (action.route === '/main/tab-home') {
+        nav.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Home,
+        });
+      }
+      // For other routes like /transaction/{txId}, just show main window (done by caller)
+      return;
+    }
+
     if (action?.type === 'market-detail-v2') {
       // Perps token — switch to Perp tab and change active asset
       if (action.perpsCoin) {
