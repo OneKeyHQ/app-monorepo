@@ -32,7 +32,6 @@ if (!isHarnessEnv) {
 
 const MockAssetSourceResolver = function () {};
 MockAssetSourceResolver.prototype.defaultAsset = jest.fn();
-const originalDefaultAsset = MockAssetSourceResolver.prototype.defaultAsset;
 
 jest.mock('react-native/Libraries/Image/AssetSourceResolver', () => ({
   __esModule: true,
@@ -109,9 +108,10 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
     });
 
     test('wraps AssetSourceResolver.prototype.defaultAsset', () => {
+      const prePatched = MockAssetSourceResolver.prototype.defaultAsset;
       patchNativeAssetResolution(ASSETS_PATH);
       expect(MockAssetSourceResolver.prototype.defaultAsset).not.toBe(
-        originalDefaultAsset,
+        prePatched,
       );
     });
 
