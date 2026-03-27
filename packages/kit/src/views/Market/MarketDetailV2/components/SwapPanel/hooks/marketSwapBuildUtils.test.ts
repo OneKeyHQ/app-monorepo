@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildDefaultMarketSpeedCheckState,
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
   pickMarketQuoteResultByProvider,
@@ -79,6 +80,16 @@ describe('marketSwapBuildUtils', () => {
     ).toBe(true);
   });
 
+  it('builds a full default speed-check reset state', () => {
+    expect(buildDefaultMarketSpeedCheckState()).toEqual({
+      speedCheckError: '',
+      checkSpenderAddress: '',
+      isStock: false,
+      shouldApprove: false,
+      shouldResetApprove: false,
+    });
+  });
+
   it('detects when Market build data needs quote fallbacks', () => {
     expect(
       shouldFetchMarketQuoteFallbackData(
@@ -131,11 +142,13 @@ describe('marketSwapBuildUtils', () => {
       }),
       quoteResult: createQuoteResult({
         gasLimit: 45_678,
+        minToAmount: '950',
         routesData: [{ subRoutes: [[{}]] }] as never,
       }),
     });
 
     expect(merged.result.gasLimit).toBe(45_678);
+    expect(merged.result.minToAmount).toBe('950');
     expect(merged.result.routesData).toHaveLength(1);
   });
 

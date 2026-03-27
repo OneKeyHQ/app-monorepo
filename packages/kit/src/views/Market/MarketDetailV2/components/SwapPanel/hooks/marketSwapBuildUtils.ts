@@ -19,6 +19,16 @@ export function buildMarketReviewShouldFallback({
   );
 }
 
+export function buildDefaultMarketSpeedCheckState() {
+  return {
+    speedCheckError: '',
+    checkSpenderAddress: '',
+    isStock: false,
+    shouldApprove: false,
+    shouldResetApprove: false,
+  };
+}
+
 export function shouldFetchMarketQuoteFallbackData(
   buildRes?: IFetchBuildTxResponse,
 ) {
@@ -85,6 +95,10 @@ export function mergeMarketBuildResultWithQuote({
     quoteResult?.routesData?.length
   ) {
     nextBuildRes.result.routesData = quoteResult.routesData;
+  }
+
+  if (!nextBuildRes.result?.minToAmount && quoteResult?.minToAmount) {
+    nextBuildRes.result.minToAmount = quoteResult.minToAmount;
   }
 
   return nextBuildRes;

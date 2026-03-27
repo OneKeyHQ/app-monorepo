@@ -10,6 +10,7 @@ import {
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import {
+  assertMarketSignedBuildInvariant,
   assertMarketReviewQuoteResult,
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
@@ -64,6 +65,53 @@ describe('marketSwapReviewUtils', () => {
         }),
       ),
     ).toThrow('providerName');
+  });
+
+  it('fails closed when a signed build result tries to continue on-chain sending', () => {
+    expect(() =>
+      assertMarketSignedBuildInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+          swapShouldSignedData: {
+            unSignedInfo: {},
+          } as never,
+        }),
+        rebuiltQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+        }),
+        skipSendTransAction: false,
+      }),
+    ).toThrow('signed order result');
+  });
+
+  it('fails closed when a signed build result changes provider or min receive', () => {
+    expect(() =>
+      assertMarketSignedBuildInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+        }),
+        rebuiltQuoteResult: createQuoteResult({
+          info: {
+            provider: 'other',
+            providerName: 'Other',
+          },
+          minToAmount: '2399',
+        }),
+        skipSendTransAction: true,
+      }),
+    ).toThrow('provider changed');
+
+    expect(() =>
+      assertMarketSignedBuildInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+        }),
+        rebuiltQuoteResult: createQuoteResult({
+          minToAmount: '2399',
+        }),
+        skipSendTransAction: true,
+      }),
+    ).toThrow('min receive changed');
   });
 
   it('removes allowance when market speed check says approval is not needed', () => {

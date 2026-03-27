@@ -83,6 +83,7 @@ import {
   shouldAutoContinueMarketResetApprove,
 } from './marketReviewExecutionUtils';
 import {
+  buildDefaultMarketSpeedCheckState,
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
   pickMarketQuoteResultByProvider,
@@ -90,6 +91,7 @@ import {
 } from './marketSwapBuildUtils';
 import {
   assertMarketReviewQuoteResult,
+  assertMarketSignedBuildInvariant,
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
   buildWrappedMarketQuoteResult,
@@ -226,6 +228,10 @@ export function useSpeedSwapActions(props: {
   const reviewExecutionSnapshotRef = useRef<
     IMarketReviewExecutionSnapshot | undefined
   >(undefined);
+  const defaultMarketSpeedCheckState = useMemo(
+    () => buildDefaultMarketSpeedCheckState(),
+    [],
+  );
 
   const effectiveSpenderAddress = checkSpenderAddress || spenderAddress;
 
@@ -1781,7 +1787,11 @@ export function useSpeedSwapActions(props: {
   const sendMarketSignMessage = useCallback<
     IMarketSwapReviewAdapter['sendMarketSignMessage']
   >(
-    async ({ networkFeeLevel, onBroadcast, onCancel } = {}) => {
+    async ({
+      networkFeeLevel: _networkFeeLevel,
+      onBroadcast,
+      onCancel,
+    } = {}) => {
       const snapshot = requireReviewExecutionSnapshot('swap');
 
       try {
@@ -1827,6 +1837,11 @@ export function useSpeedSwapActions(props: {
           buildRes,
           quoteResult: signedQuoteResult,
         });
+        const reviewedBuildResult = assertMarketSignedBuildInvariant({
+          reviewedQuoteResult: snapshot.quoteResult,
+          rebuiltQuoteResult: buildResFinal.result,
+          skipSendTransAction,
+        });
 
         reviewExecutionSnapshotRef.current = {
           kind: 'swap',
@@ -1834,7 +1849,13 @@ export function useSpeedSwapActions(props: {
           accountId: snapshot.accountId,
           networkId: snapshot.networkId,
           shouldFallback: snapshot.shouldFallback,
-          quoteResult: signedQuoteResult,
+          quoteResult: {
+            ...signedQuoteResult,
+            info: reviewedBuildResult.info,
+            fromAmount: reviewedBuildResult.fromAmount,
+            toAmount: reviewedBuildResult.toAmount,
+            minToAmount: reviewedBuildResult.minToAmount,
+          },
           buildUnsignedParams: {
             networkId: snapshot.networkId,
             accountId: snapshot.accountId,
@@ -1862,36 +1883,7 @@ export function useSpeedSwapActions(props: {
             userAddress: snapshot.accountAddress,
             status: ESwapEventAPIStatus.SUCCESS,
           });
-          return;
         }
-
-        const feeState = await estimateMarketDirectGasInfos({
-          accountAddress: snapshot.accountAddress,
-          accountId: snapshot.accountId,
-          networkId: snapshot.networkId,
-          buildUnsignedParams:
-            reviewExecutionSnapshotRef.current.buildUnsignedParams,
-          networkFeeLevel,
-        });
-        const data = await sendMarketDirectUnsignedTxs({
-          accountAddress: snapshot.accountAddress,
-          accountId: snapshot.accountId,
-          networkId: snapshot.networkId,
-          buildUnsignedParams:
-            reviewExecutionSnapshotRef.current.buildUnsignedParams,
-          gasInfos: feeState.gasInfos,
-          networkFeeLevel,
-        });
-        const result = await handleMarketSwapBuildTxSuccess(data);
-        if (result) {
-          onBroadcast?.(result);
-        }
-        logMarketCreateOrder({
-          buildRes: buildResFinal,
-          amount: swapInfo.sender.amount,
-          userAddress: snapshot.accountAddress,
-          status: ESwapEventAPIStatus.SUCCESS,
-        });
       } catch (error) {
         cancelSpeedSwapBuildTx();
         if (snapshot.buildRes) {
@@ -1914,7 +1906,6 @@ export function useSpeedSwapActions(props: {
       buildMarketExecutionFromBuildRes,
       cancelSpeedSwapBuildTx,
       handleMarketSignedOrderSuccess,
-      handleMarketSwapBuildTxSuccess,
       isUserCancelledError,
       logMarketCreateOrder,
       requireReviewExecutionSnapshot,
@@ -2187,11 +2178,13 @@ export function useSpeedSwapActions(props: {
     async (amount: string) => {
       const amountBN = new BigNumber(amount || 0);
       if (amountBN.isNaN() || amountBN.lte(0)) {
-        setSpeedCheckError('');
-        setCheckSpenderAddress('');
-        setIsStock(false);
-        setShouldApprove(false);
-        setShouldResetApprove(false);
+        setSpeedCheckError(defaultMarketSpeedCheckState.speedCheckError);
+        setCheckSpenderAddress(
+          defaultMarketSpeedCheckState.checkSpenderAddress,
+        );
+        setIsStock(defaultMarketSpeedCheckState.isStock);
+        setShouldApprove(defaultMarketSpeedCheckState.shouldApprove);
+        setShouldResetApprove(defaultMarketSpeedCheckState.shouldResetApprove);
         return;
       }
 
@@ -2255,6 +2248,7 @@ export function useSpeedSwapActions(props: {
       }
     },
     [
+      defaultMarketSpeedCheckState,
       fromToken.networkId,
       fromToken.contractAddress,
       fromToken.isNative,
@@ -2286,12 +2280,14 @@ export function useSpeedSwapActions(props: {
         fromTokenAmountDebouncedBN.toFixed(),
       );
     } else {
-      setSpeedCheckError('');
-      setCheckSpenderAddress('');
-      setShouldApprove(false);
-      setShouldResetApprove(false);
+      setSpeedCheckError(defaultMarketSpeedCheckState.speedCheckError);
+      setCheckSpenderAddress(defaultMarketSpeedCheckState.checkSpenderAddress);
+      setIsStock(defaultMarketSpeedCheckState.isStock);
+      setShouldApprove(defaultMarketSpeedCheckState.shouldApprove);
+      setShouldResetApprove(defaultMarketSpeedCheckState.shouldResetApprove);
     }
   }, [
+    defaultMarketSpeedCheckState,
     isWrapped,
     balance,
     fromToken.isNative,
