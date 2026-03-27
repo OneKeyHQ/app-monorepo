@@ -939,6 +939,18 @@ async function createMainWindow() {
           `DESKTOP_API_CALL: unknown module "${module}"`,
         );
       }
+      // Block inherited prototype methods and private methods
+      if (
+        typeof method !== 'string' ||
+        method.startsWith('_') ||
+        ['constructor', 'toString', 'valueOf', 'hasOwnProperty'].includes(
+          method,
+        )
+      ) {
+        throw new OneKeyLocalError(
+          `DESKTOP_API_CALL: disallowed method "${method}"`,
+        );
+      }
       const result: unknown = await desktopApi.callDesktopApiMethod({
         type: 'DESKTOP_API_IPC_MESSAGE',
         module: module as any,
@@ -1109,7 +1121,7 @@ async function createMainWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         'X-Content-Type-Options': ['nosniff'],
-        'X-Frame-Options': ['DENY'],
+        'X-Frame-Options': ['SAMEORIGIN'],
         'Referrer-Policy': ['strict-origin-when-cross-origin'],
       },
     });
