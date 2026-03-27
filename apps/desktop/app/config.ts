@@ -95,4 +95,10 @@ export const ipcMessageKeys = {
   RECOVERY_EXPORT_LOGS: 'recovery/exportLogs',
   RECOVERY_TRY_AGAIN: 'recovery/tryAgain',
   RECOVERY_AUTO_REPAIR: 'recovery/autoRepair',
+
+  // Tray
+  TRAY_DATA_REQUEST: 'tray/dataRequest',
+  TRAY_DATA_RESPONSE: 'tray/dataResponse',
+  TRAY_UPDATE: 'tray/update',
+  TRAY_ACTION: 'tray/action',
 };
