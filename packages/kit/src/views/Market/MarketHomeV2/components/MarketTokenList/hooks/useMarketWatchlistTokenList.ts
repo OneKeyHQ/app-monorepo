@@ -30,7 +30,7 @@ export function getWatchlistTokenCache(): IMarketToken[] {
   return watchlistTokenCache;
 }
 
-function subscribeWatchlistTokenCache(cb: () => void) {
+export function subscribeWatchlistTokenCache(cb: () => void) {
   cacheListeners.add(cb);
   return () => {
     cacheListeners.delete(cb);
@@ -299,11 +299,8 @@ export function useMarketWatchlistTokenList({
   }, [refetchData]);
 
   useEffect(() => {
-    const prevLength = watchlistTokenCache.length;
     watchlistTokenCache = paginatedData;
-    if ((prevLength === 0) !== (paginatedData.length === 0)) {
-      cacheListeners.forEach((cb) => cb());
-    }
+    cacheListeners.forEach((cb) => cb());
   }, [paginatedData]);
 
   // Clear stale cache on unmount so re-mounting reads fresh data
