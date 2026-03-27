@@ -110,6 +110,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(networkIdAtom(), networkId);
       set(isNativeAtom(), isNative);
 
+      let isStale = false;
       try {
         set(tokenDetailLoadingAtom(), true);
         const response =
@@ -122,6 +123,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
         if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
+          isStale = true;
           return;
         }
 
@@ -141,7 +143,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(tokenDetailWebsocketAtom(), undefined);
         set(perpsInfoAtom(), undefined);
       } finally {
-        set(tokenDetailLoadingAtom(), false);
+        // Skip loading reset when stale — another caller (fetchTokenDetail
+        // from useAutoRefreshTokenDetail) may already be in-flight with
+        // loading=true for the new token.
+        if (!isStale) {
+          set(tokenDetailLoadingAtom(), false);
+        }
       }
     },
   );
