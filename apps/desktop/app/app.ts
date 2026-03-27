@@ -748,6 +748,13 @@ async function createMainWindow() {
     // before isAppReady is set to true (which affects the cache logic)
     emitter.emit('ready');
     isAppReady = true;
+
+    // Start tray polling after renderer is ready (delay to let React mount)
+    if (isMac) {
+      setTimeout(() => {
+        startPolling(getSafelyMainWindow);
+      }, 5000);
+    }
   });
 
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -760,9 +767,6 @@ async function createMainWindow() {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
     emitter.emit('ready');
-    if (isMac) {
-      startPolling(getSafelyMainWindow);
-    }
   });
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
     if (!process.mas) {
