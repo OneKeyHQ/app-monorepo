@@ -3,32 +3,7 @@ const { getPath } = require('./scripts/utils');
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
 
-// Base files array shared by all platform configs.
-const baseFiles = [
-  'dist/**/*',
-  '!dist/__**',
-  'build/**/*',
-  '!build/static/bin/**/*',
-  'package.json',
-];
-
-// Prebuild exclusion globs per platform.
-// Each array excludes native prebuilds for all platforms EXCEPT the target.
-const macExcludePrebuilds = [
-  '!**/prebuilds/android-*/**',
-  '!**/prebuilds/linux-*/**',
-  '!**/prebuilds/win32-*/**',
-];
-const winExcludePrebuilds = [
-  '!**/prebuilds/android-*/**',
-  '!**/prebuilds/darwin-*/**',
-  '!**/prebuilds/linux-*/**',
-];
-const linuxExcludePrebuilds = [
-  '!**/prebuilds/android-*/**',
-  '!**/prebuilds/darwin-*/**',
-  '!**/prebuilds/win32-*/**',
-];
+const { baseFiles } = require('./electron-builder-files.config');
 
 const baseElectronBuilderConfig = {
   'extraMetadata': {
@@ -71,10 +46,4 @@ const baseElectronBuilderConfig = {
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
 };
-module.exports = {
-  config: baseElectronBuilderConfig,
-  baseFiles,
-  macExcludePrebuilds,
-  winExcludePrebuilds,
-  linuxExcludePrebuilds,
-};
+module.exports = baseElectronBuilderConfig;

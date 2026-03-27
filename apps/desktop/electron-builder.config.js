@@ -1,11 +1,11 @@
 /* eslint-disable no-template-curly-in-string */
+const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const {
-  config: baseElectronBuilderConfig,
   baseFiles,
   macExcludePrebuilds,
   winExcludePrebuilds,
   linuxExcludePrebuilds,
-} = require('./electron-builder-base.config');
+} = require('./electron-builder-files.config');
 const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
 
