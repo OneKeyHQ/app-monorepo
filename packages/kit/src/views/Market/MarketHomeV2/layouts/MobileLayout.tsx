@@ -39,18 +39,17 @@ import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/
 
 import { useMarketTabsLogic } from './hooks';
 
-import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
-import type { IMarketHomeTabValue } from '../types';
+import type {
+  ILiquidityFilter,
+  IMarketFilterBarProps,
+  IMarketHomeTabValue,
+} from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 interface IMobileLayoutProps {
-  filterBarProps: {
-    selectedNetworkId: string;
-    timeRange: ITimeRangeSelectorValue;
-    onNetworkIdChange: (networkId: string) => void;
-    onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-  };
+  filterBarProps: IMarketFilterBarProps;
   selectedNetworkId: string;
+  liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
   tabsRef?: RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
@@ -343,6 +342,8 @@ function MobileLayoutComponent({
         <Tabs.Tab name={spotTabName}>
           <MobileMarketTokenFlatList
             networkId={selectedNetworkId}
+            selectedCategory={filterBarProps.selectedCategory}
+            timeRange={filterBarProps.timeRange}
             listContainerProps={listContainerProps}
           />
         </Tabs.Tab>
