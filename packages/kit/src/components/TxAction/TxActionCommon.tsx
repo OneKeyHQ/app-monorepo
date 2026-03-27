@@ -364,7 +364,7 @@ function TxActionCommonFee({
   }
 
   return (
-    <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1} gap="$1">
+    <Stack flexGrow={0.6} flexBasis={0} opacity={hideFeeInfo ? 0 : 1} gap="$1">
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.swap_history_detail_network_fee,
