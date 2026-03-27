@@ -229,6 +229,9 @@ function BatchCreateAccountPreviewPage({
     [intl, maxPage],
   );
 
+  const prevNetworkIdRef = useRef<string | undefined>(networkId);
+  const prevDeriveTypeRef = useRef<string | undefined>(deriveType);
+
   const enableAdvancedMode = useCallback(
     (values: IBatchCreateAccountFormValues) => {
       setPage(minPage);
@@ -339,9 +342,6 @@ function BatchCreateAccountPreviewPage({
       debounced: 300,
     },
   );
-
-  const prevNetworkIdRef = useRef<string | undefined>(networkId);
-  const prevDeriveTypeRef = useRef<string | undefined>(deriveType);
 
   // Save current deselection state to cache (reads from refs to avoid stale closures)
   const saveDeselectionToCache = useCallback(() => {
