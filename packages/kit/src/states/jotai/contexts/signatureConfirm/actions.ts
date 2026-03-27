@@ -24,6 +24,11 @@ import {
   customRpcStatusAtom,
   decodedTxsAtom,
   decodedTxsInitAtom,
+  defaultMegafuelEligible,
+  defaultPayWithTokenInfo,
+  defaultSendFeeStatus,
+  defaultSendSelectedFee,
+  defaultTronResourceRentalInfo,
   extraFeeInfoAtom,
   isSinglePresetAtom,
   megafuelEligibleAtom,
@@ -95,6 +100,10 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(customFeeAtom(), customFee);
   });
 
+  clearCustomFee = contextAtomMethod((_, set) => {
+    set(customFeeAtom(), undefined);
+  });
+
   updateSendSelectedFeeInfo = contextAtomMethod(
     (
       get,
@@ -114,6 +123,10 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     },
   );
 
+  clearSendSelectedFeeInfo = contextAtomMethod((_, set) => {
+    set(sendSelectedFeeInfoAtom(), undefined);
+  });
+
   updateSendFeeStatus = contextAtomMethod(
     (
       get,
@@ -130,6 +143,10 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       });
     },
   );
+
+  resetSendFeeStatus = contextAtomMethod((_, set) => {
+    set(sendFeeStatusAtom(), { ...defaultSendFeeStatus });
+  });
 
   updateNativeTokenTransferAmount = contextAtomMethod(
     (get, set, amount: string) => {
@@ -250,6 +267,12 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     },
   );
 
+  resetTronResourceRentalInfo = contextAtomMethod((_, set) => {
+    set(tronResourceRentalInfoAtom(), {
+      ...defaultTronResourceRentalInfo,
+    });
+  });
+
   updatePayWithTokenInfo = contextAtomMethod(
     (
       get,
@@ -269,6 +292,10 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       });
     },
   );
+
+  resetPayWithTokenInfo = contextAtomMethod((_, set) => {
+    set(payWithTokenInfoAtom(), { ...defaultPayWithTokenInfo });
+  });
 
   updateTokenTransferAmount = contextAtomMethod((get, set, amount: string) => {
     set(tokenTransferAmountAtom(), amount);
@@ -291,6 +318,10 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     },
   );
 
+  resetMegafuelEligible = contextAtomMethod((_, set) => {
+    set(megafuelEligibleAtom(), { ...defaultMegafuelEligible });
+  });
+
   updateDecodedTxsInit = contextAtomMethod(
     (_, set, decodedTxsInit: boolean) => {
       set(decodedTxsInitAtom(), decodedTxsInit);
@@ -299,6 +330,22 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
 
   updateTxFeeInfoInit = contextAtomMethod((_, set, txFeeInfoInit: boolean) => {
     set(txFeeInfoInitAtom(), txFeeInfoInit);
+  });
+
+  resetTxFeeState = contextAtomMethod((_, set, presetIndex: number = 0) => {
+    set(sendSelectedFeeAtom(), {
+      ...defaultSendSelectedFee,
+      presetIndex,
+    });
+    set(customFeeAtom(), undefined);
+    set(sendSelectedFeeInfoAtom(), undefined);
+    set(sendFeeStatusAtom(), { ...defaultSendFeeStatus });
+    set(tronResourceRentalInfoAtom(), {
+      ...defaultTronResourceRentalInfo,
+    });
+    set(payWithTokenInfoAtom(), { ...defaultPayWithTokenInfo });
+    set(megafuelEligibleAtom(), { ...defaultMegafuelEligible });
+    set(txFeeInfoInitAtom(), false);
   });
 
   updateCustomRpcStatus = contextAtomMethod(
@@ -322,8 +369,11 @@ export function useSignatureConfirmActions() {
   const updateUnsignedTxs = actions.updateUnsignedTxs.use();
   const updateSendSelectedFee = actions.updateSendSelectedFee.use();
   const updateCustomFee = actions.updateCustomFee.use();
+  const clearCustomFee = actions.clearCustomFee.use();
   const updateSendSelectedFeeInfo = actions.updateSendSelectedFeeInfo.use();
+  const clearSendSelectedFeeInfo = actions.clearSendSelectedFeeInfo.use();
   const updateSendFeeStatus = actions.updateSendFeeStatus.use();
+  const resetSendFeeStatus = actions.resetSendFeeStatus.use();
   const updateNativeTokenTransferAmount =
     actions.updateNativeTokenTransferAmount.use();
   const updateNativeTokenTransferAmountToUpdate =
@@ -338,19 +388,26 @@ export function useSignatureConfirmActions() {
   const updateExtraFeeInfo = actions.updateExtraFeeInfo.use();
   const updateTronResourceRentalInfo =
     actions.updateTronResourceRentalInfo.use();
+  const resetTronResourceRentalInfo = actions.resetTronResourceRentalInfo.use();
   const updatePayWithTokenInfo = actions.updatePayWithTokenInfo.use();
+  const resetPayWithTokenInfo = actions.resetPayWithTokenInfo.use();
   const updateTokenTransferAmount = actions.updateTokenTransferAmount.use();
   const updateMegafuelEligible = actions.updateMegafuelEligible.use();
+  const resetMegafuelEligible = actions.resetMegafuelEligible.use();
   const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
   const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
+  const resetTxFeeState = actions.resetTxFeeState.use();
   const updateCustomRpcStatus = actions.updateCustomRpcStatus.use();
   const clearCustomRpcStatus = actions.clearCustomRpcStatus.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
+    clearCustomFee,
     updateSendSelectedFeeInfo,
+    clearSendSelectedFeeInfo,
     updateSendFeeStatus,
+    resetSendFeeStatus,
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
     updateSendTxStatus,
@@ -362,11 +419,15 @@ export function useSignatureConfirmActions() {
     updateDecodedTxs,
     updateExtraFeeInfo,
     updateTronResourceRentalInfo,
+    resetTronResourceRentalInfo,
     updatePayWithTokenInfo,
+    resetPayWithTokenInfo,
     updateTokenTransferAmount,
     updateMegafuelEligible,
+    resetMegafuelEligible,
     updateDecodedTxsInit,
     updateTxFeeInfoInit,
+    resetTxFeeState,
     updateCustomRpcStatus,
     clearCustomRpcStatus,
   });
