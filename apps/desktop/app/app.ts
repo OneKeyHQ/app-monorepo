@@ -900,13 +900,43 @@ async function createMainWindow() {
 
   // New invoke-based handler for contextIsolation-compatible API calls
   ipcMain.removeHandler('DESKTOP_API_CALL');
+  const allowedModules = new Set([
+    'system',
+    'security',
+    'storage',
+    'webview',
+    'notification',
+    'dev',
+    'inAppPurchase',
+    'bluetooth',
+    'appUpdate',
+    'bundleUpdate',
+    'cloudKit',
+    'keychain',
+    'sniRequest',
+    'oauthLocalServer',
+    'appleAuth',
+  ]);
   ipcMain.handle(
     'DESKTOP_API_CALL',
     async (
-      _event,
+      event,
       payload: { module: string; method: string; params: any[] },
     ) => {
+      // Only allow calls from the main window renderer
+      if (event.sender.id !== browserWindow.webContents.id) {
+        logger.warn(
+          '[DESKTOP_API_CALL] Rejected call from non-main renderer',
+          event.sender.id,
+        );
+        throw new Error(
+          'DESKTOP_API_CALL is only allowed from the main window',
+        );
+      }
       const { module, method, params } = payload;
+      if (!allowedModules.has(module)) {
+        throw new Error(`DESKTOP_API_CALL: unknown module "${module}"`);
+      }
       const result: unknown = await desktopApi.callDesktopApiMethod({
         type: 'DESKTOP_API_IPC_MESSAGE',
         module: module as any,

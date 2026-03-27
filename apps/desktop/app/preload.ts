@@ -93,6 +93,21 @@ const desktopApi = {
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
+    // Channel whitelist for addIpcEventListener (mirrors validChannels for on())
+    const validIpcEventChannels = new Set([
+      ipcMessageKeys.EVENT_OPEN_URL,
+      ipcMessageKeys.WEBVIEW_NEW_WINDOW,
+      ipcMessageKeys.APP_STATE,
+      ipcMessageKeys.APP_SHORTCUT,
+      ipcMessageKeys.APP_IDLE,
+      ipcMessageKeys.SERVER_START_RES,
+      ipcMessageKeys.SERVER_LISTENER,
+      'oauth:desktop_localhost_server:callback',
+    ]);
+    if (!validIpcEventChannels.has(event)) {
+      console.warn(`[preload] addIpcEventListener: blocked channel "${event}"`);
+      return () => {};
+    }
     // Strip IpcRendererEvent to avoid passing non-serializable objects
     // through contextBridge (consistent with desktopApi.on() pattern)
     const wrapped = (_ipcEvent: any, ...args: any[]) => listener(...args);
@@ -252,8 +267,10 @@ const desktopApiBridge = {
 const exposeToMainWorld = (key: string, value: unknown) => {
   try {
     contextBridge.exposeInMainWorld(key, value);
-  } catch {
-    // contextBridge requires contextIsolation; fall back to globalThis
+  } catch (err) {
+    // contextBridge requires contextIsolation; log the error for diagnostics.
+    // The globalThis fallback only works when contextIsolation is disabled.
+    console.error(`[preload] Failed to expose '${key}' via contextBridge:`, err);
     (globalThis as any)[key] = value;
   }
 };
