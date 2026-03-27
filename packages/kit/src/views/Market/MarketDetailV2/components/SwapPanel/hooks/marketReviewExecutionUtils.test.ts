@@ -107,6 +107,38 @@ describe('marketReviewExecutionUtils', () => {
     expect(reviewState.preSwapData.supportNetworkFeeLevel).toBe(true);
   });
 
+  it('keeps approve fee editing visible for approve and sign flows', () => {
+    const reviewState = buildMarketReviewState({
+      accountId: 'account-1',
+      networkId: fromToken.networkId,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        allowanceResult: {
+          allowanceTarget: '0xspender',
+          amount: '1',
+        },
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'origin',
+            scope: 'scope',
+            signedType: 'eth_signTypedData_v4' as never,
+          },
+        } as never,
+      }),
+      slippage: 1,
+      texts,
+    });
+
+    expect(reviewState.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.APPROVE_TX,
+      ESwapStepType.SIGN_MESSAGE,
+    ]);
+    expect(reviewState.preSwapData.supportNetworkFeeLevel).toBe(true);
+  });
+
   it('matches the selected tx fee info by encoded tx', () => {
     const feeInfo = findMarketTxConfirmFeeInfo({
       gasInfos: [

@@ -40,8 +40,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-const { estimateMarketDirectGasInfos, sendMarketDirectUnsignedTxs } =
-  require('./marketDirectSendTx') as typeof import('./marketDirectSendTx');
+const {
+  estimateMarketApproveGasInfos,
+  estimateMarketDirectGasInfos,
+  sendMarketDirectUnsignedTxs,
+} = require('./marketDirectSendTx') as typeof import('./marketDirectSendTx');
 
 function createUnsignedTx(
   overrides: Partial<IUnsignedTxPro> = {},
@@ -230,6 +233,42 @@ describe('marketDirectSendTx', () => {
     );
     expect(lowFeeResult.preparedUnsignedTx).toBe(preparedUnsignedTx);
     expect(highFeeResult.preparedUnsignedTx).toBe(preparedUnsignedTx);
+  });
+
+  it('estimates approve-only gas infos from the selected fee level', async () => {
+    const resetApproveUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xreset',
+      } as never,
+      nonce: 1,
+    });
+    const approveUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xapprove',
+      } as never,
+      nonce: 2,
+    });
+
+    const lowFeeResult = await estimateMarketApproveGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      networkFeeLevel: ESwapNetworkFeeLevel.LOW,
+      approveUnsignedTxArr: [resetApproveUnsignedTx, approveUnsignedTx],
+    });
+    const highFeeResult = await estimateMarketApproveGasInfos({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
+      approveUnsignedTxArr: [resetApproveUnsignedTx, approveUnsignedTx],
+    });
+
+    expect(lowFeeResult.gasInfos).toHaveLength(2);
+    expect(highFeeResult.gasInfos).toHaveLength(2);
+    expect(lowFeeResult.gasInfos[0].gasInfo.gas?.gasPrice).toBe('1');
+    expect(highFeeResult.gasInfos[0].gasInfo.gas?.gasPrice).toBe('3');
+    expect(mockEstimateFee).toHaveBeenCalledTimes(4);
   });
 
   it('preserves the selected fee level when send-time gas info must be rebuilt', async () => {

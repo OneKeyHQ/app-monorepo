@@ -302,6 +302,78 @@ async function resolveMarketGasInfos({
   ];
 }
 
+async function resolveExactUnsignedTxGasInfos({
+  accountAddress,
+  accountId,
+  networkId,
+  unsignedTxArr,
+  networkFeeLevel,
+}: {
+  accountAddress: string;
+  accountId: string;
+  networkId: string;
+  unsignedTxArr: IUnsignedTxPro[];
+  networkFeeLevel?: ESwapNetworkFeeLevel;
+}): Promise<IMarketGasInfoEntry[]> {
+  const gasInfos: IMarketGasInfoEntry[] = [];
+  const vaultSettings =
+    await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId,
+    });
+
+  if (
+    unsignedTxArr.length > 1 &&
+    vaultSettings.supportBatchEstimateFee?.[networkId]
+  ) {
+    const estimateFeeParamsArr = await Promise.all(
+      unsignedTxArr.map((item) =>
+        backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+          networkId,
+          accountId,
+          encodedTx: item.encodedTx,
+        }),
+      ),
+    );
+
+    const gasResArr = await backgroundApiProxy.serviceGas.batchEstimateFee({
+      networkId,
+      accountId,
+      encodedTxs: estimateFeeParamsArr.map((item) => item.encodedTx ?? {}),
+    });
+
+    return unsignedTxArr.map((unsignedTxItem, index) => ({
+      encodeTx: unsignedTxItem.encodedTx,
+      gasInfo: buildGasInfo(
+        gasResArr.txFees[index],
+        gasResArr.common,
+        networkFeeLevel,
+      ),
+    }));
+  }
+
+  for (const unsignedTxItem of unsignedTxArr) {
+    const estimateFeeParams =
+      await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+        networkId,
+        accountId,
+        encodedTx: unsignedTxItem.encodedTx,
+      });
+    const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
+      ...estimateFeeParams,
+      accountAddress,
+      networkId,
+      accountId,
+    });
+
+    gasInfos.push({
+      encodeTx: unsignedTxItem.encodedTx,
+      gasInfo: buildGasInfo(gasRes, gasRes.common, networkFeeLevel),
+    });
+  }
+
+  return gasInfos;
+}
+
 function buildGasFeeFiatValue(gasInfos: IMarketGasInfoEntry[]) {
   const gasFeeFiatValue = gasInfos.reduce((acc, item) => {
     const feeResult = calculateFeeForSend({
@@ -356,6 +428,47 @@ export async function estimateMarketDirectGasInfos({
     gasInfos,
     gasFeeFiatValue: buildGasFeeFiatValue(gasInfos),
     preparedUnsignedTx: unsignedTx,
+  };
+}
+
+export async function estimateMarketApproveGasInfos({
+  accountAddress,
+  accountId,
+  networkId,
+  approveUnsignedTxArr,
+  networkFeeLevel,
+}: {
+  accountAddress: string;
+  accountId: string;
+  networkId: string;
+  approveUnsignedTxArr: IUnsignedTxPro[];
+  networkFeeLevel?: ESwapNetworkFeeLevel;
+}): Promise<{
+  gasInfos: IMarketGasInfoEntry[];
+  gasFeeFiatValue?: string;
+}> {
+  if (!accountId || !networkId || !accountAddress) {
+    throw new OneKeyError('account error');
+  }
+
+  if (!approveUnsignedTxArr.length) {
+    return {
+      gasInfos: [],
+      gasFeeFiatValue: undefined,
+    };
+  }
+
+  const gasInfos = await resolveExactUnsignedTxGasInfos({
+    accountAddress,
+    accountId,
+    networkId,
+    unsignedTxArr: approveUnsignedTxArr,
+    networkFeeLevel,
+  });
+
+  return {
+    gasInfos,
+    gasFeeFiatValue: buildGasFeeFiatValue(gasInfos),
   };
 }
 
