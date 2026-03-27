@@ -3,8 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
-import { CHAINS, ConfigManager } from '../../config';
+import { ConfigManager } from '../../config';
 import { auditToken, resolveToken, savePending } from '../../core';
+import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
@@ -14,6 +15,7 @@ import {
 } from '../../utils/tx-utils';
 
 import { parseSortMode, renderQuoteTable } from './swap-display-utils';
+import { fetchSwapNetworks } from './swap-networks';
 import { fetchQuotesViaSSE } from './swap-quote';
 
 import type { IEndpointEnv } from '../../config';
@@ -98,13 +100,22 @@ export function registerSwapBuildCommand(parent: Command): void {
         const output = globalOpts._outputFormatter as OutputFormatter;
 
         try {
-          const chainConfig = CHAINS[options.chain];
-          if (!chainConfig) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_CHAIN.code,
-              `Unsupported chain: "${options.chain}"`,
-              `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
+          const chainConfig = resolveChain(options.chain);
+
+          // Validate chain supports swap
+          const appConfig = await ConfigManager.load();
+          const swapNetworks = await fetchSwapNetworks(appConfig.env);
+          if (swapNetworks.length > 0) {
+            const isSwapSupported = swapNetworks.some(
+              (n) => n.networkId === chainConfig.networkId,
             );
+            if (!isSwapSupported) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_CHAIN.code,
+                `Chain "${options.chain}" does not support swap`,
+                `Run 'onekey swap networks' to see supported chains.`,
+              );
+            }
           }
 
           // Resolve both tokens
