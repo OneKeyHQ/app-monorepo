@@ -235,7 +235,33 @@ function MarketTokenListBase({
       hasMatchedToken = true;
       return {
         ...item,
-        ...liveTokenOverride,
+        ...(liveTokenOverride.price !== undefined && {
+          price: liveTokenOverride.price,
+        }),
+        ...(liveTokenOverride.change24h !== undefined && {
+          change24h: liveTokenOverride.change24h,
+        }),
+        ...(liveTokenOverride.marketCap !== undefined && {
+          marketCap: liveTokenOverride.marketCap,
+        }),
+        ...(liveTokenOverride.liquidity !== undefined && {
+          liquidity: liveTokenOverride.liquidity,
+        }),
+        ...(liveTokenOverride.transactions !== undefined && {
+          transactions: liveTokenOverride.transactions,
+        }),
+        ...(liveTokenOverride.uniqueTraders !== undefined && {
+          uniqueTraders: liveTokenOverride.uniqueTraders,
+        }),
+        ...(liveTokenOverride.holders !== undefined && {
+          holders: liveTokenOverride.holders,
+        }),
+        ...(liveTokenOverride.turnover !== undefined && {
+          turnover: liveTokenOverride.turnover,
+        }),
+        ...(liveTokenOverride.walletInfo !== undefined && {
+          walletInfo: liveTokenOverride.walletInfo,
+        }),
       };
     });
 

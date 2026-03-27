@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import {
   Icon,
@@ -33,6 +33,17 @@ export function MarketDetailHeader() {
     });
   }, [navigation]);
 
+  // Stabilize logoUrls to prevent re-renders from polling returning fresh array references
+  const logoUrls = tokenDetail?.logoUrls;
+  const logoUrlsCacheKey = useMemo(() => logoUrls?.join('|') ?? '', [logoUrls]);
+  const stableLogoUrlsRef = useRef(logoUrls);
+  const stableLogoUrlsKeyRef = useRef(logoUrlsCacheKey);
+  if (stableLogoUrlsKeyRef.current !== logoUrlsCacheKey) {
+    stableLogoUrlsRef.current = logoUrls;
+    stableLogoUrlsKeyRef.current = logoUrlsCacheKey;
+  }
+  const stableLogoUrls = stableLogoUrlsRef.current;
+
   const customHeaderLeft = useMemo(
     () => (
       <XStack gap="$3" ai="center">
@@ -59,13 +70,13 @@ export function MarketDetailHeader() {
             onPress={onPressTokenSelector}
             hoverStyle={{ opacity: 0.8 }}
             pressStyle={{ opacity: 0.6 }}
-            cursor="default"
+            cursor="pointer"
             flex={1}
           >
             <Token
               size="sm"
               tokenImageUri={tokenDetail?.logoUrl}
-              tokenImageUris={tokenDetail?.logoUrls}
+              tokenImageUris={stableLogoUrls}
               fallbackIcon="CryptoCoinOutline"
             />
             <SizableText size="$headingLg" numberOfLines={1}>

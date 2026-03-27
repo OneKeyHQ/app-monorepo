@@ -2,12 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Page,
-  SearchBar,
-  Stack,
-  rootNavigationRef,
-} from '@onekeyhq/components';
+import { Page, SearchBar, Stack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -26,18 +21,12 @@ import {
   useMarketTokenSelectorConfigAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ERootRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-// ---------------------------------------------------------------------------
-// Main modal content — mirrors SwapProSelectTokenPage exactly
-// ---------------------------------------------------------------------------
+import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
+import { useLiveTokenOverride } from './useLiveTokenOverride';
+
 function MobileTokenSelectorContent() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -53,13 +42,13 @@ function MobileTokenSelectorContent() {
   >(isWatchlistMode ? undefined : spotNetworkId || undefined);
   const [startListSelect, setStartListSelect] = useState(isWatchlistMode);
 
-  // Search state (same as Swap Pro)
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(
     searchValueDebounce,
     selectedNetworkId,
   );
+  const liveTokenOverride = useLiveTokenOverride();
 
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
@@ -80,80 +69,43 @@ function MobileTokenSelectorContent() {
     setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
   }, [setSelectorConfig]);
 
-  const handleTokenSelect = useCallback(
-    (item: IMarketToken) => {
-      if (item.perpsCoin) {
+  const navigateToTokenDetail = useCallback(
+    (token: {
+      address: string;
+      networkId: string;
+      isNative?: boolean;
+      perpsCoin?: string;
+    }) => {
+      if (token.perpsCoin) {
         navigation.popStack();
-        navigateToPerps(item.perpsCoin);
+        navigateToPerps(token.perpsCoin);
         return;
       }
 
-      const shortCode = networkUtils.getNetworkShortCode({
-        networkId: item.networkId,
+      navigateToMarketTokenDetail(token, {
+        tokenDetailActions,
+        beforeNavigate: () => navigation.popStack(),
       });
-
-      void tokenDetailActions.current.changeActiveToken({
-        tokenAddress: item.address,
-        networkId: item.networkId,
-        isNative: item.isNative ?? false,
-      });
-
-      navigation.popStack();
-
-      const targetTab = platformEnv.isNative
-        ? ETabRoutes.Discovery
-        : ETabRoutes.Market;
-      const params = {
-        tokenAddress: item.address,
-        network: shortCode || item.networkId,
-        isNative: item.isNative,
-      };
-      setTimeout(() => {
-        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-          screen: targetTab,
-          params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
-            params,
-          },
-        });
-      }, 100);
     },
     [tokenDetailActions, navigation, navigateToPerps],
   );
 
+  const handleTokenSelect = useCallback(
+    (item: IMarketToken) => {
+      navigateToTokenDetail(item);
+    },
+    [navigateToTokenDetail],
+  );
+
   const handleSearchTokenSelect = useCallback(
     (token: IMarketSearchV2Token & { networkLogoURI: string }) => {
-      const shortCode = networkUtils.getNetworkShortCode({
+      navigateToTokenDetail({
+        address: token.address,
         networkId: token.network,
-      });
-
-      void tokenDetailActions.current.changeActiveToken({
-        tokenAddress: token.address,
-        networkId: token.network,
-        isNative: token.isNative ?? false,
-      });
-
-      navigation.popStack();
-
-      const targetTab = platformEnv.isNative
-        ? ETabRoutes.Discovery
-        : ETabRoutes.Market;
-      const params = {
-        tokenAddress: token.address,
-        network: shortCode || token.network,
         isNative: token.isNative,
-      };
-      setTimeout(() => {
-        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-          screen: targetTab,
-          params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
-            params,
-          },
-        });
-      }, 100);
+      });
     },
-    [tokenDetailActions, navigation],
+    [navigateToTokenDetail],
   );
 
   return (
@@ -193,13 +145,16 @@ function MobileTokenSelectorContent() {
             {startListSelect ? (
               <MarketWatchlistTokenList
                 onItemPress={handleTokenSelect}
-                hideNativeToken
                 hidePerps
+                liveTokenOverride={liveTokenOverride}
+                pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
               />
             ) : (
               <MarketNormalTokenList
                 onItemPress={handleTokenSelect}
                 networkId={selectedNetworkId}
+                liveTokenOverride={liveTokenOverride}
+                pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
               />
             )}
           </>
@@ -209,9 +164,6 @@ function MobileTokenSelectorContent() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Default export (wrapped with providers for lazy loading)
-// ---------------------------------------------------------------------------
 function MobileTokenSelectorModal() {
   return (
     <MarketWatchListProviderMirrorV2

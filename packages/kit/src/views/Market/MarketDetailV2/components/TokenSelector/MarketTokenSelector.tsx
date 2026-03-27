@@ -10,7 +10,6 @@ import {
   Stack,
   XStack,
   YStack,
-  rootNavigationRef,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -29,14 +28,11 @@ import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwa
 import SwapProSearchTokenList from '@onekeyhq/kit/src/views/Swap/pages/components/SwapProSearchTokenList';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ERootRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+
+import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
+import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
+import { useLiveTokenOverride } from './useLiveTokenOverride';
 
 const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
   'transactions',
@@ -45,24 +41,11 @@ const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
   'tokenAge',
 ] as const;
 
-function toFiniteNumber(value?: string | number) {
-  if (value === undefined || value === null || value === '') {
-    return undefined;
-  }
-
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Popover content — mirrors SwapProSelectTokenPage structure
-// ---------------------------------------------------------------------------
 function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
-  const { tokenDetail, networkId } = useTokenDetail();
 
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
@@ -73,7 +56,6 @@ function BaseMarketTokenSelectorContent() {
   >(isWatchlistMode ? undefined : spotNetworkId || undefined);
   const [startListSelect, setStartListSelect] = useState(isWatchlistMode);
 
-  // Search state (same as Swap Pro)
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(
@@ -81,48 +63,7 @@ function BaseMarketTokenSelectorContent() {
     selectedNetworkId,
   );
 
-  const liveTokenOverride = useMemo(() => {
-    if (!tokenDetail?.address || !networkId) {
-      return undefined;
-    }
-
-    const buy24hCount = toFiniteNumber(tokenDetail.buy24hCount);
-    const sell24hCount = toFiniteNumber(tokenDetail.sell24hCount);
-    const walletInfo =
-      buy24hCount !== undefined || sell24hCount !== undefined
-        ? {
-            buy: buy24hCount ?? 0,
-            sell: sell24hCount ?? 0,
-          }
-        : undefined;
-
-    return {
-      networkId,
-      address: tokenDetail.address,
-      price: toFiniteNumber(tokenDetail.price),
-      change24h: toFiniteNumber(tokenDetail.priceChange24hPercent),
-      marketCap: toFiniteNumber(tokenDetail.marketCap),
-      liquidity: toFiniteNumber(tokenDetail.liquidity),
-      transactions: toFiniteNumber(tokenDetail.trade24hCount),
-      uniqueTraders: toFiniteNumber(tokenDetail.uniqueWallet24h),
-      holders: tokenDetail.holders,
-      turnover: toFiniteNumber(tokenDetail.volume24h),
-      walletInfo,
-    };
-  }, [
-    networkId,
-    tokenDetail?.address,
-    tokenDetail?.price,
-    tokenDetail?.priceChange24hPercent,
-    tokenDetail?.marketCap,
-    tokenDetail?.liquidity,
-    tokenDetail?.trade24hCount,
-    tokenDetail?.uniqueWallet24h,
-    tokenDetail?.holders,
-    tokenDetail?.volume24h,
-    tokenDetail?.buy24hCount,
-    tokenDetail?.sell24hCount,
-  ]);
+  const liveTokenOverride = useLiveTokenOverride();
 
   const handleNetworkIdChange = useCallback(
     (nextNetworkId: string) => {
@@ -143,85 +84,47 @@ function BaseMarketTokenSelectorContent() {
     setSelectorConfig((prev) => ({ ...prev, isWatchlistMode: true }));
   }, [setSelectorConfig]);
 
-  const handleSelectToken = useCallback(
-    (item: IMarketToken) => {
-      if (item.perpsCoin) {
+  const navigateToTokenDetail = useCallback(
+    (token: {
+      address: string;
+      networkId: string;
+      isNative?: boolean;
+      perpsCoin?: string;
+    }) => {
+      if (token.perpsCoin) {
         void closePopover?.();
-        navigateToPerps(item.perpsCoin);
+        navigateToPerps(token.perpsCoin);
         return;
       }
 
-      const shortCode = networkUtils.getNetworkShortCode({
-        networkId: item.networkId,
+      navigateToMarketTokenDetail(token, {
+        tokenDetailActions,
+        beforeNavigate: () => void closePopover?.(),
       });
-
-      void tokenDetailActions.current.changeActiveToken({
-        tokenAddress: item.address,
-        networkId: item.networkId,
-        isNative: item.isNative ?? false,
-      });
-
-      void closePopover?.();
-
-      const targetTab = platformEnv.isNative
-        ? ETabRoutes.Discovery
-        : ETabRoutes.Market;
-      const params = {
-        tokenAddress: item.address,
-        network: shortCode || item.networkId,
-        isNative: item.isNative,
-      };
-      setTimeout(() => {
-        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-          screen: targetTab,
-          params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
-            params,
-          },
-        });
-      }, 100);
     },
     [tokenDetailActions, closePopover, navigateToPerps],
   );
 
+  const handleSelectToken = useCallback(
+    (item: IMarketToken) => {
+      navigateToTokenDetail(item);
+    },
+    [navigateToTokenDetail],
+  );
+
   const handleSearchTokenSelect = useCallback(
     (token: IMarketSearchV2Token & { networkLogoURI: string }) => {
-      const shortCode = networkUtils.getNetworkShortCode({
+      navigateToTokenDetail({
+        address: token.address,
         networkId: token.network,
-      });
-
-      void tokenDetailActions.current.changeActiveToken({
-        tokenAddress: token.address,
-        networkId: token.network,
-        isNative: token.isNative ?? false,
-      });
-
-      void closePopover?.();
-
-      const targetTab = platformEnv.isNative
-        ? ETabRoutes.Discovery
-        : ETabRoutes.Market;
-      const params = {
-        tokenAddress: token.address,
-        network: shortCode || token.network,
         isNative: token.isNative,
-      };
-      setTimeout(() => {
-        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-          screen: targetTab,
-          params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
-            params,
-          },
-        });
-      }, 100);
+      });
     },
-    [tokenDetailActions, closePopover],
+    [navigateToTokenDetail],
   );
 
   return (
-    <YStack p="$3" gap="$1" height={500}>
-      {/* Search */}
+    <YStack p="$3" gap="$1" height={600}>
       <Stack px="$2" pb="$2">
         <SearchBar
           autoFocus
@@ -252,10 +155,10 @@ function BaseMarketTokenSelectorContent() {
           {startListSelect ? (
             <MarketWatchlistTokenList
               onItemPress={handleSelectToken}
-              hideNativeToken
               hidePerps
               hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
               liveTokenOverride={liveTokenOverride}
+              pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
             />
           ) : (
             <MarketNormalTokenList
@@ -263,6 +166,7 @@ function BaseMarketTokenSelectorContent() {
               networkId={selectedNetworkId}
               hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
               liveTokenOverride={liveTokenOverride}
+              pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
             />
           )}
         </>
@@ -271,16 +175,13 @@ function BaseMarketTokenSelectorContent() {
   );
 }
 
-// Only render content when open (Perps pattern)
+// Only render content when open to avoid stale state on reopen
 function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
   return isOpen ? <BaseMarketTokenSelectorContent /> : null;
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 
-// ---------------------------------------------------------------------------
-// Main Popover trigger — reads tokenDetail for display only
-// ---------------------------------------------------------------------------
 function BaseMarketTokenSelector() {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);

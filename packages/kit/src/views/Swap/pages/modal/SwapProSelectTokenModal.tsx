@@ -132,7 +132,6 @@ const SwapProSelectTokenPage = ({
             {startListSelect ? (
               <MarketWatchlistTokenList
                 onItemPress={handleTokenSelect}
-                hideNativeToken
                 hidePerps
               />
             ) : (

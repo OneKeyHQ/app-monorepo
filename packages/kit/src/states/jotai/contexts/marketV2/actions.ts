@@ -101,11 +101,40 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       payload: { tokenAddress: string; networkId: string; isNative: boolean },
     ) => {
       const { tokenAddress, networkId, isNative } = payload;
-      this.clearTokenDetail.call(set);
-      this.setTokenAddress.call(set, tokenAddress);
-      this.setNetworkId.call(set, networkId);
-      this.setIsNative.call(set, isNative);
-      await this.fetchTokenDetail.call(set, tokenAddress, networkId);
+      // Set atom values directly — `this.xxx.call(set)` doesn't work
+      // because `this` is not the class instance inside contextAtomMethod.
+      set(tokenDetailAtom(), undefined);
+      set(tokenDetailWebsocketAtom(), undefined);
+      set(perpsInfoAtom(), undefined);
+      set(tokenAddressAtom(), tokenAddress);
+      set(networkIdAtom(), networkId);
+      set(isNativeAtom(), isNative);
+
+      try {
+        set(tokenDetailLoadingAtom(), true);
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+            tokenAddress,
+            networkId,
+          );
+        const responseData = response as unknown as IMarketTokenDetailResponse;
+        if (
+          typeof responseData?.data?.token?.name === 'undefined' ||
+          responseData.data.token.name === ''
+        ) {
+          return;
+        }
+        set(tokenDetailAtom(), responseData.data.token);
+        set(tokenDetailWebsocketAtom(), responseData.data.websocket);
+        set(perpsInfoAtom(), responseData.data.perpsInfo);
+      } catch (error) {
+        console.error('Failed to fetch token detail:', error);
+        set(tokenDetailAtom(), undefined);
+        set(tokenDetailWebsocketAtom(), undefined);
+        set(perpsInfoAtom(), undefined);
+      } finally {
+        set(tokenDetailLoadingAtom(), false);
+      }
     },
   );
 

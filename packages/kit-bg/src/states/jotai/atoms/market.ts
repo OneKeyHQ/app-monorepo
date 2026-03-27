@@ -28,6 +28,29 @@ export const {
   initialValue: { sortBy: undefined, sortType: undefined },
 });
 
+export interface IMarketCurrentTokenLiveData {
+  networkId: string;
+  address: string;
+  price?: number;
+  change24h?: number;
+  marketCap?: number;
+  liquidity?: number;
+  transactions?: number;
+  uniqueTraders?: number;
+  holders?: number;
+  turnover?: number;
+  walletInfo?: { buy: number; sell: number };
+}
+
+export const {
+  target: marketCurrentTokenLiveDataAtom,
+  use: useMarketCurrentTokenLiveDataAtom,
+} = globalAtom<IMarketCurrentTokenLiveData | undefined>({
+  persist: false,
+  name: EAtomNames.marketCurrentTokenLiveDataAtom,
+  initialValue: undefined,
+});
+
 export interface IMarketTokenSelectorConfigAtom {
   isWatchlistMode: boolean;
   spotNetworkId: string;

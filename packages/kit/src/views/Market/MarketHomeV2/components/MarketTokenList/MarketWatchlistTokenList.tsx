@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Tabs, Toast } from '@onekeyhq/components';
+import { ActionList, Tabs, Toast, useMedia } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -49,6 +49,7 @@ type IMarketWatchlistTokenListProps = {
   hidePerps?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
+  pollingInterval?: number;
 };
 
 function MarketWatchlistTokenList({
@@ -62,12 +63,15 @@ function MarketWatchlistTokenList({
   hidePerps,
   hiddenDesktopColumns,
   liveTokenOverride,
+  pollingInterval,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
 
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
+  const recommendMaxSize = !platformEnv.isNative && gtMd ? 6 : 8;
 
   const actions = useWatchListV2Actions();
 
@@ -114,6 +118,7 @@ function MarketWatchlistTokenList({
   const watchlistResult = useMarketWatchlistTokenList({
     watchlist,
     pageSize: 999,
+    pollingInterval,
   });
 
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
@@ -315,11 +320,19 @@ function MarketWatchlistTokenList({
     if (tabIntegrated && platformEnv.isNative) {
       return (
         <Tabs.ScrollView>
-          <MarketRecommendList recommendedTokens={recommendedTokens} />
+          <MarketRecommendList
+            recommendedTokens={recommendedTokens}
+            maxSize={recommendMaxSize}
+          />
         </Tabs.ScrollView>
       );
     }
-    return <MarketRecommendList recommendedTokens={recommendedTokens} />;
+    return (
+      <MarketRecommendList
+        recommendedTokens={recommendedTokens}
+        maxSize={recommendMaxSize}
+      />
+    );
   }
 
   return (
