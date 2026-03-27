@@ -88,4 +88,3 @@ const themeColors = {
 export const getBackgroundColor = (key: string) =>
   themeColors[key as keyof typeof themeColors] ||
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
-

@@ -55,9 +55,9 @@ import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
+import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import { registerInfoHandlers } from './libs/registerInfoHandlers';
 import { getBackgroundColor } from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
