@@ -1,6 +1,6 @@
-import { CHAINS } from '../config';
 import { listPending } from '../core';
-import { AppError, ERROR_CODES } from '../errors';
+import { resolveChain } from '../core/chain-resolver';
+import { AppError } from '../errors';
 
 import type { OutputFormatter } from '../output';
 import type { Command } from 'commander';
@@ -17,12 +17,8 @@ export function registerHistoryCommand(program: Command): void {
       const output = globalOpts._outputFormatter as OutputFormatter;
 
       try {
-        if (options.chain && !CHAINS[options.chain]) {
-          throw new AppError(
-            ERROR_CODES.PARAM_INVALID_CHAIN.code,
-            `Unsupported chain: "${options.chain}"`,
-            `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
-          );
+        if (options.chain) {
+          resolveChain(options.chain); // throws on invalid chain
         }
 
         const limit = Math.max(

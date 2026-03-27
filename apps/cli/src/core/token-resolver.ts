@@ -1,6 +1,7 @@
-import { CHAINS } from '../config';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
+
+import { resolveChain } from './chain-resolver';
 
 import type { IResolvedToken } from '../types';
 
@@ -175,14 +176,7 @@ export async function resolveToken(
   input: string,
   chain: string,
 ): Promise<IResolvedToken> {
-  const chainConfig = CHAINS[chain];
-  if (!chainConfig) {
-    throw new AppError(
-      ERROR_CODES.PARAM_INVALID_CHAIN.code,
-      `Unsupported chain: "${chain}"`,
-      `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
-    );
-  }
+  const chainConfig = resolveChain(chain);
 
   const { networkId, nativeSymbol, nativeDecimals } = chainConfig;
 

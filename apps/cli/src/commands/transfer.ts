@@ -1,4 +1,4 @@
-import { CHAINS } from '../config';
+import { resolveChain } from '../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../errors';
 import { apiClient } from '../infra';
 import { transferOptionsSchema } from '../schemas';
@@ -103,14 +103,7 @@ export function registerTransferCommand(program: Command): void {
           });
 
           const chainName = validated.chain ?? 'eth';
-          const chainConfig = CHAINS[chainName];
-          if (!chainConfig) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_CHAIN.code,
-              `Unsupported chain: ${chainName}`,
-              `Supported: ${Object.keys(CHAINS).join(', ')}`,
-            );
-          }
+          const chainConfig = resolveChain(chainName);
 
           const { feeDecimals, nativeDecimals, nativeSymbol } = chainConfig;
 

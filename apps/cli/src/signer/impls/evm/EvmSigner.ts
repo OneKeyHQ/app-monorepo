@@ -5,7 +5,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 
-import { CHAINS } from '../../../config';
+import { listEvmChains } from '../../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../../errors';
 import { CLI_PASSWORD, SignerBase } from '../../base/SignerBase';
 
@@ -58,17 +58,13 @@ export class EvmSigner extends SignerBase implements ISigner {
   }
 
   private validateNetworkId(networkId: string): void {
-    const chainConfig = Object.values(CHAINS).find(
-      (c) => c.networkId === networkId,
-    );
-    if (!chainConfig || chainConfig.impl !== 'evm') {
+    const evmChains = listEvmChains();
+    const chainConfig = evmChains.find((c) => c.networkId === networkId);
+    if (!chainConfig) {
       throw new AppError(
         ERROR_CODES.PARAM_INVALID_CHAIN.code,
         `Unsupported EVM networkId: ${networkId}`,
-        `Supported: ${Object.values(CHAINS)
-          .filter((c) => c.impl === 'evm')
-          .map((c) => c.networkId)
-          .join(', ')}`,
+        `Supported: ${evmChains.map((c) => c.networkId).join(', ')}`,
       );
     }
   }

@@ -1,5 +1,5 @@
-import { CHAINS } from '../../config';
 import { resolveToken } from '../../core';
+import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
@@ -58,14 +58,7 @@ export function registerTokenInfoCommand(parent: Command): void {
       const output = globalOpts._outputFormatter as OutputFormatter;
 
       try {
-        const chainConfig = CHAINS[options.chain];
-        if (!chainConfig) {
-          throw new AppError(
-            ERROR_CODES.PARAM_INVALID_CHAIN.code,
-            `Unsupported chain: "${options.chain}"`,
-            `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
-          );
-        }
+        resolveChain(options.chain);
 
         // Step 1: Resolve token → get contractAddress + networkId
         const resolved = await resolveToken(options.token, options.chain);

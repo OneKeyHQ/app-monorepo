@@ -1,5 +1,5 @@
-import { CHAINS } from '../../config';
 import { loadPending, updatePendingStatus } from '../../core';
+import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
@@ -64,14 +64,7 @@ export function registerSwapStatusCommand(parent: Command): void {
           }
 
           // Validate chain
-          const chainConfig = CHAINS[options.chain];
-          if (!chainConfig) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_CHAIN.code,
-              `Unsupported chain: "${options.chain}"`,
-              `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
-            );
-          }
+          const chainConfig = resolveChain(options.chain);
 
           // Resolve env
           const env = (

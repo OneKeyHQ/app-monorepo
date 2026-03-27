@@ -1,4 +1,4 @@
-import { CHAINS } from '../../config';
+import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
@@ -42,14 +42,7 @@ function parseTokenList(
     const chain = trimmed.slice(0, colonIdx);
     const address = trimmed.slice(colonIdx + 1);
 
-    const chainConfig = CHAINS[chain];
-    if (!chainConfig) {
-      throw new AppError(
-        ERROR_CODES.PARAM_INVALID_CHAIN.code,
-        `Unknown chain "${chain}" in --tokens`,
-        `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
-      );
-    }
+    const chainConfig = resolveChain(chain);
 
     const isNative = !address || address === 'native';
     return {

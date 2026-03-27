@@ -1,4 +1,4 @@
-import { CHAINS } from '../../config';
+import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 import {
@@ -42,14 +42,7 @@ export function registerSecuritySimulateCommand(parent: Command): void {
         const output = globalOpts._outputFormatter as OutputFormatter;
 
         try {
-          const chainConfig = CHAINS[options.chain];
-          if (!chainConfig) {
-            throw new AppError(
-              ERROR_CODES.PARAM_INVALID_CHAIN.code,
-              `Unsupported chain: "${options.chain}"`,
-              `Valid chains: ${Object.keys(CHAINS).join(', ')}`,
-            );
-          }
+          const chainConfig = resolveChain(options.chain);
 
           // Validate --to is a valid EVM address
           if (!/^0x[0-9a-fA-F]{40}$/.test(options.to)) {
