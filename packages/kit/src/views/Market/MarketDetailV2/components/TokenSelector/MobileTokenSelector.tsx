@@ -133,15 +133,20 @@ function WatchlistList({
     initialSortType: 'desc',
   });
 
+  // Freeze data snapshot to prevent polling flicker
+  const dataSnapshotRef = useRef(data);
+  if (data.length > 0) {
+    dataSnapshotRef.current = data;
+  }
+  const stableData = dataSnapshotRef.current;
+
   const filteredData = useMemo(() => {
-    let filtered = data;
-    // Apply category filter
+    let filtered = stableData;
     if (selectedFilter === 'spot') {
       filtered = filtered.filter((item) => !item.perpsCoin);
     } else if (selectedFilter === 'perps') {
       filtered = filtered.filter((item) => !!item.perpsCoin);
     }
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -151,7 +156,7 @@ function WatchlistList({
       );
     }
     return filtered;
-  }, [data, searchQuery, selectedFilter]);
+  }, [stableData, searchQuery, selectedFilter]);
 
   const renderItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
@@ -166,7 +171,7 @@ function WatchlistList({
     [],
   );
 
-  if (isLoading && data.length === 0) {
+  if (isLoading && stableData.length === 0) {
     return (
       <Stack flex={1} alignItems="center" justifyContent="center">
         <Spinner size="small" />
@@ -218,15 +223,22 @@ function SpotList({
       pageSize: 20,
     });
 
+  // Freeze data snapshot to prevent polling flicker
+  const dataSnapshotRef = useRef(data);
+  if (data.length > 0) {
+    dataSnapshotRef.current = data;
+  }
+  const stableData = dataSnapshotRef.current;
+
   const filteredData = useMemo(() => {
-    if (!searchQuery) return data;
+    if (!searchQuery) return stableData;
     const query = searchQuery.toLowerCase();
-    return data.filter(
+    return stableData.filter(
       (item) =>
         item.symbol.toLowerCase().includes(query) ||
         item.name.toLowerCase().includes(query),
     );
-  }, [data, searchQuery]);
+  }, [stableData, searchQuery]);
 
   const renderItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
@@ -247,7 +259,7 @@ function SpotList({
     }
   }, [canLoadMore, isLoadingMore, loadMore]);
 
-  if (isLoading && data.length === 0) {
+  if (isLoading && stableData.length === 0) {
     return (
       <Stack flex={1} alignItems="center" justifyContent="center">
         <Spinner size="small" />
