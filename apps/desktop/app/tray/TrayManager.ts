@@ -8,6 +8,7 @@ import { createTrayWindow, showTrayWindow, destroyTrayWindow } from './trayWindo
 import {
   registerTrayIpcHandlers,
   requestDataFromMainWindow,
+  sendCachedDataToTrayWindow,
   unregisterTrayIpcHandlers,
   setLocked,
 } from './trayIpc';
@@ -41,6 +42,13 @@ export function initTrayManager(
     if (!panelCreated) {
       createTrayWindow(tray, loadTrayUrl);
       panelCreated = true;
+      // Send cached data after panel renderer is ready
+      setTimeout(() => {
+        sendCachedDataToTrayWindow();
+      }, 2000);
+    } else {
+      // Panel already exists, send latest cached data immediately
+      sendCachedDataToTrayWindow();
     }
     showTrayWindow(tray);
   };

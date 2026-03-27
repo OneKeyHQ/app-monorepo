@@ -64,10 +64,15 @@ export function useTrayDataProvider() {
       try {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
+        console.log('[TrayDataProvider] watchListData:', JSON.stringify(watchListData));
         if (watchListData?.data?.length) {
           const spotItems = watchListData.data.filter(
             (item: any) => !item.perpsCoin && item.chainId,
           );
+          const perpsItems = watchListData.data.filter(
+            (item: any) => !!item.perpsCoin,
+          );
+          console.log('[TrayDataProvider] spotItems:', spotItems.length, 'perpsItems:', perpsItems.length);
           if (spotItems.length > 0) {
             const tokenAddressList = spotItems.slice(0, 10).map(
               (item: any) => ({
@@ -93,8 +98,8 @@ export function useTrayDataProvider() {
             }
           }
         }
-      } catch {
-        // Watchlist fetch failed silently
+      } catch (e) {
+        console.error('[TrayDataProvider] watchlist error:', e);
       }
 
       // 4. Pending transactions

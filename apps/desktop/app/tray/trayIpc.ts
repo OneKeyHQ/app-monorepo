@@ -1,4 +1,5 @@
 import { type BrowserWindow, ipcMain } from 'electron';
+import logger from 'electron-log';
 import { ipcMessageKeys } from '../config';
 import { getTrayWindow } from './trayWindow';
 import { diffAndNotify } from './trayNotification';
@@ -21,6 +22,12 @@ export function registerTrayIpcHandlers(
 ): void {
   ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, (_event, data: ITrayData) => {
     cachedTrayData = data;
+    logger.info('[TrayIpc] data received:', JSON.stringify({
+      wallet: data.wallet?.name,
+      balance: data.totalBalance?.amount,
+      watchlist: data.watchlist?.length,
+      pendingTxs: data.pendingTxs?.length,
+    }));
 
     if (!isLocked) {
       diffAndNotify(data.pendingTxs);
@@ -47,6 +54,15 @@ export function registerTrayIpcHandlers(
       }
     },
   );
+}
+
+export function sendCachedDataToTrayWindow(): void {
+  if (!cachedTrayData) return;
+  const trayWindow = getTrayWindow();
+  if (trayWindow && !trayWindow.isDestroyed()) {
+    trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
+    logger.info('[TrayIpc] sent cached data to tray window');
+  }
 }
 
 export function requestDataFromMainWindow(
