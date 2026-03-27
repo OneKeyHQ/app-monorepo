@@ -41,16 +41,18 @@ export const { atom: decodedTxsAtom, use: useDecodedTxsAtom } = contextAtom<{
   isBuildingDecodedTxs: false,
 });
 
+export const defaultSendSelectedFee = {
+  feeType: EFeeType.Standard,
+  presetIndex: 0,
+  source: 'wallet' as const,
+};
+
 export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
   contextAtom<{
     feeType: EFeeType;
     presetIndex: number;
     source?: 'dapp' | 'wallet';
-  }>({
-    feeType: EFeeType.Standard,
-    presetIndex: 0,
-    source: 'wallet',
-  });
+  }>({ ...defaultSendSelectedFee });
 
 export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<
   IFeeInfoUnit | undefined
@@ -73,16 +75,18 @@ export const {
   | undefined
 >(undefined);
 
+export const defaultSendFeeStatus = {
+  status: ESendFeeStatus.Idle,
+  errMessage: '',
+  discountPercent: 0,
+};
+
 export const { atom: sendFeeStatusAtom, use: useSendFeeStatusAtom } =
   contextAtom<{
     status: ESendFeeStatus;
     errMessage?: string;
     discountPercent?: number;
-  }>({
-    status: ESendFeeStatus.Idle,
-    errMessage: '',
-    discountPercent: 0,
-  });
+  }>({ ...defaultSendFeeStatus });
 
 export const {
   atom: nativeTokenTransferAmountAtom,
@@ -169,10 +173,7 @@ export const { atom: extraFeeInfoAtom, use: useExtraFeeInfoAtom } =
     feeNative: '0',
   });
 
-export const {
-  atom: tronResourceRentalInfoAtom,
-  use: useTronResourceRentalInfoAtom,
-} = contextAtom<ITronResourceRentalInfo>({
+export const defaultTronResourceRentalInfo: ITronResourceRentalInfo = {
   payType: ETronResourceRentalPayType.Native,
   isResourceRentalNeeded: false,
   isResourceRentalEnabled: false,
@@ -183,16 +184,32 @@ export const {
   },
   isResourceRedeemed: false,
   isResourceClaimed: false,
-});
+};
+
+export const {
+  atom: tronResourceRentalInfoAtom,
+  use: useTronResourceRentalInfoAtom,
+} = contextAtom<ITronResourceRentalInfo>({ ...defaultTronResourceRentalInfo });
+
+export const defaultMegafuelEligible = {
+  sponsorable: false,
+  sponsorName: '',
+};
 
 export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
   contextAtom<{
     sponsorable: boolean;
     sponsorName: string;
-  }>({
-    sponsorable: false,
-    sponsorName: '',
-  });
+  }>({ ...defaultMegafuelEligible });
+
+export const defaultPayWithTokenInfo = {
+  enabled: false,
+  address: '',
+  balance: '0',
+  logoURI: '',
+  isLoading: false,
+  symbol: '',
+};
 
 export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
   contextAtom<{
@@ -202,14 +219,7 @@ export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
     logoURI: string;
     isLoading: boolean;
     symbol: string;
-  }>({
-    enabled: false,
-    address: '',
-    balance: '0',
-    logoURI: '',
-    isLoading: false,
-    symbol: '',
-  });
+  }>({ ...defaultPayWithTokenInfo });
 
 export const {
   atom: tokenTransferAmountAtom,

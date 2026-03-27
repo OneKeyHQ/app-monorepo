@@ -171,6 +171,7 @@ function TxConfirm() {
       updateSendFeeStatus({
         status: ESendFeeStatus.Idle,
         errMessage: '',
+        discountPercent: 0,
       });
       txConfirmParamsInit.current = false;
     }
@@ -347,7 +348,11 @@ function TxConfirm() {
       refreshNativeTokenInfo,
     );
     return () => {
-      updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
+      updateSendFeeStatus({
+        status: ESendFeeStatus.Idle,
+        errMessage: '',
+        discountPercent: 0,
+      });
       appEventBus.off(
         EAppEventBusNames.RefreshNativeTokenInfo,
         refreshNativeTokenInfo,
