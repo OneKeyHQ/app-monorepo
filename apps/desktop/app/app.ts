@@ -1256,12 +1256,8 @@ if (!singleInstance && !process.mas) {
           } else {
             const bundleData = store.getUpdateBundleData();
             const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
-            const src = formatUrl({
-              pathname: bundleIndexHtmlPath || 'index.html',
-              protocol: 'file',
-              slashes: true,
-            });
-            void win.loadURL(`${src}?render=tray`);
+            const filePath = bundleIndexHtmlPath || path.join(__dirname, '..', 'build', 'index.html');
+            void win.loadFile(filePath, { query: { render: 'tray' } });
           }
         },
       );
