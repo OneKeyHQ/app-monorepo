@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,7 +23,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { TokenIdentityItem } from './components/TokenIdentityItem/TokenIdentityItem';
-import { getWatchlistTokenCache } from './hooks/useMarketWatchlistTokenList';
+import {
+  getWatchlistTokenCache,
+  subscribeWatchlistTokenCache,
+} from './hooks/useMarketWatchlistTokenList';
 
 import type { IMarketToken } from './MarketTokenData';
 
@@ -53,33 +56,20 @@ function tokenToWatchListItem(token: IMarketToken): IMarketWatchListItemV2 {
 }
 
 function MarketWatchlistEditDialogContent({
-  cachedTokens,
   onRemove,
   onSort,
 }: {
-  cachedTokens: IMarketToken[];
   onRemove: (item: IMarketToken) => Promise<void>;
   onSort: (params: IDragEndParamsWithItem<IMarketToken>) => void;
 }) {
   const intl = useIntl();
-  const [dataSource, setDataSource] = useState<IMarketToken[]>(() => [
-    ...cachedTokens,
-  ]);
-
-  const dataSourceRef = useRef(dataSource);
-  dataSourceRef.current = dataSource;
+  const dataSource = useSyncExternalStore(
+    subscribeWatchlistTokenCache,
+    getWatchlistTokenCache,
+  );
 
   const handleRemove = useCallback(
     async (item: IMarketToken) => {
-      const itemKey = getWatchlistTokenKey(item);
-      const originalIndex = dataSourceRef.current.findIndex(
-        (t) => getWatchlistTokenKey(t) === itemKey,
-      );
-      setDataSource((prev) =>
-        prev.filter(
-          (currentItem) => getWatchlistTokenKey(currentItem) !== itemKey,
-        ),
-      );
       try {
         await onRemove(item);
         Toast.success({
@@ -88,15 +78,7 @@ function MarketWatchlistEditDialogContent({
           }),
         });
       } catch {
-        setDataSource((prev) => {
-          const next = [...prev];
-          const insertAt =
-            originalIndex >= 0
-              ? Math.min(originalIndex, next.length)
-              : next.length;
-          next.splice(insertAt, 0, item);
-          return next;
-        });
+        // removal failed — data will remain unchanged via cache
       }
     },
     [intl, onRemove],
@@ -104,8 +86,6 @@ function MarketWatchlistEditDialogContent({
 
   const handleDragEnd = useCallback(
     (params: IDragEndParamsWithItem<IMarketToken>) => {
-      const { data } = params;
-      setDataSource(data);
       onSort(params);
     },
     [onSort],
@@ -229,17 +209,13 @@ export function useOpenMarketWatchlistEditDialog() {
       }),
       renderContent: (
         <MarketWatchlistEditDialogContent
-          cachedTokens={cached}
           onRemove={handleRemove}
           onSort={handleSort}
         />
       ),
       estimatedContentHeight: EDIT_DIALOG_HEIGHT,
       disableDrag: true,
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_done,
-      }),
+      showFooter: false,
       onClose: async () => {
         dialogRef.current = null;
       },
