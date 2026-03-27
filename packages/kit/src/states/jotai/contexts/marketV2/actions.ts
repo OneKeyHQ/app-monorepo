@@ -96,7 +96,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   changeActiveToken = contextAtomMethod(
     async (
-      _get,
+      get,
       set,
       payload: { tokenAddress: string; networkId: string; isNative: boolean },
     ) => {
@@ -117,6 +117,17 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             tokenAddress,
             networkId,
           );
+
+        // Stale check: discard if user already switched to a different token
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (
+          currentAddress !== tokenAddress ||
+          currentNetworkId !== networkId
+        ) {
+          return;
+        }
+
         const responseData = response as unknown as IMarketTokenDetailResponse;
         if (
           typeof responseData?.data?.token?.name === 'undefined' ||

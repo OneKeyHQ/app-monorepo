@@ -397,11 +397,15 @@ class ServiceMarketV2 extends ServiceBase {
       return { list: cachedResults };
     }
 
-    // Update cache and merge results — match by address, not positional index,
-    // so results are correct even if the API reorders or skips items.
-    data.list.forEach((item) => {
-      const networkId = item.networkId || '';
-      const cacheKey = `${networkId}:${item.address.toLowerCase()}`;
+    // Update cache and merge results using positional index (API preserves
+    // request order). Cache keys use the request-side chainId:contractAddress
+    // to stay consistent with the lookup keys built above.
+    data.list.forEach((item, apiIndex) => {
+      const token = missingTokens[apiIndex];
+      if (!token) return;
+      const cacheKey = `${
+        token.chainId
+      }:${token.contractAddress.toLowerCase()}`;
       const originalIndex = tokenIndexMap.get(cacheKey);
 
       // Update cache
