@@ -388,7 +388,7 @@ function BaseMarketTokenSelector() {
   const content = useMemo(
     () => (
       <Popover
-        title={intl.formatMessage({ id: ETranslations.global_search_asset })}
+        title={intl.formatMessage({ id: ETranslations.global_search })}
         floatingPanelProps={{
           width: 800,
         }}
