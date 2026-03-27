@@ -6,7 +6,7 @@ import { apiClient } from '../../infra';
 import type { IEndpointEnv } from '../../config';
 import type { Command } from 'commander';
 
-interface ISwapNetworkResult {
+export interface ISwapNetworkResult {
   networkId: string;
   name: string;
   chainId: string;
@@ -29,6 +29,7 @@ export async function fetchSwapNetworks(
   if (cachedNetworks) return cachedNetworks;
 
   try {
+    apiClient.setEnv(env);
     const res = await apiClient.get<
       Array<{
         networkId: string;

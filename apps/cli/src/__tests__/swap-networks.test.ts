@@ -8,6 +8,7 @@ jest.mock('../infra', () => ({
   apiClient: {
     get: jest.fn(),
     post: jest.fn(),
+    setEnv: jest.fn(),
   },
 }));
 
