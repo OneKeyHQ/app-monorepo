@@ -178,32 +178,22 @@ export function useTrayDataProvider() {
         console.error('[TrayDataProvider] watchlist error:', e);
       }
 
-      // 4. Pending transactions
+      // 4. Pending transactions — use fetchAccountHistory which handles all-network mode
       try {
         const accountId = activeAccountValueRef.current?.accountId;
         const networkId = selectedAccount?.networkId;
+        console.log('[TrayDataProvider] pending tx params:', { accountId, networkId });
         if (accountId && networkId) {
-          // Resolve account address the same way ServiceHistory does
-          const [accountAddress, xpub] = await Promise.all([
-            backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          const historyResult =
+            await backgroundApiProxy.serviceHistory.fetchAccountHistory({
               accountId,
               networkId,
-            }),
-            backgroundApiProxy.serviceAccount.getAccountXpub({
-              accountId,
-              networkId,
-            }),
-          ]);
-
-          const history = accountAddress
-            ? await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
-                {
-                  networkId,
-                  accountAddress,
-                  xpub: xpub || undefined,
-                },
-              )
-            : [];
+            });
+          // Filter to only pending txs (status = 'Pending')
+          const history = (historyResult || []).filter(
+            (tx: any) => tx.decodedTx?.status === 'Pending',
+          );
+          console.log('[TrayDataProvider] history total:', historyResult?.length, 'pending:', history.length);
           if (history?.length) {
             trayData.pendingTxs = history.slice(0, 5).map((tx: any) => {
               const decodedTx = tx.decodedTx;
