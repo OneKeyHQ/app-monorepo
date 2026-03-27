@@ -499,7 +499,7 @@ function TxHistoryListContainer(
       indexedAccountId={indexedAccount?.id}
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
-      tableLayout={tableLayout ?? media.gtLg}
+      tableLayout={tableLayout ?? media.gtMd}
       listViewStyleProps={{
         contentContainerStyle: {
           mt: '$3',

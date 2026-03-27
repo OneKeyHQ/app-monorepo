@@ -260,10 +260,12 @@ function TxActionCommonDescription({
     });
     if (addressesInfo[addressInfoKey]) {
       return (
-        <TxHistoryAddressInfo
-          address={description.originalAddress}
-          badge={addressesInfo[addressInfoKey]}
-        />
+        <Stack flexShrink={1} minWidth={0}>
+          <TxHistoryAddressInfo
+            address={description.originalAddress}
+            badge={addressesInfo[addressInfoKey]}
+          />
+        </Stack>
       );
     }
   }
@@ -347,14 +349,9 @@ function TxActionCommonFee({
   }
 
   return (
-    <Stack
-      flexGrow={1}
-      flexBasis={0}
-      opacity={hideFeeInfo ? 0 : 1}
-      gap={tableLayout ? '$1' : undefined}
-    >
+    <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1} gap="$1">
       <SizableText
-        size={tableLayout ? '$bodyMd' : '$bodyLg'}
+        size="$bodyMd"
         color="$textSubdued"
       >
         {intl.formatMessage({
@@ -366,6 +363,9 @@ function TxActionCommonFee({
           size="$bodyMd"
           formatter="balance"
           formatterOptions={{ tokenSymbol: feeSymbol }}
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
         >
           {fee}
         </NumberSizeableText>
@@ -374,6 +374,9 @@ function TxActionCommonFee({
           color="$textSubdued"
           formatter="value"
           formatterOptions={{ currency: currencySymbol }}
+          numberOfLines={1}
+          flexShrink={1}
+          minWidth={0}
         >
           {feeFiatValue}
         </NumberSizeableText>
