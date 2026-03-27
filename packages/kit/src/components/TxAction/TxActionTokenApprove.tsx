@@ -13,6 +13,7 @@ import { useSendConfirmActions } from '../../states/jotai/contexts/sendConfirm';
 import { showApproveEditor } from '../../views/ApproveEditor';
 import { AddressInfo } from '../AddressInfo';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
+import { Token } from '../Token';
 
 import {
   TxActionCommonDetailView,
@@ -79,10 +80,17 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     approveLabel,
   } = getTxActionTokenApproveInfo(props);
 
+  const isRevoke = new BigNumber(approveAmount).eq(0);
+
   let title = approveLabel;
   const avatar: ITxActionCommonListViewProps['avatar'] = {
     src: approveIcon,
   };
+  if (tableLayout) {
+    avatar.fallbackIcon = isRevoke
+      ? 'ShieldCheckDoneOutline'
+      : 'UnlockedOutline';
+  }
   const description = {
     children: accountUtils.shortenAddress({
       address: approveSpender,
@@ -91,7 +99,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
   };
 
   if (!title) {
-    if (new BigNumber(approveAmount).eq(0)) {
+    if (isRevoke) {
       title = intl.formatMessage(
         {
           id: ETranslations.global_revoke_approve,
@@ -107,24 +115,64 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     }
   }
 
-  const changeDescription = (
-    <NumberSizeableTextWrapper
-      hideValue={hideValue}
-      formatter="balance"
-      formatterOptions={{
-        tokenSymbol: approveSymbol,
-      }}
-      size="$bodyMd"
-      color="$textSubdued"
-      numberOfLines={1}
-    >
-      {approveIsMax
-        ? intl.formatMessage({
-            id: ETranslations.swap_page_provider_approve_amount_un_limit,
-          })
-        : approveAmount}
-    </NumberSizeableTextWrapper>
-  );
+  let change: React.ReactNode;
+  let changeDescription: React.ReactNode;
+
+  if (tableLayout) {
+    if (isRevoke) {
+      change = undefined;
+    } else if (approveIsMax) {
+      change = (
+        <XStack gap="$1" alignItems="center">
+          <Token size="xs" tokenImageUri={approveIcon} />
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            })}{' '}
+            {approveSymbol}
+          </SizableText>
+        </XStack>
+      );
+    } else {
+      change = (
+        <XStack gap="$1" alignItems="center">
+          <Token size="xs" tokenImageUri={approveIcon} />
+          <NumberSizeableTextWrapper
+            hideValue={hideValue}
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: approveSymbol,
+            }}
+            size="$bodyMd"
+            numberOfLines={1}
+          >
+            {approveAmount}
+          </NumberSizeableTextWrapper>
+        </XStack>
+      );
+    }
+    // Don't pass changeDescription in tableLayout
+  } else {
+    change = approveName;
+    changeDescription = (
+      <NumberSizeableTextWrapper
+        hideValue={hideValue}
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: approveSymbol,
+        }}
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+      >
+        {approveIsMax
+          ? intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            })
+          : approveAmount}
+      </NumberSizeableTextWrapper>
+    );
+  }
 
   return (
     <TxActionCommonListView
@@ -132,7 +180,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       avatar={avatar}
       description={description}
       tableLayout={tableLayout}
-      change={approveName}
+      change={change}
       changeDescription={changeDescription}
       fee={txFee}
       feeFiatValue={txFeeFiatValue}

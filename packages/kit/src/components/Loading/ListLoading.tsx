@@ -209,9 +209,38 @@ function NFTListLoadingView() {
 }
 
 function HistoryLoadingView({ tableLayout }: { tableLayout?: boolean }) {
+  if (tableLayout) {
+    return (
+      <Stack py="$3">
+        <Stack px="$pagePadding" py="$2">
+          <Skeleton.BodySm />
+        </Stack>
+        {[...Array(3)].map((_, index) => (
+          <ListItem key={index} py="$3">
+            <XStack flexGrow={1} flexBasis={0} gap="$3">
+              <Skeleton radius="round" w="$10" h="$10" />
+              <Stack gap="$1">
+                <Skeleton.BodyMd />
+                <Skeleton.BodyMd />
+              </Stack>
+            </XStack>
+            <Stack flexGrow={1} flexBasis={0} gap="$1">
+              <Skeleton.BodyMd />
+              <Skeleton.BodyMd />
+            </Stack>
+            <Stack flexGrow={0.6} flexBasis={0} gap="$1">
+              <Skeleton.BodyMd />
+              <Skeleton.BodyMd />
+            </Stack>
+          </ListItem>
+        ))}
+      </Stack>
+    );
+  }
+
   return (
     <Stack py="$3">
-      {[...Array(5)].map((_, index) => (
+      {[...Array(3)].map((_, index) => (
         <ListItem key={index}>
           <XStack flexGrow={1} flexBasis={0} gap="$3">
             <Stack>
@@ -219,7 +248,7 @@ function HistoryLoadingView({ tableLayout }: { tableLayout?: boolean }) {
             </Stack>
             <Stack>
               <Stack py="$1">
-                <Skeleton h={tableLayout ? '$3' : '$4'} w="$32" />
+                <Skeleton h="$4" w="$32" />
               </Stack>
               <Stack py="$1">
                 <Skeleton h="$3" w="$24" />
@@ -227,23 +256,13 @@ function HistoryLoadingView({ tableLayout }: { tableLayout?: boolean }) {
             </Stack>
           </XStack>
           <Stack flexGrow={1} flexBasis={0}>
-            <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
-              <Skeleton h={tableLayout ? '$3' : '$4'} w="$16" />
+            <Stack alignItems="flex-end" py="$1">
+              <Skeleton h="$4" w="$16" />
             </Stack>
-            <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
+            <Stack alignItems="flex-end" py="$1">
               <Skeleton h="$3" w="$12" />
             </Stack>
           </Stack>
-          {tableLayout ? (
-            <Stack flexGrow={1} flexBasis={0}>
-              <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
-                <Skeleton h={tableLayout ? '$3' : '$4'} w="$16" />
-              </Stack>
-              <Stack alignItems={tableLayout ? 'unset' : 'flex-end'} py="$1">
-                <Skeleton h="$3" w="$12" />
-              </Stack>
-            </Stack>
-          ) : null}
         </ListItem>
       ))}
     </Stack>
