@@ -56,6 +56,15 @@ export function TrayPanel() {
     return <TrayEmptyState type="loading" />;
   }
 
+  if (data.isLocked) {
+    return (
+      <TrayEmptyState
+        type="locked"
+        onPress={() => handleNavigate('/main/tab-home')}
+      />
+    );
+  }
+
   if (!data.wallet?.name) {
     return <TrayEmptyState type="noWallet" />;
   }

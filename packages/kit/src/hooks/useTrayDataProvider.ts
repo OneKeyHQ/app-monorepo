@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -20,11 +21,26 @@ import type {
 
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
+  const [appIsLocked] = useAppIsLockedAtom();
   const activeAccountValueRef = useRef(activeAccountValue);
   activeAccountValueRef.current = activeAccountValue;
+  const appIsLockedRef = useRef(appIsLocked);
+  appIsLockedRef.current = appIsLocked;
   const handleTrayDataRequestRef = useRef<() => void>();
 
   const handleTrayDataRequest = useCallback(async () => {
+    // When locked, send empty data with isLocked flag to protect sensitive info
+    if (appIsLockedRef.current) {
+      (globalThis as any).desktopApi?.sendTrayData({
+        isLocked: true,
+        wallet: { name: '', emoji: '', avatarImg: '' },
+        totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
+        watchlist: [],
+        pendingTxs: [],
+      });
+      return;
+    }
+
     try {
       const trayData: ITrayData = {
         wallet: { name: '', emoji: '', avatarImg: '' },
@@ -333,6 +349,12 @@ export function useTrayDataProvider() {
     }, 300);
     return () => clearTimeout(timer);
   }, [activeAccountValue]);
+
+  // Push lock state change immediately
+  useEffect(() => {
+    if (!platformEnv.isDesktop) return;
+    handleTrayDataRequestRef.current?.();
+  }, [appIsLocked]);
 
   // Refresh tray when tx status changes or history refreshes
   useEffect(() => {

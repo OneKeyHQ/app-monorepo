@@ -26,9 +26,13 @@ export function registerTrayIpcHandlers(
   showMainWindow: () => void,
 ): void {
   ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, (_event, data: ITrayData) => {
-    cachedTrayData = data;
-
-    if (!isLocked) {
+    // Sync lock state from renderer
+    if (data.isLocked) {
+      isLocked = true;
+      cachedTrayData = data; // Keep locked placeholder as cache
+    } else {
+      isLocked = false;
+      cachedTrayData = data;
       diffAndNotify(data.pendingTxs);
     }
 

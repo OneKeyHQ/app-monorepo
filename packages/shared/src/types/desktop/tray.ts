@@ -22,6 +22,7 @@ export interface ITrayWatchlistItem {
 }
 
 export interface ITrayData {
+  isLocked?: boolean;
   wallet: {
     name: string;
     emoji: string;
