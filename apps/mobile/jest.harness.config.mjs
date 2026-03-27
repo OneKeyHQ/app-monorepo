@@ -54,7 +54,5 @@ export default {
     'packages/kit-bg/src/services/servicePendingInstallTask\\.test',
     // Reason: uses jest.isolateModules + jest.useFakeTimers — both unsupported in harness
     'packages/kit/src/provider/SplashProvider\\.test',
-    // Reason: mocks AssetSourceResolver.prototype.defaultAsset — prototype replacement not supported in Metro shared registry
-    'packages/shared/src/polyfills/polyfillsPlatform\\.test',
   ],
 };
