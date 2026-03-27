@@ -1376,7 +1376,7 @@ export function getTokenSubtitle(
  * Format a number as USD string using numberFormat 'value' formatter.
  * Optionally shows +/- sign for non-zero values.
  */
-function formatPerpsUsd(
+export function formatPerpsUsd(
   value: number | null | undefined,
   showSign = false,
 ): string {
@@ -1399,7 +1399,7 @@ function formatPerpsUsd(
 /**
  * Format a number as compact USD (K/M/B suffixes) using numberFormat 'marketCap' formatter.
  */
-function formatPerpsCompactUsd(value: number): string {
+export function formatPerpsCompactUsd(value: number): string {
   if (value === 0) return '$0';
   const bn = new BigNumber(value);
   const abs = bn.abs().toFixed();
@@ -1419,7 +1419,7 @@ function formatPerpsCompactUsd(value: number): string {
  */
 type IPerpsValueColor = '$text' | '$green11' | '$red11';
 
-function getPerpsValueColor(
+export function getPerpsValueColor(
   value: number | null | undefined,
 ): IPerpsValueColor {
   if (value === null || value === undefined || value === 0) return '$text';
@@ -1433,7 +1433,7 @@ function getPerpsValueColor(
  * NOTE: Keep in sync with `usdPriceFormatter` in LightweightChart/utils/htmlTemplate.ts
  * (native WebView cannot use TS functions, so the logic is duplicated as inline JS).
  */
-function formatChartUsdPrice(price: number): string {
+export function formatChartUsdPrice(price: number): string {
   const abs = Math.abs(price);
   const sign = price < 0 ? '-' : '';
   if (abs >= 1_000_000) {
@@ -1480,10 +1480,6 @@ export {
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
-  formatPerpsUsd,
-  formatPerpsCompactUsd,
-  getPerpsValueColor,
-  formatChartUsdPrice,
 };
 export default {
   formatAssetCtx,

@@ -22,6 +22,7 @@ interface IUseChartConfigProps {
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
+  priceFormatterType?: 'usd' | 'percent';
   fontSize?: number;
   seriesType?: 'area' | 'baseline';
   baselineOptions?: BaselineSeriesPartialOptions;
@@ -40,6 +41,7 @@ export function useChartConfig({
   showHorzGridLines = false,
   priceScaleMargins,
   priceFormatter,
+  priceFormatterType,
   fontSize,
   seriesType,
   baselineOptions,
@@ -75,7 +77,8 @@ export function useChartConfig({
       secondaryLineColor,
       secondaryLineWidth,
       priceFormatter,
-      priceFormatterType: priceFormatter ? 'usd' : 'percent',
+      priceFormatterType:
+        priceFormatterType ?? (priceFormatter ? 'usd' : 'percent'),
       fontSize,
       seriesType,
       baselineOptions,
@@ -96,6 +99,7 @@ export function useChartConfig({
       showHorzGridLines,
       priceScaleMargins,
       priceFormatter,
+      priceFormatterType,
       fontSize,
       seriesType,
       baselineOptions,
