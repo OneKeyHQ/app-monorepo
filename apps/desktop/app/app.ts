@@ -1171,7 +1171,10 @@ async function createMainWindow() {
           }
         } else {
           const buildDir = path.resolve(__dirname, '..', 'build');
-          const resolved = path.resolve(buildDir, url);
+          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+          // so path.resolve treats the segment as relative, not absolute.
+          const relativeUrl = url.replace(/^[:/]+/, '');
+          const resolved = path.resolve(buildDir, relativeUrl);
           if (
             !resolved.startsWith(buildDir + path.sep) &&
             resolved !== buildDir
