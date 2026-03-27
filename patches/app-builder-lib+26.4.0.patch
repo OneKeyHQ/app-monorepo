@@ -1,5 +1,5 @@
 diff --git a/node_modules/app-builder-lib/out/asar/asarUtil.js b/node_modules/app-builder-lib/out/asar/asarUtil.js
-index 39cc030..34b816e 100644
+index 39cc030..5814116 100644
 --- a/node_modules/app-builder-lib/out/asar/asarUtil.js
 +++ b/node_modules/app-builder-lib/out/asar/asarUtil.js
 @@ -11,6 +11,7 @@ const appFileCopier_1 = require("../util/appFileCopier");
@@ -10,7 +10,7 @@ index 39cc030..34b816e 100644
  const resolvePath = async (file) => (file && (await (0, fs_1.exists)(file)) ? fs.realpath(file).catch(() => path.resolve(file)) : undefined);
  const resolvePaths = async (filepaths) => {
      return Promise.all(filepaths.map(resolvePath)).then(paths => paths.filter((it) => it != null));
-@@ -35,6 +36,169 @@ const ALLOWLIST = resolvePaths([
+@@ -35,6 +36,177 @@ const ALLOWLIST = resolvePaths([
      os.tmpdir(), // always allow temp dir
      os.homedir(), // always allow home dir
  ]);
@@ -177,30 +177,40 @@ index 39cc030..34b816e 100644
 +        topLevelSummary,
 +    };
 +};
++const emitAsarDiagLog = (stage, payload) => {
++    try {
++        console.log(`[asar-diag:${stage}] ${JSON.stringify(payload, null, 2)}`);
++    }
++    catch (error) {
++        console.log(`[asar-diag:${stage}:error] ${error && error.stack ? error.stack : String(error)}`);
++    }
++};
  /** @internal */
  class AsarPackager {
      constructor(packager, config) {
-@@ -43,16 +207,36 @@ class AsarPackager {
+@@ -43,16 +215,39 @@ class AsarPackager {
          this.outFile = path.join(config.resourcePath, `app.asar`);
      }
      async pack(fileSets) {
 +        const packSequence = ++asarPackSequence;
-+        builder_util_1.log.info({
++        emitAsarDiagLog("pack:fileSets", {
++            stage: "pack:fileSets",
 +            packSequence,
-+            outFile: builder_util_1.log.filePath(this.outFile),
++            outFile: this.outFile,
 +            summary: summarizeFileSetsForLog(this.packager.projectDir, fileSets),
-+        }, "[asar-diag] received fileSets for asar pack");
++        });
          const orderedFileSets = [
              // Write dependencies first to minimize offset changes to asar header
              ...fileSets.slice(1),
              // Finish with the app files that change most often
              fileSets[0],
          ].map(set => this.orderFileSet(set));
-+        builder_util_1.log.info({
++        emitAsarDiagLog("pack:fileSetsOrdered", {
++            stage: "pack:fileSetsOrdered",
 +            packSequence,
-+            outFile: builder_util_1.log.filePath(this.outFile),
++            outFile: this.outFile,
 +            summary: summarizeFileSetsForLog(this.packager.projectDir, orderedFileSets),
-+        }, "[asar-diag] ordered fileSets for asar pack");
++        });
          const streams = await this.processFileSets(orderedFileSets);
 -        await this.executeElectronAsar(streams);
 +        await this.executeElectronAsar(streams, packSequence);
@@ -209,17 +219,18 @@ index 39cc030..34b816e 100644
 +    async executeElectronAsar(streams, packSequence) {
 +        var _a;
 +        const existingStat = await fs.stat(this.outFile).catch(() => null);
-+        builder_util_1.log.info({
++        emitAsarDiagLog("pack:beforeCreatePackageFromStreams", {
++            stage: "pack:beforeCreatePackageFromStreams",
 +            packSequence,
-+            outFile: builder_util_1.log.filePath(this.outFile),
++            outFile: this.outFile,
 +            existingAsarSize: existingStat ? existingStat.size : null,
 +            existingAsarSizeText: existingStat ? formatDiagBytes(existingStat.size) : null,
 +            streamSummary: summarizeStreamsForLog(streams),
-+        }, "[asar-diag] about to execute @electron/asar.createPackageFromStreams");
++        });
          // override logger temporarily to clean up console (electron/asar does some internal logging that blogs up the default electron-builder logs)
          const consoleLogger = console.log;
          console.log = (...args) => {
-@@ -61,8 +245,18 @@ class AsarPackager {
+@@ -61,8 +256,19 @@ class AsarPackager {
              }
              builder_util_1.log.info({ args }, "logging @electron/asar");
          };
@@ -231,12 +242,13 @@ index 39cc030..34b816e 100644
 +        finally {
 +            console.log = consoleLogger;
 +        }
-+        builder_util_1.log.info({
++        emitAsarDiagLog("pack:afterCreatePackageFromStreams", {
++            stage: "pack:afterCreatePackageFromStreams",
 +            packSequence,
-+            outFile: builder_util_1.log.filePath(this.outFile),
++            outFile: this.outFile,
 +            summary: await summarizeAsarForLog(this.outFile),
 +            workspaceRoot: (_a = await this.packager.info.getWorkspaceRoot()) !== null && _a !== void 0 ? _a : null,
-+        }, "[asar-diag] finished @electron/asar.createPackageFromStreams");
++        });
      }
      async processFileSets(fileSets) {
          var _a;
