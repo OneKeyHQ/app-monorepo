@@ -185,13 +185,18 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
         const receiverCount = value.split('\n').filter((l) => l.trim()).length;
 
         if (senderCount > 0 && senderCount !== receiverCount) {
-          return `Sender and receiver count must match (senders: ${senderCount}, receivers: ${receiverCount})`;
+          return intl.formatMessage(
+            {
+              id: ETranslations.wallet_bulk_send_error_sender_receiver_count_mismatch,
+            },
+            { senders: senderCount, receivers: receiverCount },
+          );
         }
       }
 
       return result;
     },
-    [handleValidateAddresses, form],
+    [handleValidateAddresses, form, intl],
   );
 
   const debouncedValidate = useDebouncedValidation(validate);

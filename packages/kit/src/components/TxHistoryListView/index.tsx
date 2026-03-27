@@ -49,7 +49,6 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 
 type IProps = {
   data: IAccountHistoryTx[];
-  isLoading?: boolean;
   tableLayout?: boolean;
   ListHeaderComponent?: ReactElement | null;
   showHeader?: boolean;
@@ -259,7 +258,6 @@ function TxHistoryListViewSectionHeader(
 function BaseTxHistoryListView(props: IProps) {
   const {
     data,
-    isLoading,
     ListHeaderComponent,
     showIcon,
     onPressHistory,
@@ -393,7 +391,7 @@ function BaseTxHistoryListView(props: IProps) {
   }, [sections]);
 
   const EmptyComponentElement = useMemo(() => {
-    if (!initialized && isLoading) {
+    if (!initialized) {
       return <HistoryLoadingView tableLayout={tableLayout} />;
     }
     if (searchKey && data.length > 0) {
@@ -412,7 +410,6 @@ function BaseTxHistoryListView(props: IProps) {
     );
   }, [
     initialized,
-    isLoading,
     searchKey,
     data.length,
     walletId,

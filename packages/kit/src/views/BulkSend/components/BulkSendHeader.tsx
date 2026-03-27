@@ -24,7 +24,10 @@ function BulkSendHeader({
       </SizableText>
       <XStack gap="$2" alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {`Mode: ${bulkSendUtils.getBulkSendModeLabel(bulkSendMode)}`}
+          {intl.formatMessage(
+            { id: ETranslations.wallet_bulk_send_header_mode },
+            { mode: bulkSendUtils.getBulkSendModeLabel(bulkSendMode) },
+          )}
         </SizableText>
         {onChangeBulkSendMode ? (
           <SizableText
@@ -34,7 +37,9 @@ function BulkSendHeader({
             hoverStyle={{ opacity: 0.8 }}
             onPress={onChangeBulkSendMode}
           >
-            Change
+            {intl.formatMessage({
+              id: ETranslations.wallet_bulk_send_header_change,
+            })}
           </SizableText>
         ) : null}
       </XStack>
