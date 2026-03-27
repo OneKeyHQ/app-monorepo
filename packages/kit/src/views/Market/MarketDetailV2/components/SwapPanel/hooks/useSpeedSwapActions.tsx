@@ -48,7 +48,6 @@ import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constant
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
-  IOneInchOrderStruct,
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
   ISwapToken,
@@ -93,6 +92,7 @@ import {
 import {
   assertMarketReviewQuoteResult,
   assertMarketSignedBuildInvariant,
+  attachMarketOneInchFusionSignature,
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
   buildWrappedMarketQuoteResult,
@@ -1446,15 +1446,6 @@ export function useSpeedSwapActions(props: {
       }
 
       if (oneInchFusionOrder) {
-        const onInchFusionOrderInfo: {
-          orderStruct: IOneInchOrderStruct;
-          extension: string;
-          quoteId: string;
-          signature?: string;
-          orderHash: string;
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        } = signedQuoteResult.quoteResultCtx?.oneInchFusionOrderCtx;
-
         if (oneInchFusionOrder.makerAddress && oneInchFusionOrder.typedData) {
           const dataMessage = JSON.stringify(oneInchFusionOrder.typedData);
           const signature = await backgroundApiProxy.serviceSend.signMessage({
@@ -1471,11 +1462,10 @@ export function useSpeedSwapActions(props: {
             throw new OneKeyError('sign message failed');
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          signedQuoteResult.quoteResultCtx.oneInchFusionOrderCtx = {
-            ...onInchFusionOrderInfo,
+          attachMarketOneInchFusionSignature({
+            quoteResult: signedQuoteResult,
             signature,
-          };
+          });
 
           return signedQuoteResult;
         }

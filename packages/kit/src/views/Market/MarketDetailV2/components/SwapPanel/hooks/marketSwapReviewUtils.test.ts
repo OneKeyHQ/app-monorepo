@@ -12,6 +12,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import {
   assertMarketReviewQuoteResult,
   assertMarketSignedBuildInvariant,
+  attachMarketOneInchFusionSignature,
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
   buildWrappedMarketQuoteResult,
@@ -178,6 +179,43 @@ describe('marketSwapReviewUtils', () => {
     expect(approveInfos[0].isMax).toBe(false);
     expect(approveInfos[1].amount).toBe('1');
     expect(approveInfos[1].isMax).toBe(true);
+  });
+
+  it('fails closed when one-inch fusion context is missing', () => {
+    expect(() =>
+      attachMarketOneInchFusionSignature({
+        quoteResult: createQuoteResult({
+          quoteResultCtx: undefined,
+        }),
+        signature: '0xsig',
+      }),
+    ).toThrow('1inch fusion context missing');
+  });
+
+  it('attaches the one-inch fusion signature when the context is present', () => {
+    const quoteResult = createQuoteResult({
+      quoteResultCtx: {
+        oneInchFusionOrderCtx: {
+          orderStruct: { salt: '1' },
+          extension: '0xext',
+          quoteId: 'quote-1',
+          orderHash: '0xhash',
+        },
+      },
+    });
+
+    const result = attachMarketOneInchFusionSignature({
+      quoteResult,
+      signature: '0xsig',
+    });
+
+    expect(result.quoteResultCtx.oneInchFusionOrderCtx).toEqual({
+      orderStruct: { salt: '1' },
+      extension: '0xext',
+      quoteId: 'quote-1',
+      orderHash: '0xhash',
+      signature: '0xsig',
+    });
   });
 
   it('builds a review-visible approving transaction payload', () => {
