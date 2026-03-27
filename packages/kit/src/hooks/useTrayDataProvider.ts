@@ -205,7 +205,7 @@ export function useTrayDataProvider() {
             for (const txs of Object.values(rawData.pendingTxs)) {
               if (Array.isArray(txs)) {
                 for (const tx of txs) {
-                  if (tx?.decodedTx?.status === 'Pending') {
+                  if (tx?.decodedTx?.status === EDecodedTxStatus.Pending) {
                     allPendingTxs.push(tx);
                   }
                 }
