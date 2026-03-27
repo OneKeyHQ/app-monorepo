@@ -13,6 +13,12 @@ export function PortfolioOverview({
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
+  const currencySymbol = totalBalance.currency === 'USD' ? '$' : totalBalance.currency === 'CNY' ? '¥' : totalBalance.currency === 'EUR' ? '€' : '';
+  const formattedAmount = Number(totalBalance.amount).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   return (
     <Stack
       padding="$4"
@@ -26,7 +32,7 @@ export function PortfolioOverview({
         {wallet.name}
       </SizableText>
       <SizableText fontSize="$headingXl" color="$text" fontWeight="600">
-        {totalBalance.currency === 'USD' ? '$' : ''}{totalBalance.amount}
+        {currencySymbol}{formattedAmount}
       </SizableText>
       <SizableText fontSize="$bodySm" color={changeColor} marginTop="$1">
         {changePrefix}{totalBalance.change24h.toFixed(2)}%
