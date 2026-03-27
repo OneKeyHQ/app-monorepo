@@ -1,7 +1,10 @@
 const { notarize } = require('@electron/notarize');
+const { logAsarDiagnostics } = require('./asarDiagnostics');
 
 exports.default = async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;
+
+  logAsarDiagnostics('afterSign:entry', context, { hook: 'afterSign.js' });
 
   if (electronPlatformName !== 'darwin') {
     return;
@@ -22,6 +25,9 @@ exports.default = async function notarizing(context) {
     appleId: process.env.APPLEID,
     appleIdPassword: process.env.APPLEIDPASS,
     teamId: process.env.ASC_PROVIDER,
+  });
+  logAsarDiagnostics('afterSign:postNotarize', context, {
+    hook: 'afterSign.js',
   });
   return result;
 };
