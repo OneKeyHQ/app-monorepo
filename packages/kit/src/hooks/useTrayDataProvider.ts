@@ -8,7 +8,7 @@ import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
-import appEventBus, { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
