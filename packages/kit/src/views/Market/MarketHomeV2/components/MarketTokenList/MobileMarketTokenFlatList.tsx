@@ -23,6 +23,8 @@ import type { FlatListProps } from 'react-native';
 
 interface IMobileMarketTokenFlatListProps {
   networkId: string;
+  selectedCategory?: string;
+  timeRange?: string;
   listContainerProps: {
     paddingBottom: number;
   };
@@ -32,6 +34,8 @@ const EMPTY_DATA: IMarketToken[] = [];
 
 function MobileMarketTokenFlatListBase({
   networkId,
+  selectedCategory,
+  timeRange,
   listContainerProps,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
@@ -47,9 +51,11 @@ function MobileMarketTokenFlatListBase({
     loadMore,
   } = useMarketTokenList({
     networkId,
-    initialSortBy: 'v24hUSD', // Default sort by 24h volume
+    initialSortBy: 'v24hUSD',
     initialSortType: 'desc',
     pageSize: 20,
+    type: selectedCategory,
+    timeRange,
   });
 
   // Render item callback
