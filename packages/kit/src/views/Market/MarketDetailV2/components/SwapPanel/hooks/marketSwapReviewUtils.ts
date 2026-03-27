@@ -203,6 +203,28 @@ export function buildMarketApproveInfos({
   return approveInfos;
 }
 
+export function attachMarketOneInchFusionSignature({
+  quoteResult,
+  signature,
+}: {
+  quoteResult: IFetchQuoteResult;
+  signature: string;
+}) {
+  const oneInchFusionOrderCtx =
+    quoteResult.quoteResultCtx?.oneInchFusionOrderCtx;
+
+  if (!quoteResult.quoteResultCtx || !oneInchFusionOrderCtx) {
+    throw new OneKeyLocalError('Market 1inch fusion context missing.');
+  }
+
+  quoteResult.quoteResultCtx.oneInchFusionOrderCtx = {
+    ...oneInchFusionOrderCtx,
+    signature,
+  };
+
+  return quoteResult;
+}
+
 export function buildMarketSwapApprovingTransaction({
   quoteResult,
   amount,
