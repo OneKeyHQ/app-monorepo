@@ -271,6 +271,84 @@ function buildTransferChangeInfo({
   };
 }
 
+function groupTransfersByToken(transfers: IDecodedTxTransferInfo[]) {
+  const tokenGroup = groupBy(transfers, 'tokenIdOnNetwork');
+  return Object.values(tokenGroup).map((tokens) => ({
+    ...tokens[0],
+    amount: tokens
+      .reduce(
+        (acc, t) => acc.plus(new BigNumber(t.amount).abs()),
+        new BigNumber(0),
+      )
+      .toFixed(),
+  }));
+}
+
+function buildExpandedTransferView({
+  sends = [],
+  receives = [],
+  hideValue,
+  currencySymbol,
+}: {
+  sends?: IDecodedTxTransferInfo[];
+  receives?: IDecodedTxTransferInfo[];
+  hideValue?: boolean;
+  currencySymbol?: string;
+}) {
+  const renderTransferLine = (
+    transfer: IDecodedTxTransferInfo,
+    prefix: string,
+    color: string,
+  ) => {
+    const amountBN = new BigNumber(transfer.amount).abs();
+    const fiatValue =
+      !isNil(transfer.price) && currencySymbol
+        ? amountBN.multipliedBy(transfer.price ?? 0).toFixed()
+        : null;
+    return (
+      <XStack
+        key={`${prefix}-${transfer.tokenIdOnNetwork}`}
+        alignItems="center"
+        gap="$1"
+      >
+        <Token size="xs" isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
+        <NumberSizeableTextWrapper
+          hideValue={hideValue}
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: transfer.isNFT ? transfer.name : transfer.symbol,
+            showPlusMinusSigns: true,
+          }}
+          numberOfLines={1}
+          size="$bodyMd"
+          color={color}
+        >
+          {`${prefix === 'r' ? '+' : '-'}${transfer.amount}`}
+        </NumberSizeableTextWrapper>
+        {fiatValue ? (
+          <NumberSizeableTextWrapper
+            hideValue={hideValue}
+            formatter="value"
+            formatterOptions={{ currency: currencySymbol }}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {fiatValue}
+          </NumberSizeableTextWrapper>
+        ) : null}
+      </XStack>
+    );
+  };
+
+  return (
+    <>
+      {receives.map((t) => renderTransferLine(t, 'r', '$textSuccess'))}
+      {sends.map((t) => renderTransferLine(t, 's', '$text'))}
+    </>
+  );
+}
+
 function TxActionTransferListView(props: ITxActionProps) {
   const {
     tableLayout,
@@ -321,7 +399,6 @@ function TxActionTransferListView(props: ITxActionProps) {
     src: '',
     isNFT: !!(sendNFTIcon || receiveNFTIcon),
   };
-  const isStackedLayout = !tableLayout;
   let title = '';
   let change: React.ReactNode = '';
   let changeSymbol = '';
@@ -330,145 +407,223 @@ function TxActionTransferListView(props: ITxActionProps) {
 
   title = label;
 
-  if (!isEmpty(sends) && isEmpty(receives)) {
-    const changeInfo = buildTransferChangeInfo({
-      changePrefix: '-',
-      transfers: sends,
-      intl,
-    });
-    change = changeInfo.change;
-    changeSymbol = changeInfo.changeSymbol;
-    changeDescription = changeInfo.changeDescription;
-    avatar.src = sendNFTIcon || sendTokenIcon;
-    title = intl.formatMessage({ id: ETranslations.global_send });
-  } else if (isEmpty(sends) && !isEmpty(receives)) {
-    const changeInfo = buildTransferChangeInfo({
-      changePrefix: '+',
-      transfers: receives,
-      intl,
-    });
-    change = changeInfo.change;
-    changeSymbol = changeInfo.changeSymbol;
-    changeDescription = changeInfo.changeDescription;
-    avatar.src = receiveNFTIcon || receiveTokenIcon;
-    title = intl.formatMessage({ id: ETranslations.global_receive });
-  } else if (vaultSettings?.isUtxo) {
-    if (type === EOnChainHistoryTxType.Send) {
+  if (tableLayout) {
+    const currencySymbol = settings.currencyInfo.symbol;
+
+    if (!isEmpty(sends) && isEmpty(receives)) {
+      change = buildExpandedTransferView({
+        sends: groupTransfersByToken(sends),
+        hideValue,
+        currencySymbol,
+      });
+      avatar.fallbackIcon = 'ArrowTopOutline';
+      title = intl.formatMessage({ id: ETranslations.global_send });
+    } else if (isEmpty(sends) && !isEmpty(receives)) {
+      change = buildExpandedTransferView({
+        receives: groupTransfersByToken(receives),
+        hideValue,
+        currencySymbol,
+      });
+      avatar.fallbackIcon = 'ArrowBottomOutline';
+      title = intl.formatMessage({ id: ETranslations.global_receive });
+    } else if (vaultSettings?.isUtxo) {
+      if (type === EOnChainHistoryTxType.Send) {
+        const tokens = uniq(map(sends, 'tokenIdOnNetwork'));
+        if (tokens.length > 1) {
+          change = buildExpandedTransferView({
+            sends: groupTransfersByToken(sends),
+            hideValue,
+            currencySymbol,
+          });
+        } else {
+          const amountBN = new BigNumber(nativeAmount ?? 0).abs();
+          change = buildExpandedTransferView({
+            sends: [{ ...sends[0], amount: amountBN.toFixed() }],
+            hideValue,
+            currencySymbol,
+          });
+        }
+        avatar.fallbackIcon = 'ArrowTopOutline';
+        title = intl.formatMessage({ id: ETranslations.global_send });
+      } else if (type === EOnChainHistoryTxType.Receive) {
+        const tokens = uniq(map(receives, 'tokenIdOnNetwork'));
+        if (tokens.length > 1) {
+          change = buildExpandedTransferView({
+            receives: groupTransfersByToken(receives),
+            hideValue,
+            currencySymbol,
+          });
+        } else {
+          const amountBN = new BigNumber(nativeAmount ?? 0).abs();
+          change = buildExpandedTransferView({
+            receives: [{ ...receives[0], amount: amountBN.toFixed() }],
+            hideValue,
+            currencySymbol,
+          });
+        }
+        avatar.fallbackIcon = 'ArrowBottomOutline';
+        title = intl.formatMessage({ id: ETranslations.global_receive });
+      }
+    } else {
+      change = buildExpandedTransferView({
+        sends: groupTransfersByToken(sends),
+        receives: groupTransfersByToken(receives),
+        hideValue,
+        currencySymbol,
+      });
+      avatar.fallbackIcon = 'Document2Outline';
+    }
+
+    // swap / staking icon overrides
+    if (actions[0]?.assetTransfer?.isInternalSwap) {
+      avatar.fallbackIcon = 'SwitchHorOutline';
+    } else if (actions[0]?.assetTransfer?.isInternalStaking) {
+      avatar.fallbackIcon = 'CoinsOutline';
+    }
+
+    changeDescription = null;
+  } else {
+    const isStackedLayout = !tableLayout;
+    if (!isEmpty(sends) && isEmpty(receives)) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
         transfers: sends,
-        nativeAmount,
         intl,
-        isUTXO,
       });
       change = changeInfo.change;
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
-      avatar.src = sendTokenIcon;
+      avatar.src = sendNFTIcon || sendTokenIcon;
       title = intl.formatMessage({ id: ETranslations.global_send });
-    } else if (type === EOnChainHistoryTxType.Receive) {
+    } else if (isEmpty(sends) && !isEmpty(receives)) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '+',
         transfers: receives,
-        nativeAmount,
         intl,
-        isUTXO,
       });
       change = changeInfo.change;
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
-      avatar.src = receiveTokenIcon;
+      avatar.src = receiveNFTIcon || receiveTokenIcon;
       title = intl.formatMessage({ id: ETranslations.global_receive });
+    } else if (vaultSettings?.isUtxo) {
+      if (type === EOnChainHistoryTxType.Send) {
+        const changeInfo = buildTransferChangeInfo({
+          changePrefix: '-',
+          transfers: sends,
+          nativeAmount,
+          intl,
+          isUTXO,
+        });
+        change = changeInfo.change;
+        changeSymbol = changeInfo.changeSymbol;
+        changeDescription = changeInfo.changeDescription;
+        avatar.src = sendTokenIcon;
+        title = intl.formatMessage({ id: ETranslations.global_send });
+      } else if (type === EOnChainHistoryTxType.Receive) {
+        const changeInfo = buildTransferChangeInfo({
+          changePrefix: '+',
+          transfers: receives,
+          nativeAmount,
+          intl,
+          isUTXO,
+        });
+        change = changeInfo.change;
+        changeSymbol = changeInfo.changeSymbol;
+        changeDescription = changeInfo.changeDescription;
+        avatar.src = receiveTokenIcon;
+        title = intl.formatMessage({ id: ETranslations.global_receive });
+      }
+    } else {
+      const sendChangeInfo = buildTransferChangeInfo({
+        changePrefix: '-',
+        transfers: sends,
+        intl,
+      });
+      const receiveChangeInfo = buildTransferChangeInfo({
+        changePrefix: '+',
+        transfers: receives,
+        intl,
+      });
+      change = receiveChangeInfo.change;
+      changeSymbol = receiveChangeInfo.changeSymbol;
+      changeDescription = sendChangeInfo.change;
+      changeDescriptionSymbol = sendChangeInfo.changeSymbol;
+      avatar.src = [
+        sendNFTIcon || sendTokenIcon,
+        receiveNFTIcon || receiveTokenIcon,
+      ].filter(Boolean);
     }
-  } else {
-    const sendChangeInfo = buildTransferChangeInfo({
-      changePrefix: '-',
-      transfers: sends,
-      intl,
-    });
-    const receiveChangeInfo = buildTransferChangeInfo({
-      changePrefix: '+',
-      transfers: receives,
-      intl,
-    });
-    change = receiveChangeInfo.change;
-    changeSymbol = receiveChangeInfo.changeSymbol;
-    changeDescription = sendChangeInfo.change;
-    changeDescriptionSymbol = sendChangeInfo.changeSymbol;
-    avatar.src = [
-      sendNFTIcon || sendTokenIcon,
-      receiveNFTIcon || receiveTokenIcon,
-    ].filter(Boolean);
-  }
 
-  change = change ? (
-    <NumberSizeableTextWrapper
-      hideValue={hideValue}
-      formatter="balance"
-      formatterOptions={{
-        tokenSymbol: changeSymbol,
-        showPlusMinusSigns: true,
-      }}
-      numberOfLines={1}
-      size="$bodyLgMedium"
-      {...(isStackedLayout && {
-        minWidth: 0,
-        maxWidth: '100%',
-        textAlign: 'right',
-        flexShrink: 1,
-      })}
-      {...((change as string)?.includes('+') && {
-        color: '$textSuccess',
-      })}
-    >
-      {change as string}
-    </NumberSizeableTextWrapper>
-  ) : (
-    <NumberSizeableTextWrapper
-      size="$bodyLgMedium"
-      formatter="value"
-      hideValue={hideValue}
-    >
-      -
-    </NumberSizeableTextWrapper>
-  );
-  changeDescription = changeDescription ? (
-    <NumberSizeableTextWrapper
-      hideValue={hideValue}
-      formatter={changeDescriptionSymbol ? 'balance' : 'value'}
-      formatterOptions={{
-        tokenSymbol: changeDescriptionSymbol,
-        currency: changeDescriptionSymbol ? '' : settings.currencyInfo.symbol,
-        showPlusMinusSigns: !!changeDescriptionSymbol,
-      }}
-      size="$bodyMd"
-      color="$textSubdued"
-      numberOfLines={1}
-      maxWidth={isStackedLayout ? '100%' : '$40'}
-      {...(isStackedLayout && {
-        minWidth: 0,
-        textAlign: 'right',
-        flexShrink: 1,
-      })}
-    >
-      {changeDescription as string}
-    </NumberSizeableTextWrapper>
-  ) : (
-    <NumberSizeableTextWrapper
-      hideValue={hideValue}
-      size="$bodyMd"
-      color="$textSubdued"
-      formatter="value"
-      {...(isStackedLayout && {
-        minWidth: 0,
-        maxWidth: '100%',
-        textAlign: 'right',
-        flexShrink: 1,
-      })}
-    >
-      -
-    </NumberSizeableTextWrapper>
-  );
+    change = change ? (
+      <NumberSizeableTextWrapper
+        hideValue={hideValue}
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: changeSymbol,
+          showPlusMinusSigns: true,
+        }}
+        numberOfLines={1}
+        size="$bodyLgMedium"
+        {...(isStackedLayout && {
+          minWidth: 0,
+          maxWidth: '100%',
+          textAlign: 'right',
+          flexShrink: 1,
+        })}
+        {...((change as string)?.includes('+') && {
+          color: '$textSuccess',
+        })}
+      >
+        {change as string}
+      </NumberSizeableTextWrapper>
+    ) : (
+      <NumberSizeableTextWrapper
+        size="$bodyLgMedium"
+        formatter="value"
+        hideValue={hideValue}
+      >
+        -
+      </NumberSizeableTextWrapper>
+    );
+    changeDescription = changeDescription ? (
+      <NumberSizeableTextWrapper
+        hideValue={hideValue}
+        formatter={changeDescriptionSymbol ? 'balance' : 'value'}
+        formatterOptions={{
+          tokenSymbol: changeDescriptionSymbol,
+          currency: changeDescriptionSymbol ? '' : settings.currencyInfo.symbol,
+          showPlusMinusSigns: !!changeDescriptionSymbol,
+        }}
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+        maxWidth={isStackedLayout ? '100%' : '$40'}
+        {...(isStackedLayout && {
+          minWidth: 0,
+          textAlign: 'right',
+          flexShrink: 1,
+        })}
+      >
+        {changeDescription as string}
+      </NumberSizeableTextWrapper>
+    ) : (
+      <NumberSizeableTextWrapper
+        hideValue={hideValue}
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="value"
+        {...(isStackedLayout && {
+          minWidth: 0,
+          maxWidth: '100%',
+          textAlign: 'right',
+          flexShrink: 1,
+        })}
+      >
+        -
+      </NumberSizeableTextWrapper>
+    );
+  }
 
   if (!isPending && label) {
     title = label;
