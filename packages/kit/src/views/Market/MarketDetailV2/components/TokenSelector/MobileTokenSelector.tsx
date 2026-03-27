@@ -9,6 +9,7 @@ import {
   rootNavigationRef,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import {
@@ -18,6 +19,8 @@ import {
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { MarketTokenListNetworkSelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
+import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
+import SwapProSearchTokenList from '@onekeyhq/kit/src/views/Swap/pages/components/SwapProSearchTokenList';
 import {
   EJotaiContextStoreNames,
   useMarketTokenSelectorConfigAtom,
@@ -32,7 +35,7 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 // ---------------------------------------------------------------------------
-// Main modal content — mirrors SwapProSelectTokenPage layout
+// Main modal content — mirrors SwapProSelectTokenPage exactly
 // ---------------------------------------------------------------------------
 function MobileTokenSelectorContent() {
   const intl = useIntl();
@@ -48,6 +51,14 @@ function MobileTokenSelectorContent() {
     string | undefined
   >(isWatchlistMode ? undefined : spotNetworkId || undefined);
   const [startListSelect, setStartListSelect] = useState(isWatchlistMode);
+
+  // Search state (same as Swap Pro)
+  const [searchValue, setSearchValue] = useState('');
+  const searchValueDebounce = useDebounce(searchValue, 500);
+  const { searchLoading, searchTokenList } = useSwapProTokenSearch(
+    searchValueDebounce,
+    selectedNetworkId,
+  );
 
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
@@ -109,6 +120,51 @@ function MobileTokenSelectorContent() {
     [tokenDetailActions, navigation, navigateToPerps],
   );
 
+  const handleSearchTokenSelect = useCallback(
+    (token: {
+      network: string;
+      address: string;
+      decimals: number;
+      symbol: string;
+      logoUrl: string;
+      name: string;
+      isNative?: boolean;
+      price?: number;
+      networkLogoURI: string;
+    }) => {
+      const shortCode = networkUtils.getNetworkShortCode({
+        networkId: token.network,
+      });
+
+      tokenDetailActions.current.changeActiveToken({
+        tokenAddress: token.address,
+        networkId: token.network,
+        isNative: token.isNative ?? false,
+      });
+
+      navigation.popStack();
+
+      const targetTab = platformEnv.isNative
+        ? ETabRoutes.Discovery
+        : ETabRoutes.Market;
+      const params = {
+        tokenAddress: token.address,
+        network: shortCode || token.network,
+        isNative: token.isNative,
+      };
+      setTimeout(() => {
+        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          screen: targetTab,
+          params: {
+            screen: ETabMarketRoutes.MarketDetailV2,
+            params,
+          },
+        });
+      }, 100);
+    },
+    [tokenDetailActions, navigation],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -121,29 +177,41 @@ function MobileTokenSelectorContent() {
             placeholder={intl.formatMessage({
               id: ETranslations.global_search_asset,
             })}
+            value={searchValue}
+            onChangeText={setSearchValue}
           />
         </Stack>
 
-        <MarketTokenListNetworkSelector
-          selectedNetworkId={selectedNetworkId}
-          onSelectNetworkId={handleNetworkIdChange}
-          placement="bottom-start"
-          containerStyle={{ px: '$4', pt: '$3', pb: '$2' }}
-          startListSelect={startListSelect}
-          onStartListSelect={handleStartListSelect}
-        />
-
-        {startListSelect ? (
-          <MarketWatchlistTokenList
-            onItemPress={handleTokenSelect}
-            hideNativeToken
-            hidePerps
+        {searchValueDebounce ? (
+          <SwapProSearchTokenList
+            isLoading={searchLoading}
+            items={searchTokenList}
+            onPress={handleSearchTokenSelect}
           />
         ) : (
-          <MarketNormalTokenList
-            onItemPress={handleTokenSelect}
-            networkId={selectedNetworkId}
-          />
+          <>
+            <MarketTokenListNetworkSelector
+              selectedNetworkId={selectedNetworkId}
+              onSelectNetworkId={handleNetworkIdChange}
+              placement="bottom-start"
+              containerStyle={{ px: '$4', pt: '$3', pb: '$2' }}
+              startListSelect={startListSelect}
+              onStartListSelect={handleStartListSelect}
+            />
+
+            {startListSelect ? (
+              <MarketWatchlistTokenList
+                onItemPress={handleTokenSelect}
+                hideNativeToken
+                hidePerps
+              />
+            ) : (
+              <MarketNormalTokenList
+                onItemPress={handleTokenSelect}
+                networkId={selectedNetworkId}
+              />
+            )}
+          </>
         )}
       </Page.Body>
     </Page>
