@@ -6,6 +6,8 @@ import { MarketTokenListBase } from './MarketTokenListBase';
 
 type IMarketNormalTokenListProps = {
   networkId?: string;
+  selectedCategory?: string;
+  timeRange?: string;
   sortBy?: string;
   sortType?: 'asc' | 'desc';
   onItemPress?: (item: IMarketToken) => void;
@@ -19,6 +21,8 @@ type IMarketNormalTokenListProps = {
 
 function MarketNormalTokenList({
   networkId = 'sol--101',
+  selectedCategory,
+  timeRange,
   sortBy: initialSortBy,
   sortType: initialSortType,
   onItemPress,
@@ -32,6 +36,8 @@ function MarketNormalTokenList({
     initialSortBy,
     initialSortType,
     pageSize: 20,
+    type: selectedCategory,
+    timeRange,
   });
 
   return (

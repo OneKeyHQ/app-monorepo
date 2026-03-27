@@ -1,30 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Tabs, YStack } from '@onekeyhq/components';
+import { Tabs, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 
 import { DesktopStickyHeaderContext } from './DesktopStickyHeaderContext';
 import { useMarketTabsLogic } from './hooks';
 
-import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
-import type { IMarketHomeTabValue } from '../types';
+import type {
+  ILiquidityFilter,
+  IMarketFilterBarProps,
+  IMarketHomeTabValue,
+} from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 interface IDesktopLayoutProps {
-  filterBarProps: {
-    selectedNetworkId: string;
-    timeRange: ITimeRangeSelectorValue;
-    onNetworkIdChange: (networkId: string) => void;
-    onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-  };
+  filterBarProps: IMarketFilterBarProps;
   selectedNetworkId: string;
+  liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
@@ -92,6 +93,13 @@ export function DesktopLayout({
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
 
+  // Use refs for filterBarProps and activeTabName to keep renderTabBar stable
+  const filterBarPropsRef = useRef(filterBarProps);
+  filterBarPropsRef.current = filterBarProps;
+
+  const activeTabNameRef = useRef(activeTabName);
+  activeTabNameRef.current = activeTabName;
+
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
@@ -100,22 +108,41 @@ export function DesktopLayout({
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
+      const currentFilterBarProps = filterBarPropsRef.current;
+      const currentActiveTabName = activeTabNameRef.current;
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
       return (
         <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
-          <Tabs.TabBar
-            {...tabBarProps}
-            onTabPress={handleTabPress}
-            divider={false}
-            containerStyle={{ position: 'relative' as any }}
-          />
+          <XStack alignItems="center">
+            <XStack flex={1}>
+              <Tabs.TabBar
+                {...tabBarProps}
+                onTabPress={handleTabPress}
+                divider={false}
+                containerStyle={{ position: 'relative' as any }}
+              />
+            </XStack>
+            {/* Right side controls - only visible on Spot tab */}
+            {currentActiveTabName === spotTabName ? (
+              <XStack gap="$3" alignItems="center" pr="$5">
+                <TimeRangeDropdown
+                  value={currentFilterBarProps.timeRange}
+                  onChange={currentFilterBarProps.onTimeRangeChange}
+                />
+                <CompactNetworkSelector
+                  selectedNetworkId={currentFilterBarProps.selectedNetworkId}
+                  onNetworkIdChange={currentFilterBarProps.onNetworkIdChange}
+                />
+              </XStack>
+            ) : null}
+          </XStack>
           <div ref={portalRefCallback} />
         </YStack>
       );
     },
-    [portalRefCallback],
+    [portalRefCallback, spotTabName],
   );
 
   const onTabChangeHandler = useCallback(
@@ -167,6 +194,8 @@ export function DesktopLayout({
             <YStack px="$4" flex={1}>
               <MarketNormalTokenList
                 networkId={selectedNetworkId}
+                selectedCategory={filterBarProps.selectedCategory}
+                timeRange={filterBarProps.timeRange}
                 tabIntegrated
                 tabName={spotTabName}
                 listContainerProps={listContainerProps}

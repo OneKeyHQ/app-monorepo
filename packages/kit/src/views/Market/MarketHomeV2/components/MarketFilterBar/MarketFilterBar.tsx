@@ -1,31 +1,30 @@
 import { YStack } from '@onekeyhq/components';
 
-import { MarketTokenListNetworkSelector } from '../MarketTokenListNetworkSelector';
+import { CategorySelector } from '../CategorySelector';
 
-import type { ITimeRangeSelectorValue } from '../TimeRangeSelector';
+import type { IMarketCategoryItem } from '../../types';
 
-export interface IMarketFilterBarProps {
-  selectedNetworkId?: string;
-  timeRange?: ITimeRangeSelectorValue;
-  onNetworkIdChange?: (networkId: string) => void;
-  onTimeRangeChange?: (value: ITimeRangeSelectorValue) => void;
-  isLoading?: boolean;
+export interface IMarketFilterBarComponentProps {
+  selectedCategory?: string;
+  categories?: IMarketCategoryItem[];
+  onCategoryChange?: (category: string) => void;
 }
 
 export function MarketFilterBar({
-  selectedNetworkId,
-  onNetworkIdChange,
-}: IMarketFilterBarProps) {
-  const handleNetworkIdChange = (networkId: string) => {
-    onNetworkIdChange?.(networkId);
-  };
+  selectedCategory = 'trending',
+  categories = [],
+  onCategoryChange,
+}: IMarketFilterBarComponentProps) {
+  if (!onCategoryChange || categories.length === 0) {
+    return null;
+  }
 
   return (
     <YStack>
-      {/* Network Selector - Hidden in watchlist mode */}
-      <MarketTokenListNetworkSelector
-        selectedNetworkId={selectedNetworkId}
-        onSelectNetworkId={handleNetworkIdChange}
+      <CategorySelector
+        categories={categories}
+        selectedCategoryId={selectedCategory}
+        onSelectCategory={onCategoryChange}
       />
     </YStack>
   );
