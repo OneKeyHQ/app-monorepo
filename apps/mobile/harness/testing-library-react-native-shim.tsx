@@ -26,8 +26,17 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
     const actFn = (TestRenderer as any).act as (
       cb: () => void | Promise<void>,
     ) => any;
-    const result = actFn(() => callback());
+    let isCallbackAsync = false;
+    const result = actFn(() => {
+      const cbResult = callback();
+      isCallbackAsync =
+        cbResult != null &&
+        typeof cbResult === 'object' &&
+        typeof (cbResult as any).then === 'function';
+      return cbResult;
+    });
     if (
+      isCallbackAsync &&
       result !== null &&
       typeof result === 'object' &&
       typeof result.then === 'function'
