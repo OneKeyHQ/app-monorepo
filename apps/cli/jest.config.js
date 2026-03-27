@@ -2,7 +2,7 @@
 module.exports = {
   testEnvironment: 'node',
   transform: {
-    '^.+\\.tsx?$': [
+    '^.+\\.[jt]sx?$': [
       '@swc/jest',
       {
         jsc: {
@@ -10,6 +10,12 @@ module.exports = {
         },
       },
     ],
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(lodash-es|react-native-aes-crypto)/)',
+  ],
+  moduleNameMapper: {
+    '^react-native$': '<rootDir>/src/__mocks__/react-native.js',
   },
   testMatch: ['<rootDir>/src/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
