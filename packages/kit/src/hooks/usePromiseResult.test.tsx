@@ -112,10 +112,12 @@ describe('usePromiseResult', () => {
     globalNetInfo.state = { isInternetReachable: false };
 
     // On native (harness), AppState visibility callbacks may trigger extra
-    // revalidations during initial render. Use a flag to control the return
+    // re-validations during initial render. Use a flag to control the return
     // value so recovery is deterministic regardless of call count.
     let recovered = false;
-    const method = jest.fn(async () => (recovered ? 'after-recovery' : 'before-recovery'));
+    const method = jest.fn(async () =>
+      recovered ? 'after-recovery' : 'before-recovery',
+    );
 
     const { result } = renderHook(() =>
       usePromiseResultWithRenderCount(method, {
