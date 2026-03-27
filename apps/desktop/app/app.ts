@@ -1622,7 +1622,10 @@ async function collectGPUInfo() {
 
     try {
       const { setContext } = require('@sentry/electron/main') as {
-        setContext: (name: string, context: Record<string, unknown> | null) => void;
+        setContext: (
+          name: string,
+          context: Record<string, unknown> | null,
+        ) => void;
       };
       const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
       setContext('gpu', {
