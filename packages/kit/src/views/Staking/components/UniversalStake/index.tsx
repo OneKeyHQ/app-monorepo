@@ -128,6 +128,10 @@ function formatTvl(tvl: string | undefined) {
   return `$${bn.toFixed(2)}`;
 }
 
+function withRewardUnit(text: string, rewardUnit: string): string {
+  return /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
+}
+
 function getProtocolAprDisplay({
   protocol,
   fallbackText,
@@ -135,33 +139,35 @@ function getProtocolAprDisplay({
   protocol?: IManagePositionProtocolSwitchConfig['currentProtocol'];
   fallbackText?: string;
 }) {
+  const rewardUnit = protocol?.provider.rewardUnit || 'APR';
+
   if (protocol?.aprInfo?.highlight?.text) {
     return {
-      text: protocol.aprInfo.highlight.text,
-      color: protocol.aprInfo.highlight.color || '$textSuccess',
+      text: withRewardUnit(protocol.aprInfo.highlight.text, rewardUnit),
+      color: (protocol.aprInfo.highlight.color || '$textSuccess') as string,
       textDecorationLine: 'none' as const,
     };
   }
 
   if (protocol?.aprInfo?.normal?.text) {
     return {
-      text: protocol.aprInfo.normal.text,
-      color: protocol.aprInfo.normal.color || '$textSuccess',
+      text: withRewardUnit(protocol.aprInfo.normal.text, rewardUnit),
+      color: (protocol.aprInfo.normal.color || '$text') as string,
       textDecorationLine: 'none' as const,
     };
   }
 
   if (protocol?.aprInfo?.deprecated?.text) {
     return {
-      text: protocol.aprInfo.deprecated.text,
-      color: protocol.aprInfo.deprecated.color || '$textSubdued',
+      text: withRewardUnit(protocol.aprInfo.deprecated.text, rewardUnit),
+      color: (protocol.aprInfo.deprecated.color || '$textSubdued') as string,
       textDecorationLine: 'line-through' as const,
     };
   }
 
   if (protocol) {
     return {
-      text: `${protocol.provider.aprWithoutFee || '0'} ${protocol.provider.rewardUnit || 'APR'}`,
+      text: `${protocol.provider.aprWithoutFee || '0'} ${rewardUnit}`,
       color: '$textSuccess',
       textDecorationLine: 'none' as const,
     };
@@ -261,15 +267,15 @@ function ProtocolSwitchTriggerRow({
       alignItems="center"
       justifyContent="space-between"
       gap="$3"
-      px="$1"
-      mx="$-1"
+      px="$2"
+      mx="$-2"
       py="$1"
       borderRadius="$2"
       hoverStyle={isSwitchEnabled ? { bg: '$bgHover' } : undefined}
       pressStyle={isSwitchEnabled ? { bg: '$bgActive' } : undefined}
       onPress={isSwitchEnabled ? onPress : undefined}
     >
-      <XStack flex={1} minWidth={0} gap="$2" alignItems="center">
+      <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
         <ProtocolImage
           logoURI={currentProtocol?.provider.logoURI || fallbackProviderLogoUri}
           networkLogoURI={currentProtocol?.network.logoURI}
@@ -283,7 +289,7 @@ function ProtocolSwitchTriggerRow({
             </SizableText>
           )}
           {subtitle ? (
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
               {subtitle}
             </SizableText>
           ) : null}
@@ -1642,25 +1648,13 @@ export function UniversalStake({
         />
       );
     }
+    const infoRewards = transactionConfirmation?.rewards?.filter(
+      (reward) => !!reward.title.color,
+    );
+    if (!infoRewards?.length) return null;
     return (
       <YStack gap="$2">
-        <XStack ai="center" gap="$1">
-          <EarnText
-            text={transactionConfirmation?.title}
-            color="$textSubdued"
-            size="$bodyMd"
-            boldTextProps={{
-              size: '$bodyMdMedium',
-            }}
-          />
-          {transactionConfirmation?.tooltip ? (
-            <EarnTooltip
-              title={transactionConfirmation?.title?.text}
-              tooltip={transactionConfirmation?.tooltip}
-            />
-          ) : null}
-        </XStack>
-        {transactionConfirmation?.rewards?.map((reward) => {
+        {infoRewards.map((reward) => {
           const hasTooltip = reward.tooltip?.type === 'text';
           let descriptionTextSize = (
             hasTooltip ? '$bodyMd' : '$bodyLgMedium'
@@ -1837,13 +1831,13 @@ export function UniversalStake({
       {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
-          pt={hasSummarySection ? '$5' : '$3.5'}
+          pt="$3.5"
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
           {protocolSwitchConfig ? (
-            <YStack mb={hasSummarySection ? '$3.5' : '$0'}>
+            <YStack mb="$3.5">
               <ProtocolSwitcher
                 tokenSymbol={actionSymbol}
                 accountId={accountId}
@@ -1868,7 +1862,7 @@ export function UniversalStake({
             </XStack>
           ) : null}
           {summaryContent}
-          {hasSummarySection ? <Divider my="$5" /> : null}
+          {summaryContent ? <Divider my="$5" /> : null}
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect
