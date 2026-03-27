@@ -121,10 +121,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         // Stale check: discard if user already switched to a different token
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
-        if (
-          currentAddress !== tokenAddress ||
-          currentNetworkId !== networkId
-        ) {
+        if (currentAddress !== tokenAddress || currentNetworkId !== networkId) {
           return;
         }
 
