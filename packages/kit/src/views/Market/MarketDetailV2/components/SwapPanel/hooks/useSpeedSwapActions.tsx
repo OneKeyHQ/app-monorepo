@@ -90,6 +90,7 @@ import {
   shouldFetchMarketQuoteFallbackData,
 } from './marketSwapBuildUtils';
 import {
+  areMarketApproveAmountsEqual,
   assertMarketReviewQuoteResult,
   assertMarketSignedBuildInvariant,
   attachMarketOneInchFusionSignature,
@@ -611,8 +612,11 @@ export function useSpeedSwapActions(props: {
     ) => {
       return Boolean(
         approvingTransaction &&
-        (amount === approvingTransaction.amount ||
-          amount === approvingTransaction.resetApproveValue) &&
+        (areMarketApproveAmountsEqual(amount, approvingTransaction.amount) ||
+          areMarketApproveAmountsEqual(
+            amount,
+            approvingTransaction.resetApproveValue,
+          )) &&
         equalTokenNoCaseSensitive({
           token1: approvingTransaction.fromToken,
           token2: currentFromToken,

@@ -10,6 +10,7 @@ import {
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import {
+  areMarketApproveAmountsEqual,
   assertMarketReviewQuoteResult,
   assertMarketSignedBuildInvariant,
   attachMarketOneInchFusionSignature,
@@ -66,6 +67,12 @@ describe('marketSwapReviewUtils', () => {
         }),
       ),
     ).toThrow('providerName');
+  });
+
+  it('matches approve amounts by numeric value instead of raw string only', () => {
+    expect(areMarketApproveAmountsEqual('1.0', '1')).toBe(true);
+    expect(areMarketApproveAmountsEqual('0.1000', '0.1')).toBe(true);
+    expect(areMarketApproveAmountsEqual('1.01', '1')).toBe(false);
   });
 
   it('fails closed when a signed build result tries to continue on-chain sending', () => {
