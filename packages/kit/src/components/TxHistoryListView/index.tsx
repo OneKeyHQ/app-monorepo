@@ -49,7 +49,6 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 
 type IProps = {
   data: IAccountHistoryTx[];
-  isLoading?: boolean;
   tableLayout?: boolean;
   ListHeaderComponent?: ReactElement | null;
   showHeader?: boolean;
@@ -259,7 +258,6 @@ function TxHistoryListViewSectionHeader(
 function BaseTxHistoryListView(props: IProps) {
   const {
     data,
-    isLoading: _isLoading,
     ListHeaderComponent,
     showIcon,
     onPressHistory,

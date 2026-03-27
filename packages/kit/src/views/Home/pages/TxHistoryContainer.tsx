@@ -497,7 +497,6 @@ function TxHistoryListContainer(
       accountId={account?.id}
       networkId={network?.id}
       indexedAccountId={indexedAccount?.id}
-      isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
       tableLayout={tableLayout ?? media.gtMd}
       listViewStyleProps={{
