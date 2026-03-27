@@ -1,14 +1,13 @@
-import { Stack, SizableText } from '@onekeyhq/components';
+import { Stack, SizableText, Image } from '@onekeyhq/components';
+import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
 
-interface ITicker {
-  symbol: string;
-  name: string;
-  icon: string;
-  price: string;
-  change24h: number;
-}
-
-function TickerRow({ ticker, onPress }: { ticker: ITicker; onPress: () => void }) {
+function TickerRow({
+  ticker,
+  onPress,
+}: {
+  ticker: ITrayWatchlistItem;
+  onPress: () => void;
+}) {
   const isPositive = ticker.change24h >= 0;
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
@@ -23,12 +22,55 @@ function TickerRow({ ticker, onPress }: { ticker: ITicker; onPress: () => void }
       cursor="pointer"
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
+      {ticker.icon ? (
+        <Image
+          source={{ uri: ticker.icon }}
+          width={28}
+          height={28}
+          borderRadius={14}
+          marginRight="$2.5"
+        />
+      ) : (
+        <Stack
+          width={28}
+          height={28}
+          borderRadius={14}
+          backgroundColor="$bgStrong"
+          marginRight="$2.5"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <SizableText fontSize="$bodySm" color="$textSubdued">
+            {ticker.symbol?.charAt(0) || '?'}
+          </SizableText>
+        </Stack>
+      )}
       <Stack flex={1}>
-        <SizableText fontSize="$bodyMd" color="$text">{ticker.symbol}</SizableText>
-        <SizableText fontSize="$bodySm" color="$textSubdued">{ticker.name}</SizableText>
+        <Stack flexDirection="row" alignItems="center">
+          <SizableText fontSize="$bodyMd" color="$text">
+            {ticker.symbol}
+          </SizableText>
+          {ticker.type === 'perps' ? (
+            <Stack
+              backgroundColor="$bgInfoSubdued"
+              paddingHorizontal="$1"
+              borderRadius="$1"
+              marginLeft="$1"
+            >
+              <SizableText fontSize={10} color="$textInfo">
+                Perps
+              </SizableText>
+            </Stack>
+          ) : null}
+        </Stack>
+        <SizableText fontSize="$bodySm" color="$textSubdued">
+          {ticker.name}
+        </SizableText>
       </Stack>
       <Stack alignItems="flex-end">
-        <SizableText fontSize="$bodyMd" color="$text">{ticker.price}</SizableText>
+        <SizableText fontSize="$bodyMd" color="$text">
+          {ticker.price}
+        </SizableText>
         <SizableText fontSize="$bodySm" color={changeColor}>
           {changePrefix}{ticker.change24h.toFixed(2)}%
         </SizableText>
@@ -41,8 +83,8 @@ export function WatchlistTickers({
   tickers,
   onTickerPress,
 }: {
-  tickers: ITicker[];
-  onTickerPress: (symbol: string) => void;
+  tickers: ITrayWatchlistItem[];
+  onTickerPress: (ticker: ITrayWatchlistItem) => void;
 }) {
   if (!tickers || tickers.length === 0) {
     return (
@@ -56,11 +98,21 @@ export function WatchlistTickers({
 
   return (
     <Stack>
-      <SizableText fontSize="$bodySm" color="$textSubdued" paddingHorizontal="$4" paddingTop="$3" paddingBottom="$1">
+      <SizableText
+        fontSize="$bodySm"
+        color="$textSubdued"
+        paddingHorizontal="$4"
+        paddingTop="$3"
+        paddingBottom="$1"
+      >
         Watchlist
       </SizableText>
-      {tickers.map((ticker) => (
-        <TickerRow key={ticker.symbol} ticker={ticker} onPress={() => onTickerPress(ticker.symbol)} />
+      {tickers.map((ticker, idx) => (
+        <TickerRow
+          key={`${ticker.type}-${ticker.symbol}-${idx}`}
+          ticker={ticker}
+          onPress={() => onTickerPress(ticker)}
+        />
       ))}
     </Stack>
   );

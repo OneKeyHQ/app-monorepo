@@ -6,7 +6,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
+import type {
+  ITrayData,
+  ITrayWatchlistItem,
+} from '@onekeyhq/shared/src/types/desktop/tray';
 
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
@@ -16,31 +19,42 @@ export function useTrayDataProvider() {
   const handleTrayDataRequest = useCallback(async () => {
     try {
       const trayData: ITrayData = {
-        wallet: { name: '', avatar: '' },
-        totalBalance: { amount: '0', currency: 'USD', change24h: 0 },
+        wallet: { name: '', emoji: '' },
+        totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
         pendingTxs: [],
       };
 
-      // 1. Wallet info
+      // 1. Wallet name + emoji
+      let selectedAccount: any;
       try {
-        const selectedAccount =
+        selectedAccount =
           await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
             sceneName: EAccountSelectorSceneName.home,
             num: 0,
           });
         if (selectedAccount?.walletId) {
-          const wallet =
-            await backgroundApiProxy.serviceAccount.getWallet({
-              walletId: selectedAccount.walletId,
-            });
+          const wallet = await backgroundApiProxy.serviceAccount.getWallet({
+            walletId: selectedAccount.walletId,
+          });
           trayData.wallet.name = wallet?.name || 'Wallet';
+          // Parse emoji from avatar (stringified IAvatarInfo)
+          if (wallet?.avatar) {
+            try {
+              const avatarInfo = JSON.parse(wallet.avatar);
+              if (avatarInfo?.emoji && avatarInfo.emoji !== 'img') {
+                trayData.wallet.emoji = avatarInfo.emoji;
+              }
+            } catch {
+              // avatar is not JSON
+            }
+          }
         }
       } catch {
         trayData.wallet.name = 'Wallet';
       }
 
-      // 2. Balance (from global atom, already formatted as total)
+      // 2. Balance
       const accountValue = activeAccountValueRef.current;
       if (accountValue) {
         const val = accountValue.value;
@@ -60,11 +74,10 @@ export function useTrayDataProvider() {
         };
       }
 
-      // 3. Watchlist with prices
+      // 3. Watchlist — both spot and perps
       try {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
-        console.log('[TrayDataProvider] watchListData:', JSON.stringify(watchListData));
         if (watchListData?.data?.length) {
           const spotItems = watchListData.data.filter(
             (item: any) => !item.perpsCoin && item.chainId,
@@ -72,31 +85,75 @@ export function useTrayDataProvider() {
           const perpsItems = watchListData.data.filter(
             (item: any) => !!item.perpsCoin,
           );
-          console.log('[TrayDataProvider] spotItems:', spotItems.length, 'perpsItems:', perpsItems.length);
+
+          const watchlistResults: ITrayWatchlistItem[] = [];
+
+          // Fetch spot token data
           if (spotItems.length > 0) {
-            const tokenAddressList = spotItems.slice(0, 10).map(
-              (item: any) => ({
+            try {
+              const tokenAddressList = spotItems.map((item: any) => ({
                 chainId: item.chainId,
                 contractAddress: item.contractAddress || '',
                 isNative: item.isNative ?? false,
-              }),
-            );
-            const response =
-              await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
-                { tokenAddressList },
-              );
-            if (response?.list?.length) {
-              trayData.watchlist = response.list
-                .filter((coin: any) => coin?.symbol)
-                .map((coin: any) => ({
-                  symbol: (coin.symbol || '').toUpperCase(),
-                  name: coin.name || '',
-                  icon: coin.logoUrl || '',
-                  price: `$${Number(coin.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                  change24h: coin.priceChangePercentage24H || 0,
-                }));
+              }));
+              const response =
+                await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
+                  { tokenAddressList },
+                );
+              if (response?.list?.length) {
+                response.list.forEach((coin: any, idx: number) => {
+                  if (!coin?.symbol) return;
+                  const spotItem = spotItems[idx];
+                  watchlistResults.push({
+                    symbol: (coin.symbol || '').toUpperCase(),
+                    name: coin.name || '',
+                    icon: coin.logoUrl || '',
+                    price: `$${Number(coin.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    change24h: Number(coin.priceChange24hPercent || 0),
+                    type: 'spot',
+                    tokenAddress: coin.address || spotItem?.contractAddress || '',
+                    networkId: coin.networkId || spotItem?.chainId || '',
+                    isNative: spotItem?.isNative ?? false,
+                  });
+                });
+              }
+            } catch {
+              // spot fetch failed
             }
           }
+
+          // Fetch perps token data
+          if (perpsItems.length > 0) {
+            try {
+              const perpsData =
+                await backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList(
+                  { category: 'all' },
+                );
+              if (perpsData?.tokens?.length) {
+                for (const item of perpsItems) {
+                  const coin = perpsData.tokens.find(
+                    (t: any) =>
+                      t.name?.toUpperCase() === item.perpsCoin?.toUpperCase(),
+                  );
+                  if (coin) {
+                    watchlistResults.push({
+                      symbol: (coin.name || '').toUpperCase(),
+                      name: coin.displayName || coin.name || '',
+                      icon: coin.tokenImageUrl || '',
+                      price: `$${Number(coin.markPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                      change24h: coin.change24hPercent || 0,
+                      type: 'perps',
+                      perpsCoin: item.perpsCoin,
+                    });
+                  }
+                }
+              }
+            } catch {
+              // perps fetch failed
+            }
+          }
+
+          trayData.watchlist = watchlistResults;
         }
       } catch (e) {
         console.error('[TrayDataProvider] watchlist error:', e);
@@ -104,11 +161,6 @@ export function useTrayDataProvider() {
 
       // 4. Pending transactions
       try {
-        const selectedAccount =
-          await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
-            sceneName: EAccountSelectorSceneName.home,
-            num: 0,
-          });
         if (selectedAccount?.accountId && selectedAccount?.networkId) {
           const history =
             await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
@@ -128,13 +180,13 @@ export function useTrayDataProvider() {
           }
         }
       } catch {
-        // Pending tx fetch failed silently
+        // pending tx fetch failed
       }
 
       (globalThis as any).desktopApi?.sendTrayData(trayData);
     } catch {
       (globalThis as any).desktopApi?.sendTrayData({
-        wallet: { name: 'Wallet', avatar: '' },
+        wallet: { name: 'Wallet', emoji: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
         pendingTxs: [],

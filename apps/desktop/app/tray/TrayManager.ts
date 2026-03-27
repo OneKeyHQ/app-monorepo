@@ -42,12 +42,10 @@ export function initTrayManager(
     if (!panelCreated) {
       createTrayWindow(tray, loadTrayUrl);
       panelCreated = true;
-      // Send cached data after panel renderer is ready
-      setTimeout(() => {
-        sendCachedDataToTrayWindow();
-      }, 2000);
+      // Send cached data after panel renderer mounts
+      setTimeout(() => sendCachedDataToTrayWindow(), 500);
+      setTimeout(() => sendCachedDataToTrayWindow(), 1500);
     } else {
-      // Panel already exists, send latest cached data immediately
       sendCachedDataToTrayWindow();
     }
     showTrayWindow(tray);

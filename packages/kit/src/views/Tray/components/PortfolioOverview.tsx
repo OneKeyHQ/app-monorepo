@@ -5,7 +5,7 @@ export function PortfolioOverview({
   totalBalance,
   onPress,
 }: {
-  wallet: { name: string; avatar: string };
+  wallet: { name: string; emoji: string };
   totalBalance: { amount: string; currency: string; change24h: number };
   onPress: () => void;
 }) {
@@ -13,7 +13,10 @@ export function PortfolioOverview({
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
-  const currencySymbol = totalBalance.currency === 'USD' ? '$' : totalBalance.currency === 'CNY' ? '¥' : totalBalance.currency === 'EUR' ? '€' : '';
+  const currencySymbol =
+    totalBalance.currency === 'USD' ? '$' :
+    totalBalance.currency === 'CNY' ? '¥' :
+    totalBalance.currency === 'EUR' ? '€' : '';
   const formattedAmount = Number(totalBalance.amount).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -28,9 +31,16 @@ export function PortfolioOverview({
       cursor="pointer"
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      <SizableText fontSize="$bodySm" color="$textSubdued" marginBottom="$1">
-        {wallet.name}
-      </SizableText>
+      <Stack flexDirection="row" alignItems="center" marginBottom="$1">
+        {wallet.emoji ? (
+          <SizableText fontSize="$bodyMd" marginRight="$1.5">
+            {wallet.emoji}
+          </SizableText>
+        ) : null}
+        <SizableText fontSize="$bodySm" color="$textSubdued">
+          {wallet.name}
+        </SizableText>
+      </Stack>
       <SizableText fontSize="$headingXl" color="$text" fontWeight="600">
         {currencySymbol}{formattedAmount}
       </SizableText>

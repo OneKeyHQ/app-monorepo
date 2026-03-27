@@ -70,11 +70,15 @@ export function createTrayWindow(
 
   loadUrl(trayWindow);
 
-  // Remove the HTML template splash image that covers tray panel content
+  // Hide the HTML template splash image immediately via CSS injection
+  trayWindow.webContents.on('did-start-loading', () => {
+    void trayWindow?.webContents.insertCSS(
+      '.onekey-index-html-preload-image { display: none !important; }',
+    );
+  });
   trayWindow.webContents.on('dom-ready', () => {
-    trayWindow?.webContents.executeJavaScript(`
-      const splash = document.querySelector('.onekey-index-html-preload-image');
-      if (splash) splash.remove();
+    void trayWindow?.webContents.executeJavaScript(`
+      document.querySelectorAll('.onekey-index-html-preload-image').forEach(e => e.remove());
     `);
   });
 

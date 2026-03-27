@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, Stack } from '@onekeyhq/components';
-import { TRAY_IPC, type ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
+import { TRAY_IPC, type ITrayData, type ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
 import { TrayEmptyState } from './components/TrayEmptyState';
 import { PortfolioOverview } from './components/PortfolioOverview';
 import { WatchlistTickers } from './components/WatchlistTickers';
@@ -29,6 +29,21 @@ export function TrayPanel() {
     sendTrayAction({ type: 'open-page', route });
   }, []);
 
+  const handleTickerPress = useCallback(
+    (ticker: ITrayWatchlistItem) => {
+      if (ticker.type === 'perps' && ticker.perpsCoin) {
+        // Navigate to perps detail
+        handleNavigate(`/market/perps/${ticker.perpsCoin}`);
+      } else if (ticker.tokenAddress && ticker.networkId) {
+        // Navigate to spot market detail V2
+        handleNavigate(
+          `/market/detail?tokenAddress=${encodeURIComponent(ticker.tokenAddress)}&network=${encodeURIComponent(ticker.networkId)}&isNative=${ticker.isNative || false}`,
+        );
+      }
+    },
+    [handleNavigate],
+  );
+
   if (!data) {
     return <TrayEmptyState type="loading" />;
   }
@@ -47,7 +62,7 @@ export function TrayPanel() {
       <ScrollView flex={1}>
         <WatchlistTickers
           tickers={data.watchlist}
-          onTickerPress={(symbol) => handleNavigate(`/market/token-detail/${symbol}`)}
+          onTickerPress={handleTickerPress}
         />
         <PendingTransactions
           transactions={data.pendingTxs}

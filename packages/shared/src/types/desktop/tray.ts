@@ -7,23 +7,31 @@ export interface IPendingTx {
   confirmations?: string;
 }
 
+export interface ITrayWatchlistItem {
+  symbol: string;
+  name: string;
+  icon: string;
+  price: string;
+  change24h: number;
+  type: 'spot' | 'perps';
+  // Navigation data
+  tokenAddress?: string;
+  networkId?: string;
+  isNative?: boolean;
+  perpsCoin?: string;
+}
+
 export interface ITrayData {
   wallet: {
     name: string;
-    avatar: string;
+    emoji: string;
   };
   totalBalance: {
     amount: string;
     currency: string;
     change24h: number;
   };
-  watchlist: Array<{
-    symbol: string;
-    name: string;
-    icon: string;
-    price: string;
-    change24h: number;
-  }>;
+  watchlist: ITrayWatchlistItem[];
   pendingTxs: IPendingTx[];
 }
 
