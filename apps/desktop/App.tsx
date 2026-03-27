@@ -9,8 +9,9 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
-import { ConfigProvider } from '@onekeyhq/components';
 import { TrayPanel } from '@onekeyhq/kit/src/views/Tray/TrayPanel';
+import { TamaguiProvider } from '@onekeyhq/components/src/hocs/Provider/TamaguiProvider';
+import tamaguiConfig from '@onekeyhq/components/tamagui.config';
 
 import {
   ReanimatedLogLevel,
@@ -40,11 +41,11 @@ export default function App(props: any) {
     const isDark =
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = isDark ? 'dark' : 'light';
+    const defaultTheme = isDark ? 'dark' : 'light';
     return (
-      <ConfigProvider theme={theme} locale="en-US" HyperlinkText={null as any}>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme={defaultTheme}>
         <TrayPanel />
-      </ConfigProvider>
+      </TamaguiProvider>
     );
   }
 
