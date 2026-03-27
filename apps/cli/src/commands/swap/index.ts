@@ -1,5 +1,6 @@
 import { registerSwapBuildCommand } from './swap-build';
 import { registerSwapExecuteCommand } from './swap-execute';
+import { registerSwapNetworksCommand } from './swap-networks';
 import { registerSwapQuoteCommand } from './swap-quote';
 import { registerSwapStatusCommand } from './swap-status';
 
@@ -14,4 +15,5 @@ export function registerSwapCommands(program: Command) {
   registerSwapBuildCommand(swap);
   registerSwapExecuteCommand(swap);
   registerSwapStatusCommand(swap);
+  registerSwapNetworksCommand(swap);
 }
