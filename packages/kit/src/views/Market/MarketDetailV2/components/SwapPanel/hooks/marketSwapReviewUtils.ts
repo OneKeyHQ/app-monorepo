@@ -82,6 +82,12 @@ export function assertMarketSignedBuildInvariant({
     );
   }
 
+  if (!areQuoteAmountsEqual(reviewed.toAmount, rebuilt.toAmount)) {
+    throw new OneKeyLocalError(
+      'Market sign review expected receive changed after signing.',
+    );
+  }
+
   if (
     reviewed.minToAmount &&
     !areQuoteAmountsEqual(reviewed.minToAmount, rebuilt.minToAmount)
