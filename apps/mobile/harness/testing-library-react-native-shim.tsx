@@ -8,7 +8,9 @@
 //   - build/act.js           (act with IS_REACT_ACT_ENVIRONMENT)
 //   - build/wait-for.js      (waitFor with interval polling)
 
-import type { ComponentType } from 'react';
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+
+import type { ComponentType, ReactElement } from 'react';
 import React from 'react';
 import TestRenderer from 'react-test-renderer';
 
@@ -17,41 +19,31 @@ import TestRenderer from 'react-test-renderer';
 // Sets IS_REACT_ACT_ENVIRONMENT=true during execution (React 18+ requirement)
 // ---------------------------------------------------------------------------
 
-const reactAct =
-  typeof React.act === 'function' ? React.act : TestRenderer.act;
-
-function act(callback: () => void | Promise<void>) {
+function act(callback: () => void | Promise<void>): void | Promise<void> {
   const previousActEnvironment = (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   try {
-    const result = reactAct(() => {
-      return callback();
-    });
-    // If callback is async, act returns a thenable — restore env after it resolves
+    const actFn = (TestRenderer as any).act as (
+      cb: () => void | Promise<void>,
+    ) => any;
+    const result = actFn(() => callback());
     if (
       result !== null &&
       typeof result === 'object' &&
-      typeof (result as any).then === 'function'
+      typeof result.then === 'function'
     ) {
-      return {
-        then: (
-          resolve: (v: any) => void,
-          reject: (e: any) => void,
-        ) => {
-          (result as any).then(
-            (returnValue: any) => {
-              (globalThis as any).IS_REACT_ACT_ENVIRONMENT =
-                previousActEnvironment;
-              resolve(returnValue);
-            },
-            (error: any) => {
-              (globalThis as any).IS_REACT_ACT_ENVIRONMENT =
-                previousActEnvironment;
-              reject(error);
-            },
-          );
+      return (result as Promise<void>).then(
+        (returnValue) => {
+          (globalThis as any).IS_REACT_ACT_ENVIRONMENT =
+            previousActEnvironment;
+          return returnValue;
         },
-      };
+        (error) => {
+          (globalThis as any).IS_REACT_ACT_ENVIRONMENT =
+            previousActEnvironment;
+          throw error;
+        },
+      );
     }
     (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
     return result;
@@ -90,9 +82,9 @@ function renderHook<Result, Props = undefined>(
   act(() => {
     const element = React.createElement(HookContainer, {
       hookProps: initialProps as Props,
-    });
+    }) as ReactElement;
     const wrappedElement = Wrapper
-      ? React.createElement(Wrapper, null, element)
+      ? (React.createElement(Wrapper, null, element) as ReactElement)
       : element;
     renderer = TestRenderer.create(wrappedElement, renderOptions);
   });
@@ -100,9 +92,11 @@ function renderHook<Result, Props = undefined>(
   return {
     result,
     rerender: (hookProps: Props) => {
-      const element = React.createElement(HookContainer, { hookProps });
+      const element = React.createElement(HookContainer, {
+        hookProps,
+      }) as ReactElement;
       const wrappedElement = Wrapper
-        ? React.createElement(Wrapper, null, element)
+        ? (React.createElement(Wrapper, null, element) as ReactElement)
         : element;
       act(() => {
         renderer!.update(wrappedElement);
@@ -143,7 +137,9 @@ async function waitFor<T>(
     // Initial check
     checkExpectation();
 
-    function onDone(done: { type: 'result'; result: T } | { type: 'error'; error: unknown }) {
+    function onDone(
+      done: { type: 'result'; result: T } | { type: 'error'; error: unknown },
+    ) {
       finished = true;
       clearTimeout(overallTimeoutTimer);
       clearInterval(intervalId);
@@ -186,7 +182,9 @@ async function waitFor<T>(
       const error =
         lastError instanceof Error
           ? lastError
-          : new Error(lastError ? String(lastError) : 'Timed out in waitFor.');
+          : new Error(
+              lastError ? String(lastError) : 'Timed out in waitFor.',
+            );
       onDone({ type: 'error', error });
     }
   });
