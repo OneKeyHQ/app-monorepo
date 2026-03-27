@@ -307,37 +307,14 @@ function BaseMarketTokenSelectorContent() {
         />
       </XStack>
 
-      {/* Filter bar: Favorites button + Network selector */}
-      <XStack alignItems="center" px="$3" pt="$2" pb="$1" gap="$2">
-        <Stack
-          px="$2"
-          py="$1"
-          borderRadius="$2"
-          borderWidth="$px"
-          borderColor={isWatchlistMode ? '$borderActive' : '$borderSubdued'}
-          bg={isWatchlistMode ? '$bgActive' : '$bgApp'}
-          cursor="pointer"
-          hoverStyle={{ bg: isWatchlistMode ? '$bgActive' : '$bgHover' }}
-          onPress={handleSelectWatchlist}
-        >
-          <Icon
-            name="StarSolid"
-            size="$4"
-            color={isWatchlistMode ? '$iconActive' : '$iconSubdued'}
-          />
-        </Stack>
-        <Stack flex={1}>
-          <MarketTokenListNetworkSelector
-            selectedNetworkId={
-              isWatchlistMode ? undefined : effectiveSpotNetworkId
-            }
-            onSelectNetworkId={handleSelectNetwork}
-            placement="bottom-start"
-            startListSelect={isWatchlistMode}
-            onStartListSelect={handleSelectWatchlist}
-          />
-        </Stack>
-      </XStack>
+      {/* Filter bar: Network selector with built-in favorites ☆ button */}
+      <MarketTokenListNetworkSelector
+        selectedNetworkId={isWatchlistMode ? undefined : effectiveSpotNetworkId}
+        onSelectNetworkId={handleSelectNetwork}
+        placement="bottom-start"
+        startListSelect={isWatchlistMode}
+        onStartListSelect={handleSelectWatchlist}
+      />
 
       {/* List content */}
       <YStack>

@@ -3,13 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Icon,
   ListView,
   Page,
   SearchBar,
   Spinner,
   Stack,
-  XStack,
   YStack,
   rootNavigationRef,
 } from '@onekeyhq/components';
@@ -277,36 +275,19 @@ function MobileTokenSelectorContent() {
             />
           </YStack>
 
-          {/* Filter bar: Favorites button + Network selector */}
-          <XStack alignItems="center" px="$5" pt="$1" pb="$2" gap="$2">
-            <Stack
-              px="$2"
-              py="$1"
-              borderRadius="$2"
-              borderWidth="$px"
-              borderColor={isWatchlistMode ? '$borderActive' : '$borderSubdued'}
-              bg={isWatchlistMode ? '$bgActive' : '$bgApp'}
-              onPress={handleSelectWatchlist}
-            >
-              <Icon
-                name="StarSolid"
-                size="$4"
-                color={isWatchlistMode ? '$iconActive' : '$iconSubdued'}
-              />
-            </Stack>
-            <Stack flex={1}>
-              <MarketTokenListNetworkSelector
-                selectedNetworkId={
-                  isWatchlistMode ? undefined : effectiveSpotNetworkId
-                }
-                onSelectNetworkId={handleSelectNetwork}
-                placement="bottom-start"
-                containerStyle={{ px: 0 }}
-                startListSelect={isWatchlistMode}
-                onStartListSelect={handleSelectWatchlist}
-              />
-            </Stack>
-          </XStack>
+          {/* Filter bar: Network selector with built-in ☆ button */}
+          <YStack px="$5" pt="$1" pb="$2">
+            <MarketTokenListNetworkSelector
+              selectedNetworkId={
+                isWatchlistMode ? undefined : effectiveSpotNetworkId
+              }
+              onSelectNetworkId={handleSelectNetwork}
+              placement="bottom-start"
+              containerStyle={{ px: 0 }}
+              startListSelect={isWatchlistMode}
+              onStartListSelect={handleSelectWatchlist}
+            />
+          </YStack>
 
           {/* Token list */}
           <YStack flex={1}>
