@@ -43,75 +43,27 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 // ---------------------------------------------------------------------------
 // Unified token list (mobile) — handles both watchlist and network modes
+// Watchlist (mobile) — only mounted when isWatchlistMode=true
 // ---------------------------------------------------------------------------
-function MobileTokenList({
+function MobileWatchlistList({
   searchQuery,
   onSelectToken,
-  networkId,
-  isWatchlistMode,
 }: {
   searchQuery: string;
   onSelectToken: (item: IMarketToken) => void;
-  networkId: string;
-  isWatchlistMode: boolean;
 }) {
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
   const watchlist = watchlistState.data || [];
 
-  // Watchlist data
-  const { data: watchlistData, isLoading: isWatchlistLoading } =
-    useMarketWatchlistTokenList({
-      watchlist,
-      initialSortBy: 'v24hUSD',
-      initialSortType: 'desc',
-    });
-
-  // Spot/network data
-  const {
-    data: spotData,
-    isLoading: isSpotLoading,
-    isLoadingMore,
-    canLoadMore,
-    loadMore,
-  } = useMarketTokenList({
-    networkId,
+  const { data, isLoading } = useMarketWatchlistTokenList({
+    watchlist,
     initialSortBy: 'v24hUSD',
     initialSortType: 'desc',
-    pageSize: 20,
   });
 
-  const rawData = isWatchlistMode ? watchlistData : spotData;
-  const isLoading = isWatchlistMode ? isWatchlistLoading : isSpotLoading;
-
-  // Freeze snapshot — only capture on initial load, ignore polling
-  const [snapshot, setSnapshot] = useState<IMarketToken[]>([]);
-  const initializedRef = useRef(false);
-  const prevModeRef = useRef(isWatchlistMode);
-
-  // Reset snapshot when mode changes
-  useEffect(() => {
-    if (prevModeRef.current !== isWatchlistMode) {
-      prevModeRef.current = isWatchlistMode;
-      initializedRef.current = false;
-      setSnapshot([]);
-    }
-  }, [isWatchlistMode]);
-
-  useEffect(() => {
-    if (rawData.length > 0 && !initializedRef.current) {
-      initializedRef.current = true;
-      setSnapshot(rawData);
-    }
-  }, [rawData]);
-  const stableData = initializedRef.current ? snapshot : rawData;
-
   const filteredData = useMemo(() => {
-    let filtered = stableData;
-    // In watchlist mode, filter out perps-only items
-    if (isWatchlistMode) {
-      filtered = filtered.filter((item) => !item.perpsCoin);
-    }
+    let filtered = data.filter((item) => !item.perpsCoin);
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -121,7 +73,7 @@ function MobileTokenList({
       );
     }
     return filtered;
-  }, [stableData, searchQuery, isWatchlistMode]);
+  }, [data, searchQuery]);
 
   const renderItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
@@ -132,17 +84,11 @@ function MobileTokenList({
 
   const keyExtractor = useCallback(
     (item: IMarketToken) =>
-      `${isWatchlistMode ? 'wl' : 'spot'}-${item.address}-${item.symbol}-${item.networkId}`,
-    [isWatchlistMode],
+      `wl-${item.address}-${item.symbol}-${item.networkId}`,
+    [],
   );
 
-  const handleEndReached = useCallback(() => {
-    if (!isWatchlistMode && canLoadMore && !isLoadingMore) {
-      void loadMore();
-    }
-  }, [isWatchlistMode, canLoadMore, isLoadingMore, loadMore]);
-
-  if (isLoading && stableData.length === 0) {
+  if (isLoading && data.length === 0) {
     return (
       <Stack flex={1} alignItems="center" justifyContent="center">
         <Spinner size="small" />
@@ -150,9 +96,83 @@ function MobileTokenList({
     );
   }
 
-  if (isWatchlistMode && watchlist.length === 0) {
+  if (watchlist.length === 0) {
     return (
       <MarketRecommendList recommendedTokens={recommendedTokens} maxSize={6} />
+    );
+  }
+
+  return (
+    <YStack flex={1}>
+      <MarketListColumnHeader />
+      <ListView
+        useFlashList
+        windowSize={3}
+        initialNumToRender={10}
+        data={filteredData}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        estimatedItemSize={60}
+        showsVerticalScrollIndicator={false}
+      />
+    </YStack>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Spot list (mobile) — only mounted when isWatchlistMode=false
+// ---------------------------------------------------------------------------
+function MobileSpotList({
+  searchQuery,
+  onSelectToken,
+  networkId,
+}: {
+  searchQuery: string;
+  onSelectToken: (item: IMarketToken) => void;
+  networkId: string;
+}) {
+  const { data, isLoading, isLoadingMore, canLoadMore, loadMore } =
+    useMarketTokenList({
+      networkId,
+      initialSortBy: 'v24hUSD',
+      initialSortType: 'desc',
+      pageSize: 20,
+    });
+
+  const filteredData = useMemo(() => {
+    if (!searchQuery) return data;
+    const query = searchQuery.toLowerCase();
+    return data.filter(
+      (item) =>
+        item.symbol.toLowerCase().includes(query) ||
+        item.name.toLowerCase().includes(query),
+    );
+  }, [data, searchQuery]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: IMarketToken }) => (
+      <TokenListItem item={item} onPress={() => onSelectToken(item)} />
+    ),
+    [onSelectToken],
+  );
+
+  const keyExtractor = useCallback(
+    (item: IMarketToken) =>
+      `spot-${item.address}-${item.symbol}-${item.networkId}`,
+    [],
+  );
+
+  const handleEndReached = useCallback(() => {
+    if (canLoadMore && !isLoadingMore) {
+      void loadMore();
+    }
+  }, [canLoadMore, isLoadingMore, loadMore]);
+
+  if (isLoading && data.length === 0) {
+    return (
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <Spinner size="small" />
+      </Stack>
     );
   }
 
@@ -259,7 +279,7 @@ function MobileTokenSelectorContent() {
     <Page>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.dexmarket_details_overview,
+          id: ETranslations.global_search,
         })}
       />
       <Page.Body>
@@ -291,12 +311,18 @@ function MobileTokenSelectorContent() {
 
           {/* Token list */}
           <YStack flex={1}>
-            <MobileTokenList
-              searchQuery={debouncedQuery}
-              onSelectToken={handleSelectToken}
-              networkId={effectiveSpotNetworkId}
-              isWatchlistMode={isWatchlistMode}
-            />
+            {isWatchlistMode ? (
+              <MobileWatchlistList
+                searchQuery={debouncedQuery}
+                onSelectToken={handleSelectToken}
+              />
+            ) : (
+              <MobileSpotList
+                searchQuery={debouncedQuery}
+                onSelectToken={handleSelectToken}
+                networkId={effectiveSpotNetworkId}
+              />
+            )}
           </YStack>
         </YStack>
       </Page.Body>

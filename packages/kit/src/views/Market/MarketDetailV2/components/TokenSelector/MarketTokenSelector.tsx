@@ -57,77 +57,28 @@ const HIDDEN_SPOT_COLUMNS = new Set([
 ]);
 
 // ---------------------------------------------------------------------------
-// Unified token list (desktop) — handles both watchlist and network modes
+// Watchlist list (desktop) — only mounted when isWatchlistMode=true
 // ---------------------------------------------------------------------------
-function DesktopTokenList({
+function DesktopWatchlistList({
   searchQuery,
   onSelectToken,
-  networkId,
-  isWatchlistMode,
 }: {
   searchQuery: string;
   onSelectToken: (item: IMarketToken) => void;
-  networkId: string;
-  isWatchlistMode: boolean;
 }) {
   const { navigateToPerps } = usePerpsNavigation();
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
   const watchlist = watchlistState.data || [];
 
-  // Watchlist data
-  const { data: watchlistData, isLoading: isWatchlistLoading } =
-    useMarketWatchlistTokenList({
-      watchlist,
-      initialSortBy: 'v24hUSD',
-      initialSortType: 'desc',
-    });
-
-  // Spot/network data
-  const {
-    data: spotData,
-    isLoading: isSpotLoading,
-    isLoadingMore,
-    canLoadMore,
-    loadMore,
-  } = useMarketTokenList({
-    networkId,
+  const { data, isLoading } = useMarketWatchlistTokenList({
+    watchlist,
     initialSortBy: 'v24hUSD',
     initialSortType: 'desc',
-    pageSize: 20,
   });
 
-  const rawData = isWatchlistMode ? watchlistData : spotData;
-  const isLoading = isWatchlistMode ? isWatchlistLoading : isSpotLoading;
-
-  // Freeze snapshot — only capture on initial load, ignore polling
-  const [snapshot, setSnapshot] = useState<IMarketToken[]>([]);
-  const initializedRef = useRef(false);
-  const prevModeRef = useRef(isWatchlistMode);
-
-  // Reset snapshot when mode changes
-  useEffect(() => {
-    if (prevModeRef.current !== isWatchlistMode) {
-      prevModeRef.current = isWatchlistMode;
-      initializedRef.current = false;
-      setSnapshot([]);
-    }
-  }, [isWatchlistMode]);
-
-  useEffect(() => {
-    if (rawData.length > 0 && !initializedRef.current) {
-      initializedRef.current = true;
-      setSnapshot(rawData);
-    }
-  }, [rawData]);
-  const stableData = initializedRef.current ? snapshot : rawData;
-
   const filteredData = useMemo(() => {
-    let filtered = stableData;
-    // In watchlist mode, filter out perps-only items
-    if (isWatchlistMode) {
-      filtered = filtered.filter((item) => !item.perpsCoin);
-    }
+    let filtered = data.filter((item) => !item.perpsCoin);
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -137,25 +88,19 @@ function DesktopTokenList({
       );
     }
     return filtered;
-  }, [stableData, searchQuery, isWatchlistMode]);
+  }, [data, searchQuery]);
 
   const allColumns = useSpotColumnsDesktop(
-    isWatchlistMode ? undefined : networkId,
-    isWatchlistMode,
+    undefined,
+    true,
     false,
-    isWatchlistMode ? EWatchlistFrom.Search : undefined,
+    EWatchlistFrom.Search,
     ECopyFrom.Search,
   );
   const columns = useMemo(
     () => allColumns.filter((c) => !HIDDEN_SPOT_COLUMNS.has(c.dataIndex)),
     [allColumns],
   );
-
-  const handleEndReached = useCallback(() => {
-    if (!isWatchlistMode && canLoadMore && !isLoadingMore) {
-      void loadMore();
-    }
-  }, [isWatchlistMode, canLoadMore, isLoadingMore, loadMore]);
 
   const onRow = useCallback(
     (item: IMarketToken) => ({
@@ -170,20 +115,103 @@ function DesktopTokenList({
     [onSelectToken, navigateToPerps],
   );
 
-  const TableEmptyComponent = useMemo(() => {
-    if (isLoading) return null;
-    if (isWatchlistMode && watchlist.length === 0) {
-      return (
-        <MarketRecommendList
-          recommendedTokens={recommendedTokens}
-          maxSize={6}
-        />
-      );
-    }
-    return null;
-  }, [isLoading, isWatchlistMode, watchlist.length, recommendedTokens]);
+  if (isLoading && data.length === 0) {
+    return (
+      <Stack height={LIST_HEIGHT} alignItems="center" justifyContent="center">
+        <Spinner size="small" />
+      </Stack>
+    );
+  }
 
-  if (isLoading && stableData.length === 0) {
+  // Empty watchlist — show recommend list without table header
+  if (watchlist.length === 0) {
+    return (
+      <MarketRecommendList recommendedTokens={recommendedTokens} maxSize={6} />
+    );
+  }
+
+  return (
+    <YStack height={LIST_HEIGHT}>
+      <Table<IMarketToken>
+        showHeader
+        scrollEnabled
+        stickyHeader
+        columns={columns}
+        dataSource={filteredData}
+        keyExtractor={(item) =>
+          `wl-${item.address}-${item.symbol}-${item.networkId}`
+        }
+        estimatedItemSize={60}
+        onRow={onRow}
+      />
+    </YStack>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Spot list (desktop) — only mounted when isWatchlistMode=false
+// ---------------------------------------------------------------------------
+function DesktopSpotList({
+  searchQuery,
+  onSelectToken,
+  networkId,
+}: {
+  searchQuery: string;
+  onSelectToken: (item: IMarketToken) => void;
+  networkId: string;
+}) {
+  const { navigateToPerps } = usePerpsNavigation();
+
+  const { data, isLoading, isLoadingMore, canLoadMore, loadMore } =
+    useMarketTokenList({
+      networkId,
+      initialSortBy: 'v24hUSD',
+      initialSortType: 'desc',
+      pageSize: 20,
+    });
+
+  const filteredData = useMemo(() => {
+    if (!searchQuery) return data;
+    const query = searchQuery.toLowerCase();
+    return data.filter(
+      (item) =>
+        item.symbol.toLowerCase().includes(query) ||
+        item.name.toLowerCase().includes(query),
+    );
+  }, [data, searchQuery]);
+
+  const allColumns = useSpotColumnsDesktop(
+    networkId,
+    false,
+    false,
+    undefined,
+    ECopyFrom.Search,
+  );
+  const columns = useMemo(
+    () => allColumns.filter((c) => !HIDDEN_SPOT_COLUMNS.has(c.dataIndex)),
+    [allColumns],
+  );
+
+  const handleEndReached = useCallback(() => {
+    if (canLoadMore && !isLoadingMore) {
+      void loadMore();
+    }
+  }, [canLoadMore, isLoadingMore, loadMore]);
+
+  const onRow = useCallback(
+    (item: IMarketToken) => ({
+      onPress: () => {
+        if (item.perpsCoin) {
+          navigateToPerps(item.perpsCoin);
+          return;
+        }
+        onSelectToken(item);
+      },
+    }),
+    [onSelectToken, navigateToPerps],
+  );
+
+  if (isLoading && data.length === 0) {
     return (
       <Stack height={LIST_HEIGHT} alignItems="center" justifyContent="center">
         <Spinner size="small" />
@@ -200,12 +228,11 @@ function DesktopTokenList({
         columns={columns}
         dataSource={filteredData}
         keyExtractor={(item) =>
-          `${isWatchlistMode ? 'wl' : 'spot'}-${item.address}-${item.symbol}-${item.networkId}`
+          `spot-${item.address}-${item.symbol}-${item.networkId}`
         }
         estimatedItemSize={60}
         onEndReached={handleEndReached}
         onRow={onRow}
-        TableEmptyComponent={TableEmptyComponent}
       />
     </YStack>
   );
@@ -318,12 +345,18 @@ function BaseMarketTokenSelectorContent() {
 
       {/* List content */}
       <YStack>
-        <DesktopTokenList
-          searchQuery={debouncedQuery}
-          onSelectToken={handleSelectToken}
-          networkId={effectiveSpotNetworkId}
-          isWatchlistMode={isWatchlistMode}
-        />
+        {isWatchlistMode ? (
+          <DesktopWatchlistList
+            searchQuery={debouncedQuery}
+            onSelectToken={handleSelectToken}
+          />
+        ) : (
+          <DesktopSpotList
+            searchQuery={debouncedQuery}
+            onSelectToken={handleSelectToken}
+            networkId={effectiveSpotNetworkId}
+          />
+        )}
       </YStack>
     </YStack>
   );
