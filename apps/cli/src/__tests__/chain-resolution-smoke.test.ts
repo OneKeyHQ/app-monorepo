@@ -143,8 +143,9 @@ describe('chain resolution (smoke)', () => {
       expect(() => resolveChain('foobarchain')).toThrow(/foobarchain/i);
     });
 
-    it('suggests closest match for "avax" → avalanche', () => {
-      expect(() => resolveChain('avax')).toThrow(/did you mean.*avalanche/i);
+    it('resolves "avax" alias to avalanche', () => {
+      const config = resolveChain('avax');
+      expect(config.networkId).toBe('evm--43114');
     });
 
     it('throws for non-EVM chain "btc"', () => {

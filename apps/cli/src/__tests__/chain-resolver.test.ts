@@ -30,8 +30,13 @@ describe('chain-resolver', () => {
       expect(config.networkId).toBe('evm--1');
     });
 
+    it('resolves "avax" alias to avalanche', () => {
+      const config = resolveChain('avax');
+      expect(config.networkId).toBe('evm--43114');
+    });
+
     it('throws for unknown chain with fuzzy suggestion', () => {
-      expect(() => resolveChain('avax')).toThrow(/did you mean.*avalanche/i);
+      expect(() => resolveChain('opti')).toThrow(/did you mean.*optimism/i);
     });
 
     it('throws for non-EVM chain', () => {

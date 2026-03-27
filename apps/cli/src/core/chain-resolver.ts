@@ -15,24 +15,20 @@ export interface IChainConfig {
 
 const CHAIN_ALIASES: Record<string, string> = {
   ethereum: 'eth',
+  avax: 'avalanche',
 };
 
 let evmChainCache: Map<string, IChainConfig> | null = null;
-
-/** Maps lowercase native symbol to shortcode for fuzzy suggestion fallback */
-let symbolToShortcode: Map<string, string> | null = null;
 
 function getEvmChainMap(): Map<string, IChainConfig> {
   if (evmChainCache) return evmChainCache;
 
   const networks = getPresetNetworks();
   const map = new Map<string, IChainConfig>();
-  const symMap = new Map<string, string>();
 
   for (const net of networks) {
     if (net.impl === 'evm') {
-      const key = net.shortcode.toLowerCase();
-      map.set(key, {
+      map.set(net.shortcode.toLowerCase(), {
         networkId: net.id,
         impl: net.impl,
         chainId: net.chainId,
@@ -41,18 +37,11 @@ function getEvmChainMap(): Map<string, IChainConfig> {
         feeSymbol: net.feeMeta.symbol,
         nativeSymbol: net.symbol,
       });
-      symMap.set(net.symbol.toLowerCase(), key);
     }
   }
 
   evmChainCache = map;
-  symbolToShortcode = symMap;
   return map;
-}
-
-function getSymbolToShortcode(): Map<string, string> {
-  if (!symbolToShortcode) getEvmChainMap();
-  return symbolToShortcode!;
 }
 
 /**
@@ -121,10 +110,7 @@ export function resolveChain(shortcode: string): IChainConfig {
 
   if (config) return config;
 
-  // Check if the input matches a known native symbol (e.g. "avax" → "avalanche")
-  const symMap = getSymbolToShortcode();
-  const symbolMatch = symMap.get(resolved);
-  const suggestion = symbolMatch ?? findClosestMatch(resolved, [...map.keys()]);
+  const suggestion = findClosestMatch(resolved, [...map.keys()]);
   const hint = suggestion ? `\nDid you mean: ${suggestion}?` : '';
   throw new AppError(
     ERROR_CODES.PARAM_INVALID_CHAIN.code,
