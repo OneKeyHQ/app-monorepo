@@ -1009,6 +1009,18 @@ async function createMainWindow() {
     return false;
   });
 
+  // Permission handler for main window (default session)
+  // Block service worker registration to prevent persistent MitM if renderer is compromised.
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      if (permission === 'service-worker') {
+        callback(false);
+        return;
+      }
+      callback(true);
+    },
+  );
+
   // Permission handler for webview (partition: persist:onekey)
   //
   // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
@@ -1044,7 +1056,11 @@ async function createMainWindow() {
         callback(false);
         return;
       }
-      // Allow all non-media permissions to preserve default Electron behavior.
+      if (permission === 'service-worker') {
+        callback(false);
+        return;
+      }
+      // Allow all other non-media permissions to preserve default Electron behavior.
       // Note: 'notifications' is never requested here because it is disabled
       // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
       callback(true);
