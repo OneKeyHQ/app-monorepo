@@ -70,6 +70,14 @@ export function createTrayWindow(
 
   loadUrl(trayWindow);
 
+  // Remove the HTML template splash image that covers tray panel content
+  trayWindow.webContents.on('dom-ready', () => {
+    trayWindow?.webContents.executeJavaScript(`
+      const splash = document.querySelector('.onekey-index-html-preload-image');
+      if (splash) splash.remove();
+    `);
+  });
+
   trayWindow.on('blur', () => {
     setTimeout(() => {
       if (trayWindow && !trayWindow.isDestroyed() && !trayWindow.isFocused()) {

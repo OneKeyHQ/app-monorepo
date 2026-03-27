@@ -8,11 +8,6 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 
-/**
- * This hook runs in the MAIN WINDOW renderer only (desktop platform).
- * It listens for data requests from the tray main process
- * and responds with current data.
- */
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const activeAccountValueRef = useRef(activeAccountValue);
@@ -27,14 +22,13 @@ export function useTrayDataProvider() {
         pendingTxs: [],
       };
 
-      // 1. Get active wallet info via simpleDb
+      // 1. Wallet info
       try {
         const selectedAccount =
           await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
             sceneName: EAccountSelectorSceneName.home,
             num: 0,
           });
-
         if (selectedAccount?.walletId) {
           const wallet =
             await backgroundApiProxy.serviceAccount.getWallet({
@@ -46,64 +40,64 @@ export function useTrayDataProvider() {
         trayData.wallet.name = 'Wallet';
       }
 
-      // 2. Get balance from global atom
+      // 2. Balance (from global atom, already formatted as total)
       const accountValue = activeAccountValueRef.current;
       if (accountValue) {
         const val = accountValue.value;
-        const totalStr =
-          typeof val === 'string'
-            ? val
-            : Object.values(val).reduce(
-                (sum, v) => String(Number(sum) + Number(v || 0)),
-                '0',
-              );
+        let totalNum = 0;
+        if (typeof val === 'string') {
+          totalNum = Number(val) || 0;
+        } else if (val && typeof val === 'object') {
+          totalNum = Object.values(val).reduce(
+            (sum, v) => sum + (Number(v) || 0),
+            0,
+          );
+        }
         trayData.totalBalance = {
-          amount: totalStr,
+          amount: totalNum.toFixed(2),
           currency: accountValue.currency || 'USD',
           change24h: 0,
         };
       }
 
-      // 3. Market watchlist — try to get favorites with prices
+      // 3. Watchlist with prices
       try {
         const watchListData =
           await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
         if (watchListData?.data?.length) {
-          // Get coin IDs for price lookup
-          const coinIds = watchListData.data
-            .slice(0, 10)
-            .map(
-              (item: any) =>
-                item.perpsCoin ||
-                `${item.chainId}_${item.contractAddress || 'native'}`,
+          const spotItems = watchListData.data.filter(
+            (item: any) => !item.perpsCoin && item.chainId,
+          );
+          if (spotItems.length > 0) {
+            const tokenAddressList = spotItems.slice(0, 10).map(
+              (item: any) => ({
+                chainId: item.chainId,
+                contractAddress: item.contractAddress || '',
+                isNative: item.isNative ?? false,
+              }),
             );
-
-          // Try to fetch market data for these coins
-          try {
-            const marketData =
-              await backgroundApiProxy.serviceMarketV2.fetchMarketListV2({
-                coinIds,
-                page: 1,
-                pageSize: 10,
-              });
-            if (marketData?.data?.length) {
-              trayData.watchlist = marketData.data.map((coin: any) => ({
-                symbol: coin.symbol?.toUpperCase() || '',
-                name: coin.name || '',
-                icon: coin.image || '',
-                price: `$${Number(coin.currentPrice || 0).toLocaleString()}`,
-                change24h: coin.priceChangePercentage24h || 0,
-              }));
+            const response =
+              await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
+                { tokenAddressList },
+              );
+            if (response?.list?.length) {
+              trayData.watchlist = response.list
+                .filter((coin: any) => coin?.symbol)
+                .map((coin: any) => ({
+                  symbol: (coin.symbol || '').toUpperCase(),
+                  name: coin.name || '',
+                  icon: coin.logoUrl || '',
+                  price: `$${Number(coin.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                  change24h: coin.priceChangePercentage24H || 0,
+                }));
             }
-          } catch {
-            // Market data fetch failed, show watchlist without prices
           }
         }
       } catch {
-        // Watchlist not available
+        // Watchlist fetch failed silently
       }
 
-      // 4. Pending transactions — try to get from local history
+      // 4. Pending transactions
       try {
         const selectedAccount =
           await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccount({
@@ -129,15 +123,14 @@ export function useTrayDataProvider() {
           }
         }
       } catch {
-        // Pending tx fetch failed
+        // Pending tx fetch failed silently
       }
 
       (globalThis as any).desktopApi?.sendTrayData(trayData);
     } catch {
-      // Fallback: send empty data so panel shows something
       (globalThis as any).desktopApi?.sendTrayData({
         wallet: { name: 'Wallet', avatar: '' },
-        totalBalance: { amount: '0', currency: 'USD', change24h: 0 },
+        totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
         pendingTxs: [],
       });
