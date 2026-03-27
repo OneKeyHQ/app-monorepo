@@ -10,7 +10,7 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 
-import type { ComponentType, ReactElement } from 'react';
+import type { ComponentType } from 'react';
 import React from 'react';
 import TestRenderer from 'react-test-renderer';
 
@@ -91,9 +91,9 @@ function renderHook<Result, Props = undefined>(
   act(() => {
     const element = React.createElement(HookContainer, {
       hookProps: initialProps as Props,
-    }) as ReactElement;
+    }) as any;
     const wrappedElement = Wrapper
-      ? (React.createElement(Wrapper, null, element) as ReactElement)
+      ? (React.createElement(Wrapper, null, element) as any)
       : element;
     renderer = TestRenderer.create(wrappedElement, renderOptions);
   });
@@ -103,9 +103,9 @@ function renderHook<Result, Props = undefined>(
     rerender: (hookProps: Props) => {
       const element = React.createElement(HookContainer, {
         hookProps,
-      }) as ReactElement;
+      }) as any;
       const wrappedElement = Wrapper
-        ? (React.createElement(Wrapper, null, element) as ReactElement)
+        ? (React.createElement(Wrapper, null, element) as any)
         : element;
       act(() => {
         renderer!.update(wrappedElement);
