@@ -550,7 +550,13 @@ function AmountCard() {
         return (
           <BaseAmountInput
             bg="$bgApp"
-            value={isMaxMode ? 'Max' : amountInputValues.specifiedAmount}
+            value={
+              isMaxMode
+                ? intl.formatMessage({
+                    id: ETranslations.wallet_bulk_send_placeholder_max,
+                  })
+                : amountInputValues.specifiedAmount
+            }
             onChange={handleSpecifiedAmountChange}
             hasError={hasSpecifiedAmountError}
             inputProps={{
