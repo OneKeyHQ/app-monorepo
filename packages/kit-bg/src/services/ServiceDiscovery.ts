@@ -75,7 +75,7 @@ class ServiceDiscovery extends ServiceBase {
     return Promise.all(
       data.map(async (i) => ({
         ...i,
-        logo: await this.buildWebsiteIconUrl(i.url),
+        logo: i.logo || (await this.buildWebsiteIconUrl(i.url)),
       })),
     );
   }
@@ -350,7 +350,9 @@ class ServiceDiscovery extends ServiceBase {
     const histories = await Promise.all(
       dataSource.map(async (i) => ({
         ...i,
-        logo: generateIcon ? await this.buildWebsiteIconUrl(i.url) : undefined,
+        logo: generateIcon
+          ? i.logo || (await this.buildWebsiteIconUrl(i.url))
+          : i.logo,
       })),
     );
 
