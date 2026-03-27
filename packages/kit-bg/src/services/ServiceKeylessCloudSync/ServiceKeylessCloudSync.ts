@@ -43,7 +43,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
     super({ backgroundApi });
   }
 
+  // Keep the explicit "Switch Now" intent in memory until the keyless wallet is created.
+  private pendingAutoEnableCloudSyncKeyless = false;
+
   private repairCredentialMutex = new Semaphore(1);
+
+  @backgroundMethod()
+  async setPendingAutoEnableCloudSyncKeyless(enabled: boolean) {
+    this.pendingAutoEnableCloudSyncKeyless = enabled;
+  }
 
   async getKeylessWallet(): Promise<IDBWallet | null> {
     const keylessWallet =
@@ -690,17 +698,17 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async autoEnableCloudSyncKeyless() {
     const { wallets } = await this.backgroundApi.serviceAccount.getAllWallets();
     await this.syncPersistedCurrentCloudSyncKeylessWalletIdWithWallets(wallets);
+    const shouldMigrateFromId = this.pendingAutoEnableCloudSyncKeyless;
     const { isCloudSyncEnabledKeyless, isCloudSyncEnabled } =
       await primeCloudSyncPersistAtom.get();
     if (isCloudSyncEnabledKeyless) {
+      this.pendingAutoEnableCloudSyncKeyless = false;
       return;
     }
-    if (isCloudSyncEnabled) {
+    if (isCloudSyncEnabled && !shouldMigrateFromId) {
       return;
     }
-    // If ID sync is active, sync ID data first before switching (auto-migration)
-    const isMigrationFromId = isCloudSyncEnabled;
-    if (isMigrationFromId) {
+    if (shouldMigrateFromId && isCloudSyncEnabled) {
       try {
         await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
           callerName: 'Auto-migration: ID sync before switch',
@@ -716,6 +724,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         silentEnable: true,
         forceEnable: true,
       });
+      this.pendingAutoEnableCloudSyncKeyless = false;
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       void this.backgroundApi.serviceApp.showToast({
