@@ -47,6 +47,7 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import {
   EJotaiContextStoreNames,
   type IMarketTokenSelectorTab,
+  type IWatchlistSelectorFilter,
   useMarketTokenSelectorConfigAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -116,13 +117,15 @@ TabItem.displayName = 'MobileTokenSelectorTabItem';
 function WatchlistList({
   searchQuery,
   onSelectToken,
+  selectedFilter,
+  onSelectFilter,
 }: {
   searchQuery: string;
   onSelectToken: (item: IMarketToken) => void;
+  selectedFilter: string;
+  onSelectFilter: (filter: IWatchlistFilterType) => void;
 }) {
   const [watchlistState] = useMarketWatchListV2Atom();
-  const [selectedFilter, setSelectedFilter] =
-    useState<IWatchlistFilterType>('all');
 
   const { data, isLoading } = useMarketWatchlistTokenList({
     watchlist: watchlistState.data || [],
@@ -174,8 +177,8 @@ function WatchlistList({
   return (
     <YStack flex={1}>
       <MarketWatchlistCategorySelector
-        selectedFilter={selectedFilter}
-        onSelectFilter={setSelectedFilter}
+        selectedFilter={selectedFilter as IWatchlistFilterType}
+        onSelectFilter={onSelectFilter}
         containerStyle={{ px: '$5', pt: '$3', pb: '$2' }}
       />
       <MarketListColumnHeader />
@@ -205,7 +208,7 @@ function SpotList({
   searchQuery: string;
   onSelectToken: (item: IMarketToken) => void;
   selectedNetworkId: string;
-  onNetworkIdChange: (id: string) => void;
+  onNetworkIdChange: (networkId: string) => void;
 }) {
   const { data, isLoading, isLoadingMore, canLoadMore, loadMore } =
     useMarketTokenList({
@@ -283,11 +286,13 @@ function SpotList({
 function FuturesList({
   searchQuery,
   onCloseModal,
-  categoryRef,
+  selectedCategoryId,
+  onSelectCategory,
 }: {
   searchQuery: string;
   onCloseModal: () => void;
-  categoryRef: React.MutableRefObject<string>;
+  selectedCategoryId: string;
+  onSelectCategory: (id: string) => void;
 }) {
   const { navigateToPerps } = usePerpsNavigation();
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -301,26 +306,16 @@ function FuturesList({
     [rawPerpsCategories],
   );
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    () => categoryRef.current || perpsCategories[0]?.tabId || '',
-  );
-
-  const handleSelectCategory = useCallback(
-    (id: string) => {
-      categoryRef.current = id;
-      setSelectedCategoryId(id);
-    },
-    [categoryRef],
-  );
-
+  const effectiveCategoryId =
+    selectedCategoryId || perpsCategories[0]?.tabId || '';
   useEffect(() => {
     if (!selectedCategoryId && perpsCategories[0]?.tabId) {
-      handleSelectCategory(perpsCategories[0].tabId);
+      onSelectCategory(perpsCategories[0].tabId);
     }
-  }, [selectedCategoryId, perpsCategories, handleSelectCategory]);
+  }, [selectedCategoryId, perpsCategories, onSelectCategory]);
 
   const { tokens, isLoading } = useMarketPerpsTokenList({
-    selectedCategoryId,
+    selectedCategoryId: effectiveCategoryId,
   });
 
   const filteredTokens = useMemo(() => {
@@ -368,8 +363,8 @@ function FuturesList({
     <YStack flex={1}>
       <MarketPerpsCategorySelector
         categories={perpsCategories}
-        selectedCategoryId={selectedCategoryId}
-        onSelectCategory={handleSelectCategory}
+        selectedCategoryId={effectiveCategoryId}
+        onSelectCategory={onSelectCategory}
         containerStyle={{ px: '$5', pt: '$3', pb: '$2' }}
       />
       <ListView
@@ -395,33 +390,50 @@ function MobileTokenSelectorContent() {
   const tokenDetailActions = useTokenDetailActions();
   const { navigateToPerps } = usePerpsNavigation();
 
-  // --- Tab state (persisted atom) ---
+  // --- All selector state persisted in atom (survives remount like Perps) ---
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
-  const activeTab = selectorConfig.activeTab;
+  const { activeTab, watchlistFilter, spotNetworkId, perpsCategoryId } =
+    selectorConfig;
 
-  // --- Search state ---
+  // --- Search state (local, resets on remount is OK) ---
   const [searchQuery, setSearchQueryRaw] = useState('');
   const setSearchQuery = useCallback((query: string) => {
     setSearchQueryRaw(query.trim().slice(0, 64));
   }, []);
-
-  // --- Debounced search ---
   const debouncedQuery = useDebounce(searchQuery, 200);
 
-  // --- Spot: network selection (lifted to survive tab switches) ---
-  const [spotNetworkId, setSpotNetworkId] = useState(
-    () => getNetworkIdsMap().onekeyall,
-  );
-
-  // --- Futures: category persisted across tab switches via ref ---
-  const perpsCategoryRef = useRef('');
+  const effectiveSpotNetworkId = spotNetworkId || getNetworkIdsMap().onekeyall;
 
   const setActiveTab = useCallback(
     (tab: string) => {
       startTransition(() => {
-        setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
+        setSelectorConfig((prev) => ({
+          ...prev,
+          activeTab: tab as IMarketTokenSelectorTab,
+        }));
       });
+    },
+    [setSelectorConfig],
+  );
+
+  const setWatchlistFilter = useCallback(
+    (filter: IWatchlistSelectorFilter) => {
+      setSelectorConfig((prev) => ({ ...prev, watchlistFilter: filter }));
+    },
+    [setSelectorConfig],
+  );
+
+  const setSpotNetworkId = useCallback(
+    (id: string) => {
+      setSelectorConfig((prev) => ({ ...prev, spotNetworkId: id }));
+    },
+    [setSelectorConfig],
+  );
+
+  const setPerpsCategoryId = useCallback(
+    (id: string) => {
+      setSelectorConfig((prev) => ({ ...prev, perpsCategoryId: id }));
     },
     [setSelectorConfig],
   );
@@ -529,13 +541,15 @@ function MobileTokenSelectorContent() {
               <WatchlistList
                 searchQuery={debouncedQuery}
                 onSelectToken={handleSelectToken}
+                selectedFilter={watchlistFilter}
+                onSelectFilter={setWatchlistFilter}
               />
             ) : null}
             {activeTab === 'spot' ? (
               <SpotList
                 searchQuery={debouncedQuery}
                 onSelectToken={handleSelectToken}
-                selectedNetworkId={spotNetworkId}
+                selectedNetworkId={effectiveSpotNetworkId}
                 onNetworkIdChange={setSpotNetworkId}
               />
             ) : null}
@@ -543,7 +557,8 @@ function MobileTokenSelectorContent() {
               <FuturesList
                 searchQuery={debouncedQuery}
                 onCloseModal={() => navigation.popStack()}
-                categoryRef={perpsCategoryRef}
+                selectedCategoryId={perpsCategoryId}
+                onSelectCategory={setPerpsCategoryId}
               />
             ) : null}
           </YStack>

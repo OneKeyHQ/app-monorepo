@@ -48,6 +48,7 @@ import {
 import { MarketTokenListNetworkSelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenListNetworkSelector';
 import {
   type IMarketTokenSelectorTab,
+  type IWatchlistSelectorFilter,
   useMarketTokenSelectorConfigAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -120,13 +121,15 @@ TabItem.displayName = 'DesktopTokenSelectorTabItem';
 function DesktopWatchlistList({
   searchQuery,
   onSelectToken,
+  selectedFilter,
+  onSelectFilter,
 }: {
   searchQuery: string;
   onSelectToken: (item: IMarketToken) => void;
+  selectedFilter: string;
+  onSelectFilter: (filter: IWatchlistFilterType) => void;
 }) {
   const [watchlistState] = useMarketWatchListV2Atom();
-  const [selectedFilter, setSelectedFilter] =
-    useState<IWatchlistFilterType>('all');
 
   const { data, isLoading } = useMarketWatchlistTokenList({
     watchlist: watchlistState.data || [],
@@ -178,8 +181,8 @@ function DesktopWatchlistList({
   return (
     <YStack>
       <MarketWatchlistCategorySelector
-        selectedFilter={selectedFilter}
-        onSelectFilter={setSelectedFilter}
+        selectedFilter={selectedFilter as IWatchlistFilterType}
+        onSelectFilter={onSelectFilter}
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
       <MarketListColumnHeader />
@@ -291,11 +294,13 @@ function DesktopSpotList({
 function DesktopFuturesList({
   searchQuery,
   onClosePopover,
-  categoryRef,
+  selectedCategoryId,
+  onSelectCategory,
 }: {
   searchQuery: string;
   onClosePopover: () => void;
-  categoryRef: React.MutableRefObject<string>;
+  selectedCategoryId: string;
+  onSelectCategory: (id: string) => void;
 }) {
   const { navigateToPerps } = usePerpsNavigation();
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -309,29 +314,17 @@ function DesktopFuturesList({
     [rawPerpsCategories],
   );
 
-  // Use ref to persist across unmount/remount, local state for rendering
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    () => categoryRef.current || perpsCategories[0]?.tabId || '',
-  );
-
-  // Sync ref on change
-  const handleSelectCategory = useCallback(
-    (id: string) => {
-      categoryRef.current = id;
-      setSelectedCategoryId(id);
-    },
-    [categoryRef],
-  );
-
-  // Set initial value once data loads
+  // Auto-select first category if atom has no value yet
+  const effectiveCategoryId =
+    selectedCategoryId || perpsCategories[0]?.tabId || '';
   useEffect(() => {
     if (!selectedCategoryId && perpsCategories[0]?.tabId) {
-      handleSelectCategory(perpsCategories[0].tabId);
+      onSelectCategory(perpsCategories[0].tabId);
     }
-  }, [selectedCategoryId, perpsCategories, handleSelectCategory]);
+  }, [selectedCategoryId, perpsCategories, onSelectCategory]);
 
   const { tokens, isLoading } = useMarketPerpsTokenList({
-    selectedCategoryId,
+    selectedCategoryId: effectiveCategoryId,
   });
 
   const filteredTokens = useMemo(() => {
@@ -379,8 +372,8 @@ function DesktopFuturesList({
     <YStack>
       <MarketPerpsCategorySelector
         categories={perpsCategories}
-        selectedCategoryId={selectedCategoryId}
-        onSelectCategory={handleSelectCategory}
+        selectedCategoryId={effectiveCategoryId}
+        onSelectCategory={onSelectCategory}
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
       <YStack height={LIST_HEIGHT}>
@@ -408,33 +401,51 @@ function BaseMarketTokenSelectorContent() {
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
 
-  // --- Tab state (persisted atom) ---
+  // --- All selector state persisted in atom (survives remount like Perps) ---
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
-  const activeTab = selectorConfig.activeTab;
+  const { activeTab, watchlistFilter, spotNetworkId, perpsCategoryId } =
+    selectorConfig;
 
-  // --- Search state ---
+  // --- Search state (local, resets on remount is OK) ---
   const [searchQuery, setSearchQueryRaw] = useState('');
   const setSearchQuery = useCallback((query: string) => {
     setSearchQueryRaw(query.trim().slice(0, 64));
   }, []);
-
-  // --- Debounced search ---
   const debouncedQuery = useDebounce(searchQuery, 200);
 
-  // --- Spot: network selection (lifted to survive tab switches) ---
-  const [spotNetworkId, setSpotNetworkId] = useState(
-    () => getNetworkIdsMap().onekeyall,
-  );
-
-  // --- Futures: category persisted across tab switches via ref ---
-  const perpsCategoryRef = useRef('');
+  // Effective spotNetworkId (default to all networks if empty)
+  const effectiveSpotNetworkId = spotNetworkId || getNetworkIdsMap().onekeyall;
 
   const setActiveTab = useCallback(
     (tab: string) => {
       startTransition(() => {
-        setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
+        setSelectorConfig((prev) => ({
+          ...prev,
+          activeTab: tab as IMarketTokenSelectorTab,
+        }));
       });
+    },
+    [setSelectorConfig],
+  );
+
+  const setWatchlistFilter = useCallback(
+    (filter: IWatchlistSelectorFilter) => {
+      setSelectorConfig((prev) => ({ ...prev, watchlistFilter: filter }));
+    },
+    [setSelectorConfig],
+  );
+
+  const setSpotNetworkId = useCallback(
+    (id: string) => {
+      setSelectorConfig((prev) => ({ ...prev, spotNetworkId: id }));
+    },
+    [setSelectorConfig],
+  );
+
+  const setPerpsCategoryId = useCallback(
+    (id: string) => {
+      setSelectorConfig((prev) => ({ ...prev, perpsCategoryId: id }));
     },
     [setSelectorConfig],
   );
@@ -537,13 +548,15 @@ function BaseMarketTokenSelectorContent() {
           <DesktopWatchlistList
             searchQuery={debouncedQuery}
             onSelectToken={handleSelectToken}
+            selectedFilter={watchlistFilter}
+            onSelectFilter={setWatchlistFilter}
           />
         ) : null}
         {activeTab === 'spot' ? (
           <DesktopSpotList
             searchQuery={debouncedQuery}
             onSelectToken={handleSelectToken}
-            selectedNetworkId={spotNetworkId}
+            selectedNetworkId={effectiveSpotNetworkId}
             onNetworkIdChange={setSpotNetworkId}
           />
         ) : null}
@@ -551,7 +564,8 @@ function BaseMarketTokenSelectorContent() {
           <DesktopFuturesList
             searchQuery={debouncedQuery}
             onClosePopover={() => closePopover?.()}
-            categoryRef={perpsCategoryRef}
+            selectedCategoryId={perpsCategoryId}
+            onSelectCategory={setPerpsCategoryId}
           />
         ) : null}
       </YStack>

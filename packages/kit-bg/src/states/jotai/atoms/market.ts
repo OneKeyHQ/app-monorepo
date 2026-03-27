@@ -29,9 +29,13 @@ export const {
 });
 
 export type IMarketTokenSelectorTab = 'watchlist' | 'spot' | 'futures';
+export type IWatchlistSelectorFilter = 'all' | 'spot' | 'perps';
 
 export interface IMarketTokenSelectorConfigAtom {
   activeTab: IMarketTokenSelectorTab;
+  watchlistFilter: IWatchlistSelectorFilter;
+  spotNetworkId: string;
+  perpsCategoryId: string;
 }
 
 export const {
@@ -40,5 +44,10 @@ export const {
 } = globalAtom<IMarketTokenSelectorConfigAtom>({
   persist: true,
   name: EAtomNames.marketTokenSelectorConfigAtom,
-  initialValue: { activeTab: 'watchlist' },
+  initialValue: {
+    activeTab: 'watchlist',
+    watchlistFilter: 'all',
+    spotNetworkId: '',
+    perpsCategoryId: '',
+  },
 });
