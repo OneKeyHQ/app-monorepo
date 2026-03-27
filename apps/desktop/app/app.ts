@@ -71,6 +71,11 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
+import {
+  initTrayManager,
+  startPolling,
+  destroyTrayManager,
+} from './tray/TrayManager';
 
 initSentry();
 
@@ -755,6 +760,9 @@ async function createMainWindow() {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
     emitter.emit('ready');
+    if (isMac) {
+      startPolling(getSafelyMainWindow);
+    }
   });
   ipcMain.on(ipcMessageKeys.APP_READY, () => {
     if (!process.mas) {
@@ -1232,6 +1240,29 @@ if (!singleInstance && !process.mas) {
     // Menu is needed in both normal and recovery mode
     initMenu();
 
+    if (isMac) {
+      initTrayManager(
+        getSafelyMainWindow,
+        showMainWindow,
+        appStaticResourcesPath,
+        (win) => {
+          if (isDev) {
+            const port = process.env.PORT || 3001;
+            void win.loadURL(`http://localhost:${port}?render=tray`);
+          } else {
+            const bundleData = store.getUpdateBundleData();
+            const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+            const src = formatUrl({
+              pathname: bundleIndexHtmlPath || 'index.html',
+              protocol: 'file',
+              slashes: true,
+            });
+            void win.loadURL(`${src}?render=tray`);
+          }
+        },
+      );
+    }
+
     // In recovery mode, skip heavy app initialization.
     // createMainWindow() increments bootFailCount; if >= 3 it returned
     // a standalone recovery window that doesn't need these services.
@@ -1256,6 +1287,10 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
+  if (isMac) {
+    destroyTrayManager();
+  }
+
   // Reset crash counter on graceful shutdown so normal close
   // is not mistaken for a crash on next boot.
   // Skip reset when in recovery mode (count >= 3) so recovery is still
