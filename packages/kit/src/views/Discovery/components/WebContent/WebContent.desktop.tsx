@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { PageFaviconUpdatedEvent } from '@onekeyhq/kit/src/components/WebView/DesktopWebView';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
@@ -10,6 +9,7 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
@@ -95,30 +95,16 @@ function WebContent({ id, url }: IWebContentProps) {
     [id, onNavigation],
   );
   const onPageFaviconUpdated = useCallback(
-    async (e: PageFaviconUpdatedEvent) => {
-      // Ensure the e.favicons array is not empty, and there's an existing favicon URL
+    (e: PageFaviconUpdatedEvent) => {
       if (e.favicons.length > 0) {
-        let shouldUpdateFavicon = false;
-        const tabData = getWebTabById(id);
-        if (!tabData?.favicon) {
-          shouldUpdateFavicon = true;
-        } else {
-          const newFaviconURL = new URL(e.favicons[0]);
-          const oldFaviconURL = new URL(tabData?.favicon);
-          // Check if the origin of the new and old favicon URLs are different
-          if (newFaviconURL.origin !== oldFaviconURL.origin) {
-            shouldUpdateFavicon = true;
-          }
-        }
-        if (shouldUpdateFavicon) {
-          const newFavicon =
-            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
-              tabData?.url ?? '',
-            );
-          setWebTabData({
-            id,
-            favicon: newFavicon,
-          });
+        const newFavicon = e.favicons[0];
+        const newOrigin = uriUtils.getOriginFromUrl({ url: newFavicon });
+        if (!newOrigin) return;
+        const oldOrigin = uriUtils.getOriginFromUrl({
+          url: getWebTabById(id)?.favicon ?? '',
+        });
+        if (newOrigin !== oldOrigin) {
+          setWebTabData({ id, favicon: newFavicon });
         }
       }
     },
