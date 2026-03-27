@@ -359,6 +359,12 @@ export interface IMarketBasicConfigData {
   lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
   HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
   perpsCategories?: IMarketPerpsCategory[];
+  spotCategories?: IMarketSpotCategory[];
+}
+
+export interface IMarketSpotCategory {
+  type: string;
+  name: string;
 }
 
 export interface IMarketPerpsCategory {
