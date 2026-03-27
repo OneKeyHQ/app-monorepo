@@ -57,10 +57,8 @@ import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import './libs/react-native-mmkv-desktop-main';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import {
-  getBackgroundColor,
-  registerPlatformInfoHandler,
-} from './libs/utils';
+import { registerInfoHandlers } from './libs/registerInfoHandlers';
+import { getBackgroundColor } from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -780,22 +778,9 @@ async function createMainWindow() {
     disposeContextMenu?.();
   });
 
-  ipcMain.removeAllListeners(ipcMessageKeys.IS_DEV);
-  ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
-    event.returnValue = isDevServer;
-  });
-
-  registerPlatformInfoHandler();
-
-  ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
-  ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {
-    event.returnValue = path.dirname(logger.transports.file.getFile().path);
-  });
-
-  ipcMain.removeAllListeners(ipcMessageKeys.APP_IS_FOCUSED);
-  ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
+  registerInfoHandlers(isDevServer, () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
-    event.returnValue = safelyBrowserWindow?.isFocused();
+    return !!safelyBrowserWindow?.isFocused();
   });
 
   ipcMain.removeAllListeners(ipcMessageKeys.APP_SET_IDLE_TIME);
