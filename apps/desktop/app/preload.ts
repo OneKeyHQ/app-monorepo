@@ -3,6 +3,8 @@
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { contextBridge, ipcRenderer } from 'electron';
 
+import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/authConsts';
+
 import { ipcMessageKeys } from './config';
 
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
@@ -102,7 +104,7 @@ const desktopApi = {
       ipcMessageKeys.APP_IDLE,
       ipcMessageKeys.SERVER_START_RES,
       ipcMessageKeys.SERVER_LISTENER,
-      'oauth:desktop_localhost_server:callback',
+      OAUTH_CALLBACK_DESKTOP_CHANNEL,
     ]);
     if (!validIpcEventChannels.has(event)) {
       console.warn(`[preload] addIpcEventListener: blocked channel "${event}"`);
