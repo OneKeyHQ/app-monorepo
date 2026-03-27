@@ -258,13 +258,7 @@ async function decryptImportedCredential({
         : credential,
   });
   const text = bufferUtils.bytesToUtf8(decrypted);
-  try {
-    return JSON.parse(text) as ICoreImportedCredential;
-  } catch (error) {
-    throw new OneKeyLocalError(
-      `decryptImportedCredential ERROR: invalid password or corrupted credential (${error instanceof Error ? error.message : String(error)})`,
-    );
-  }
+  return JSON.parse(text) as ICoreImportedCredential;
 }
 
 async function encryptImportedCredential({
