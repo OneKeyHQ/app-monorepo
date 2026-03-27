@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const { FuseVersion, FuseV1Options } = require('@electron/fuses');
+// Electron fuses are now configured declaratively via the `electronFuses`
+// property in electron-builder-base.config.js. This avoids the afterPack
+// reprocessing that caused asar bloat (169MB padding from rewritten data).
 
 exports.default = async function fileOperation(context) {
   // https://www.electron.build/app-builder-lib.typealias.electronplatformname
@@ -38,33 +40,5 @@ exports.default = async function fileOperation(context) {
       fs.rmSync(keccakFilePath, { recursive: true });
     }
     console.log('remove file finish..');
-  }
-
-  // Cross-OS prebuilds are excluded via platform-specific `files` patterns
-  // in electron-builder configs, so they never enter the asar (fixes #10814).
-
-  if (
-    electronPlatformName === 'darwin' ||
-    electronPlatformName === 'win32' ||
-    electronPlatformName === 'linux'
-  ) {
-    await context.packager.addElectronFuses(context, {
-      version: FuseVersion.V1,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
-      [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableCookieEncryption]: true,
-      // Prevent ELECTRON_RUN_AS_NODE from turning the app into a plain Node.js process
-      [FuseV1Options.RunAsNode]: false,
-      // Prevent NODE_OPTIONS env var from injecting debug flags or inspect ports
-      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      // Keep file:// privileges enabled — disabling makes file:// an opaque origin,
-      // breaking localStorage/sessionStorage/indexedDB for the main window.
-      // Risk mitigation: the production file protocol interceptor in app.ts validates
-      // all resolved paths stay within the build directory (path traversal guard),
-      // preventing file:// from reading arbitrary files outside the app bundle.
-      // TODO: migrate to custom app:// protocol to fully eliminate file:// privileges.
-      [FuseV1Options.GrantFileProtocolExtraPrivileges]: true,
-    });
   }
 };

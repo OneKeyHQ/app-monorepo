@@ -42,6 +42,20 @@ const baseElectronBuilderConfig = {
     'repo': 'app-monorepo',
     'owner': 'OneKeyHQ',
   },
+  'electronFuses': {
+    'runAsNode': false,
+    'enableCookieEncryption': true,
+    'enableNodeOptionsEnvironmentVariable': false,
+    'enableNodeCliInspectArguments': false,
+    'enableEmbeddedAsarIntegrityValidation': true,
+    'onlyLoadAppFromAsar': true,
+    // Keep file:// privileges enabled — disabling makes file:// an opaque origin,
+    // breaking localStorage/sessionStorage/indexedDB for the main window.
+    // Risk mitigation: the production file protocol interceptor in app.ts validates
+    // all resolved paths stay within the build directory (path traversal guard).
+    // TODO: migrate to custom app:// protocol to fully eliminate file:// privileges.
+    'grantFileProtocolExtraPrivileges': true,
+  },
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
 };
