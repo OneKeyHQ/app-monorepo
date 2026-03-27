@@ -418,7 +418,9 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
           title:
             error instanceof Error
               ? error.message
-              : 'Market swap review open failed.',
+              : intl.formatMessage({
+                  id: ETranslations.global_unknown_error,
+                }),
         });
       }
     },

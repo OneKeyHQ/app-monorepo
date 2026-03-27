@@ -2,6 +2,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
@@ -192,6 +193,7 @@ describe('SwapPanelWrap', () => {
     showDialogMock.mockReset();
     prepareMarketSwapReviewMock.mockReset();
     useSpeedSwapActionsMock.mockReset();
+    (Toast.error as jest.Mock).mockReset();
     mockSpeedCheckLoading = false;
     mockCheckTokenAllowanceLoading = false;
     mockSwapApprovingMatchLoading = false;
@@ -263,5 +265,19 @@ describe('SwapPanelWrap', () => {
 
     expect(prepareMarketSwapReviewMock).not.toHaveBeenCalled();
     expect(showDialogMock).not.toHaveBeenCalled();
+  });
+
+  it('uses a translation key fallback when review opening throws a non-error value', async () => {
+    prepareMarketSwapReviewMock.mockRejectedValueOnce('unknown failure');
+
+    render(<SwapPanelWrap />);
+
+    fireEvent.click(screen.getByTestId('swap-action'));
+
+    await waitFor(() => {
+      expect(Toast.error).toHaveBeenCalledWith({
+        title: ETranslations.global_unknown_error,
+      });
+    });
   });
 });
