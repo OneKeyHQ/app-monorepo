@@ -12,12 +12,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Icon,
-  ListView,
   Popover,
   SearchBar,
   SizableText,
   Spinner,
   Stack,
+  Table,
   XStack,
   YStack,
   rootNavigationRef,
@@ -32,12 +32,11 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { MarketListColumnHeader } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListColumnHeader';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketPerpsToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
+import { usePerpsColumnsDesktop } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/usePerpsColumns';
 import { MarketPerpsCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsCategorySelector';
-import { MarketPerpsTokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsTokenListItem';
-import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
+import { useColumnsDesktop as useSpotColumnsDesktop } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/useColumnsDesktop';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -53,6 +52,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -129,6 +132,7 @@ function DesktopWatchlistList({
   selectedFilter: string;
   onSelectFilter: (filter: IWatchlistFilterType) => void;
 }) {
+  const { navigateToPerps } = usePerpsNavigation();
   const [watchlistState] = useMarketWatchListV2Atom();
 
   const { data, isLoading } = useMarketWatchlistTokenList({
@@ -164,17 +168,25 @@ function DesktopWatchlistList({
     return filtered;
   }, [stableData, searchQuery, selectedFilter]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: IMarketToken }) => (
-      <TokenListItem item={item} onPress={() => onSelectToken(item)} />
-    ),
-    [onSelectToken],
+  const columns = useSpotColumnsDesktop(
+    undefined,
+    true, // isWatchlistMode
+    false,
+    EWatchlistFrom.Search,
+    ECopyFrom.Search,
   );
 
-  const keyExtractor = useCallback(
-    (item: IMarketToken) =>
-      `watchlist-${item.address}-${item.symbol}-${item.networkId}`,
-    [],
+  const onRow = useCallback(
+    (item: IMarketToken) => ({
+      onPress: () => {
+        if (item.perpsCoin) {
+          navigateToPerps(item.perpsCoin);
+          return;
+        }
+        onSelectToken(item);
+      },
+    }),
+    [onSelectToken, navigateToPerps],
   );
 
   if (isLoading && stableData.length === 0) {
@@ -192,17 +204,18 @@ function DesktopWatchlistList({
         onSelectFilter={onSelectFilter}
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
-      <MarketListColumnHeader />
       <YStack height={LIST_HEIGHT}>
-        <ListView
-          useFlashList
-          windowSize={3}
-          initialNumToRender={10}
-          data={filteredData}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
+        <Table<IMarketToken>
+          showHeader
+          scrollEnabled
+          stickyHeader={false}
+          columns={columns}
+          dataSource={filteredData}
+          keyExtractor={(item) =>
+            `watchlist-${item.address}-${item.symbol}-${item.networkId}`
+          }
           estimatedItemSize={60}
-          showsVerticalScrollIndicator={false}
+          onRow={onRow}
         />
       </YStack>
     </YStack>
@@ -223,6 +236,7 @@ function DesktopSpotList({
   selectedNetworkId: string;
   onNetworkIdChange: (id: string) => void;
 }) {
+  const { navigateToPerps } = usePerpsNavigation();
   const { data, isLoading, isLoadingMore, canLoadMore, loadMore } =
     useMarketTokenList({
       networkId: selectedNetworkId,
@@ -248,17 +262,12 @@ function DesktopSpotList({
     );
   }, [stableData, searchQuery]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: IMarketToken }) => (
-      <TokenListItem item={item} onPress={() => onSelectToken(item)} />
-    ),
-    [onSelectToken],
-  );
-
-  const keyExtractor = useCallback(
-    (item: IMarketToken) =>
-      `spot-${item.address}-${item.symbol}-${item.networkId}`,
-    [],
+  const columns = useSpotColumnsDesktop(
+    selectedNetworkId,
+    false, // isWatchlistMode
+    false,
+    undefined,
+    ECopyFrom.Search,
   );
 
   const handleEndReached = useCallback(() => {
@@ -266,6 +275,19 @@ function DesktopSpotList({
       void loadMore();
     }
   }, [canLoadMore, isLoadingMore, loadMore]);
+
+  const onRow = useCallback(
+    (item: IMarketToken) => ({
+      onPress: () => {
+        if (item.perpsCoin) {
+          navigateToPerps(item.perpsCoin);
+          return;
+        }
+        onSelectToken(item);
+      },
+    }),
+    [onSelectToken, navigateToPerps],
+  );
 
   if (isLoading && stableData.length === 0) {
     return (
@@ -283,19 +305,19 @@ function DesktopSpotList({
         placement="bottom-start"
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
-      <MarketListColumnHeader />
       <YStack height={LIST_HEIGHT}>
-        <ListView
-          useFlashList
-          windowSize={3}
-          initialNumToRender={10}
-          data={filteredData}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
+        <Table<IMarketToken>
+          showHeader
+          scrollEnabled
+          stickyHeader={false}
+          columns={columns}
+          dataSource={filteredData}
+          keyExtractor={(item) =>
+            `spot-${item.address}-${item.symbol}-${item.networkId}`
+          }
           estimatedItemSize={60}
-          showsVerticalScrollIndicator={false}
           onEndReached={handleEndReached}
-          onEndReachedThreshold={0.2}
+          onRow={onRow}
         />
       </YStack>
     </YStack>
@@ -351,27 +373,16 @@ function DesktopFuturesList({
     );
   }, [tokens, searchQuery]);
 
-  const handleSelectPerpsToken = useCallback(
-    (coin: string) => {
-      onClosePopover();
-      navigateToPerps(coin);
-    },
-    [onClosePopover, navigateToPerps],
-  );
+  const perpsColumns = usePerpsColumnsDesktop();
 
-  const renderItem = useCallback(
-    ({ item }: { item: IMarketPerpsToken }) => (
-      <MarketPerpsTokenListItem
-        item={item}
-        onPress={() => handleSelectPerpsToken(item.name)}
-      />
-    ),
-    [handleSelectPerpsToken],
-  );
-
-  const keyExtractor = useCallback(
-    (item: IMarketPerpsToken) => `futures-${item.name}`,
-    [],
+  const onRow = useCallback(
+    (item: IMarketPerpsToken) => ({
+      onPress: () => {
+        navigateToPerps(item.name);
+        onClosePopover();
+      },
+    }),
+    [navigateToPerps, onClosePopover],
   );
 
   if (isLoading && tokens.length === 0) {
@@ -391,15 +402,15 @@ function DesktopFuturesList({
         containerStyle={{ px: '$3', pt: '$2', pb: '$1' }}
       />
       <YStack height={LIST_HEIGHT}>
-        <ListView
-          useFlashList
-          windowSize={3}
-          initialNumToRender={10}
-          data={filteredTokens}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
+        <Table<IMarketPerpsToken>
+          showHeader
+          scrollEnabled
+          stickyHeader={false}
+          columns={perpsColumns}
+          dataSource={filteredTokens}
+          keyExtractor={(item) => `futures-${item.name}`}
           estimatedItemSize={60}
-          showsVerticalScrollIndicator={false}
+          onRow={onRow}
         />
       </YStack>
     </YStack>
