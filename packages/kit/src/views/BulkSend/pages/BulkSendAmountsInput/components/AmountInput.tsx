@@ -157,7 +157,13 @@ export function SpecifiedAmountInput() {
   return (
     <YStack gap="$1.5" w="100%">
       <BaseAmountInput
-        value={isMaxMode ? 'Max' : amountInputValues.specifiedAmount}
+        value={
+          isMaxMode
+            ? intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_placeholder_max,
+              })
+            : amountInputValues.specifiedAmount
+        }
         onChange={handleChange}
         hasError={hasSpecifiedAmountError}
         inputProps={{
