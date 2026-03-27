@@ -1,0 +1,36 @@
+[
+  {
+    "seq": 1,
+    "commit": "9ceb0a7816ffac3e0ae2350657b47eb3b92b4ec9",
+    "date": "2026-03-26T11:05:54Z",
+    "prs": [
+      "#10809",
+      "#10812",
+      "#10816",
+      "#10817",
+      "#10818",
+      "#10821",
+      "#10822",
+      "#10823",
+      "#10827",
+      "#10836",
+      "#10838",
+      "#10846",
+      "#10847",
+      "#10851",
+      "#10852",
+      "#10857",
+      "#10858",
+      "#10859",
+      "#10861",
+      "#10862",
+      "#10864",
+      "#10869",
+      "#10870",
+      "#10880",
+      "#10882",
+      "#10896"
+    ],
+    "notes": "Speed swap stock quote sign, support URL query param for swap tab, search address on account selector, collateral repay flow, optimize Buy token list ordering, restore desktop history list layout, Android UI fixes (ListItem overlap & Switch disabled state), fix RecentHistory pending transactions, clamp tron resources, hide DeFi earn banner when 0% APR, quote tips checkbox, correct perp token pair suffix, guard cancelIdleCallback behind platformEnv.isNative"
+  }
+]
