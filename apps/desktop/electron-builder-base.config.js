@@ -1,5 +1,4 @@
 /* eslint-disable no-template-curly-in-string */
-const { baseFiles } = require('./electron-builder-files.config');
 const { getPath } = require('./scripts/utils');
 
 require('../../development/env');
@@ -18,7 +17,6 @@ const baseElectronBuilderConfig = {
     'output': 'build-electron',
   },
   'npmRebuild': false,
-  'files': baseFiles,
   'protocols': {
     'name': 'electron-deep-linking',
     'schemes': ['onekey-wallet', 'wc', 'ethereum'],
