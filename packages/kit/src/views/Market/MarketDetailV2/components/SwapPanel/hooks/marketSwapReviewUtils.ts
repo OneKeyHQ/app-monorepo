@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
@@ -26,6 +28,70 @@ export function assertMarketReviewQuoteResult(
     throw new OneKeyLocalError('Market swap review requires toAmount.');
   }
   return quoteResult;
+}
+
+function areQuoteAmountsEqual(value1?: string, value2?: string) {
+  if (!value1 && !value2) {
+    return true;
+  }
+
+  if (!value1 || !value2) {
+    return false;
+  }
+
+  const value1BN = new BigNumber(value1);
+  const value2BN = new BigNumber(value2);
+
+  if (value1BN.isNaN() || value2BN.isNaN()) {
+    return value1 === value2;
+  }
+
+  return value1BN.eq(value2BN);
+}
+
+export function assertMarketSignedBuildInvariant({
+  reviewedQuoteResult,
+  rebuiltQuoteResult,
+  skipSendTransAction,
+}: {
+  reviewedQuoteResult: IFetchQuoteResult;
+  rebuiltQuoteResult: IFetchQuoteResult;
+  skipSendTransAction: boolean;
+}) {
+  const reviewed = assertMarketReviewQuoteResult(reviewedQuoteResult);
+  const rebuilt = assertMarketReviewQuoteResult(rebuiltQuoteResult);
+
+  if (!skipSendTransAction) {
+    throw new OneKeyLocalError(
+      'Market sign review requires a signed order result.',
+    );
+  }
+
+  if (
+    reviewed.info.provider !== rebuilt.info.provider ||
+    reviewed.info.providerName !== rebuilt.info.providerName
+  ) {
+    throw new OneKeyLocalError(
+      'Market sign review provider changed after signing.',
+    );
+  }
+
+  if (!areQuoteAmountsEqual(reviewed.fromAmount, rebuilt.fromAmount)) {
+    throw new OneKeyLocalError(
+      'Market sign review amount changed after signing.',
+    );
+  }
+
+  if (
+    reviewed.minToAmount &&
+    !areQuoteAmountsEqual(reviewed.minToAmount, rebuilt.minToAmount)
+  ) {
+    throw new OneKeyLocalError(
+      'Market sign review min receive changed after signing.',
+    );
+  }
+
+  return rebuilt;
 }
 
 export function normalizeMarketReviewQuoteResult({
