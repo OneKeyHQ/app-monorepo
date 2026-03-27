@@ -8,6 +8,7 @@ import {
   Dialog,
   Empty,
   Icon,
+  Image,
   SizableText,
   Skeleton,
   XStack,
@@ -192,12 +193,11 @@ function ProtocolImage({
 }) {
   return (
     <XStack position="relative" w="$9" h="$9" flexShrink={0}>
-      <Token
-        size="lg"
-        borderRadius="$2"
-        tokenImageUri={logoURI}
-        bg="$transparent"
-      />
+      {logoURI ? (
+        <Image w="$9" h="$9" borderRadius="$2" source={{ uri: logoURI }} />
+      ) : (
+        <Skeleton w="$9" h="$9" borderRadius="$2" />
+      )}
       {networkLogoURI ? (
         <XStack
           position="absolute"
@@ -247,7 +247,7 @@ export function ProtocolListContent({
   const switcherContentContainerProps = useMemo(
     () =>
       media.gtMd
-        ? { p: '$1' as const }
+        ? { p: '$1' as const, pb: '$2' as const }
         : { px: '$3' as const, pb: '$5' as const },
     [media.gtMd],
   );
@@ -403,7 +403,7 @@ export function ProtocolListContent({
         getProtocolItemKey(item) === selectedProtocolKey;
       const secondaryText = [
         formatTvl(item.provider.tvl),
-        item.provider.vaultName || item.provider.description,
+        item.provider.vaultName,
       ]
         .filter(Boolean)
         .join(' · ');
