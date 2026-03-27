@@ -19,7 +19,7 @@ export function useTrayDataProvider() {
   const handleTrayDataRequest = useCallback(async () => {
     try {
       const trayData: ITrayData = {
-        wallet: { name: '', emoji: '' },
+        wallet: { name: '', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
         pendingTxs: [],
@@ -45,12 +45,15 @@ export function useTrayDataProvider() {
               if (avatarInfo?.emoji && avatarInfo.emoji !== 'img') {
                 trayData.wallet.emoji = avatarInfo.emoji;
               }
+              if (avatarInfo?.img) {
+                trayData.wallet.avatarImg = avatarInfo.img;
+              }
             } catch {
               // avatar is not JSON
             }
           }
-          // Fallback emoji by wallet type
-          if (!trayData.wallet.emoji) {
+          // Fallback emoji by wallet type (only if no avatar image)
+          if (!trayData.wallet.emoji && !trayData.wallet.avatarImg) {
             if (wallet?.type === 'watching') {
               trayData.wallet.emoji = '👁';
             } else if (wallet?.type === 'hw') {
@@ -196,7 +199,7 @@ export function useTrayDataProvider() {
       (globalThis as any).desktopApi?.sendTrayData(trayData);
     } catch {
       (globalThis as any).desktopApi?.sendTrayData({
-        wallet: { name: 'Wallet', emoji: '' },
+        wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
         watchlist: [],
         pendingTxs: [],

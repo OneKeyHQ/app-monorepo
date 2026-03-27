@@ -25,6 +25,7 @@ export interface ITrayData {
   wallet: {
     name: string;
     emoji: string;
+    avatarImg: string; // avatar image name e.g. 'rabbit', 'bear'
   };
   totalBalance: {
     amount: string;

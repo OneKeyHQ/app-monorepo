@@ -1,11 +1,13 @@
-import { Stack, SizableText } from '@onekeyhq/components';
+import { Stack, SizableText, Image } from '@onekeyhq/components';
+import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 export function PortfolioOverview({
   wallet,
   totalBalance,
   onPress,
 }: {
-  wallet: { name: string; emoji: string };
+  wallet: { name: string; emoji: string; avatarImg: string };
   totalBalance: { amount: string; currency: string; change24h: number };
   onPress: () => void;
 }) {
@@ -25,6 +27,11 @@ export function PortfolioOverview({
     maximumFractionDigits: 2,
   });
 
+  const avatarSource =
+    wallet.avatarImg
+      ? AllWalletAvatarImages[wallet.avatarImg as IAllWalletAvatarImageNamesWithoutDividers]
+      : undefined;
+
   return (
     <Stack
       padding="$4"
@@ -35,7 +42,15 @@ export function PortfolioOverview({
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <Stack flexDirection="row" alignItems="center" marginBottom="$1">
-        {wallet.emoji ? (
+        {avatarSource ? (
+          <Image
+            source={avatarSource}
+            width={20}
+            height={20}
+            borderRadius={4}
+            marginRight="$1.5"
+          />
+        ) : wallet.emoji ? (
           <SizableText fontSize="$bodyMd" marginRight="$1.5">
             {wallet.emoji}
           </SizableText>
