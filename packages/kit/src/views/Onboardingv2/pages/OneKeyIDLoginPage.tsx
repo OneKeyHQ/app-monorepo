@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -35,23 +36,33 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
+const optionItemNativePressableStyle = {
+  width: '100%',
+  flexGrow: 0,
+  flexShrink: 0,
+} as const;
+
 function OptionItem({
   icon,
   iconProps,
   title,
   isLoading,
   onPress,
+  mt,
 }: {
   icon: IKeyOfIcons;
   iconProps?: IIconProps;
   title: string;
   isLoading?: boolean;
   onPress?: () => void;
+  mt?: ComponentProps<typeof ListItem>['mt'];
 }) {
   return (
     <ListItem
       gap="$3"
       bg="$bg"
+      w="100%"
+      minHeight="$14"
       $platform-web={{
         boxShadow:
           '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
@@ -67,20 +78,27 @@ function OptionItem({
       }}
       borderRadius="$5"
       borderCurve="continuous"
+      overflow="hidden"
       p="$3"
       m="$0"
+      mt={mt}
+      nativePressableStyle={optionItemNativePressableStyle}
       onPress={onPress}
-      nativePressableStyle={{ flexShrink: 0 }}
       userSelect="none"
     >
       <YStack
+        w="$10"
+        h="$10"
+        alignItems="center"
+        justifyContent="center"
+        flexShrink={0}
         borderRadius="$full"
         bg="$neutral2"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$neutral2"
         p="$2"
       >
-        <Icon name={icon} {...iconProps} />
+        <Icon name={icon} size="$5" {...iconProps} />
       </YStack>
       <YStack gap={2} flex={1}>
         <SizableText size="$bodyLgMedium">{title}</SizableText>
@@ -245,6 +263,7 @@ function OneKeyIDLoginPage() {
                 <OptionItem
                   icon="AppleBrand"
                   title="Apple"
+                  mt={!requiredProvider ? '$3' : undefined}
                   iconProps={{
                     color: '$iconActive',
                     y: -1,
