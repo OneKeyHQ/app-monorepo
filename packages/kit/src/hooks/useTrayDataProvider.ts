@@ -180,14 +180,30 @@ export function useTrayDataProvider() {
 
       // 4. Pending transactions
       try {
-        if (selectedAccount?.accountId && selectedAccount?.networkId) {
-          const history =
-            await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
-              {
-                accountId: selectedAccount.accountId,
-                networkId: selectedAccount.networkId,
-              },
-            );
+        const accountId = activeAccountValueRef.current?.accountId;
+        const networkId = selectedAccount?.networkId;
+        if (accountId && networkId) {
+          // Resolve account address the same way ServiceHistory does
+          const [accountAddress, xpub] = await Promise.all([
+            backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+              accountId,
+              networkId,
+            }),
+            backgroundApiProxy.serviceAccount.getAccountXpub({
+              accountId,
+              networkId,
+            }),
+          ]);
+
+          const history = accountAddress
+            ? await backgroundApiProxy.serviceHistory.getAccountLocalHistoryPendingTxs(
+                {
+                  networkId,
+                  accountAddress,
+                  xpub: xpub || undefined,
+                },
+              )
+            : [];
           if (history?.length) {
             trayData.pendingTxs = history.slice(0, 5).map((tx: any) => {
               const decodedTx = tx.decodedTx;
