@@ -179,22 +179,28 @@ export function useTrayDataProvider() {
         console.error('[TrayDataProvider] watchlist error:', e);
       }
 
-      // 4. Pending transactions — use fetchAccountHistory which handles all-network mode
+      // 4. Pending transactions — read directly from simpleDb raw data
       try {
-        const accountId = activeAccountValueRef.current?.accountId;
-        const networkId = selectedAccount?.networkId;
-        console.log('[TrayDataProvider] pending tx params:', { accountId, networkId });
-        if (accountId && networkId) {
-          const historyResult =
-            await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-              accountId,
-              networkId,
-            });
-          // Filter to only pending txs (status = 'Pending')
-          const history = (historyResult || []).filter(
-            (tx: any) => tx.decodedTx?.status === 'Pending',
+        {
+          const rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
+          const allPendingTxs: any[] = [];
+          if (rawData?.pendingTxs) {
+            for (const txs of Object.values(rawData.pendingTxs)) {
+              if (Array.isArray(txs)) {
+                for (const tx of txs) {
+                  if (tx?.decodedTx?.status === 'Pending') {
+                    allPendingTxs.push(tx);
+                  }
+                }
+              }
+            }
+          }
+          // Sort by most recent first
+          allPendingTxs.sort(
+            (a, b) =>
+              (b.decodedTx?.createdAt || 0) - (a.decodedTx?.createdAt || 0),
           );
-          console.log('[TrayDataProvider] history total:', historyResult?.length, 'pending:', history.length);
+          const history = allPendingTxs;
           if (history?.length) {
             trayData.pendingTxs = history.slice(0, 5).map((tx: any) => {
               const decodedTx = tx.decodedTx;
