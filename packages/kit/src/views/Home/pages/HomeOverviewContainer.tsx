@@ -620,7 +620,7 @@ function HomeOverviewContainer() {
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
-          <Skeleton.Heading5Xl my="$-0.5" />
+          <Skeleton.Heading5Xl />
         ) : (
           <XStack alignItems="center" gap="$3">
             <XStack
