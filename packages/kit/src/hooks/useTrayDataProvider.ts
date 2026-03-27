@@ -70,7 +70,8 @@ export function useTrayDataProvider() {
             }
           }
         }
-      } catch {
+      } catch (e) {
+        console.warn('[TrayDataProvider] wallet info error:', e);
         trayData.wallet.name = 'Wallet';
       }
 
@@ -181,7 +182,6 @@ export function useTrayDataProvider() {
 
       // 4. Pending transactions — read directly from simpleDb raw data
       try {
-        {
           const rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
           const allPendingTxs: any[] = [];
           if (rawData?.pendingTxs) {
@@ -208,11 +208,11 @@ export function useTrayDataProvider() {
               const transfer = action?.assetTransfer;
 
               // Determine tx type from action
-              let txType: 'send' | 'swap' | 'contract' = 'send';
+              let txType: 'send' | 'swap' | 'contract' | 'approve' = 'send';
               if (action?.type === 'INTERNAL_SWAP' || transfer?.isInternalSwap) {
                 txType = 'swap';
               } else if (action?.type === 'TOKEN_APPROVE') {
-                txType = 'contract';
+                txType = 'approve';
               } else if (action?.type === 'ASSET_TRANSFER') {
                 txType = 'send';
               }
@@ -244,9 +244,8 @@ export function useTrayDataProvider() {
               };
             });
           }
-        }
-      } catch {
-        // pending tx fetch failed
+      } catch (e) {
+        console.warn('[TrayDataProvider] pending tx error:', e);
       }
 
       (globalThis as any).desktopApi?.sendTrayData(trayData);

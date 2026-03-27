@@ -2,6 +2,9 @@ import path from 'path';
 import { BrowserWindow, type Tray, screen } from 'electron';
 import isDev from 'electron-is-dev';
 
+const WINDOW_WIDTH = 360;
+const WINDOW_HEIGHT = 480;
+
 let trayWindow: BrowserWindow | null = null;
 
 function calculateWindowPosition(
@@ -37,8 +40,6 @@ export function createTrayWindow(
     return trayWindow;
   }
 
-  const WINDOW_WIDTH = 360;
-  const WINDOW_HEIGHT = 480;
   const { x, y } = calculateWindowPosition(tray, WINDOW_WIDTH, WINDOW_HEIGHT);
 
   trayWindow = new BrowserWindow({
@@ -115,15 +116,9 @@ export function showTrayWindow(tray: Tray): void {
     return;
   }
 
-  const { x, y } = calculateWindowPosition(tray, 360, 480);
+  const { x, y } = calculateWindowPosition(tray, WINDOW_WIDTH, WINDOW_HEIGHT);
   trayWindow.setPosition(x, y);
   trayWindow.show();
-}
-
-export function hideTrayWindow(): void {
-  if (trayWindow && !trayWindow.isDestroyed()) {
-    trayWindow.hide();
-  }
 }
 
 export function getTrayWindow(): BrowserWindow | null {

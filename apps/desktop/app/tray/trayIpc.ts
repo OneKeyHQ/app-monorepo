@@ -5,6 +5,11 @@ import { getTrayWindow } from './trayWindow';
 import { diffAndNotify } from './trayNotification';
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 
+const ALLOWED_TRAY_ACTION_TYPES = new Set([
+  'open-page',
+  'market-detail-v2',
+]);
+
 let cachedTrayData: ITrayData | null = null;
 let isLocked = false;
 
@@ -22,12 +27,6 @@ export function registerTrayIpcHandlers(
 ): void {
   ipcMain.on(ipcMessageKeys.TRAY_DATA_RESPONSE, (_event, data: ITrayData) => {
     cachedTrayData = data;
-    logger.info('[TrayIpc] data received:', JSON.stringify({
-      wallet: data.wallet?.name,
-      balance: data.totalBalance?.amount,
-      watchlist: data.watchlist?.length,
-      pendingTxs: data.pendingTxs?.length,
-    }));
 
     if (!isLocked) {
       diffAndNotify(data.pendingTxs);
@@ -41,10 +40,14 @@ export function registerTrayIpcHandlers(
 
   ipcMain.on(
     ipcMessageKeys.TRAY_ACTION,
-    (_event, action: any) => {
+    (_event, action: { type: string; [key: string]: unknown }) => {
+      if (!action?.type || !ALLOWED_TRAY_ACTION_TYPES.has(action.type)) {
+        logger.warn('[TrayIpc] rejected unknown action type:', action?.type);
+        return;
+      }
+
       showMainWindow();
 
-      // Forward the action to main window renderer for navigation
       const mainWindow = getMainWindow();
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(ipcMessageKeys.TRAY_ACTION, action);
@@ -58,7 +61,6 @@ export function sendCachedDataToTrayWindow(): void {
   const trayWindow = getTrayWindow();
   if (trayWindow && !trayWindow.isDestroyed()) {
     trayWindow.webContents.send(ipcMessageKeys.TRAY_UPDATE, cachedTrayData);
-    logger.info('[TrayIpc] sent cached data to tray window');
   }
 }
 

@@ -6,7 +6,16 @@ import { PortfolioOverview } from './components/PortfolioOverview';
 import { WatchlistTickers } from './components/WatchlistTickers';
 import { PendingTransactions } from './components/PendingTransactions';
 
-function sendTrayAction(action: { type: string; route?: string }) {
+interface ITrayAction {
+  type: string;
+  route?: string;
+  tokenAddress?: string;
+  networkId?: string;
+  isNative?: boolean;
+  perpsCoin?: string;
+}
+
+function sendTrayAction(action: ITrayAction) {
   (globalThis as any).desktopApi?.sendTrayAction(action);
 }
 
@@ -38,7 +47,7 @@ export function TrayPanel() {
         networkId: ticker.networkId || '',
         isNative: ticker.isNative || false,
         perpsCoin: ticker.perpsCoin || '',
-      } as any);
+      });
     },
     [],
   );

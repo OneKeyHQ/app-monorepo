@@ -1,6 +1,5 @@
 import path from 'path';
 import { type BrowserWindow, Tray, nativeImage } from 'electron';
-import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 
 import { ipcMessageKeys } from '../config';
