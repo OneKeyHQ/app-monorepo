@@ -6,7 +6,8 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 import {
-  SafeAreaProvider,
+  SafeAreaFrameContext,
+  SafeAreaInsetsContext,
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
@@ -236,12 +237,19 @@ function PortalContainer(props: {
   }, [name]);
 
   const { Root } = sibling;
+  defaultLogger.app.component.logPortalContainer(name, initialWindowMetrics);
   return (
     <>
       {children}
-      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-        <Root />
-      </SafeAreaProvider>
+      <SafeAreaFrameContext.Provider
+        value={initialWindowMetrics?.frame ?? null}
+      >
+        <SafeAreaInsetsContext.Provider
+          value={initialWindowMetrics?.insets ?? null}
+        >
+          <Root />
+        </SafeAreaInsetsContext.Provider>
+      </SafeAreaFrameContext.Provider>
     </>
   );
 }
