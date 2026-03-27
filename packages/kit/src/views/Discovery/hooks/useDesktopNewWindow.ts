@@ -29,15 +29,12 @@ export function useDesktopNewWindow() {
     [handleOpenWebSite, navigation, gtMd],
   );
   useEffect(() => {
-    globalThis.desktopApi?.addIpcEventListener(
+    const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
       ipcMessageKeys.WEBVIEW_NEW_WINDOW,
       onNewWindow,
     );
     return () => {
-      globalThis.desktopApi?.removeIpcEventListener(
-        ipcMessageKeys.WEBVIEW_NEW_WINDOW,
-        onNewWindow,
-      );
+      unsubscribe?.();
     };
   }, [onNewWindow]);
 }

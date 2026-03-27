@@ -93,13 +93,19 @@ const desktopApi = {
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
-    ipcRenderer.addListener(event, listener);
+    const wrapped = (...args: any[]) => listener(...args);
+    ipcRenderer.addListener(event, wrapped);
+    return () => {
+      ipcRenderer.removeListener(event, wrapped);
+    };
   },
   removeIpcEventListener: (
     event: string,
-    listener: (...args: any[]) => void,
+    _listener: (...args: any[]) => void,
   ) => {
-    ipcRenderer.removeListener(event, listener);
+    // Deprecated: With contextIsolation, proxy identity prevents matching.
+    // Use the unsubscribe function returned by addIpcEventListener instead.
+    void event;
   },
   onAppState: (cb: (state: 'active' | 'background') => void) => {
     const handler = (_: any, value: any) => cb(value);

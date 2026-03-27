@@ -15,16 +15,11 @@ export const useShortcuts = (
           callback(e);
         }
       };
-      globalThis.desktopApi.addIpcEventListener(
+      const unsubscribe = globalThis.desktopApi.addIpcEventListener(
         ipcMessageKeys.APP_SHORTCUT,
         handleCallback,
       );
-      return () => {
-        globalThis.desktopApi.removeIpcEventListener(
-          ipcMessageKeys.APP_SHORTCUT,
-          handleCallback,
-        );
-      };
+      return unsubscribe;
     }
   }, [callback, eventName]);
 };

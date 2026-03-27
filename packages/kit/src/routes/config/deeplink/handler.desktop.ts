@@ -3,9 +3,14 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 
 import type { IRegisterHandler } from './handler.type';
 
+let previousUnsubscribe: (() => void) | null = null;
+
 export const registerHandler: IRegisterHandler = (
   handleDeepLinkUrl: (e: IDesktopOpenUrlEventData) => void,
 ) => {
+  // Unsubscribe previous listener to prevent duplicate handling on re-registration
+  previousUnsubscribe?.();
+
   const desktopLinkingHandler = (
     _event: Event,
     data: IDesktopOpenUrlEventData,
@@ -13,16 +18,7 @@ export const registerHandler: IRegisterHandler = (
     handleDeepLinkUrl(data);
   };
 
-  try {
-    globalThis.desktopApi.removeIpcEventListener(
-      ipcMessageKeys.EVENT_OPEN_URL,
-      desktopLinkingHandler,
-    );
-  } catch {
-    // noop
-  }
-
-  globalThis.desktopApi.addIpcEventListener(
+  previousUnsubscribe = globalThis.desktopApi.addIpcEventListener(
     ipcMessageKeys.EVENT_OPEN_URL,
     desktopLinkingHandler,
   );

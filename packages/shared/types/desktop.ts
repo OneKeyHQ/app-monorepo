@@ -58,7 +58,7 @@ export type IDesktopApiLegacy = {
   addIpcEventListener: (
     event: string,
     listener: (...args: any[]) => void,
-  ) => void;
+  ) => () => void;
   removeIpcEventListener: (
     event: string,
     listener: (...args: any[]) => void,

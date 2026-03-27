@@ -30,15 +30,12 @@ export function useCrossDomainRedirect(
         redirectToDiscovery(data.url);
       }
     };
-    globalThis.desktopApi?.addIpcEventListener(
+    const unsubscribe = globalThis.desktopApi?.addIpcEventListener(
       ipcMessageKeys.WEBVIEW_NEW_WINDOW,
       handleDesktopNewWindow,
     );
     return () => {
-      globalThis.desktopApi?.removeIpcEventListener(
-        ipcMessageKeys.WEBVIEW_NEW_WINDOW,
-        handleDesktopNewWindow,
-      );
+      unsubscribe?.();
     };
   }, [enabled, isCrossDomain, redirectToDiscovery, isUnmounting]);
 
