@@ -1,7 +1,8 @@
 // Lightweight shim for @testing-library/react-native in the harness environment.
-// @testing-library/react-native imports Node.js built-ins (console, util, picocolors) that Metro can't
-// resolve. This shim re-implements renderHook/act/waitFor following @testing-library/react-native's
-// source patterns, using react-test-renderer (pure JS, no Node.js or DOM deps).
+// @testing-library/react-native imports Node.js built-ins (console, util,
+// picocolors) that Metro can't resolve. This shim re-implements
+// renderHook/act/waitFor using react-test-renderer (pure JS, no Node.js or
+// DOM deps).
 //
 // Reference: @testing-library/react-native v13.3.3
 //   - build/render-hook.js   (renderHook)
@@ -16,55 +17,65 @@ import React from 'react';
 import TestRenderer from 'react-test-renderer';
 
 // ---------------------------------------------------------------------------
-// act — mirrors @testing-library/react-native's withGlobalActEnvironment wrapper
-// Sets IS_REACT_ACT_ENVIRONMENT=true during execution (React 18+ requirement)
+// act — for synchronous callbacks we delegate to TestRenderer.act directly.
+// For async callbacks, React.act() hangs on Hermes (it never resolves its
+// returned thenable), so we await the callback ourselves and then run a sync
+// act() pass to flush any remaining React effects.
 // ---------------------------------------------------------------------------
+
+const syncAct = (TestRenderer as any).act as (cb: () => void) => void;
 
 function act(callback: () => void | Promise<void>): void | Promise<void> {
   const previousActEnvironment = (globalThis as any).IS_REACT_ACT_ENVIRONMENT;
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+
+  // Detect whether the callback is async
+  let cbResult: void | Promise<void>;
   try {
-    const actFn = (TestRenderer as any).act as (
-      cb: () => void | Promise<void>,
-    ) => any;
-    let isCallbackAsync = false;
-    const result = actFn(() => {
-      const cbResult = callback();
-      isCallbackAsync =
-        cbResult !== null &&
-        cbResult !== undefined &&
-        typeof cbResult === 'object' &&
-        typeof (cbResult as any).then === 'function';
-      return cbResult;
-    });
-    if (
-      isCallbackAsync &&
-      result !== null &&
-      typeof result === 'object' &&
-      typeof result.then === 'function'
-    ) {
-      return (result as Promise<void>).then(
-        (returnValue) => {
-          (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-          return returnValue;
-        },
-        (error) => {
-          (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-          throw error;
-        },
-      );
-    }
-    (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
-    return result;
+    cbResult = callback();
   } catch (error) {
     (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
     throw error;
   }
+
+  const isAsync =
+    cbResult !== null &&
+    cbResult !== undefined &&
+    typeof cbResult === 'object' &&
+    typeof (cbResult as any).then === 'function';
+
+  if (isAsync) {
+    // Async path: await the callback, then flush pending React work with a
+    // sync act() pass. This avoids React.act(async) which hangs on Hermes.
+    return (cbResult as Promise<void>).then(
+      () => {
+        try {
+          syncAct(() => {});
+        } catch {
+          // ignore flush errors
+        }
+        (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+      },
+      (error) => {
+        (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+        throw error;
+      },
+    );
+  }
+
+  // Sync path: wrap in TestRenderer.act to flush effects
+  try {
+    syncAct(() => {});
+  } catch {
+    // ignore flush errors
+  }
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
 // renderHook — mirrors @testing-library/react-native's render-hook.js
-// Uses React.createRef + useEffect for result capture (same as @testing-library/react-native)
+// Uses React.createRef + useEffect for result capture
 // ---------------------------------------------------------------------------
 
 function renderHook<Result, Props = undefined>(
@@ -88,7 +99,7 @@ function renderHook<Result, Props = undefined>(
   const { initialProps, wrapper: Wrapper, ...renderOptions } = options ?? {};
 
   let renderer: TestRenderer.ReactTestRenderer;
-  void act(() => {
+  syncAct(() => {
     const element = React.createElement(HookContainer, {
       hookProps: initialProps as Props,
     }) as any;
@@ -107,12 +118,12 @@ function renderHook<Result, Props = undefined>(
       const wrappedElement = Wrapper
         ? (React.createElement(Wrapper, null, element) as any)
         : element;
-      void act(() => {
+      syncAct(() => {
         renderer!.update(wrappedElement);
       });
     },
     unmount: () => {
-      void act(() => {
+      syncAct(() => {
         renderer!.unmount();
       });
     },
@@ -120,9 +131,9 @@ function renderHook<Result, Props = undefined>(
 }
 
 // ---------------------------------------------------------------------------
-// waitFor — mirrors @testing-library/react-native's wait-for.js (real-timer path only)
-// Harness does not support fake timers, so we only implement the real-timer
-// branch: setInterval polling + overall timeout.
+// waitFor — mirrors @testing-library/react-native's wait-for.js (real-timer
+// path only). Harness does not support fake timers, so we only implement the
+// real-timer branch: setInterval polling + overall timeout.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_TIMEOUT = 1000;
