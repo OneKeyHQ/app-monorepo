@@ -222,6 +222,14 @@ async function processDeepLinkWalletConnect({
       if (queryParams?.['relay-protocol'] && queryParams?.symKey) {
         wcUri = url;
       }
+
+      // V2 fallback: expo-linking may fail to parse wc: URIs on Android
+      // because wc:TOPIC@2?... is non-standard (uses @ instead of /).
+      // If query param parsing yielded nothing, treat the raw URL as the
+      // WC URI directly if it contains the v2 version marker.
+      if (!wcUri && url.includes('@2?')) {
+        wcUri = url;
+      }
     }
 
     if (wcUri) {
