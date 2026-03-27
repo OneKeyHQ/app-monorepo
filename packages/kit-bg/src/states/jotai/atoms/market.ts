@@ -28,14 +28,9 @@ export const {
   initialValue: { sortBy: undefined, sortType: undefined },
 });
 
-export type IMarketTokenSelectorTab = 'watchlist' | 'spot' | 'futures';
-export type IWatchlistSelectorFilter = 'all' | 'spot' | 'perps';
-
 export interface IMarketTokenSelectorConfigAtom {
-  activeTab: IMarketTokenSelectorTab;
-  watchlistFilter: IWatchlistSelectorFilter;
+  isWatchlistMode: boolean;
   spotNetworkId: string;
-  perpsCategoryId: string;
 }
 
 export const {
@@ -45,9 +40,7 @@ export const {
   persist: true,
   name: EAtomNames.marketTokenSelectorConfigAtom,
   initialValue: {
-    activeTab: 'watchlist',
-    watchlistFilter: 'all',
+    isWatchlistMode: false,
     spotNetworkId: '',
-    perpsCategoryId: '',
   },
 });
