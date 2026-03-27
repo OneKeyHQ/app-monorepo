@@ -2878,7 +2878,7 @@
   "perp_portfolio_health_status_moderate": "Moderate",
   "perp_portfolio_margin_used": "Margin Used",
   "perp_portfolio_margin_used_tooltip": "Total margin allocated to open positions.",
-  "perp_portfolio_mmr_tooltip": "Maintenance Margin Ratio — the minimum margin required to keep positions open. Liquidation occurs when this exceeds 100%.",
+  "perp_portfolio_mmr_tooltip": "Maintenance Margin Ratio (cross-margin only) — the minimum margin required to keep cross positions open. Isolated margin positions are not included. Liquidation occurs when this exceeds 100%.",
   "perp_portfolio_most_traded": "Most Traded",
   "perp_portfolio_net_deposits": "Net Deposits",
   "perp_portfolio_net_deposits_tooltip": "Total deposits minus total withdrawals during this period.",
