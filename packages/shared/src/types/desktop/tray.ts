@@ -1,6 +1,6 @@
 export interface IPendingTx {
   id: string;
-  type: 'send' | 'swap' | 'contract';
+  type: 'send' | 'swap' | 'contract' | 'approve';
   to: string;
   amount: string;
   status: string;

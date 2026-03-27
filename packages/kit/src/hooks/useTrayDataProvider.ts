@@ -189,13 +189,41 @@ export function useTrayDataProvider() {
               },
             );
           if (history?.length) {
-            trayData.pendingTxs = history.slice(0, 5).map((tx: any) => ({
-              id: tx.decodedTx?.txid || tx.id || '',
-              type: 'send' as const,
-              to: tx.decodedTx?.to || '',
-              amount: tx.decodedTx?.totalFiatValue || '',
-              status: 'pending',
-            }));
+            trayData.pendingTxs = history.slice(0, 5).map((tx: any) => {
+              const decodedTx = tx.decodedTx;
+              const action = decodedTx?.actions?.[0];
+              const transfer = action?.assetTransfer;
+
+              // Determine tx type from action
+              let txType: 'send' | 'swap' | 'contract' = 'send';
+              if (action?.type === 'INTERNAL_SWAP' || transfer?.isInternalSwap) {
+                txType = 'swap';
+              } else if (action?.type === 'TOKEN_APPROVE') {
+                txType = 'contract';
+              } else if (action?.type === 'ASSET_TRANSFER') {
+                txType = 'send';
+              }
+
+              // Get amount + symbol from first send transfer
+              let amount = '';
+              const firstSend = transfer?.sends?.[0];
+              if (firstSend) {
+                amount = `${firstSend.amount} ${firstSend.symbol}`;
+              } else if (decodedTx?.totalFeeFiatValue) {
+                amount = `$${decodedTx.totalFeeFiatValue}`;
+              }
+
+              // Get recipient
+              const to = firstSend?.to || decodedTx?.to || '';
+
+              return {
+                id: decodedTx?.txid || tx.id || '',
+                type: txType,
+                to,
+                amount,
+                status: 'pending',
+              };
+            });
           }
         }
       } catch {

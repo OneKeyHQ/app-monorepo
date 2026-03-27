@@ -4,7 +4,8 @@ import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
 const TX_TYPE_LABELS: Record<string, string> = {
   send: 'Send',
   swap: 'Swap',
-  contract: 'Contract',
+  contract: 'Contract Call',
+  approve: 'Approve',
 };
 
 function truncateAddress(address: string): string {
