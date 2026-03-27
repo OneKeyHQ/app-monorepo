@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Popover } from '../../actions/Popover';
 import { Tooltip } from '../../actions/Tooltip';
@@ -69,11 +69,25 @@ function DashTextCore({
 export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
   const { gtMd } = useMedia();
 
+  const trigger = useMemo(
+    () => (tooltip ? <DashTextCore {...rest} cursor="help" /> : null),
+    [rest, tooltip],
+  );
+
+  const popoverContent = useMemo(
+    () => (
+      <YStack px="$5" pt="$2" pb="$5">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {tooltip}
+        </SizableText>
+      </YStack>
+    ),
+    [tooltip],
+  );
+
   if (!tooltip) {
     return <DashTextCore {...rest} />;
   }
-
-  const trigger = <DashTextCore {...rest} cursor="help" />;
 
   if (gtMd) {
     return (
@@ -89,13 +103,7 @@ export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
     <Popover
       title={tooltipTitle ?? rest.children}
       renderTrigger={trigger}
-      renderContent={
-        <YStack px="$5" pt="$2" pb="$5">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {tooltip}
-          </SizableText>
-        </YStack>
-      }
+      renderContent={popoverContent}
     />
   );
 }
