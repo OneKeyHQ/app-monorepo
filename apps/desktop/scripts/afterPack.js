@@ -58,8 +58,9 @@ exports.default = async function fileOperation(context) {
       [FuseV1Options.RunAsNode]: false,
       // Prevent NODE_OPTIONS env var from injecting debug flags or inspect ports
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      // Prevent file:// protocol from gaining extra fetch/XHR-like privileges
-      [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
+      // Keep file:// privileges enabled — disabling breaks localStorage/sessionStorage
+      // for the main window (opaque origin). TODO: migrate to custom app:// protocol.
+      [FuseV1Options.GrantFileProtocolExtraPrivileges]: true,
     });
   }
 };

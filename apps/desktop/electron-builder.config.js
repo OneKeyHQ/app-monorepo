@@ -1,5 +1,11 @@
 /* eslint-disable no-template-curly-in-string */
-const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const {
+  baseFiles,
+  macExcludePrebuilds,
+  winExcludePrebuilds,
+  linuxExcludePrebuilds,
+  ...baseElectronBuilderConfig
+} = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
 const { getPath } = require('./scripts/utils');
 
@@ -29,11 +35,7 @@ module.exports = {
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
-    'files': [
-      '!**/prebuilds/android-*/**',
-      '!**/prebuilds/linux-*/**',
-      '!**/prebuilds/win32-*/**',
-    ],
+    'files': [...baseFiles, ...macExcludePrebuilds],
     'x64ArchFiles': '*',
     'extraResources': [
       {
@@ -75,11 +77,7 @@ module.exports = {
     },
   },
   'win': {
-    'files': [
-      '!**/prebuilds/android-*/**',
-      '!**/prebuilds/darwin-*/**',
-      '!**/prebuilds/linux-*/**',
-    ],
+    'files': [...baseFiles, ...winExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/win-${arch}',
@@ -93,11 +91,7 @@ module.exports = {
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
   'linux': {
-    'files': [
-      '!**/prebuilds/android-*/**',
-      '!**/prebuilds/darwin-*/**',
-      '!**/prebuilds/win32-*/**',
-    ],
+    'files': [...baseFiles, ...linuxExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/linux-${arch}',

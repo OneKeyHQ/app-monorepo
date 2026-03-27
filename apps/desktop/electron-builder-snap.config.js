@@ -1,15 +1,15 @@
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
-const baseElectronBuilderConfig = require('./electron-builder-base.config');
+const {
+  baseFiles,
+  linuxExcludePrebuilds,
+  ...baseElectronBuilderConfig
+} = require('./electron-builder-base.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
   'linux': {
-    'files': [
-      '!**/prebuilds/android-*/**',
-      '!**/prebuilds/darwin-*/**',
-      '!**/prebuilds/win32-*/**',
-    ],
+    'files': [...baseFiles, ...linuxExcludePrebuilds],
     'extraResources': [
       {
         'from': 'app/build/static/bin/bridge/linux-${arch}',

@@ -1170,7 +1170,14 @@ async function createMainWindow() {
             callback(filePath);
           }
         } else {
-          callback(path.join(__dirname, '..', 'build', url));
+          const buildDir = path.resolve(__dirname, '..', 'build');
+          const resolved = path.resolve(buildDir, url);
+          if (!resolved.startsWith(buildDir + path.sep) && resolved !== buildDir) {
+            logger.warn('Blocked file access outside build dir:', resolved);
+            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+            return;
+          }
+          callback(resolved);
         }
       },
     );
