@@ -31,7 +31,8 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
     const result = actFn(() => {
       const cbResult = callback();
       isCallbackAsync =
-        cbResult !== null && cbResult !== undefined &&
+        cbResult !== null &&
+        cbResult !== undefined &&
         typeof cbResult === 'object' &&
         typeof (cbResult as any).then === 'function';
       return cbResult;

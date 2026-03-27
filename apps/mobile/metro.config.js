@@ -176,7 +176,7 @@ if (process.env.RN_HARNESS === 'true') {
       };
     }
     // Replace @testing-library/react-native with a lightweight shim that uses
-    // react-test-renderer. RNTL imports Node.js built-ins (console, util) that
+    // react-test-renderer. @testing-library/react-native imports Node.js built-ins (console, util) that
     // Metro can't resolve, so we provide renderHook/act/waitFor without them.
     if (moduleName === '@testing-library/react-native') {
       return {
