@@ -1,15 +1,16 @@
-import type { Metrics } from 'react-native-safe-area-context';
+import type { EdgeInsets } from 'react-native-safe-area-context';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 export class ComponentScene extends BaseScene {
   @LogToLocal()
-  public logPortalContainer(
+  public logPortalSafeArea(
     name: string,
-    initialWindowMetrics: Metrics | null,
+    insets: EdgeInsets,
+    frame: { x: number; y: number; width: number; height: number },
   ) {
-    return `Portal.Container [${name}] initialWindowMetrics: ${JSON.stringify(initialWindowMetrics)}`;
+    return `Portal.Container [${name}] insets: ${JSON.stringify(insets)} frame: ${JSON.stringify(frame)}`;
   }
 
   @LogToLocal()

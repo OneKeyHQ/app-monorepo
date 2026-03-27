@@ -8,7 +8,8 @@ import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent'
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
-  initialWindowMetrics,
+  useSafeAreaFrame,
+  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
@@ -237,16 +238,14 @@ function PortalContainer(props: {
   }, [name]);
 
   const { Root } = sibling;
-  defaultLogger.app.component.logPortalContainer(name, initialWindowMetrics);
+  const insets = useSafeAreaInsets();
+  const frame = useSafeAreaFrame();
+  defaultLogger.app.component.logPortalSafeArea(name, insets, frame);
   return (
     <>
       {children}
-      <SafeAreaFrameContext.Provider
-        value={initialWindowMetrics?.frame ?? null}
-      >
-        <SafeAreaInsetsContext.Provider
-          value={initialWindowMetrics?.insets ?? null}
-        >
+      <SafeAreaFrameContext.Provider value={frame}>
+        <SafeAreaInsetsContext.Provider value={insets}>
           <Root />
         </SafeAreaInsetsContext.Provider>
       </SafeAreaFrameContext.Provider>
