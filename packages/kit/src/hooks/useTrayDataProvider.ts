@@ -203,7 +203,7 @@ export function useTrayDataProvider() {
           );
           const history = allPendingTxs;
           if (history?.length) {
-            trayData.pendingTxs = history.slice(0, 5).map((tx: any) => {
+            trayData.pendingTxs = history.map((tx: any) => {
               const decodedTx = tx.decodedTx;
               const action = decodedTx?.actions?.[0];
               const transfer = action?.assetTransfer;
