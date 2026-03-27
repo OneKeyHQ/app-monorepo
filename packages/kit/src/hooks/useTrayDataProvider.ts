@@ -8,6 +8,7 @@ import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
+import appEventBus, { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -293,10 +294,30 @@ export function useTrayDataProvider() {
   // Push data immediately when active account changes (wallet switch)
   useEffect(() => {
     if (!platformEnv.isDesktop) return;
-    // Debounce slightly to avoid rapid-fire during initialization
     const timer = setTimeout(() => {
       handleTrayDataRequestRef.current?.();
     }, 300);
     return () => clearTimeout(timer);
   }, [activeAccountValue]);
+
+  // Refresh tray when tx status changes or history refreshes
+  useEffect(() => {
+    if (!platformEnv.isDesktop) return;
+
+    const refresh = () => {
+      setTimeout(() => {
+        handleTrayDataRequestRef.current?.();
+      }, 1000);
+    };
+
+    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, refresh);
+    appEventBus.on(EAppEventBusNames.RefreshHistoryList, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+
+    return () => {
+      appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, refresh);
+      appEventBus.off(EAppEventBusNames.RefreshHistoryList, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+    };
+  }, []);
 }
