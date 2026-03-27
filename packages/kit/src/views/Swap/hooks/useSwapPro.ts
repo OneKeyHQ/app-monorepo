@@ -1003,10 +1003,11 @@ export function useSwapProTokenSearch(
     let timer: ReturnType<typeof setTimeout>;
 
     const refreshQuotes = async () => {
+      const snapshot = searchTokenListRef.current;
       try {
         const { list } =
           await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            tokenAddressList: searchTokenListRef.current.map((item) => ({
+            tokenAddressList: snapshot.map((item) => ({
               chainId: item.network,
               contractAddress: item.address,
               isNative: item.isNative,
@@ -1015,6 +1016,11 @@ export function useSwapProTokenSearch(
           });
 
         if (isCancelled) {
+          return;
+        }
+
+        // Discard if search results were replaced by a new search
+        if (searchTokenListRef.current !== snapshot) {
           return;
         }
 
