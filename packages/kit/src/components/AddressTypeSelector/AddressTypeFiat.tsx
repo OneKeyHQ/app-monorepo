@@ -6,8 +6,8 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { NetworkAvatarBase } from '../NetworkAvatar';
