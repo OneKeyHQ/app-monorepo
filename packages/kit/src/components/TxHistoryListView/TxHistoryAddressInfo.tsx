@@ -36,6 +36,7 @@ function TxHistoryAddressInfo({
             }}
             size="$bodyMd"
             color="$textSubdued"
+            numberOfLines={1}
           >
             {badge.label}
           </SizableText>
