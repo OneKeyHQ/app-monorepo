@@ -38,8 +38,11 @@ export default function App(props: any) {
     new URLSearchParams(window.location.search).get('render') === 'tray';
 
   if (isTrayPanel) {
+    // Remove the HTML template splash image that covers the tray panel
+    const splash = document.querySelector('.onekey-index-html-preload-image');
+    if (splash) splash.remove();
+
     const isDark =
-      typeof window !== 'undefined' &&
       window.matchMedia('(prefers-color-scheme: dark)').matches;
     const defaultTheme = isDark ? 'dark' : 'light';
     return (
