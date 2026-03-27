@@ -68,26 +68,23 @@ export function createTrayWindow(
     },
   });
 
-  // Inject CSS and remove splash BEFORE showing the window
   const trayCSS = `
-    .onekey-index-html-preload-image { display: none !important; visibility: hidden !important; width: 0 !important; height: 0 !important; }
+    .onekey-index-html-preload-image { display: none !important; }
     *:focus { outline: none !important; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
     ::-webkit-scrollbar-track { background: transparent; }
   `;
-
-  let domReady = false;
-  trayWindow.webContents.on('dom-ready', async () => {
-    await trayWindow?.webContents.insertCSS(trayCSS);
-    await trayWindow?.webContents.executeJavaScript(`
-      document.querySelectorAll('.onekey-index-html-preload-image').forEach(e => e.remove());
-    `);
-    domReady = true;
+  // Inject CSS at every opportunity to ensure splash is hidden
+  trayWindow.webContents.on('did-start-loading', () => {
+    void trayWindow?.webContents.insertCSS(trayCSS);
   });
-
-  // Store the ready state so showTrayWindow can wait for it
-  (trayWindow as any).__domReady = () => domReady;
+  trayWindow.webContents.on('dom-ready', () => {
+    void trayWindow?.webContents.insertCSS(trayCSS);
+    void trayWindow?.webContents.executeJavaScript(
+      `document.querySelectorAll('.onekey-index-html-preload-image').forEach(e=>e.remove())`,
+    );
+  });
 
   loadUrl(trayWindow);
 
@@ -108,7 +105,7 @@ export function createTrayWindow(
   return trayWindow;
 }
 
-export async function showTrayWindow(tray: Tray): Promise<void> {
+export function showTrayWindow(tray: Tray): void {
   if (!trayWindow || trayWindow.isDestroyed()) {
     return;
   }
@@ -117,24 +114,6 @@ export async function showTrayWindow(tray: Tray): Promise<void> {
     trayWindow.hide();
     return;
   }
-
-  // Wait for dom-ready (splash removed) before showing
-  const isDomReady = (trayWindow as any).__domReady?.();
-  if (!isDomReady) {
-    // First open — wait for dom-ready
-    await new Promise<void>((resolve) => {
-      const check = setInterval(() => {
-        if ((trayWindow as any)?.__domReady?.() || !trayWindow || trayWindow.isDestroyed()) {
-          clearInterval(check);
-          resolve();
-        }
-      }, 50);
-      // Timeout after 3s
-      setTimeout(() => { clearInterval(check); resolve(); }, 3000);
-    });
-  }
-
-  if (!trayWindow || trayWindow.isDestroyed()) return;
 
   const { x, y } = calculateWindowPosition(tray, 360, 480);
   trayWindow.setPosition(x, y);

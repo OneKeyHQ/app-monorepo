@@ -20,6 +20,7 @@ export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const activeAccountValueRef = useRef(activeAccountValue);
   activeAccountValueRef.current = activeAccountValue;
+  const handleTrayDataRequestRef = useRef<() => void>();
 
   const handleTrayDataRequest = useCallback(async () => {
     try {
@@ -241,6 +242,8 @@ export function useTrayDataProvider() {
       handleTrayNavigation,
     );
 
+    handleTrayDataRequestRef.current = handleTrayDataRequest;
+
     return () => {
       window.removeEventListener(
         'onekey-tray-data-request',
@@ -252,4 +255,14 @@ export function useTrayDataProvider() {
       );
     };
   }, [handleTrayDataRequest, handleTrayNavigation]);
+
+  // Push data immediately when active account changes (wallet switch)
+  useEffect(() => {
+    if (!platformEnv.isDesktop) return;
+    // Debounce slightly to avoid rapid-fire during initialization
+    const timer = setTimeout(() => {
+      handleTrayDataRequestRef.current?.();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [activeAccountValue]);
 }
