@@ -241,6 +241,7 @@ function BatchCreateAccountPreviewPage({
       setFrom(values.from);
       setCount(values.count);
       setDeriveType(values.deriveType);
+      prevDeriveTypeRef.current = values.deriveType;
       setIsAdvancedMode(true);
     },
     [],
