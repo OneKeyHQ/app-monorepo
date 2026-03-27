@@ -385,6 +385,17 @@ function safeGetWalletConnectOrigin(proposal: WalletKitTypes.SessionProposal) {
   }
 }
 
+function safeGetWalletConnectAuthOrigin(
+  authRequest: WalletKitTypes.SessionAuthenticate,
+) {
+  try {
+    const { origin } = new URL(authRequest.params.requester.metadata.url);
+    return origin;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
@@ -396,6 +407,7 @@ export default {
   buildUrl,
   buildDeepLinkUrl,
   safeGetWalletConnectOrigin,
+  safeGetWalletConnectAuthOrigin,
   parseUrl,
   safeParseURL,
   appendUtmSourceToUrl,

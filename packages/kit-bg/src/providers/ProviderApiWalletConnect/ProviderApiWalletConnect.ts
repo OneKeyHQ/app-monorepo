@@ -16,7 +16,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
-import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
+import type {
+  IWalletConnectAuthRequestResult,
+  IWalletConnectSessionProposalResult,
+} from '@onekeyhq/shared/types/dappConnection';
 
 import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
 
@@ -339,8 +342,70 @@ class ProviderApiWalletConnect {
     );
   };
 
-  onAuthRequest = (args: WalletKitTypes.SessionAuthenticate) => {
+  onAuthRequest = async (args: WalletKitTypes.SessionAuthenticate) => {
     console.log('onAuthRequest: ', args);
+    const { serviceDApp } = this.backgroundApi;
+    const origin = uriUtils.safeGetWalletConnectAuthOrigin(args);
+    const metadata = args.params.requester.metadata;
+    try {
+      if (!origin) {
+        const message = appLocale.intl.formatMessage({
+          id: ETranslations.browser_invalid_url,
+        });
+        await this.web3Wallet?.rejectSessionAuthenticate({
+          id: args.id,
+          reason: { message, code: 40_001 },
+        });
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: message,
+        });
+        return;
+      }
+      const result = (await serviceDApp.openModal({
+        request: { scope: '$walletConnect', origin },
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.WalletConnectAuthRequestModal,
+        ],
+        params: { authRequest: args },
+        fullScreen: true,
+      })) as IWalletConnectAuthRequestResult;
+
+      // Derive the chain from the auth payload or fall back to eip155:1
+      const chain =
+        args.params.authPayload.chains?.[0] ?? 'eip155:1';
+      const cacao = {
+        header: { t: 'eip4361' as const },
+        payload: {
+          ...args.params.authPayload,
+          iss: `did:pkh:${chain}:${result.address}`,
+        },
+        signature: { t: 'eip191' as const, s: result.signature },
+      };
+      await this.web3Wallet?.approveSessionAuthenticate({
+        id: args.id,
+        auths: [cacao],
+      });
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: metadata.name,
+        dappDomain: metadata.url,
+        action: 'ConnectWallet',
+        network: chain,
+      });
+    } catch (e) {
+      console.error('onAuthRequest error: ', e);
+      await this.web3Wallet?.rejectSessionAuthenticate({
+        id: args.id,
+        reason: getSdkError('USER_REJECTED'),
+      });
+      defaultLogger.discovery.dapp.dappUse({
+        dappName: metadata.name,
+        dappDomain: metadata.url,
+        action: 'ConnectWallet',
+        failReason: `${(e as Error)?.message ?? e}`,
+      });
+    }
   };
 
   onSessionPing = () => {
