@@ -496,7 +496,12 @@ function BaseBulkSendAddressesInput() {
       senders.length !== receivers.length
     ) {
       Toast.error({
-        title: `Sender and receiver count must match (senders: ${senders.length}, receivers: ${receivers.length})`,
+        title: intl.formatMessage(
+          {
+            id: ETranslations.wallet_bulk_send_error_sender_receiver_count_mismatch,
+          },
+          { senders: senders.length, receivers: receivers.length },
+        ),
       });
       return;
     }
@@ -573,6 +578,7 @@ function BaseBulkSendAddressesInput() {
     isInModal,
     setSelectedTokenDetail,
     resolvedSenderAccountIds,
+    intl,
   ]);
 
   const handleSubmit = useCallback(async () => {
