@@ -78,13 +78,37 @@ export function useMarketSwapReviewActions({
   adapter: IMarketSwapReviewAdapter;
 }) {
   const intl = useIntl();
-  const [swapStepsState] = useSwapStepsAtom();
+  const [swapStepsState, setSwapSteps] = useSwapStepsAtom();
   const [swapStepNetFeeLevel] = useSwapStepNetFeeLevelAtom();
   const [inAppNotificationAtom] = useInAppNotificationAtom();
   const handledApproveStatusRef = useRef<string>('');
   const latestApproveTxIdRef = useRef<string>('');
   const { replaceReviewState, setBeforeActionsLoading, updateStep } =
     useReviewStepStateActions();
+
+  const clearPreSwapGasInfos = useCallback(
+    (preSwapData: ISwapPreSwapData) => {
+      if (!preSwapData.netWorkFee?.gasInfos?.length) {
+        return preSwapData;
+      }
+
+      const nextPreSwapData: ISwapPreSwapData = {
+        ...preSwapData,
+        netWorkFee: {
+          ...preSwapData.netWorkFee,
+          gasInfos: undefined,
+        },
+      };
+
+      setSwapSteps((prev) => ({
+        ...prev,
+        preSwapData: nextPreSwapData,
+      }));
+
+      return nextPreSwapData;
+    },
+    [setSwapSteps],
+  );
 
   const markStepFailed = useCallback(
     (stepIndex: number) => {
@@ -120,13 +144,21 @@ export function useMarketSwapReviewActions({
           },
         });
       } catch {
-        setBeforeActionsLoading(false);
+        setSwapSteps((prev) => ({
+          ...prev,
+          preSwapData: {
+            ...prev.preSwapData,
+            stepBeforeActionsLoading: false,
+            netWorkFee: undefined,
+          },
+        }));
       }
     },
     [
       adapter,
       replaceReviewState,
       setBeforeActionsLoading,
+      setSwapSteps,
       swapStepNetFeeLevel.networkFeeLevel,
     ],
   );
@@ -336,12 +368,15 @@ export function useMarketSwapReviewActions({
       return;
     }
 
+    const nextPreSwapData = clearPreSwapGasInfos(swapStepsState.preSwapData);
+
     void preSwapStepsStart({
       steps: nextSteps,
-      preSwapData: swapStepsState.preSwapData,
+      preSwapData: nextPreSwapData,
       quoteResult: swapStepsState.quoteResult,
     });
   }, [
+    clearPreSwapGasInfos,
     inAppNotificationAtom.speedSwapApprovingTransaction,
     preSwapStepsStart,
     swapStepsState.preSwapData,

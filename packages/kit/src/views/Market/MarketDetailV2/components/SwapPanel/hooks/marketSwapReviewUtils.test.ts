@@ -10,8 +10,8 @@ import {
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import {
-  assertMarketSignedBuildInvariant,
   assertMarketReviewQuoteResult,
+  assertMarketSignedBuildInvariant,
   buildMarketApproveInfos,
   buildMarketSwapApprovingTransaction,
   buildWrappedMarketQuoteResult,
@@ -84,7 +84,7 @@ describe('marketSwapReviewUtils', () => {
     ).toThrow('signed order result');
   });
 
-  it('fails closed when a signed build result changes provider or min receive', () => {
+  it('fails closed when a signed build result changes provider, expected receive, or min receive', () => {
     expect(() =>
       assertMarketSignedBuildInvariant({
         reviewedQuoteResult: createQuoteResult({
@@ -100,6 +100,20 @@ describe('marketSwapReviewUtils', () => {
         skipSendTransAction: true,
       }),
     ).toThrow('provider changed');
+
+    expect(() =>
+      assertMarketSignedBuildInvariant({
+        reviewedQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+          toAmount: '2500',
+        }),
+        rebuiltQuoteResult: createQuoteResult({
+          minToAmount: '2400',
+          toAmount: '2490',
+        }),
+        skipSendTransAction: true,
+      }),
+    ).toThrow('expected receive changed');
 
     expect(() =>
       assertMarketSignedBuildInvariant({

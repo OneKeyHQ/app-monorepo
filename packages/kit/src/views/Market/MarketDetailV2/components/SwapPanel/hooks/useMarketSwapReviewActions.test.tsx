@@ -85,9 +85,11 @@ function createQuoteResult(
 function createReviewState({
   steps,
   quoteResult = createQuoteResult(),
+  preSwapData,
 }: {
   steps: ISwapStep[];
   quoteResult?: IFetchQuoteResult;
+  preSwapData?: Partial<ISwapPreSwapData>;
 }): IMarketSwapReviewState {
   return {
     steps,
@@ -97,6 +99,7 @@ function createReviewState({
       fromTokenAmount: quoteResult.fromAmount,
       toTokenAmount: quoteResult.toAmount,
       swapType: ESwapTabSwitchType.SWAP,
+      ...preSwapData,
     } as ISwapPreSwapData,
     quoteResult,
   };
@@ -311,6 +314,64 @@ describe('useMarketSwapReviewActions', () => {
     );
   });
 
+  it('clears stale network fee data when fee refresh fails', async () => {
+    const adapter = createAdapter();
+    adapter.prepareMarketSwapReview.mockRejectedValue(
+      new Error('prebuild failed'),
+    );
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return {
+          actions,
+          swapSteps,
+        };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+            preSwapData: {
+              supportNetworkFeeLevel: true,
+              netWorkFee: {
+                gasFeeFiatValue: '12.34',
+                gasInfos: [
+                  {
+                    encodeTx: {
+                      data: '0xold',
+                    } as never,
+                    gasInfo: {} as never,
+                  },
+                ],
+              },
+            },
+          }),
+          ESwapNetworkFeeLevel.HIGH,
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.preSwapBeforeStepActions(
+        createQuoteResult(),
+        fromToken,
+        toToken,
+      );
+    });
+
+    expect(result.current.swapSteps.preSwapData.stepBeforeActionsLoading).toBe(
+      false,
+    );
+    expect(result.current.swapSteps.preSwapData.netWorkFee).toBeUndefined();
+  });
+
   it('starts an approve step through the review-visible swap approving state', async () => {
     const adapter = createAdapter();
     adapter.sendMarketApproveTx.mockImplementation(
@@ -375,6 +436,14 @@ describe('useMarketSwapReviewActions', () => {
 
   it('continues the review flow from speed approve status updates without using the swap approve state', async () => {
     const adapter = createAdapter();
+    const staleGasInfos = [
+      {
+        encodeTx: {
+          data: '0xstale',
+        } as never,
+        gasInfo: {} as never,
+      },
+    ];
     adapter.sendMarketApproveTx.mockImplementation(
       async ({ onBroadcast, quoteResult }) => {
         expect(quoteResult.fromAmount).toBe('1');
@@ -416,6 +485,12 @@ describe('useMarketSwapReviewActions', () => {
                 status: ESwapStepStatus.READY,
               },
             ],
+            preSwapData: {
+              netWorkFee: {
+                gasFeeFiatValue: '8.88',
+                gasInfos: staleGasInfos,
+              },
+            },
             quoteResult: createQuoteResult({
               allowanceResult: {
                 allowanceTarget: '0xspender',
@@ -423,6 +498,7 @@ describe('useMarketSwapReviewActions', () => {
               },
             }),
           }),
+          ESwapNetworkFeeLevel.HIGH,
         ),
       },
     );
@@ -448,9 +524,16 @@ describe('useMarketSwapReviewActions', () => {
     });
 
     await waitFor(() => {
+      expect(adapter.sendMarketApproveTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gasInfos: staleGasInfos,
+          networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
+        }),
+      );
       expect(adapter.sendMarketSwapTx).toHaveBeenCalledWith(
         expect.objectContaining({
-          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+          gasInfos: undefined,
+          networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
         }),
       );
       expect(result.current.swapSteps.steps[0].status).toBe(
@@ -458,6 +541,9 @@ describe('useMarketSwapReviewActions', () => {
       );
       expect(result.current.swapSteps.steps[1].status).toBe(
         ESwapStepStatus.PENDING,
+      );
+      expect(result.current.swapSteps.preSwapData.netWorkFee?.gasInfos).toBe(
+        undefined,
       );
     });
   });
