@@ -221,9 +221,15 @@ export function useTrayDataProvider() {
               let amount = '';
               const firstSend = transfer?.sends?.[0];
               if (firstSend) {
-                amount = `${firstSend.amount} ${firstSend.symbol}`;
+                const num = Number(firstSend.amount);
+                const formatted = Number.isNaN(num)
+                  ? firstSend.amount
+                  : num < 0.01
+                    ? num.toPrecision(3)
+                    : num.toFixed(4).replace(/\.?0+$/, '');
+                amount = `${formatted} ${firstSend.symbol}`;
               } else if (decodedTx?.totalFeeFiatValue) {
-                amount = `$${decodedTx.totalFeeFiatValue}`;
+                amount = `$${Number(decodedTx.totalFeeFiatValue).toFixed(2)}`;
               }
 
               // Get recipient
