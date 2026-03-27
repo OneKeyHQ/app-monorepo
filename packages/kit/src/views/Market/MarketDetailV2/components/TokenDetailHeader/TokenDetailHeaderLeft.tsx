@@ -124,12 +124,7 @@ export function TokenDetailHeaderLeft({
             fallbackIcon="CryptoCoinOutline"
           />
         ) : (
-          <MarketTokenSelector
-            tokenDetail={tokenDetail}
-            networkId={networkId}
-            networkLogoUri={effectiveNetworkLogoUri}
-            isNative={isNative}
-          />
+          <MarketTokenSelector />
         )}
 
         <YStack>

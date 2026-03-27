@@ -34,6 +34,7 @@ import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHo
 import type { IMarketPerpsToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { MarketPerpsCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsCategorySelector';
 import { MarketPerpsTokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsTokenListItem';
+import { MarketRecommendList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketRecommendList';
 import { TokenListItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
@@ -126,19 +127,25 @@ function WatchlistList({
   onSelectFilter: (filter: IWatchlistFilterType) => void;
 }) {
   const [watchlistState] = useMarketWatchListV2Atom();
+  const { recommendedTokens } = useMarketBasicConfig();
+  const watchlist = watchlistState.data || [];
 
   const { data, isLoading } = useMarketWatchlistTokenList({
-    watchlist: watchlistState.data || [],
+    watchlist,
     initialSortBy: 'v24hUSD',
     initialSortType: 'desc',
   });
 
-  // Freeze data snapshot to prevent polling flicker
-  const dataSnapshotRef = useRef(data);
-  if (data.length > 0) {
-    dataSnapshotRef.current = data;
-  }
-  const stableData = dataSnapshotRef.current;
+  // Freeze snapshot — only capture on initial load, ignore polling (Perps pattern)
+  const [snapshot, setSnapshot] = useState<IMarketToken[]>([]);
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (data.length > 0 && !initializedRef.current) {
+      initializedRef.current = true;
+      setSnapshot(data);
+    }
+  }, [data]);
+  const stableData = initializedRef.current ? snapshot : data;
 
   const filteredData = useMemo(() => {
     let filtered = stableData;
@@ -177,6 +184,10 @@ function WatchlistList({
         <Spinner size="small" />
       </Stack>
     );
+  }
+
+  if (watchlist.length === 0) {
+    return <MarketRecommendList recommendedTokens={recommendedTokens} maxSize={6} />;
   }
 
   return (
@@ -223,12 +234,16 @@ function SpotList({
       pageSize: 20,
     });
 
-  // Freeze data snapshot to prevent polling flicker
-  const dataSnapshotRef = useRef(data);
-  if (data.length > 0) {
-    dataSnapshotRef.current = data;
-  }
-  const stableData = dataSnapshotRef.current;
+  // Freeze snapshot — only capture on initial load, ignore polling (Perps pattern)
+  const [snapshot, setSnapshot] = useState<IMarketToken[]>([]);
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (data.length > 0 && !initializedRef.current) {
+      initializedRef.current = true;
+      setSnapshot(data);
+    }
+  }, [data]);
+  const stableData = initializedRef.current ? snapshot : data;
 
   const filteredData = useMemo(() => {
     if (!searchQuery) return stableData;

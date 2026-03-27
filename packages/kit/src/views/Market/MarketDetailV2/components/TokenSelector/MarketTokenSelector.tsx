@@ -32,10 +32,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketPerpsToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { usePerpsColumnsDesktop } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/usePerpsColumns';
 import { MarketPerpsCategorySelector } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/MarketPerpsCategorySelector';
+import { MarketRecommendList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketRecommendList';
 import { useColumnsDesktop as useSpotColumnsDesktop } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/useColumnsDesktop';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
@@ -63,9 +65,17 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 const LIST_HEIGHT = 400;
+
+// Columns to hide in the search popover (not enough width)
+const HIDDEN_SPOT_COLUMNS = new Set([
+  'transactions',
+  'uniqueTraders',
+  'holders',
+  'tokenAge',
+]);
+const HIDDEN_PERPS_COLUMNS = new Set(['fundingRate']);
 
 // ---------------------------------------------------------------------------
 // Tab item
@@ -134,19 +144,25 @@ function DesktopWatchlistList({
 }) {
   const { navigateToPerps } = usePerpsNavigation();
   const [watchlistState] = useMarketWatchListV2Atom();
+  const { recommendedTokens } = useMarketBasicConfig();
+  const watchlist = watchlistState.data || [];
 
   const { data, isLoading } = useMarketWatchlistTokenList({
-    watchlist: watchlistState.data || [],
+    watchlist,
     initialSortBy: 'v24hUSD',
     initialSortType: 'desc',
   });
 
-  // Freeze data snapshot to prevent polling from causing list flicker (Perps pattern)
-  const dataSnapshotRef = useRef(data);
-  if (data.length > 0) {
-    dataSnapshotRef.current = data;
-  }
-  const stableData = dataSnapshotRef.current;
+  // Freeze snapshot — only capture on initial load, ignore polling (Perps pattern)
+  const [snapshot, setSnapshot] = useState<IMarketToken[]>([]);
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (data.length > 0 && !initializedRef.current) {
+      initializedRef.current = true;
+      setSnapshot(data);
+    }
+  }, [data]);
+  const stableData = initializedRef.current ? snapshot : data;
 
   const filteredData = useMemo(() => {
     let filtered = stableData;
@@ -168,12 +184,16 @@ function DesktopWatchlistList({
     return filtered;
   }, [stableData, searchQuery, selectedFilter]);
 
-  const columns = useSpotColumnsDesktop(
+  const allColumns = useSpotColumnsDesktop(
     undefined,
     true, // isWatchlistMode
     false,
     EWatchlistFrom.Search,
     ECopyFrom.Search,
+  );
+  const columns = useMemo(
+    () => allColumns.filter((c) => !HIDDEN_SPOT_COLUMNS.has(c.dataIndex)),
+    [allColumns],
   );
 
   const onRow = useCallback(
@@ -188,6 +208,14 @@ function DesktopWatchlistList({
     }),
     [onSelectToken, navigateToPerps],
   );
+
+  const TableEmptyComponent = useMemo(() => {
+    if (isLoading) return null;
+    if (watchlist.length === 0) {
+      return <MarketRecommendList recommendedTokens={recommendedTokens} maxSize={6} />;
+    }
+    return null;
+  }, [isLoading, watchlist.length, recommendedTokens]);
 
   if (isLoading && stableData.length === 0) {
     return (
@@ -208,7 +236,7 @@ function DesktopWatchlistList({
         <Table<IMarketToken>
           showHeader
           scrollEnabled
-          stickyHeader={false}
+          stickyHeader
           columns={columns}
           dataSource={filteredData}
           keyExtractor={(item) =>
@@ -216,6 +244,7 @@ function DesktopWatchlistList({
           }
           estimatedItemSize={60}
           onRow={onRow}
+          TableEmptyComponent={TableEmptyComponent}
         />
       </YStack>
     </YStack>
@@ -245,12 +274,16 @@ function DesktopSpotList({
       pageSize: 20,
     });
 
-  // Freeze data snapshot to prevent polling flicker
-  const dataSnapshotRef = useRef(data);
-  if (data.length > 0) {
-    dataSnapshotRef.current = data;
-  }
-  const stableData = dataSnapshotRef.current;
+  // Freeze snapshot — only capture on initial load, ignore polling (Perps pattern)
+  const [snapshot, setSnapshot] = useState<IMarketToken[]>([]);
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (data.length > 0 && !initializedRef.current) {
+      initializedRef.current = true;
+      setSnapshot(data);
+    }
+  }, [data]);
+  const stableData = initializedRef.current ? snapshot : data;
 
   const filteredData = useMemo(() => {
     if (!searchQuery) return stableData;
@@ -262,12 +295,16 @@ function DesktopSpotList({
     );
   }, [stableData, searchQuery]);
 
-  const columns = useSpotColumnsDesktop(
+  const allColumns = useSpotColumnsDesktop(
     selectedNetworkId,
     false, // isWatchlistMode
     false,
     undefined,
     ECopyFrom.Search,
+  );
+  const columns = useMemo(
+    () => allColumns.filter((c) => !HIDDEN_SPOT_COLUMNS.has(c.dataIndex)),
+    [allColumns],
   );
 
   const handleEndReached = useCallback(() => {
@@ -309,7 +346,7 @@ function DesktopSpotList({
         <Table<IMarketToken>
           showHeader
           scrollEnabled
-          stickyHeader={false}
+          stickyHeader
           columns={columns}
           dataSource={filteredData}
           keyExtractor={(item) =>
@@ -373,7 +410,11 @@ function DesktopFuturesList({
     );
   }, [tokens, searchQuery]);
 
-  const perpsColumns = usePerpsColumnsDesktop();
+  const allPerpsColumns = usePerpsColumnsDesktop();
+  const perpsColumns = useMemo(
+    () => allPerpsColumns.filter((c) => !HIDDEN_PERPS_COLUMNS.has(c.dataIndex)),
+    [allPerpsColumns],
+  );
 
   const onRow = useCallback(
     (item: IMarketPerpsToken) => ({
@@ -405,7 +446,7 @@ function DesktopFuturesList({
         <Table<IMarketPerpsToken>
           showHeader
           scrollEnabled
-          stickyHeader={false}
+          stickyHeader
           columns={perpsColumns}
           dataSource={filteredTokens}
           keyExtractor={(item) => `futures-${item.name}`}
@@ -474,6 +515,10 @@ function BaseMarketTokenSelectorContent() {
     },
     [setSelectorConfig],
   );
+
+  const handleClosePopover = useCallback(() => {
+    closePopover?.();
+  }, [closePopover]);
 
   const handleSelectToken = useCallback(
     (item: IMarketToken) => {
@@ -588,7 +633,7 @@ function BaseMarketTokenSelectorContent() {
         {activeTab === 'futures' ? (
           <DesktopFuturesList
             searchQuery={debouncedQuery}
-            onClosePopover={() => closePopover?.()}
+            onClosePopover={handleClosePopover}
             selectedCategoryId={perpsCategoryId}
             onSelectCategory={setPerpsCategoryId}
           />
@@ -606,70 +651,71 @@ function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 
 // ---------------------------------------------------------------------------
-// Main Popover component (exported)
+// Main Popover component (exported) — reads atom directly like Perps pattern
 // ---------------------------------------------------------------------------
-function BaseMarketTokenSelector({
-  tokenDetail,
-  networkId,
-  networkLogoUri,
-  isNative,
-}: {
-  tokenDetail?: IMarketTokenDetail;
-  networkId?: string;
-  networkLogoUri?: string;
-  isNative?: boolean;
-}) {
+function BaseMarketTokenSelector() {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
+  const { tokenDetail, networkId, isNative } = useTokenDetail();
 
   const effectiveNetworkLogoUri = useNetworkLogoUri({
-    logoUri: networkLogoUri,
+    logoUri: undefined,
     networkId,
   });
 
   const { symbol = '', logoUrl = '', logoUrls } = tokenDetail || {};
 
-  return (
-    <Popover
-      title={intl.formatMessage({ id: ETranslations.global_search_asset })}
-      floatingPanelProps={{
-        width: 800,
-      }}
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      placement="bottom-start"
-      renderTrigger={
-        <XStack
-          gap="$2"
-          alignItems="center"
-          cursor="pointer"
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
-        >
-          <Token
-            size="md"
-            tokenImageUri={logoUrl}
-            tokenImageUris={logoUrls}
-            networkImageUri={effectiveNetworkLogoUri}
-            fallbackIcon="CryptoCoinOutline"
-          />
-          <SizableText
-            size="$heading2xl"
-            color="$text"
-            numberOfLines={1}
-            maxWidth="$60"
-            flexShrink={1}
+  // Wrap entire Popover in useMemo (Perps pattern) to prevent re-creation
+  const content = useMemo(
+    () => (
+      <Popover
+        title={intl.formatMessage({ id: ETranslations.global_search_asset })}
+        floatingPanelProps={{
+          width: 800,
+        }}
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        placement="bottom-start"
+        renderTrigger={
+          <XStack
+            gap="$2"
+            alignItems="center"
+            cursor="pointer"
+            hoverStyle={{ opacity: 0.8 }}
+            pressStyle={{ opacity: 0.6 }}
           >
-            {symbol}
-          </SizableText>
-          <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
-        </XStack>
-      }
-      renderContent={({ isOpen: isOpenProp }) => (
-        <MarketTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
-      )}
-    />
+            <Token
+              size="md"
+              tokenImageUri={logoUrl}
+              tokenImageUris={logoUrls}
+              networkImageUri={effectiveNetworkLogoUri}
+              fallbackIcon="CryptoCoinOutline"
+            />
+            <SizableText
+              size="$heading2xl"
+              color="$text"
+              numberOfLines={1}
+              maxWidth="$60"
+              flexShrink={1}
+            >
+              {symbol}
+            </SizableText>
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
+        }
+        renderContent={({ isOpen: isOpenProp }) => (
+          <MarketTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
+        )}
+      />
+    ),
+    [isOpen, symbol, logoUrl, logoUrls, effectiveNetworkLogoUri, intl],
   );
+
+  return content;
 }
 
 export const MarketTokenSelector = memo(BaseMarketTokenSelector);
