@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -14,6 +22,7 @@ import {
   rootNavigationRef,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useMarketWatchListV2Atom,
   useTokenDetailActions,
@@ -122,14 +131,24 @@ function WatchlistList({
   });
 
   const filteredData = useMemo(() => {
-    if (!searchQuery) return data;
-    const query = searchQuery.toLowerCase();
-    return data.filter(
-      (item) =>
-        item.symbol.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query),
-    );
-  }, [data, searchQuery]);
+    let filtered = data;
+    // Apply category filter
+    if (selectedFilter === 'spot') {
+      filtered = filtered.filter((item) => !item.perpsCoin);
+    } else if (selectedFilter === 'perps') {
+      filtered = filtered.filter((item) => !!item.perpsCoin);
+    }
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (item) =>
+          item.symbol.toLowerCase().includes(query) ||
+          item.name.toLowerCase().includes(query),
+      );
+    }
+    return filtered;
+  }, [data, searchQuery, selectedFilter]);
 
   const renderItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
@@ -161,6 +180,9 @@ function WatchlistList({
       />
       <MarketListColumnHeader />
       <ListView
+        useFlashList
+        windowSize={3}
+        initialNumToRender={10}
         data={filteredData}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
@@ -240,6 +262,9 @@ function SpotList({
       />
       <MarketListColumnHeader />
       <ListView
+        useFlashList
+        windowSize={3}
+        initialNumToRender={10}
         data={filteredData}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
@@ -348,6 +373,9 @@ function FuturesList({
         containerStyle={{ px: '$5', pt: '$3', pb: '$2' }}
       />
       <ListView
+        useFlashList
+        windowSize={3}
+        initialNumToRender={10}
         data={filteredTokens}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
@@ -378,6 +406,9 @@ function MobileTokenSelectorContent() {
     setSearchQueryRaw(query.trim().slice(0, 64));
   }, []);
 
+  // --- Debounced search ---
+  const debouncedQuery = useDebounce(searchQuery, 200);
+
   // --- Spot: network selection (lifted to survive tab switches) ---
   const [spotNetworkId, setSpotNetworkId] = useState(
     () => getNetworkIdsMap().onekeyall,
@@ -388,7 +419,9 @@ function MobileTokenSelectorContent() {
 
   const setActiveTab = useCallback(
     (tab: string) => {
-      setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
+      startTransition(() => {
+        setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
+      });
     },
     [setSelectorConfig],
   );
@@ -494,13 +527,13 @@ function MobileTokenSelectorContent() {
           <YStack flex={1}>
             {activeTab === 'watchlist' ? (
               <WatchlistList
-                searchQuery={searchQuery}
+                searchQuery={debouncedQuery}
                 onSelectToken={handleSelectToken}
               />
             ) : null}
             {activeTab === 'spot' ? (
               <SpotList
-                searchQuery={searchQuery}
+                searchQuery={debouncedQuery}
                 onSelectToken={handleSelectToken}
                 selectedNetworkId={spotNetworkId}
                 onNetworkIdChange={setSpotNetworkId}
@@ -508,7 +541,7 @@ function MobileTokenSelectorContent() {
             ) : null}
             {activeTab === 'futures' ? (
               <FuturesList
-                searchQuery={searchQuery}
+                searchQuery={debouncedQuery}
                 onCloseModal={() => navigation.popStack()}
                 categoryRef={perpsCategoryRef}
               />

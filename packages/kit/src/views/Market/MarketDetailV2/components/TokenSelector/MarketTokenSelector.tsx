@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +24,7 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import {
   useMarketWatchListV2Atom,
@@ -126,14 +135,24 @@ function DesktopWatchlistList({
   });
 
   const filteredData = useMemo(() => {
-    if (!searchQuery) return data;
-    const query = searchQuery.toLowerCase();
-    return data.filter(
-      (item) =>
-        item.symbol.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query),
-    );
-  }, [data, searchQuery]);
+    let filtered = data;
+    // Apply category filter
+    if (selectedFilter === 'spot') {
+      filtered = filtered.filter((item) => !item.perpsCoin);
+    } else if (selectedFilter === 'perps') {
+      filtered = filtered.filter((item) => !!item.perpsCoin);
+    }
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (item) =>
+          item.symbol.toLowerCase().includes(query) ||
+          item.name.toLowerCase().includes(query),
+      );
+    }
+    return filtered;
+  }, [data, searchQuery, selectedFilter]);
 
   const renderItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
@@ -166,6 +185,9 @@ function DesktopWatchlistList({
       <MarketListColumnHeader />
       <YStack height={LIST_HEIGHT}>
         <ListView
+          useFlashList
+          windowSize={3}
+          initialNumToRender={10}
           data={filteredData}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -247,6 +269,9 @@ function DesktopSpotList({
       <MarketListColumnHeader />
       <YStack height={LIST_HEIGHT}>
         <ListView
+          useFlashList
+          windowSize={3}
+          initialNumToRender={10}
           data={filteredData}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -360,6 +385,9 @@ function DesktopFuturesList({
       />
       <YStack height={LIST_HEIGHT}>
         <ListView
+          useFlashList
+          windowSize={3}
+          initialNumToRender={10}
           data={filteredTokens}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -391,6 +419,9 @@ function BaseMarketTokenSelectorContent() {
     setSearchQueryRaw(query.trim().slice(0, 64));
   }, []);
 
+  // --- Debounced search ---
+  const debouncedQuery = useDebounce(searchQuery, 200);
+
   // --- Spot: network selection (lifted to survive tab switches) ---
   const [spotNetworkId, setSpotNetworkId] = useState(
     () => getNetworkIdsMap().onekeyall,
@@ -401,7 +432,9 @@ function BaseMarketTokenSelectorContent() {
 
   const setActiveTab = useCallback(
     (tab: string) => {
-      setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
+      startTransition(() => {
+        setSelectorConfig({ activeTab: tab as IMarketTokenSelectorTab });
+      });
     },
     [setSelectorConfig],
   );
@@ -498,17 +531,17 @@ function BaseMarketTokenSelectorContent() {
         />
       </XStack>
 
-      {/* List content — key={activeTab} forces list reset on tab switch (Perps pattern) */}
+      {/* List content */}
       <YStack>
         {activeTab === 'watchlist' ? (
           <DesktopWatchlistList
-            searchQuery={searchQuery}
+            searchQuery={debouncedQuery}
             onSelectToken={handleSelectToken}
           />
         ) : null}
         {activeTab === 'spot' ? (
           <DesktopSpotList
-            searchQuery={searchQuery}
+            searchQuery={debouncedQuery}
             onSelectToken={handleSelectToken}
             selectedNetworkId={spotNetworkId}
             onNetworkIdChange={setSpotNetworkId}
@@ -516,7 +549,7 @@ function BaseMarketTokenSelectorContent() {
         ) : null}
         {activeTab === 'futures' ? (
           <DesktopFuturesList
-            searchQuery={searchQuery}
+            searchQuery={debouncedQuery}
             onClosePopover={() => closePopover?.()}
             categoryRef={perpsCategoryRef}
           />
@@ -547,6 +580,7 @@ function BaseMarketTokenSelector({
   networkLogoUri?: string;
   isNative?: boolean;
 }) {
+  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
 
   const effectiveNetworkLogoUri = useNetworkLogoUri({
@@ -558,7 +592,7 @@ function BaseMarketTokenSelector({
 
   return (
     <Popover
-      title="Select Token"
+      title={intl.formatMessage({ id: ETranslations.global_search_asset })}
       floatingPanelProps={{
         width: 800,
       }}
