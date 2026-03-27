@@ -96,7 +96,9 @@ function BulkSendProcessItem(props: IProps) {
       case EBulkSendTxStatus.Processing:
         return (
           <SizableText size="$bodySm" color="$textSubdued">
-            Processing
+            {intl.formatMessage({
+              id: ETranslations.global_processing,
+            })}
           </SizableText>
         );
       case EBulkSendTxStatus.Succeeded:
@@ -151,7 +153,9 @@ function BulkSendProcessItem(props: IProps) {
             </SizableText>
             {status.errorMessage ? (
               <Popover
-                title="Error"
+                title={intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_error_title,
+                })}
                 renderTrigger={
                   <IconButton
                     size="small"
@@ -195,11 +199,15 @@ function BulkSendProcessItem(props: IProps) {
               numberOfLines={1}
               flexShrink={1}
             >
-              Skipped
+              {intl.formatMessage({
+                id: ETranslations.wallet_bulk_send_status_skipped,
+              })}
             </SizableText>
             {status.errorMessage ? (
               <Popover
-                title="Skipped"
+                title={intl.formatMessage({
+                  id: ETranslations.wallet_bulk_send_status_skipped,
+                })}
                 renderTrigger={
                   <IconButton
                     size="small"

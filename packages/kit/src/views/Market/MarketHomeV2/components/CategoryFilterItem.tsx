@@ -1,17 +1,19 @@
 import { memo } from 'react';
 
-import { SizableText, XStack, useMedia } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
+import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 
 export const CategoryFilterItem = memo(
   ({
     name,
     isSelected,
+    icon,
     ...rest
   }: {
     name: string;
     isSelected: boolean;
+    icon?: IKeyOfIcons;
   } & IXStackProps) => {
     const { md } = useMedia();
     return (
@@ -40,6 +42,13 @@ export const CategoryFilterItem = memo(
         })}
         {...rest}
       >
+        {icon ? (
+          <Icon
+            name={icon}
+            size="$4.5"
+            color={isSelected ? '$text' : '$textSubdued'}
+          />
+        ) : null}
         <SizableText
           numberOfLines={1}
           color={isSelected ? '$text' : '$textSubdued'}
