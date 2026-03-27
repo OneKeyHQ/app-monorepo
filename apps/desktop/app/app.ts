@@ -935,7 +935,9 @@ async function createMainWindow() {
       }
       const { module, method, params } = payload;
       if (!allowedModules.has(module)) {
-        throw new OneKeyLocalError(`DESKTOP_API_CALL: unknown module "${module}"`);
+        throw new OneKeyLocalError(
+          `DESKTOP_API_CALL: unknown module "${module}"`,
+        );
       }
       const result: unknown = await desktopApi.callDesktopApiMethod({
         type: 'DESKTOP_API_IPC_MESSAGE',
