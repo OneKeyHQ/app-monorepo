@@ -6,6 +6,7 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
 import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -260,22 +261,44 @@ export function useTrayDataProvider() {
   }, []);
 
   // Handle tray navigation events — navigate within main window
-  const handleTrayNavigation = useCallback((_event: any, action: any) => {
+  const handleTrayNavigation = useCallback((_event: unknown, action: { type: string; [key: string]: unknown }) => {
     const nav = rootNavigationRef.current;
     if (!nav) return;
 
-    if (action?.type === 'market-detail-v2' && action.tokenAddress && action.networkId) {
-      nav.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Market,
-        params: {
-          screen: ETabMarketRoutes.MarketDetailV2,
+    if (action?.type === 'market-detail-v2') {
+      // Perps token — switch to Perp tab and change active asset
+      if (action.perpsCoin) {
+        setTimeout(async () => {
+          nav.navigate(ERootRoutes.Main, {
+            screen: ETabRoutes.Perp,
+          });
+          try {
+            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+              coin: action.perpsCoin as string,
+            });
+          } catch (e) {
+            console.warn('[TrayDataProvider] perps navigation error:', e);
+          }
+        }, 80);
+        return;
+      }
+
+      // Spot token — navigate to MarketDetailV2
+      if (action.tokenAddress && action.networkId) {
+        const networkId = action.networkId as string;
+        const shortCode = networkUtils.getNetworkShortCode({ networkId });
+        nav.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Market,
           params: {
-            tokenAddress: action.tokenAddress,
-            network: action.networkId,
-            isNative: action.isNative || false,
+            screen: ETabMarketRoutes.MarketDetailV2,
+            params: {
+              tokenAddress: action.tokenAddress as string,
+              network: shortCode || networkId,
+              isNative: (action.isNative as boolean) || false,
+            },
           },
-        },
-      });
+        });
+      }
     }
   }, []);
 
