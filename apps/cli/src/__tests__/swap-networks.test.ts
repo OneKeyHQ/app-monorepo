@@ -44,7 +44,7 @@ describe('swap-networks', () => {
         },
       ]);
 
-      const networks = await fetchSwapNetworks('prod');
+      const networks = await fetchSwapNetworks();
       // Should filter out non-EVM (sol--101)
       expect(networks).toHaveLength(2);
       expect(networks[0].networkId).toBe('evm--1');
@@ -63,14 +63,14 @@ describe('swap-networks', () => {
         },
       ]);
 
-      const networks = await fetchSwapNetworks('prod');
+      const networks = await fetchSwapNetworks();
       expect(networks).toHaveLength(0);
     });
 
     it('returns empty array on API failure', async () => {
       mockGet.mockRejectedValueOnce(new Error('Network error'));
 
-      const networks = await fetchSwapNetworks('prod');
+      const networks = await fetchSwapNetworks();
       expect(networks).toHaveLength(0);
     });
 
@@ -84,8 +84,8 @@ describe('swap-networks', () => {
         },
       ]);
 
-      await fetchSwapNetworks('prod');
-      const second = await fetchSwapNetworks('prod');
+      await fetchSwapNetworks();
+      const second = await fetchSwapNetworks();
 
       expect(mockGet).toHaveBeenCalledTimes(1);
       expect(second).toHaveLength(1);
@@ -102,7 +102,7 @@ describe('swap-networks', () => {
         },
       ]);
 
-      const networks = await fetchSwapNetworks('prod');
+      const networks = await fetchSwapNetworks();
       expect(networks[0].name).toBe('Ethereum');
       expect(networks[0].chainId).toBe('1');
       expect(networks[0].nativeSymbol).toBe('ETH');

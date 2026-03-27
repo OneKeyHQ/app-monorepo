@@ -318,8 +318,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
           const chainConfig = resolveChain(options.chain);
 
           // Validate chain supports swap
-          const appConfig = await ConfigManager.load();
-          const swapNetworks = await fetchSwapNetworks(appConfig.env);
+          const swapNetworks = await fetchSwapNetworks();
           if (swapNetworks.length > 0) {
             const isSwapSupported = swapNetworks.some(
               (n) => n.networkId === chainConfig.networkId,

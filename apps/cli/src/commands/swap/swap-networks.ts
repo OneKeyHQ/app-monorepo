@@ -1,9 +1,7 @@
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 
-import { ConfigManager } from '../../config';
 import { apiClient } from '../../infra';
 
-import type { IEndpointEnv } from '../../config';
 import type { Command } from 'commander';
 
 export interface ISwapNetworkResult {
@@ -23,13 +21,14 @@ export function _resetSwapNetworksCache(): void {
   cachedNetworks = null;
 }
 
-export async function fetchSwapNetworks(
-  env: IEndpointEnv,
-): Promise<ISwapNetworkResult[]> {
+/**
+ * Fetch swap-supported networks from backend API.
+ * apiClient.env is already set by the CLI's preAction hook — no need to set it here.
+ */
+export async function fetchSwapNetworks(): Promise<ISwapNetworkResult[]> {
   if (cachedNetworks) return cachedNetworks;
 
   try {
-    apiClient.setEnv(env);
     const res = await apiClient.get<
       Array<{
         networkId: string;
@@ -70,10 +69,9 @@ export function registerSwapNetworksCommand(parent: Command): void {
   parent
     .command('networks')
     .description('List supported swap networks')
-    .option('--json', 'Output as JSON')
-    .action(async (options: { json?: boolean }) => {
-      const config = await ConfigManager.load();
-      const networks = await fetchSwapNetworks(config.env);
+    .action(async (_options: Record<string, unknown>, cmd: Command) => {
+      const globalOpts = cmd.optsWithGlobals();
+      const networks = await fetchSwapNetworks();
 
       if (networks.length === 0) {
         console.error(
@@ -83,7 +81,7 @@ export function registerSwapNetworksCommand(parent: Command): void {
         return;
       }
 
-      if (options.json) {
+      if (globalOpts.json) {
         console.log(JSON.stringify(networks, null, 2));
         return;
       }
