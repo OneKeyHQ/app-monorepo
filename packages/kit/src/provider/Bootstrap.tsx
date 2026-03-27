@@ -72,6 +72,7 @@ import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
 import type { IntlShape } from 'react-intl';
 
@@ -824,5 +825,6 @@ export function Bootstrap() {
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
+  useTrayDataProvider();
   return null;
 }
