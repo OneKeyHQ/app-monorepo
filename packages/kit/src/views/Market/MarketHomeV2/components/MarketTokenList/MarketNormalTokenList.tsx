@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { useMarketTokenList } from './hooks/useMarketTokenList';
+import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
 
@@ -17,6 +18,8 @@ type IMarketNormalTokenListProps = {
   listContainerProps?: {
     paddingBottom: number;
   };
+  hiddenDesktopColumns?: readonly string[];
+  liveTokenOverride?: IMarketTokenListLiveOverride;
 };
 
 function MarketNormalTokenList({
@@ -30,6 +33,8 @@ function MarketNormalTokenList({
   tabIntegrated,
   tabName,
   listContainerProps,
+  hiddenDesktopColumns,
+  liveTokenOverride,
 }: IMarketNormalTokenListProps) {
   const normalResult = useMarketTokenList({
     networkId,
@@ -52,6 +57,8 @@ function MarketNormalTokenList({
       tabName={tabName}
       listContainerProps={listContainerProps}
       showStockSubtitle={false}
+      hiddenDesktopColumns={hiddenDesktopColumns}
+      liveTokenOverride={liveTokenOverride}
     />
   );
 }

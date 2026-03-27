@@ -27,7 +27,10 @@ import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
 import { type IMarketToken } from './MarketTokenData';
-import { MarketTokenListBase } from './MarketTokenListBase';
+import {
+  type IMarketTokenListLiveOverride,
+  MarketTokenListBase,
+} from './MarketTokenListBase';
 import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
@@ -44,6 +47,8 @@ type IMarketWatchlistTokenListProps = {
     paddingBottom: number;
   };
   hidePerps?: boolean;
+  hiddenDesktopColumns?: readonly string[];
+  liveTokenOverride?: IMarketTokenListLiveOverride;
 };
 
 function MarketWatchlistTokenList({
@@ -55,6 +60,8 @@ function MarketWatchlistTokenList({
   tabName,
   listContainerProps,
   hidePerps,
+  hiddenDesktopColumns,
+  liveTokenOverride,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
 
@@ -326,10 +333,12 @@ function MarketWatchlistTokenList({
       tabIntegrated={tabIntegrated}
       tabName={tabName}
       listContainerProps={listContainerProps}
+      hiddenDesktopColumns={hiddenDesktopColumns}
       onDragEnd={handleDragEnd}
       onItemLongPress={handleShowContextMenu}
       onItemContextMenu={handleShowContextMenu}
       onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
+      liveTokenOverride={liveTokenOverride}
     />
   );
 }

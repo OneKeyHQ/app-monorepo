@@ -32,6 +32,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 // ---------------------------------------------------------------------------
@@ -91,7 +92,7 @@ function MobileTokenSelectorContent() {
         networkId: item.networkId,
       });
 
-      tokenDetailActions.current.changeActiveToken({
+      void tokenDetailActions.current.changeActiveToken({
         tokenAddress: item.address,
         networkId: item.networkId,
         isNative: item.isNative ?? false,
@@ -121,22 +122,12 @@ function MobileTokenSelectorContent() {
   );
 
   const handleSearchTokenSelect = useCallback(
-    (token: {
-      network: string;
-      address: string;
-      decimals: number;
-      symbol: string;
-      logoUrl: string;
-      name: string;
-      isNative?: boolean;
-      price?: number;
-      networkLogoURI: string;
-    }) => {
+    (token: IMarketSearchV2Token & { networkLogoURI: string }) => {
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: token.network,
       });
 
-      tokenDetailActions.current.changeActiveToken({
+      void tokenDetailActions.current.changeActiveToken({
         tokenAddress: token.address,
         networkId: token.network,
         isNative: token.isNative ?? false,

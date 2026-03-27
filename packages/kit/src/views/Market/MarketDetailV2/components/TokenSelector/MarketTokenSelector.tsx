@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -36,6 +36,23 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+
+const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
+  'transactions',
+  'uniqueTraders',
+  'holders',
+  'tokenAge',
+] as const;
+
+function toFiniteNumber(value?: string | number) {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Popover content — mirrors SwapProSelectTokenPage structure
@@ -45,6 +62,7 @@ function BaseMarketTokenSelectorContent() {
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
+  const { tokenDetail, networkId } = useTokenDetail();
 
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
@@ -63,14 +81,57 @@ function BaseMarketTokenSelectorContent() {
     selectedNetworkId,
   );
 
+  const liveTokenOverride = useMemo(() => {
+    if (!tokenDetail?.address || !networkId) {
+      return undefined;
+    }
+
+    const buy24hCount = toFiniteNumber(tokenDetail.buy24hCount);
+    const sell24hCount = toFiniteNumber(tokenDetail.sell24hCount);
+    const walletInfo =
+      buy24hCount !== undefined || sell24hCount !== undefined
+        ? {
+            buy: buy24hCount ?? 0,
+            sell: sell24hCount ?? 0,
+          }
+        : undefined;
+
+    return {
+      networkId,
+      address: tokenDetail.address,
+      price: toFiniteNumber(tokenDetail.price),
+      change24h: toFiniteNumber(tokenDetail.priceChange24hPercent),
+      marketCap: toFiniteNumber(tokenDetail.marketCap),
+      liquidity: toFiniteNumber(tokenDetail.liquidity),
+      transactions: toFiniteNumber(tokenDetail.trade24hCount),
+      uniqueTraders: toFiniteNumber(tokenDetail.uniqueWallet24h),
+      holders: tokenDetail.holders,
+      turnover: toFiniteNumber(tokenDetail.volume24h),
+      walletInfo,
+    };
+  }, [
+    networkId,
+    tokenDetail?.address,
+    tokenDetail?.price,
+    tokenDetail?.priceChange24hPercent,
+    tokenDetail?.marketCap,
+    tokenDetail?.liquidity,
+    tokenDetail?.trade24hCount,
+    tokenDetail?.uniqueWallet24h,
+    tokenDetail?.holders,
+    tokenDetail?.volume24h,
+    tokenDetail?.buy24hCount,
+    tokenDetail?.sell24hCount,
+  ]);
+
   const handleNetworkIdChange = useCallback(
-    (networkId: string) => {
+    (nextNetworkId: string) => {
       setStartListSelect(false);
-      setSelectedNetworkId(networkId);
+      setSelectedNetworkId(nextNetworkId);
       setSelectorConfig((prev) => ({
         ...prev,
         isWatchlistMode: false,
-        spotNetworkId: networkId,
+        spotNetworkId: nextNetworkId,
       }));
     },
     [setSelectorConfig],
@@ -85,7 +146,7 @@ function BaseMarketTokenSelectorContent() {
   const handleSelectToken = useCallback(
     (item: IMarketToken) => {
       if (item.perpsCoin) {
-        closePopover?.();
+        void closePopover?.();
         navigateToPerps(item.perpsCoin);
         return;
       }
@@ -94,13 +155,13 @@ function BaseMarketTokenSelectorContent() {
         networkId: item.networkId,
       });
 
-      tokenDetailActions.current.changeActiveToken({
+      void tokenDetailActions.current.changeActiveToken({
         tokenAddress: item.address,
         networkId: item.networkId,
         isNative: item.isNative ?? false,
       });
 
-      closePopover?.();
+      void closePopover?.();
 
       const targetTab = platformEnv.isNative
         ? ETabRoutes.Discovery
@@ -124,28 +185,18 @@ function BaseMarketTokenSelectorContent() {
   );
 
   const handleSearchTokenSelect = useCallback(
-    (token: {
-      network: string;
-      address: string;
-      decimals: number;
-      symbol: string;
-      logoUrl: string;
-      name: string;
-      isNative?: boolean;
-      price?: number;
-      networkLogoURI: string;
-    }) => {
+    (token: IMarketSearchV2Token & { networkLogoURI: string }) => {
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: token.network,
       });
 
-      tokenDetailActions.current.changeActiveToken({
+      void tokenDetailActions.current.changeActiveToken({
         tokenAddress: token.address,
         networkId: token.network,
         isNative: token.isNative ?? false,
       });
 
-      closePopover?.();
+      void closePopover?.();
 
       const targetTab = platformEnv.isNative
         ? ETabRoutes.Discovery
@@ -203,11 +254,15 @@ function BaseMarketTokenSelectorContent() {
               onItemPress={handleSelectToken}
               hideNativeToken
               hidePerps
+              hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
+              liveTokenOverride={liveTokenOverride}
             />
           ) : (
             <MarketNormalTokenList
               onItemPress={handleSelectToken}
               networkId={selectedNetworkId}
+              hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
+              liveTokenOverride={liveTokenOverride}
             />
           )}
         </>
@@ -237,8 +292,21 @@ function BaseMarketTokenSelector() {
   });
 
   const { symbol = '', logoUrl = '', logoUrls } = tokenDetail || {};
+  const logoUrlsCacheKey = useMemo(() => logoUrls?.join('|') ?? '', [logoUrls]);
+  const stableLogoUrlsRef = useRef(logoUrls);
+  const stableLogoUrlsKeyRef = useRef(logoUrlsCacheKey);
 
-  // useMemo with ONLY display values as deps (Perps pattern)
+  if (stableLogoUrlsKeyRef.current !== logoUrlsCacheKey) {
+    stableLogoUrlsRef.current = logoUrls;
+    stableLogoUrlsKeyRef.current = logoUrlsCacheKey;
+  }
+
+  const stableLogoUrls = stableLogoUrlsRef.current;
+
+  // Keep the popover element stable during token detail polling.
+  // `logoUrls` is often returned as a fresh array on each refresh even when
+  // the actual content is unchanged, which would otherwise recreate the
+  // popover tree and cause visible jitter while it is open.
   const content = useMemo(
     () => (
       <Popover
@@ -248,6 +316,7 @@ function BaseMarketTokenSelector() {
         onOpenChange={setIsOpen}
         placement="bottom-start"
         renderTrigger={
+          // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
           <XStack
             gap="$2"
             alignItems="center"
@@ -258,7 +327,7 @@ function BaseMarketTokenSelector() {
             <Token
               size="md"
               tokenImageUri={logoUrl}
-              tokenImageUris={logoUrls}
+              tokenImageUris={stableLogoUrls}
               networkImageUri={effectiveNetworkLogoUri}
               fallbackIcon="CryptoCoinOutline"
             />
@@ -283,7 +352,7 @@ function BaseMarketTokenSelector() {
         )}
       />
     ),
-    [isOpen, symbol, logoUrl, logoUrls, effectiveNetworkLogoUri, intl],
+    [isOpen, symbol, logoUrl, stableLogoUrls, effectiveNetworkLogoUri, intl],
   );
 
   return content;
