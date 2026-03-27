@@ -1,7 +1,5 @@
 // Shared types for MarketHomeV2 components
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
-
 export interface ILiquidityFilter {
   min?: string;
   max?: string;
@@ -28,7 +26,7 @@ export type IMarketApiTimeFrame = '1' | '2' | '3' | '4'; // 1=5m, 2=1h, 3=4h, 4=
 export interface IMarketCategoryItem {
   id: string;
   name: string;
-  icon?: IKeyOfIcons;
+  icon?: string;
 }
 
 // Map UI time range values to API timeFrame values

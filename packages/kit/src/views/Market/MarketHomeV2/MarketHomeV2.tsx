@@ -68,8 +68,10 @@ const useMarketHomeLayoutProps = () => {
       return apiSpotCategories.map((c) => ({
         id: c.type,
         name: c.name,
+        icon: c.icon,
       }));
     }
+
     // Fallback before API responds
     return [
       { id: 'trending', name: 'Trending' },

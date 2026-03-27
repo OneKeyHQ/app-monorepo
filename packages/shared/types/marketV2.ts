@@ -365,6 +365,7 @@ export interface IMarketBasicConfigData {
 export interface IMarketSpotCategory {
   type: string;
   name: string;
+  icon?: string;
 }
 
 export interface IMarketPerpsCategory {

@@ -1,8 +1,16 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { Icon, SizableText, XStack, useMedia } from '@onekeyhq/components';
-import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
+import {
+  Image,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+
+const ICON_FALLBACK = <Stack w="$4.5" h="$4.5" />;
 
 export const CategoryFilterItem = memo(
   ({
@@ -13,9 +21,13 @@ export const CategoryFilterItem = memo(
   }: {
     name: string;
     isSelected: boolean;
-    icon?: IKeyOfIcons;
+    icon?: string;
   } & IXStackProps) => {
     const { md } = useMedia();
+    const imageSource = useMemo(
+      () => (icon ? { uri: icon } : undefined),
+      [icon],
+    );
     return (
       <XStack
         alignItems="center"
@@ -42,11 +54,12 @@ export const CategoryFilterItem = memo(
         })}
         {...rest}
       >
-        {icon ? (
-          <Icon
-            name={icon}
-            size="$4.5"
-            color={isSelected ? '$text' : '$textSubdued'}
+        {imageSource ? (
+          <Image
+            source={imageSource}
+            w="$4.5"
+            h="$4.5"
+            fallback={ICON_FALLBACK}
           />
         ) : null}
         <SizableText
@@ -66,11 +79,13 @@ export function CategoryFilterItemWithLayout({
   id,
   name,
   isSelected,
+  icon,
   onPress,
 }: {
   id: string;
   name: string;
   isSelected: boolean;
+  icon?: string;
   onPress: () => void;
 }) {
   const { handleItemLayout } = useScrollableFilterBar();
@@ -78,6 +93,7 @@ export function CategoryFilterItemWithLayout({
     <CategoryFilterItem
       name={name}
       isSelected={isSelected}
+      icon={icon}
       onPress={onPress}
       onLayout={(event) => handleItemLayout(id, event)}
     />
