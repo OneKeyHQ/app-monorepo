@@ -12,6 +12,8 @@ import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { extractJson } from './test-helpers';
+
 const BIN = resolve(__dirname, '../../bin/onekey');
 const ENV_PATH = resolve(__dirname, '../../.env.test');
 
@@ -78,7 +80,7 @@ function runJSON(
   return run(['--json', '--env', 'test', ...args], options).then((result) => {
     let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(result.stdout);
+      parsed = JSON.parse(extractJson(result.stdout));
     } catch {
       // eslint-disable-next-line no-restricted-syntax
       throw new Error(

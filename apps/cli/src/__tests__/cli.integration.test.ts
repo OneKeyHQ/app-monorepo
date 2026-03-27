@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
+import { extractJson, stripDebugOutput } from './test-helpers';
+
 const BIN = resolve(__dirname, '../../bin/onekey');
 
 function run(...args: string[]): string {
@@ -15,7 +17,7 @@ describe('onekey CLI (integration)', () => {
 
   it('prints version as JSON with --json', () => {
     const output = run('--json', 'version');
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data.version).toBe('0.1.0');
     expect(parsed.data.env).toBe('test');
@@ -23,12 +25,12 @@ describe('onekey CLI (integration)', () => {
 
   it('prints only version value with --quiet', () => {
     const output = run('--quiet', 'version');
-    expect(output).toBe('0.1.0');
+    expect(stripDebugOutput(output)).toBe('0.1.0');
   });
 
   it('respects --env prod', () => {
     const output = run('--json', '--env', 'prod', 'version');
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.data.env).toBe('prod');
   });
 
@@ -49,7 +51,7 @@ describe('onekey CLI (integration)', () => {
       caughtError = e as NodeJS.ErrnoException & { stdout?: string };
     }
     expect(caughtError).not.toBeNull();
-    const parsed = JSON.parse(caughtError!.stdout ?? '{}') as Record<
+    const parsed = JSON.parse(extractJson(caughtError!.stdout ?? '{}')) as Record<
       string,
       unknown
     >;

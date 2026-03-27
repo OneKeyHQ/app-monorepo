@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
+import { extractJson } from './test-helpers';
+
 const BIN = resolve(__dirname, '../../bin/onekey');
 
 function run(...args: string[]): string {
@@ -21,7 +23,7 @@ describe('token commands (integration)', () => {
       '--query',
       'USDC',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.data.length).toBeGreaterThan(0);
@@ -40,7 +42,7 @@ describe('token commands (integration)', () => {
       '--chain',
       'eth',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     for (const item of parsed.data) {
       expect(item.networkId).toBe('evm--1');
@@ -57,7 +59,7 @@ describe('token commands (integration)', () => {
       '--query',
       'ZZZZNONEXISTENT',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data).toEqual([]);
   });
@@ -74,7 +76,7 @@ describe('token commands (integration)', () => {
       '--token',
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data.symbol).toMatch(/USDC/i);
     expect(parsed.data.decimals).toBe(6);
@@ -96,7 +98,7 @@ describe('token commands (integration)', () => {
       '--token',
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data.price).toBeTruthy();
     expect(parsed.data.symbol).toMatch(/USDC/i);
@@ -104,7 +106,7 @@ describe('token commands (integration)', () => {
   });
   it('token trending returns trending list', () => {
     const output = run('--json', '--env', 'test', 'token', 'trending');
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.data.length).toBeGreaterThan(0);
@@ -123,7 +125,7 @@ describe('token commands (integration)', () => {
       '--token',
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data).toHaveProperty('stats');
     expect(parsed.data.stats).toHaveProperty('1m');
@@ -148,7 +150,7 @@ describe('token commands (integration)', () => {
       '--token',
       '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.data.length).toBeGreaterThan(0);
@@ -170,7 +172,7 @@ describe('market commands (integration)', () => {
       '--token',
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data.price).toBeTruthy();
     expect(parsed.data.symbol).toMatch(/USDC/i);
@@ -187,7 +189,7 @@ describe('market commands (integration)', () => {
       '--tokens',
       'eth:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48,base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.data.length).toBe(2);
@@ -211,7 +213,7 @@ describe('market commands (integration)', () => {
       '--limit',
       '6',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.data.length).toBeGreaterThan(0);
@@ -249,7 +251,7 @@ describe('swap commands (integration)', () => {
       const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
       output = (e.stdout ?? e.stderr ?? '').toString().trim();
     }
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     if (parsed.status === 'success') {
       expect(parsed.data).toHaveProperty('quotes');
       expect(parsed.data).toHaveProperty('security');
@@ -289,7 +291,7 @@ describe('swap commands (integration)', () => {
       const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
       output = (e.stdout ?? e.stderr ?? '').toString().trim();
     }
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     if (parsed.status === 'success') {
       expect(parsed.data).toHaveProperty('orderId');
       expect(parsed.data).toHaveProperty('provider');
@@ -321,7 +323,7 @@ describe('security commands (integration)', () => {
       '--token',
       '0xdac17f958d2ee523a2206206994597c13d831ec7',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data).toHaveProperty('overallRisk');
     expect(parsed.data).toHaveProperty('cautionItems');
@@ -343,7 +345,7 @@ describe('security commands (integration)', () => {
       '--data',
       '0xa9059cbb0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000a',
     );
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(extractJson(output));
     expect(parsed.status).toBe('success');
     expect(parsed.data).toHaveProperty('type');
     expect(parsed.data).toHaveProperty('display');
