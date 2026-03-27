@@ -1592,9 +1592,9 @@ function startProcessMetricsMonitoring() {
     );
     if (totalMemoryMB > MEMORY_LIMIT_WARNING_MB) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const { addBreadcrumb } = require('@sentry/electron/main');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const { addBreadcrumb } = require('@sentry/electron/main') as {
+          addBreadcrumb: (breadcrumb: Record<string, unknown>) => void;
+        };
         addBreadcrumb({
           category: 'memory',
           message: `Total process memory: ${Math.round(totalMemoryMB)}MB`,
@@ -1621,10 +1621,10 @@ async function collectGPUInfo() {
     logger.info('[GPU Info] Complete GPU information collected');
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const { setContext } = require('@sentry/electron/main');
+      const { setContext } = require('@sentry/electron/main') as {
+        setContext: (name: string, context: Record<string, unknown> | null) => void;
+      };
       const gpuDevice = (gpuInfo as any)?.gpuDevice?.[0];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       setContext('gpu', {
         vendorId: gpuDevice?.vendorId,
         deviceId: gpuDevice?.deviceId,
