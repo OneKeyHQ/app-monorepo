@@ -1,9 +1,8 @@
+/* eslint-disable no-template-curly-in-string */
+const { baseFiles } = require('./electron-builder-files.config');
 const { getPath } = require('./scripts/utils');
 
-/* eslint-disable no-template-curly-in-string */
 require('../../development/env');
-
-const { baseFiles } = require('./electron-builder-files.config');
 
 const baseElectronBuilderConfig = {
   'extraMetadata': {
