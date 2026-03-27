@@ -174,11 +174,9 @@ describe('SwapPanelContent', () => {
 
     render(<SwapPanelContent {...props} />);
 
-    const actionButton = screen.getByTestId(
-      'action-button',
-    ) as HTMLButtonElement;
+    const actionButton = screen.getByTestId('action-button');
 
-    expect(actionButton.disabled).toBe(true);
+    expect((actionButton as HTMLButtonElement).disabled).toBe(true);
     expect(actionButtonMock).toHaveBeenCalledWith(
       expect.objectContaining({
         disabled: true,
