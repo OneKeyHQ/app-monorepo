@@ -64,11 +64,7 @@ function TokenDetailsHistory(props: IProps) {
    * they are loaded separately from the token details
    * so as not to block the display of the top details.
    */
-  const {
-    result: tokenHistory,
-    run,
-    isLoading,
-  } = usePromiseResult(
+  const { result: tokenHistory, run } = usePromiseResult(
     async () => {
       try {
         const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
@@ -169,7 +165,6 @@ function TokenDetailsHistory(props: IProps) {
       indexedAccountId={indexedAccountId}
       inTabList={inTabList}
       initialized={historyInit}
-      isLoading={isLoading}
       data={tokenHistory ?? []}
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}
