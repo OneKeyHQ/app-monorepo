@@ -1,4 +1,4 @@
-import { Stack, Text } from '@onekeyhq/components';
+import { Stack, SizableText } from '@onekeyhq/components';
 import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
 
 const TX_TYPE_LABELS: Record<string, string> = {
@@ -24,12 +24,12 @@ function TxRow({ tx, onPress }: { tx: IPendingTx; onPress: () => void }) {
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <Stack flex={1}>
-        <Text fontSize="$bodyMd" color="$text">{TX_TYPE_LABELS[tx.type] || tx.type}</Text>
-        <Text fontSize="$bodySm" color="$textSubdued">→ {truncateAddress(tx.to)}</Text>
+        <SizableText fontSize="$bodyMd" color="$text">{TX_TYPE_LABELS[tx.type] || tx.type}</SizableText>
+        <SizableText fontSize="$bodySm" color="$textSubdued">→ {truncateAddress(tx.to)}</SizableText>
       </Stack>
       <Stack alignItems="flex-end">
-        <Text fontSize="$bodyMd" color="$text">{tx.amount}</Text>
-        <Text fontSize="$bodySm" color="$textWarning">{tx.confirmations || 'Pending'}</Text>
+        <SizableText fontSize="$bodyMd" color="$text">{tx.amount}</SizableText>
+        <SizableText fontSize="$bodySm" color="$textWarning">{tx.confirmations || 'Pending'}</SizableText>
       </Stack>
     </Stack>
   );
@@ -45,9 +45,9 @@ export function PendingTransactions({
   if (!transactions || transactions.length === 0) {
     return (
       <Stack padding="$4">
-        <Text fontSize="$bodySm" color="$textSubdued" textAlign="center">
+        <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
           No pending transactions
-        </Text>
+        </SizableText>
       </Stack>
     );
   }
@@ -57,15 +57,15 @@ export function PendingTransactions({
 
   return (
     <Stack>
-      <Text fontSize="$bodySm" color="$textSubdued" paddingHorizontal="$4" paddingTop="$3" paddingBottom="$1">
+      <SizableText fontSize="$bodySm" color="$textSubdued" paddingHorizontal="$4" paddingTop="$3" paddingBottom="$1">
         Pending Transactions
-      </Text>
+      </SizableText>
       {displayTxs.map((tx) => (
         <TxRow key={tx.id} tx={tx} onPress={() => onTxPress(tx.id)} />
       ))}
       {hasMore ? (
         <Stack padding="$3" onPress={() => onTxPress('')} cursor="pointer">
-          <Text fontSize="$bodySm" color="$textInteractive" textAlign="center">View all →</Text>
+          <SizableText fontSize="$bodySm" color="$textInteractive" textAlign="center">View all →</SizableText>
         </Stack>
       ) : null}
     </Stack>

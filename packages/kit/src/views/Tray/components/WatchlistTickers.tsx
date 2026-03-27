@@ -1,4 +1,4 @@
-import { Stack, Text } from '@onekeyhq/components';
+import { Stack, SizableText } from '@onekeyhq/components';
 
 interface ITicker {
   symbol: string;
@@ -24,14 +24,14 @@ function TickerRow({ ticker, onPress }: { ticker: ITicker; onPress: () => void }
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <Stack flex={1}>
-        <Text fontSize="$bodyMd" color="$text">{ticker.symbol}</Text>
-        <Text fontSize="$bodySm" color="$textSubdued">{ticker.name}</Text>
+        <SizableText fontSize="$bodyMd" color="$text">{ticker.symbol}</SizableText>
+        <SizableText fontSize="$bodySm" color="$textSubdued">{ticker.name}</SizableText>
       </Stack>
       <Stack alignItems="flex-end">
-        <Text fontSize="$bodyMd" color="$text">{ticker.price}</Text>
-        <Text fontSize="$bodySm" color={changeColor}>
+        <SizableText fontSize="$bodyMd" color="$text">{ticker.price}</SizableText>
+        <SizableText fontSize="$bodySm" color={changeColor}>
           {changePrefix}{ticker.change24h.toFixed(2)}%
-        </Text>
+        </SizableText>
       </Stack>
     </Stack>
   );
@@ -47,18 +47,18 @@ export function WatchlistTickers({
   if (!tickers || tickers.length === 0) {
     return (
       <Stack padding="$4">
-        <Text fontSize="$bodySm" color="$textSubdued" textAlign="center">
+        <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
           Add favorites in the app
-        </Text>
+        </SizableText>
       </Stack>
     );
   }
 
   return (
     <Stack>
-      <Text fontSize="$bodySm" color="$textSubdued" paddingHorizontal="$4" paddingTop="$3" paddingBottom="$1">
+      <SizableText fontSize="$bodySm" color="$textSubdued" paddingHorizontal="$4" paddingTop="$3" paddingBottom="$1">
         Watchlist
-      </Text>
+      </SizableText>
       {tickers.map((ticker) => (
         <TickerRow key={ticker.symbol} ticker={ticker} onPress={() => onTickerPress(ticker.symbol)} />
       ))}

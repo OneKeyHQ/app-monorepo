@@ -1,4 +1,4 @@
-import { Stack, Text } from '@onekeyhq/components';
+import { Stack, SizableText } from '@onekeyhq/components';
 
 type IEmptyStateType = 'loading' | 'locked' | 'noWallet' | 'offline';
 
@@ -26,12 +26,12 @@ export function TrayEmptyState({
       onPress={onPress}
       cursor={onPress ? 'pointer' : 'default'}
     >
-      <Text fontSize="$headingMd" color="$text" marginBottom="$2">
+      <SizableText fontSize="$headingMd" color="$text" marginBottom="$2">
         {message.title}
-      </Text>
-      <Text fontSize="$bodySm" color="$textSubdued">
+      </SizableText>
+      <SizableText fontSize="$bodySm" color="$textSubdued">
         {message.subtitle}
-      </Text>
+      </SizableText>
     </Stack>
   );
 }
