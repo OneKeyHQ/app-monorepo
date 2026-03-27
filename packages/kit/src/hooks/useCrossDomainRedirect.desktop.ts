@@ -21,10 +21,7 @@ export function useCrossDomainRedirect(
   // Desktop: intercept window.open() via Electron IPC
   useEffect(() => {
     if (!enabled) return;
-    const handleDesktopNewWindow = (
-      _event: unknown,
-      data: { url?: string },
-    ) => {
+    const handleDesktopNewWindow = (data: { url?: string }) => {
       if (isUnmounting.current || !data.url) return;
       if (isCrossDomain(data.url)) {
         redirectToDiscovery(data.url);

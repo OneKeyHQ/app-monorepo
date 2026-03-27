@@ -10,7 +10,7 @@ export const useShortcuts = (
 ) => {
   useEffect(() => {
     if (platformEnv.isDesktop) {
-      const handleCallback = (_: unknown, e: EShortcutEvents) => {
+      const handleCallback = (e: EShortcutEvents) => {
         if (eventName === undefined || e === eventName) {
           callback(e);
         }

@@ -11,7 +11,7 @@ export function useDesktopNewWindow() {
   const { handleOpenWebSite } = useBrowserAction().current;
   const { gtMd } = useMedia();
   const onNewWindow = useCallback(
-    (_: any, data: { url: string }) => {
+    (data: { url: string }) => {
       if (data.url) {
         handleOpenWebSite({
           useCurrentWindow: false,

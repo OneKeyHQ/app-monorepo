@@ -93,7 +93,9 @@ const desktopApi = {
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
-    const wrapped = (...args: any[]) => listener(...args);
+    // Strip IpcRendererEvent to avoid passing non-serializable objects
+    // through contextBridge (consistent with desktopApi.on() pattern)
+    const wrapped = (_ipcEvent: any, ...args: any[]) => listener(...args);
     ipcRenderer.addListener(event, wrapped);
     return () => {
       ipcRenderer.removeListener(event, wrapped);

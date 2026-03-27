@@ -264,14 +264,11 @@ export class OAuthPopup extends OAuthPopupBase {
         let unsubscribeIpc: (() => void) | null = null;
 
         // IPC callback handler
-        const handleCallback = async (
-          _event: Electron.IpcRendererEvent,
-          data: {
-            code?: string;
-            state?: string;
-            oneKeyState?: string;
-          },
-        ) => {
+        const handleCallback = async (data: {
+          code?: string;
+          state?: string;
+          oneKeyState?: string;
+        }) => {
           if (settled) {
             return;
           }

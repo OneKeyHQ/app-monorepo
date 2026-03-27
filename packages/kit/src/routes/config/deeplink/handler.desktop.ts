@@ -11,10 +11,7 @@ export const registerHandler: IRegisterHandler = (
   // Unsubscribe previous listener to prevent duplicate handling on re-registration
   previousUnsubscribe?.();
 
-  const desktopLinkingHandler = (
-    _event: Event,
-    data: IDesktopOpenUrlEventData,
-  ) => {
+  const desktopLinkingHandler = (data: IDesktopOpenUrlEventData) => {
     handleDeepLinkUrl(data);
   };
 
