@@ -57,7 +57,10 @@ import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 import './libs/react-native-mmkv-desktop-main';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import { getBackgroundColor } from './libs/utils';
+import {
+  getBackgroundColor,
+  registerPlatformInfoHandler,
+} from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -782,27 +785,7 @@ async function createMainWindow() {
     event.returnValue = isDevServer;
   });
 
-  ipcMain.removeAllListeners(ipcMessageKeys.GET_PLATFORM_INFO);
-  ipcMain.on(ipcMessageKeys.GET_PLATFORM_INFO, (event) => {
-    let channel: string | undefined;
-    if (process.platform === 'linux') {
-      if (process.env.APPIMAGE) {
-        channel = 'appImage';
-      } else if (process.env.SNAP) {
-        channel = 'snap';
-      } else if (process.env.FLATPAK) {
-        channel = 'flatpak';
-      }
-    }
-    event.returnValue = {
-      arch: process.arch,
-      platform: process.platform,
-      systemVersion: process.getSystemVersion(),
-      isMas: !!(process as any).mas,
-      channel,
-      deskChannel: process.env.DESK_CHANNEL || '',
-    };
-  });
+  registerPlatformInfoHandler();
 
   ipcMain.removeAllListeners(ipcMessageKeys.LOG_DIRECTORY);
   ipcMain.on(ipcMessageKeys.LOG_DIRECTORY, (event) => {

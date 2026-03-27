@@ -8,6 +8,7 @@ import logger from 'electron-log/main';
 
 import { ipcMessageKeys } from './config';
 import * as store from './libs/store';
+import { registerPlatformInfoHandler } from './libs/utils';
 import { getAppStaticResourcesPath } from './resoucePath';
 
 const isMac = process.platform === 'darwin';
@@ -41,27 +42,7 @@ export function createRecoveryWindow(): BrowserWindow {
   ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
     event.returnValue = false;
   });
-  ipcMain.removeAllListeners(ipcMessageKeys.GET_PLATFORM_INFO);
-  ipcMain.on(ipcMessageKeys.GET_PLATFORM_INFO, (event) => {
-    let channel: string | undefined;
-    if (process.platform === 'linux') {
-      if (process.env.APPIMAGE) {
-        channel = 'appImage';
-      } else if (process.env.SNAP) {
-        channel = 'snap';
-      } else if (process.env.FLATPAK) {
-        channel = 'flatpak';
-      }
-    }
-    event.returnValue = {
-      arch: process.arch,
-      platform: process.platform,
-      systemVersion: process.getSystemVersion(),
-      isMas: !!(process as any).mas,
-      channel,
-      deskChannel: process.env.DESK_CHANNEL || '',
-    };
-  });
+  registerPlatformInfoHandler();
 
   const browserWindow = new BrowserWindow({
     show: true,

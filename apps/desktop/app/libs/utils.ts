@@ -2,7 +2,9 @@ import fs from 'fs';
 import path from 'path';
 
 import plist from '@expo/plist';
-import { app, nativeTheme } from 'electron';
+import { app, ipcMain, nativeTheme } from 'electron';
+
+import { ipcMessageKeys } from '../config';
 
 // Bool 2 Text
 export const b2t = (bool: boolean) => (bool ? 'Yes' : 'No');
@@ -88,3 +90,27 @@ const themeColors = {
 export const getBackgroundColor = (key: string) =>
   themeColors[key as keyof typeof themeColors] ||
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
+
+export function registerPlatformInfoHandler() {
+  ipcMain.removeAllListeners(ipcMessageKeys.GET_PLATFORM_INFO);
+  ipcMain.on(ipcMessageKeys.GET_PLATFORM_INFO, (event) => {
+    let channel: string | undefined;
+    if (process.platform === 'linux') {
+      if (process.env.APPIMAGE) {
+        channel = 'appImage';
+      } else if (process.env.SNAP) {
+        channel = 'snap';
+      } else if (process.env.FLATPAK) {
+        channel = 'flatpak';
+      }
+    }
+    event.returnValue = {
+      arch: process.arch,
+      platform: process.platform,
+      systemVersion: process.getSystemVersion(),
+      isMas: !!(process as any).mas,
+      channel,
+      deskChannel: process.env.DESK_CHANNEL || '',
+    };
+  });
+}
