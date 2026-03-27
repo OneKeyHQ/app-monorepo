@@ -58,8 +58,12 @@ exports.default = async function fileOperation(context) {
       [FuseV1Options.RunAsNode]: false,
       // Prevent NODE_OPTIONS env var from injecting debug flags or inspect ports
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      // Keep file:// privileges enabled — disabling breaks localStorage/sessionStorage
-      // for the main window (opaque origin). TODO: migrate to custom app:// protocol.
+      // Keep file:// privileges enabled — disabling makes file:// an opaque origin,
+      // breaking localStorage/sessionStorage/indexedDB for the main window.
+      // Risk mitigation: the production file protocol interceptor in app.ts validates
+      // all resolved paths stay within the build directory (path traversal guard),
+      // preventing file:// from reading arbitrary files outside the app bundle.
+      // TODO: migrate to custom app:// protocol to fully eliminate file:// privileges.
       [FuseV1Options.GrantFileProtocolExtraPrivileges]: true,
     });
   }
