@@ -32,7 +32,7 @@ function act(callback: () => void | Promise<void>): void | Promise<void> {
   // Run the callback inside syncAct so that sync callbacks get proper React
   // batching and effect flushing. After syncAct completes, check whether the
   // callback returned a Promise (async). If so, await it and flush again.
-  let cbResult: void | Promise<void>;
+  let cbResult!: void | Promise<void>;
   try {
     syncAct(() => {
       cbResult = callback();
