@@ -71,8 +71,10 @@ const baseElectronBuilderConfig = {
   'afterSign': getPath('scripts/afterSign.js'),
   'afterPack': getPath('scripts/afterPack.js'),
 };
-module.exports = baseElectronBuilderConfig;
-module.exports.baseFiles = baseFiles;
-module.exports.macExcludePrebuilds = macExcludePrebuilds;
-module.exports.winExcludePrebuilds = winExcludePrebuilds;
-module.exports.linuxExcludePrebuilds = linuxExcludePrebuilds;
+module.exports = {
+  config: baseElectronBuilderConfig,
+  baseFiles,
+  macExcludePrebuilds,
+  winExcludePrebuilds,
+  linuxExcludePrebuilds,
+};

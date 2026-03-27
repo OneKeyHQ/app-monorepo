@@ -1,8 +1,8 @@
 // oxlint-disable no-template-curly-in-string -- electron-builder template syntax
 const {
+  config: baseElectronBuilderConfig,
   baseFiles,
   winExcludePrebuilds,
-  ...baseElectronBuilderConfig
 } = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
 

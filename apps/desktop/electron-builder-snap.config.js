@@ -1,9 +1,9 @@
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
 const {
+  config: baseElectronBuilderConfig,
   baseFiles,
   linuxExcludePrebuilds,
-  ...baseElectronBuilderConfig
 } = require('./electron-builder-base.config');
 
 module.exports = {
