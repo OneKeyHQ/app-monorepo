@@ -1714,7 +1714,9 @@ app.on('before-quit', () => {
 
 // Dev-only switches — NEVER run in production builds
 if (isDevServer && !app.isPackaged) {
-  // https://onekeyhq.atlassian.net/browse/OK-8096
+  // OK-8096: webview crashed on pages with COOP headers (e.g. Google Search).
+  // Root cause was Electron bugs #25872 / #25469, fixed in Electron 18+.
+  // No longer needed in production (we're on Electron 39.x), kept for dev only.
   app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
