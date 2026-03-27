@@ -95,7 +95,7 @@ function renderHook<Result, Props = undefined>(
     const wrappedElement = Wrapper
       ? (React.createElement(Wrapper, null, element) as any)
       : element;
-    renderer = TestRenderer.create(wrappedElement, renderOptions);
+    renderer = TestRenderer.create(wrappedElement, renderOptions as any);
   });
 
   return {
