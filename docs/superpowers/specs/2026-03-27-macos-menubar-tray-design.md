@@ -30,11 +30,16 @@ apps/desktop/src/tray/
   └── TrayPanel.tsx         # Panel root component (React + Tamagui)
 ```
 
+### Panel Renderer Entry Point
+
+The panel loads the same dev server URL / production `index.html` as the main window, but with a query parameter `?render=tray` to switch the root component to `TrayPanel`. This avoids a separate Webpack entry point. The panel BrowserWindow uses the same `preload.ts` as the main window, but the `APP_READY` signal is only sent by the main window renderer (the tray panel does not send it, preventing duplicate initialization triggers).
+
 ### Lifecycle
 
 - `TrayManager` is initialized in `app.ts` after `app.whenReady()`, gated by `isMac`.
 - The Tray icon is created at app startup and destroyed at app quit.
 - The panel BrowserWindow is lazily created on first click, then reused via show/hide (never destroyed and recreated).
+- `TrayManager` exposes a `destroy()` method that clears the polling timer, destroys the panel BrowserWindow (if created), and destroys the Tray icon. This method is called from the `before-quit` handler in `app.ts`.
 
 ## Tray Icon
 
@@ -65,13 +70,13 @@ apps/desktop/src/tray/
 - Horizontal: centered under the Tray icon, derived from `tray.getBounds()`.
 - Vertical: directly below the macOS menu bar.
 - Screen edge overflow: if the panel would extend beyond the right edge of the screen, shift left to stay within bounds.
+- Position is recalculated every time the panel is shown (not cached from first show), to handle display changes and tray icon repositioning.
 
 ### Show/Hide Behavior
 
 - Click Tray icon: toggle visibility.
-- Panel `blur` event: hide panel.
+- Panel `blur` event: hide panel, with a ~100ms delay to check if focus moved to the main BrowserWindow. If focus went to the main window, suppress the hide.
 - `Escape` key within panel: hide panel.
-- Main window gaining focus does NOT hide the panel.
 
 ## Panel UI Layout
 
@@ -113,20 +118,31 @@ The panel has three vertically stacked sections. The panel is scrollable if cont
 - Polling does NOT stop when the panel is hidden (needed for transaction status monitoring and notifications).
 - Polling pauses when the app is locked or no wallet exists.
 
+### IPC Channel Naming
+
+All tray IPC channels are registered in `ipcMessageKeys` in `apps/desktop/app/config.ts`, following the existing `NAMESPACE/action` convention:
+
+- `tray/dataRequest` — main process → main window renderer
+- `tray/dataResponse` — main window renderer → main process
+- `tray/update` — main process → tray panel renderer
+- `tray/action` — tray panel renderer → main process
+
 ### Data Path
 
 ```
 Main Window Renderer (data source)
-    ↓  ipcRenderer.on('tray-data-request')
+    ↓  ipcRenderer.on(ipcMessageKeys.TRAY_DATA_REQUEST)
     ↓  Reads from existing Redux/store
-    ↓  ipcRenderer.send('tray-data-response', data)
+    ↓  ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data)
 Main Process (TrayManager)
     ↓  ipcMain receives data
-    ↓  Sends to panel: panelWebContents.send('tray-update', data)
+    ↓  Sends to panel: panelWebContents.send(ipcMessageKeys.TRAY_UPDATE, data)
 Tray Panel Renderer (display layer)
 ```
 
 The Tray does NOT make its own API calls. It reads from the main window's existing data layer. If the main window's data is stale, the request triggers an incremental refresh.
+
+**Timeout handling**: If the main window renderer does not respond to `tray/dataRequest` within 5 seconds, the tray displays the last cached data with a stale indicator. If `webContents.isDestroyed()` or `webContents.isCrashed()` returns true, the tray skips the request and shows cached data.
 
 ### Data Structure
 
@@ -177,6 +193,7 @@ Main process receives, calls `showMainWindow()`, then forwards route to main win
   - Body: amount + truncated target address
   - Click notification → `showMainWindow()` + navigate to transaction detail.
 - Notifications are suppressed when the app is locked.
+- `Notification.isSupported()` is checked before attempting to send. If notifications are denied by macOS, the feature degrades gracefully (polling still runs for in-panel updates, just no native notifications).
 
 ## Edge Cases & Boundary Conditions
 
