@@ -26,6 +26,8 @@ import type {
   IPerpTokenSortField,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { numberFormat } from './numberUtils';
+
 // Types for liquidation price calculation
 interface IMarginTier {
   lowerBound: string;
@@ -1368,6 +1370,84 @@ export function getTokenSubtitle(
   return serverAliases?.[tokenName]?.subtitle;
 }
 
+// ─── Shared formatting utilities for Perps UI ──────────────────────────────
+
+/**
+ * Format a number as USD string using numberFormat 'value' formatter.
+ * Optionally shows +/- sign for non-zero values.
+ */
+export function formatPerpsUsd(
+  value: number | null | undefined,
+  showSign = false,
+): string {
+  if (value === null || value === undefined) return '--';
+  const bn = new BigNumber(value);
+  const abs = bn.abs().toFixed();
+  const formatted = numberFormat(abs, {
+    formatter: 'value',
+    formatterOptions: { currency: '$' },
+  });
+  if (showSign && !bn.isZero()) {
+    return bn.lt(0) ? `-${formatted}` : `+${formatted}`;
+  }
+  if (bn.lt(0)) {
+    return `-${formatted}`;
+  }
+  return formatted;
+}
+
+/**
+ * Format a number as compact USD (K/M/B suffixes) using numberFormat 'marketCap' formatter.
+ */
+export function formatPerpsCompactUsd(value: number): string {
+  if (value === 0) return '$0';
+  const bn = new BigNumber(value);
+  const abs = bn.abs().toFixed();
+  const formatted = numberFormat(abs, {
+    formatter: 'marketCap',
+    formatterOptions: { currency: '$' },
+  });
+  if (bn.lt(0)) {
+    return `-${formatted}`;
+  }
+  return formatted;
+}
+
+/**
+ * Return a theme color token based on PnL sign.
+ * Positive → '$green11', Negative → '$red11', Zero/null → '$text'.
+ */
+type IPerpsValueColor = '$text' | '$green11' | '$red11';
+
+export function getPerpsValueColor(
+  value: number | null | undefined,
+): IPerpsValueColor {
+  if (value === null || value === undefined || value === 0) return '$text';
+  return value > 0 ? '$green11' : '$red11';
+}
+
+/**
+ * Compact USD formatter for chart Y-axis labels (lightweight-charts priceFormatter).
+ * Output: "$1.2M", "$45K", "$120", "$3.14" etc.
+ *
+ * NOTE: Keep in sync with `usdPriceFormatter` in LightweightChart/utils/htmlTemplate.ts
+ * (native WebView cannot use TS functions, so the logic is duplicated as inline JS).
+ */
+export function formatChartUsdPrice(price: number): string {
+  const abs = Math.abs(price);
+  const sign = price < 0 ? '-' : '';
+  if (abs >= 1_000_000) {
+    return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  }
+  if (abs >= 1000) {
+    return `${sign}$${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
+  }
+  if (Number.isInteger(abs)) {
+    return `${sign}$${abs.toFixed(0)}`;
+  }
+  return `${sign}$${abs.toFixed(2)}`;
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1436,4 +1516,8 @@ export default {
   mapTriggerOrderType,
   inferTpsl,
   getTriggerEffectivePrice,
+  formatPerpsUsd,
+  formatPerpsCompactUsd,
+  getPerpsValueColor,
+  formatChartUsdPrice,
 };
