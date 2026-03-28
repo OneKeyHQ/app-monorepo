@@ -11,6 +11,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
 import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
