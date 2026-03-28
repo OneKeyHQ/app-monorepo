@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   DebugRenderTracker,
-  Divider,
   Icon,
   IconButton,
   SizableText,
@@ -19,6 +18,7 @@ import {
   usePerpsAllAssetCtxsAtom,
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
@@ -35,7 +35,6 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
-import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 
@@ -98,7 +97,7 @@ function DepositButton() {
   const accountValue = accountSummary?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
-  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const { showPortfolio } = useShowPortfolio();
 
   if (!activeAccount?.accountAddress) {
     return null;
@@ -110,9 +109,7 @@ function DepositButton() {
       borderRadius="$full"
       size="medium"
       variant={isEmptyAccount ? 'primary' : 'secondary'}
-      onPress={async () => {
-        await showDepositWithdrawModal('deposit');
-      }}
+      onPress={showPortfolio}
       alignItems="center"
       justifyContent="center"
       flexDirection="row"
@@ -131,30 +128,12 @@ function DepositButton() {
         </>
       ) : (
         <>
-          <Icon name="WalletOutline" size="$4" />
-          {gtSm ? (
-            <PerpsAccountNumberValue
-              value={accountValue ?? ''}
-              skeletonWidth={60}
-              textSize="$bodySmMedium"
-            />
-          ) : null}
-          <Divider
-            borderWidth={0.33}
-            borderBottomWidth={12}
-            borderColor="$borderSubdued"
+          <Icon name="ChartLine2Outline" size="$4" />
+          <PerpsAccountNumberValue
+            value={accountValue ?? ''}
+            skeletonWidth={60}
+            textSize="$bodySmMedium"
           />
-          {gtSm ? (
-            <SizableText size="$bodySmMedium" color="$text">
-              {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-            </SizableText>
-          ) : (
-            <PerpsAccountNumberValue
-              value={accountValue ?? ''}
-              skeletonWidth={60}
-              textSize="$bodySmMedium"
-            />
-          )}
         </>
       )}
     </Badge>
