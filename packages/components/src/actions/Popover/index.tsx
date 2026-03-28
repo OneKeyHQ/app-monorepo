@@ -31,7 +31,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FIX_SHEET_PROPS } from '../../composite/Dialog';
-import { Keyboard } from '../../content';
+import { Keyboard } from '../../content/Keyboard';
 import { Portal } from '../../hocs';
 import {
   ModalNavigatorContext,
