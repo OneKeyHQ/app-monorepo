@@ -23,6 +23,12 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  priceScaleMargins,
+  priceFormatter,
+  fontSize,
+  seriesType,
+  baselineOptions,
+  showLastValue,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -39,10 +45,19 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    priceScaleMargins,
+    priceFormatter,
+    fontSize,
+    seriesType,
+    baselineOptions,
   });
+  const nativeConfig = useMemo(
+    () => ({ ...chartConfig, showLastValue: !!showLastValue }),
+    [chartConfig, showLastValue],
+  );
   const htmlContent = useMemo(
-    () => generateChartHTML(chartConfig),
-    [chartConfig],
+    () => generateChartHTML(nativeConfig),
+    [nativeConfig],
   );
 
   const handleMessage = useCallback(
