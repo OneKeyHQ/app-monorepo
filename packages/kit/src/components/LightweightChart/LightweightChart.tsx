@@ -25,11 +25,19 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  priceScaleMargins,
+  priceFormatter,
+  fontSize,
+  seriesType,
+  baselineOptions,
+  showLastValue,
   onHover,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Area'> | ISeriesApi<'Baseline'> | null>(
+    null,
+  );
   const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   const chartConfig = useChartConfig({
@@ -43,6 +51,11 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    priceScaleMargins,
+    priceFormatter,
+    fontSize,
+    seriesType,
+    baselineOptions,
   });
 
   useEffect(() => {
@@ -54,6 +67,8 @@ export function LightweightChart({
     const baseOptions = createChartOptions(
       chartConfig.theme,
       chartConfig.showPriceScale,
+      chartConfig.fontSize,
+      chartConfig.priceScaleMargins,
     );
     const gridOptions = {
       vertLines: { visible: false },
@@ -73,9 +88,35 @@ export function LightweightChart({
       height,
     });
 
-    const series = chart.addAreaSeries(
-      createAreaSeriesOptions(chartConfig.theme, chartConfig.lineWidth),
-    );
+    const isBaseline = chartConfig.seriesType === 'baseline';
+    const series = isBaseline
+      ? chart.addBaselineSeries({
+          ...chartConfig.baselineOptions,
+          lineWidth: Math.min(
+            4,
+            Math.max(1, Math.round(chartConfig.lineWidth)),
+          ) as 1 | 2 | 3 | 4,
+          lastValueVisible: !!showLastValue,
+          priceLineVisible: !!showLastValue,
+          crosshairMarkerRadius: 5,
+          priceFormat: {
+            type: 'custom',
+            formatter:
+              chartConfig.priceFormatter ??
+              ((price: number) => `$${price.toFixed(2)}`),
+          },
+        })
+      : chart.addAreaSeries({
+          ...createAreaSeriesOptions(
+            chartConfig.theme,
+            chartConfig.lineWidth,
+            chartConfig.priceFormatter,
+          ),
+          ...(showLastValue && {
+            lastValueVisible: true,
+            priceLineVisible: true,
+          }),
+        });
     series.setData(chartConfig.data);
 
     if (
@@ -165,7 +206,7 @@ export function LightweightChart({
       seriesRef.current = null;
       secondarySeriesRef.current = null;
     };
-  }, [chartConfig, height, onHover]);
+  }, [chartConfig, height, onHover, showLastValue]);
 
   return <Stack ref={chartContainerRef} width="100%" height={height} />;
 }
