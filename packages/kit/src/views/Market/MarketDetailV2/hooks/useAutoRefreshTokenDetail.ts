@@ -39,7 +39,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       liquidity: toFiniteNumber(tokenDetail.liquidity),
       transactions: toFiniteNumber(tokenDetail.trade24hCount),
       uniqueTraders: toFiniteNumber(tokenDetail.uniqueWallet24h),
-      holders: tokenDetail.holders,
+      holders: toFiniteNumber(tokenDetail.holders),
       turnover: toFiniteNumber(tokenDetail.volume24h),
       walletInfo:
         buy !== undefined || sell !== undefined
