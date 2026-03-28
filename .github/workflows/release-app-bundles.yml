@@ -7,14 +7,9 @@ on:
         description: 'PR number to build (optional, builds from PR head ref)'
         required: false
         type: string
-      build_web:
-        description: 'Build Web bundle'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
@@ -90,11 +85,11 @@ jobs:
         uses: actions/checkout@v4
         if: ${{ !inputs.pr_number }}
 
-      - name: Checkout PR head commit
+      - name: Checkout PR head commit (pinned to validated SHA)
         if: ${{ inputs.pr_number }}
         uses: actions/checkout@v4
         with:
-          ref: refs/pull/${{ inputs.pr_number }}/head
+          ref: ${{ needs.validate-pr.outputs.head_sha }}
 
       - name: Generate build parameters
         id: params
@@ -207,7 +202,7 @@ jobs:
 
   web-bundle:
     needs: prepare-params
-    if: ${{ inputs.build_web && !cancelled() && !failure() }}
+    if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-web.yml
     with:
       build_number: ${{ needs.prepare-params.outputs.build_number }}
