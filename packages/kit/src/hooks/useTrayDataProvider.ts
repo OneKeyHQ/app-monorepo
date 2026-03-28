@@ -146,9 +146,15 @@ export function useTrayDataProvider() {
                 );
               if (response?.list?.length) {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                response.list.forEach((coin: any, idx: number) => {
+                response.list.forEach((coin: any) => {
                   if (!coin?.symbol) return;
-                  const spotItem = spotItems[idx];
+                  // Match by networkId + address rather than array index,
+                  // in case the API returns results in a different order.
+                  const spotItem = spotItems.find(
+                    (s: any) =>
+                      s.chainId === coin.networkId &&
+                      (s.contractAddress || '') === (coin.address || ''),
+                  );
                   watchlistResults.push({
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                     symbol: (coin.symbol || '').toUpperCase(),

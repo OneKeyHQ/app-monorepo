@@ -341,10 +341,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
-  sendTrayData: (data: any) =>
-    ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
-  sendTrayAction: (action: any) =>
-    ipcRenderer.send(ipcMessageKeys.TRAY_ACTION, action),
 });
 
 globalThis.desktopApi = desktopApi;
@@ -353,7 +349,7 @@ globalThis.desktopApiProxy = desktopApiProxy;
 
 // Forward tray data requests to renderer via custom event
 ipcRenderer.on(ipcMessageKeys.TRAY_DATA_REQUEST, () => {
-  window.dispatchEvent(new Event('onekey-tray-data-request'));
+  globalThis.dispatchEvent(new Event('onekey-tray-data-request'));
 });
 
 // Expose synchronous MMKV IPC bridge for renderer-side syncStorage.
