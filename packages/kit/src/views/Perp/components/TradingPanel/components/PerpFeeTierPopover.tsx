@@ -24,6 +24,7 @@ import type { IHyperliquidUserFeesResponse } from '@onekeyhq/kit-bg/src/services
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { formatPerpsCompactUsd } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   DEFAULT_HL_MAKER_FEE_FOR_COMPARE,
@@ -52,19 +53,6 @@ function toNumber(value: string | number | null | undefined): number {
   return Number.isFinite(num) ? num : 0;
 }
 
-function formatCompactUsd(value: number): string {
-  if (value >= 1_000_000_000) {
-    return `$${(value / 1_000_000_000).toFixed(1)}B`;
-  }
-  if (value >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(1)}M`;
-  }
-  if (value >= 1000) {
-    return `$${(value / 1000).toFixed(1)}K`;
-  }
-  return `$${value.toFixed(0)}`;
-}
-
 function formatUsdFeeAmount(value?: number): string {
   if (value === undefined || Number.isNaN(value)) {
     return '—';
@@ -86,7 +74,7 @@ function resolveFeeTierDisplayFromUserFees(
     const cutoff = toNumber(vipTier.ntlCutoff);
     if (volume14d >= cutoff) {
       tier = index + 1;
-      tierLabel = `>${formatCompactUsd(cutoff)}`;
+      tierLabel = `>${formatPerpsCompactUsd(cutoff)}`;
     }
   });
 

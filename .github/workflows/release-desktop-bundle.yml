@@ -96,6 +96,7 @@ jobs:
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
+          checkout_ref: ${{ inputs.checkout_ref || '' }}
           env_file_name: '.env'
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
@@ -110,9 +111,9 @@ jobs:
 
       - name: 'Setup ENV'
         run: |
-          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
-          echo '$pkg_version='$pkg_version
-          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+          pkg_version=$(node -p "require('./apps/desktop/package.json').version")
+          echo "pkg_version=$pkg_version"
+          printf 'PKG_VERSION=%s\n' "$pkg_version" >> "$GITHUB_ENV"
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
           if [ -z "${{ env.BUILD_BUNDLE_VERSION }}" ]; then
