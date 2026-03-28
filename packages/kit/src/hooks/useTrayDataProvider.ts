@@ -26,7 +26,7 @@ export function useTrayDataProvider() {
   activeAccountValueRef.current = activeAccountValue;
   const appIsLockedRef = useRef(appIsLocked);
   appIsLockedRef.current = appIsLocked;
-  const handleTrayDataRequestRef = useRef<() => void>();
+  const handleTrayDataRequestRef = useRef<(() => void) | undefined>(undefined);
 
   const handleTrayDataRequest = useCallback(async () => {
     // When locked, send empty data with isLocked flag to protect sensitive info
