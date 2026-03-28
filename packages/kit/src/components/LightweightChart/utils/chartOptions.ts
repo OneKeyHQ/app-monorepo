@@ -5,23 +5,26 @@ import type {
   DeepPartial,
 } from 'lightweight-charts';
 
+const CHART_FONT_FAMILY =
+  'Roobert, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 export function createChartOptions(
   theme: ILightweightChartTheme,
   showPriceScale = false,
+  fontSize?: number,
+  priceScaleMargins?: { top: number; bottom: number },
 ): DeepPartial<ChartOptions> {
   return {
     layout: {
       background: { color: theme.bgColor },
       textColor: theme.textSubduedColor,
-    },
-    grid: {
-      vertLines: { visible: false },
-      horzLines: { visible: false },
+      fontSize: fontSize ?? 12,
+      fontFamily: CHART_FONT_FAMILY,
     },
     crosshair: {
       mode: 1, // CrosshairMode.Normal
       vertLine: {
-        color: theme.lineColor,
+        color: 'rgba(150, 150, 150, 0.4)',
         width: 1,
         style: 3,
         labelVisible: false,
@@ -41,6 +44,7 @@ export function createChartOptions(
     rightPriceScale: {
       visible: showPriceScale,
       borderVisible: false,
+      ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
     },
     leftPriceScale: {
       visible: false,
@@ -67,6 +71,7 @@ export function createChartOptions(
 export function createAreaSeriesOptions(
   theme: ILightweightChartTheme,
   lineWidth = 3,
+  priceFormatter?: (price: number) => string,
 ): AreaSeriesPartialOptions {
   const normalizedLineWidth = Math.min(
     4,
@@ -80,9 +85,12 @@ export function createAreaSeriesOptions(
     lineWidth: normalizedLineWidth,
     lastValueVisible: false,
     priceLineVisible: false,
+    crosshairMarkerRadius: 5,
+    crosshairMarkerBorderColor: theme.lineColor,
+    crosshairMarkerBackgroundColor: '#ffffff',
     priceFormat: {
       type: 'custom',
-      formatter: (price: number) => `${price.toFixed(2)}%`,
+      formatter: priceFormatter ?? ((price: number) => `${price.toFixed(2)}%`),
     },
   };
 }

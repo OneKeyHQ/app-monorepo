@@ -108,9 +108,9 @@ jobs:
 
       - name: Setup ENV
         run: |
-          eval "$(node -e 'const v=require("./apps/web/package.json").version; console.log("pkg_version="+v)')"
-          echo '$pkg_version='$pkg_version
-          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+          pkg_version=$(node -p "require('./apps/web/package.json').version")
+          echo "pkg_version=$pkg_version"
+          printf 'PKG_VERSION=%s\n' "$pkg_version" >> "$GITHUB_ENV"
 
           # For test environment, use GitHub Pages URL
           echo "PUBLIC_URL=https://${{ env.TEST_ENDPOINT }}/" >> $GITHUB_ENV
@@ -191,6 +191,7 @@ jobs:
             ./apps/web/web-build/
 
       - name: Deploy Github Pages
+        if: ${{ github.event_name != 'workflow_call' }}
         uses: OneKeyHQ/actions/gh-pages@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -243,9 +244,9 @@ jobs:
 
       - name: Setup ENV
         run: |
-          eval "$(node -e 'const v=require("./apps/web/package.json").version; console.log("pkg_version="+v)')"
-          echo '$pkg_version='$pkg_version
-          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+          pkg_version=$(node -p "require('./apps/web/package.json').version")
+          echo "pkg_version=$pkg_version"
+          printf 'PKG_VERSION=%s\n' "$pkg_version" >> "$GITHUB_ENV"
 
           # For production environment, use production URL
           echo "PUBLIC_URL=https://app-assets.onekey.so/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
