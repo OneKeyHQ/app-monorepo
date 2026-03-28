@@ -32,5 +32,14 @@
       "#10896"
     ],
     "notes": "Speed swap stock quote sign, support URL query param for swap tab, search address on account selector, collateral repay flow, optimize Buy token list ordering, restore desktop history list layout, Android UI fixes (ListItem overlap & Switch disabled state), fix RecentHistory pending transactions, clamp tron resources, hide DeFi earn banner when 0% APR, quote tips checkbox, correct perp token pair suffix, guard cancelIdleCallback behind platformEnv.isNative"
+  },
+  {
+    "seq": 2,
+    "commit": "3474493e0df8565eebf3b069211ea4ad78ad5265",
+    "date": "2026-03-27T09:33:35Z",
+    "prs": [
+      "#10876"
+    ],
+    "notes": "Add portfolio & PnL analysis modal"
   }
 ]
