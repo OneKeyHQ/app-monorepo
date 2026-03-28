@@ -6,6 +6,14 @@ const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 480;
 
 let trayWindow: BrowserWindow | null = null;
+let visibilityCallback: ((visible: boolean) => void) | null = null;
+
+/** Register a callback to be notified when the tray panel shows/hides */
+export function onTrayWindowVisibilityChange(
+  cb: (visible: boolean) => void,
+): void {
+  visibilityCallback = cb;
+}
 
 function calculateWindowPosition(
   tray: Tray,
@@ -93,6 +101,7 @@ export function createTrayWindow(
     setTimeout(() => {
       if (trayWindow && !trayWindow.isDestroyed() && !trayWindow.isFocused()) {
         trayWindow.hide();
+        visibilityCallback?.(false);
       }
     }, 100);
   });
@@ -100,6 +109,7 @@ export function createTrayWindow(
   trayWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'Escape' && input.type === 'keyDown') {
       trayWindow?.hide();
+      visibilityCallback?.(false);
     }
   });
 
@@ -113,12 +123,14 @@ export function showTrayWindow(tray: Tray): void {
 
   if (trayWindow.isVisible()) {
     trayWindow.hide();
+    visibilityCallback?.(false);
     return;
   }
 
   const { x, y } = calculateWindowPosition(tray, WINDOW_WIDTH, WINDOW_HEIGHT);
   trayWindow.setPosition(x, y);
   trayWindow.show();
+  visibilityCallback?.(true);
 }
 
 export function getTrayWindow(): BrowserWindow | null {

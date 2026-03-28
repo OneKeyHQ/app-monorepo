@@ -341,6 +341,10 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   recoveryTryAgain: () => ipcRenderer.invoke(ipcMessageKeys.RECOVERY_TRY_AGAIN),
   recoveryAutoRepair: () =>
     ipcRenderer.invoke(ipcMessageKeys.RECOVERY_AUTO_REPAIR),
+  // Tray data response — main renderer sends gathered data back to main process.
+  // sendTrayAction is intentionally omitted here; only the tray preload needs it.
+  sendTrayData: (data: any) =>
+    ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
 });
 
 globalThis.desktopApi = desktopApi;

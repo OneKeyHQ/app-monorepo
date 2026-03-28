@@ -71,11 +71,7 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-import {
-  initTrayManager,
-  startPolling,
-  destroyTrayManager,
-} from './tray/TrayManager';
+import { initTrayManager, destroyTrayManager } from './tray/TrayManager';
 
 initSentry();
 
@@ -749,12 +745,8 @@ async function createMainWindow() {
     emitter.emit('ready');
     isAppReady = true;
 
-    // Start tray polling after renderer is ready (delay to let React mount)
-    if (isMac) {
-      setTimeout(() => {
-        startPolling(getSafelyMainWindow);
-      }, 5000);
-    }
+    // Tray polling is now managed by TrayManager internally —
+    // starts when tray panel becomes visible, stops when hidden.
   });
 
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -1263,7 +1255,9 @@ if (!singleInstance && !process.mas) {
           } else {
             const bundleData = store.getUpdateBundleData();
             const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
-            const filePath = bundleIndexHtmlPath || path.join(__dirname, '..', 'build', 'index.html');
+            const filePath =
+              bundleIndexHtmlPath ||
+              path.join(__dirname, '..', 'build', 'index.html');
             void win.loadFile(filePath, { query: { render: 'tray' } });
           }
         },

@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, import/first */
 import '@onekeyhq/shared/src/polyfills';
 import '@onekeyhq/shared/src/web/index.css';
+import { useEffect, useState } from 'react';
 import { KitProvider } from '@onekeyhq/kit';
 import {
   initSentry,
@@ -34,27 +35,44 @@ const SentryKitProvider = withSentryHOC(
 
 // Remove HTML splash before React mounts (safe: runs once at module load)
 if (
-  typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('render') === 'tray'
+  typeof globalThis !== 'undefined' &&
+  typeof globalThis.location !== 'undefined' &&
+  new URLSearchParams(globalThis.location.search).get('render') === 'tray'
 ) {
   const splash = document.querySelector('.onekey-index-html-preload-image');
   if (splash) splash.remove();
 }
 
+function TrayPanelApp() {
+  const [theme, setTheme] = useState(() =>
+    globalThis.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light',
+  );
+
+  useEffect(() => {
+    const mq = globalThis.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) =>
+      setTheme(e.matches ? 'dark' : 'light');
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  return (
+    <TamaguiProvider config={tamaguiConfig} defaultTheme={theme}>
+      <TrayPanel />
+    </TamaguiProvider>
+  );
+}
+
 export default function App(props: any) {
   const isTrayPanel =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('render') === 'tray';
+    typeof globalThis !== 'undefined' &&
+    typeof globalThis.location !== 'undefined' &&
+    new URLSearchParams(globalThis.location.search).get('render') === 'tray';
 
   if (isTrayPanel) {
-    const isDark =
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const defaultTheme = isDark ? 'dark' : 'light';
-    return (
-      <TamaguiProvider config={tamaguiConfig} defaultTheme={defaultTheme}>
-        <TrayPanel />
-      </TamaguiProvider>
-    );
+    return <TrayPanelApp />;
   }
 
   if (process.env.NODE_ENV !== 'production') {

@@ -3,21 +3,66 @@ import { type BrowserWindow, Tray, nativeImage } from 'electron';
 import logger from 'electron-log';
 
 import { ipcMessageKeys } from '../config';
-import { createTrayWindow, showTrayWindow, destroyTrayWindow } from './trayWindow';
 import {
   registerTrayIpcHandlers,
   requestDataFromMainWindow,
   sendCachedDataToTrayWindow,
-  unregisterTrayIpcHandlers,
   setLocked,
+  unregisterTrayIpcHandlers,
 } from './trayIpc';
-import { setNotificationClickHandler, resetNotificationState } from './trayNotification';
+import {
+  resetNotificationState,
+  setNotificationClickHandler,
+} from './trayNotification';
+import {
+  createTrayWindow,
+  destroyTrayWindow,
+  onTrayWindowVisibilityChange,
+  showTrayWindow,
+} from './trayWindow';
 
 const POLL_INTERVAL_MS = 30_000;
 
 let tray: Tray | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let isInitialized = false;
+let isRequesting = false;
+let cachedGetMainWindow: (() => BrowserWindow | undefined) | null = null;
+
+/** Request data with guard to prevent overlapping requests */
+function guardedRequest(): void {
+  if (!cachedGetMainWindow || isRequesting) return;
+  isRequesting = true;
+  try {
+    requestDataFromMainWindow(cachedGetMainWindow);
+  } finally {
+    // Release after a short delay so the async pipeline can settle
+    setTimeout(() => {
+      isRequesting = false;
+    }, 2000);
+  }
+}
+
+export function startPolling(): void {
+  if (pollTimer) return;
+  if (!cachedGetMainWindow) return;
+
+  logger.info('[TrayManager] Starting data polling (30s interval)');
+
+  guardedRequest();
+
+  pollTimer = setInterval(() => {
+    guardedRequest();
+  }, POLL_INTERVAL_MS);
+}
+
+export function stopPolling(): void {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+    logger.info('[TrayManager] Stopped data polling');
+  }
+}
 
 export function initTrayManager(
   getMainWindow: () => BrowserWindow | undefined,
@@ -28,8 +73,13 @@ export function initTrayManager(
   if (isInitialized) return;
 
   logger.info('[TrayManager] Initializing macOS system tray');
+  cachedGetMainWindow = getMainWindow;
 
-  const iconPath = path.join(appStaticResourcesPath, 'images', 'trayTemplate.png');
+  const iconPath = path.join(
+    appStaticResourcesPath,
+    'images',
+    'trayTemplate.png',
+  );
   const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon);
   tray.setToolTip('OneKey');
@@ -53,6 +103,15 @@ export function initTrayManager(
   tray.on('click', handleClick);
   tray.on('right-click', handleClick);
 
+  // Start/stop polling based on tray panel visibility
+  onTrayWindowVisibilityChange((visible) => {
+    if (visible) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+  });
+
   registerTrayIpcHandlers(getMainWindow, showMainWindow);
 
   setNotificationClickHandler((txId: string) => {
@@ -66,28 +125,11 @@ export function initTrayManager(
   });
 
   isInitialized = true;
+
+  // Fetch initial data once so the first panel open is instant
+  guardedRequest();
+
   logger.info('[TrayManager] macOS system tray initialized');
-}
-
-export function startPolling(
-  getMainWindow: () => BrowserWindow | undefined,
-): void {
-  if (pollTimer) return;
-
-  logger.info('[TrayManager] Starting data polling (30s interval)');
-
-  requestDataFromMainWindow(getMainWindow);
-
-  pollTimer = setInterval(() => {
-    requestDataFromMainWindow(getMainWindow);
-  }, POLL_INTERVAL_MS);
-}
-
-export function stopPolling(): void {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
 }
 
 export function setTrayLocked(locked: boolean): void {
@@ -110,5 +152,6 @@ export function destroyTrayManager(): void {
     tray.destroy();
   }
   tray = null;
+  cachedGetMainWindow = null;
   isInitialized = false;
 }
