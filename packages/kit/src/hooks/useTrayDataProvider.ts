@@ -1,16 +1,20 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { rootNavigationRef } from '@onekeyhq/components/src/layouts/Navigation/Navigator/NavigationContainer';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
+import {
+  useActiveAccountValueAtom,
+  useAppIsLockedAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
+import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
-import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -32,6 +36,7 @@ export function useTrayDataProvider() {
   const handleTrayDataRequest = useCallback(async () => {
     // When locked, send empty data with isLocked flag to protect sensitive info
     if (appIsLockedRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (globalThis as any).desktopApi?.sendTrayData({
         isLocked: true,
         wallet: { name: '', emoji: '', avatarImg: '' },
@@ -140,17 +145,20 @@ export function useTrayDataProvider() {
                   { tokenAddressList },
                 );
               if (response?.list?.length) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 response.list.forEach((coin: any, idx: number) => {
                   if (!coin?.symbol) return;
                   const spotItem = spotItems[idx];
                   watchlistResults.push({
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                     symbol: (coin.symbol || '').toUpperCase(),
                     name: coin.name || '',
                     icon: coin.logoUrl || '',
                     price: `$${Number(coin.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                     change24h: Number(coin.priceChange24hPercent || 0),
                     type: 'spot',
-                    tokenAddress: coin.address || spotItem?.contractAddress || '',
+                    tokenAddress:
+                      coin.address || spotItem?.contractAddress || '',
                     networkId: coin.networkId || spotItem?.chainId || '',
                     isNative: spotItem?.isNative ?? false,
                   });
@@ -170,8 +178,10 @@ export function useTrayDataProvider() {
                 );
               if (perpsData?.tokens?.length) {
                 for (const item of perpsItems) {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                   const coin = perpsData.tokens.find(
                     (t: any) =>
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                       t.name?.toUpperCase() === item.perpsCoin?.toUpperCase(),
                   );
                   if (coin) {
@@ -200,74 +210,80 @@ export function useTrayDataProvider() {
 
       // 4. Pending transactions — read directly from simpleDb raw data
       try {
-          const rawData = await backgroundApiProxy.simpleDb.localHistory.getRawData();
-          const allPendingTxs: any[] = [];
-          if (rawData?.pendingTxs) {
-            for (const txs of Object.values(rawData.pendingTxs)) {
-              if (Array.isArray(txs)) {
-                for (const tx of txs) {
-                  if (tx?.decodedTx?.status === EDecodedTxStatus.Pending) {
-                    allPendingTxs.push(tx);
-                  }
+        const rawData =
+          await backgroundApiProxy.simpleDb.localHistory.getRawData();
+        const allPendingTxs: any[] = [];
+        if (rawData?.pendingTxs) {
+          for (const txs of Object.values(rawData.pendingTxs)) {
+            if (Array.isArray(txs)) {
+              for (const tx of txs) {
+                if (tx?.decodedTx?.status === EDecodedTxStatus.Pending) {
+                  allPendingTxs.push(tx);
                 }
               }
             }
           }
-          // Sort by most recent first
-          allPendingTxs.sort(
-            (a, b) =>
-              (b.decodedTx?.createdAt || 0) - (a.decodedTx?.createdAt || 0),
-          );
-          const history = allPendingTxs;
-          if (history?.length) {
-            trayData.pendingTxs = history.map((tx: any) => {
-              const decodedTx = tx.decodedTx;
-              const action = decodedTx?.actions?.[0];
-              const transfer = action?.assetTransfer;
+        }
+        // Sort by most recent first
+        allPendingTxs.sort(
+          (a, b) =>
+            (b.decodedTx?.createdAt || 0) - (a.decodedTx?.createdAt || 0),
+        );
+        const history = allPendingTxs;
+        if (history?.length) {
+          trayData.pendingTxs = history.map((tx: any) => {
+            const decodedTx = tx.decodedTx;
+            const action = decodedTx?.actions?.[0];
+            const transfer = action?.assetTransfer;
 
-              // Determine tx type from action
-              let txType: 'send' | 'swap' | 'contract' | 'approve' = 'send';
-              if (action?.type === 'INTERNAL_SWAP' || transfer?.isInternalSwap) {
-                txType = 'swap';
-              } else if (action?.type === 'TOKEN_APPROVE') {
-                txType = 'approve';
-              } else if (action?.type === 'ASSET_TRANSFER') {
-                txType = 'send';
+            // Determine tx type from action
+            let txType: 'send' | 'swap' | 'contract' | 'approve' = 'send';
+            if (action?.type === 'INTERNAL_SWAP' || transfer?.isInternalSwap) {
+              txType = 'swap';
+            } else if (action?.type === 'TOKEN_APPROVE') {
+              txType = 'approve';
+            } else if (action?.type === 'ASSET_TRANSFER') {
+              txType = 'send';
+            }
+
+            // Get amount + symbol from first send transfer
+            let amount = '';
+            const firstSend = transfer?.sends?.[0];
+            if (firstSend) {
+              const num = Number(firstSend.amount);
+              let formatted: string;
+              if (Number.isNaN(num)) {
+                formatted = firstSend.amount;
+              } else if (num < 0.01) {
+                formatted = num.toPrecision(3);
+              } else {
+                formatted = num.toFixed(4).replace(/\.?0+$/, '');
               }
+              amount = `${formatted} ${firstSend.symbol}`;
+            } else if (decodedTx?.totalFeeFiatValue) {
+              amount = `$${Number(decodedTx.totalFeeFiatValue).toFixed(2)}`;
+            }
 
-              // Get amount + symbol from first send transfer
-              let amount = '';
-              const firstSend = transfer?.sends?.[0];
-              if (firstSend) {
-                const num = Number(firstSend.amount);
-                const formatted = Number.isNaN(num)
-                  ? firstSend.amount
-                  : num < 0.01
-                    ? num.toPrecision(3)
-                    : num.toFixed(4).replace(/\.?0+$/, '');
-                amount = `${formatted} ${firstSend.symbol}`;
-              } else if (decodedTx?.totalFeeFiatValue) {
-                amount = `$${Number(decodedTx.totalFeeFiatValue).toFixed(2)}`;
-              }
+            // Get recipient
+            const to = firstSend?.to || decodedTx?.to || '';
 
-              // Get recipient
-              const to = firstSend?.to || decodedTx?.to || '';
-
-              return {
-                id: decodedTx?.txid || tx.id || '',
-                type: txType,
-                to,
-                amount,
-                status: 'pending',
-              };
-            });
-          }
+            return {
+              id: decodedTx?.txid || tx.id || '',
+              type: txType,
+              to,
+              amount,
+              status: 'pending',
+            };
+          });
+        }
       } catch (e) {
         console.warn('[TrayDataProvider] pending tx error:', e);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (globalThis as any).desktopApi?.sendTrayData(trayData);
     } catch {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (globalThis as any).desktopApi?.sendTrayData({
         wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
         totalBalance: { amount: '0.00', currency: 'USD', change24h: 0 },
@@ -278,62 +294,69 @@ export function useTrayDataProvider() {
   }, []);
 
   // Handle tray navigation events — navigate within main window
-  const handleTrayNavigation = useCallback((_event: unknown, action: { type: string; [key: string]: unknown }) => {
-    const nav = rootNavigationRef.current;
-    if (!nav) return;
+  const handleTrayNavigation = useCallback(
+    (_event: unknown, action: { type: string; [key: string]: unknown }) => {
+      const nav = rootNavigationRef.current;
+      if (!nav) return;
 
-    if (action?.type === 'open-page') {
-      // Simple navigation — just show main window and switch to the target tab
-      if (action.route === '/main/tab-home') {
-        nav.navigate(ERootRoutes.Main, {
-          screen: ETabRoutes.Home,
-        });
-      }
-      // For other routes like /transaction/{txId}, just show main window (done by caller)
-      return;
-    }
-
-    if (action?.type === 'market-detail-v2') {
-      // Perps token — switch to Perp tab and change active asset
-      if (action.perpsCoin) {
-        setTimeout(async () => {
+      if (action?.type === 'open-page') {
+        // Simple navigation — just show main window and switch to the target tab
+        if (action.route === '/main/tab-home') {
           nav.navigate(ERootRoutes.Main, {
-            screen: ETabRoutes.Perp,
+            screen: ETabRoutes.Home,
           });
-          try {
-            await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-              coin: action.perpsCoin as string,
-            });
-          } catch (e) {
-            console.warn('[TrayDataProvider] perps navigation error:', e);
-          }
-        }, 80);
+        }
+        // For other routes like /transaction/{txId}, just show main window (done by caller)
         return;
       }
 
-      // Spot token — navigate to MarketDetailV2
-      if (action.tokenAddress && action.networkId) {
-        const networkId = action.networkId as string;
-        const shortCode = networkUtils.getNetworkShortCode({ networkId });
-        nav.navigate(ERootRoutes.Main, {
-          screen: ETabRoutes.Market,
-          params: {
-            screen: ETabMarketRoutes.MarketDetailV2,
+      if (action?.type === 'market-detail-v2') {
+        // Perps token — switch to Perp tab and change active asset
+        if (action.perpsCoin) {
+          setTimeout(async () => {
+            nav.navigate(ERootRoutes.Main, {
+              screen: ETabRoutes.Perp,
+            });
+            try {
+              await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+                coin: action.perpsCoin as string,
+              });
+            } catch (e) {
+              console.warn('[TrayDataProvider] perps navigation error:', e);
+            }
+          }, 80);
+          return;
+        }
+
+        // Spot token — navigate to MarketDetailV2
+        if (action.tokenAddress && action.networkId) {
+          const networkId = action.networkId as string;
+          const shortCode = networkUtils.getNetworkShortCode({ networkId });
+          nav.navigate(ERootRoutes.Main, {
+            screen: ETabRoutes.Market,
             params: {
-              tokenAddress: action.tokenAddress as string,
-              network: shortCode || networkId,
-              isNative: (action.isNative as boolean) || false,
+              screen: ETabMarketRoutes.MarketDetailV2,
+              params: {
+                tokenAddress: action.tokenAddress as string,
+                network: shortCode || networkId,
+                isNative: (action.isNative as boolean) || false,
+              },
             },
-          },
-        });
+          });
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!platformEnv.isDesktop) return;
 
-    window.addEventListener('onekey-tray-data-request', handleTrayDataRequest);
+    globalThis.addEventListener(
+      'onekey-tray-data-request',
+      handleTrayDataRequest,
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (globalThis as any).desktopApi?.addIpcEventListener(
       TRAY_IPC.ACTION,
       handleTrayNavigation,
@@ -342,10 +365,11 @@ export function useTrayDataProvider() {
     handleTrayDataRequestRef.current = handleTrayDataRequest;
 
     return () => {
-      window.removeEventListener(
+      globalThis.removeEventListener(
         'onekey-tray-data-request',
         handleTrayDataRequest,
       );
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       (globalThis as any).desktopApi?.removeIpcEventListener(
         TRAY_IPC.ACTION,
         handleTrayNavigation,
