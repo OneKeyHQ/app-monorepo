@@ -1,6 +1,7 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import type {
+  BaselineSeriesPartialOptions,
   LineData,
   SingleValueData,
   UTCTimestamp,
@@ -28,8 +29,16 @@ export interface ILightweightChartConfig {
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScaleMargins?: { top: number; bottom: number };
   horzLineColor?: string;
   horzLineStyle?: number;
+  priceFormatter?: (price: number) => string;
+  /** Serializable formatter type for WebView (native) — 'usd' or 'percent' */
+  priceFormatterType?: 'usd' | 'percent';
+  fontSize?: number;
+  seriesType?: 'area' | 'baseline';
+  baselineOptions?: BaselineSeriesPartialOptions;
+  showLastValue?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -44,6 +53,12 @@ export interface ILightweightChartProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  priceScaleMargins?: { top: number; bottom: number };
+  priceFormatter?: (price: number) => string;
+  fontSize?: number;
+  seriesType?: 'area' | 'baseline';
+  baselineOptions?: BaselineSeriesPartialOptions;
+  showLastValue?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;

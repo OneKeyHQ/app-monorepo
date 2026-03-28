@@ -1,5 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { Popover } from '../../actions/Popover';
+import { Tooltip } from '../../actions/Tooltip';
+import { useMedia } from '../../hooks/useStyle';
 import { SizableText } from '../../primitives/SizeableText';
 import { XStack, YStack } from '../../primitives/Stack';
 
@@ -13,9 +16,13 @@ export interface IDashTextProps extends ISizableTextProps {
   dashThickness?: number;
   children: string;
   length?: number;
+  /** When set, wraps with Tooltip on desktop and Popover on mobile */
+  tooltip?: string;
+  /** Title for the mobile Popover sheet. Defaults to children text. */
+  tooltipTitle?: string;
 }
 
-export function DashText({
+function DashTextCore({
   children,
   dashLength = 3,
   dashGap = 2,
@@ -23,7 +30,7 @@ export function DashText({
   dashColor = '$textSubdued',
   length = 200,
   ...textProps
-}: IDashTextProps) {
+}: Omit<IDashTextProps, 'tooltip' | 'tooltipTitle'>) {
   const [textWidth, setTextWidth] = useState(0);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -56,5 +63,47 @@ export function DashText({
         </XStack>
       ) : null}
     </YStack>
+  );
+}
+
+export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
+  const { gtMd } = useMedia();
+
+  const trigger = useMemo(
+    () => (tooltip ? <DashTextCore {...rest} cursor="help" /> : null),
+    [rest, tooltip],
+  );
+
+  const popoverContent = useMemo(
+    () => (
+      <YStack px="$5" pt="$2" pb="$5">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {tooltip}
+        </SizableText>
+      </YStack>
+    ),
+    [tooltip],
+  );
+
+  if (!tooltip) {
+    return <DashTextCore {...rest} />;
+  }
+
+  if (gtMd) {
+    return (
+      <Tooltip
+        placement="top"
+        renderContent={tooltip}
+        renderTrigger={trigger}
+      />
+    );
+  }
+
+  return (
+    <Popover
+      title={tooltipTitle ?? rest.children}
+      renderTrigger={trigger}
+      renderContent={popoverContent}
+    />
   );
 }

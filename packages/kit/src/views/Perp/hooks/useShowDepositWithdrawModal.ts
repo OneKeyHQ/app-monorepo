@@ -26,6 +26,7 @@ export function useShowDepositWithdrawModal() {
       } else {
         navigation.pushModal(EModalRoutes.PerpModal, {
           screen: EModalPerpRoutes.MobileDepositWithdrawModal,
+          params: { actionType },
         });
       }
     },

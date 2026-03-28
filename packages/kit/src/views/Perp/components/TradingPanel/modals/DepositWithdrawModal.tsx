@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -55,6 +55,10 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalPerpRoutes,
+  IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes/receive';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
@@ -83,6 +87,7 @@ import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
+import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
@@ -1905,6 +1910,14 @@ function DepositWithdrawContent({
 
 function MobileDepositWithdrawModal() {
   const navigation = useNavigation();
+  const route =
+    useRoute<
+      RouteProp<
+        IModalPerpParamList,
+        EModalPerpRoutes.MobileDepositWithdrawModal
+      >
+    >();
+  const actionType = route.params?.actionType ?? 'deposit';
   const [selectedAccount] = usePerpsActiveAccountAtom();
 
   const handleClose = useCallback(() => {
@@ -1954,7 +1967,7 @@ function MobileDepositWithdrawModal() {
         <PerpsProviderMirror>
           <YStack px="$4" flex={1}>
             <DepositWithdrawContent
-              params={{ actionType: 'deposit' }}
+              params={{ actionType }}
               selectedAccount={selectedAccount}
               onClose={handleClose}
               isMobile
