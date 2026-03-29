@@ -5,6 +5,7 @@ import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
 import { confirmTransaction } from '../../utils/confirm-transaction';
 import { amountToSmallestUnit, feeToWeiHex } from '../../utils/tx-utils';
+import { getProtocolConfig } from './swap-protocol-config';
 
 import type { IEndpointEnv } from '../../config';
 import type { OutputFormatter } from '../../output';
@@ -393,8 +394,20 @@ export function registerSwapExecuteCommand(parent: Command): void {
           ) as IEndpointEnv;
           apiClient.setEnv(env);
 
-          // Load pending order (includes 5-minute expiry check)
-          const order = loadPending(options.order);
+          // Load pending order with dynamic expiry based on protocol config
+          const order = loadPending(options.order, { skipExpiry: true });
+          const protocolConfig = getProtocolConfig(
+            order.networkId,
+            order.toNetworkId ?? order.networkId,
+          );
+          const age = Date.now() - order.createdAt;
+          if (age > protocolConfig.pendingExpiryMs) {
+            throw new AppError(
+              ERROR_CODES.BIZ_SWAP_EXPIRED.code,
+              `Order "${options.order}" expired (created ${Math.round(age / 1000)}s ago)`,
+              'Run "onekey swap build" again to get fresh tx data',
+            );
+          }
 
           // Verify chain matches order
           if (order.chain !== options.chain) {
@@ -862,6 +875,11 @@ export function registerSwapExecuteCommand(parent: Command): void {
               txHash: swapResult.result,
             });
 
+            const isBridge = (order.protocolType ?? 'Swap') === 'Bridge';
+            const successMsg = isBridge
+              ? 'Bridge tx broadcast on source chain. Use "onekey swap status --watch --order ..." to track cross-chain progress.'
+              : 'Swap transaction broadcast successfully.';
+
             output.success(
               {
                 orderId: options.order,
@@ -872,6 +890,7 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 from: order.fromToken.symbol,
                 to: order.toToken.symbol,
                 amount: order.amount,
+                message: successMsg,
               },
               { chain: options.chain },
             );
