@@ -18,7 +18,7 @@ export function PerpGuidePopover({
 
   const trigger = renderTrigger ?? (
     <IconButton
-      icon="QuestionmarkOutline"
+      icon="BookOpenOutline"
       size="small"
       variant="tertiary"
       cursor="default"

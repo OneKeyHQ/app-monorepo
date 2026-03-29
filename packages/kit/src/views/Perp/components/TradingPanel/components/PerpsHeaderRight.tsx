@@ -151,7 +151,7 @@ function MobileGuideButton() {
   const { showGuide } = useShowGuide();
   return (
     <IconButton
-      icon="QuestionmarkOutline"
+      icon="BookOpenOutline"
       size="small"
       variant="tertiary"
       cursor="default"
