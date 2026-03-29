@@ -154,7 +154,6 @@ function MobileGuideButton() {
       icon="QuestionmarkOutline"
       size="small"
       variant="tertiary"
-      iconColor="$iconSubdued"
       cursor="default"
       onPress={showGuide}
     />
