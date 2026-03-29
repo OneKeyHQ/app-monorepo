@@ -18,11 +18,13 @@ export type IPerpGuideCategory = {
   articles: IPerpGuideArticle[];
 };
 
+// Intercom help center supported language codes
+// Unsupported app locales (id, it-IT, hi-IN, bn, uk-UA) fallback to 'en'
 const localeToHelpCenterLang: Record<string, string> = {
   'en-US': 'en',
   'en': 'en',
-  'zh-CN': 'zh',
-  'zh-HK': 'zh-HK',
+  'zh-CN': 'zh-CN',
+  'zh-HK': 'zh-TW',
   'zh-TW': 'zh-TW',
   'ja-JP': 'ja',
   'ko-KR': 'ko',
@@ -31,14 +33,9 @@ const localeToHelpCenterLang: Record<string, string> = {
   'fr-FR': 'fr',
   'es': 'es',
   'pt-BR': 'pt-BR',
-  'pt': 'pt',
+  'pt': 'pt-BR',
   'vi': 'vi',
   'th-TH': 'th',
-  'id': 'id',
-  'it-IT': 'it',
-  'hi-IN': 'hi',
-  'bn': 'bn',
-  'uk-UA': 'uk',
 };
 
 function getHelpCenterLang(): string {
