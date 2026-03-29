@@ -15,6 +15,7 @@ import {
 
 import { parseSortMode, renderQuoteTable } from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
+import { getProtocolConfig } from './swap-protocol-config';
 
 import type { IEndpointEnv } from '../../config';
 import type { IAuditSummary } from '../../core';
@@ -283,6 +284,10 @@ export function registerSwapQuoteCommand(parent: Command): void {
     .command('quote')
     .description('Get swap quotes with security audit')
     .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
+    .option(
+      '--to-chain <chain>',
+      'Destination chain for cross-chain bridge (default: same as --chain)',
+    )
     .requiredOption(
       '--from <token>',
       'Source token (contract address or symbol)',
@@ -302,6 +307,7 @@ export function registerSwapQuoteCommand(parent: Command): void {
       async (
         options: {
           chain: string;
+          toChain?: string;
           from: string;
           to: string;
           amount: string;
@@ -316,6 +322,12 @@ export function registerSwapQuoteCommand(parent: Command): void {
 
         try {
           const chainConfig = resolveChain(options.chain);
+          const toChainInput = options.toChain;
+          const toChainConfig = toChainInput
+            ? resolveChain(toChainInput)
+            : chainConfig;
+          const toNetworkId = toChainConfig.networkId;
+          const fromNetworkId = chainConfig.networkId;
 
           // Validate chain supports swap
           const swapNetworks = await fetchSwapNetworks();
@@ -332,10 +344,30 @@ export function registerSwapQuoteCommand(parent: Command): void {
             }
           }
 
+          if (fromNetworkId !== toNetworkId) {
+            const networks = await fetchSwapNetworks();
+            const fromNet = networks.find((n) => n.networkId === fromNetworkId);
+            const toNet = networks.find((n) => n.networkId === toNetworkId);
+            if (!fromNet?.supportCrossChainSwap) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_CHAIN.code,
+                `Network ${fromNetworkId} does not support cross-chain bridge`,
+                'Run "onekey swap networks --bridge" to see supported networks',
+              );
+            }
+            if (!toNet?.supportCrossChainSwap) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_CHAIN.code,
+                `Network ${toNetworkId} does not support cross-chain bridge`,
+                'Run "onekey swap networks --bridge" to see supported networks',
+              );
+            }
+          }
+
           // Resolve both tokens
           const [fromResolved, toResolved] = await Promise.all([
             resolveToken(options.from, options.chain),
-            resolveToken(options.to, options.chain),
+            resolveToken(options.to, toChainInput ?? options.chain),
           ]);
 
           // fromToken decimals must be known and valid — no default allowed
@@ -403,15 +435,16 @@ export function registerSwapQuoteCommand(parent: Command): void {
             chainConfig.networkId,
           );
 
-          // Build SSE quote params — protocol must be "Swap" (capital S)
+          // Build SSE quote params
+          const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
           const quoteParams: Record<string, string | number> = {
             fromTokenAddress: fromResolved.contractAddress,
             toTokenAddress: toResolved.contractAddress,
             fromTokenAmount,
-            fromNetworkId: fromResolved.networkId,
-            toNetworkId: toResolved.networkId,
+            fromNetworkId,
+            toNetworkId,
             slippagePercentage: slippage,
-            protocol: 'Swap',
+            protocol: protocolConfig.protocol,
             kind: 'sell',
           };
           if (walletAddress) {
