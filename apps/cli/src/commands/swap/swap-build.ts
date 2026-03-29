@@ -16,6 +16,7 @@ import {
 
 import { parseSortMode, renderQuoteTable } from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
+import { getProtocolConfig } from './swap-protocol-config';
 import { fetchQuotesViaSSE } from './swap-quote';
 
 import type { IEndpointEnv } from '../../config';
@@ -61,6 +62,10 @@ export function registerSwapBuildCommand(parent: Command): void {
     .command('build')
     .description('Build an unsigned swap transaction')
     .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
+    .option(
+      '--to-chain <chain>',
+      'Destination chain for cross-chain bridge (default: same as --chain)',
+    )
     .requiredOption(
       '--from <token>',
       'Source token (contract address or symbol)',
@@ -85,6 +90,7 @@ export function registerSwapBuildCommand(parent: Command): void {
       async (
         options: {
           chain: string;
+          toChain?: string;
           from: string;
           to: string;
           amount: string;
@@ -101,6 +107,13 @@ export function registerSwapBuildCommand(parent: Command): void {
 
         try {
           const chainConfig = resolveChain(options.chain);
+          const toChainInput = options.toChain;
+          const toChainConfig = toChainInput
+            ? resolveChain(toChainInput)
+            : chainConfig;
+          const fromNetworkId = chainConfig.networkId;
+          const toNetworkId = toChainConfig.networkId;
+          const protocolConfig = getProtocolConfig(fromNetworkId, toNetworkId);
 
           // Validate chain supports swap
           const swapNetworks = await fetchSwapNetworks();
@@ -117,10 +130,30 @@ export function registerSwapBuildCommand(parent: Command): void {
             }
           }
 
+          if (fromNetworkId !== toNetworkId) {
+            const networks = await fetchSwapNetworks();
+            const fromNet = networks.find((n) => n.networkId === fromNetworkId);
+            const toNet = networks.find((n) => n.networkId === toNetworkId);
+            if (!fromNet?.supportCrossChainSwap) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_CHAIN.code,
+                `Network ${fromNetworkId} does not support cross-chain bridge`,
+                'Run "onekey swap networks --bridge" to see supported networks',
+              );
+            }
+            if (!toNet?.supportCrossChainSwap) {
+              throw new AppError(
+                ERROR_CODES.PARAM_INVALID_CHAIN.code,
+                `Network ${toNetworkId} does not support cross-chain bridge`,
+                'Run "onekey swap networks --bridge" to see supported networks',
+              );
+            }
+          }
+
           // Resolve both tokens
           const [fromResolved, toResolved] = await Promise.all([
             resolveToken(options.from, options.chain),
-            resolveToken(options.to, options.chain),
+            resolveToken(options.to, toChainInput ?? options.chain),
           ]);
 
           // fromToken decimals must be known and valid — no default allowed
@@ -228,10 +261,10 @@ export function registerSwapBuildCommand(parent: Command): void {
             fromTokenAddress: fromResolved.contractAddress,
             toTokenAddress: toResolved.contractAddress,
             fromTokenAmount,
-            fromNetworkId: fromResolved.networkId,
-            toNetworkId: toResolved.networkId,
+            fromNetworkId,
+            toNetworkId,
             slippagePercentage: slippage,
-            protocol: 'Swap',
+            protocol: protocolConfig.protocol,
             kind: 'sell',
             userAddress: walletAddress,
             receivingAddress: walletAddress,
@@ -293,13 +326,13 @@ export function registerSwapBuildCommand(parent: Command): void {
               toTokenAddress: toResolved.contractAddress,
               fromTokenAmount,
               toTokenAmount: matchedQuote.toAmount,
-              fromNetworkId: fromResolved.networkId,
-              toNetworkId: toResolved.networkId,
+              fromNetworkId,
+              toNetworkId,
               provider: matchedQuote.info.provider,
               userAddress: walletAddress,
               receivingAddress: walletAddress,
               slippagePercentage: slippage,
-              protocol: 'Swap',
+              protocol: protocolConfig.protocol,
               kind: 'sell',
               quoteResultCtx: matchedQuote.quoteResultCtx,
             },
@@ -393,6 +426,8 @@ export function registerSwapBuildCommand(parent: Command): void {
             status: 'pending',
             chain: options.chain,
             networkId: chainConfig.networkId,
+            toNetworkId,
+            protocolType: protocolConfig.protocol,
             createdAt: now,
             updatedAt: now,
             fromToken: {
