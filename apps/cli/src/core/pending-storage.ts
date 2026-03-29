@@ -26,6 +26,8 @@ export interface IPendingOrder {
   txData: Record<string, unknown>; // raw build-tx response
   txHash?: string;
   provider?: string;
+  toNetworkId?: string; // cross-chain: destination network
+  protocolType?: 'Swap' | 'Bridge'; // protocol used for this order
   allowanceResult?: {
     allowanceTarget: string;
     amount: string;
@@ -198,7 +200,7 @@ export function savePending(orderId: string, data: IPendingOrder): void {
 
 export function loadPending(
   orderId: string,
-  options?: { skipExpiry?: boolean },
+  options?: { skipExpiry?: boolean; expiryMs?: number },
 ): IPendingOrder {
   const path = filePath(orderId);
   if (!isRegularFile(path)) {
@@ -210,7 +212,8 @@ export function loadPending(
   }
   const order = readOrderFile(path, orderId);
 
-  if (!options?.skipExpiry && Date.now() - order.createdAt > EXPIRY_MS) {
+  const expiryMs = options?.expiryMs ?? EXPIRY_MS;
+  if (!options?.skipExpiry && Date.now() - order.createdAt > expiryMs) {
     throw new AppError(
       ERROR_CODES.BIZ_SWAP_EXPIRED.code,
       `Order "${orderId}" expired (created ${Math.round((Date.now() - order.createdAt) / 1000)}s ago)`,
