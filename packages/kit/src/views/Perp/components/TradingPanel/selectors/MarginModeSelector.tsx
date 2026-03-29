@@ -80,7 +80,6 @@ const MarginModeSelector = ({
             e.stopPropagation();
             openGuideUrl(buildArticleUrl(CONTEXTUAL_ARTICLE_SLUGS.marginMode));
           }}
-          accessibilityLabel="Help"
         />
       </XStack>
     </XStack>
