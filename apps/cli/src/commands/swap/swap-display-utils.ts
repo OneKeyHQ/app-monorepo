@@ -86,3 +86,78 @@ export function renderQuoteTable(
 
   return [header, sep, ...rows, footer].join('\n');
 }
+
+export function formatRouteHeader(
+  fromChainName: string,
+  toChainName: string,
+): string {
+  if (fromChainName === toChainName) {
+    return fromChainName;
+  }
+  return `${fromChainName} \u2192 ${toChainName}`;
+}
+
+export function renderBridgeStatus(stateInfo: {
+  label: string;
+  stage: number;
+  total: number;
+  isFinal: boolean;
+  fromTxHash?: string;
+  crossChainReceiveTxHash?: string;
+  fromAmount?: string;
+  fromSymbol?: string;
+  fromChainName?: string;
+  toAmount?: string;
+  toSymbol?: string;
+  toChainName?: string;
+}): string {
+  const { label, stage, total, fromTxHash, crossChainReceiveTxHash } =
+    stateInfo;
+
+  // Progress bar
+  const filled = Math.max(0, Math.min(total, stage));
+  const bar =
+    '\u2588'.repeat(filled * 3) + '\u2591'.repeat((total - filled) * 3);
+  const progressHeader = `Status: ${label}  [${bar}] Stage ${stage}/${total}`;
+
+  // Stage lines
+  const stageIcon = (s: number) => {
+    if (s < stage) return '\u2713';
+    if (s === stage) return '\u23F3';
+    return '\u2014';
+  };
+  const stageLabel = (s: number) => {
+    if (s < stage) return 'confirmed';
+    if (s === stage)
+      return label.toLowerCase().includes('pending')
+        ? 'pending...'
+        : 'in progress';
+    return 'waiting';
+  };
+
+  const lines = [progressHeader, ''];
+  const fromHash = fromTxHash
+    ? `  (tx: ${fromTxHash.slice(0, 6)}...${fromTxHash.slice(-4)})`
+    : '';
+  const toHash = crossChainReceiveTxHash
+    ? `  (tx: ${crossChainReceiveTxHash.slice(0, 6)}...${crossChainReceiveTxHash.slice(-4)})`
+    : '';
+
+  lines.push(`  Source chain:  ${stageIcon(1)} ${stageLabel(1)}${fromHash}`);
+  lines.push(`  Bridge:        ${stageIcon(2)} ${stageLabel(2)}`);
+  lines.push(`  Destination:   ${stageIcon(3)} ${stageLabel(3)}${toHash}`);
+
+  if (stateInfo.fromAmount && stateInfo.fromSymbol) {
+    lines.push('');
+    lines.push(
+      `From:  ${stateInfo.fromAmount} ${stateInfo.fromSymbol} (${stateInfo.fromChainName ?? ''})`,
+    );
+    if (stateInfo.toAmount) {
+      lines.push(
+        `To:    ~${stateInfo.toAmount} ${stateInfo.toSymbol ?? ''} (${stateInfo.toChainName ?? ''})`,
+      );
+    }
+  }
+
+  return lines.join('\n');
+}
