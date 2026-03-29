@@ -168,8 +168,10 @@ jobs:
             echo "$COMMIT_MESSAGE"
             echo "${DELIMITER}"
           } >> "$GITHUB_ENV"
-          # Override GITHUB_SHA in .env with resolved commit (shared-env writes github.sha which is wrong for workflow_call)
+          # Override GITHUB_SHA with resolved commit (shared-env writes github.sha which is wrong for workflow_call)
+          # Must update both .env file AND $GITHUB_ENV because dotenv does not override existing env vars
           sed -i "s/^GITHUB_SHA=.*/GITHUB_SHA=$COMMIT/" .env
+          echo "GITHUB_SHA=$COMMIT" >> $GITHUB_ENV
 
       - name: Setup Node
         uses: actions/setup-node@v6
