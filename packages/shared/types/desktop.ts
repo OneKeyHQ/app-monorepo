@@ -59,6 +59,7 @@ export type IDesktopApiLegacy = {
     event: string,
     listener: (...args: any[]) => void,
   ) => () => void;
+  /** @deprecated Use the unsubscribe function returned by addIpcEventListener instead. */
   removeIpcEventListener: (
     event: string,
     listener: (...args: any[]) => void,

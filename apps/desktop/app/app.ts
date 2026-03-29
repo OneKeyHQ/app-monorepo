@@ -1083,17 +1083,21 @@ async function createMainWindow() {
     },
   );
 
-  // Inject security response headers for defense-in-depth
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'X-Content-Type-Options': ['nosniff'],
-        'X-Frame-Options': ['SAMEORIGIN'],
-        'Referrer-Policy': ['strict-origin-when-cross-origin'],
-      },
-    });
-  });
+  // Inject security response headers for the app's own pages only.
+  // Scoped to file:// and localhost to avoid interfering with external API responses.
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ['file://*', 'http://localhost:*/*'] },
+    (details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'X-Content-Type-Options': ['nosniff'],
+          'X-Frame-Options': ['SAMEORIGIN'],
+          'Referrer-Policy': ['strict-origin-when-cross-origin'],
+        },
+      });
+    },
+  );
 
   if (!isLocalUnpacked) {
     // Get Windows drive letter for security validation
