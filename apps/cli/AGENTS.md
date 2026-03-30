@@ -11,6 +11,8 @@ command signatures, workflows, and security rules.
 | **Master** | `skills/SKILL.md` | Always read first — pre-flight checks, security rules, routing, parameter conventions |
 | **Market** | `skills/onekey-market/SKILL.md` | Token search, price, trending, kline, trades, liquidity |
 | **Swap** | `skills/onekey-swap/SKILL.md` | Swap quoting, building, execution, status tracking |
+| **Security** | `skills/onekey-security/SKILL.md` | Token security audit, risk classification, transaction simulation |
+| **Wallet** | `skills/onekey-wallet/SKILL.md` | Balance, transfer, wallet import, history, logout |
 
 ## Quick Start
 
