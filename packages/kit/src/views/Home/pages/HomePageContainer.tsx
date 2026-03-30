@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -53,40 +52,6 @@ function SelectedAccountsMapTest() {
 
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
-
-  // Idle prefetch common modal bundles (send/receive/address book/scan) after home mounts.
-  useEffect(() => {
-    const idle =
-      (!platformEnv.isNative &&
-        typeof globalThis !== 'undefined' &&
-        globalThis.requestIdleCallback) ||
-      ((cb: () => void) => setTimeout(cb, 200));
-    const cancelIdle =
-      (!platformEnv.isNative &&
-        typeof globalThis !== 'undefined' &&
-        globalThis.cancelIdleCallback) ||
-      ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
-    const idleId = idle(() => {
-      void Promise.all([
-        import(
-          /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'
-        ),
-        import(
-          /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Send/pages/SendConfirm/SendConfirmContainer'
-        ),
-        import(
-          /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/Receive/pages/ReceiveToken'
-        ),
-        import(
-          /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/AddressBook/pages/ListItem'
-        ),
-        import(
-          /* webpackPrefetch: true */ '@onekeyhq/kit/src/views/ScanQrCode/pages/ScanQrCodeModal'
-        ),
-      ]);
-    });
-    return () => cancelIdle(idleId);
-  }, []);
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 

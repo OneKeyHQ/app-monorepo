@@ -62,7 +62,7 @@ function SingleLineReceiverInput() {
         let isAllowed = false;
         try {
           const isBTCNetwork = networkUtils.isBTCNetwork(selectedNetworkId);
-          let walletAccountItems =
+          let walletAccountItems: { accountId: string }[] =
             await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
               networkId: selectedNetworkId,
               address: trimmedAddress,

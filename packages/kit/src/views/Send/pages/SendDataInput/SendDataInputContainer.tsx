@@ -832,6 +832,8 @@ function SendDataInputContainer() {
                         addressInputMethod: addressInputChangeType.current,
                       });
 
+                      const paymentIdValue =
+                        form.getValues('paymentId');
                       pushAmountInput({
                         networkId: currentAccount.networkId,
                         accountId: currentAccount.accountId,
@@ -841,6 +843,7 @@ function SendDataInputContainer() {
                         recipientAddress: resolvedAddress,
                         recipientIsContract: queryResult.isContract ?? false,
                         recipientMemo: selectedMemo || undefined,
+                        recipientPaymentId: paymentIdValue || undefined,
                         recipientNote: selectedNote || undefined,
                         amount: scannedAmount || sendAmount || undefined,
                         isAllNetworks,

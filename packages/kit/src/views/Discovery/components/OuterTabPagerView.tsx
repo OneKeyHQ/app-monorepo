@@ -3,6 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
+import Animated, {
+  runOnJS,
+  useAnimatedRef,
+  useEvent,
+  useHandler,
+} from 'react-native-reanimated';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
@@ -15,6 +21,11 @@ import type {
   PagerViewOnPageScrollEvent,
   PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view';
+import type { SharedValue } from 'react-native-reanimated';
+
+// --- AnimatedPagerView: enables worklet-based onPageScroll on the UI thread ---
+
+const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 // --- Styles (defined before component to satisfy no-use-before-define) ---
 
@@ -41,6 +52,38 @@ const INDEX_TO_TAB: ETranslations[] = [
   ETranslations.global_browser,
 ];
 
+// --- Worklet-based page scroll handler (same pattern as collapsible-tab-view) ---
+
+function usePageScrollHandler(
+  handlers: {
+    onPageScroll: (
+      event: PagerViewOnPageScrollEvent['nativeEvent'],
+      context: Record<string, unknown>,
+    ) => void;
+  },
+  dependencies?: unknown[],
+): (event: PagerViewOnPageScrollEvent) => void {
+  const { context, doDependenciesDiffer } = useHandler(handlers, dependencies);
+
+  // Reanimated's useEvent return type (EventHandlerProcessed) doesn't match
+  // AnimatedPagerView's onPageScroll prop (DirectEventHandler), but they are
+  // compatible at runtime — Reanimated intercepts the native event internally.
+  return useEvent(
+    (
+      event: { eventName: string } & PagerViewOnPageScrollEvent['nativeEvent'],
+    ) => {
+      'worklet';
+
+      const { onPageScroll } = handlers;
+      if (onPageScroll && event.eventName.endsWith('onPageScroll')) {
+        onPageScroll(event, context);
+      }
+    },
+    ['onPageScroll'],
+    doDependenciesDiffer,
+  ) as unknown as (event: PagerViewOnPageScrollEvent) => void;
+}
+
 // --- Types ---
 
 interface IOuterTabPagerViewProps {
@@ -53,6 +96,7 @@ interface IOuterTabPagerViewProps {
   marketTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
+  pageScrollPosition?: SharedValue<number>;
 }
 
 // --- Component ---
@@ -67,12 +111,14 @@ function OuterTabPagerViewComponent({
   marketTabsRef,
   earnTabsRef,
   earnBorrowPagerRef,
+  pageScrollPosition,
 }: IOuterTabPagerViewProps) {
   const initialPage = TAB_TO_INDEX[selectedHeaderTab] ?? 0;
-  const outerPagerRef = useRef<PagerView>(null);
+  const outerPagerRef = useAnimatedRef<PagerView>();
   const currentOuterIndexRef = useRef(initialPage);
   const [activePageIndex, setActivePageIndex] = useState(initialPage);
   const wasUserDragRef = useRef(false);
+  const isProgrammaticSwitchRef = useRef(false);
   const [isOuterPageTransitioning, setIsOuterPageTransitioning] =
     useState(false);
   const isOuterPageTransitioningRef = useRef(false);
@@ -142,12 +188,20 @@ function OuterTabPagerViewComponent({
     }
     if (index !== undefined && index !== currentOuterIndexRef.current) {
       const previousIndex = currentOuterIndexRef.current;
+      isProgrammaticSwitchRef.current = true;
       setTransitioning(true);
       setVisiblePair([previousIndex, index]);
-      outerPagerRef.current?.setPage(index);
       // Update current index immediately to prevent redundant setPage calls
       currentOuterIndexRef.current = index;
       setActivePageIndex(index);
+      // NOTE: setPage() is NOT called here. react-freeze (Suspense with
+      // fallback=null) removes native views when frozen. The state updates
+      // above are batched and won't unfreeze the target page until the next
+      // render commit. Calling setPage() here would scroll PagerView to a
+      // page whose native views haven't been re-created yet, causing a
+      // white flash on iOS. Instead, setPage() is deferred to the
+      // prevActiveIndexRef effect below, which runs after the render that
+      // unfreezes the target page.
     }
   }, [markPagesVisited, selectedHeaderTab, setTransitioning, setVisiblePair]);
 
@@ -168,11 +222,13 @@ function OuterTabPagerViewComponent({
     [setTransitioning, setVisiblePair],
   );
 
-  // During horizontal swipe, pre-mount the neighbor page and keep only
-  // the current + target pages unfrozen to avoid black frames.
-  const handleOuterPageScroll = useCallback(
-    (e: PagerViewOnPageScrollEvent) => {
-      const { position, offset } = e.nativeEvent;
+  // JS-thread handler for freeze/unfreeze logic during user-gesture swipes.
+  // Called from the worklet-based onPageScroll via runOnJS.
+  const handlePageScrollJS = useCallback(
+    (position: number, offset: number) => {
+      if (!wasUserDragRef.current) {
+        return;
+      }
       if (offset <= 0) {
         return;
       }
@@ -191,24 +247,40 @@ function OuterTabPagerViewComponent({
     [markPagesVisited, setVisiblePair],
   );
 
+  // Worklet-based onPageScroll: updates pageScrollPosition on the UI thread
+  // with zero bridge overhead, then dispatches freeze logic to JS thread.
+  const pageScrollHandler = usePageScrollHandler({
+    onPageScroll: (e) => {
+      'worklet';
+
+      const position = e.position;
+      const offset = e.offset;
+
+      if (pageScrollPosition) {
+        pageScrollPosition.value = position + offset;
+      }
+
+      runOnJS(handlePageScrollJS)(position, offset);
+    },
+  });
+
   // --- PagerView -> Atom sync (gesture swiping) ---
   const handleOuterPageSelected = useCallback(
     (e: PagerViewOnPageSelectedEvent) => {
       const position = e.nativeEvent.position;
       const tab = INDEX_TO_TAB[position];
-      currentOuterIndexRef.current = position;
-      setActivePageIndex(position);
 
-      // Mark page as visited (lazy mount) — only in onPageSelected,
-      // not during render, to prevent offscreenPageLimit pre-renders
-      // from defeating lazy loading.
-      markPagesVisited([position]);
-
-      // Persist tab only for user-gesture swipes.
-      // iOS may emit synthetic onPageSelected during freeze/unfreeze.
+      // Only update state for user-gesture swipes.
+      // iOS may emit synthetic onPageSelected during freeze/unfreeze,
+      // which would override activePageIndex and cancel the deferred
+      // setPage() rAF for programmatic tab switches.
       if (!wasUserDragRef.current) {
         return;
       }
+
+      currentOuterIndexRef.current = position;
+      setActivePageIndex(position);
+      markPagesVisited([position]);
 
       // Update atom only if tab actually changed
       if (tab && tab !== selectedHeaderTabRef.current) {
@@ -235,30 +307,34 @@ function OuterTabPagerViewComponent({
     [activePageIndex, isOuterPageTransitioning, visiblePagePair],
   );
 
-  // --- Freeze/unfreeze resync ---
+  // --- Freeze/unfreeze resync & programmatic page scroll ---
   //
-  // Why useEffect on activeIndex instead of requestAnimationFrame in onPageSelected:
+  // This effect runs AFTER the render commit that unfreezes the target page.
+  // It handles two tasks:
   //
-  // The freeze/unfreeze sync is driven by `activePageIndex`, which updates
-  // immediately from PagerView selection events (or programmatic tab changes).
-  // If we schedule sync in onPageSelected via requestAnimationFrame, the rAF may fire
-  // before the render commit that applies the new freeze state.
+  // 1. Scroll PagerView to the target page (programmatic tab switches only).
+  //    setPage() must be called here — NOT in the selectedHeaderTab effect —
+  //    because react-freeze v1 uses Suspense with fallback=null, which removes
+  //    native views when frozen. Calling setPage() before the unfreeze render
+  //    scrolls PagerView to a blank page, causing a white flash on iOS.
   //
-  // - iOS: UIScrollView ignores setContentOffset while the view is suspended by
-  //   react-freeze (Suspense), so the sync is a no-op and the PagerView resets to page 0.
-  // - Android: ViewPager2 (RecyclerView-based) is more tolerant — it queues the
-  //   setCurrentItem call and applies it even during layout transitions, so the issue
-  //   does not manifest.
-  //
-  // By using useEffect on activePageIndex, we guarantee the sync runs AFTER the render
-  // commit that unfreezes the page, so the native PagerView is active and responsive.
+  // 2. Sync inner tab containers (Market/Earn) after freeze/unfreeze.
+  //    iOS UIScrollView ignores setContentOffset while suspended by react-freeze,
+  //    so syncing must happen after the render commit that unfreezes the page.
   const prevActiveIndexRef = useRef(activePageIndex);
   useEffect(() => {
     const prev = prevActiveIndexRef.current;
     prevActiveIndexRef.current = activePageIndex;
     if (prev === activePageIndex) return;
 
-    requestAnimationFrame(() => {
+    const rafId = requestAnimationFrame(() => {
+      // Only scroll PagerView for programmatic switches (header tab taps).
+      // For user-gesture swipes, PagerView already handles scrolling natively.
+      if (isProgrammaticSwitchRef.current) {
+        isProgrammaticSwitchRef.current = false;
+        outerPagerRef.current?.setPage(activePageIndex);
+      }
+
       if (activePageIndex === 0) {
         marketTabsRef?.current?.syncCurrentPage();
       } else if (activePageIndex === 1) {
@@ -266,7 +342,14 @@ function OuterTabPagerViewComponent({
         earnTabsRef?.current?.syncCurrentPage();
       }
     });
-  }, [activePageIndex, marketTabsRef, earnTabsRef, earnBorrowPagerRef]);
+    return () => cancelAnimationFrame(rafId);
+  }, [
+    activePageIndex,
+    outerPagerRef,
+    marketTabsRef,
+    earnTabsRef,
+    earnBorrowPagerRef,
+  ]);
 
   const marketPage = useMemo(
     () =>
@@ -311,22 +394,23 @@ function OuterTabPagerViewComponent({
   );
 
   return (
-    <PagerView
+    <AnimatedPagerView
       ref={outerPagerRef}
       style={styles.pager}
       initialPage={initialPage}
       scrollEnabled={showDiscoveryPage}
-      overdrag={false}
-      overScrollMode="never"
+      overdrag
+      overScrollMode="always"
+      scrollSensitivity={4}
       offscreenPageLimit={1}
-      onPageScroll={handleOuterPageScroll}
+      onPageScroll={pageScrollHandler}
       onPageScrollStateChanged={handleOuterPageScrollStateChanged}
       onPageSelected={handleOuterPageSelected}
     >
       {marketPage}
       {earnPage}
       {browserPage}
-    </PagerView>
+    </AnimatedPagerView>
   );
 }
 

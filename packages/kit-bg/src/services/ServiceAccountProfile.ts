@@ -287,8 +287,8 @@ class ServiceAccountProfile extends ServiceBase {
     });
     if (
       checkInteractionStatus &&
-      toAddress.toLowerCase() !== fromAddress.toLowerCase() &&
-      fromAddress
+      fromAddress &&
+      toAddress.toLowerCase() !== fromAddress.toLowerCase()
     ) {
       result.addressInteractionStatus = interacted;
     }
