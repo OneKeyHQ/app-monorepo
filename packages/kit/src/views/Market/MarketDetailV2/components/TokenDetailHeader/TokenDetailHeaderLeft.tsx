@@ -175,7 +175,11 @@ export function TokenDetailHeaderLeft({
                   })}
                 </SizableText>
 
-                <InteractiveIcon icon="Copy3Outline" size="$4" onPress={() => {}} />
+                <InteractiveIcon
+                  icon="Copy3Outline"
+                  size="$4"
+                  onPress={handleCopyAddress}
+                />
               </XStack>
             ) : null}
 

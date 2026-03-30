@@ -152,7 +152,17 @@ export function MarketDetailHeader() {
                         trailingLength: 4,
                       })}
                     </SizableText>
-                    <InteractiveIcon icon="Copy3Outline" size="$4" onPress={() => {}} />
+                    <InteractiveIcon
+                      icon="Copy3Outline"
+                      size="$4"
+                      onPress={() => {
+                        copyText(tokenDetail.address);
+                        defaultLogger.dex.actions.dexCopyCA({
+                          copyFrom: ECopyFrom.Detail,
+                          copiedContent: tokenDetail.address,
+                        });
+                      }}
+                    />
                   </XStack>
                 ) : null}
               </XStack>
