@@ -175,6 +175,18 @@ if (process.env.RN_HARNESS === 'true') {
         filePath: path.resolve(projectRoot, 'harness/mmkvMock.js'),
       };
     }
+    // Replace @testing-library/react-native with a lightweight shim that uses
+    // react-test-renderer. @testing-library/react-native imports Node.js built-ins (console, util) that
+    // Metro can't resolve, so we provide renderHook/act/waitFor without them.
+    if (moduleName === '@testing-library/react-native') {
+      return {
+        type: 'sourceFile',
+        filePath: path.resolve(
+          projectRoot,
+          'harness/testing-library-react-native-shim.tsx',
+        ),
+      };
+    }
     // Map lodash-es to lodash (same as Jest moduleNameMapper: '^lodash-es$': 'lodash')
     if (moduleName === 'lodash-es') {
       return prevResolveRequest(context, 'lodash', platform);
