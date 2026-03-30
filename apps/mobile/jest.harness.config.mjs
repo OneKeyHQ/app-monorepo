@@ -52,13 +52,7 @@ export default {
     'packages/kit-bg/src/services/ServiceAppUpdate\\.pendingInstallTask\\.test',
     // Reason: native module (MMKV/AsyncStorage) init hangs after harness-triggered app restart
     'packages/kit-bg/src/services/servicePendingInstallTask\\.test',
-    // Reason: uses @testing-library/react renderHook which requires DOM (document) — Hermes has no DOM
+    // Reason: uses jest.isolateModules + jest.useFakeTimers — both unsupported in harness
     'packages/kit/src/provider/SplashProvider\\.test',
-    // Reason: uses @testing-library/react renderHook — needs DOM
-    'packages/kit/src/views/Perp/hooks/useLiquidationPrice\\.test',
-    // Reason: uses @testing-library/react renderHook + act — needs DOM
-    'packages/kit/src/hooks/usePromiseResult\\.test',
-    // Reason: mocks AssetSourceResolver.prototype.defaultAsset — prototype replacement not supported in Metro shared registry
-    'packages/shared/src/polyfills/polyfillsPlatform\\.test',
   ],
 };
