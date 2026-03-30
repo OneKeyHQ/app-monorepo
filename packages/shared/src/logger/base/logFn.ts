@@ -1,7 +1,7 @@
 import appGlobals from '../../appGlobals';
 import platformEnv from '../../platformEnv';
 import { getLoggerExtension } from '../extensions';
-import { defaultLoggerConfig } from '../loggerConfig';
+import { loggerConfig } from '../loggerConfig';
 import { stringifyFunc } from '../stringifyFunc';
 
 import type { IMethodDecoratorMetadata } from '../types';
@@ -24,48 +24,19 @@ export type ILogEntry = {
 // Per-scope dedup state instead of global single-slot
 const dedupState = new Map<string, { prevMsg: string; count: number }>();
 
-// Cached config — resolved once, no per-call await.
-// Entries emitted before config resolves are queued and drained on hydration.
-let cachedConfig:
-  | Awaited<typeof defaultLoggerConfig.savedLoggerConfigAsync>
-  | undefined;
+// ---------------------------------------------------------------------------
+// Log handlers — one per log target type
+// ---------------------------------------------------------------------------
 
-let pendingEntries: ILogEntry[] | undefined = [];
-
-void defaultLoggerConfig.savedLoggerConfigAsync.then((config) => {
-  cachedConfig = config;
-  // Drain entries that arrived before config was ready
-  const queued = pendingEntries;
-  pendingEntries = undefined;
-  if (queued) {
-    for (const entry of queued) {
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define
-      processEntry(entry, config);
-    }
-  }
-});
-
-function shouldLogToConsole(
-  config: NonNullable<typeof cachedConfig>,
-  scopeName: string,
-  sceneName: string,
-): boolean {
-  return !platformEnv.isDev || !!config?.enabled?.[scopeName]?.[sceneName];
-}
-
-function logColorful(
-  entry: ILogEntry,
-  config: NonNullable<typeof cachedConfig>,
-  prefix: string,
-) {
+function logColorful(entry: ILogEntry, prefix: string) {
   if (
     platformEnv.isDev &&
-    config.colorfulLog &&
-    shouldLogToConsole(config, entry.scopeName, entry.sceneName)
+    loggerConfig.colorfulLog &&
+    loggerConfig.shouldLog(entry.scopeName, entry.sceneName)
   ) {
     const shouldHighlight =
       entry.durationInfo.lastDuration >=
-      parseInt(config.highlightDurationGt || '100', 10) / 1000;
+      parseInt(loggerConfig.highlightDurationGt, 10) / 1000;
     console.log(
       `%c${entry.timestamp()} ###${prefix}`,
       shouldHighlight ? 'color: red; font-weight: bold;' : '',
@@ -74,17 +45,10 @@ function logColorful(
   }
 }
 
-function handleLocalLog(
-  entry: ILogEntry,
-  config: NonNullable<typeof cachedConfig>,
-) {
+function handleLocalLog(entry: ILogEntry) {
   if (platformEnv.isWebEmbed) return;
 
-  const shouldLog = shouldLogToConsole(
-    config,
-    entry.scopeName,
-    entry.sceneName,
-  );
+  const shouldLog = loggerConfig.shouldLog(entry.scopeName, entry.sceneName);
   const prefix = `${entry.scopeName} => ${entry.sceneName} => ${entry.methodName} : `;
   const rawMsg = stringifyFunc(...entry.args);
   let msg = `${prefix} ${rawMsg}`;
@@ -116,7 +80,7 @@ function handleLocalLog(
     if (entry.metadata.level === 'error') {
       console.error(entry.timestamp(), msg);
     }
-    logColorful(entry, config, prefix);
+    logColorful(entry, prefix);
   }
 
   state.prevMsg = msg;
@@ -142,15 +106,8 @@ function handleServerLog(entry: ILogEntry) {
   );
 }
 
-function handleConsoleLog(
-  entry: ILogEntry,
-  config: NonNullable<typeof cachedConfig>,
-) {
-  const shouldLog = shouldLogToConsole(
-    config,
-    entry.scopeName,
-    entry.sceneName,
-  );
+function handleConsoleLog(entry: ILogEntry) {
+  const shouldLog = loggerConfig.shouldLog(entry.scopeName, entry.sceneName);
   if (!shouldLog) return;
 
   const prefix = `${entry.scopeName} => ${entry.sceneName} => ${entry.methodName} : `;
@@ -160,38 +117,34 @@ function handleConsoleLog(
   if (platformEnv.isNative) {
     console[entry.metadata.level || 'info'](`${entry.timestamp()} ${msg}`);
   }
-  logColorful(entry, config, prefix);
+  logColorful(entry, prefix);
 }
 
-function processEntry(
-  entry: ILogEntry,
-  config: NonNullable<typeof cachedConfig>,
-) {
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
+function processEntry(entry: ILogEntry) {
   switch (entry.metadata.type) {
     case 'local':
-      handleLocalLog(entry, config);
+      handleLocalLog(entry);
       break;
     case 'server':
       handleServerLog(entry);
       break;
     case 'console':
     default:
-      handleConsoleLog(entry, config);
+      handleConsoleLog(entry);
       break;
   }
 }
 
 export const logFn = (entry: ILogEntry) => {
-  // Single async deferral with error boundary
+  // Single async deferral with error boundary.
+  // If config is not ready yet, loggerConfig queues and drains on init.
   setTimeout(() => {
     try {
-      const config = cachedConfig;
-      if (!config) {
-        // Config not ready yet — queue for later processing
-        pendingEntries?.push(entry);
-        return;
-      }
-      processEntry(entry, config);
+      loggerConfig.enqueueOrProcess(entry, processEntry);
     } catch (error) {
       console.error('Logger error:', error);
     }
