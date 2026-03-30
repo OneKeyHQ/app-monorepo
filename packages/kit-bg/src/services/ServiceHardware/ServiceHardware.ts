@@ -547,6 +547,9 @@ class ServiceHardware extends ServiceBase {
 
         void (async () => {
           try {
+            // Short-circuit for devices already fully processed
+            if (this.connectedDeviceTracked.has(deviceId)) return;
+
             const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
               features,
             });
@@ -562,17 +565,17 @@ class ServiceHardware extends ServiceBase {
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
             });
-            const trackingKey = `${deviceId}_${firmwareType}`;
+            const firmwareTypeStr =
+              firmwareType === EFirmwareType.BitcoinOnly
+                ? 'btconly'
+                : 'universal';
+            const trackingKey = `${deviceId}_${firmwareTypeStr}`;
             if (this.connectedDeviceTracked.has(trackingKey)) return;
             defaultLogger.hardware.connection.hwDeviceConnected({
               deviceType,
-              firmwareType:
-                firmwareType === EFirmwareType.BitcoinOnly
-                  ? 'btconly'
-                  : 'universal',
+              firmwareType: firmwareTypeStr,
               deviceId,
             });
-            // Mark only after successful tracking, allowing retry on transient errors
             this.connectedDeviceTracked.add(trackingKey);
           } catch (_e) {
             // ignore tracking errors — device not marked, so retry is possible
