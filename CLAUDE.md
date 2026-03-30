@@ -74,16 +74,6 @@ When working with patch-package, never edit .patch files directly. Instead, modi
 - After making a fix attempt that the user reports as not working, do NOT retry the same approach with minor tweaks. Instead, re-analyze the root cause from scratch, explain your new hypothesis, and propose a fundamentally different approach before implementing.
 - When the user reports a visual bug, ask for the specific platform and confirm the expected vs actual behavior before attempting a fix. Do not assume the root cause — misdiagnosis wastes rounds.
 
-## OneKey CLI (Wallet Agent)
-
-When using the `onekey` CLI or when the user asks about token prices, swaps, market data, or wallet operations, **read the skill files before running commands**:
-
-- **`apps/cli/skills/SKILL.md`** — Master routing: pre-flight checks, security rules, parameter conventions
-- **`apps/cli/skills/onekey-market/SKILL.md`** — Token search, price, trending, kline, trades, liquidity
-- **`apps/cli/skills/onekey-swap/SKILL.md`** — Swap quoting, building, execution, status tracking
-
-Run the CLI locally: `apps/cli/bin/onekey <command>`. Do NOT guess parameters — the skill files document exact command signatures.
-
 ## Essential Commands
 
 ```bash
