@@ -995,7 +995,7 @@ export function useSwapProTokenSearch(
 
   const searchTokenListLength = searchTokenList.length;
   useEffect(() => {
-    if (!input || searchTokenListLength === 0) {
+    if (searchTokenListLength === 0) {
       return;
     }
 
@@ -1045,7 +1045,8 @@ export function useSwapProTokenSearch(
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [input, mergeBatchQuotes, searchTokenListLength]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergeBatchQuotes, searchTokenListLength]);
 
   return {
     searchLoading,
