@@ -1,5 +1,4 @@
 import { LoggerConfigManager } from './loggerConfigManager';
-import { createDefaultLoggerConfig } from './loggerConfigShared';
 
 import type { ILoggerConfig } from './loggerConfigShared';
 

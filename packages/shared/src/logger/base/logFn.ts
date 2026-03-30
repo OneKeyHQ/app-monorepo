@@ -46,7 +46,7 @@ function handleServerLog(entry: ILogEntry) {
 }
 
 // ---------------------------------------------------------------------------
-// Entry point — precomputes shared values once, dispatches per metadata
+// Entry point — computes shared values once, dispatches per metadata
 // ---------------------------------------------------------------------------
 
 function processEntry(entry: ILogEntry) {
