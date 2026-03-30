@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 
 import logger from 'electron-log/main';
+
 import {
   consumeDesktopDedupMessage,
   flushDesktopDedupState,
