@@ -96,7 +96,7 @@ type IDesktopAPILegacy = {
   recoveryTryAgain: () => Promise<void>;
   recoveryAutoRepair: () => Promise<{ error?: string }>;
   sendTrayData: (data: any) => void;
-  sendTrayAction: (action: any) => void;
+  sendTrayAction?: (action: any) => void;
 };
 declare global {
   // eslint-disable-next-line @typescript-eslint/naming-convention
