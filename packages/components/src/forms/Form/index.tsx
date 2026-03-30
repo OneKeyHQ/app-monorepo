@@ -24,7 +24,7 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HeightTransition } from '../../content';
+import { HeightTransition } from '../../content/HeightTransition';
 import {
   Button,
   Label,

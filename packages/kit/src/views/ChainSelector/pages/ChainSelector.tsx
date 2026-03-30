@@ -91,7 +91,8 @@ export default function ChainSelectorPage({
               },
             );
           // Raw values use compound keys "accountId_networkId" (via buildAccountValueKey).
-          // Extract plain networkId keys for display lookup.
+          // Multiple concrete accounts can map to the same network (for example BTC
+          // address types under one indexed account), so aggregate by networkId here.
           const rawValues = accountsValue[0]?.value ?? {};
           const formattedValues: Record<string, string> = {};
           const walletId = accountUtils.getWalletIdFromAccountId({
@@ -106,7 +107,11 @@ export default function ChainSelectorPage({
               SEPERATOR,
             ) as [string, string, string];
             if (walletId === _walletId && networkId) {
-              formattedValues[networkId] = val;
+              formattedValues[networkId] = new BigNumber(
+                formattedValues[networkId] ?? '0',
+              )
+                .plus(val ?? '0')
+                .toFixed();
             }
           }
           accountNetworkValues = formattedValues;

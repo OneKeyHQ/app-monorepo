@@ -10,6 +10,26 @@ import { Buffer } from 'buffer';
 (globalThis as any).Buffer = Buffer;
 (globalThis as any).process = (globalThis as any).process || { env: {} };
 
+// React 19's react-test-renderer uses MessageChannel for scheduling.
+// Hermes does not provide it, so we polyfill with a setTimeout-based shim.
+if (typeof (globalThis as any).MessageChannel === 'undefined') {
+  (globalThis as any).MessageChannel = class MessageChannel {
+    port1: { onmessage: ((ev: { data: any }) => void) | null };
+    port2: { postMessage: (data: any) => void };
+    constructor() {
+      this.port1 = { onmessage: null };
+      const port1 = this.port1;
+      this.port2 = {
+        postMessage(data: any) {
+          setTimeout(() => {
+            port1.onmessage?.({ data });
+          }, 0);
+        },
+      };
+    }
+  };
+}
+
 // Load WHATWG-compliant URL polyfill. The normal app loads this via  // cspell:ignore WHATWG
 // polyfillsPlatform.js, but the harness entry point skips app polyfills.
 // Without this, RN's built-in regex-based URL class is used, which only
@@ -33,6 +53,7 @@ const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 const platformEnvObj = platformEnv?.default ?? platformEnv;
 if (platformEnvObj && typeof platformEnvObj === 'object') {
   platformEnvObj.isJest = true;
+  platformEnvObj.isHarness = true;
 }
 
 // Polyfill TextDecoder/TextEncoder for Hermes.

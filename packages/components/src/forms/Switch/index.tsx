@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IFormFieldProps } from '../types';
 
@@ -55,6 +56,9 @@ export function Switch({
         true: theme.bgPrimary.val,
       },
       thumbColor: theme.bg.val,
+      ...(platformEnv.isNativeAndroid && {
+        style: { opacity: disabled ? 0.5 : 1 },
+      }),
     }),
     [disabled, theme.neutral5.val, theme.bgPrimary.val, theme.bg.val],
   );

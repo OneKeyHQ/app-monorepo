@@ -35,6 +35,10 @@ const PerpsInviteeRewardModal = LazyLoadPage(
   () => import('../components/InviteeReward/InviteeRewardModal'),
 );
 
+const MobilePortfolioPage = LazyLoadPage(
+  () => import('../components/Portfolio/PerpPortfolioModal'),
+);
+
 export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
@@ -60,6 +64,10 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
     component: PerpsInviteeRewardModal,
+  },
+  {
+    name: EModalPerpRoutes.MobilePortfolioPage,
+    component: MobilePortfolioPage,
   },
 ];
 
@@ -91,5 +99,9 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
     component: PerpsInviteeRewardModal,
+  },
+  {
+    name: EModalPerpRoutes.MobilePortfolioPage,
+    component: MobilePortfolioPage,
   },
 ];

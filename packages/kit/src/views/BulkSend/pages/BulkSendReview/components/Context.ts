@@ -5,7 +5,10 @@ import type {
   IApproveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
+import {
+  EBulkSendMode,
+  type IIntervalSettings,
+} from '@onekeyhq/shared/types/bulkSend';
 import type {
   EFeeType,
   ESendFeeStatus,
@@ -35,6 +38,11 @@ export type IBulkSendFeeState = {
   ataRentFeeNative?: string;
   insufficientSol?: boolean;
   solBalanceNeeded?: string;
+  solBalance?: string; // cached SOL balance for recalculation in handleFeeChange
+  // ManyToMany/ManyToOne: single tx fee for "fee × N" display
+  singleTxFeeNative?: string;
+  singleTxFeeFiat?: string;
+  txCountForFeeDisplay?: number;
 };
 
 export type IBulkSendReviewContext = {
@@ -47,7 +55,9 @@ export type IBulkSendReviewContext = {
   totalTokenAmount: string;
   totalFiatAmount: string;
   isInModal?: boolean;
+  isMaxMode?: boolean;
   ataCount?: number;
+  intervalSettings?: IIntervalSettings;
 
   // Fetched data
   networkImageUri: string | undefined;
@@ -85,7 +95,9 @@ export const BulkSendReviewContext = createContext<IBulkSendReviewContext>({
   totalTokenAmount: '0',
   totalFiatAmount: '0',
   isInModal: undefined,
+  isMaxMode: undefined,
   ataCount: undefined,
+  intervalSettings: undefined,
 
   networkImageUri: undefined,
 

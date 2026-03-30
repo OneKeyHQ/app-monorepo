@@ -46,6 +46,7 @@ export interface ITokenInputSectionProps {
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
   onAmountEnterTypeChange?: (source: IAmountEnterSource) => void;
   style?: IYStackProps;
+  disableNativeToken?: boolean;
 }
 
 function TokenInputSectionComponent(
@@ -59,6 +60,7 @@ function TokenInputSectionComponent(
     swapNativeTokenReserveGas,
     onAmountEnterTypeChange,
     style,
+    disableNativeToken,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
@@ -242,6 +244,7 @@ function TokenInputSectionComponent(
           onOpenChange={setIsPopoverOpen}
           tokens={selectableTokens}
           onTokenPress={handleTokenSelect}
+          disableNativeToken={disableNativeToken}
         />
         <QuickAmountSelector
           buyAmounts={

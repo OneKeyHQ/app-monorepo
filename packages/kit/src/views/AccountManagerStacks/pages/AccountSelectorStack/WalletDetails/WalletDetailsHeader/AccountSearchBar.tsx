@@ -89,7 +89,7 @@ export function AccountSearchBar({
         size="small"
         allowClear
         placeholder={intl.formatMessage({
-          id: ETranslations.global_search_account_selector,
+          id: ETranslations.global_search,
         })}
         containerProps={{
           flex: 1,

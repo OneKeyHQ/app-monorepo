@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { IconButton, Stack } from '@onekeyhq/components';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
+import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 import RefreshButton from './RefreshButton';
@@ -34,6 +35,8 @@ function MobileBrowserBottomBar({
     handleBrowserOpen,
     disabledGoBack,
     disabledGoForward,
+    isTranslated,
+    handleTranslate,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   return (
@@ -76,6 +79,13 @@ function MobileBrowserBottomBar({
 
       <Stack flex={1} alignItems="center" justifyContent="center">
         <RefreshButton onRefresh={handleRefresh} />
+      </Stack>
+
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <TranslatePopoverTrigger
+          isTranslated={isTranslated}
+          onTranslate={handleTranslate}
+        />
       </Stack>
 
       <Stack flex={1} alignItems="center" justifyContent="center">
