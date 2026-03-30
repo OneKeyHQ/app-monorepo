@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -26,6 +26,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { consumePerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -85,6 +87,21 @@ function WebviewPerpTradeView() {
   const intl = useIntl();
 
   useDebugComponentRemountLog({ name: 'PerpTradePageContainer' });
+
+  const firedRef = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!firedRef.current) {
+        firedRef.current = true;
+        defaultLogger.perp.common.pageView({
+          source: consumePerpPageEnterSource(),
+        });
+      }
+      return () => {
+        firedRef.current = false;
+      };
+    }, []),
+  );
 
   const webviewRef = useRef<IWebViewRef | null>(null);
   usePerpPageShortcuts({ webviewRef });
