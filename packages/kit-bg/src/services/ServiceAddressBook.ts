@@ -2,8 +2,6 @@ import { Semaphore } from 'async-mutex';
 
 import { decodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
 import { hash160 } from '@onekeyhq/core/src/secret/hash';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IAddressItem,
   IAddressNetworkItem,
@@ -19,8 +17,10 @@ import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';

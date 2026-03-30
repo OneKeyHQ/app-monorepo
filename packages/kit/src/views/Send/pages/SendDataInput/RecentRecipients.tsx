@@ -779,7 +779,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               !result.recipientMemo ||
               !result.recipientMemo.startsWith('Call:'),
           )
-          .sort(
+          .toSorted(
             (a, b) =>
               (b.lastTransferTime ?? 0) - (a.lastTransferTime ?? 0),
           );
