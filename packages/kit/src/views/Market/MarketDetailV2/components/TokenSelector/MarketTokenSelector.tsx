@@ -214,15 +214,7 @@ function BaseMarketTokenSelector() {
         title={intl.formatMessage({ id: ETranslations.global_search })}
         floatingPanelProps={{
           width: 800,
-          // Remove default Popover boxShadow — the dark rgba(0,0,0) shadow
-          // looks abnormal on dark backgrounds. Outline alone provides
-          // sufficient visual separation.
-          '$platform-web': {
-            outlineColor: '$neutral3',
-            outlineStyle: 'solid',
-            outlineWidth: '$px',
-            boxShadow: 'none',
-          } as Record<string, unknown>,
+          style: { boxShadow: 'none', outline: 'none' },
         }}
         open={isOpen}
         onOpenChange={setIsOpen}
