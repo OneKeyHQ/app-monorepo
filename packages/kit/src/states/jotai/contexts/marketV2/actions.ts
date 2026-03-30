@@ -190,6 +190,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           );
 
+        // Stale check first: discard if user already switched to a different
+        // token via changeActiveToken during this async fetch. Must run before
+        // the data validity check so that early returns don't clobber loading.
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (currentAddress !== tokenAddress && currentAddress !== '') {
+          isStale = true;
+          return;
+        }
+        if (currentNetworkId !== networkId && currentNetworkId !== '') {
+          isStale = true;
+          return;
+        }
+
         // Assume new format with data.token and data.websocket
         const responseData = response as unknown as IMarketTokenDetailResponse;
 
@@ -222,19 +236,6 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             },
           });
         const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
-
-        // Stale check: discard if user already switched to a different token
-        // via changeActiveToken during this async fetch
-        const currentAddress = get(tokenAddressAtom());
-        const currentNetworkId = get(networkIdAtom());
-        if (currentAddress !== tokenAddress && currentAddress !== '') {
-          isStale = true;
-          return;
-        }
-        if (currentNetworkId !== networkId && currentNetworkId !== '') {
-          isStale = true;
-          return;
-        }
 
         const finalTokenData = hasKLinePrice
           ? {
