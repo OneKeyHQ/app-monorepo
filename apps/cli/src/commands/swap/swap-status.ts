@@ -3,12 +3,20 @@ import { resolveChain } from '../../core/chain-resolver';
 import { AppError, ERROR_CODES } from '../../errors';
 import { apiClient } from '../../infra';
 
+import { renderBridgeStatus } from './swap-display-utils';
+import {
+  BRIDGE_CONFIG,
+  SWAP_CONFIG,
+  getProtocolConfig,
+} from './swap-protocol-config';
+
 import type { IEndpointEnv } from '../../config';
 import type { OutputFormatter } from '../../output';
 import type { Command } from 'commander';
 
 interface IStateTxResponse {
   state: string;
+  crossChainStatus?: string;
   dealReceiveAmount?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
@@ -40,12 +48,23 @@ export function registerSwapStatusCommand(parent: Command): void {
     .requiredOption('--chain <chain>', 'Target blockchain (e.g., eth, base)')
     .option('--order <orderId>', 'Order ID from swap build output')
     .option('--tx <txHash>', 'Transaction hash to query')
+    .option(
+      '--watch',
+      'Poll until final state (bridge: 10s interval, swap: 3s)',
+    )
+    .option(
+      '--protocol <protocol>',
+      'Protocol type: swap or bridge (default: swap, auto-detected from order)',
+      'swap',
+    )
     .action(
       async (
         options: {
           chain: string;
           order?: string;
           tx?: string;
+          watch?: boolean;
+          protocol?: string;
         },
         command,
       ) => {
@@ -79,10 +98,11 @@ export function registerSwapStatusCommand(parent: Command): void {
           let orderStatus: string | undefined;
           let receivedAddress: string | undefined;
           let buildTxCtx: unknown;
+          let order: ReturnType<typeof loadPending> | undefined;
 
           if (options.order) {
             // Load order without expiry check — status queries should work for old orders
-            const order = loadPending(options.order, { skipExpiry: true });
+            order = loadPending(options.order, { skipExpiry: true });
 
             // Verify chain matches
             if (order.chain !== options.chain) {
@@ -121,20 +141,112 @@ export function registerSwapStatusCommand(parent: Command): void {
             txHash = options.tx;
           }
 
-          // POST /swap/v1/state-tx (aligned with ServiceSwap.fetchTxState)
+          // Determine protocol config
+          const protocolType =
+            order?.protocolType ??
+            (options.protocol === 'bridge' ? 'Bridge' : 'Swap');
+          let protocolConfig;
+          if (order) {
+            protocolConfig = getProtocolConfig(
+              order.networkId,
+              order.toNetworkId ?? order.networkId,
+            );
+          } else {
+            protocolConfig =
+              protocolType === 'Bridge' ? BRIDGE_CONFIG : SWAP_CONFIG;
+          }
+
+          // Build the state-tx POST body (reused for single query and --watch)
+          const stateTxBody = {
+            txId: txHash,
+            networkId: chainConfig.networkId,
+            protocol: protocolConfig.protocol,
+            ...(provider ? { provider } : {}),
+            ...(toTokenAddress ? { toTokenAddress } : {}),
+            ...(orderId ? { orderId } : {}),
+            ...(receivedAddress ? { receivedAddress } : {}),
+            ...(buildTxCtx !== undefined ? { ctx: buildTxCtx } : {}),
+            ...(order?.toNetworkId ? { toNetworkId: order.toNetworkId } : {}),
+          };
+
+          // --watch: poll until final state
+          if (options.watch) {
+            const isJsonMode =
+              !process.stdout.isTTY || (globalOpts.json as boolean);
+            let lastLineCount = 0;
+            let attempts = 0;
+
+            const poll = async (): Promise<void> => {
+              const response = await apiClient.post<IStateTxResponse>(
+                'swap',
+                '/swap/v1/state-tx',
+                stateTxBody,
+              );
+
+              const currentState =
+                protocolConfig.protocol === 'Bridge'
+                  ? (response.crossChainStatus ?? response.state)
+                  : response.state;
+              const stateInfo = protocolConfig.mapApiState(currentState);
+
+              if (isJsonMode) {
+                // NDJSON: one JSON object per line
+                process.stdout.write(
+                  `${JSON.stringify({ ...response, stateInfo })}\n`,
+                );
+              } else {
+                // TTY: clear previous multi-line output
+                if (lastLineCount > 0) {
+                  process.stdout.moveCursor(0, -lastLineCount);
+                  for (let i = 0; i < lastLineCount; i += 1) {
+                    process.stdout.clearLine(0);
+                    if (i < lastLineCount - 1) {
+                      process.stdout.moveCursor(0, 1);
+                    }
+                  }
+                  process.stdout.moveCursor(0, -(lastLineCount - 1));
+                }
+                const displayData = {
+                  fromTxHash: order?.txHash,
+                  crossChainReceiveTxHash: response.crossChainReceiveTxHash,
+                  fromAmount: order?.amount,
+                  fromSymbol: order?.fromToken?.symbol,
+                  fromChainName: order?.networkId,
+                  toAmount: response.dealReceiveAmount,
+                  toSymbol: order?.toToken?.symbol,
+                  toChainName: order?.toNetworkId,
+                };
+                const watchOutput = renderBridgeStatus({
+                  ...stateInfo,
+                  ...displayData,
+                });
+                process.stdout.write(`${watchOutput}\n`);
+                lastLineCount = watchOutput.split('\n').length;
+              }
+
+              if (stateInfo.isFinal) return;
+              if (attempts >= protocolConfig.statusMaxPollAttempts) {
+                process.stderr.write(
+                  'Timeout — poll limit reached. Try again later.\n',
+                );
+                return;
+              }
+              attempts += 1;
+              await new Promise((r) => {
+                setTimeout(r, protocolConfig.statusPollIntervalMs);
+              });
+              await poll();
+            };
+
+            await poll();
+            return;
+          }
+
+          // Single query: POST /swap/v1/state-tx
           const result = await apiClient.post<IStateTxResponse>(
             'swap',
             '/swap/v1/state-tx',
-            {
-              txId: txHash,
-              networkId: chainConfig.networkId,
-              protocol: 'Swap',
-              ...(provider ? { provider } : {}),
-              ...(toTokenAddress ? { toTokenAddress } : {}),
-              ...(orderId ? { orderId } : {}),
-              ...(receivedAddress ? { receivedAddress } : {}),
-              ...(buildTxCtx !== undefined ? { ctx: buildTxCtx } : {}),
-            },
+            stateTxBody,
           );
 
           // Validate response has a state field
@@ -145,6 +257,13 @@ export function registerSwapStatusCommand(parent: Command): void {
               'The swap status API may be temporarily unavailable. Try again later.',
             );
           }
+
+          // Map state using protocol config for display
+          const currentState =
+            protocolConfig.protocol === 'Bridge'
+              ? (result.crossChainStatus ?? result.state)
+              : result.state;
+          const stateInfo = protocolConfig.mapApiState(currentState);
 
           // Update pending file status when querying by orderId.
           // Skip update for approve_only orders — their txHash is the approve tx,
@@ -158,28 +277,62 @@ export function registerSwapStatusCommand(parent: Command): void {
             }
           }
 
-          output.success(
-            {
-              state: result.state,
-              ...(result.dealReceiveAmount
-                ? { dealReceiveAmount: result.dealReceiveAmount }
-                : {}),
-              ...(result.gasFee ? { gasFee: result.gasFee } : {}),
-              ...(result.gasFeeFiatValue
-                ? { gasFeeFiatValue: result.gasFeeFiatValue }
-                : {}),
-              ...(result.crossChainReceiveTxHash
-                ? { crossChainReceiveTxHash: result.crossChainReceiveTxHash }
-                : {}),
-              ...(result.txId ? { txId: result.txId } : {}),
-              ...(result.blockNumber
-                ? { blockNumber: result.blockNumber }
-                : {}),
-              ...(options.order ? { orderId: options.order } : {}),
-              txHash,
-            },
-            { chain: options.chain },
-          );
+          // For bridge orders in human (non-JSON) mode, use rich status display
+          if (
+            protocolConfig.protocol === 'Bridge' &&
+            output.getMode() === 'human'
+          ) {
+            const displayData = {
+              fromTxHash: order?.txHash,
+              crossChainReceiveTxHash: result.crossChainReceiveTxHash,
+              fromAmount: order?.amount,
+              fromSymbol: order?.fromToken?.symbol,
+              fromChainName: order?.networkId,
+              toAmount: result.dealReceiveAmount,
+              toSymbol: order?.toToken?.symbol,
+              toChainName: order?.toNetworkId,
+            };
+            const bridgeOutput = renderBridgeStatus({
+              ...stateInfo,
+              ...displayData,
+            });
+            process.stdout.write(`${bridgeOutput}\n`);
+          } else {
+            output.success(
+              {
+                state: result.state,
+                ...(result.crossChainStatus
+                  ? { crossChainStatus: result.crossChainStatus }
+                  : {}),
+                ...(result.dealReceiveAmount
+                  ? { dealReceiveAmount: result.dealReceiveAmount }
+                  : {}),
+                ...(result.gasFee ? { gasFee: result.gasFee } : {}),
+                ...(result.gasFeeFiatValue
+                  ? { gasFeeFiatValue: result.gasFeeFiatValue }
+                  : {}),
+                ...(result.crossChainReceiveTxHash
+                  ? {
+                      crossChainReceiveTxHash: result.crossChainReceiveTxHash,
+                    }
+                  : {}),
+                ...(result.txId ? { txId: result.txId } : {}),
+                ...(result.blockNumber
+                  ? { blockNumber: result.blockNumber }
+                  : {}),
+                ...(options.order ? { orderId: options.order } : {}),
+                txHash,
+                stateLabel: stateInfo.label,
+                ...(protocolConfig.protocol === 'Bridge'
+                  ? {
+                      stage: stateInfo.stage,
+                      totalStages: stateInfo.total,
+                    }
+                  : {}),
+              },
+              { chain: options.chain },
+            );
+          }
         } catch (error) {
           const appError = AppError.from(error);
           output.error(appError.toErrorDetail());
