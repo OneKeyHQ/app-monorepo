@@ -23,7 +23,7 @@ describe('desktopDedupState', () => {
       repeatPrefix: [],
     });
 
-    const flushed = [];
+    const flushed: { message: string; level: string | undefined }[] = [];
     flushDesktopDedupState((message, level) => {
       flushed.push({ message, level });
     });

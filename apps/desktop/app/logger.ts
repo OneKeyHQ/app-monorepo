@@ -194,7 +194,7 @@ function sanitizeAndTruncateData(data: any[]): string[] {
 let pendingRepeatPrefix: string[] = [];
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-logger.hooks.push((message: any, _transFn: any, transName: string) => {
+logger.hooks.push((message: any, _transFn: any, transName?: string) => {
   if (transName !== 'file') {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return message;
