@@ -1,4 +1,5 @@
 import path from 'path';
+
 import { type BrowserWindow, Tray, nativeImage } from 'electron';
 import logger from 'electron-log';
 

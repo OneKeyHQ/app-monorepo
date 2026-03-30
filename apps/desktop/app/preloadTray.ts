@@ -10,7 +10,7 @@
  * security-sensitive operations (app restart, boot count reset, etc.) to the
  * tray renderer which displays external market data.
  */
-import { contextBridge, ipcRenderer } from 'electron';
+import { ipcRenderer } from 'electron';
 
 const TRAY_CHANNELS = {
   DATA_RESPONSE: 'tray/dataResponse',

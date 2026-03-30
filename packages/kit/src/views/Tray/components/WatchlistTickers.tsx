@@ -72,7 +72,8 @@ function TickerRow({
           {ticker.price}
         </SizableText>
         <SizableText fontSize="$bodySm" color={changeColor}>
-          {changePrefix}{ticker.change24h.toFixed(2)}%
+          {changePrefix}
+          {ticker.change24h.toFixed(2)}%
         </SizableText>
       </Stack>
     </Stack>

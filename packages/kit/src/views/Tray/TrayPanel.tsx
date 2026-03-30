@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
 import {
-  TRAY_IPC,
   type ITrayData,
   type ITrayWatchlistItem,
+  TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
 
 import { PendingTransactions } from './components/PendingTransactions';
@@ -22,6 +22,7 @@ interface ITrayAction {
 }
 
 function sendTrayAction(action: ITrayAction) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   (globalThis as any).desktopApi?.sendTrayAction(action);
 }
 

@@ -1,4 +1,5 @@
 import path from 'path';
+
 import { BrowserWindow, type Tray, screen } from 'electron';
 import isDev from 'electron-is-dev';
 

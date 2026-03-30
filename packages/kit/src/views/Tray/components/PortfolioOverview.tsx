@@ -46,28 +46,38 @@ export function PortfolioOverview({
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <Stack flexDirection="row" alignItems="center" marginBottom="$1">
-        {avatarSource ? (
-          <Image
-            source={avatarSource}
-            width={20}
-            height={20}
-            borderRadius={4}
-            marginRight="$1.5"
-          />
-        ) : wallet.emoji ? (
-          <SizableText fontSize="$bodyMd" marginRight="$1.5">
-            {wallet.emoji}
-          </SizableText>
-        ) : null}
+        {(() => {
+          if (avatarSource) {
+            return (
+              <Image
+                source={avatarSource}
+                width={20}
+                height={20}
+                borderRadius={4}
+                marginRight="$1.5"
+              />
+            );
+          }
+          if (wallet.emoji) {
+            return (
+              <SizableText fontSize="$bodyMd" marginRight="$1.5">
+                {wallet.emoji}
+              </SizableText>
+            );
+          }
+          return null;
+        })()}
         <SizableText fontSize="$bodySm" color="$textSubdued">
           {wallet.name}
         </SizableText>
       </Stack>
       <SizableText fontSize="$headingXl" color="$text" fontWeight="600">
-        {currencySymbol}{formattedAmount}
+        {currencySymbol}
+        {formattedAmount}
       </SizableText>
       <SizableText fontSize="$bodySm" color={changeColor} marginTop="$1">
-        {changePrefix}{totalBalance.change24h.toFixed(2)}%
+        {changePrefix}
+        {totalBalance.change24h.toFixed(2)}%
       </SizableText>
     </Stack>
   );

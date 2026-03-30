@@ -13,9 +13,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import {
-  TRAY_IPC,
   type ITrayData,
   type ITrayWatchlistItem,
+  TRAY_IPC,
 } from '@onekeyhq/shared/src/types/desktop/tray';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
