@@ -1656,13 +1656,84 @@ export function UniversalStake({
         />
       );
     }
-    const infoRewards = transactionConfirmation?.rewards?.filter(
-      (reward) => !!reward.title.color,
-    );
-    if (!infoRewards?.length) return null;
+
+    // When entering from trending list (protocolSwitchConfig present),
+    // only show info-style rewards (those with title.color).
+    // For details page and Position Manage modal, show the full content
+    // including the "Est. annual rewards" title and all reward rows.
+    const isFromTrending = !!protocolSwitchConfig;
+
+    if (isFromTrending) {
+      const infoRewards = transactionConfirmation?.rewards?.filter(
+        (reward) => !!reward.title.color,
+      );
+      if (!infoRewards?.length) return null;
+      return (
+        <YStack gap="$2">
+          {infoRewards.map((reward) => {
+            const hasTooltip = reward.tooltip?.type === 'text';
+            let descriptionTextSize = (
+              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+            ) as FontSizeTokens;
+            if (reward.description.size) {
+              descriptionTextSize = reward.description.size;
+            }
+            return (
+              <XStack
+                key={reward.title.text}
+                gap="$1"
+                ai="flex-start"
+                mt="$1.5"
+                flexWrap="wrap"
+              >
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                  <EarnText
+                    text={reward.title}
+                    color={reward.title.color}
+                    size={reward.title.size}
+                  />
+                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                    <EarnText
+                      text={reward.description}
+                      size={descriptionTextSize}
+                      color={reward.description.color ?? '$textSubdued'}
+                      flexShrink={1}
+                    />
+                    {hasTooltip ? (
+                      <EarnTooltip
+                        title={reward.title.text}
+                        tooltip={reward.tooltip}
+                      />
+                    ) : null}
+                  </XStack>
+                </XStack>
+              </XStack>
+            );
+          })}
+        </YStack>
+      );
+    }
+
+    // Full content for details page and Position Manage modal
     return (
-      <YStack gap="$2">
-        {infoRewards.map((reward) => {
+      <YStack gap="$1.5">
+        <XStack ai="center" gap="$1">
+          <EarnText
+            text={transactionConfirmation?.title}
+            color="$textSubdued"
+            size="$bodyMd"
+            boldTextProps={{
+              size: '$bodyMdMedium',
+            }}
+          />
+          {transactionConfirmation?.tooltip ? (
+            <EarnTooltip
+              title={transactionConfirmation?.title?.text}
+              tooltip={transactionConfirmation?.tooltip}
+            />
+          ) : null}
+        </XStack>
+        {transactionConfirmation?.rewards?.map((reward) => {
           const hasTooltip = reward.tooltip?.type === 'text';
           let descriptionTextSize = (
             hasTooltip ? '$bodyMd' : '$bodyLgMedium'
@@ -1675,7 +1746,6 @@ export function UniversalStake({
               key={reward.title.text}
               gap="$1"
               ai="flex-start"
-              mt="$1.5"
               flexWrap="wrap"
             >
               <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
@@ -1711,6 +1781,7 @@ export function UniversalStake({
     pendleTipText,
     transactionConfirmation,
     quoteLoading,
+    protocolSwitchConfig,
   ]);
 
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
@@ -1839,7 +1910,7 @@ export function UniversalStake({
       {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
-          pt="$3.5"
+          pt={protocolSwitchConfig ? '$3.5' : '$5'}
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
