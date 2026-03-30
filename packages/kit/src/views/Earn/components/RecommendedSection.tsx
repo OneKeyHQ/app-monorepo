@@ -558,15 +558,17 @@ function NativeRecommendedScroller({
 function RecommendedSectionContainer({
   withHeader,
   variant,
+  disableHorizontalBleed,
   children,
 }: PropsWithChildren<{
   withHeader?: boolean;
   variant: IRecommendedLayoutVariant;
+  disableHorizontalBleed?: boolean;
 }>) {
   const intl = useIntl();
 
   if (!withHeader) {
-    if (variant === 'card-carousel') {
+    if (variant === 'card-carousel' && !disableHorizontalBleed) {
       return <YStack mx="$-pagePadding">{children}</YStack>;
     }
 
@@ -603,14 +605,20 @@ function RecommendedSectionSkeleton({
   withHeader,
   noWalletConnected,
   variant,
+  disableHorizontalBleed = false,
 }: {
   withHeader: boolean;
   noWalletConnected: boolean;
   variant: IRecommendedLayoutVariant;
+  disableHorizontalBleed?: boolean;
 }) {
   if (variant === 'mobile-list') {
     return (
-      <RecommendedSectionContainer withHeader={withHeader} variant={variant}>
+      <RecommendedSectionContainer
+        withHeader={withHeader}
+        variant={variant}
+        disableHorizontalBleed={disableHorizontalBleed}
+      >
         <YStack>
           {Array.from({ length: SKELETON_ITEM_COUNT }).map((_, index) => (
             <RecommendedListSkeletonItem
@@ -642,7 +650,11 @@ function RecommendedSectionSkeleton({
     : WebRecommendedScroller;
 
   return (
-    <RecommendedSectionContainer withHeader={withHeader} variant={variant}>
+    <RecommendedSectionContainer
+      withHeader={withHeader}
+      variant={variant}
+      disableHorizontalBleed={disableHorizontalBleed}
+    >
       <Scroller itemCount={SKELETON_ITEM_COUNT}>{skeletonCards}</Scroller>
     </RecommendedSectionContainer>
   );
@@ -652,12 +664,14 @@ export function RecommendedSection({
   tokens,
   noWalletConnected,
   withHeader = true,
+  disableHorizontalBleed = false,
   recommendedItemContainerProps,
   showSkeleton = false,
 }: {
   tokens: IRecommendAsset[];
   noWalletConnected: boolean;
   withHeader?: boolean;
+  disableHorizontalBleed?: boolean;
   recommendedItemContainerProps?: IYStackProps;
   showSkeleton?: boolean;
 }) {
@@ -675,6 +689,7 @@ export function RecommendedSection({
         withHeader={withHeader}
         noWalletConnected={noWalletConnected}
         variant={variant}
+        disableHorizontalBleed={disableHorizontalBleed}
       />
     );
   }
@@ -689,7 +704,11 @@ export function RecommendedSection({
 
   if (variant === 'mobile-list') {
     return (
-      <RecommendedSectionContainer withHeader={withHeader} variant={variant}>
+      <RecommendedSectionContainer
+        withHeader={withHeader}
+        variant={variant}
+        disableHorizontalBleed={disableHorizontalBleed}
+      >
         <YStack>
           {visibleTokens.map((token) => (
             <RecommendedListItem
@@ -725,7 +744,11 @@ export function RecommendedSection({
     : WebRecommendedScroller;
 
   return (
-    <RecommendedSectionContainer withHeader={withHeader} variant={variant}>
+    <RecommendedSectionContainer
+      withHeader={withHeader}
+      variant={variant}
+      disableHorizontalBleed={disableHorizontalBleed}
+    >
       <YStack>
         <Scroller itemCount={visibleTokens.length}>{cardItems}</Scroller>
         {showMoreButton}

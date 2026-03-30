@@ -14,6 +14,7 @@ import { RecommendedSection } from './RecommendedSection';
 export function Recommended(
   props:
     | {
+        disableHorizontalBleed?: boolean;
         recommendedItemContainerProps?: IYStackProps;
         withHeader?: boolean;
         enableFetch?: boolean;
@@ -21,6 +22,7 @@ export function Recommended(
     | undefined,
 ) {
   const {
+    disableHorizontalBleed = false,
     recommendedItemContainerProps,
     withHeader = true,
     enableFetch = true,
@@ -73,6 +75,7 @@ export function Recommended(
       tokens={recommendedTokens}
       noWalletConnected={noWalletConnected}
       withHeader={withHeader}
+      disableHorizontalBleed={disableHorizontalBleed}
       recommendedItemContainerProps={recommendedItemContainerProps}
       showSkeleton={recommendedTokens.length === 0}
     />
