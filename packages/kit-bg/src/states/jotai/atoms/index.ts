@@ -26,3 +26,4 @@ export * from './networkDoctor';
 export * from './swap';
 export * from './market';
 export * from './accountSelectorValues';
+export * from './translate';
