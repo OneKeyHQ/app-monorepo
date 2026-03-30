@@ -93,7 +93,11 @@ const saveLoggerConfig = debounce(
 
 // eslint-disable-next-line no-async-promise-executor
 const savedLoggerConfigAsync = new Promise<ILoggerConfig>(async (resolve) => {
-  if (platformEnv.isWebEmbed) {
+  // Skip full scope scan in production and webEmbed — the enabled config
+  // is only used by the dev debug panel. In production shouldLogToConsole
+  // always returns true regardless of config.enabled, so an empty object
+  // is sufficient and avoids triggering all lazy scope loaders at startup.
+  if (platformEnv.isWebEmbed || platformEnv.isProduction) {
     resolve({
       highlightDurationGt: '100',
       colorfulLog: false,
