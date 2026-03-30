@@ -49,6 +49,10 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
+  // Flush any pending dedup repeat summary so it is included in exported logs
+  const { default: loggerUtils } =
+    await import('@onekeyhq/shared/src/logger/utils');
+  loggerUtils.flushPendingRepeat?.();
   const messages = await backgroundApiProxy.serviceLogger.getAllMsg();
   const content = messages.join('');
   const blob = new Blob(messages, {

@@ -24,13 +24,25 @@ export type ILogEntry = {
 // Per-scope dedup state instead of global single-slot
 const dedupState = new Map<string, { prevMsg: string; count: number }>();
 
-// Cached config — resolved once, no per-call await
+// Cached config — resolved once, no per-call await.
+// Entries emitted before config resolves are queued and drained on hydration.
 let cachedConfig:
   | Awaited<typeof defaultLoggerConfig.savedLoggerConfigAsync>
   | undefined;
 
+let pendingEntries: ILogEntry[] | undefined = [];
+
 void defaultLoggerConfig.savedLoggerConfigAsync.then((config) => {
   cachedConfig = config;
+  // Drain entries that arrived before config was ready
+  const queued = pendingEntries;
+  pendingEntries = undefined;
+  if (queued) {
+    for (const entry of queued) {
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define
+      processEntry(entry, config);
+    }
+  }
 });
 
 function shouldLogToConsole(
@@ -151,25 +163,35 @@ function handleConsoleLog(
   logColorful(entry, config, prefix);
 }
 
+function processEntry(
+  entry: ILogEntry,
+  config: NonNullable<typeof cachedConfig>,
+) {
+  switch (entry.metadata.type) {
+    case 'local':
+      handleLocalLog(entry, config);
+      break;
+    case 'server':
+      handleServerLog(entry);
+      break;
+    case 'console':
+    default:
+      handleConsoleLog(entry, config);
+      break;
+  }
+}
+
 export const logFn = (entry: ILogEntry) => {
   // Single async deferral with error boundary
   setTimeout(() => {
     try {
       const config = cachedConfig;
-      if (!config) return;
-
-      switch (entry.metadata.type) {
-        case 'local':
-          handleLocalLog(entry, config);
-          break;
-        case 'server':
-          handleServerLog(entry);
-          break;
-        case 'console':
-        default:
-          handleConsoleLog(entry, config);
-          break;
+      if (!config) {
+        // Config not ready yet — queue for later processing
+        pendingEntries?.push(entry);
+        return;
       }
+      processEntry(entry, config);
     } catch (error) {
       console.error('Logger error:', error);
     }

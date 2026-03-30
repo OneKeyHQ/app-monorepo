@@ -38,6 +38,17 @@ const consoleFunc = (msg: string) => {
   appGlobals?.$backgroundApiProxy?.serviceLogger.addMsg(`${truncated}\r\n`);
 };
 
+/** Flush any pending repeat summary to ServiceLogger before log export. */
+const flushPendingRepeat = () => {
+  if (repeatCount > 0) {
+    // eslint-disable-next-line
+    appGlobals?.$backgroundApiProxy?.serviceLogger.addMsg(
+      `[${repeatCount} repeat]\r\n`,
+    );
+    repeatCount = 0;
+  }
+};
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getLogFilePath = async (filename: string) => {
   throw new OneKeyLocalError('Not implemented');
@@ -53,6 +64,11 @@ const getDeviceInfo = () =>
     `browserInfo: ${platformEnv.browserInfo ?? ''}`,
   ].join(',');
 
-const utils: IUtilsType = { getDeviceInfo, getLogFilePath, consoleFunc };
+const utils: IUtilsType = {
+  getDeviceInfo,
+  getLogFilePath,
+  consoleFunc,
+  flushPendingRepeat,
+};
 
 export default utils;

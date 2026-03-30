@@ -273,8 +273,8 @@ logger.transports.file.format = (params: {
 }) => {
   const filtered = sanitizeAndTruncateData(params.data);
 
-  // Dedup identical consecutive messages
-  const joined = filtered.join(' ');
+  // Dedup identical consecutive messages (include level to avoid cross-level suppression)
+  const joined = `[${params.level}] ${filtered.join(' ')}`;
   if (joined === prevLogMessage) {
     dedupRepeatCount += 1;
     return '';
