@@ -79,7 +79,7 @@ function processEntry(entry: ILogEntry) {
         if (!platformEnv.isWebEmbed && shouldLog) {
           const logger = getLoggerExtension('');
           logger[metadata.level || 'info'](getMsg());
-          if (metadata.level === 'error') {
+          if (metadata.level === 'error' && platformEnv.isDev) {
             console.error(entry.timestamp(), getMsg());
           }
           needsColorful = true;
