@@ -62,11 +62,13 @@ export function MobileInformationTabs({
   onScrollEnd,
   portfolioData,
   isRefreshing,
+  tokenLogoUrl,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  tokenLogoUrl?: string;
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail, isNative } = useTokenDetail();
@@ -120,6 +122,7 @@ export function MobileInformationTabs({
           portfolioData={portfolioData}
           isRefreshing={!!isRefreshing}
           accountAddress={accountAddress}
+          tokenLogoUrl={tokenLogoUrl}
         />
       </Tabs.Tab>,
       shouldShowHoldersTab && (
@@ -140,6 +143,7 @@ export function MobileInformationTabs({
     isRefreshing,
     isNative,
     isBTCNetwork,
+    tokenLogoUrl,
   ]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
