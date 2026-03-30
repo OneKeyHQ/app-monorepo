@@ -37,6 +37,8 @@ const STORAGE_KEY = '$$OneKeyV5LoggerConfig';
 class LoggerConfigManager {
   private _config: ILoggerConfig | undefined;
 
+  private _hasExpandedConfig = false;
+
   private _pendingEntries: Array<{
     entry: unknown;
     processor: (entry: unknown) => void;
@@ -94,8 +96,8 @@ class LoggerConfigManager {
 
   /**
    * Load config from storage. Called once at startup.
-   * In production / webEmbed, uses a minimal config to avoid
-   * triggering lazy scope loaders via buildLoggerConfig().
+   * Always uses the minimal stored config so startup does not
+   * trigger lazy scope loaders via buildLoggerConfig().
    */
   async init(): Promise<void> {
     if (platformEnv.isWebEmbed || platformEnv.isProduction) {
@@ -105,8 +107,9 @@ class LoggerConfigManager {
         enabled: {},
       };
     } else {
-      this._config = await this._loadFromStorage();
+      this._config = await this._loadStoredConfig();
     }
+    this._hasExpandedConfig = false;
     this._drainPendingEntries();
   }
 
@@ -116,8 +119,11 @@ class LoggerConfigManager {
 
   /** Get the full config for the debug panel UI. */
   async getSavedLoggerConfig(): Promise<ILoggerConfig> {
-    if (this._config) return this._config;
-    this._config = await this._loadFromStorage();
+    if (this._config && this._hasExpandedConfig) {
+      return this._config;
+    }
+    this._config = await this._loadExpandedConfig();
+    this._hasExpandedConfig = true;
     return this._config;
   }
 
@@ -128,6 +134,7 @@ class LoggerConfigManager {
       if (this._config) {
         Object.assign(this._config, config);
       }
+      this._hasExpandedConfig = true;
     },
     300,
     { leading: false, trailing: true },
@@ -187,14 +194,34 @@ class LoggerConfigManager {
   // Private
   // -----------------------------------------------------------------------
 
-  private async _loadFromStorage(): Promise<ILoggerConfig> {
+  private _createDefaultConfig({
+    colorfulLog,
+  }: {
+    colorfulLog: boolean;
+  }): ILoggerConfig {
+    return {
+      highlightDurationGt: '100',
+      colorfulLog,
+      enabled: {},
+    };
+  }
+
+  private async _readStoredConfig(): Promise<ILoggerConfig | undefined> {
     const stored = await appStorage.getItem(STORAGE_KEY);
-    return stored
-      ? merge(
-          this.buildLoggerConfig(),
-          (JSON.parse(stored) as ILoggerConfig) || {},
-        )
-      : this.buildLoggerConfig();
+    return stored ? (JSON.parse(stored) as ILoggerConfig) || {} : undefined;
+  }
+
+  private async _loadStoredConfig(): Promise<ILoggerConfig> {
+    const stored = await this._readStoredConfig();
+    return merge(
+      this._createDefaultConfig({ colorfulLog: true }),
+      stored || {},
+    );
+  }
+
+  private async _loadExpandedConfig(): Promise<ILoggerConfig> {
+    const stored = await this._readStoredConfig();
+    return merge(this.buildLoggerConfig(), stored || {});
   }
 
   private _drainPendingEntries(): void {
