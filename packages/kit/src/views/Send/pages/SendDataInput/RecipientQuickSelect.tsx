@@ -611,7 +611,9 @@ function AddressBookRecipients({
     const nameMatched: typeof addressBookItems = [];
     const addressOnlyMatched: typeof addressBookItems = [];
     for (const item of addressBookItems) {
-      const isNameMatch = item.name.toLowerCase().includes(searchValue);
+      const isNameMatch = (item.name ?? '')
+        .toLowerCase()
+        .includes(searchValue);
       const isAddressMatch = item.address.toLowerCase().includes(searchValue);
       if (isNameMatch) {
         nameMatched.push(item);

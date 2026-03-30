@@ -452,7 +452,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
                 }
               >();
             const ownerAddress =
-              txsToProcess[0]?.decodedTx?.owner?.toLowerCase();
+              txsToProcess[0]?.decodedTx?.owner?.toLowerCase() ?? '';
 
             for (const tx of txsToProcess) {
               if (checkIsScamTx({ tx })) {
@@ -616,7 +616,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
               }
             >();
             const ownerAddress =
-              txsToProcess[0]?.decodedTx?.owner?.toLowerCase();
+              txsToProcess[0]?.decodedTx?.owner?.toLowerCase() ?? '';
 
             for (const tx of txsToProcess) {
               // Skip risky/spam transactions
@@ -778,6 +778,10 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             (result) =>
               !result.recipientMemo ||
               !result.recipientMemo.startsWith('Call:'),
+          )
+          .sort(
+            (a, b) =>
+              (b.lastTransferTime ?? 0) - (a.lastTransferTime ?? 0),
           );
 
         setFilteredRecentRecipients(enrichedResults);
