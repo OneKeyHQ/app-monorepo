@@ -46,12 +46,14 @@ interface IDesktopInformationTabsProps {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   isBTCNetwork?: boolean;
+  tokenLogoUrl?: string;
 }
 
 export function DesktopInformationTabs({
   portfolioData,
   isRefreshing,
   isBTCNetwork,
+  tokenLogoUrl,
 }: IDesktopInformationTabsProps) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail, isNative } = useTokenDetail();
@@ -102,6 +104,7 @@ export function DesktopInformationTabs({
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
           accountAddress={accountAddress}
+          tokenLogoUrl={tokenLogoUrl}
         />
       </Tabs.Tab>,
       shouldShowHoldersTab && (
@@ -120,6 +123,7 @@ export function DesktopInformationTabs({
     isRefreshing,
     holdersTabName,
     isNative,
+    tokenLogoUrl,
     isBTCNetwork,
   ]);
 
