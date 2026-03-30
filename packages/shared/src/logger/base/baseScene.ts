@@ -1,7 +1,7 @@
 import { formatTime } from '../../utils/dateUtils';
 
-import { logFn } from './logFn';
 import { LogToConsole, LogToServer } from './decorators';
+import { logFn } from './logFn';
 
 import type { IMethodDecoratorMetadata } from '../types';
 
