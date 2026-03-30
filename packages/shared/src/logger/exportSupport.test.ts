@@ -9,8 +9,8 @@ jest.mock('./utils', () => ({
 }));
 
 describe('prepareLoggerExport', () => {
-  it('flushes pending repeat state before exporting logs', () => {
-    prepareLoggerExport();
+  it('flushes pending repeat state before exporting logs', async () => {
+    await prepareLoggerExport();
 
     expect(utils.flushPendingRepeat).toHaveBeenCalledTimes(1);
   });
