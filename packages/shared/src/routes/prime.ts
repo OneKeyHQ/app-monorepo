@@ -36,6 +36,7 @@ export enum EPrimeFeatures {
   CloudTransfer = 'CloudTransfer',
   Notifications = 'Notifications',
   HistoryExport = 'HistoryExport',
+  DAppTranslate = 'DAppTranslate',
 }
 
 export type IPrimeParamList = {
