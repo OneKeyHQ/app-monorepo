@@ -29,10 +29,8 @@ function SwapProPositionListHeader() {
           textTransform="uppercase"
         >
           {`${intl.formatMessage({
-            id: ETranslations.dexmarket_details_history_amount,
-          })} / ${intl.formatMessage({
             id: ETranslations.dexmarket_details_history_value,
-          })}`}
+          })} / PnL`}
         </SizableText>
       </Stack>
     </XStack>
