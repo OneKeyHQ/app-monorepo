@@ -26,54 +26,7 @@ export type ILogEntry = {
 // Log handlers — one per log target type
 // ---------------------------------------------------------------------------
 
-function logColorful(entry: ILogEntry, prefix: string) {
-  if (
-    platformEnv.isDev &&
-    loggerConfig.colorfulLog &&
-    loggerConfig.shouldLog(entry.scopeName, entry.sceneName)
-  ) {
-    const shouldHighlight =
-      entry.durationInfo.lastDuration >=
-      parseInt(loggerConfig.highlightDurationGt, 10) / 1000;
-    console.log(
-      `%c${entry.timestamp()} ###${prefix}`,
-      shouldHighlight ? 'color: red; font-weight: bold;' : '',
-      ...entry.rawArgs,
-    );
-  }
-}
-
-function handleLocalLog(
-  entry: ILogEntry,
-  metadata: IMethodDecoratorMetadata,
-) {
-  if (platformEnv.isWebEmbed) return;
-  if (!loggerConfig.shouldLog(entry.scopeName, entry.sceneName)) return;
-
-  const prefix = `${entry.scopeName} => ${entry.sceneName} => ${entry.methodName} : `;
-  const rawMsg = stringifyFunc(...entry.args);
-  let msg = `${prefix} ${rawMsg}`;
-
-  if (process.env.NODE_ENV !== 'production' && platformEnv.isNative) {
-    msg = msg.replace(/"/g, "'");
-  }
-
-  // Dedup is handled per-platform in the transport layer:
-  //   web/ext: consoleFunc in utils/index.ts
-  //   desktop: file.format hook in apps/desktop/app/logger.ts
-  //   native:  OneKeyLog.swift / OneKeyLog.kt
-  const logger = getLoggerExtension('');
-  logger[metadata.level || 'info'](msg);
-  if (metadata.level === 'error') {
-    console.error(entry.timestamp(), msg);
-  }
-  logColorful(entry, prefix);
-}
-
-function handleServerLog(
-  entry: ILogEntry,
-  _metadata: IMethodDecoratorMetadata,
-) {
+function handleServerLog(entry: ILogEntry) {
   appGlobals?.$analytics?.trackEvent(
     entry.methodName,
     (entry.args as Record<string, string>[]).reduce(
@@ -92,41 +45,74 @@ function handleServerLog(
   );
 }
 
-function handleConsoleLog(
-  entry: ILogEntry,
-  metadata: IMethodDecoratorMetadata,
-) {
-  const shouldLog = loggerConfig.shouldLog(entry.scopeName, entry.sceneName);
-  if (!shouldLog) return;
-
-  const prefix = `${entry.scopeName} => ${entry.sceneName} => ${entry.methodName} : `;
-  const rawMsg = stringifyFunc(...entry.args);
-  const msg = `${prefix} ${rawMsg}`;
-
-  if (platformEnv.isNative) {
-    console[metadata.level || 'info'](`${entry.timestamp()} ${msg}`);
-  }
-  logColorful(entry, prefix);
-}
-
 // ---------------------------------------------------------------------------
-// Entry point
+// Entry point — precomputes shared values once, dispatches per metadata
 // ---------------------------------------------------------------------------
 
 function processEntry(entry: ILogEntry) {
+  const shouldLog = loggerConfig.shouldLog(entry.scopeName, entry.sceneName);
+
+  // Lazy message: only computed when a local/console handler needs it.
+  // stringifyFunc is expensive (stableStringify + depth check + error conversion).
+  let _msg: string | undefined;
+  const getMsg = () => {
+    if (_msg !== undefined) return _msg;
+    const prefix = `${entry.scopeName} => ${entry.sceneName} => ${entry.methodName} : `;
+    const rawMsg = stringifyFunc(...entry.args);
+    _msg = `${prefix} ${rawMsg}`;
+    if (process.env.NODE_ENV !== 'production' && platformEnv.isNative) {
+      _msg = _msg.replace(/"/g, "'");
+    }
+    return _msg;
+  };
+
+  // Track whether any local/console handler ran, for a single colorful output
+  let needsColorful = false;
+
   for (const metadata of entry.metadataList) {
     switch (metadata.type) {
       case 'local':
-        handleLocalLog(entry, metadata);
+        // Dedup is handled per-platform in the transport layer:
+        //   web/ext: consoleFunc in utils/index.ts
+        //   desktop: file.format hook in apps/desktop/app/logger.ts
+        //   native:  OneKeyLog.swift / OneKeyLog.kt
+        if (!platformEnv.isWebEmbed && shouldLog) {
+          const logger = getLoggerExtension('');
+          logger[metadata.level || 'info'](getMsg());
+          if (metadata.level === 'error') {
+            console.error(entry.timestamp(), getMsg());
+          }
+          needsColorful = true;
+        }
         break;
       case 'server':
-        handleServerLog(entry, metadata);
+        handleServerLog(entry);
         break;
       case 'console':
       default:
-        handleConsoleLog(entry, metadata);
+        if (shouldLog) {
+          if (platformEnv.isNative) {
+            console[metadata.level || 'info'](
+              `${entry.timestamp()} ${getMsg()}`,
+            );
+          }
+          needsColorful = true;
+        }
         break;
     }
+  }
+
+  // Colorful log fires at most once per entry, not per metadata
+  if (needsColorful && platformEnv.isDev && loggerConfig.colorfulLog) {
+    const prefix = `${entry.scopeName} => ${entry.sceneName} => ${entry.methodName} : `;
+    const shouldHighlight =
+      entry.durationInfo.lastDuration >=
+      parseInt(loggerConfig.highlightDurationGt, 10) / 1000;
+    console.log(
+      `%c${entry.timestamp()} ###${prefix}`,
+      shouldHighlight ? 'color: red; font-weight: bold;' : '',
+      ...entry.rawArgs,
+    );
   }
 }
 
