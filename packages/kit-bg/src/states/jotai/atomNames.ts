@@ -99,6 +99,9 @@ export enum EAtomNames {
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
+  // translate
+  translateSettingsPersistAtom = 'translateSettingsPersistAtom',
+
   // swap
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
