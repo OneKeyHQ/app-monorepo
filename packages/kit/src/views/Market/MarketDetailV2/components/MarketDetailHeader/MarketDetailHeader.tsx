@@ -98,7 +98,7 @@ export function MarketDetailHeader() {
                   onPress: onPressTokenSelector,
                   hoverStyle: { opacity: 0.8 },
                   pressStyle: { opacity: 0.6 },
-                  cursor: 'pointer' as const,
+                  cursor: 'pointer',
                 })}
               >
                 <SizableText size="$headingLg" numberOfLines={1}>
