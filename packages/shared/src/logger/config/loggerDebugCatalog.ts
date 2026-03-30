@@ -1,0 +1,56 @@
+import { merge } from 'lodash';
+import natsort from 'natsort';
+
+import appGlobals from '../../appGlobals';
+import { getLoggerScopeKeys } from '../loggerRegistry';
+import { createDefaultLoggerConfig } from './loggerConfigShared';
+
+import type { BaseScene } from '../base/baseScene';
+import type { BaseScope } from '../base/baseScope';
+import type { ILoggerConfig } from './loggerConfigShared';
+
+export class LoggerDebugCatalog {
+  buildConfig(): ILoggerConfig {
+    const config = createDefaultLoggerConfig({ colorfulLog: true });
+    const defaultLoggerInstance =
+      (appGlobals.$defaultLogger as unknown as Record<string, BaseScope>) || {};
+
+    getLoggerScopeKeys()
+      .toSorted((a, b) => natsort({ insensitive: true })(a, b))
+      .forEach((scope) => {
+        config.enabled[scope] = config.enabled[scope] || {};
+        Object.keys(
+          (defaultLoggerInstance as unknown as Record<string, BaseScope>)[
+            scope
+          ] || {},
+        )
+          .toSorted((a, b) => natsort({ insensitive: true })(a, b))
+          .forEach((scene) => {
+            if (!defaultLoggerInstance[scope]) {
+              return;
+            }
+            const sceneInstance = (
+              defaultLoggerInstance[scope] as unknown as Record<
+                string,
+                BaseScene
+              >
+            )[scene];
+            try {
+              const isScene =
+                sceneInstance && typeof sceneInstance._emitLog === 'function';
+              if (isScene) {
+                config.enabled[scope][scene] = false;
+              }
+            } catch (_error) {
+              //
+            }
+          });
+      });
+
+    return config;
+  }
+
+  expandConfig(storedConfig?: ILoggerConfig): ILoggerConfig {
+    return merge(this.buildConfig(), storedConfig || {});
+  }
+}

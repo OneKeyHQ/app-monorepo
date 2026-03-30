@@ -5,6 +5,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { prepareLoggerExport } from '@onekeyhq/shared/src/logger/exportSupport';
 import {
   ELogUploadStage,
   type ILogDigest,
@@ -49,10 +50,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
-  // Flush any pending dedup repeat summary so it is included in exported logs
-  const { default: loggerUtils } =
-    await import('@onekeyhq/shared/src/logger/utils');
-  loggerUtils.flushPendingRepeat?.();
+  prepareLoggerExport();
   const messages = await backgroundApiProxy.serviceLogger.getAllMsg();
   const content = messages.join('');
   const blob = new Blob(messages, {

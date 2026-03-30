@@ -2,6 +2,7 @@ import appGlobals from '../../appGlobals';
 import platformEnv from '../../platformEnv';
 import { getLoggerExtension } from '../extensions';
 import { loggerConfig } from '../loggerConfig';
+import { loggerRuntime } from '../runtime/loggerRuntime';
 import { stringifyFunc } from '../stringifyFunc';
 
 import type { IMethodDecoratorMetadata } from '../types';
@@ -120,10 +121,10 @@ function processEntry(entry: ILogEntry) {
 
 export const logFn = (entry: ILogEntry) => {
   // Single async deferral with error boundary.
-  // If config is not ready yet, loggerConfig queues and drains on init.
+  // If config is not ready yet, loggerRuntime queues until init drains it.
   setTimeout(() => {
     try {
-      loggerConfig.enqueueOrProcess(entry, processEntry);
+      loggerRuntime.enqueueOrProcess(loggerConfig.isReady, entry, processEntry);
     } catch (error) {
       console.error('Logger error:', error);
     }

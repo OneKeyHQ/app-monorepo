@@ -22,6 +22,8 @@ const consoleFunc = (msg: string) => {
 
 const getLogFilePath = () => Promise.resolve('');
 
+const flushPendingRepeat = () => {};
+
 const desktopPlatform = globalThis.desktopApi.platform;
 const desktopSystemVersion = globalThis.desktopApi.systemVersion;
 const getDeviceInfo = () =>
@@ -35,5 +37,10 @@ const getDeviceInfo = () =>
     `version: ${platformEnv.version ?? ''}`,
   ].join(',');
 
-const utils: IUtilsType = { getDeviceInfo, getLogFilePath, consoleFunc };
+const utils: IUtilsType = {
+  getDeviceInfo,
+  getLogFilePath,
+  consoleFunc,
+  flushPendingRepeat,
+};
 export default utils;
