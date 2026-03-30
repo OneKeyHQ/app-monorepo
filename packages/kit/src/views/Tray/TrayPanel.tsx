@@ -64,21 +64,35 @@ export function TrayPanel() {
     });
   }, []);
 
+  const hasWatchlist = data?.watchlist && data.watchlist.length > 0;
+  const hasPendingTxs = data?.pendingTxs && data.pendingTxs.length > 0;
+  const hasContent = hasWatchlist || hasPendingTxs;
+
   if (!data) {
-    return <TrayEmptyState type="loading" />;
+    return (
+      <Stack flex={1} backgroundColor="$bgApp" borderRadius="$3">
+        <TrayEmptyState type="loading" />
+      </Stack>
+    );
   }
 
   if (data.isLocked) {
     return (
-      <TrayEmptyState
-        type="locked"
-        onPress={() => handleNavigate('/main/tab-home')}
-      />
+      <Stack flex={1} backgroundColor="$bgApp" borderRadius="$3">
+        <TrayEmptyState
+          type="locked"
+          onPress={() => handleNavigate('/main/tab-home')}
+        />
+      </Stack>
     );
   }
 
   if (!data.wallet?.name) {
-    return <TrayEmptyState type="noWallet" />;
+    return (
+      <Stack flex={1} backgroundColor="$bgApp" borderRadius="$3">
+        <TrayEmptyState type="noWallet" />
+      </Stack>
+    );
   }
 
   return (
@@ -93,16 +107,23 @@ export function TrayPanel() {
         totalBalance={data.totalBalance}
         onPress={() => handleNavigate('/main/tab-home')}
       />
-      <ScrollView flex={1}>
-        <WatchlistTickers
-          tickers={data.watchlist}
-          onTickerPress={handleTickerPress}
+      {hasContent ? (
+        <ScrollView flex={1}>
+          <WatchlistTickers
+            tickers={data.watchlist}
+            onTickerPress={handleTickerPress}
+          />
+          <PendingTransactions
+            transactions={data.pendingTxs}
+            onTxPress={(txId) => handleNavigate(`/transaction/${txId}`)}
+          />
+        </ScrollView>
+      ) : (
+        <TrayEmptyState
+          type="noContent"
+          onPress={() => handleNavigate('/main/tab-home')}
         />
-        <PendingTransactions
-          transactions={data.pendingTxs}
-          onTxPress={(txId) => handleNavigate(`/transaction/${txId}`)}
-        />
-      </ScrollView>
+      )}
     </Stack>
   );
 }

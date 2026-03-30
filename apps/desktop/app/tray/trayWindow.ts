@@ -72,7 +72,9 @@ export function createTrayWindow(
       webviewTag: false,
       webSecurity: !isDev,
       contextIsolation: false,
-      preload: path.join(__dirname, 'preloadTray.js'),
+      // Use full preload — tray loads the complete app bundle which requires
+      // all desktopApi methods (webview, notification, etc.) at module init.
+      preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
       nodeIntegration: false,
     },

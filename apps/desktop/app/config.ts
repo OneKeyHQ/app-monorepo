@@ -101,4 +101,5 @@ export const ipcMessageKeys = {
   TRAY_DATA_RESPONSE: 'tray/dataResponse',
   TRAY_UPDATE: 'tray/update',
   TRAY_ACTION: 'tray/action',
+  TRAY_TOGGLE: 'tray/toggle',
 };

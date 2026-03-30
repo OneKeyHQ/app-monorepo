@@ -1,21 +1,33 @@
 import { SizableText, Stack } from '@onekeyhq/components';
 
-type IEmptyStateType = 'loading' | 'locked' | 'noWallet' | 'offline';
+type IEmptyStateType = 'loading' | 'locked' | 'noWallet' | 'noContent' | 'offline';
 
 // TODO: i18n — replace with ETranslations keys when available
-// Keys to register on server:
-//   tray.loading_title / tray.loading_subtitle
-//   tray.locked_title / tray.locked_subtitle
-//   tray.no_wallet_title / tray.no_wallet_subtitle
-//   tray.offline_title / tray.offline_subtitle
-const MESSAGES: Record<IEmptyStateType, { title: string; subtitle: string }> = {
-  loading: { title: 'Loading...', subtitle: 'Connecting to OneKey' },
-  locked: { title: 'App is Locked', subtitle: 'Click to unlock' },
-  noWallet: {
-    title: 'No Wallet',
-    subtitle: 'Create or import a wallet in the app',
+const MESSAGES: Record<
+  IEmptyStateType,
+  { icon: string; title: string; subtitle: string }
+> = {
+  loading: { icon: '⏳', title: 'Loading...', subtitle: 'Connecting to OneKey' },
+  locked: {
+    icon: '🔒',
+    title: 'App is Locked',
+    subtitle: 'Click to unlock OneKey',
   },
-  offline: { title: 'Network Unavailable', subtitle: 'Showing cached data' },
+  noWallet: {
+    icon: '👋',
+    title: 'No Wallet',
+    subtitle: 'Create or import a wallet to get started',
+  },
+  noContent: {
+    icon: '📊',
+    title: 'No Data Yet',
+    subtitle: 'Add tokens to your watchlist to see them here',
+  },
+  offline: {
+    icon: '📡',
+    title: 'Network Unavailable',
+    subtitle: 'Showing cached data',
+  },
 };
 
 export function TrayEmptyState({
@@ -31,14 +43,18 @@ export function TrayEmptyState({
       flex={1}
       alignItems="center"
       justifyContent="center"
-      padding="$4"
+      padding="$6"
       onPress={onPress}
       cursor={onPress ? 'pointer' : 'default'}
+      hoverStyle={onPress ? { backgroundColor: '$bgHover' } : undefined}
     >
-      <SizableText fontSize="$headingMd" color="$text" marginBottom="$2">
+      <SizableText fontSize={32} marginBottom="$3">
+        {message.icon}
+      </SizableText>
+      <SizableText fontSize="$headingSm" color="$text" marginBottom="$1.5" textAlign="center">
         {message.title}
       </SizableText>
-      <SizableText fontSize="$bodySm" color="$textSubdued">
+      <SizableText fontSize="$bodySm" color="$textSubdued" textAlign="center">
         {message.subtitle}
       </SizableText>
     </Stack>

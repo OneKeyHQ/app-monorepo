@@ -716,6 +716,20 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setEnableMenuBarTray(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableMenuBarTray: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getEnableMenuBarTray() {
+    const { enableMenuBarTray } = await settingsPersistAtom.get();
+    return enableMenuBarTray ?? false;
+  }
+
+  @backgroundMethod()
   public async getEnableBTCFreshAddress() {
     const { enableBTCFreshAddress } = await settingsPersistAtom.get();
     return enableBTCFreshAddress ?? false;

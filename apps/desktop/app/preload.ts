@@ -345,6 +345,8 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   // sendTrayAction is intentionally omitted here; only the tray preload needs it.
   sendTrayData: (data: any) =>
     ipcRenderer.send(ipcMessageKeys.TRAY_DATA_RESPONSE, data),
+  toggleTray: (enabled: boolean) =>
+    ipcRenderer.send(ipcMessageKeys.TRAY_TOGGLE, enabled),
 });
 
 globalThis.desktopApi = desktopApi;

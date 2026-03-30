@@ -728,6 +728,28 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
   );
 }
 
+export function MenuBarTrayListItem(props: ICustomElementProps) {
+  const [{ enableMenuBarTray }] = useSettingsPersistAtom();
+  const toggleMenuBarTray = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableMenuBarTray(value);
+      // Notify Electron main process to init/destroy tray
+      if (platformEnv.isDesktopMac) {
+        (globalThis as any).desktopApi?.toggleTray(value);
+      }
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={enableMenuBarTray}
+        onChange={toggleMenuBarTray}
+      />
+    </TabSettingsListItem>
+  );
+}
+
 export function BTCFreshAddressListItem(props: ICustomElementProps) {
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const toggleBTCFreshAddress = useCallback(async (value: boolean) => {

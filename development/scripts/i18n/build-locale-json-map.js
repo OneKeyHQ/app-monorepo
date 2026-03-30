@@ -58,7 +58,10 @@ fs.writeFileSync(
     // fix lint of type file.
     // Simply lint the file, it's faster than eslint.
     .replaceAll('	', '  ')
-    .replaceAll('  =', ' =')}`,
+    .replaceAll('  =', ' =')
+    // fix enum member names containing dots (from Lokalise delimiter)
+    // e.g. `perp.guide_xxx = 'perp.guide_xxx'` → `perp_guide_xxx = 'perp.guide_xxx'`
+    .replace(/^(\s+)(\w+)\.(\w+)(\s*=)/gm, '$1$2_$3$4')}`,
   'utf8',
 );
 

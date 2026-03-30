@@ -1244,24 +1244,33 @@ if (!singleInstance && !process.mas) {
     }
 
     if (isMac) {
-      initTrayManager(
-        getSafelyMainWindow,
-        showMainWindow,
-        appStaticResourcesPath,
-        (win) => {
-          if (isDev) {
-            const port = process.env.PORT || 3001;
-            void win.loadURL(`http://localhost:${port}?render=tray`);
-          } else {
-            const bundleData = store.getUpdateBundleData();
-            const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
-            const filePath =
-              bundleIndexHtmlPath ||
-              path.join(__dirname, '..', 'build', 'index.html');
-            void win.loadFile(filePath, { query: { render: 'tray' } });
-          }
-        },
-      );
+      const loadTrayUrl = (win: BrowserWindow) => {
+        if (isDev) {
+          const port = process.env.PORT || 3001;
+          void win.loadURL(`http://localhost:${port}?render=tray`);
+        } else {
+          const bundleData = store.getUpdateBundleData();
+          const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+          const filePath =
+            bundleIndexHtmlPath ||
+            path.join(__dirname, '..', 'build', 'index.html');
+          void win.loadFile(filePath, { query: { render: 'tray' } });
+        }
+      };
+
+      // Listen for tray toggle from renderer (settings change)
+      ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (_event, enabled: boolean) => {
+        if (enabled) {
+          initTrayManager(
+            getSafelyMainWindow,
+            showMainWindow,
+            appStaticResourcesPath,
+            loadTrayUrl,
+          );
+        } else {
+          destroyTrayManager();
+        }
+      });
     }
 
     startServices();
