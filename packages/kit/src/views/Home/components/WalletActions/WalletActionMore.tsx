@@ -74,7 +74,12 @@ export function WalletActionMore() {
       return true;
     }
     return networksSupportApproval[network?.id ?? ''] ?? false;
-  }, [network?.isAllNetworks, network?.id, account?.id, account?.createAtNetwork]);
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    account?.id,
+    account?.createAtNetwork,
+  ]);
 
   const renderItemsAsync = useCallback(
     async ({

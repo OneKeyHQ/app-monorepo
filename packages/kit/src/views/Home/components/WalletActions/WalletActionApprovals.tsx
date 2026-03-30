@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useNavigateToApprovalList } from '../../../Home/hooks/useNavigateToApprovalList';
+import { useNavigateToApprovalList } from '../../hooks/useNavigateToApprovalList';
 
 export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
