@@ -75,7 +75,8 @@ export function registerSwapNetworksCommand(parent: Command): void {
   parent
     .command('networks')
     .description('List supported swap networks')
-    .action(async (_options: Record<string, unknown>, cmd: Command) => {
+    .option('--bridge', 'Only show networks that support cross-chain bridge')
+    .action(async (options: Record<string, unknown>, cmd: Command) => {
       const globalOpts = cmd.optsWithGlobals();
       const networks = await fetchSwapNetworks();
 
@@ -87,8 +88,13 @@ export function registerSwapNetworksCommand(parent: Command): void {
         return;
       }
 
+      let displayNetworks = networks;
+      if (options.bridge) {
+        displayNetworks = networks.filter((n) => n.supportCrossChainSwap);
+      }
+
       if (globalOpts.json) {
-        console.log(JSON.stringify(networks, null, 2));
+        console.log(JSON.stringify(displayNetworks, null, 2));
         return;
       }
 
@@ -105,7 +111,7 @@ export function registerSwapNetworksCommand(parent: Command): void {
       console.log(header);
       console.log('-'.repeat(header.length));
 
-      for (const net of networks) {
+      for (const net of displayNetworks) {
         console.log(
           [
             net.name.padEnd(20),
