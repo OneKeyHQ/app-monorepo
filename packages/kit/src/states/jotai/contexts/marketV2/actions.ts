@@ -180,6 +180,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
   fetchTokenDetail = contextAtomMethod(
     async (get, set, tokenAddress: string, networkId: string) => {
+      let isStale = false;
       try {
         set(tokenDetailLoadingAtom(), true);
 
@@ -227,9 +228,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const currentAddress = get(tokenAddressAtom());
         const currentNetworkId = get(networkIdAtom());
         if (currentAddress !== tokenAddress && currentAddress !== '') {
+          isStale = true;
           return;
         }
         if (currentNetworkId !== networkId && currentNetworkId !== '') {
+          isStale = true;
           return;
         }
 
@@ -258,10 +261,14 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(tokenDetailAtom(), undefined);
           set(tokenDetailWebsocketAtom(), undefined);
           set(perpsInfoAtom(), undefined);
+        } else {
+          isStale = true;
         }
         throw error;
       } finally {
-        set(tokenDetailLoadingAtom(), false);
+        if (!isStale) {
+          set(tokenDetailLoadingAtom(), false);
+        }
       }
     },
   );
