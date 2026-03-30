@@ -202,9 +202,9 @@ logger.hooks.push((message: any, _transFn: any, transName?: string) => {
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const level: string = message?.level ?? 'info';
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const dataStr = (message?.data ?? [])
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  const rawData: any[] = message?.data ?? [];
+  const dataStr = rawData
     .map((d: any) => {
       if (typeof d === 'string') return d;
       try {
