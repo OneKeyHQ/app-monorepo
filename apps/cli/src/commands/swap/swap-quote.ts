@@ -448,7 +448,9 @@ export function registerSwapQuoteCommand(parent: Command): void {
             fromNetworkId,
             toNetworkId,
             slippagePercentage: slippage,
-            protocol: protocolConfig.protocol,
+            // API uses 'Swap' for both swap and bridge; backend detects cross-chain
+            // via fromNetworkId !== toNetworkId (see EProtocolOfExchange.SWAP comment)
+            protocol: 'Swap',
             kind: 'sell',
           };
           if (walletAddress) {

@@ -160,7 +160,7 @@ export function registerSwapStatusCommand(parent: Command): void {
           const stateTxBody = {
             txId: txHash,
             networkId: chainConfig.networkId,
-            protocol: protocolConfig.protocol,
+            protocol: 'Swap', // API uses 'Swap' for both swap and bridge
             ...(provider ? { provider } : {}),
             ...(toTokenAddress ? { toTokenAddress } : {}),
             ...(orderId ? { orderId } : {}),

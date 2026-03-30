@@ -268,7 +268,7 @@ export function registerSwapBuildCommand(parent: Command): void {
             fromNetworkId,
             toNetworkId,
             slippagePercentage: slippage,
-            protocol: protocolConfig.protocol,
+            protocol: 'Swap', // API uses 'Swap' for both swap and bridge
             kind: 'sell',
             userAddress: walletAddress,
             receivingAddress: walletAddress,
@@ -343,7 +343,7 @@ export function registerSwapBuildCommand(parent: Command): void {
               userAddress: walletAddress,
               receivingAddress: walletAddress,
               slippagePercentage: slippage,
-              protocol: protocolConfig.protocol,
+              protocol: 'Swap', // API uses 'Swap' for both swap and bridge
               kind: 'sell',
               quoteResultCtx: matchedQuote.quoteResultCtx,
             },
