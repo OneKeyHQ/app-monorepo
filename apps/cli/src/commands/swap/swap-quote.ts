@@ -463,8 +463,9 @@ export function registerSwapQuoteCommand(parent: Command): void {
 
           // Parallel: quote SSE + security audit on toToken
           // Skip security audit if toToken is native (empty contractAddress)
+          // toToken lives on the destination chain — use toNetworkId for audit
           const securityPromise = toResolved.contractAddress
-            ? auditToken(chainConfig.networkId, toResolved.contractAddress)
+            ? auditToken(toNetworkId, toResolved.contractAddress)
             : null;
 
           const [validQuotes, securityResult] = await Promise.all([

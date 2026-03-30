@@ -188,10 +188,10 @@ export function registerSwapBuildCommand(parent: Command): void {
             );
           }
 
-          // Security audit on toToken — skip if native (empty contractAddress)
+          // Security audit on toToken — use toNetworkId (token is on dest chain)
           if (toResolved.contractAddress) {
             const audit = await auditToken(
-              chainConfig.networkId,
+              toNetworkId,
               toResolved.contractAddress,
             );
             if (audit.isHighRisk && !options.force) {
