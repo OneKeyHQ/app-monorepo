@@ -4,7 +4,7 @@
 /* eslint-disable import/first */
 /* eslint-disable react-hooks/exhaustive-deps */
 
-// Polyfill requestIdleCallback/cancelIdleCallback for jsdom
+// Polyfill requestIdleCallback/cancelIdleCallback for non-native environments
 if (typeof globalThis.requestIdleCallback === 'undefined') {
   (globalThis as any).requestIdleCallback = (cb: () => void) =>
     setTimeout(cb, 0);
@@ -13,18 +13,28 @@ if (typeof globalThis.requestIdleCallback === 'undefined') {
 
 import { useRef } from 'react';
 
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: {
-    isNative: false,
-    isDesktop: false,
-    isWeb: true,
-    isRuntimeBrowser: true,
-    isRuntimeChrome: false,
-  },
-}));
+// In the harness (Hermes on device), platformEnv.isHarness is set by
+// harness/polyfills.ts. When running on device, platformEnv must reflect
+// native values so useVisibilityChange uses AppState instead of document.
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const real = jest.requireActual('@onekeyhq/shared/src/platformEnv');
+  const realEnv = real?.default ?? real;
+  const inHarness = realEnv?.isHarness === true;
+  return {
+    __esModule: true,
+    default: inHarness
+      ? { ...realEnv, isWeb: false, isRuntimeBrowser: false }
+      : {
+          isNative: false,
+          isDesktop: false,
+          isWeb: true,
+          isRuntimeBrowser: true,
+          isRuntimeChrome: false,
+        },
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
@@ -101,10 +111,13 @@ describe('usePromiseResult', () => {
   it('revalidates when network recovers if reconnect revalidation is enabled', async () => {
     globalNetInfo.state = { isInternetReachable: false };
 
-    const method = jest
-      .fn<Promise<string>, []>()
-      .mockResolvedValueOnce('first')
-      .mockResolvedValueOnce('second');
+    // On native (harness), AppState visibility callbacks may trigger extra
+    // re-validations during initial render. Use a flag to control the return
+    // value so recovery is deterministic regardless of call count.
+    let recovered = false;
+    const method = jest.fn(async () =>
+      recovered ? 'after-recovery' : 'before-recovery',
+    );
 
     const { result } = renderHook(() =>
       usePromiseResultWithRenderCount(method, {
@@ -113,20 +126,24 @@ describe('usePromiseResult', () => {
     );
 
     await waitFor(() => {
-      expect(result.current.result).toBe('first');
+      expect(result.current.result).toBe('before-recovery');
     });
 
-    expect(method).toHaveBeenCalledTimes(1);
+    const callsBeforeRecovery = method.mock.calls.length;
+    expect(callsBeforeRecovery).toBeGreaterThanOrEqual(1);
     expect(globalNetInfo.listeners).toHaveLength(1);
 
+    // Flip the flag, then trigger network recovery
+    recovered = true;
     act(() => {
       globalNetInfo.updateState({ isInternetReachable: true });
     });
 
     await waitFor(() => {
-      expect(result.current.result).toBe('second');
+      expect(result.current.result).toBe('after-recovery');
     });
 
-    expect(method).toHaveBeenCalledTimes(2);
+    // At least one additional call after recovery
+    expect(method.mock.calls.length).toBeGreaterThan(callsBeforeRecovery);
   });
 });

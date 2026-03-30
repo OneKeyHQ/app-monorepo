@@ -10,6 +10,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { TranslatePopoverContent } from '../../hooks/usePageTranslation';
 import { useSearchModalData } from '../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../hooks/useSearchPopover';
 import { useSearchPopoverShortcutsFeatureFlag } from '../../hooks/useSearchPopoverFeatureFlag';
@@ -36,6 +37,8 @@ interface IHeaderLeftToolBarInputProps {
   };
   hostSecurity: any;
   isLoading?: boolean;
+  isTranslated?: boolean;
+  onTranslate?: () => void;
 }
 
 function HeaderLeftToolBarInput({
@@ -48,8 +51,11 @@ function HeaderLeftToolBarInput({
   inputProps,
   hostSecurity,
   isLoading,
+  isTranslated,
+  onTranslate,
 }: IHeaderLeftToolBarInputProps) {
   const intl = useIntl();
+  const [translateIsOpen, setTranslateIsOpen] = useState(false);
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [internalValue, setInternalValue] = useState('');
@@ -168,6 +174,16 @@ function HeaderLeftToolBarInput({
         onKeyPress={handleKeyDown}
         addOns={[
           {
+            iconName: isTranslated ? 'TranslateSolid' : 'TranslateOutline',
+            onPress: () => setTranslateIsOpen(true),
+            tooltipProps: {
+              renderContent: intl.formatMessage({
+                id: ETranslations.browser_translate_settings_title,
+              }),
+            },
+            testID: 'browser-bar-translate',
+          },
+          {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress?.(!isBookmark),
             tooltipProps: {
@@ -215,6 +231,22 @@ function HeaderLeftToolBarInput({
             <DappInfoPopoverContent
               iconConfig={iconConfig}
               hostSecurity={hostSecurity}
+              closePopover={closePopover}
+            />
+          )}
+        />
+        <Popover
+          placement="bottom-end"
+          title={intl.formatMessage({
+            id: ETranslations.browser_translate_settings_title,
+          })}
+          open={translateIsOpen}
+          onOpenChange={setTranslateIsOpen}
+          renderTrigger={<Stack />}
+          renderContent={({ closePopover }) => (
+            <TranslatePopoverContent
+              isTranslated={!!isTranslated}
+              onTranslate={onTranslate ?? (() => {})}
               closePopover={closePopover}
             />
           )}
