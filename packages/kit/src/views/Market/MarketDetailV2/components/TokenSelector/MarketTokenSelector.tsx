@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
   usePopoverContext,
+  useTheme,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -43,6 +44,7 @@ const TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS = [
 
 function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
+  const theme = useTheme();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
@@ -150,6 +152,8 @@ function BaseMarketTokenSelectorContent() {
             placement="bottom-start"
             startListSelect={startListSelect}
             onStartListSelect={handleStartListSelect}
+            borderColor="$neutral3"
+            gradientBgColor={theme.bg.val}
           />
 
           {startListSelect ? (

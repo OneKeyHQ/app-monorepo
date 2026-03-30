@@ -11,6 +11,7 @@ interface IGradientMaskProps {
   position: IGradientMaskPosition;
   opacity?: number;
   width?: number;
+  bgColor?: string;
 }
 
 const animateOnlyProps = ['opacity', 'width'];
@@ -23,13 +24,15 @@ export function GradientMask({
   position,
   opacity = 1,
   width = 20,
+  bgColor,
 }: IGradientMaskProps) {
   const theme = useTheme();
   const positionProps = position === 'left' ? { left: 0 } : { right: 0 };
 
+  const baseColor = bgColor || theme.bgApp.val;
   const colors = useMemo(
-    () => [theme.bgApp.val, `${theme.bgApp.val}00`],
-    [theme.bgApp.val],
+    () => [baseColor, `${baseColor}00`],
+    [baseColor],
   );
 
   return (
