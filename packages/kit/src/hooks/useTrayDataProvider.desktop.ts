@@ -388,6 +388,19 @@ export function useTrayDataProvider() {
     handleTrayDataRequestRef.current?.();
   }, [appIsLocked]);
 
+  // Sync tray enabled state on startup — main process inits tray by default,
+  // so if the user previously disabled it, tell main to destroy it.
+  useEffect(() => {
+    if (!platformEnv.isDesktopMac) return;
+    void backgroundApiProxy.serviceSetting.getEnableMenuBarTray().then(
+      (enabled) => {
+        if (!enabled) {
+          (globalThis as any).desktopApi?.toggleTray(false);
+        }
+      },
+    );
+  }, []);
+
   // Refresh tray when tx status changes or history refreshes (debounced)
   useEffect(() => {
     if (!platformEnv.isDesktop) return;

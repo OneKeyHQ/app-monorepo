@@ -1258,6 +1258,15 @@ if (!singleInstance && !process.mas) {
         }
       };
 
+      // Init tray on startup (default enabled); renderer will send
+      // TRAY_TOGGLE(false) if the user has disabled it in settings.
+      initTrayManager(
+        getSafelyMainWindow,
+        showMainWindow,
+        appStaticResourcesPath,
+        loadTrayUrl,
+      );
+
       // Listen for tray toggle from renderer (settings change)
       ipcMain.on(ipcMessageKeys.TRAY_TOGGLE, (_event, enabled: boolean) => {
         if (enabled) {
