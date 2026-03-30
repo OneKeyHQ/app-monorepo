@@ -65,6 +65,8 @@ const POPOVER_PLATFORM_WEB_STYLE = {
   outlineColor: '$neutral3',
   outlineStyle: 'solid',
   outlineWidth: '$px',
+  boxShadow:
+    '0 4px 6px -4px rgba(0, 0, 0, 0.10), 0 10px 15px -3px rgba(0, 0, 0, 0.10)',
 } as const;
 const POPOVER_PLATFORM_NATIVE = { elevation: 20 } as const;
 const OVERLAY_ENTER_STYLE = { opacity: 0 } as const;
