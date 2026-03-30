@@ -329,10 +329,9 @@ function SendDataInputContainer() {
   );
 
   const handleNavigateToAmountInput = useCallback(async () => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     try {
-      if (isNavigatingRef.current) return;
-      isNavigatingRef.current = true;
-
       // Use already-watched toResolved instead of re-getting from form
       if (!toResolved) return;
 
