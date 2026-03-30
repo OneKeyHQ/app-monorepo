@@ -128,23 +128,21 @@ export function MarketDetailHeader() {
                   />
                 ) : null}
                 {tokenDetail?.address ? (
-                  <XStack
-                    ai="center"
-                    gap="$1"
-                    onPress={() => {
-                      copyText(tokenDetail.address);
-                      defaultLogger.dex.actions.dexCopyCA({
-                        copyFrom: ECopyFrom.Detail,
-                        copiedContent: tokenDetail.address,
-                      });
-                    }}
-                    hoverStyle={{ opacity: 0.8 }}
-                    pressStyle={{ opacity: 0.6 }}
-                  >
+                  <XStack ai="center" gap="$1">
                     <SizableText
                       size="$bodySm"
                       color="$textSubdued"
                       numberOfLines={1}
+                      cursor="pointer"
+                      hoverStyle={{ opacity: 0.8 }}
+                      pressStyle={{ opacity: 0.6 }}
+                      onPress={() => {
+                        copyText(tokenDetail.address);
+                        defaultLogger.dex.actions.dexCopyCA({
+                          copyFrom: ECopyFrom.Detail,
+                          copiedContent: tokenDetail.address,
+                        });
+                      }}
                     >
                       {accountUtils.shortenAddress({
                         address: tokenDetail.address,

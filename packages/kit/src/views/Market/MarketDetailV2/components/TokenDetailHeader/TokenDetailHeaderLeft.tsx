@@ -158,16 +158,15 @@ export function TokenDetailHeaderLeft({
 
           <XStack gap="$2" ai="center">
             {address ? (
-              <XStack
-                borderRadius="$1"
-                ai="center"
-                gap="$1"
-                cursor="pointer"
-                hoverStyle={{ opacity: 0.8 }}
-                pressStyle={{ opacity: 0.6 }}
-                onPress={handleCopyAddress}
-              >
-                <SizableText size="$bodySm" color="$textSubdued">
+              <XStack borderRadius="$1" ai="center" gap="$1">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="pointer"
+                  hoverStyle={{ opacity: 0.8 }}
+                  pressStyle={{ opacity: 0.6 }}
+                  onPress={handleCopyAddress}
+                >
                   {accountUtils.shortenAddress({
                     address,
                     leadingLength: 6,
