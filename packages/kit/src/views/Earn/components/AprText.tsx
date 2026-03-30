@@ -67,7 +67,7 @@ export function AprText({
           />
         ) : null}
         <SizableText
-          size="$bodyLgMedium"
+          size={size}
           textAlign="right"
           color={highlight.color || '$textSuccess'}
         >
