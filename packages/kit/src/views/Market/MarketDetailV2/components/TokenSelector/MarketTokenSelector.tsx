@@ -217,7 +217,7 @@ function BaseMarketTokenSelector() {
           // Remove default Popover boxShadow — the dark rgba(0,0,0) shadow
           // looks abnormal on dark backgrounds. Outline alone provides
           // sufficient visual separation.
-          $platform-web: {
+          '$platform-web': {
             outlineColor: '$neutral3',
             outlineStyle: 'solid',
             outlineWidth: '$px',
