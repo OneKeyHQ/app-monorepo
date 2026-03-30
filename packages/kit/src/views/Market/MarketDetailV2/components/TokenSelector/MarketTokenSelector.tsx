@@ -212,10 +212,7 @@ function BaseMarketTokenSelector() {
     () => (
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_search })}
-        floatingPanelProps={{
-          width: 800,
-          style: { boxShadow: 'none', outline: 'none' },
-        }}
+        floatingPanelProps={{ width: 800 }}
         open={isOpen}
         onOpenChange={setIsOpen}
         placement="bottom-start"
