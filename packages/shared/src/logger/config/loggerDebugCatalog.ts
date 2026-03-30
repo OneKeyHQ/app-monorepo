@@ -16,25 +16,25 @@ export class LoggerDebugCatalog {
     const defaultLoggerInstance =
       (appGlobals.$defaultLogger as unknown as Record<string, BaseScope>) || {};
 
+    // Hoist comparator once — natsort() allocates internally each call
+    const compare = natsort({ insensitive: true });
+
     getLoggerScopeKeys()
-      .toSorted((a, b) => natsort({ insensitive: true })(a, b))
+      .toSorted(compare)
       .forEach((scope) => {
         config.enabled[scope] = config.enabled[scope] || {};
-        Object.keys(
-          (defaultLoggerInstance as unknown as Record<string, BaseScope>)[
-            scope
-          ] || {},
-        )
-          .toSorted((a, b) => natsort({ insensitive: true })(a, b))
+
+        // Resolve lazy getter once per scope, reuse for all scenes
+        const scopeInstance = defaultLoggerInstance[scope];
+        if (!scopeInstance) {
+          return;
+        }
+
+        Object.keys(scopeInstance)
+          .toSorted(compare)
           .forEach((scene) => {
-            if (!defaultLoggerInstance[scope]) {
-              return;
-            }
             const sceneInstance = (
-              defaultLoggerInstance[scope] as unknown as Record<
-                string,
-                BaseScene
-              >
+              scopeInstance as unknown as Record<string, BaseScene>
             )[scene];
             try {
               const isScene =

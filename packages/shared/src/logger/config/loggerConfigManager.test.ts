@@ -4,26 +4,24 @@ import { createDefaultLoggerConfig } from './loggerConfigShared';
 import type { ILoggerConfig } from './loggerConfigShared';
 
 describe('LoggerConfigManager', () => {
-  it('keeps init on the runtime config path until debug config is requested', async () => {
-    const runtimeConfig = createDefaultLoggerConfig({ colorfulLog: true });
+  it('reads stored config once during init and merges with defaults', async () => {
+    const storedConfig: ILoggerConfig = {
+      highlightDurationGt: '200',
+      colorfulLog: true,
+      enabled: { app: { boot: true } },
+    };
     const store = {
-      readStoredConfig: jest.fn<Promise<ILoggerConfig | undefined>, []>(),
-      loadRuntimeConfig: jest.fn().mockResolvedValue(runtimeConfig),
+      readStoredConfig: jest.fn().mockResolvedValue(storedConfig),
+      loadRuntimeConfig: jest.fn(),
       saveConfig: jest.fn(),
     };
     const catalog = {
       buildConfig: jest.fn(),
       expandConfig: jest.fn(),
     };
-    const runtime = {
-      drain: jest.fn(),
-    };
+    const runtime = { drain: jest.fn() };
     const manager = new LoggerConfigManager({
-      env: {
-        isDev: true,
-        isProduction: false,
-        isWebEmbed: false,
-      },
+      env: { isDev: true, isProduction: false, isWebEmbed: false },
       store,
       catalog,
       runtime,
@@ -31,38 +29,27 @@ describe('LoggerConfigManager', () => {
 
     await manager.init();
 
-    expect(store.loadRuntimeConfig).toHaveBeenCalledWith({
-      colorfulLog: true,
-    });
+    expect(store.readStoredConfig).toHaveBeenCalledTimes(1);
+    expect(store.loadRuntimeConfig).not.toHaveBeenCalled();
     expect(catalog.expandConfig).not.toHaveBeenCalled();
     expect(runtime.drain).toHaveBeenCalledTimes(1);
-    expect(manager.config).toEqual(runtimeConfig);
+    expect(manager.config?.enabled?.app?.boot).toBe(true);
   });
 
-  it('expands the debug catalog only when the full logger config is requested', async () => {
-    const runtimeConfig = createDefaultLoggerConfig({ colorfulLog: true });
+  it('reuses cached stored config on first getSavedLoggerConfig without re-reading storage', async () => {
     const storedConfig: ILoggerConfig = {
       highlightDurationGt: '250',
       colorfulLog: true,
-      enabled: {
-        app: {
-          boot: true,
-        },
-      },
+      enabled: { app: { boot: true } },
     };
     const expandedConfig: ILoggerConfig = {
       highlightDurationGt: '250',
       colorfulLog: true,
-      enabled: {
-        app: {
-          boot: true,
-          ready: false,
-        },
-      },
+      enabled: { app: { boot: true, ready: false } },
     };
     const store = {
       readStoredConfig: jest.fn().mockResolvedValue(storedConfig),
-      loadRuntimeConfig: jest.fn().mockResolvedValue(runtimeConfig),
+      loadRuntimeConfig: jest.fn(),
       saveConfig: jest.fn(),
     };
     const catalog = {
@@ -70,22 +57,17 @@ describe('LoggerConfigManager', () => {
       expandConfig: jest.fn().mockReturnValue(expandedConfig),
     };
     const manager = new LoggerConfigManager({
-      env: {
-        isDev: true,
-        isProduction: false,
-        isWebEmbed: false,
-      },
+      env: { isDev: true, isProduction: false, isWebEmbed: false },
       store,
       catalog,
-      runtime: {
-        drain: jest.fn(),
-      },
+      runtime: { drain: jest.fn() },
     });
 
     await manager.init();
     const firstConfig = await manager.getSavedLoggerConfig();
     const secondConfig = await manager.getSavedLoggerConfig();
 
+    // readStoredConfig called once (init), not again for getSavedLoggerConfig
     expect(store.readStoredConfig).toHaveBeenCalledTimes(1);
     expect(catalog.expandConfig).toHaveBeenCalledTimes(1);
     expect(catalog.expandConfig).toHaveBeenCalledWith(storedConfig);
@@ -100,28 +82,15 @@ describe('LoggerConfigManager', () => {
       saveConfig: jest.fn(),
     };
     const manager = new LoggerConfigManager({
-      env: {
-        isDev: true,
-        isProduction: false,
-        isWebEmbed: false,
-      },
+      env: { isDev: true, isProduction: false, isWebEmbed: false },
       store,
-      catalog: {
-        buildConfig: jest.fn(),
-        expandConfig: jest.fn(),
-      },
-      runtime: {
-        drain: jest.fn(),
-      },
+      catalog: { buildConfig: jest.fn(), expandConfig: jest.fn() },
+      runtime: { drain: jest.fn() },
     });
     const nextConfig: ILoggerConfig = {
       highlightDurationGt: '300',
       colorfulLog: true,
-      enabled: {
-        setting: {
-          device: true,
-        },
-      },
+      enabled: { setting: { device: true } },
     };
 
     manager.saveLoggerConfig(nextConfig);
@@ -131,21 +100,17 @@ describe('LoggerConfigManager', () => {
     expect(manager.shouldLog('setting', 'device')).toBe(true);
   });
 
-  it('falls back to default config when loadRuntimeConfig rejects', async () => {
+  it('falls back to default config when readStoredConfig rejects', async () => {
     const store = {
-      readStoredConfig: jest.fn<Promise<ILoggerConfig | undefined>, []>(),
-      loadRuntimeConfig: jest
+      readStoredConfig: jest
         .fn()
         .mockRejectedValue(new Error('storage corrupt')),
+      loadRuntimeConfig: jest.fn(),
       saveConfig: jest.fn(),
     };
     const runtime = { drain: jest.fn() };
     const manager = new LoggerConfigManager({
-      env: {
-        isDev: true,
-        isProduction: false,
-        isWebEmbed: false,
-      },
+      env: { isDev: true, isProduction: false, isWebEmbed: false },
       store,
       catalog: { buildConfig: jest.fn(), expandConfig: jest.fn() },
       runtime,

@@ -1,3 +1,5 @@
+import { merge } from 'lodash';
+
 import platformEnv from '../../platformEnv';
 import { loggerRuntime } from '../runtime/loggerRuntime';
 
@@ -37,6 +39,10 @@ export class LoggerConfigManager {
   private _config: ILoggerConfig | undefined;
 
   private _hasExpandedConfig = false;
+
+  // Cache stored config from init's loadRuntimeConfig to avoid re-reading
+  // storage on first getSavedLoggerConfig() call.
+  private _cachedStoredConfig?: ILoggerConfig;
 
   private readonly _env: ILoggerConfigEnv;
 
@@ -86,9 +92,13 @@ export class LoggerConfigManager {
       if (this._env.isWebEmbed || this._env.isProduction) {
         this._config = createDefaultLoggerConfig({ colorfulLog: false });
       } else {
-        this._config = await this._store.loadRuntimeConfig({
-          colorfulLog: true,
-        });
+        // Cache stored config so getSavedLoggerConfig() can reuse it
+        // instead of re-reading storage.
+        this._cachedStoredConfig = await this._store.readStoredConfig();
+        this._config = merge(
+          createDefaultLoggerConfig({ colorfulLog: true }),
+          this._cachedStoredConfig || {},
+        );
       }
     } catch {
       this._config = createDefaultLoggerConfig({ colorfulLog: false });
@@ -102,7 +112,11 @@ export class LoggerConfigManager {
       return this._config;
     }
 
-    const storedConfig = await this._store.readStoredConfig();
+    // Reuse cached stored config from init() if available,
+    // avoiding a duplicate storage read + JSON parse.
+    const storedConfig =
+      this._cachedStoredConfig ?? (await this._store.readStoredConfig());
+    this._cachedStoredConfig = undefined;
     this._config = this._catalog.expandConfig(storedConfig);
     this._hasExpandedConfig = true;
     return this._config;
