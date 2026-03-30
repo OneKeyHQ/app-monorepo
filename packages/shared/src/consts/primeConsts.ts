@@ -1,5 +1,3 @@
-import platformEnv from '../platformEnv';
-
 import { EOneKeyDeepLinkPath, ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
 
 // Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
@@ -43,8 +41,7 @@ export const RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID =
   '180B50C8-E4EC-40E9-9CF3-7DD71F2882F7';
 
 // export const ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD = true;
-export const ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD =
-  !platformEnv.isDev;
+export const ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD = false;
 
 export const ENCRYPTED_SECURITY_PASSWORD_SPLITTER = '@';
 // local security password r1
