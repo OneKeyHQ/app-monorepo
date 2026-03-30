@@ -227,6 +227,9 @@ const RecommendedItem = memo(
             asset={{
               aprWithoutFee: token.aprWithoutFee ?? '',
               aprInfo: token.aprInfo,
+              rewardUnit: token.rewardUnit,
+              minAprInfo: token.minAprInfo,
+              maxAprInfo: token.maxAprInfo,
             }}
           />
           {!noWalletConnected ? (
@@ -304,6 +307,9 @@ const RecommendedListItem = memo(
             asset={{
               aprWithoutFee: token.aprWithoutFee ?? '',
               aprInfo: token.aprInfo,
+              rewardUnit: token.rewardUnit,
+              minAprInfo: token.minAprInfo,
+              maxAprInfo: token.maxAprInfo,
             }}
           />
         </YStack>
