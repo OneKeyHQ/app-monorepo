@@ -88,21 +88,24 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     };
   }, [data.tokenAddress, data.networkId, tokenDetailActions]);
 
+  // Set tokenAddress/networkId/isNative synchronously on prop change,
+  // NOT inside the polling callback. This prevents stale polling responses
+  // from writing old token identifiers back into atoms after a token switch.
+  useEffect(() => {
+    tokenDetailActions.setTokenAddress(data.tokenAddress);
+    tokenDetailActions.setNetworkId(data.networkId);
+    tokenDetailActions.setIsNative(data.isNative);
+  }, [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions]);
+
   return usePromiseResult(
     async () => {
-      // Always fetch token detail data to get complete token information
-      // The K-line price priority logic is handled inside fetchTokenDetail
+      // Only fetch token detail data; atom identity is set synchronously above
       await tokenDetailActions.fetchTokenDetail(
         data.tokenAddress,
         data.networkId,
       );
-
-      // Set the tokenAddress, networkId, and isNative in jotai state
-      tokenDetailActions.setTokenAddress(data.tokenAddress);
-      tokenDetailActions.setNetworkId(data.networkId);
-      tokenDetailActions.setIsNative(data.isNative);
     },
-    [data.tokenAddress, data.networkId, data.isNative, tokenDetailActions],
+    [data.tokenAddress, data.networkId, tokenDetailActions],
     {
       pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
       revalidateOnFocus: true,

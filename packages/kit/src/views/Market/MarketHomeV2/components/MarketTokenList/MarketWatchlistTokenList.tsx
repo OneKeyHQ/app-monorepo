@@ -141,6 +141,12 @@ function MarketWatchlistTokenList({
     };
   }, [watchlistResult, filteredGroups, selectedFilter]);
 
+  // Disable drag reorder when the list is filtered (hidePerps or category filter).
+  // Dragging in a filtered view would pass visible-only neighbors to
+  // sortWatchListV2Items, which computes sortIndex against the full watchlist,
+  // producing incorrect order for hidden items.
+  const isDraggable = filteredResult.data === watchlistResult.data;
+
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
       chainId: token.networkId,
@@ -344,7 +350,7 @@ function MarketWatchlistTokenList({
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
-      draggable
+      draggable={isDraggable}
       tabIntegrated={tabIntegrated}
       tabName={tabName}
       listContainerProps={listContainerProps}
