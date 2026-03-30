@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
 import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 
