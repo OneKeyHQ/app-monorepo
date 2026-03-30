@@ -1,8 +1,6 @@
-/**
- * @jest-environment jsdom
- */
+/* eslint-disable import/first */
 
-import { renderHook } from '@testing-library/react';
+import { renderHook } from '@testing-library/react-native';
 import { BigNumber } from 'bignumber.js';
 
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -72,6 +70,22 @@ let mockActiveAssetData: IMockActiveAssetData;
 let mockAccountSummary: IMockAccountSummary;
 let mockPositions: IMockPosition[];
 let mockOrderPrice: IMockOrderPrice;
+
+// Mock leaf modules directly — in the harness, Metro's `export *` creates
+// non-configurable getter descriptors on barrel modules, so mutating the barrel
+// fails silently. Mocking the leaf ensures the getter chain resolves to our mock.
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
+  useTradingFormAtom: () => [mockFormData],
+  useTradingFormComputedAtom: () => [mockTradingComputed],
+  usePerpsActivePositionAtom: () => [{ activePositions: mockPositions }],
+}));
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/perps', () => ({
+  usePerpsActiveAccountSummaryAtom: () => [mockAccountSummary],
+  usePerpsActiveAssetAtom: () => [mockActiveAsset],
+  usePerpsActiveAssetCtxAtom: () => [mockActiveAssetCtx],
+  usePerpsActiveAssetDataAtom: () => [mockActiveAssetData],
+}));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useTradingFormAtom: () => [mockFormData],
