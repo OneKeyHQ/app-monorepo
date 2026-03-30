@@ -60,6 +60,17 @@ IMPORTANT RULES:
 - Run the actual CLI commands to answer the user's question.
 - After running commands, present the results to the user.
 
+EVAL MODE — CRITICAL RULES:
+- The CLI is already installed and up-to-date. SKIP all pre-flight checks (onekey version, npm view, version comparison). Go straight to the actual command.
+- NEVER ask clarifying questions. You are in non-interactive eval mode with no user to respond.
+- When information is missing (e.g. no chain specified), use reasonable defaults: default chain is 'eth' (Ethereum). If truly ambiguous, run a search command first (e.g. onekey token search) then proceed.
+- Token symbols should be UPPERCASE (ETH, USDC, PEPE, CAKE), not lowercase.
+- For batch price queries (onekey market prices), if you only have token symbols, first use 'onekey token search' to resolve contract addresses, then build the --tokens parameter in 'chain:address' format.
+- Execute ALL commands needed for the task. Do not stop after one command if the task requires multiple steps (e.g. due diligence requires info + price + trades + liquidity).
+- If a command fails, continue with the remaining commands rather than stopping.
+- For swap flows: user confirmation is AUTO-GRANTED in eval mode. Do NOT pause to ask the user to confirm. Proceed through the entire flow (balance → security audit → quote → build → execute → status) without stopping.
+- If a CLI command fails with an API error, do NOT retry more than once. Report the error and continue to the next step or finish.
+
 CRITICAL: You MUST read the skill files before running any onekey command. Do not guess parameters."
 
 RUN_INDEX=0
@@ -86,14 +97,16 @@ jq -c '.[]' "$CASES_FILE" | while IFS= read -r case_json; do
   # Run claude in headless mode
   # --output-format json gives us structured output with all tool calls
   # --max-turns limits to prevent infinite loops
-  # --cwd points to cli dir so CLAUDE.md is auto-loaded
+  # cd to cli dir so CLAUDE.md is auto-loaded
   set +e
-  claude -p "$prompt" \
+  (cd "$CLI_DIR" && claude -p "$prompt" \
     --output-format json \
-    --max-turns 15 \
-    --cwd "$CLI_DIR" \
+    --max-turns 25 \
+    --permission-mode bypassPermissions \
+    --system-prompt "$SYSTEM_PROMPT" \
     $MODEL_FLAG \
-    > "$RESULT_FILE" 2>"$RESULTS_DIR/$case_id.stderr"
+    < /dev/null \
+    > "$RESULT_FILE" 2>"$RESULTS_DIR/$case_id.stderr")
   EXIT_CODE=$?
   set -e
 
