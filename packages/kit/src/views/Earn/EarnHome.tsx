@@ -367,7 +367,7 @@ function BasicEarnHome({
         <HeaderScrollGestureWrapper
           onHorizontalSwipe={handleHeaderHorizontalSwipe}
         >
-          <YStack gap="$4" pt="$4" bg="$bgApp" pointerEvents="box-none">
+          <YStack gap="$4" pt={24} pb={20} bg="$bgApp" pointerEvents="box-none">
             <YStack gap="$7.5">
               <YStack px="$pagePadding">
                 <Overview
@@ -542,7 +542,7 @@ function BasicEarnHome({
           defaultMode={defaultMode}
           onModeChange={handleModeChange}
           earn={
-            <YStack flex={1}>
+            <YStack flex={1} gap={20}>
               <YStack>
                 <XStack px="$pagePadding">
                   <Overview

@@ -4,6 +4,10 @@ import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 
+// Helper to strip trailing APR/APY suffix from a text string
+const stripRewardUnitSuffix = (text: string) =>
+  text.replace(/\s*(APR|APY)$/i, '');
+
 // Helper function to build APR text
 const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 
@@ -11,6 +15,7 @@ const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 export function AprText({
   asset,
   size = '$bodyLgMedium',
+  hideSuffix = false,
 }: {
   asset: {
     aprInfo?: IEarnAvailableAsset['aprInfo'];
@@ -18,8 +23,10 @@ export function AprText({
     rewardUnit?: IEarnAvailableAsset['rewardUnit'];
   };
   size?: ComponentProps<typeof SizableText>['size'];
+  hideSuffix?: boolean;
 }) {
   const { aprInfo, aprWithoutFee, rewardUnit = 'APR' } = asset;
+  const strip = hideSuffix ? stripRewardUnitSuffix : (t: string) => t;
 
   // Special case: both highlight and deprecated exist
   if (aprInfo?.highlight && aprInfo?.deprecated) {
@@ -39,7 +46,7 @@ export function AprText({
             textAlign="right"
             color={highlight.color || '$textSuccess'}
           >
-            {highlight.text}
+            {strip(highlight.text)}
           </SizableText>
         </XStack>
         <SizableText
@@ -48,7 +55,7 @@ export function AprText({
           color={deprecated.color || '$textSubdued'}
           textDecorationLine="line-through"
         >
-          {deprecated.text}
+          {strip(deprecated.text)}
         </SizableText>
       </YStack>
     );
@@ -71,7 +78,7 @@ export function AprText({
           textAlign="right"
           color={highlight.color || '$textSuccess'}
         >
-          {highlight.text}
+          {strip(highlight.text)}
         </SizableText>
       </XStack>
     );
@@ -86,7 +93,7 @@ export function AprText({
         textAlign="right"
         color={normal.color || '$text'}
       >
-        {normal.text}
+        {strip(normal.text)}
       </SizableText>
     );
   }
@@ -101,7 +108,7 @@ export function AprText({
         color={deprecated.color || '$textSubdued'}
         textDecorationLine="line-through"
       >
-        {deprecated.text}
+        {strip(deprecated.text)}
       </SizableText>
     );
   }
@@ -109,7 +116,7 @@ export function AprText({
   // Priority 4: fallback to current logic
   return (
     <SizableText size={size} textAlign="right">
-      {buildAprText(aprWithoutFee, rewardUnit as IEarnRewardUnit)}
+      {hideSuffix ? aprWithoutFee : buildAprText(aprWithoutFee, rewardUnit as IEarnRewardUnit)}
     </SizableText>
   );
 }
