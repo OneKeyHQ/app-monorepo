@@ -1,53 +1,99 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
+/* eslint-disable import/first */
 
 /**
  * Tests for the native asset resolution polyfill (polyfillsPlatform.js lines 47-116).
  *
  * Core logic is in assetResolutionPatch.js — it does its own requires
- * for react-native / lodash / path-support, so we mock those via jest.doMock.
+ * for react-native / lodash / path-support at call time (not module load time),
+ * so we mock those modules upfront and change Platform.OS per test case.
  */
 
-let MockAssetSourceResolver: any;
-let originalDefaultAsset: any;
+// In the harness, react-native is the real module — don't mock it.
+// In Node.js Jest, we need to provide mocks for RN internals.
+const isHarnessEnv = (() => {
+  try {
+    const pe = require('@onekeyhq/shared/src/platformEnv');
+    return (pe?.default ?? pe)?.isHarness === true;
+  } catch {
+    return false;
+  }
+})();
 
-function setup(platform: string) {
-  jest.resetModules();
+const mockPlatform = { OS: 'android' };
 
-  originalDefaultAsset = jest.fn();
-  MockAssetSourceResolver = function () {};
-  MockAssetSourceResolver.prototype.defaultAsset = originalDefaultAsset;
-
-  jest.doMock('react-native', () => ({
-    Platform: { OS: platform },
+if (!isHarnessEnv) {
+  jest.mock('react-native', () => ({
+    Platform: mockPlatform,
     PixelRatio: { get: () => 2 },
   }));
-
-  jest.doMock('react-native/Libraries/Image/AssetSourceResolver', () => ({
-    __esModule: true,
-    default: MockAssetSourceResolver,
-  }));
-
-  jest.doMock('react-native/Libraries/Image/AssetUtils', () => ({
-    pickScale: (scales: number[], pixelRatio: number) =>
-      scales.reduce((prev, curr) =>
-        Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio) ? curr : prev,
-      ),
-  }));
-
-  jest.doMock('@react-native/assets-registry/path-support', () => ({
-    getAndroidResourceFolderName: (_asset: any, scale: number) =>
-      `drawable-${scale}x`,
-    getAndroidResourceIdentifier: (asset: any) => asset.name,
-  }));
-
-  const { patchNativeAssetResolution } = require('./assetResolutionPatch');
-  return patchNativeAssetResolution;
 }
 
+const MockAssetSourceResolver = function () {};
+MockAssetSourceResolver.prototype.defaultAsset = jest.fn();
+
+jest.mock('react-native/Libraries/Image/AssetSourceResolver', () => ({
+  __esModule: true,
+  default: MockAssetSourceResolver,
+}));
+
+// These helpers are always mocked — the test passes simplified asset objects
+// that don't match the real API signatures.
+jest.mock('react-native/Libraries/Image/AssetUtils', () => ({
+  pickScale: (scales: number[], pixelRatio: number) =>
+    scales.reduce((prev, curr) =>
+      Math.abs(curr - pixelRatio) < Math.abs(prev - pixelRatio) ? curr : prev,
+    ),
+}));
+
+jest.mock('@react-native/assets-registry/path-support', () => ({
+  getAndroidResourceFolderName: (_asset: any, scale: number) =>
+    `drawable-${scale}x`,
+  getAndroidResourceIdentifier: (asset: any) => asset.name,
+}));
+
+import { patchNativeAssetResolution } from './assetResolutionPatch';
+
+// In harness, Platform is the real RN Platform object — mutate OS directly.
+// In Node.js Jest, Platform is our mockPlatform object.
+const setPlatformOS = (os: string) => {
+  if (isHarnessEnv) {
+    const { Platform } = require('react-native');
+    Platform.OS = os;
+  } else {
+    mockPlatform.OS = os;
+  }
+};
+
+// In harness, use real device PixelRatio; in Node.js Jest, mock returns 2.
+const getDevicePixelRatio = (): number => {
+  if (isHarnessEnv) {
+    const { PixelRatio } = require('react-native');
+    return PixelRatio.get();
+  }
+  return 2;
+};
+
 describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
+  let savedOS: string;
+
+  beforeEach(() => {
+    // Save original Platform.OS in harness so we can restore it
+    if (isHarnessEnv) {
+      const { Platform } = require('react-native');
+      savedOS = Platform.OS;
+    }
+    // Restore the prototype to a fresh fn before each test so patches don't leak
+    MockAssetSourceResolver.prototype.defaultAsset = jest.fn();
+  });
+
   afterEach(() => {
-    jest.restoreAllMocks();
+    // Restore Platform.OS in harness
+    if (isHarnessEnv) {
+      const { Platform } = require('react-native');
+      Platform.OS = savedOS;
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -57,29 +103,38 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
     const ASSETS_PATH =
       'file:///data/user/0/com.app/files/bundles/v1/b1/assets/';
 
+    beforeEach(() => {
+      setPlatformOS('android');
+    });
+
     test('wraps AssetSourceResolver.prototype.defaultAsset', () => {
-      const patch = setup('android');
-      patch(ASSETS_PATH);
+      const prePatched = MockAssetSourceResolver.prototype.defaultAsset;
+      patchNativeAssetResolution(ASSETS_PATH);
       expect(MockAssetSourceResolver.prototype.defaultAsset).not.toBe(
-        originalDefaultAsset,
+        prePatched,
       );
     });
 
     test('rewrites asset URI with bundle assets path and drawable folder', () => {
-      const patch = setup('android');
-      patch(ASSETS_PATH);
+      const pr = getDevicePixelRatio();
+      // pickScale picks the closest scale to devicePixelRatio
+      const expectedScale = [1, 2, 3].reduce((prev, curr) =>
+        Math.abs(curr - pr) < Math.abs(prev - pr) ? curr : prev,
+      );
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
         isLoadedFromServer: () => false,
         asset: { scales: [1, 2, 3], name: 'icon', type: 'png' },
         fromSource: (uri: string) => ({ uri }),
       });
-      expect(result.uri).toBe(`${ASSETS_PATH}drawable-2x/icon.png`);
+      expect(result.uri).toBe(
+        `${ASSETS_PATH}drawable-${expectedScale}x/icon.png`,
+      );
     });
 
     test('replaces __packages and __node_modules in asset URI simultaneously', () => {
-      const patch = setup('android');
-      patch(ASSETS_PATH);
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
         isLoadedFromServer: () => false,
@@ -94,20 +149,24 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
     });
 
     test('preserves URI when no __packages or __node_modules present', () => {
-      const patch = setup('android');
-      patch(ASSETS_PATH);
+      const pr = getDevicePixelRatio();
+      const expectedScale = [2].reduce((prev, curr) =>
+        Math.abs(curr - pr) < Math.abs(prev - pr) ? curr : prev,
+      );
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
         isLoadedFromServer: () => false,
         asset: { scales: [2], name: 'normal_icon', type: 'png' },
         fromSource: (uri: string) => ({ uri }),
       });
-      expect(result.uri).toBe(`${ASSETS_PATH}drawable-2x/normal_icon.png`);
+      expect(result.uri).toBe(
+        `${ASSETS_PATH}drawable-${expectedScale}x/normal_icon.png`,
+      );
     });
 
     test('returns server URL when loaded from dev server', () => {
-      const patch = setup('android');
-      patch(ASSETS_PATH);
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
         isLoadedFromServer: () => true,
@@ -123,9 +182,12 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
   describe('iOS', () => {
     const ASSETS_PATH = 'file:///var/containers/App/UUID/bundles/v1/b1/assets/';
 
+    beforeEach(() => {
+      setPlatformOS('ios');
+    });
+
     test('replaces jsbundleUrl with bundle assets path', () => {
-      const patch = setup('ios');
-      patch(ASSETS_PATH);
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const jsbundleUrl = 'file:///var/containers/App/UUID/OneKey.app/';
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
@@ -139,8 +201,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
     });
 
     test('replaces __packages and __node_modules in asset URI', () => {
-      const patch = setup('ios');
-      patch(ASSETS_PATH);
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const jsbundleUrl = 'file:///original/';
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
@@ -157,8 +218,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
     });
 
     test('preserves URI when no __packages or __node_modules present', () => {
-      const patch = setup('ios');
-      patch(ASSETS_PATH);
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const jsbundleUrl = 'file:///original/';
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
@@ -172,8 +232,7 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
     });
 
     test('returns server URL when loaded from dev server', () => {
-      const patch = setup('ios');
-      patch(ASSETS_PATH);
+      patchNativeAssetResolution(ASSETS_PATH);
 
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
         isLoadedFromServer: () => true,
@@ -187,9 +246,12 @@ describe('patchNativeAssetResolution (polyfillsPlatform lines 47-116)', () => {
   // Unknown platform
   // -------------------------------------------------------------------------
   describe('unknown platform', () => {
+    beforeEach(() => {
+      setPlatformOS('windows');
+    });
+
     test('returns undefined for unsupported platform', () => {
-      const patch = setup('windows');
-      patch('file:///assets/');
+      patchNativeAssetResolution('file:///assets/');
 
       const result = MockAssetSourceResolver.prototype.defaultAsset.call({
         isLoadedFromServer: () => false,
