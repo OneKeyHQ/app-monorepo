@@ -47,6 +47,8 @@ export const exportLogs = async (filename: string) => {
     });
   }
   await waitAsync(1000);
+  // Flush pending dedup repeat summary so it is included in exported logs
+  utils.flushPendingRepeat?.();
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
   const Share = await getShareModule();
@@ -87,6 +89,8 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
+  // Flush pending dedup repeat summary so it is included in exported logs
+  utils.flushPendingRepeat?.();
 
   const filePath = await utils.getLogFilePath(baseName);
   if (!filePath) {
