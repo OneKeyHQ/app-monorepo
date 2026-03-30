@@ -62,13 +62,11 @@ export function TokenDetailHeaderLeft({
 
   const {
     handleCopyAddress,
-    handleOpenContractAddress,
     handleOpenWebsite,
     handleOpenTwitter,
     handleOpenXSearch,
   } = useTokenDetailHeaderLeftActions({
     tokenDetail,
-    networkId,
   });
 
   const {
@@ -144,30 +142,32 @@ export function TokenDetailHeaderLeft({
               <TokenTagsPopover
                 communityRecognized={communityRecognized}
                 stock={stock}
+                showAllInTrigger
               />
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
                 {communityRecognized ? <CommunityRecognizedBadge /> : null}
+                {stock?.subtitle ? (
+                  <SubtitleBadge subtitle={stock.subtitle} />
+                ) : null}
+                {stock ? <StockIsOpenBadge stock={stock} /> : null}
               </>
             )}
-            {stock?.subtitle ? (
-              <SubtitleBadge subtitle={stock.subtitle} />
-            ) : null}
-            {stock ? <StockIsOpenBadge stock={stock} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">
             {address ? (
-              <XStack borderRadius="$1" ai="center" gap="$1">
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  cursor="pointer"
-                  hoverStyle={{ color: '$text' }}
-                  pressStyle={{ color: '$textActive' }}
-                  onPress={handleOpenContractAddress}
-                >
+              <XStack
+                borderRadius="$1"
+                ai="center"
+                gap="$1"
+                cursor="pointer"
+                hoverStyle={{ opacity: 0.8 }}
+                pressStyle={{ opacity: 0.6 }}
+                onPress={handleCopyAddress}
+              >
+                <SizableText size="$bodySm" color="$textSubdued">
                   {accountUtils.shortenAddress({
                     address,
                     leadingLength: 6,
@@ -175,11 +175,7 @@ export function TokenDetailHeaderLeft({
                   })}
                 </SizableText>
 
-                <InteractiveIcon
-                  icon="Copy3Outline"
-                  onPress={handleCopyAddress}
-                  size="$4"
-                />
+                <InteractiveIcon icon="Copy3Outline" size="$4" />
               </XStack>
             ) : null}
 
