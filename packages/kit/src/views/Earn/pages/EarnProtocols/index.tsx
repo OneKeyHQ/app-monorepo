@@ -407,6 +407,7 @@ function BasicEarnProtocols({ route }: { route: IRouteProps }) {
               asset={{
                 aprWithoutFee: item?.provider?.aprWithoutFee ?? '',
                 aprInfo: item?.aprInfo,
+                rewardUnit: item?.provider?.rewardUnit,
               }}
             />
           );
