@@ -61,7 +61,7 @@ fs.writeFileSync(
     .replaceAll('  =', ' =')
     // fix enum member names with dots (invalid TS identifiers)
     .replace(/^(\s+)([a-z0-9_.]+)\s*=/gm, (match, indent, member) =>
-      member.includes('.') ? `${indent}${member.replace(/\./g, '_')} =` : match
+      member.includes('.') ? `${indent}${member.replace(/\./g, '_')} =` : match,
     )}`,
   'utf8',
 );
