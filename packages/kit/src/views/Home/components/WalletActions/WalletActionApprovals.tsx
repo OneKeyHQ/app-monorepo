@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { ActionList } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useNavigateToApprovalList } from '../../../Home/hooks/useNavigateToApprovalList';
@@ -17,6 +18,11 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
   const navigateToApprovalList = useNavigateToApprovalList();
 
   const handlePress = useCallback(async () => {
+    defaultLogger.wallet.walletActions.actionApprovals({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
     onClose();
     await timerUtils.wait(150);
     void navigateToApprovalList({
@@ -31,6 +37,7 @@ export function WalletActionApprovals({ onClose }: { onClose: () => void }) {
     network?.id,
     account?.id,
     wallet?.id,
+    wallet?.type,
     account?.indexedAccountId,
   ]);
 
