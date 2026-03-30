@@ -1,12 +1,12 @@
 ---
-name: onekey-cli
-description: OneKey wallet CLI for on-chain operations — token discovery,
+name: onekey-wallet
+description: OneKey Wallet for on-chain operations — token discovery,
   market analysis, swap execution, security auditing, and portfolio management.
 version: 1.0.0
 keywords: [onekey, wallet, swap, market, token, defi, crypto]
 ---
 
-# OneKey CLI — Agent Skill
+# OneKey Wallet
 
 ## Pre-flight Checks
 
