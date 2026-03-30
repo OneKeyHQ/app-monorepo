@@ -59,9 +59,10 @@ fs.writeFileSync(
     // Simply lint the file, it's faster than eslint.
     .replaceAll('	', '  ')
     .replaceAll('  =', ' =')
-    // fix enum member names containing dots (from Lokalise delimiter)
-    // e.g. `perp.guide_xxx = 'perp.guide_xxx'` → `perp_guide_xxx = 'perp.guide_xxx'`
-    .replace(/^(\s+)(\w+)\.(\w+)(\s*=)/gm, '$1$2_$3$4')}`,
+    // fix enum member names with dots (invalid TS identifiers)
+    .replace(/^(\s+)([a-z0-9_.]+)\s*=/gm, (match, indent, member) =>
+      member.includes('.') ? `${indent}${member.replace(/\./g, '_')} =` : match,
+    )}`,
   'utf8',
 );
 
