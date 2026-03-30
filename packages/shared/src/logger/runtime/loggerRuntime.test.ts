@@ -33,4 +33,21 @@ describe('LoggerRuntime', () => {
 
     expect(processed).toEqual([42]);
   });
+
+  it('drops oldest entries when pending queue exceeds MAX_PENDING', () => {
+    const runtime = new LoggerRuntime();
+    const processed: number[] = [];
+
+    for (let i = 0; i < 510; i += 1) {
+      runtime.enqueueOrProcess(false, i, (value) => {
+        processed.push(value);
+      });
+    }
+
+    runtime.drain();
+
+    expect(processed.length).toBe(500);
+    expect(processed[0]).toBe(10);
+    expect(processed[499]).toBe(509);
+  });
 });

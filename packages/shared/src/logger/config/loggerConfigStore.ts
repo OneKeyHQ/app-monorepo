@@ -12,7 +12,10 @@ import type { ILoggerConfig } from './loggerConfigShared';
 export class LoggerConfigStore {
   async readStoredConfig(): Promise<ILoggerConfig | undefined> {
     const stored = await appStorage.getItem(LOGGER_CONFIG_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as ILoggerConfig) || {} : undefined;
+    if (!stored) return undefined;
+    const parsed = JSON.parse(stored) as ILoggerConfig | null;
+    if (!parsed || typeof parsed !== 'object') return undefined;
+    return parsed;
   }
 
   async loadRuntimeConfig({

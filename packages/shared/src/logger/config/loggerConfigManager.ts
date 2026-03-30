@@ -82,12 +82,16 @@ export class LoggerConfigManager {
   }
 
   async init(): Promise<void> {
-    if (this._env.isWebEmbed || this._env.isProduction) {
+    try {
+      if (this._env.isWebEmbed || this._env.isProduction) {
+        this._config = createDefaultLoggerConfig({ colorfulLog: false });
+      } else {
+        this._config = await this._store.loadRuntimeConfig({
+          colorfulLog: true,
+        });
+      }
+    } catch {
       this._config = createDefaultLoggerConfig({ colorfulLog: false });
-    } else {
-      this._config = await this._store.loadRuntimeConfig({
-        colorfulLog: true,
-      });
     }
     this._hasExpandedConfig = false;
     this._runtime.drain();

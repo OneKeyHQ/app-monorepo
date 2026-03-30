@@ -130,4 +130,31 @@ describe('LoggerConfigManager', () => {
     expect(manager.config).toBe(nextConfig);
     expect(manager.shouldLog('setting', 'device')).toBe(true);
   });
+
+  it('falls back to default config when loadRuntimeConfig rejects', async () => {
+    const store = {
+      readStoredConfig: jest.fn<Promise<ILoggerConfig | undefined>, []>(),
+      loadRuntimeConfig: jest
+        .fn()
+        .mockRejectedValue(new Error('storage corrupt')),
+      saveConfig: jest.fn(),
+    };
+    const runtime = { drain: jest.fn() };
+    const manager = new LoggerConfigManager({
+      env: {
+        isDev: true,
+        isProduction: false,
+        isWebEmbed: false,
+      },
+      store,
+      catalog: { buildConfig: jest.fn(), expandConfig: jest.fn() },
+      runtime,
+    });
+
+    await manager.init();
+
+    expect(manager.isReady).toBe(true);
+    expect(manager.config).toBeDefined();
+    expect(runtime.drain).toHaveBeenCalledTimes(1);
+  });
 });

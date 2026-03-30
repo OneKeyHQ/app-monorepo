@@ -1,4 +1,6 @@
 export class LoggerRuntime {
+  private static MAX_PENDING = 500;
+
   private _pendingEntries: Array<{
     entry: unknown;
     processor: (entry: unknown) => void;
@@ -14,6 +16,9 @@ export class LoggerRuntime {
       return;
     }
 
+    if (this._pendingEntries.length >= LoggerRuntime.MAX_PENDING) {
+      this._pendingEntries.shift();
+    }
     this._pendingEntries.push({
       entry,
       processor: processor as (resolvedEntry: unknown) => void,
