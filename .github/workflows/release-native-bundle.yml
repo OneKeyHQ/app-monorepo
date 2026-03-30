@@ -146,22 +146,35 @@ jobs:
             BRANCH="${{ github.ref_name }}"
             COMMIT="${{ github.sha }}"
           fi
+          # Validate commit SHA format to prevent env injection
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::Invalid commit SHA format: $COMMIT"
+            exit 1
+          fi
+          DELIMITER=$(uuidgen)
           {
-            echo "BRANCH<<GHEOF"
+            echo "BRANCH<<${DELIMITER}"
             echo "$BRANCH"
-            echo "GHEOF"
+            echo "${DELIMITER}"
           } >> "$GITHUB_ENV"
           {
-            echo "COMMIT<<GHEOF"
+            echo "COMMIT<<${DELIMITER}"
             echo "$COMMIT"
-            echo "GHEOF"
+            echo "${DELIMITER}"
           } >> "$GITHUB_ENV"
           COMMIT_MESSAGE=$(git log -1 --pretty=%s "$COMMIT" 2>/dev/null || echo "")
           {
-            echo "COMMIT_MESSAGE<<GHEOF"
+            echo "COMMIT_MESSAGE<<${DELIMITER}"
             echo "$COMMIT_MESSAGE"
-            echo "GHEOF"
+            echo "${DELIMITER}"
           } >> "$GITHUB_ENV"
+          # Override commit SHA for the build. GITHUB_SHA is a built-in GitHub Actions
+          # env var that cannot be reliably overridden via $GITHUB_ENV. Instead, set
+          # WORKFLOW_GITHUB_SHA which takes priority in platformEnv.githubSHA.
+          sed -i "s/^GITHUB_SHA=.*/GITHUB_SHA=$COMMIT/" .env
+          echo "GITHUB_SHA=$COMMIT" >> $GITHUB_ENV
+          echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> $GITHUB_ENV
+          echo "WORKFLOW_GITHUB_SHA=$COMMIT" >> .env
 
       - name: Setup Node
         uses: actions/setup-node@v6
