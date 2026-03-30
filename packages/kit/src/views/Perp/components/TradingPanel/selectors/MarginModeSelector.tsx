@@ -15,8 +15,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
-  CONTEXTUAL_ARTICLE_SLUGS,
-  buildArticleUrl,
+  CONTEXTUAL_ARTICLE_IDS,
+  buildHelpUrl,
   openGuideUrl,
 } from '../../Guide/perpGuideData';
 import { showMarginModeDialog } from '../modals/MarginModeModal';
@@ -78,7 +78,9 @@ const MarginModeSelector = ({
           cursor="default"
           onPress={(e) => {
             e.stopPropagation();
-            openGuideUrl(buildArticleUrl(CONTEXTUAL_ARTICLE_SLUGS.marginMode));
+            openGuideUrl(
+              buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.marginMode}`),
+            );
           }}
         />
       </XStack>

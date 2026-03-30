@@ -14,8 +14,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import {
-  CONTEXTUAL_ARTICLE_SLUGS,
-  buildArticleUrl,
+  CONTEXTUAL_ARTICLE_IDS,
+  buildHelpUrl,
   openGuideUrl,
 } from '../../Guide/perpGuideData';
 
@@ -73,7 +73,7 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
           alignItems="center"
           onPress={() => {
             openGuideUrl(
-              buildArticleUrl(CONTEXTUAL_ARTICLE_SLUGS.enableTrading),
+              buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`),
             );
           }}
           cursor="default"

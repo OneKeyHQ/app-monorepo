@@ -11,14 +11,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import {
-  PERP_GUIDE_CATEGORIES,
-  buildArticleUrl,
-  buildSearchUrl,
-  openGuideUrl,
-} from './perpGuideData';
+import { PERP_GUIDE_CATEGORIES, openGuideUrl } from './perpGuideData';
 
 import type { IPerpGuideArticle, IPerpGuideCategory } from './perpGuideData';
 
@@ -30,8 +27,8 @@ function GuideArticleItem({
   onNavigate?: () => void;
 }) {
   const intl = useIntl();
+  const url = useHelpLink({ path: `articles/${article.articleId}` });
   const handlePress = useCallback(() => {
-    const url = buildArticleUrl(article.articleSlug);
     if (onNavigate) {
       onNavigate();
       setTimeout(() => {
@@ -40,7 +37,7 @@ function GuideArticleItem({
     } else {
       openGuideUrl(url);
     }
-  }, [article.articleSlug, onNavigate]);
+  }, [url, onNavigate]);
 
   return (
     <XStack
@@ -92,7 +89,7 @@ function GuideCategorySection({
       <YStack>
         {category.articles.map((article) => (
           <GuideArticleItem
-            key={article.articleSlug}
+            key={article.articleId}
             article={article}
             onNavigate={onNavigate}
           />
@@ -110,7 +107,7 @@ export function PerpGuideContent({ onClose }: { onClose?: () => void }) {
   const handleSearchSubmit = useCallback(() => {
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
-    const url = buildSearchUrl(trimmed);
+    const url = `${HELP_CENTER_URL}?q=${encodeURIComponent(trimmed)}`;
     if (onClose) {
       onClose();
       setTimeout(() => {

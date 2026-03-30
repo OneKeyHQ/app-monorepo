@@ -31,8 +31,8 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  CONTEXTUAL_ARTICLE_SLUGS,
-  buildArticleUrl,
+  CONTEXTUAL_ARTICLE_IDS,
+  buildHelpUrl,
   openGuideUrl,
 } from '../../Guide/perpGuideData';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
@@ -210,7 +210,9 @@ const LeverageContent = memo(
             alignItems="center"
             justifyContent="flex-start"
             onPress={() => {
-              openGuideUrl(buildArticleUrl(CONTEXTUAL_ARTICLE_SLUGS.leverage));
+              openGuideUrl(
+                buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
+              );
             }}
             cursor="default"
           >
