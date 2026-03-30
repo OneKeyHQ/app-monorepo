@@ -544,7 +544,6 @@ class ServiceHardware extends ServiceBase {
         const { features } = message.device || {};
         if (!features || !features.device_id) return;
         const { device_id: deviceId } = features;
-        if (this.connectedDeviceTracked.has(deviceId)) return;
 
         void (async () => {
           try {
@@ -553,7 +552,8 @@ class ServiceHardware extends ServiceBase {
             });
             if (
               deviceType !== EDeviceType.Pro &&
-              deviceType !== EDeviceType.Classic1s
+              deviceType !== EDeviceType.Classic1s &&
+              deviceType !== EDeviceType.ClassicPure
             ) {
               // Mark ineligible devices to avoid repeated async checks on reconnect
               this.connectedDeviceTracked.add(deviceId);
@@ -562,6 +562,8 @@ class ServiceHardware extends ServiceBase {
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
             });
+            const trackingKey = `${deviceId}_${firmwareType}`;
+            if (this.connectedDeviceTracked.has(trackingKey)) return;
             defaultLogger.hardware.connection.hwDeviceConnected({
               deviceType,
               firmwareType:
@@ -571,7 +573,7 @@ class ServiceHardware extends ServiceBase {
               deviceId,
             });
             // Mark only after successful tracking, allowing retry on transient errors
-            this.connectedDeviceTracked.add(deviceId);
+            this.connectedDeviceTracked.add(trackingKey);
           } catch (_e) {
             // ignore tracking errors — device not marked, so retry is possible
           }
