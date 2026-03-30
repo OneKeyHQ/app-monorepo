@@ -30,10 +30,7 @@ export function GradientMask({
   const positionProps = position === 'left' ? { left: 0 } : { right: 0 };
 
   const baseColor = bgColor || theme.bgApp.val;
-  const colors = useMemo(
-    () => [baseColor, `${baseColor}00`],
-    [baseColor],
-  );
+  const colors = useMemo(() => [baseColor, `${baseColor}00`], [baseColor]);
 
   return (
     <Stack
