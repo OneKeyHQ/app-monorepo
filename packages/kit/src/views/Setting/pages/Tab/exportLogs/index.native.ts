@@ -48,7 +48,7 @@ export const exportLogs = async (filename: string) => {
     });
   }
   await waitAsync(1000);
-  prepareLoggerExport();
+  await prepareLoggerExport();
   const logFilePath = await utils.getLogFilePath(filename);
   console.log('logFilePath', logFilePath);
   const Share = await getShareModule();
@@ -89,7 +89,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
-  prepareLoggerExport();
+  await prepareLoggerExport();
 
   const filePath = await utils.getLogFilePath(baseName);
   if (!filePath) {

@@ -50,7 +50,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
-  prepareLoggerExport();
+  await prepareLoggerExport();
   const messages = await backgroundApiProxy.serviceLogger.getAllMsg();
   const content = messages.join('');
   const blob = new Blob(messages, {

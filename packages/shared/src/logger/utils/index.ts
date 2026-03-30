@@ -39,10 +39,9 @@ const consoleFunc = (msg: string) => {
 };
 
 /** Flush any pending repeat summary to ServiceLogger before log export. */
-const flushPendingRepeat = () => {
+const flushPendingRepeat = async () => {
   if (repeatCount > 0) {
-    // eslint-disable-next-line
-    appGlobals?.$backgroundApiProxy?.serviceLogger.addMsg(
+    await appGlobals?.$backgroundApiProxy?.serviceLogger.addMsg(
       `[${repeatCount} repeat]\r\n`,
     );
     repeatCount = 0;

@@ -1,5 +1,5 @@
 import utils from './utils';
 
-export function prepareLoggerExport(): void {
-  utils.flushPendingRepeat();
+export async function prepareLoggerExport(): Promise<void> {
+  await utils.flushPendingRepeat();
 }

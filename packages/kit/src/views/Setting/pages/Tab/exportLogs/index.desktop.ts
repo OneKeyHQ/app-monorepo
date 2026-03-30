@@ -45,7 +45,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(100);
-  prepareLoggerExport();
+  await prepareLoggerExport();
   const result = await globalThis.desktopApiProxy.dev.collectLoggerDigest({
     fileBaseName: baseName,
   });
@@ -85,7 +85,7 @@ export const exportLogs = async (fileBaseName?: string) => {
     });
   }
   await waitAsync(50);
-  prepareLoggerExport();
+  await prepareLoggerExport();
   await globalThis.desktopApiProxy.dev.exportLoggerZip({
     fileBaseName: baseName,
   });

@@ -3,5 +3,5 @@ export type IUtilsType = {
   getLogFilePath: (filename: string) => Promise<string>;
   getDeviceInfo: () => string;
   /** Flush any pending dedup repeat summary before log export. */
-  flushPendingRepeat: () => void;
+  flushPendingRepeat: () => void | Promise<void>;
 };
