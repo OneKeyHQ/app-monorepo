@@ -8,7 +8,6 @@ import {
   Dialog,
   Empty,
   Icon,
-  Image,
   SizableText,
   Skeleton,
   XStack,
@@ -17,7 +16,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -27,6 +25,10 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
+import {
+  ProtocolImage,
+  formatTvl,
+} from '../../Staking/components/ProtocolDisplayShared';
 import { capitalizeString } from '../../Staking/utils/utils';
 
 import { AprText } from './AprText';
@@ -152,28 +154,6 @@ const groupProtocolsByGroup = (
   return sections;
 };
 
-const formatTvl = (tvl: string | undefined) => {
-  if (!tvl) {
-    return undefined;
-  }
-
-  const bn = new BigNumber(tvl);
-  if (bn.isNaN()) {
-    return tvl;
-  }
-  if (bn.gte(1e9)) {
-    return `$${bn.div(1e9).toFixed(2)}B`;
-  }
-  if (bn.gte(1e6)) {
-    return `$${bn.div(1e6).toFixed(2)}M`;
-  }
-  if (bn.gte(1e3)) {
-    return `$${bn.div(1e3).toFixed(2)}K`;
-  }
-
-  return `$${bn.toFixed(2)}`;
-};
-
 const getProtocolAprValue = (item: IStakeProtocolListItem) => {
   const aprText =
     item.aprInfo?.highlight?.text ||
@@ -181,37 +161,8 @@ const getProtocolAprValue = (item: IStakeProtocolListItem) => {
     item.aprInfo?.deprecated?.text ||
     `${BigNumber(item.provider.aprWithoutFee || 0).toFixed(2)} ${item.provider.rewardUnit || 'APR'}`;
 
-  return aprText.replace(/\s+(APR|APY)$/iu, '');
+  return aprText.replace(/\s*(APR|APY)\s*$/iu, '').trim();
 };
-
-function ProtocolImage({
-  logoURI,
-  networkLogoURI,
-}: {
-  logoURI?: string;
-  networkLogoURI?: string;
-}) {
-  return (
-    <XStack position="relative" w="$9" h="$9" flexShrink={0}>
-      {logoURI ? (
-        <Image w="$9" h="$9" borderRadius="$2" source={{ uri: logoURI }} />
-      ) : (
-        <Skeleton w="$9" h="$9" borderRadius="$2" />
-      )}
-      {networkLogoURI ? (
-        <XStack
-          position="absolute"
-          bottom={-2}
-          right={-2}
-          bg="$bgApp"
-          borderRadius="$full"
-        >
-          <NetworkAvatarBase size="$4" logoURI={networkLogoURI} />
-        </XStack>
-      ) : null}
-    </XStack>
-  );
-}
 
 export function ProtocolListContent({
   symbol,
