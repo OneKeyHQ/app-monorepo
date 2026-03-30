@@ -1,4 +1,4 @@
-import { Stack, SizableText, Image } from '@onekeyhq/components';
+import { Image, SizableText, Stack } from '@onekeyhq/components';
 import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
 
 function TickerRow({

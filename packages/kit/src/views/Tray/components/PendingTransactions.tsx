@@ -1,4 +1,4 @@
-import { Stack, SizableText } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 import type { IPendingTx } from '@onekeyhq/shared/src/types/desktop/tray';
 
 // TODO: i18n — replace with ETranslations keys when available
@@ -27,12 +27,20 @@ function TxRow({ tx, onPress }: { tx: IPendingTx; onPress: () => void }) {
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <Stack flex={1}>
-        <SizableText fontSize="$bodyMd" color="$text">{TX_TYPE_LABELS[tx.type] || tx.type}</SizableText>
-        <SizableText fontSize="$bodySm" color="$textSubdued">→ {truncateAddress(tx.to)}</SizableText>
+        <SizableText fontSize="$bodyMd" color="$text">
+          {TX_TYPE_LABELS[tx.type] || tx.type}
+        </SizableText>
+        <SizableText fontSize="$bodySm" color="$textSubdued">
+          → {truncateAddress(tx.to)}
+        </SizableText>
       </Stack>
       <Stack alignItems="flex-end">
-        <SizableText fontSize="$bodyMd" color="$text">{tx.amount}</SizableText>
-        <SizableText fontSize="$bodySm" color="$textWarning">{tx.confirmations || 'Pending'}</SizableText>
+        <SizableText fontSize="$bodyMd" color="$text">
+          {tx.amount}
+        </SizableText>
+        <SizableText fontSize="$bodySm" color="$textWarning">
+          {tx.confirmations || 'Pending'}
+        </SizableText>
       </Stack>
     </Stack>
   );
@@ -61,7 +69,13 @@ export function PendingTransactions({
 
   return (
     <Stack>
-      <SizableText fontSize="$bodySm" color="$textSubdued" paddingHorizontal="$4" paddingTop="$3" paddingBottom="$1">
+      <SizableText
+        fontSize="$bodySm"
+        color="$textSubdued"
+        paddingHorizontal="$4"
+        paddingTop="$3"
+        paddingBottom="$1"
+      >
 {/* TODO: i18n tray.pending_transactions */}
         Pending Transactions
       </SizableText>
@@ -71,7 +85,13 @@ export function PendingTransactions({
       {hasMore ? (
         <Stack padding="$3" onPress={() => onTxPress('')} cursor="pointer">
           {/* TODO: i18n tray.view_all */}
-          <SizableText fontSize="$bodySm" color="$textInteractive" textAlign="center">View all →</SizableText>
+          <SizableText
+            fontSize="$bodySm"
+            color="$textInteractive"
+            textAlign="center"
+          >
+            View all →
+          </SizableText>
         </Stack>
       ) : null}
     </Stack>

@@ -12,17 +12,16 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
-import { TRAY_IPC } from '@onekeyhq/shared/src/types/desktop/tray';
+import {
+  TRAY_IPC,
+  type ITrayData,
+  type ITrayWatchlistItem,
+} from '@onekeyhq/shared/src/types/desktop/tray';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
-
-import type {
-  ITrayData,
-  ITrayWatchlistItem,
-} from '@onekeyhq/shared/src/types/desktop/tray';
 
 export function useTrayDataProvider() {
   const [activeAccountValue] = useActiveAccountValueAtom();

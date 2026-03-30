@@ -1,14 +1,13 @@
 import { type BrowserWindow, ipcMain } from 'electron';
 import logger from 'electron-log';
-import { ipcMessageKeys } from '../config';
-import { getTrayWindow } from './trayWindow';
-import { diffAndNotify } from './trayNotification';
+
 import type { ITrayData } from '@onekeyhq/shared/src/types/desktop/tray';
 
-const ALLOWED_TRAY_ACTION_TYPES = new Set([
-  'open-page',
-  'market-detail-v2',
-]);
+import { ipcMessageKeys } from '../config';
+import { diffAndNotify } from './trayNotification';
+import { getTrayWindow } from './trayWindow';
+
+const ALLOWED_TRAY_ACTION_TYPES = new Set(['open-page', 'market-detail-v2']);
 
 let cachedTrayData: ITrayData | null = null;
 let isLocked = false;

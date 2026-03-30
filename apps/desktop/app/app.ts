@@ -71,7 +71,7 @@ import { initSentry } from './sentry';
 import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
-import { initTrayManager, destroyTrayManager } from './tray/TrayManager';
+import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 
 initSentry();
 

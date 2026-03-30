@@ -18,7 +18,7 @@ export function onTrayWindowVisibilityChange(
 function calculateWindowPosition(
   tray: Tray,
   windowWidth: number,
-  windowHeight: number,
+  _windowHeight: number,
 ): { x: number; y: number } {
   const trayBounds = tray.getBounds();
   const display = screen.getDisplayNearestPoint({

@@ -1,4 +1,4 @@
-import { Stack, SizableText, Image } from '@onekeyhq/components';
+import { Image, SizableText, Stack } from '@onekeyhq/components';
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '@onekeyhq/shared/src/utils/avatarUtils';
 
@@ -15,22 +15,26 @@ export function PortfolioOverview({
   const changeColor = isPositive ? '$textSuccess' : '$textCritical';
   const changePrefix = isPositive ? '+' : '';
 
+  const CURRENCY_SYMBOLS: Record<string, string> = {
+    usd: '$',
+    cny: '¥',
+    eur: '€',
+    gbp: '£',
+    jpy: '¥',
+  };
+
   const cur = (totalBalance.currency || '').toLowerCase();
-  const currencySymbol =
-    cur === 'usd' ? '$' :
-    cur === 'cny' ? '¥' :
-    cur === 'eur' ? '€' :
-    cur === 'gbp' ? '£' :
-    cur === 'jpy' ? '¥' : '$';
+  const currencySymbol = CURRENCY_SYMBOLS[cur] || '$';
   const formattedAmount = Number(totalBalance.amount).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-  const avatarSource =
-    wallet.avatarImg
-      ? AllWalletAvatarImages[wallet.avatarImg as IAllWalletAvatarImageNamesWithoutDividers]
-      : undefined;
+  const avatarSource = wallet.avatarImg
+    ? AllWalletAvatarImages[
+        wallet.avatarImg as IAllWalletAvatarImageNamesWithoutDividers
+      ]
+    : undefined;
 
   return (
     <Stack

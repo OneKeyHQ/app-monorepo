@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
+
 import { ScrollView, Stack } from '@onekeyhq/components';
-import { TRAY_IPC, type ITrayData, type ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
-import { TrayEmptyState } from './components/TrayEmptyState';
-import { PortfolioOverview } from './components/PortfolioOverview';
-import { WatchlistTickers } from './components/WatchlistTickers';
+import {
+  TRAY_IPC,
+  type ITrayData,
+  type ITrayWatchlistItem,
+} from '@onekeyhq/shared/src/types/desktop/tray';
+
 import { PendingTransactions } from './components/PendingTransactions';
+import { PortfolioOverview } from './components/PortfolioOverview';
+import { TrayEmptyState } from './components/TrayEmptyState';
+import { WatchlistTickers } from './components/WatchlistTickers';
 
 interface ITrayAction {
   type: string;
@@ -27,10 +33,18 @@ export function TrayPanel() {
       setData(trayData);
     };
 
-    (globalThis as any).desktopApi?.addIpcEventListener(TRAY_IPC.UPDATE, handler);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    (globalThis as any).desktopApi?.addIpcEventListener(
+      TRAY_IPC.UPDATE,
+      handler,
+    );
 
     return () => {
-      (globalThis as any).desktopApi?.removeIpcEventListener(TRAY_IPC.UPDATE, handler);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      (globalThis as any).desktopApi?.removeIpcEventListener(
+        TRAY_IPC.UPDATE,
+        handler,
+      );
     };
   }, []);
 
@@ -38,19 +52,16 @@ export function TrayPanel() {
     sendTrayAction({ type: 'open-page', route });
   }, []);
 
-  const handleTickerPress = useCallback(
-    (ticker: ITrayWatchlistItem) => {
-      // Send structured navigation action — main window renderer handles routing
-      sendTrayAction({
-        type: 'market-detail-v2',
-        tokenAddress: ticker.tokenAddress || '',
-        networkId: ticker.networkId || '',
-        isNative: ticker.isNative || false,
-        perpsCoin: ticker.perpsCoin || '',
-      });
-    },
-    [],
-  );
+  const handleTickerPress = useCallback((ticker: ITrayWatchlistItem) => {
+    // Send structured navigation action — main window renderer handles routing
+    sendTrayAction({
+      type: 'market-detail-v2',
+      tokenAddress: ticker.tokenAddress || '',
+      networkId: ticker.networkId || '',
+      isNative: ticker.isNative || false,
+      perpsCoin: ticker.perpsCoin || '',
+    });
+  }, []);
 
   if (!data) {
     return <TrayEmptyState type="loading" />;
@@ -70,7 +81,12 @@ export function TrayPanel() {
   }
 
   return (
-    <Stack flex={1} backgroundColor="$bgApp" borderRadius="$3" overflow="hidden">
+    <Stack
+      flex={1}
+      backgroundColor="$bgApp"
+      borderRadius="$3"
+      overflow="hidden"
+    >
       <PortfolioOverview
         wallet={data.wallet}
         totalBalance={data.totalBalance}

@@ -1,4 +1,4 @@
-import { Stack, SizableText } from '@onekeyhq/components';
+import { SizableText, Stack } from '@onekeyhq/components';
 
 type IEmptyStateType = 'loading' | 'locked' | 'noWallet' | 'offline';
 
@@ -11,7 +11,10 @@ type IEmptyStateType = 'loading' | 'locked' | 'noWallet' | 'offline';
 const MESSAGES: Record<IEmptyStateType, { title: string; subtitle: string }> = {
   loading: { title: 'Loading...', subtitle: 'Connecting to OneKey' },
   locked: { title: 'App is Locked', subtitle: 'Click to unlock' },
-  noWallet: { title: 'No Wallet', subtitle: 'Create or import a wallet in the app' },
+  noWallet: {
+    title: 'No Wallet',
+    subtitle: 'Create or import a wallet in the app',
+  },
   offline: { title: 'Network Unavailable', subtitle: 'Showing cached data' },
 };
 
