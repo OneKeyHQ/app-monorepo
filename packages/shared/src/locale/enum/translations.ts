@@ -1,4 +1,4 @@
-// This file is automatically created by `yarn i18n:pull`.
+// This file is automatically created by `yarn fetch:locale`.
 
 // @ts-ignore
 /* eslint-disable  */

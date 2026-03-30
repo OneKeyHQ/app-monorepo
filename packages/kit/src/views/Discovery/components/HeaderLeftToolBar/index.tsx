@@ -34,6 +34,8 @@ function HeaderLeftToolBar({
   onBookmarkPress,
   isPinned,
   onPinnedPress,
+  isTranslated,
+  onTranslate,
 }: {
   url: string;
   canGoBack?: boolean;
@@ -48,6 +50,8 @@ function HeaderLeftToolBar({
   onBookmarkPress?: (bookmark: boolean) => void;
   isPinned?: boolean;
   onPinnedPress?: (pinned: boolean) => void;
+  isTranslated?: boolean;
+  onTranslate?: () => void;
 }) {
   const { hostSecurity, iconConfig } = useUrlRiskConfig(url);
   const intl = useIntl();
@@ -132,6 +136,8 @@ function HeaderLeftToolBar({
         isLoading={loading}
         onBookmarkPress={onBookmarkPress}
         onPinnedPress={onPinnedPress}
+        isTranslated={isTranslated}
+        onTranslate={onTranslate}
       />
     </XStack>
   );
