@@ -27,7 +27,13 @@ Token discovery and market analysis skill for OneKey CLI.
 
 ## Commands
 
-### Token Discovery
+**IMPORTANT: This skill covers TWO CLI command groups:**
+- `onekey token <subcommand>` — token discovery and analysis
+- `onekey market <subcommand>` — market price data and klines
+
+Do NOT confuse them. `trending` is under `token`, not `market`.
+
+### Token Discovery (`onekey token`)
 
 #### `onekey token search`
 
@@ -60,7 +66,7 @@ onekey token trending [--chain <chain>] [--limit <n>]
 - Returns ranked list with price change percentages.
 - Good starting point when user asks "what's hot" or "what's trending".
 
-### Token Analysis
+### Token Analysis (`onekey token`)
 
 All token analysis commands use `--chain` + `--token` (not a token ID).
 The `--token` parameter accepts either a symbol (e.g. `USDC`) or a contract address.
@@ -137,7 +143,7 @@ onekey token liquidity --chain <chain> --token <token>
 - Top 10 holders > 50% → high concentration risk, warn user.
 - Low liquidity relative to market cap → high slippage risk for large trades.
 
-### Market Data
+### Market Data (`onekey market`)
 
 #### `onekey market price`
 
