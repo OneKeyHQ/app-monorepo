@@ -75,6 +75,7 @@ import {
   isGooglePlayServicesAvailable,
   openWebViewInGooglePlay,
 } from '@onekeyhq/shared/src/modules3rdParty/webview-checker';
+import { getDevicePerformanceTier } from '@onekeyhq/shared/src/performance/devicePerformanceTier';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -114,6 +115,7 @@ import { DiscoverySearchDebugTool } from './DiscoverySearchDebugTool';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { IpTableSelector } from './IpTableSelector';
+import { NavigationDiagnosticsSection } from './NavigationDiagnosticsSection';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
 import { NotificationPayloadTest } from './NotificationPayloadTest';
@@ -670,6 +672,13 @@ const BaseDevSettingsSection = () => {
           'Performance Monitor UI FPS JS FPS 性能监控 DebugRenderTracker 组件渲染高亮 Perps渲染统计 Bg Api 可序列化检测 Analytics Dev Unit Tests Show Recovery Page crash counter CPU Watchdog Burn long task unresponsive severe mild',
       },
       {
+        key: 'navigation',
+        title: 'Navigation Diagnostics',
+        description: 'Navigation rootState tabNavigator 排查',
+        keywords:
+          'navigation rootstate rootnavigationref tabletmainviewnavigationref tabnavigator router',
+      },
+      {
         key: 'data',
         title: 'Data Management',
         description: '数据重置 清理 导出',
@@ -874,6 +883,7 @@ const BaseDevSettingsSection = () => {
                               : 0;
                           Dialog.debugMessage({
                             debugMessage: {
+                              devicePerformanceTier: getDevicePerformanceTier(),
                               startupTimeAt:
                                 await LaunchOptionsManager.getStartupTimeAt(),
                               jsReadyTimeAt:
@@ -1508,6 +1518,25 @@ const BaseDevSettingsSection = () => {
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,
+              );
+            case 'navigation':
+              return (
+                <Accordion.Item value="navigation" key="navigation">
+                  <DevSettingsAccordionTrigger
+                    title="Navigation Diagnostics"
+                    description="Navigation rootState / tabNavigator 排查"
+                    icon="LayoutWindowOutline"
+                    {...pinProps}
+                  />
+                  <Accordion.HeightAnimator animation="quick">
+                    <Accordion.Content
+                      animation="quick"
+                      exitStyle={{ opacity: 0 }}
+                    >
+                      <NavigationDiagnosticsSection />
+                    </Accordion.Content>
+                  </Accordion.HeightAnimator>
+                </Accordion.Item>
               );
             case 'data':
               return wrapWithSearch(

@@ -145,63 +145,31 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
     const bucketNames = Object.values(EIndexedDBBucketNames);
 
-    for (const bucketName of bucketNames) {
-      // let idb = globalThis.indexedDB;
-      // if (ENABLE_INDEXEDDB_BUCKET) {
-      //   const bucketOptions: IStorageBucketOptions = {
-      //     durability: 'strict', // Or `'relaxed'`.
-      //     persisted: true, // Or `false`.
-      //   };
-      //   const storageBuckets = (globalThis.navigator as INavigator)
-      //     .storageBuckets;
-      //   // const bucket = await storageBuckets?.open(bucketName, bucketOptions);
-      //   const bucket = await storageBuckets?.open('hello-world', bucketOptions);
-      //   if (!bucket?.indexedDB) {
-      //     throw new OneKeyLocalError(`Failed to open bucket indexedDB: ${bucketName}`);
-      //   }
-      //   idb = bucket.indexedDB;
-      // }
-      // // import { deleteDB, openDB } from 'idb';
-      // const indexed = await openDB<IIndexedDBSchemaMap>(
-      //   self.buildDbName(bucketName),
-      //   INDEXED_DB_VERSION,
-      //   {
-      //     // TODO patch idb
-      //     indexedDBInstance: idb,
-      //     upgrade(db0, oldVersion, newVersion, transaction) {
-      //       // add object stores here
-      //       return self._handleDbUpgrade({
-      //         bucketName,
-      //         db: db0,
-      //         oldVersion,
-      //         newVersion,
-      //         transaction,
-      //       });
-      //     },
-      //   },
-      // );
+    // Open all IndexedDB buckets in parallel for faster DB initialization
+    await Promise.all(
+      bucketNames.map(async (bucketName) => {
+        const indexed = new IndexedDBPromised<IIndexedDBSchemaMap>({
+          bucketName,
+          name: indexedDBUtils.buildDbName(bucketName),
+          version: INDEXED_DB_VERSION,
+          upgrade: (params) => {
+            return self._handleDbUpgrade({
+              bucketName,
+              db: params.database,
+              nativeDB: params.nativeDB,
+              oldVersion: params.oldVersion,
+              newVersion: params.newVersion,
+              transaction: params.transaction,
+            });
+          },
+        });
+        await indexed.open();
 
-      const indexed = new IndexedDBPromised<IIndexedDBSchemaMap>({
-        bucketName,
-        name: indexedDBUtils.buildDbName(bucketName),
-        version: INDEXED_DB_VERSION,
-        upgrade: (params) => {
-          return self._handleDbUpgrade({
-            bucketName,
-            db: params.database,
-            nativeDB: params.nativeDB,
-            oldVersion: params.oldVersion,
-            newVersion: params.newVersion,
-            transaction: params.transaction,
-          });
-        },
-      });
-      await indexed.open();
-
-      buckets[bucketName] = indexed;
-      if (process.env.NODE_ENV !== 'production') {
-        appGlobals.$$indexedDBBuckets = buckets;
-      }
+        buckets[bucketName] = indexed;
+      }),
+    );
+    if (process.env.NODE_ENV !== 'production') {
+      appGlobals.$$indexedDBBuckets = buckets;
     }
 
     // add initial records to store

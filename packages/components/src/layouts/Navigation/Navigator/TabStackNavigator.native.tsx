@@ -91,7 +91,7 @@ const nativeTabScreenOptions = {
   // Android keeps freeze enabled (no observed issue).
   freezeOnBlur: !platformEnv.isNativeIOS,
   preventsDefault: false,
-  lazy: false,
+  lazy: true,
 };
 
 export function TabStackNavigator<RouteName extends string>({

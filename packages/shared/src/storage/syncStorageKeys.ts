@@ -18,6 +18,7 @@ export enum EAppSyncStorageKeys {
   onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
   onekey_account_selector_recent_selection = 'onekey_account_selector_recent_selection',
   onekey_swr_cache = 'onekey_swr_cache',
+  onekey_device_performance_tier = 'onekey_device_performance_tier',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,
