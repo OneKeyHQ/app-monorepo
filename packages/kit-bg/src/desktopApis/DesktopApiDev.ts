@@ -69,8 +69,14 @@ class DesktopApiDev {
     }
     const baseName = params.fileBaseName;
     // Flush pending dedup state so the tail repeat count is written to the log file
-    flushDesktopDedupState((message) => {
-      logger.info(message);
+    flushDesktopDedupState((message, level) => {
+      if (level === 'error') {
+        logger.error(message);
+      } else if (level === 'warn') {
+        logger.warn(message);
+      } else {
+        logger.info(message);
+      }
     });
 
     const logFilePath = logger.transports.file.getFile().path;

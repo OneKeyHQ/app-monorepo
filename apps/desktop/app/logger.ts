@@ -186,6 +186,47 @@ function sanitizeAndTruncateData(data: any[]): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Dedup hook: collapses identical consecutive file-transport messages.
+// Uses hook for true skip semantics (returning null prevents any write).
+// Repeat prefix is stored for the format function to prepend.
+// ---------------------------------------------------------------------------
+
+let pendingRepeatPrefix: string[] = [];
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+logger.hooks.push((message: any, _transFn: any, transName: string) => {
+  if (transName !== 'file') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return message;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const level: string = message?.level ?? 'info';
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const dataStr = (message?.data ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    .map((d: any) => {
+      if (typeof d === 'string') return d;
+      try {
+        return JSON.stringify(d);
+      } catch {
+        return String(d);
+      }
+    })
+    .join(' ');
+  const key = `[${level}] ${dataStr}`;
+
+  const { shouldSkip, repeatPrefix } = consumeDesktopDedupMessage(key, level);
+  if (shouldSkip) {
+    return null; // truly skip — no file write at all
+  }
+
+  pendingRepeatPrefix = repeatPrefix;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return message;
+});
+
+// ---------------------------------------------------------------------------
 // Rate limiting via logger.hooks (runs before any transport)
 // Returning null drops the message entirely.
 // - DEBUG/INFO: 400/s, burst 2000
@@ -271,12 +312,9 @@ logger.transports.file.format = (params: {
 }) => {
   const filtered = sanitizeAndTruncateData(params.data);
 
-  // Dedup identical consecutive messages (include level to avoid cross-level suppression)
-  const joined = `[${params.level}] ${filtered.join(' ')}`;
-  const { shouldSkip, repeatPrefix } = consumeDesktopDedupMessage(joined);
-  if (shouldSkip) {
-    return [] as string[];
-  }
+  // Pick up any pending repeat prefix set by the dedup hook
+  const repeatPrefix = pendingRepeatPrefix;
+  pendingRepeatPrefix = [];
 
   if (params.message?.scope === 'app') {
     // App-scoped messages from renderer: write filtered data as-is
@@ -295,8 +333,14 @@ logger.transports.file.format = (params: {
 
 /** Flush pending dedup state before log export so the tail repeat count is not lost. */
 export function flushDesktopDedup() {
-  flushDesktopDedupState((message) => {
-    logger.info(message);
+  flushDesktopDedupState((message, level) => {
+    if (level === 'error') {
+      logger.error(message);
+    } else if (level === 'warn') {
+      logger.warn(message);
+    } else {
+      logger.info(message);
+    }
   });
 }
 
