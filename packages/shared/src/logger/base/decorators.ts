@@ -14,8 +14,23 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
       return descriptor;
     }
     descriptor.value = function (this: BaseScene, ...args: any[]) {
+      // Detect whether this is the outermost decorator in a stacked chain.
+      // The outermost wrapper is responsible for the single _emitLog call.
+      const isOutermost = !this._currentCallMetadata;
+      if (isOutermost) {
+        this._currentCallMetadata = [];
+      }
+
       try {
         let result = originalMethod.apply(this, args);
+
+        // Inner decorator error → propagate skip to outer
+        if (result === undefined) {
+          if (isOutermost) {
+            this._currentCallMetadata = undefined;
+          }
+          return undefined;
+        }
 
         if (!Array.isArray(result)) {
           result = [result];
@@ -24,18 +39,30 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         result = (result as unknown[]).filter((item) => item !== NO_LOG_OUTPUT);
         if (result.length === 0) {
+          if (isOutermost) {
+            this._currentCallMetadata = undefined;
+          }
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return result;
         }
 
-        // Emit log directly — no Metadata wrapping, no Proxy needed
-        if (this._emitLog) {
-          this._emitLog(propertyKey, result, decoratorArgs);
+        // Collect metadata — actual emit deferred to outermost wrapper
+        this._currentCallMetadata!.push(decoratorArgs);
+
+        if (isOutermost) {
+          const metadataList = this._currentCallMetadata!;
+          this._currentCallMetadata = undefined;
+          if (this._emitLog) {
+            this._emitLog(propertyKey, result, metadataList);
+          }
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       } catch (error) {
+        if (isOutermost) {
+          this._currentCallMetadata = undefined;
+        }
         console.error(error);
         return undefined;
       }

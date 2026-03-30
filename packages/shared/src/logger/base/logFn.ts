@@ -12,7 +12,7 @@ export type ILogEntry = {
   sceneName: string;
   methodName: string;
   args: unknown[];
-  metadata: IMethodDecoratorMetadata;
+  metadataList: IMethodDecoratorMetadata[];
   durationInfo: {
     duration: string;
     totalDuration: number;
@@ -43,7 +43,10 @@ function logColorful(entry: ILogEntry, prefix: string) {
   }
 }
 
-function handleLocalLog(entry: ILogEntry) {
+function handleLocalLog(
+  entry: ILogEntry,
+  metadata: IMethodDecoratorMetadata,
+) {
   if (platformEnv.isWebEmbed) return;
   if (!loggerConfig.shouldLog(entry.scopeName, entry.sceneName)) return;
 
@@ -60,14 +63,17 @@ function handleLocalLog(entry: ILogEntry) {
   //   desktop: file.format hook in apps/desktop/app/logger.ts
   //   native:  OneKeyLog.swift / OneKeyLog.kt
   const logger = getLoggerExtension('');
-  logger[entry.metadata.level || 'info'](msg);
-  if (entry.metadata.level === 'error') {
+  logger[metadata.level || 'info'](msg);
+  if (metadata.level === 'error') {
     console.error(entry.timestamp(), msg);
   }
   logColorful(entry, prefix);
 }
 
-function handleServerLog(entry: ILogEntry) {
+function handleServerLog(
+  entry: ILogEntry,
+  _metadata: IMethodDecoratorMetadata,
+) {
   appGlobals?.$analytics?.trackEvent(
     entry.methodName,
     (entry.args as Record<string, string>[]).reduce(
@@ -86,7 +92,10 @@ function handleServerLog(entry: ILogEntry) {
   );
 }
 
-function handleConsoleLog(entry: ILogEntry) {
+function handleConsoleLog(
+  entry: ILogEntry,
+  metadata: IMethodDecoratorMetadata,
+) {
   const shouldLog = loggerConfig.shouldLog(entry.scopeName, entry.sceneName);
   if (!shouldLog) return;
 
@@ -95,7 +104,7 @@ function handleConsoleLog(entry: ILogEntry) {
   const msg = `${prefix} ${rawMsg}`;
 
   if (platformEnv.isNative) {
-    console[entry.metadata.level || 'info'](`${entry.timestamp()} ${msg}`);
+    console[metadata.level || 'info'](`${entry.timestamp()} ${msg}`);
   }
   logColorful(entry, prefix);
 }
@@ -105,17 +114,19 @@ function handleConsoleLog(entry: ILogEntry) {
 // ---------------------------------------------------------------------------
 
 function processEntry(entry: ILogEntry) {
-  switch (entry.metadata.type) {
-    case 'local':
-      handleLocalLog(entry);
-      break;
-    case 'server':
-      handleServerLog(entry);
-      break;
-    case 'console':
-    default:
-      handleConsoleLog(entry);
-      break;
+  for (const metadata of entry.metadataList) {
+    switch (metadata.type) {
+      case 'local':
+        handleLocalLog(entry, metadata);
+        break;
+      case 'server':
+        handleServerLog(entry, metadata);
+        break;
+      case 'console':
+      default:
+        handleConsoleLog(entry, metadata);
+        break;
+    }
   }
 }
 

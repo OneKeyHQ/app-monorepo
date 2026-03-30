@@ -19,16 +19,20 @@ export abstract class BaseScene {
 
   sceneName = '';
 
+  // Temporary collector used by stacked decorators within a single method call.
+  // Only the outermost decorator reads and clears this.
+  _currentCallMetadata?: IMethodDecoratorMetadata[];
+
   resetTimestamp() {
     this.timestamp = Date.now();
     this.lastTimestamp = this.timestamp;
   }
 
-  /** Called by decorators to emit a log entry. Do not call directly. */
+  /** Called by the outermost decorator to emit a log entry. Do not call directly. */
   _emitLog(
     methodName: string,
     args: unknown[],
-    metadata: IMethodDecoratorMetadata,
+    metadataList: IMethodDecoratorMetadata[],
   ) {
     const now = new Date();
 
@@ -57,7 +61,7 @@ export abstract class BaseScene {
       methodName,
       args,
       rawArgs: args,
-      metadata,
+      metadataList,
       durationInfo,
       timestamp,
     });
