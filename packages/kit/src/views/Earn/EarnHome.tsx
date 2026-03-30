@@ -16,6 +16,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type ETabEarnRoutes,
@@ -57,6 +58,8 @@ import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
 const BORROW_PENDING_REFRESH_DELAY = timerUtils.getTimeDurationMs({
   seconds: 3,
 });
+
+type IEarnModeSwitchType = 'default' | 'tap';
 
 function BasicEarnHome({
   showHeader,
@@ -245,13 +248,16 @@ function BasicEarnHome({
   const defaultMode = route.params?.mode || 'earn';
   const isEarnMode = defaultMode === 'earn';
   const isBorrowMode = defaultMode === 'borrow';
+  const earnModeSwitchTypeRef = useRef<IEarnModeSwitchType>('default');
+  const hasLoggedEarnModeSwitchRef = useRef(false);
 
   const earnBorrowScrollPosition = useSharedValue(
     defaultMode === 'borrow' ? 1 : 0,
   );
 
   const handleModeChange = useCallback(
-    (mode: 'earn' | 'borrow') => {
+    (mode: 'earn' | 'borrow', switchType: IEarnModeSwitchType = 'tap') => {
+      earnModeSwitchTypeRef.current = switchType;
       // Use setParams to update mode without navigation - prevents remount flash
       navigation.setParams({ mode, tab: route.params?.tab });
     },
@@ -259,9 +265,32 @@ function BasicEarnHome({
   );
 
   useEffect(() => {
-    const handleSwitchEarnMode = ({ mode }: { mode: 'earn' | 'borrow' }) => {
+    if (!showContent) {
+      return;
+    }
+
+    const switchType = hasLoggedEarnModeSwitchRef.current
+      ? earnModeSwitchTypeRef.current
+      : 'default';
+
+    hasLoggedEarnModeSwitchRef.current = true;
+    defaultLogger.staking.page.earnModeSwitch({
+      mode: defaultMode,
+      switchType,
+    });
+    earnModeSwitchTypeRef.current = 'default';
+  }, [defaultMode, showContent]);
+
+  useEffect(() => {
+    const handleSwitchEarnMode = ({
+      mode,
+      switchType,
+    }: {
+      mode: 'earn' | 'borrow';
+      switchType?: IEarnModeSwitchType;
+    }) => {
       if (mode !== defaultMode) {
-        handleModeChange(mode);
+        handleModeChange(mode, switchType ?? 'default');
       }
     };
     appEventBus.on(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
@@ -321,6 +350,7 @@ function BasicEarnHome({
       } else if (direction === 'right' && currentMode === 'earn') {
         appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
           tab: ETranslations.global_market,
+          switchType: 'swipe',
         });
       }
     },
