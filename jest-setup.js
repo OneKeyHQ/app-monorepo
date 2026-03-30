@@ -71,6 +71,34 @@ jest.mock('expo-localization', () => ({
   locale: '',
 }));
 
+jest.mock('expo-device', () => ({
+  deviceType: null,
+  DeviceType: {
+    UNKNOWN: 0,
+    PHONE: 1,
+    TABLET: 2,
+    DESKTOP: 3,
+    TV: 4,
+  },
+  brand: null,
+  manufacturer: null,
+  modelName: null,
+  designName: null,
+  productName: null,
+  deviceYearClass: null,
+  totalMemory: null,
+  supportedCpuArchitectures: null,
+  osName: null,
+  osVersion: null,
+  osBuildId: null,
+  osInternalBuildId: null,
+  osBuildFingerprint: null,
+  platformApiLevel: null,
+  deviceName: null,
+  modelId: null,
+  isDevice: false,
+}));
+
 jest.mock('react-native-mmkv', () => ({
   __esModule: true,
   createMMKV: MockMMKV.createMMKV,
