@@ -46,14 +46,19 @@ const typeFile = path.join(
   '../../../packages/shared/src/locale/enum/translations.ts',
 );
 
-const text = fs.readFileSync(typeFile, 'utf8');
+function stripGeneratedHeader(text) {
+  return text
+    .replace(
+      /^(?:\/\/ This file is automatically created by `yarn [^`]+`\.\n+\s*\/\/ @ts-ignore\n\/\* eslint-disable  \*\/\n\s*)+/,
+      '',
+    )
+    .trimStart();
+}
+
+const text = stripGeneratedHeader(fs.readFileSync(typeFile, 'utf8'));
 fs.writeFileSync(
   typeFile,
-  `// This file is automatically created by \`yarn i18n:pull\`.\n
-// @ts-ignore
-/* eslint-disable  */
-  
-  ${text
+  `// This file is automatically created by \`yarn i18n:pull\`.\n\n// @ts-ignore\n/* eslint-disable  */\n\n${text
     .replace('export enum Translations {', 'export enum ETranslations {')
     // fix lint of type file.
     // Simply lint the file, it's faster than eslint.

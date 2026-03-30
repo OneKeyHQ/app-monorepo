@@ -35,7 +35,7 @@ discover_env_keys() {
       for (i = 1; i <= NF; i++) {
         if ($i ~ /"acct"<blob>="/) {
           if (match($i, /"acct"<blob>="[^"]+"/)) {
-            acct = substr($i, RSTART + 13, RLENGTH - 14)
+            acct = substr($i, RSTART + 14, RLENGTH - 15)
           }
         }
         if (index($i, "\"svce\"<blob>=\"" service "\"")) {
@@ -52,7 +52,10 @@ discover_env_keys() {
 if [ -n "$KEYCHAIN_ENV_KEYS" ]; then
   IFS=',' read -r -a ENV_KEYS <<< "$KEYCHAIN_ENV_KEYS"
 else
-  mapfile -t ENV_KEYS < <(discover_env_keys)
+  ENV_KEYS=()
+  while IFS= read -r env_key; do
+    ENV_KEYS+=("$env_key")
+  done < <(discover_env_keys)
   if [ "${#ENV_KEYS[@]}" -eq 0 ]; then
     echo "Error: no Keychain keys found under service '$KEYCHAIN_SERVICE'."
     echo "You can add one with:"
@@ -63,7 +66,7 @@ else
 fi
 
 for raw_key in "${ENV_KEYS[@]}"; do
-  key=$(echo "$raw_key" | xargs)
+  key=$(printf '%s' "$raw_key" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
   [ -z "$key" ] && continue
 
   # Read secret from Keychain by account (env name) and service
