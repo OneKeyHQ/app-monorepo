@@ -1,0 +1,193 @@
+[
+  {
+    "id": "market-trending-bsc",
+    "skill": "onekey-market",
+    "prompt": "查一下当前 BSC 链前 10 的 token",
+    "expect": {
+      "commands": ["onekey token trending --chain bsc --limit 10"],
+      "forbidden": ["--help", "market trending"]
+    }
+  },
+  {
+    "id": "market-price-single",
+    "skill": "onekey-market",
+    "prompt": "PEPE 在以太坊上现在什么价格",
+    "expect": {
+      "commands": ["onekey token price --chain eth --token PEPE"],
+      "forbidden": ["--help", "market price"]
+    }
+  },
+  {
+    "id": "market-price-search-first",
+    "skill": "onekey-market",
+    "prompt": "PEPE 现在什么价格",
+    "expect": {
+      "commands_any_order": ["onekey token search --query PEPE", "onekey token price"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "market-kline",
+    "skill": "onekey-market",
+    "prompt": "看一下 ETH 最近 24 小时的 K 线",
+    "expect": {
+      "commands": ["onekey market kline --chain eth --token ETH --interval 1H"],
+      "forbidden": ["--help", "--period"]
+    }
+  },
+  {
+    "id": "market-trades",
+    "skill": "onekey-market",
+    "prompt": "USDC 在 Base 上的买卖活跃度怎么样",
+    "expect": {
+      "commands": ["onekey token trades --chain base --token USDC"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "market-liquidity",
+    "skill": "onekey-market",
+    "prompt": "看看 Base 上 USDC 的大户持仓",
+    "expect": {
+      "commands": ["onekey token liquidity --chain base --token USDC"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "market-batch-prices",
+    "skill": "onekey-market",
+    "prompt": "同时查一下以太坊上 USDC 和 ETH 的价格",
+    "expect": {
+      "commands": ["onekey market prices --tokens"],
+      "forbidden": ["--help", "--addresses"]
+    }
+  },
+  {
+    "id": "market-info-contract",
+    "skill": "onekey-market",
+    "prompt": "帮我查一下这个币的详情 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 在以太坊上",
+    "expect": {
+      "commands": ["onekey token info --chain eth --token 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"],
+      "forbidden": ["--help", "--id"]
+    }
+  },
+  {
+    "id": "market-due-diligence",
+    "skill": "onekey-market",
+    "prompt": "帮我全面分析一下以太坊上的 PEPE",
+    "expect": {
+      "commands_any_order": [
+        "onekey token info --chain eth --token PEPE",
+        "onekey token price --chain eth --token PEPE",
+        "onekey token trades --chain eth --token PEPE",
+        "onekey token liquidity --chain eth --token PEPE"
+      ],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "market-trending-no-chain",
+    "skill": "onekey-market",
+    "prompt": "今天什么币比较火",
+    "expect": {
+      "commands": ["onekey token trending"],
+      "forbidden": ["--help", "market trending"]
+    }
+  },
+  {
+    "id": "swap-quote-same-chain",
+    "skill": "onekey-swap",
+    "prompt": "我想把 100 USDC 换成 ETH，先看看报价",
+    "expect": {
+      "commands": ["onekey swap quote --chain eth --from USDC --to ETH --amount 100"],
+      "forbidden": ["--help", "swap build"]
+    }
+  },
+  {
+    "id": "swap-full-flow",
+    "skill": "onekey-swap",
+    "prompt": "帮我把 50 USDC 换成 ETH",
+    "expect": {
+      "commands_ordered": [
+        "onekey balance",
+        "onekey security audit",
+        "onekey swap quote",
+        "onekey swap build",
+        "onekey swap execute"
+      ],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "swap-cross-chain",
+    "skill": "onekey-swap",
+    "prompt": "把 Base 上的 100 USDC 跨链到 BSC 的 USDT",
+    "expect": {
+      "commands": ["onekey swap quote --chain base --from USDC --to USDT --amount 100 --to-chain bsc"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "swap-status-check",
+    "skill": "onekey-swap",
+    "prompt": "我之前的兑换完成了没",
+    "expect": {
+      "commands_any_order": ["onekey history", "onekey swap status"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "swap-networks",
+    "skill": "onekey-swap",
+    "prompt": "哪些链支持 swap",
+    "expect": {
+      "commands": ["onekey swap networks"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "routing-swap-not-market",
+    "skill": "routing",
+    "prompt": "换点 ETH",
+    "expect": {
+      "commands": ["onekey swap"],
+      "forbidden": ["onekey token", "onekey market", "--help"]
+    }
+  },
+  {
+    "id": "routing-market-not-swap",
+    "skill": "routing",
+    "prompt": "ETH 现在多少钱",
+    "expect": {
+      "commands": ["onekey token price"],
+      "forbidden": ["onekey swap", "--help"]
+    }
+  },
+  {
+    "id": "param-amount-human-readable",
+    "skill": "onekey-swap",
+    "prompt": "把 0.5 ETH 换成 USDC",
+    "expect": {
+      "commands": ["--amount 0.5"],
+      "forbidden": ["500000000000000000", "--help"]
+    }
+  },
+  {
+    "id": "param-chain-fuzzy",
+    "skill": "onekey-market",
+    "prompt": "查一下币安链上 CAKE 的价格",
+    "expect": {
+      "commands": ["--chain bsc --token CAKE"],
+      "forbidden": ["--chain binance", "--chain 币安", "--help"]
+    }
+  },
+  {
+    "id": "security-before-swap",
+    "skill": "onekey-swap",
+    "prompt": "把 100 USDC 换成一个新币 0x1234567890abcdef1234567890abcdef12345678",
+    "expect": {
+      "commands_ordered": ["onekey balance", "onekey security audit"],
+      "forbidden": ["--help"]
+    }
+  }
+]
