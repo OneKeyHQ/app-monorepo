@@ -12,13 +12,17 @@ let prevMsg: string | undefined;
 let repeatCount = 0;
 
 const consoleFunc = (msg: string) => {
+  const dedupKey = msg.includes(' : ')
+    ? msg.slice(msg.indexOf(' : ') + 3)
+    : msg;
+
   if (platformEnv.isDev) {
     // eslint-disable-next-line no-console
     console.log(msg);
   }
 
   // Collapse identical consecutive messages to avoid IPC overhead
-  if (msg === prevMsg) {
+  if (dedupKey === prevMsg) {
     repeatCount += 1;
     return;
   }
@@ -28,7 +32,7 @@ const consoleFunc = (msg: string) => {
       `[${repeatCount} repeat]\r\n`,
     );
   }
-  prevMsg = msg;
+  prevMsg = dedupKey;
   repeatCount = 0;
 
   // Truncate before IPC serialization to limit bridge payload size
