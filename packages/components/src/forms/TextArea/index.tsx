@@ -33,6 +33,7 @@ function BaseTextArea(
     size,
     onFocus,
     verticalAlign,
+    testID,
     ...props
   }: ITextAreaProps,
   forwardedRef: Ref<TextInput>,
@@ -75,6 +76,7 @@ function BaseTextArea(
       borderCurve="continuous"
       editable={editable}
       verticalAlign={verticalAlign || defaultAlignVertical}
+      testID={testID}
       {...props}
     />
   );

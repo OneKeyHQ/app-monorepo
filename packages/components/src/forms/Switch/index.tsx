@@ -29,6 +29,7 @@ export function Switch({
   disabled,
   isUncontrolled,
   thumbProps,
+  testID,
   ...restProps
 }: ISwitchProps) {
   const theme = useTheme();
@@ -82,6 +83,7 @@ export function Switch({
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       nativeProps={nativeProps}
+      testID={testID}
       {...restProps}
     >
       <TMSwitch.Thumb
