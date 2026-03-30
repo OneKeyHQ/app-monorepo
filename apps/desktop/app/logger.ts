@@ -301,5 +301,17 @@ logger.transports.file.format = (params: {
   return [...dedupPrefix, `[${ts}] [${params.level}]`, ...filtered];
 };
 
+/** Flush pending dedup state before log export so the tail repeat count is not lost. */
+export function flushDesktopDedup() {
+  if (dedupRepeatCount > 0) {
+    const count = dedupRepeatCount;
+    dedupRepeatCount = 0;
+    prevLogMessage = undefined;
+    logger.info(`[${count} repeat]`);
+  } else {
+    prevLogMessage = undefined;
+  }
+}
+
 // Startup marker matching native: OneKeyLog.info("App", "OneKey started")
 logger.info('[App] OneKey started');

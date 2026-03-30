@@ -69,6 +69,7 @@ export abstract class BaseScene {
 
   @LogToConsole()
   ignoreDurationBegin() {
+    this.lastTimestamp = Date.now();
     return [];
   }
 

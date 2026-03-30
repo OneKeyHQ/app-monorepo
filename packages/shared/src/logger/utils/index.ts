@@ -47,6 +47,7 @@ const flushPendingRepeat = () => {
     );
     repeatCount = 0;
   }
+  prevMsg = undefined;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
