@@ -994,6 +994,12 @@ export function useSwapProTokenSearch(
   }, [input, selectedNetworkId]);
 
   const searchTokenListLength = searchTokenList.length;
+  // Use a content-based key so the polling effect restarts when search
+  // results change, even if the count stays the same.
+  const searchTokenListKey = useMemo(
+    () => searchTokenList.map((t) => `${t.network}:${t.address}`).join(','),
+    [searchTokenList],
+  );
   useEffect(() => {
     if (searchTokenListLength === 0) {
       return;
@@ -1046,7 +1052,7 @@ export function useSwapProTokenSearch(
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergeBatchQuotes, searchTokenListLength]);
+  }, [mergeBatchQuotes, searchTokenListKey]);
 
   return {
     searchLoading,
