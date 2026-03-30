@@ -159,6 +159,7 @@ function BaseMarketTokenSelectorContent() {
               hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
               liveTokenOverride={liveTokenOverride}
               pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+              rowBg="$bg"
             />
           ) : (
             <MarketNormalTokenList
@@ -167,6 +168,7 @@ function BaseMarketTokenSelectorContent() {
               hiddenDesktopColumns={TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS}
               liveTokenOverride={liveTokenOverride}
               pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+              rowBg="$bg"
             />
           )}
         </>

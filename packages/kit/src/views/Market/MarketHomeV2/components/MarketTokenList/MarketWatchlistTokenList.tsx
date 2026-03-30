@@ -50,6 +50,7 @@ type IMarketWatchlistTokenListProps = {
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   pollingInterval?: number;
+  rowBg?: string;
 };
 
 function MarketWatchlistTokenList({
@@ -64,6 +65,7 @@ function MarketWatchlistTokenList({
   hiddenDesktopColumns,
   liveTokenOverride,
   pollingInterval,
+  rowBg,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -352,6 +354,7 @@ function MarketWatchlistTokenList({
       onItemContextMenu={handleShowContextMenu}
       onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
       liveTokenOverride={liveTokenOverride}
+      rowBg={rowBg}
     />
   );
 }

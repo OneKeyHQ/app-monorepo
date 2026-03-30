@@ -22,6 +22,7 @@ type IMarketNormalTokenListProps = {
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
   pollingInterval?: number;
+  rowBg?: string;
 };
 
 function MarketNormalTokenList({
@@ -38,6 +39,7 @@ function MarketNormalTokenList({
   hiddenDesktopColumns,
   liveTokenOverride,
   pollingInterval,
+  rowBg,
 }: IMarketNormalTokenListProps) {
   const normalResult = useMarketTokenList({
     networkId,
@@ -63,6 +65,7 @@ function MarketNormalTokenList({
       showStockSubtitle={false}
       hiddenDesktopColumns={hiddenDesktopColumns}
       liveTokenOverride={liveTokenOverride}
+      rowBg={rowBg}
     />
   );
 }

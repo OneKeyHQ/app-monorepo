@@ -134,6 +134,7 @@ type IMarketTokenListBaseProps = {
   showStockSubtitle?: boolean;
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
+  rowBg?: string;
 };
 
 function MarketTokenListBase({
@@ -159,6 +160,7 @@ function MarketTokenListBase({
   showStockSubtitle = true,
   hiddenDesktopColumns,
   liveTokenOverride,
+  rowBg,
 }: IMarketTokenListBaseProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -585,6 +587,7 @@ function MarketTokenListBase({
               TableFooterComponent={TableFooterComponent}
               estimatedItemSize={60}
               onRow={stableOnRow}
+              {...(rowBg ? { rowProps: { bg: rowBg } } : undefined)}
             />
           )}
           {webTabIntegrated ? (
