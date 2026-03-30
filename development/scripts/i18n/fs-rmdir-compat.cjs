@@ -4,9 +4,9 @@ const fsPromises = require('node:fs/promises');
 function shouldUseRm(options) {
   return Boolean(
     options &&
-      typeof options === 'object' &&
-      options.recursive === true &&
-      typeof fs.rmSync === 'function',
+    typeof options === 'object' &&
+    options.recursive === true &&
+    typeof fs.rmSync === 'function',
   );
 }
 
@@ -40,7 +40,10 @@ fs.rmdir = function patchedRmdir(targetPath, options, callback) {
   return originalRmdir(targetPath, normalizedOptions);
 };
 
-if (typeof fsPromises.rmdir === 'function' && typeof fsPromises.rm === 'function') {
+if (
+  typeof fsPromises.rmdir === 'function' &&
+  typeof fsPromises.rm === 'function'
+) {
   const originalPromisesRmdir = fsPromises.rmdir.bind(fsPromises);
   fsPromises.rmdir = function patchedPromisesRmdir(targetPath, options) {
     if (shouldUseRm(options)) {

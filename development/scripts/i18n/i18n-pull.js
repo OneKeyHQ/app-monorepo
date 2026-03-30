@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const path = require('node:path');
 
 const compatScriptPath = path.resolve(__dirname, 'fs-rmdir-compat.cjs');
 const lokaliseClientVersion = '1.2.0';
@@ -42,4 +42,6 @@ runOrExit(
   [`lokalise-client@${lokaliseClientVersion}`, 'fetch'],
   { env },
 );
-runOrExit(process.execPath, [path.resolve(__dirname, 'build-locale-json-map.js')]);
+runOrExit(process.execPath, [
+  path.resolve(__dirname, 'build-locale-json-map.js'),
+]);
