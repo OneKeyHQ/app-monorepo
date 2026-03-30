@@ -47,10 +47,7 @@ const BiologyAuthContainer = ({
   );
 
   useEffect(() => {
-    if (
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
-      isBiologyAuthSwitchOn
-    ) {
+    if (platformEnv.isExtensionUiPopup && isBiologyAuthSwitchOn) {
       void backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(false);
     }
   }, [isBiologyAuthSwitchOn]);
