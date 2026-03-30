@@ -22,13 +22,8 @@ import {
   ETabRoutes,
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
-import {
-  openUrlExternal,
-  openUrlInApp,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -38,15 +33,10 @@ import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useAppRoute } from '../../hooks/useAppRoute';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
-import { BannerV2 } from './components/BannerV2';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
 import { EarnBorrowPagerView } from './components/EarnBorrowPagerView';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
@@ -55,8 +45,6 @@ import { EarnPageContainer } from './components/EarnPageContainer';
 import { MarketSelector } from './components/MarketSelector';
 import { Overview } from './components/Overview';
 import { EarnProviderMirror } from './EarnProviderMirror';
-import { EarnNavigation } from './earnUtils';
-import { useBannerInfo } from './hooks/useBannerInfo';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
@@ -86,14 +74,11 @@ function BasicEarnHome({
   earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, indexedAccount } = activeAccount;
   const actions = useEarnActions();
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
 
-  const { earnBanners } = useBannerInfo();
   const { faqList, isFaqLoading, refetchFAQ } = useFAQListInfo();
   const [isEarnTabFocused, setIsEarnTabFocused] = useState(false);
   const wasFocusedRef = useRef(false);
@@ -287,8 +272,6 @@ function BasicEarnHome({
 
   const media = useMedia();
 
-  const accountSelectorActions = useAccountSelectorActions();
-
   const handleListenTabFocusState = useCallback(
     (isFocus: boolean, isHideByModal: boolean) => {
       const actualFocus = isFocus && !isHideByModal;
@@ -323,73 +306,6 @@ function BasicEarnHome({
   useListenTabFocusState(
     [ETabRoutes.Earn, ETabRoutes.Discovery],
     handleListenTabFocusState,
-  );
-
-  const onBannerPress = useCallback(
-    async ({ hrefType, href }: IDiscoveryBanner) => {
-      if (account || indexedAccount) {
-        // Handle /defi?mode=borrow - switch to borrow mode
-        if (href.includes('/defi') && href.includes('mode=borrow')) {
-          appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
-            mode: 'borrow',
-          });
-          return;
-        }
-        if (href.includes('/defi/staking')) {
-          const [path, query] = href.split('?');
-          const paths = path.split('/');
-          const provider = paths.pop();
-          const symbol = paths.pop();
-          const params = new URLSearchParams(query);
-          const networkId = params.get('networkId');
-          const vault = params.get('vault');
-          if (provider && symbol && networkId) {
-            const navigationParams: {
-              networkId: string;
-              symbol: string;
-              provider: string;
-              vault?: string;
-            } = {
-              provider,
-              symbol,
-              networkId,
-            };
-            if (vault) {
-              navigationParams.vault = vault;
-            }
-            void EarnNavigation.pushDetailPageFromDeeplink(
-              navigation,
-              navigationParams,
-            );
-          }
-          return;
-        }
-        if (hrefType === 'external') {
-          openUrlExternal(href);
-        } else {
-          openUrlInApp(href);
-        }
-      } else {
-        await accountSelectorActions.current.showAccountSelector({
-          navigation,
-          activeWallet: undefined,
-          num: 0,
-          sceneName: EAccountSelectorSceneName.home,
-        });
-      }
-    },
-    [account, accountSelectorActions, indexedAccount, navigation],
-  );
-
-  const banners = useMemo(
-    () => (
-      <BannerV2
-        data={earnBanners}
-        onBannerPress={onBannerPress}
-        isActive={isEarnTabFocused}
-      />
-    ),
-    [earnBanners, onBannerPress, isEarnTabFocused],
   );
 
   const defaultModeRef = useRef(defaultMode);
@@ -431,7 +347,6 @@ function BasicEarnHome({
                   filteredEarnings24h={filteredEarnings24h}
                 />
               </YStack>
-              {banners ? <YStack width="100%">{banners}</YStack> : null}
             </YStack>
           </YStack>
         </HeaderScrollGestureWrapper>
@@ -443,7 +358,6 @@ function BasicEarnHome({
       isLoading,
       filteredTotalFiatValue,
       filteredEarnings24h,
-      banners,
       handleHeaderHorizontalSwipe,
     ],
   );
@@ -608,15 +522,6 @@ function BasicEarnHome({
                     filteredEarnings24h={filteredEarnings24h}
                   />
                 </XStack>
-                {banners ? (
-                  <YStack
-                    borderRadius="$3"
-                    width="100%"
-                    borderCurve="continuous"
-                  >
-                    {banners}
-                  </YStack>
-                ) : null}
               </YStack>
               <EarnMainTabs
                 faqList={faqList || []}
