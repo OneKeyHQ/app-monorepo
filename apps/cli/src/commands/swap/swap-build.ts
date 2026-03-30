@@ -14,7 +14,11 @@ import {
   validateAmountDecimals,
 } from '../../utils/tx-utils';
 
-import { parseSortMode, renderQuoteTable } from './swap-display-utils';
+import {
+  formatRouteHeader,
+  parseSortMode,
+  renderQuoteTable,
+} from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 import { fetchQuotesViaSSE } from './swap-quote';
@@ -310,12 +314,19 @@ export function registerSwapBuildCommand(parent: Command): void {
           }
 
           // Render table with selected marker to stderr
+          const fromName =
+            swapNetworks.find((n) => n.networkId === fromNetworkId)?.name ??
+            fromNetworkId;
+          const toName =
+            swapNetworks.find((n) => n.networkId === toNetworkId)?.name ??
+            toNetworkId;
+          const routeHeader = formatRouteHeader(fromName, toName);
           const table = renderQuoteTable(
             sortedQuotes,
             toResolved.symbol,
             matchedQuote.info.provider,
           );
-          process.stderr.write(`\n${table}\n\n`);
+          process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
 
           // Step 2: POST /swap/v1/build-tx with toTokenAmount from quote
           const buildTxResponse = await apiClient.post<IBuildTxResponse>(

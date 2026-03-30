@@ -13,7 +13,11 @@ import {
   validateAmountDecimals,
 } from '../../utils/tx-utils';
 
-import { parseSortMode, renderQuoteTable } from './swap-display-utils';
+import {
+  formatRouteHeader,
+  parseSortMode,
+  renderQuoteTable,
+} from './swap-display-utils';
 import { fetchSwapNetworks } from './swap-networks';
 import { getProtocolConfig } from './swap-protocol-config';
 
@@ -561,8 +565,15 @@ export function registerSwapQuoteCommand(parent: Command): void {
           });
 
           // Render table to stderr (human-friendly supplement, stdout reserved for JSON)
+          const fromName =
+            swapNetworks.find((n) => n.networkId === fromNetworkId)?.name ??
+            fromNetworkId;
+          const toName =
+            swapNetworks.find((n) => n.networkId === toNetworkId)?.name ??
+            toNetworkId;
+          const routeHeader = formatRouteHeader(fromName, toName);
           const table = renderQuoteTable(sortedQuotes, toResolved.symbol);
-          process.stderr.write(`\n${table}\n\n`);
+          process.stderr.write(`\n${routeHeader}\n${table}\n\n`);
 
           output.success(
             {
