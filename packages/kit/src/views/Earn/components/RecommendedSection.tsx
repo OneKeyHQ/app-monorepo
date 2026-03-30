@@ -297,18 +297,15 @@ const RecommendedListItem = memo(
             ) : undefined
           }
         />
-        <SizableText size="$bodyLgMedium" textAlign="right">
-          {(() => {
-            const info = token.aprInfo;
-            const raw =
-              info?.highlight?.text ||
-              info?.normal?.text ||
-              info?.deprecated?.text ||
-              token.aprWithoutFee ||
-              '';
-            return raw.replace(/\s*(APY|APR)\s*$/i, '').trim();
-          })()}
-        </SizableText>
+        <YStack alignItems="flex-end" justifyContent="center">
+          <AprText
+            size="$bodyLgMedium"
+            asset={{
+              aprWithoutFee: token.aprWithoutFee ?? '',
+              aprInfo: token.aprInfo,
+            }}
+          />
+        </YStack>
       </ListItem>
     );
   },
