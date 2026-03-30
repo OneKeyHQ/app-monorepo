@@ -8,6 +8,7 @@ export enum EModalPerpRoutes {
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
   PerpsInviteeRewardModal = 'PerpsInviteeRewardModal',
   MobilePortfolioPage = 'MobilePortfolioPage',
+  PerpGuidePage = 'PerpGuidePage',
 }
 
 export type IModalPerpParamList = {
@@ -20,4 +21,5 @@ export type IModalPerpParamList = {
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;
+  [EModalPerpRoutes.PerpGuidePage]: undefined;
 };
