@@ -1,17 +1,31 @@
-/* eslint-disable import-js/order */
-import '@onekeyhq/shared/src/performance/init';
+/* eslint-disable import-js/order, @typescript-eslint/no-require-imports */
 
-import './jsReady';
+type IExpoModule = typeof import('expo');
+type IReactNativeDeviceUtilsModule =
+  typeof import('@onekeyfe/react-native-device-utils');
+type ISentryModule =
+  typeof import('@onekeyhq/shared/src/modules3rdParty/sentry');
+type IAppModule = typeof import('./App');
 
-import { I18nManager } from 'react-native';
-import { registerRootComponent } from 'expo';
+(
+  globalThis as typeof globalThis & {
+    __ONEKEY_RUNTIME_KIND__?: 'main' | 'background';
+  }
+).__ONEKEY_RUNTIME_KIND__ = 'main';
 
-import '@onekeyhq/shared/src/polyfills';
-import { initSentry } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+require('@onekeyhq/shared/src/performance/init');
+require('./jsReady');
+require('@onekeyhq/shared/src/polyfills');
+require('./src/backgroundThread/setupMainThreadBackgroundRunner');
 
-import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
-
-import App from './App';
+const { I18nManager } =
+  require('react-native') as typeof import('react-native');
+const { registerRootComponent } = require('expo') as IExpoModule;
+const { initSentry } =
+  require('@onekeyhq/shared/src/modules3rdParty/sentry') as ISentryModule;
+const { ReactNativeDeviceUtils } =
+  require('@onekeyfe/react-native-device-utils') as IReactNativeDeviceUtilsModule;
+const App = (require('./App') as IAppModule).default;
 
 ReactNativeDeviceUtils.initEventListeners();
 initSentry();

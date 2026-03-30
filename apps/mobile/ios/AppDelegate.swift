@@ -24,6 +24,49 @@ private enum NitroModuleBridge {
     guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
     return cls.perform(NSSelectorFromString("currentBundleMainJSBundle"))?.takeUnretainedValue() as? String
   }
+
+  static func currentBundleBackgroundJSBundle() -> String? {
+    guard let cls = NSClassFromString("ReactNativeBundleUpdate.BundleUpdateStore") as? NSObject.Type else { return nil }
+    let selector = NSSelectorFromString("currentBundleBackgroundJSBundle")
+    guard cls.responds(to: selector) else { return nil }
+    return cls.perform(selector)?.takeUnretainedValue() as? String
+  }
+}
+
+private enum BackgroundThreadBridge {
+  private static let managerClassNames = [
+    "BackgroundThread.BackgroundThreadManager",
+    "BackgroundThreadManager"
+  ]
+
+  private static func managerClass() -> NSObject.Type? {
+    managerClassNames.compactMap {
+      NSClassFromString($0) as? NSObject.Type
+    }.first
+  }
+
+  private static func sharedManager() -> NSObject? {
+    guard let cls = managerClass() else { return nil }
+    return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
+  }
+
+  static func installSharedBridgeInMainRuntime(_ host: RCTHost) {
+    guard let cls = managerClass() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip installSharedBridgeInMainRuntime")
+      return
+    }
+
+    cls.perform(NSSelectorFromString("installSharedBridgeInMainRuntime:"), with: host)
+  }
+
+  static func startBackgroundRunner(entryURL: String) {
+    guard let manager = sharedManager() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "BackgroundThreadManager unavailable, skip startBackgroundRunnerWithEntryURL")
+      return
+    }
+
+    manager.perform(NSSelectorFromString("startBackgroundRunnerWithEntryURL:"), with: entryURL)
+  }
 }
 
 @UIApplicationMain
@@ -162,6 +205,45 @@ public class AppDelegate: ExpoAppDelegate {
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
+  private func backgroundDebugBundleURLString() -> String? {
+    if let mainMetroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry"),
+       var components = URLComponents(url: mainMetroURL, resolvingAgainstBaseURL: false) {
+      components.port = 8082
+      components.path = "/background.bundle"
+      return components.url?.absoluteString
+    }
+
+    let packagerHost = RCTBundleURLProvider.sharedSettings().packagerServerHost()
+    if !packagerHost.isEmpty {
+      return "http://\(packagerHost):8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+    }
+
+    return nil
+  }
+
+  private func backgroundBundleEntryURL() -> String {
+#if DEBUG
+    let debugURL = backgroundDebugBundleURLString() ??
+      "http://localhost:8082/background.bundle?platform=ios&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true"
+    NitroModuleBridge.logInfo("BackgroundThread", "backgroundBundleEntryURL(DEBUG): \(debugURL)")
+    return debugURL
+#else
+    if let bundlePath = NitroModuleBridge.currentBundleBackgroundJSBundle(), !bundlePath.isEmpty {
+      let isFileURL = bundlePath.hasPrefix("file://")
+      let bundleFilePath = isFileURL ? (URL(string: bundlePath)?.path ?? bundlePath) : bundlePath
+      let exists = FileManager.default.fileExists(atPath: bundleFilePath)
+      NitroModuleBridge.logInfo("BundleUpdate", "backgroundBundleEntryURL(RELEASE): otaPath=\(bundlePath), exists=\(exists)")
+
+      if exists {
+        return bundlePath
+      }
+    }
+
+    NitroModuleBridge.logInfo("BundleUpdate", "backgroundBundleEntryURL(RELEASE): fallback background.bundle")
+    return "background.bundle"
+#endif
+  }
+
   override func sourceURL(for bridge: RCTBridge) -> URL? {
     // needed to return the correct URL for expo-dev-client.
     bridge.bundleURL ?? bundleURL()
@@ -196,6 +278,16 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     NitroModuleBridge.logInfo("BundleUpdate", "bundleURL(RELEASE): fallback main.jsbundle=\(fallbackURL?.absoluteString ?? "nil")")
     return fallbackURL
 #endif
+  }
+
+  override func hostDidStart(_ host: RCTHost) {
+    super.hostDidStart(host)
+
+    BackgroundThreadBridge.installSharedBridgeInMainRuntime(host)
+
+    let entryURL = backgroundBundleEntryURL()
+    NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: start background runner with entryURL=\(entryURL)")
+    BackgroundThreadBridge.startBackgroundRunner(entryURL: entryURL)
   }
 }
 

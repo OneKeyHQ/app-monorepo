@@ -14,6 +14,7 @@
     "ios:build": "cd ios && xcodebuild -workspace OneKeyWallet.xcworkspace -scheme OneKeyWallet -configuration Release -archivePath ./build/OneKeyWallet.xcarchive",
     "ios:pod-install": "cd ios && pod install && cd ..",
     "native-bundle": "NODE_OPTIONS='--max_old_space_size=8192' WITH_ROZENITE=true react-native start",
+    "native-bundle:bg": "NODE_OPTIONS='--max_old_space_size=8192' WITH_ROZENITE=true react-native start --port 8082",
     "detox:build:ios:sim:debug": "detox build -c ios.sim.debug",
     "detox:test:ios:sim:debug": "detox test -c ios.sim.debug",
     "detox:build:ios:sim:release": "detox build -c ios.sim.release",

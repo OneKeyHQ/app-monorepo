@@ -1,6 +1,7 @@
 package so.onekey.app.wallet;
 
 import android.app.Application;
+import android.net.Uri;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
@@ -9,23 +10,31 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.backgroundthread.BackgroundThreadManager;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
 import com.facebook.react.ReactHost;
+import com.facebook.react.ReactInstanceEventListener;
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 
 import cn.jiguang.plugins.push.JPushModule;
 import com.margelo.nitro.nativelogger.OneKeyLog;
+import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
@@ -63,6 +72,8 @@ public class MainApplication extends Application implements ReactApplication {
         return BuildConfig.IS_HERMES_ENABLED;
       }
   });
+  @Nullable
+  private ReactHost mReactHost;
 
   @Override
   public ReactNativeHost getReactNativeHost() {
@@ -72,7 +83,113 @@ public class MainApplication extends Application implements ReactApplication {
     @Nullable
     @Override
     public ReactHost getReactHost() {
-        return ReactNativeHostWrapper.createReactHost(this.getApplicationContext(), this.getReactNativeHost());
+        if (mReactHost == null) {
+          mReactHost =
+            ReactNativeHostWrapper.createReactHost(
+              this.getApplicationContext(),
+              this.getReactNativeHost()
+            );
+        }
+        return mReactHost;
+    }
+
+    @Nullable
+    private String getCurrentBackgroundBundlePath() {
+      try {
+        Method method =
+          BundleUpdateStoreAndroid.INSTANCE
+            .getClass()
+            .getMethod("getCurrentBundleBackgroundJSBundle", android.content.Context.class);
+        Object value = method.invoke(BundleUpdateStoreAndroid.INSTANCE, this);
+        return value instanceof String ? (String) value : null;
+      } catch (NoSuchMethodException e) {
+        OneKeyLog.info(
+          "BundleUpdate",
+          "getCurrentBackgroundBundlePath: getter unavailable, fallback builtin"
+        );
+        return null;
+      } catch (Exception e) {
+        OneKeyLog.warn(
+          "BundleUpdate",
+          "getCurrentBackgroundBundlePath: failed to read background bundle path, error=" + e.getMessage()
+        );
+        return null;
+      }
+    }
+
+    private boolean isBackgroundBundlePathExists(@NonNull String bundlePath) {
+      String filePath = bundlePath;
+      if (bundlePath.startsWith("file://")) {
+        String parsedPath = Uri.parse(bundlePath).getPath();
+        if (parsedPath != null && !parsedPath.isEmpty()) {
+          filePath = parsedPath;
+        }
+      }
+      return new File(filePath).exists();
+    }
+
+    @NonNull
+    private String getBackgroundRunnerEntryUrl() {
+      if (BuildConfig.DEBUG) {
+        String host = AndroidInfoHelpers.getServerHost(this, 8082);
+        String entryUrl =
+          "http://" + host
+            + "/background.bundle?platform=android&dev=true&lazy=false&minify=false&inlineSourceMap=false&modulesOnly=false&runModule=true";
+        OneKeyLog.info("BackgroundThread", "getBackgroundRunnerEntryUrl(DEBUG): " + entryUrl);
+        return entryUrl;
+      }
+
+      String bundlePath = getCurrentBackgroundBundlePath();
+      if (bundlePath != null && !bundlePath.isEmpty()) {
+        boolean exists = isBackgroundBundlePathExists(bundlePath);
+        OneKeyLog.info(
+          "BundleUpdate",
+          "getBackgroundRunnerEntryUrl(RELEASE): otaPath=" + bundlePath + ", exists=" + exists
+        );
+        if (exists) {
+          return bundlePath;
+        }
+      }
+
+      OneKeyLog.info(
+        "BundleUpdate",
+        "getBackgroundRunnerEntryUrl(RELEASE): fallback background.bundle"
+      );
+      return "background.bundle";
+    }
+
+    private void setupBackgroundThreadBootstrap() {
+      ReactHost reactHost = getReactHost();
+      if (reactHost == null) {
+        OneKeyLog.warn("BackgroundThread", "setupBackgroundThreadBootstrap: ReactHost is null");
+        return;
+      }
+
+      reactHost.addReactInstanceEventListener(new ReactInstanceEventListener() {
+        @Override
+        public void onReactContextInitialized(ReactContext context) {
+          if (!(context instanceof ReactApplicationContext)) {
+            OneKeyLog.warn(
+              "BackgroundThread",
+              "onReactContextInitialized: ReactContext is not ReactApplicationContext"
+            );
+            return;
+          }
+
+          ReactApplicationContext reactApplicationContext =
+            (ReactApplicationContext) context;
+          BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
+          manager.setReactPackages(new PackageList(MainApplication.this).getPackages());
+          manager.installSharedBridgeInMainRuntime(reactApplicationContext);
+
+          String entryUrl = getBackgroundRunnerEntryUrl();
+          OneKeyLog.info(
+            "BackgroundThread",
+            "onReactContextInitialized: start background runner with entryURL=" + entryUrl
+          );
+          manager.startBackgroundRunnerWithEntryURL(reactApplicationContext, entryUrl);
+        }
+      });
     }
 
     /**
@@ -159,6 +276,7 @@ public class MainApplication extends Application implements ReactApplication {
     // if (!BuildConfig.NO_FLIPPER) {
     //   ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     // }
+    setupBackgroundThreadBootstrap();
     ApplicationLifecycleDispatcher.onApplicationCreate(this);
     JPushModule.registerActivityLifecycle(this);
   }
