@@ -1,5 +1,7 @@
 require('../../../development/env');
 
+const transformTranslationEnumKey = require('../../../development/scripts/i18n/transform-translation-enum-key');
+
 module.exports = {
   translations: {
     dist: './src/locale/json',
@@ -9,6 +11,7 @@ module.exports = {
     delimiter: '.',
     declaration: {
       dist: './src/locale/enum',
+      transformKey: transformTranslationEnumKey,
     },
     projects: [
       {
