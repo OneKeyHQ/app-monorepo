@@ -17,20 +17,37 @@ class ServiceLogger extends ServiceBase {
 
   maxLength = 1000;
 
-  data: string[] = [];
+  // Circular buffer: O(1) insert, O(n) read (read is infrequent)
+  private buffer: string[] = [];
+
+  private writeIndex = 0;
+
+  private isFull = false;
 
   @backgroundMethod()
   async getAllMsg() {
-    return Promise.resolve(this.data);
+    if (!this.isFull) {
+      return Promise.resolve(this.buffer.slice(0, this.writeIndex));
+    }
+    // Return in chronological order: oldest → newest
+    return Promise.resolve([
+      ...this.buffer.slice(this.writeIndex),
+      ...this.buffer.slice(0, this.writeIndex),
+    ]);
   }
 
   @backgroundMethod()
   async addMsg(message: string) {
-    if (!platformEnv.isNative) {
-      if (this.data.length >= this.maxLength) {
-        this.data.shift();
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      if (this.buffer.length < this.maxLength) {
+        this.buffer.push(message);
+      } else {
+        this.buffer[this.writeIndex] = message;
       }
-      this.data.push(message);
+      this.writeIndex = (this.writeIndex + 1) % this.maxLength;
+      if (this.writeIndex === 0 && this.buffer.length >= this.maxLength) {
+        this.isFull = true;
+      }
     }
     return Promise.resolve(true);
   }

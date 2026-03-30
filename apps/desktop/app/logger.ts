@@ -255,6 +255,13 @@ logger.hooks.push((message: any) => {
 });
 
 // ---------------------------------------------------------------------------
+// Dedup: collapse identical consecutive messages into [N repeat]
+// ---------------------------------------------------------------------------
+
+let prevLogMessage: string | undefined;
+let dedupRepeatCount = 0;
+
+// ---------------------------------------------------------------------------
 // File format: sanitize + truncate all messages
 // ---------------------------------------------------------------------------
 
@@ -266,10 +273,23 @@ logger.transports.file.format = (params: {
 }) => {
   const filtered = sanitizeAndTruncateData(params.data);
 
+  // Dedup identical consecutive messages
+  const joined = filtered.join(' ');
+  if (joined === prevLogMessage) {
+    dedupRepeatCount += 1;
+    return '';
+  }
+  let dedupPrefix: string[] = [];
+  if (dedupRepeatCount > 0) {
+    dedupPrefix = [`[${dedupRepeatCount} repeat]\n`];
+  }
+  prevLogMessage = joined;
+  dedupRepeatCount = 0;
+
   if (params.message?.scope === 'app') {
     // App-scoped messages from renderer: write filtered data as-is
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return filtered;
+    return [...dedupPrefix, ...filtered];
   }
 
   // Main process messages: add timestamp and level prefix
@@ -278,7 +298,7 @@ logger.transports.file.format = (params: {
   const pad3 = (n: number) => String(n).padStart(3, '0');
   const ts = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return [`[${ts}] [${params.level}]`, ...filtered];
+  return [...dedupPrefix, `[${ts}] [${params.level}]`, ...filtered];
 };
 
 // Startup marker matching native: OneKeyLog.info("App", "OneKey started")

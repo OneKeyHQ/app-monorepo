@@ -44,11 +44,10 @@ function buildLoggerConfig(): ILoggerConfig {
               >
             )[scene];
             try {
-              //   const isProxy =
-              //     Object.getPrototypeOf(sceneInstance) === Proxy.prototype;
-              //   const isScene = sceneInstance instanceof BaseScene;
-              const isSceneLike = !!sceneInstance.mockBaseSceneMethod;
-              if (isSceneLike) {
+              // Duck-type check: real scene instances have _emitLog
+              const isScene =
+                sceneInstance && typeof sceneInstance._emitLog === 'function';
+              if (isScene) {
                 config.enabled[scope][scene] = false;
               }
             } catch (_error) {

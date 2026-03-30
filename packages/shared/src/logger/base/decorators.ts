@@ -1,46 +1,44 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { NO_LOG_OUTPUT } from '../types';
 
-import { Metadata, NO_LOG_OUTPUT } from '../types';
-
+import type { BaseScene } from './baseScene';
 import type { IMethodDecoratorMetadata } from '../types';
 
 function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
   return function logMethod(
-    target: any,
+    _target: any,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
     const originalMethod = descriptor.value as (...args: any[]) => any;
     if (typeof originalMethod !== 'function') {
-      throw new OneKeyLocalError('This decorator is only for methods');
+      return descriptor;
     }
-    descriptor.value = function (...args: any[]) {
-      let result = originalMethod.apply(this, args);
+    descriptor.value = function (this: BaseScene, ...args: any[]) {
+      try {
+        let result = originalMethod.apply(this, args);
 
-      if (!Array.isArray(result)) {
-        result = [result];
-      }
+        if (!Array.isArray(result)) {
+          result = [result];
+        }
 
-      if (Array.isArray(result)) {
-        result = result.filter((item) => item !== NO_LOG_OUTPUT);
-        if ((result as any[])?.length === 0) {
-          return null;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        result = (result as unknown[]).filter((item) => item !== NO_LOG_OUTPUT);
+        if (result.length === 0) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return result;
         }
+
+        // Emit log directly — no Metadata wrapping, no Proxy needed
+        if (this._emitLog) {
+          this._emitLog(propertyKey, result, decoratorArgs);
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return result;
+      } catch (error) {
+        console.error(error);
+        return undefined;
       }
-      const metadata = (result as Metadata[])[0];
-      if (metadata && metadata instanceof Metadata) {
-        const newDecoratorArgs: IMethodDecoratorMetadata[] = [];
-        if (Array.isArray(metadata.metadata)) {
-          newDecoratorArgs.push(...metadata.metadata);
-        } else {
-          newDecoratorArgs.push(metadata.metadata);
-        }
-        if (newDecoratorArgs.length > 0) {
-          newDecoratorArgs.push(decoratorArgs);
-          return new Metadata(metadata.args, newDecoratorArgs);
-        }
-      }
-      return new Metadata(result, decoratorArgs);
     };
     return descriptor;
   };
