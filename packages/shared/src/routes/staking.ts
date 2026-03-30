@@ -33,7 +33,6 @@ export enum EModalStakingRoutes {
   BorrowHistoryList = 'BorrowHistoryList',
   EarnTokenSelect = 'EarnTokenSelect',
   EarnAssetSearch = 'EarnAssetSearch',
-  QuickDeposit = 'QuickDeposit',
 }
 
 type IBaseRouteParams = {
@@ -173,13 +172,5 @@ export type IModalStakingParamList = {
       asset: IEarnAvailableAsset,
       categoryType: EAvailableAssetsTypeEnum,
     ) => void;
-  };
-  [EModalStakingRoutes.QuickDeposit]: {
-    networkId: string;
-    symbol: string;
-    provider: string;
-    vault?: string;
-    tokenImageUri?: string;
-    protocols: Array<{ networkId: string; provider: string; vault: string }>;
   };
 };
