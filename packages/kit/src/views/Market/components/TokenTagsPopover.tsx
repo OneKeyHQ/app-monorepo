@@ -49,6 +49,13 @@ function TokenTagsPopover({
   const hasTags =
     communityRecognized || hasStockSource || hasSubtitle || hasStockStatus;
 
+  // Check if trigger has any visible element (avoid empty pressable area)
+  const hasTriggerContent =
+    !!customTrigger ||
+    hasStockSource ||
+    (communityRecognized && !hideCommunityInTrigger) ||
+    (showAllInTrigger && (hasSubtitle || hasStockStatus));
+
   const stockLabelId = useMemo(() => {
     if (!stock?.source) return undefined;
     if (stock.source === 'ondo') return ETranslations.dexmarket_tokenized_ondo;
@@ -57,7 +64,7 @@ function TokenTagsPopover({
     return undefined;
   }, [stock?.source]);
 
-  if (!hasTags) {
+  if (!hasTags || !hasTriggerContent) {
     return null;
   }
 
@@ -75,7 +82,7 @@ function TokenTagsPopover({
         <Icon name="BadgeRecognizedSolid" size="$4" color="$iconSuccess" />
       ) : null}
       {showAllInTrigger && hasSubtitle ? (
-        <SubtitleBadge subtitle={stock.subtitle!} />
+        <SubtitleBadge subtitle={stock.subtitle ?? ''} />
       ) : null}
       {showAllInTrigger && hasStockStatus ? (
         <StockIsOpenBadge stock={stock} />
