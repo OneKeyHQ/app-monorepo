@@ -5,8 +5,8 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { prepareLoggerExport } from '@onekeyhq/shared/src/logger/exportSupport';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ELogUploadStage,
   type ILogDigest,

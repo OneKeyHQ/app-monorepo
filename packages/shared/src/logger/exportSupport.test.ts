@@ -1,5 +1,5 @@
-import utils from './utils';
 import { prepareLoggerExport } from './exportSupport';
+import utils from './utils';
 
 jest.mock('./utils', () => ({
   __esModule: true,

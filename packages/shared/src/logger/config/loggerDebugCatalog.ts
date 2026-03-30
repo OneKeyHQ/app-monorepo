@@ -3,11 +3,12 @@ import natsort from 'natsort';
 
 import appGlobals from '../../appGlobals';
 import { getLoggerScopeKeys } from '../loggerRegistry';
+
 import { createDefaultLoggerConfig } from './loggerConfigShared';
 
+import type { ILoggerConfig } from './loggerConfigShared';
 import type { BaseScene } from '../base/baseScene';
 import type { BaseScope } from '../base/baseScope';
-import type { ILoggerConfig } from './loggerConfigShared';
 
 export class LoggerDebugCatalog {
   buildConfig(): ILoggerConfig {

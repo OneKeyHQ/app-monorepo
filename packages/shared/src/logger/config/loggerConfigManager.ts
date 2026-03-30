@@ -1,11 +1,12 @@
 import platformEnv from '../../platformEnv';
 import { loggerRuntime } from '../runtime/loggerRuntime';
-import { LoggerDebugCatalog } from './loggerDebugCatalog';
+
 import { createDefaultLoggerConfig } from './loggerConfigShared';
 import { LoggerConfigStore } from './loggerConfigStore';
+import { LoggerDebugCatalog } from './loggerDebugCatalog';
 
-import type { LoggerRuntime } from '../runtime/loggerRuntime';
 import type { ILoggerConfig } from './loggerConfigShared';
+import type { LoggerRuntime } from '../runtime/loggerRuntime';
 
 type ILoggerConfigEnv = Pick<
   typeof platformEnv,
