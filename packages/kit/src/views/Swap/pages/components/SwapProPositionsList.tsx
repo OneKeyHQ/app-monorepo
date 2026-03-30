@@ -12,6 +12,7 @@ import SwapProPositionItem from '../../components/SwapProPositionItem';
 import SwapProPositionListFooter from '../../components/SwapProPositionListFooter';
 import SwapProPositionListHeader from '../../components/SwapProPositionListHeader';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
+import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
 
 interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
@@ -29,6 +30,7 @@ const SwapProPositionsList = ({
   const [swapProSupportNetworksTokenListLoading] =
     useSwapProSupportNetworksTokenListLoadingAtom();
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
+  const pnlMap = useSwapProPositionsPnl(finallyTokenList);
 
   if (swapProSupportNetworksTokenListLoading) {
     return (
@@ -49,9 +51,10 @@ const SwapProPositionsList = ({
       {finallyTokenList.length > 0 ? (
         finallyTokenList.map((item) => (
           <SwapProPositionItem
-            key={item.contractAddress}
+            key={`${item.networkId}-${item.contractAddress}`}
             token={item}
             onPress={onTokenPress}
+            pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
           />
         ))
       ) : (
