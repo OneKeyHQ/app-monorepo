@@ -152,7 +152,7 @@ export function MarketDetailHeader() {
                         trailingLength: 4,
                       })}
                     </SizableText>
-                    <InteractiveIcon icon="Copy3Outline" size="$4" />
+                    <InteractiveIcon icon="Copy3Outline" size="$4" onPress={() => {}} />
                   </XStack>
                 ) : null}
               </XStack>
