@@ -166,7 +166,8 @@ export function registerSwapStatusCommand(parent: Command): void {
             ...(orderId ? { orderId } : {}),
             ...(receivedAddress ? { receivedAddress } : {}),
             ...(buildTxCtx !== undefined ? { ctx: buildTxCtx } : {}),
-            ...(order?.toNetworkId ? { toNetworkId: order.toNetworkId } : {}),
+            // Note: do NOT send toNetworkId — state-tx API does not accept it
+            // (App doesn't send it either; backend resolves destination from txId)
           };
 
           // --watch: poll until final state
