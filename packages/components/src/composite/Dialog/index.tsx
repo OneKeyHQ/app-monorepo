@@ -35,7 +35,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { Toast } from '../../actions/Toast';
-import { Keyboard, SheetGrabber } from '../../content';
+import { Keyboard } from '../../content/Keyboard';
+import { SheetGrabber } from '../../content/SheetGrabber';
 import { Form } from '../../forms/Form';
 import {
   EPageType,

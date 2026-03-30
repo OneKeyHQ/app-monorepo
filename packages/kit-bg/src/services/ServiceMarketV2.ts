@@ -148,6 +148,8 @@ class ServiceMarketV2 extends ServiceBase {
     limit = 20,
     minLiquidity,
     maxLiquidity,
+    type,
+    timeFrame,
   }: {
     networkId: string;
     sortBy?: string;
@@ -156,6 +158,8 @@ class ServiceMarketV2 extends ServiceBase {
     limit?: number;
     minLiquidity?: number;
     maxLiquidity?: number;
+    type?: string;
+    timeFrame?: string;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
@@ -171,6 +175,8 @@ class ServiceMarketV2 extends ServiceBase {
         limit,
         minLiquidity,
         maxLiquidity,
+        type,
+        timeFrame,
         currency: 'usd',
       },
     });

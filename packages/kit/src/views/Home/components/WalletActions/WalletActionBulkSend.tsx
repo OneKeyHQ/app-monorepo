@@ -12,6 +12,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
 
 export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
@@ -24,6 +25,7 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
 
   const navigateToBulkSend = useNavigateToBulkSend();
+  const showBulkSendModeDialog = useBulkSendModeDialog();
 
   const handleBulkSend = useCallback(async () => {
     onClose();
@@ -45,15 +47,21 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
       return;
     }
 
-    void navigateToBulkSend({
-      networkId: network?.id,
-      accountId: account?.id,
-      indexedAccountId: indexedAccount?.id,
+    showBulkSendModeDialog({
+      onSelect: (mode) => {
+        void navigateToBulkSend({
+          networkId: network?.id,
+          accountId: account?.id,
+          indexedAccountId: indexedAccount?.id,
+          bulkSendMode: mode,
+        });
+      },
     });
   }, [
     onClose,
     isPrimeUser,
     navigateToBulkSend,
+    showBulkSendModeDialog,
     navigation,
     network?.id,
     account?.id,

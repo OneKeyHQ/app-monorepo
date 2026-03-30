@@ -13,10 +13,28 @@ function getStyles(): string {
 
 function getChartInitScript(): string {
   return `
+      // Price formatter: use USD formatter when priceFormatterType is set, otherwise default %
+      // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
+      function usdPriceFormatter(price) {
+        var abs = Math.abs(price);
+        var sign = price < 0 ? '-' : '';
+        if (abs >= 1000000) return sign + '$' + (abs / 1000000).toFixed(1) + 'M';
+        if (abs >= 1000) return sign + '$' + (abs / 1000).toFixed(abs >= 10000 ? 0 : 1) + 'K';
+        if (Number.isInteger(abs)) return sign + '$' + abs.toFixed(0);
+        return sign + '$' + abs.toFixed(2);
+      }
+      function pctPriceFormatter(price) {
+        return price.toFixed(2) + '%';
+      }
+      var priceFormatter = config.priceFormatterType === 'usd' ? usdPriceFormatter : pctPriceFormatter;
+
+      var normalizedLineWidth = Math.min(4, Math.max(1, Math.round(config.lineWidth ?? 3)));
+
       const chart = LightweightCharts.createChart(container, {
         layout: {
           background: { color: config.theme.bgColor },
           textColor: config.theme.textSubduedColor,
+          fontSize: config.fontSize || 12,
         },
         grid: {
           vertLines: { visible: false },
@@ -31,7 +49,7 @@ function getChartInitScript(): string {
         crosshair: {
           mode: LightweightCharts.CrosshairMode.Normal,
           vertLine: {
-            color: config.theme.lineColor,
+            color: 'rgba(150, 150, 150, 0.4)',
             width: 1,
             style: 3,
             labelVisible: false,
@@ -52,10 +70,10 @@ function getChartInitScript(): string {
             return month + ' ' + day;
           },
         },
-        rightPriceScale: {
-          visible: Boolean(config.showPriceScale),
-          borderVisible: false,
-        },
+        rightPriceScale: Object.assign(
+          { visible: Boolean(config.showPriceScale), borderVisible: false },
+          config.priceScaleMargins ? { scaleMargins: config.priceScaleMargins } : {}
+        ),
         leftPriceScale: { visible: false },
         handleScroll: {
           mouseWheel: false,
@@ -75,18 +93,32 @@ function getChartInitScript(): string {
         },
       });
 
-      const series = chart.addAreaSeries({
-        topColor: config.theme.topColor,
-        bottomColor: config.theme.bottomColor,
-        lineColor: config.theme.lineColor,
-        lineWidth: config.lineWidth ?? 3,
-        lastValueVisible: false,
-        priceLineVisible: false,
-        priceFormat: {
-          type: 'custom',
-          formatter: (price) => price.toFixed(2) + '%',
-        },
-      });
+      var isBaseline = config.seriesType === 'baseline';
+      var showLast = Boolean(config.showLastValue);
+      var series;
+
+      if (isBaseline && config.baselineOptions) {
+        series = chart.addBaselineSeries(Object.assign({}, config.baselineOptions, {
+          lineWidth: normalizedLineWidth,
+          lastValueVisible: showLast,
+          priceLineVisible: showLast,
+          crosshairMarkerRadius: 5,
+          priceFormat: { type: 'custom', formatter: priceFormatter },
+        }));
+      } else {
+        series = chart.addAreaSeries({
+          topColor: config.theme.topColor,
+          bottomColor: config.theme.bottomColor,
+          lineColor: config.theme.lineColor,
+          lineWidth: normalizedLineWidth,
+          lastValueVisible: showLast,
+          priceLineVisible: showLast,
+          crosshairMarkerRadius: 5,
+          crosshairMarkerBorderColor: config.theme.lineColor,
+          crosshairMarkerBackgroundColor: '#ffffff',
+          priceFormat: { type: 'custom', formatter: priceFormatter },
+        });
+      }
 
       series.setData(config.data);
 
