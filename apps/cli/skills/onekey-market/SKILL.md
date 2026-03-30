@@ -1,7 +1,11 @@
 ---
 name: onekey-market
-description: Token discovery, market data, and analysis — search tokens,
-  check prices, view klines, analyze trading activity and liquidity.
+description: Token discovery, market data, and analysis for OneKey CLI.
+  Use whenever the user asks about token prices, market cap, trending tokens,
+  kline charts, candlesticks, trading volume, buy/sell activity, liquidity,
+  top holders, or wants to research/analyze a token. Also use when the user
+  says "what's hot", "what's trending", or asks to look up any token by name,
+  symbol, or contract address.
 version: 1.0.0
 keywords: [token, price, market, kline, trending, trades, liquidity, search]
 ---

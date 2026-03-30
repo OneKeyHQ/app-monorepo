@@ -1,7 +1,10 @@
 ---
 name: onekey-security
-description: Token security auditing and transaction simulation — risk
-  classification, honeypot detection, and pre-execution safety checks.
+description: Token security auditing and transaction simulation for OneKey
+  CLI. Use whenever the user asks if a token is safe, wants to check for
+  honeypots, rug pulls, scam tokens, or suspicious contracts, or wants to
+  simulate a transaction before signing. Also triggered as a mandatory
+  pre-check before any swap or trade operation.
 version: 1.0.0
 keywords: [security, audit, risk, honeypot, simulate, transaction, safety]
 ---

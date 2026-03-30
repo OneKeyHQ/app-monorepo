@@ -1,7 +1,10 @@
 ---
 name: onekey-wallet
-description: Wallet management and asset operations — balance queries,
-  token transfers, wallet import, transaction history, and system status.
+description: Wallet management and asset operations for OneKey CLI. Use
+  whenever the user asks about their balance, wants to send or transfer
+  tokens to an address, needs to import or set up their wallet, check
+  transaction history, or verify CLI connectivity. Also triggered as a
+  pre-check for balance verification before swap operations.
 version: 1.0.0
 keywords: [wallet, balance, transfer, send, import, history, logout]
 ---

@@ -1,7 +1,11 @@
 ---
-name: onekey-wallet
-description: OneKey Wallet for on-chain operations — token discovery,
-  market analysis, swap execution, security auditing, and portfolio management.
+name: onekey-wallet-cli
+description: OneKey Wallet CLI — the master skill for all on-chain operations.
+  Use this skill whenever the user mentions onekey, token prices, swaps, wallet
+  balance, transfers, security audits, or any crypto/DeFi operation. This skill
+  routes to sub-skills (onekey-market, onekey-swap, onekey-security, onekey-wallet)
+  and defines global security rules and parameter conventions. Always read this
+  first before running any onekey command.
 version: 1.0.0
 keywords: [onekey, wallet, swap, market, token, defi, crypto]
 ---

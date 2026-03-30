@@ -1,8 +1,10 @@
 ---
 name: onekey-swap
-description: Token swap full lifecycle — quoting, transaction building,
-  signing execution, and status tracking. Supports same-chain swaps
-  and cross-chain bridging.
+description: Token swap and exchange for OneKey CLI — quoting, transaction
+  building, signing, and status tracking. Use whenever the user wants to
+  swap, trade, exchange, or convert tokens, bridge assets cross-chain,
+  check swap quotes or routes, or track a pending swap order. Covers the
+  full lifecycle from quote to execution with mandatory security checks.
 version: 1.0.0
 keywords: [swap, trade, exchange, bridge, cross-chain, quote, dex]
 ---
