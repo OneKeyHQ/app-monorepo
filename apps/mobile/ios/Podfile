@@ -171,18 +171,6 @@ target 'OneKeyWallet' do
         end
       end
 
-      # Fix fmt consteval error with Xcode 26 / Apple Clang 17
-      # FMT_USE_CONSTEVAL=0 disables C++20 consteval which triggers a hard
-      # compiler error in format-inl.h with the new Clang shipped in Xcode 26.
-      if target.name == 'fmt'
-        target.build_configurations.each do |config|
-          defs = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
-          defs = [defs] if defs.is_a?(String)
-          defs << 'FMT_USE_CONSTEVAL=0'
-          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs
-        end
-      end
-
       # Fix JuiceboxSdkFfi module not found error for RNJuiceboxSdk
       if target.name == 'RNJuiceboxSdk'
         target.build_configurations.each do |config|

@@ -222,6 +222,17 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           });
         const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
 
+        // Stale check: discard if user already switched to a different token
+        // via changeActiveToken during this async fetch
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (currentAddress !== tokenAddress && currentAddress !== '') {
+          return;
+        }
+        if (currentNetworkId !== networkId && currentNetworkId !== '') {
+          return;
+        }
+
         const finalTokenData = hasKLinePrice
           ? {
               ...tokenData,
@@ -237,9 +248,17 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         return finalTokenData;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
-        set(tokenDetailAtom(), undefined);
-        set(tokenDetailWebsocketAtom(), undefined);
-        set(perpsInfoAtom(), undefined);
+        // Only clear atoms if we're still on the same token
+        const currentAddress = get(tokenAddressAtom());
+        const currentNetworkId = get(networkIdAtom());
+        if (
+          (currentAddress === tokenAddress || currentAddress === '') &&
+          (currentNetworkId === networkId || currentNetworkId === '')
+        ) {
+          set(tokenDetailAtom(), undefined);
+          set(tokenDetailWebsocketAtom(), undefined);
+          set(perpsInfoAtom(), undefined);
+        }
         throw error;
       } finally {
         set(tokenDetailLoadingAtom(), false);

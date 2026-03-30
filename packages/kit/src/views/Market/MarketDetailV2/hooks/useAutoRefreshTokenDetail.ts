@@ -72,8 +72,13 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       prevToken.networkId !== data.networkId;
 
     if (isTokenChanged && prevToken.tokenAddress !== '') {
-      // Clear old token data immediately when switching tokens
-      tokenDetailActions.clearTokenDetail();
+      // Only clear display-related atoms when switching tokens.
+      // Do NOT call clearTokenDetail() here — it resets tokenAddressAtom
+      // and networkIdAtom to '', which races with changeActiveToken's
+      // in-flight fetch and causes its stale check to discard the result.
+      tokenDetailActions.setTokenDetail(undefined);
+      tokenDetailActions.setTokenDetailWebsocket(undefined);
+      tokenDetailActions.setPerpsInfo(undefined);
     }
 
     // Update ref for next comparison
