@@ -11,8 +11,8 @@ import fetch from 'node-fetch';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
-import { flushDesktopDedup } from '@onekeyhq/desktop/app/logger';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { flushDesktopDedupState } from '@onekeyhq/shared/src/logger/desktopDedupState';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
@@ -69,7 +69,9 @@ class DesktopApiDev {
     }
     const baseName = params.fileBaseName;
     // Flush pending dedup state so the tail repeat count is written to the log file
-    flushDesktopDedup();
+    flushDesktopDedupState((message) => {
+      logger.info(message);
+    });
 
     const logFilePath = logger.transports.file.getFile().path;
     const logDir = path.dirname(logFilePath);

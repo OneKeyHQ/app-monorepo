@@ -8,6 +8,10 @@ import fs from 'fs';
 import path from 'path';
 
 import logger from 'electron-log/main';
+import {
+  consumeDesktopDedupMessage,
+  flushDesktopDedupState,
+} from '@onekeyhq/shared/src/logger/desktopDedupState';
 
 // ---------------------------------------------------------------------------
 // File transport configuration
@@ -255,13 +259,6 @@ logger.hooks.push((message: any) => {
 });
 
 // ---------------------------------------------------------------------------
-// Dedup: collapse identical consecutive messages into [N repeat]
-// ---------------------------------------------------------------------------
-
-let prevLogMessage: string | undefined;
-let dedupRepeatCount = 0;
-
-// ---------------------------------------------------------------------------
 // File format: sanitize + truncate all messages
 // ---------------------------------------------------------------------------
 
@@ -275,21 +272,15 @@ logger.transports.file.format = (params: {
 
   // Dedup identical consecutive messages (include level to avoid cross-level suppression)
   const joined = `[${params.level}] ${filtered.join(' ')}`;
-  if (joined === prevLogMessage) {
-    dedupRepeatCount += 1;
+  const { shouldSkip, repeatPrefix } = consumeDesktopDedupMessage(joined);
+  if (shouldSkip) {
     return [] as string[];
   }
-  let dedupPrefix: string[] = [];
-  if (dedupRepeatCount > 0) {
-    dedupPrefix = [`[${dedupRepeatCount} repeat]\n`];
-  }
-  prevLogMessage = joined;
-  dedupRepeatCount = 0;
 
   if (params.message?.scope === 'app') {
     // App-scoped messages from renderer: write filtered data as-is
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return [...dedupPrefix, ...filtered];
+    return [...repeatPrefix, ...filtered];
   }
 
   // Main process messages: add timestamp and level prefix
@@ -298,19 +289,14 @@ logger.transports.file.format = (params: {
   const pad3 = (n: number) => String(n).padStart(3, '0');
   const ts = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return [...dedupPrefix, `[${ts}] [${params.level}]`, ...filtered];
+  return [...repeatPrefix, `[${ts}] [${params.level}]`, ...filtered];
 };
 
 /** Flush pending dedup state before log export so the tail repeat count is not lost. */
 export function flushDesktopDedup() {
-  if (dedupRepeatCount > 0) {
-    const count = dedupRepeatCount;
-    dedupRepeatCount = 0;
-    prevLogMessage = undefined;
-    logger.info(`[${count} repeat]`);
-  } else {
-    prevLogMessage = undefined;
-  }
+  flushDesktopDedupState((message) => {
+    logger.info(message);
+  });
 }
 
 // Startup marker matching native: OneKeyLog.info("App", "OneKey started")

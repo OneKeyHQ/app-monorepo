@@ -19,9 +19,14 @@ export abstract class BaseScene {
 
   sceneName = '';
 
-  // Temporary collector used by stacked decorators within a single method call.
-  // Only the outermost decorator reads and clears this.
-  _currentCallMetadata?: IMethodDecoratorMetadata[];
+  // Temporary collector stack used by decorator wrappers.
+  // Each logical method invocation owns one stack entry so nested scene calls
+  // do not leak metadata into each other.
+  _currentCallMetadataStack?: Array<{
+    methodName: string;
+    metadataList: IMethodDecoratorMetadata[];
+    isCollectingDecorators: boolean;
+  }>;
 
   resetTimestamp() {
     this.timestamp = Date.now();

@@ -3,32 +3,59 @@ import { NO_LOG_OUTPUT } from '../types';
 import type { BaseScene } from './baseScene';
 import type { IMethodDecoratorMetadata } from '../types';
 
+const LOGGER_DECORATOR_WRAPPER = Symbol('LOGGER_DECORATOR_WRAPPER');
+
 function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
   return function logMethod(
     _target: any,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
-    const originalMethod = descriptor.value as (...args: any[]) => any;
+    const originalMethod = descriptor.value as ((...args: any[]) => any) & {
+      [LOGGER_DECORATOR_WRAPPER]?: boolean;
+    };
     if (typeof originalMethod !== 'function') {
       return descriptor;
     }
-    descriptor.value = function (this: BaseScene, ...args: any[]) {
-      // Detect whether this is the outermost decorator in a stacked chain.
-      // The outermost wrapper is responsible for the single _emitLog call.
-      const isOutermost = !this._currentCallMetadata;
-      if (isOutermost) {
-        this._currentCallMetadata = [];
+    const wrappedMethod = function (this: BaseScene, ...args: any[]) {
+      const metadataStack =
+        this._currentCallMetadataStack || (this._currentCallMetadataStack = []);
+      const currentContext = metadataStack[metadataStack.length - 1];
+      const shouldReuseContext =
+        !!currentContext &&
+        currentContext.methodName === propertyKey &&
+        currentContext.isCollectingDecorators;
+      const callContext = shouldReuseContext
+        ? currentContext
+        : {
+            methodName: propertyKey,
+            metadataList: [] as IMethodDecoratorMetadata[],
+            isCollectingDecorators: true,
+          };
+
+      if (!shouldReuseContext) {
+        metadataStack.push(callContext);
       }
+
+      if (!originalMethod[LOGGER_DECORATOR_WRAPPER]) {
+        callContext.isCollectingDecorators = false;
+      }
+
+      const cleanupContext = () => {
+        if (!shouldReuseContext) {
+          metadataStack.pop();
+        }
+        if (metadataStack.length === 0) {
+          this._currentCallMetadataStack = undefined;
+        }
+      };
 
       try {
         let result = originalMethod.apply(this, args);
 
         // Inner decorator error → propagate skip to outer
         if (result === undefined) {
-          if (isOutermost) {
-            this._currentCallMetadata = undefined;
-          }
+          cleanupContext();
           return undefined;
         }
 
@@ -39,34 +66,31 @@ function createDecorator(decoratorArgs: IMethodDecoratorMetadata) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         result = (result as unknown[]).filter((item) => item !== NO_LOG_OUTPUT);
         if (result.length === 0) {
-          if (isOutermost) {
-            this._currentCallMetadata = undefined;
-          }
+          cleanupContext();
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return result;
         }
 
         // Collect metadata — actual emit deferred to outermost wrapper
-        this._currentCallMetadata!.push(decoratorArgs);
+        callContext.metadataList.push(decoratorArgs);
 
-        if (isOutermost) {
-          const metadataList = this._currentCallMetadata!;
-          this._currentCallMetadata = undefined;
+        if (!shouldReuseContext) {
+          cleanupContext();
           if (this._emitLog) {
-            this._emitLog(propertyKey, result, metadataList);
+            this._emitLog(propertyKey, result, callContext.metadataList);
           }
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       } catch (error) {
-        if (isOutermost) {
-          this._currentCallMetadata = undefined;
-        }
+        cleanupContext();
         console.error(error);
         return undefined;
       }
     };
+    wrappedMethod[LOGGER_DECORATOR_WRAPPER] = true;
+    descriptor.value = wrappedMethod;
     return descriptor;
   };
 }
