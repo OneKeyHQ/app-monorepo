@@ -2595,7 +2595,7 @@
   "passphrase_character_limit": "最多 50 個字符",
   "passphrase_disabled_dialog_desc": "在您的裝置上啟用 Passphrase 以創建隱藏錢包。",
   "passphrase_disabled_dialog_title": "無法創建隱藏錢包",
-  "perp.guide_article_basic_concepts": "Basic Concepts of Futures Trading",
+  "perp.guide_article_basic_concepts": "期貨交易的基本概念",
   "perp.guide_article_deposit_withdrawal": "Perps Deposit, Withdrawal, and Settlement Currency",
   "perp.guide_article_introduction": "OneKey Perps Introduction",
   "perp.guide_article_open_position": "Completing an Open Position Operation",

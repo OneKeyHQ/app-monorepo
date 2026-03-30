@@ -2595,7 +2595,7 @@
   "passphrase_character_limit": "สูงสุด 50 ตัวอักษร",
   "passphrase_disabled_dialog_desc": "เปิดใช้งาน Passphrase บนอุปกรณ์ของคุณเพื่อสร้างกระเป๋าเงินที่ซ่อนอยู่",
   "passphrase_disabled_dialog_title": "ไม่สามารถสร้างกระเป๋าเงินที่ซ่อนได้",
-  "perp.guide_article_basic_concepts": "Basic Concepts of Futures Trading",
+  "perp.guide_article_basic_concepts": "แนวคิดพื้นฐานของการซื้อขายสัญญาซื้อขายล่วงหน้า",
   "perp.guide_article_deposit_withdrawal": "Perps Deposit, Withdrawal, and Settlement Currency",
   "perp.guide_article_introduction": "OneKey Perps Introduction",
   "perp.guide_article_open_position": "Completing an Open Position Operation",
