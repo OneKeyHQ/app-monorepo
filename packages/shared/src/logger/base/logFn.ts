@@ -21,9 +21,6 @@ export type ILogEntry = {
   rawArgs: unknown[];
 };
 
-// Per-scope dedup state instead of global single-slot
-const dedupState = new Map<string, { prevMsg: string; count: number }>();
-
 // ---------------------------------------------------------------------------
 // Log handlers — one per log target type
 // ---------------------------------------------------------------------------
@@ -47,44 +44,26 @@ function logColorful(entry: ILogEntry, prefix: string) {
 
 function handleLocalLog(entry: ILogEntry) {
   if (platformEnv.isWebEmbed) return;
+  if (!loggerConfig.shouldLog(entry.scopeName, entry.sceneName)) return;
 
-  const shouldLog = loggerConfig.shouldLog(entry.scopeName, entry.sceneName);
   const prefix = `${entry.scopeName} => ${entry.sceneName} => ${entry.methodName} : `;
   const rawMsg = stringifyFunc(...entry.args);
   let msg = `${prefix} ${rawMsg}`;
-
-  // Per-scope dedup
-  const dedupKey = `${entry.scopeName}:${entry.sceneName}`;
-  let state = dedupState.get(dedupKey);
-  if (!state) {
-    state = { prevMsg: '', count: 0 };
-    dedupState.set(dedupKey, state);
-  }
-
-  if (state.prevMsg === msg) {
-    state.count += 1;
-    return;
-  }
 
   if (process.env.NODE_ENV !== 'production' && platformEnv.isNative) {
     msg = msg.replace(/"/g, "'");
   }
 
+  // Dedup is handled per-platform in the transport layer:
+  //   web/ext: consoleFunc in utils/index.ts
+  //   desktop: file.format hook in apps/desktop/app/logger.ts
+  //   native:  OneKeyLog.swift / OneKeyLog.kt
   const logger = getLoggerExtension('');
-
-  if (shouldLog) {
-    if (state.count > 0) {
-      logger.info(`└───[${state.count} repeat]`);
-    }
-    logger[entry.metadata.level || 'info'](msg);
-    if (entry.metadata.level === 'error') {
-      console.error(entry.timestamp(), msg);
-    }
-    logColorful(entry, prefix);
+  logger[entry.metadata.level || 'info'](msg);
+  if (entry.metadata.level === 'error') {
+    console.error(entry.timestamp(), msg);
   }
-
-  state.prevMsg = msg;
-  state.count = 0;
+  logColorful(entry, prefix);
 }
 
 function handleServerLog(entry: ILogEntry) {
