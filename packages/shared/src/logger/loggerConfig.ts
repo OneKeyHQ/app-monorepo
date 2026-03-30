@@ -25,7 +25,11 @@ function buildLoggerConfig(): ILoggerConfig {
   };
   const defaultLoggerInstance =
     (appGlobals.$defaultLogger as unknown as Record<string, BaseScope>) || {};
-  Object.keys(defaultLoggerInstance)
+  // Enumerate lazy getter names from prototype (Object.keys only finds own properties)
+  const scopeKeys = Object.getOwnPropertyNames(
+    Object.getPrototypeOf(defaultLoggerInstance),
+  ).filter((key) => key !== 'constructor' && !key.startsWith('_'));
+  scopeKeys
     .toSorted((a, b) => natsort({ insensitive: true })(a, b))
     .forEach((scope) => {
       config.enabled[scope] = config.enabled[scope] || {};

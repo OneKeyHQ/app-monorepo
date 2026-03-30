@@ -277,7 +277,7 @@ logger.transports.file.format = (params: {
   const joined = `[${params.level}] ${filtered.join(' ')}`;
   if (joined === prevLogMessage) {
     dedupRepeatCount += 1;
-    return '';
+    return [] as string[];
   }
   let dedupPrefix: string[] = [];
   if (dedupRepeatCount > 0) {
