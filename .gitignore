@@ -133,3 +133,5 @@ debug.log
 /.worktree
 .skillshare/logs/operations.log
 .gstack/
+
+docs/superpowers/**/*
