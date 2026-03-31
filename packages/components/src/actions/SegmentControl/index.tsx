@@ -126,6 +126,7 @@ function SegmentControlFrame({
       backgroundColor={slotBackgroundColor ?? '$bgStrong'}
       borderRadius="$full"
       borderCurve="continuous"
+      overflow="hidden"
       h={32}
       {...rest}
     >
