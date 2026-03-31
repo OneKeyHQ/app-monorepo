@@ -11,7 +11,7 @@ import Animated, {
   withDecay,
 } from 'react-native-reanimated';
 
-import type { IYStackProps } from '@onekeyhq/components';
+import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
@@ -51,26 +51,40 @@ function getRecommendedLayoutVariant(isDesktop: boolean) {
   return isDesktop ? 'card-carousel' : 'mobile-list';
 }
 
-const RecommendedBadges = memo(({ token }: { token: IRecommendAsset }) => {
-  if (!token.badges?.length) {
-    return null;
-  }
+const RecommendedBadges = memo(
+  ({
+    token,
+    containerProps,
+  }: {
+    token: IRecommendAsset;
+    containerProps?: IXStackProps;
+  }) => {
+    if (!token.badges?.length) {
+      return null;
+    }
 
-  return (
-    <XStack gap="$1.5" flexWrap="wrap" justifyContent="flex-end" flexShrink={1}>
-      {token.badges.map((badge, index) => (
-        <Badge
-          key={`${badge.badgeType}-${badge.tag}-${index}`}
-          badgeType={badge.badgeType}
-          badgeSize="sm"
-          userSelect="none"
-        >
-          <Badge.Text>{badge.tag}</Badge.Text>
-        </Badge>
-      ))}
-    </XStack>
-  );
-});
+    return (
+      <XStack
+        gap="$1.5"
+        flexWrap="wrap"
+        justifyContent="flex-end"
+        flexShrink={1}
+        {...containerProps}
+      >
+        {token.badges.map((badge, index) => (
+          <Badge
+            key={`${badge.badgeType}-${badge.tag}-${index}`}
+            badgeType={badge.badgeType}
+            badgeSize="sm"
+            userSelect="none"
+          >
+            <Badge.Text>{badge.tag}</Badge.Text>
+          </Badge>
+        ))}
+      </XStack>
+    );
+  },
+);
 
 RecommendedBadges.displayName = 'RecommendedBadges';
 
@@ -281,9 +295,21 @@ const RecommendedListItem = memo(
         <ListItem.Text
           flex={1}
           primary={
-            <XStack gap="$2" ai="center">
-              <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-              <RecommendedBadges token={token} />
+            <XStack gap="$2" ai="center" flex={1} minWidth={0} flexWrap="wrap">
+              <SizableText
+                size="$bodyLgMedium"
+                flexShrink={1}
+                numberOfLines={1}
+              >
+                {token.symbol}
+              </SizableText>
+              <RecommendedBadges
+                token={token}
+                containerProps={{
+                  justifyContent: 'flex-start',
+                  flexShrink: 0,
+                }}
+              />
             </XStack>
           }
           secondary={
