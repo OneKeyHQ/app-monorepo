@@ -490,7 +490,7 @@ function MobileBrowser() {
             earnContent={
               <EarnHomeWithProvider
                 showHeader={false}
-                showContent={selectedHeaderTab === ETranslations.global_earn}
+                showContent
                 defaultTab={earnTab}
                 tabsRef={earnTabsRef}
                 useSwipePager={useOuterPager}
