@@ -84,7 +84,6 @@ function OptionItem({
       mt={mt}
       nativePressableStyle={optionItemNativePressableStyle}
       onPress={onPress}
-      nativePressableStyle={{ flexShrink: 0 }}
       userSelect="none"
     >
       <YStack
