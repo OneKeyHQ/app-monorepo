@@ -35,6 +35,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isDualScreenDevice } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -79,6 +80,19 @@ import { withBrowserProvider } from './WithBrowserProvider';
 import type { IEarnBorrowPagerViewRef } from '../../../Earn/components/EarnBorrowPagerView';
 import type { RouteProp } from '@react-navigation/core';
 import type { WebView } from 'react-native-webview';
+
+type IExploreTabName = 'market' | 'earn' | 'browser';
+type IExploreTabSwitchType = 'default' | 'tap' | 'swipe';
+
+function getExploreTabName(tab: ETranslations): IExploreTabName {
+  if (tab === ETranslations.global_market) {
+    return 'market';
+  }
+  if (tab === ETranslations.global_earn) {
+    return 'earn';
+  }
+  return 'browser';
+}
 
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
@@ -178,6 +192,8 @@ function MobileBrowser() {
   const [settings] = useSettingsPersistAtom();
   const selectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
+  const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
+  const hasLoggedExploreTabViewRef = useRef(false);
 
   // Shared value for swipe-following header tab animation.
   // Maps tab enum to pager index: market=0, earn=1, browser=2.
@@ -213,12 +229,38 @@ function MobileBrowser() {
   });
 
   const { displayHomePage } = useDisplayHomePageFlag();
+  const showDiscoveryPage = useMemo(() => {
+    if (isTabletMainView) {
+      return true;
+    }
+    if (isTabletDetailView) {
+      return isLandscape ? false : displayHomePage;
+    }
+    return displayHomePage;
+  }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
   useEffect(() => {
     if (!tabs?.length) {
       showTabBar();
     }
   }, [tabs?.length]);
+
+  useEffect(() => {
+    if (!showDiscoveryPage) {
+      return;
+    }
+
+    const switchType = hasLoggedExploreTabViewRef.current
+      ? exploreTabSwitchTypeRef.current
+      : 'default';
+
+    hasLoggedExploreTabViewRef.current = true;
+    defaultLogger.discovery.browser.exploreTabView({
+      tabName: getExploreTabName(selectedHeaderTab),
+      switchType,
+    });
+    exploreTabSwitchTypeRef.current = 'default';
+  }, [selectedHeaderTab, showDiscoveryPage]);
 
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);
@@ -246,7 +288,10 @@ function MobileBrowser() {
     const listener = async (event: {
       tab: ETranslations;
       openUrl?: boolean;
+      switchType?: IExploreTabSwitchType;
     }) => {
+      exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
+
       // State machine: when WebView is open (displayHomePage === false) and
       // switching to a non-Browser tab, first collapse the WebView back to
       // Dashboard before switching the main tab.
@@ -366,6 +411,9 @@ function MobileBrowser() {
   // Determine if outer PagerView should be used (phone only, not tablet/dual-screen)
   const useOuterPager =
     !isTabletMainView && !isTabletDetailView && !isDualScreen;
+  const handleExploreTabSwipe = useCallback(() => {
+    exploreTabSwitchTypeRef.current = 'swipe';
+  }, []);
 
   const INITIAL_TAB_PAGE_HEIGHT_IOS = 153;
   const INITIAL_TAB_PAGE_HEIGHT_ANDROID = 100;
@@ -379,16 +427,6 @@ function MobileBrowser() {
     const height = e.nativeEvent.layout.height;
     setTabPageHeight(height);
   }, []);
-
-  const showDiscoveryPage = useMemo(() => {
-    if (isTabletMainView) {
-      return true;
-    }
-    if (isTabletDetailView) {
-      return isLandscape ? false : displayHomePage;
-    }
-    return displayHomePage;
-  }, [isTabletMainView, isTabletDetailView, displayHomePage, isLandscape]);
 
   const isShowContent = useMemo(() => {
     if (
@@ -437,6 +475,7 @@ function MobileBrowser() {
           <OuterTabPagerView
             selectedHeaderTab={selectedHeaderTab}
             showDiscoveryPage={showDiscoveryPage}
+            onPageSelectedBySwipe={handleExploreTabSwipe}
             pageScrollPosition={outerPageScrollPosition}
             marketTabsRef={marketTabsRef}
             earnTabsRef={earnTabsRef}
