@@ -9,7 +9,7 @@ const MAX_RECENT_ERRORS = 50;
 const autoLogger = {
   error: (error: Error, ...messages: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
-      if (error?.stack && !recentErrorStacks.has(error.stack)) {
+      if (error && (!error.stack || !recentErrorStacks.has(error.stack))) {
         setTimeout(() => {
           try {
             /*
