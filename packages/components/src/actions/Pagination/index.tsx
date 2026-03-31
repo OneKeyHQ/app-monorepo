@@ -15,10 +15,12 @@ function PageButton({
   page,
   active,
   onPageChange,
+  testID,
 }: {
   page: number;
   active: boolean;
   onPageChange: (page: number) => void;
+  testID?: string;
 }) {
   const handlePress = useCallback(() => {
     onPageChange(page);
@@ -40,6 +42,7 @@ function PageButton({
       role="button"
       aria-label={`Page ${page}${active ? ', current page' : ''}`}
       aria-current={active ? 'page' : undefined}
+      testID={testID}
     >
       <SizableText
         size="$bodyMdMedium"
@@ -61,6 +64,7 @@ export interface IPaginationProps extends IXStackProps {
   disableControls?: boolean;
   pageButtonSize?: 'small' | 'medium' | 'large';
   maxPages?: number;
+  testID?: string;
 }
 
 function PaginationFrame({
@@ -72,6 +76,7 @@ function PaginationFrame({
   disableControls = false,
   pageButtonSize = 'small',
   maxPages,
+  testID,
   ...rest
 }: IPaginationProps) {
   const { paginationRange, effectiveCurrent, effectiveTotal } = usePagination({
@@ -113,6 +118,7 @@ function PaginationFrame({
           disabled={disableControls || isFirstPage}
           onPress={onPrev}
           title="Previous Page"
+          testID={testID ? `${testID}-prev` : undefined}
         />
       ) : null}
       {paginationRange.map((page, idx) => {
@@ -134,6 +140,7 @@ function PaginationFrame({
             page={page}
             active={active}
             onPageChange={onPageChange}
+            testID={testID ? `${testID}-page-${page}` : undefined}
           />
         );
       })}
@@ -145,6 +152,7 @@ function PaginationFrame({
           disabled={disableControls || isLastPage}
           onPress={onNext}
           title="Next Page"
+          testID={testID ? `${testID}-next` : undefined}
         />
       ) : null}
     </XStack>

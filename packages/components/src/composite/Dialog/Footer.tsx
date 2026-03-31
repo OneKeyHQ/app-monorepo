@@ -147,6 +147,7 @@ export function Footer(props: IDialogFooterProps) {
               flexGrow={1}
               flexBasis={0}
               $md={mdSizeLargeStyle}
+              testID="dialog-cancel-btn"
               onPress={onCancel}
               {...cancelButtonProps}
             >
@@ -162,6 +163,7 @@ export function Footer(props: IDialogFooterProps) {
               loading={confirmLoading}
               disabled={confirmButtonDisabled}
               $md={mdSizeLargeStyle}
+              testID="dialog-confirm-btn"
               {...restConfirmButtonProps}
               onPress={onConfirmWithLoading}
             >
