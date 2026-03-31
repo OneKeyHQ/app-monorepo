@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import { useClipboard } from '@onekeyhq/components';
-import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ECopyFrom,
@@ -12,12 +11,10 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseTokenDetailHeaderLeftActionsParams {
   tokenDetail?: IMarketTokenDetail;
-  networkId?: string;
 }
 
 export function useTokenDetailHeaderLeftActions({
   tokenDetail,
-  networkId,
 }: IUseTokenDetailHeaderLeftActionsParams) {
   const { copyText } = useClipboard();
 
@@ -35,16 +32,6 @@ export function useTokenDetailHeaderLeftActions({
       });
     }
   }, [address, copyText]);
-
-  const handleOpenContractAddress = useCallback(() => {
-    if (address && networkId) {
-      void openTokenDetailsUrl({
-        networkId,
-        tokenAddress: address,
-        openInExternal: true,
-      });
-    }
-  }, [address, networkId]);
 
   const handleOpenWebsite = useCallback(() => {
     if (website) {
@@ -87,7 +74,6 @@ export function useTokenDetailHeaderLeftActions({
 
   return {
     handleCopyAddress,
-    handleOpenContractAddress,
     handleOpenWebsite,
     handleOpenTwitter,
     handleOpenXSearch,

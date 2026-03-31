@@ -324,12 +324,14 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async fetchMarketTokenListBatch({
     tokenAddressList,
+    skipCache = false,
   }: {
     tokenAddressList: {
       contractAddress: string;
       chainId: string;
       isNative: boolean;
     }[];
+    skipCache?: boolean;
   }) {
     // Clean expired cache entries periodically
     this._cleanExpiredMarketTokenBatchCache();
@@ -345,6 +347,11 @@ class ServiceMarketV2 extends ServiceBase {
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       tokenIndexMap.set(cacheKey, index);
+
+      if (skipCache) {
+        missingTokens.push(token);
+        return;
+      }
 
       const cached = this._marketTokenBatchCache.get(cacheKey);
       if (cached && now - cached.timestamp < this._marketTokenBatchCacheTTL) {
@@ -390,9 +397,12 @@ class ServiceMarketV2 extends ServiceBase {
       return { list: cachedResults };
     }
 
-    // Update cache and merge results
+    // Update cache and merge results using positional index (API preserves
+    // request order). Cache keys use the request-side chainId:contractAddress
+    // to stay consistent with the lookup keys built above.
     data.list.forEach((item, apiIndex) => {
       const token = missingTokens[apiIndex];
+      if (!token) return;
       const cacheKey = `${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
