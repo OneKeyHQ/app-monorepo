@@ -660,6 +660,8 @@
   // Ignore patterns matching .eslintrc.js ignorePatterns
   "ignorePatterns": [
     "*.wasm.bin",
+    ".worktree/**",
+    ".claude/worktrees/**",
     "@types/globals.d.ts",
     "apps/desktop/public/static/js-sdk*",
     "packages/components/src/primitives/Icon/Icons.tsx",

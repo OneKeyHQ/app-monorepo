@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "Visualizar endereço no explorador",
   "settings.view_transaction_in_explorer": "Visualizar transação no explorador",
   "settings.whats_new": "O que há de novo",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "Quando esta função está ativada, você só pode enviar fundos para contas da sua carteira ou endereços salvos no livro de endereços.",
   "settings_protection.allowlist_title": "Transferir lista de permitidos",
   "setup_choose_option_create_new_wallet": "Criar Nova Carteira: Se esta for sua primeira carteira",
