@@ -3,14 +3,17 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   ESwitchSize,
   IconButton,
   Popover,
+  SizableText,
   Stack,
   Switch,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -69,6 +72,32 @@ const filterScamHistorySupportedNetworkIds = new Set(
 function TxHistorySettings() {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
+  const { user } = useOneKeyAuth();
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const exportHistoryText = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.global_export_transaction_history,
+      }),
+    [intl],
+  );
+  const exportHistoryTitle = useMemo(
+    () => (
+      <XStack alignItems="center" gap="$2">
+        <SizableText size="$bodyLgMedium">{exportHistoryText}</SizableText>
+        {isPrimeUser ? null : (
+          <Badge badgeSize="sm" badgeType="default">
+            <Badge.Text size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.prime_status_prime,
+              })}
+            </Badge.Text>
+          </Badge>
+        )}
+      </XStack>
+    ),
+    [exportHistoryText, intl, isPrimeUser],
+  );
 
   const handleFilterScamHistoryOnChange = useCallback(
     (value: boolean) => {
@@ -91,6 +120,8 @@ function TxHistorySettings() {
     },
     [setSettings],
   );
+
+  const handleExportHistoryPress = useCallback(() => undefined, []);
 
   const {
     activeAccount: { network },
@@ -162,6 +193,13 @@ function TxHistorySettings() {
                 size={ESwitchSize.small}
                 onChange={handleFilterLowValueHistoryOnChange}
                 defaultChecked={settings.isFilterLowValueHistoryEnabled}
+              />
+            </ListItem>
+            <ListItem onPress={handleExportHistoryPress} drillIn>
+              <ListItem.Text
+                flex={1}
+                primary={exportHistoryTitle}
+                secondary={exportHistoryText}
               />
             </ListItem>
           </Stack>
