@@ -7,6 +7,7 @@ import { ActionList } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { DiscoveryTestIDs } from '../../testIDs';
 import { ESiteMode, type IMobileBottomOptionsProps } from '../../types';
 
 function MobileBrowserBottomOptions({
@@ -58,7 +59,7 @@ function MobileBrowserBottomOptions({
             }),
             icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => onPinnedPress(!isPinned),
-            testID: `action-list-item-${!isPinned ? 'pin' : 'un-pin'}`,
+            testID: DiscoveryTestIDs.tabActionPin(!!isPinned),
           },
           platformEnv.isNativeIOSPad
             ? undefined

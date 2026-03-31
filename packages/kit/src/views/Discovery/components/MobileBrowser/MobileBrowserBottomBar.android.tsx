@@ -20,6 +20,7 @@ import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { useTakeScreenshot } from '../../hooks/useTakeScreenshot';
 import { ESiteMode } from '../../types';
 
+import { DiscoveryTestIDs } from '../../testIDs';
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
@@ -124,7 +125,7 @@ function MobileBrowserBottomBar({
               }),
               icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
               onPress: () => handlePinTab(!tab?.isPinned),
-              testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+              testID: DiscoveryTestIDs.tabActionPin(!!tab?.isPinned),
             },
             {
               label: intl.formatMessage({

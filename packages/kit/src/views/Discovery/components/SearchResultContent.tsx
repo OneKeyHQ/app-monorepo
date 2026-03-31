@@ -33,6 +33,8 @@ import { DappSearchModalSectionHeader } from '../pages/SearchModal/DappSearchMod
 
 import { DiscoveryIcon } from './DiscoveryIcon';
 
+import { DiscoveryTestIDs } from '../testIDs';
+
 import type { ILocalDataType } from '../hooks/useSearchModalData';
 
 const LoadingSkeleton = (
@@ -406,7 +408,7 @@ export function SearchResultContent({
           }}
           bg={searchIndex(index) ? '$bgActive' : undefined}
           onPress={() => handleSearchItemClick(item)}
-          testID={`dapp-search${index}`}
+          testID={DiscoveryTestIDs.dappSearchItem(index)}
         />
       )),
     [handleSearchItemClick, searchIndex],
@@ -509,7 +511,7 @@ export function SearchResultContent({
               subtitleProps={{
                 numberOfLines: 1,
               }}
-              testID={`search-modal-${item.title.toLowerCase()}`}
+              testID={DiscoveryTestIDs.searchModalItem(item.title)}
               bg={historyIndex(index) ? '$bgActive' : undefined}
               onPress={() => handleHistoryItemClick(item)}
             />

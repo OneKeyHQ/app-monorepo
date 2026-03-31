@@ -29,6 +29,8 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { DiscoveryTestIDs } from '../../testIDs';
+
 import MobileTabListItem from '../../components/MobileTabListItem';
 import MobileTabListPinnedItem from '../../components/MobileTabListItem/MobileTabListPinnedItem';
 import { TAB_LIST_CELL_COUNT_PER_ROW } from '../../config/TabList.constants';
@@ -280,7 +282,7 @@ function MobileTabListModal() {
                 }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
-                testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
+                testID: DiscoveryTestIDs.tabActionPin(tab.isPinned),
               },
               {
                 label: intl.formatMessage({

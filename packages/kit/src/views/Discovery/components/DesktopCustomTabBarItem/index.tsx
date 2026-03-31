@@ -18,6 +18,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { DiscoveryTestIDs } from '../../testIDs';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 
@@ -116,7 +117,7 @@ function DesktopCustomTabBarItem({
                   onPinnedPress(tab?.id, !tab?.isPinned);
                 }
               },
-              testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+              testID: DiscoveryTestIDs.tabActionPin(!!tab?.isPinned),
             },
             {
               label: intl.formatMessage({
