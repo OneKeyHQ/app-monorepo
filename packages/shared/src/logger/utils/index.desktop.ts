@@ -15,13 +15,14 @@ const consoleFunc = (msg: string) => {
     // eslint-disable-next-line no-console
     console.log(msg);
   }
-  // Send raw message to main process; sanitization, truncation,
-  // and rate limiting are handled in the main process format function
-  // to avoid blocking the renderer JS thread.
+  // No JS-side dedup/truncation here — handled natively in electron main process
+  // (apps/desktop/app/logger.ts: file.format hook with dedup + sanitizeAndTruncateData)
   appLogger.info(msg);
 };
 
 const getLogFilePath = () => Promise.resolve('');
+
+const flushPendingRepeat = () => {};
 
 const desktopPlatform = globalThis.desktopApi.platform;
 const desktopSystemVersion = globalThis.desktopApi.systemVersion;
@@ -36,5 +37,10 @@ const getDeviceInfo = () =>
     `version: ${platformEnv.version ?? ''}`,
   ].join(',');
 
-const utils: IUtilsType = { getDeviceInfo, getLogFilePath, consoleFunc };
+const utils: IUtilsType = {
+  getDeviceInfo,
+  getLogFilePath,
+  consoleFunc,
+  flushPendingRepeat,
+};
 export default utils;
