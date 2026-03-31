@@ -74,6 +74,15 @@ describe('history-fetcher', () => {
     it('strips trailing zeros', () => {
       expect(formatAmount('1500000', 6)).toBe('1.5');
     });
+    it('handles pre-formatted value with decimal point', () => {
+      expect(formatAmount('109875.092616543', 18)).toBe('109875.092616543');
+    });
+    it('strips trailing dot from pre-formatted value', () => {
+      expect(formatAmount('63103500000.', 0)).toBe('63103500000');
+    });
+    it('strips trailing zeros from pre-formatted value', () => {
+      expect(formatAmount('1.50000', 18)).toBe('1.5');
+    });
   });
 
   describe('formatHistoryItem', () => {

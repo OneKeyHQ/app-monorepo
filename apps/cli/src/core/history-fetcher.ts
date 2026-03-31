@@ -123,6 +123,13 @@ export function mapStatus(raw: string): string {
 export function formatAmount(raw: string, decimals: number): string {
   if (!raw || raw === '0') return '0';
 
+  // If value already contains a decimal point, it's pre-formatted — return as-is
+  // (some API responses return human-readable amounts, not raw integers)
+  if (raw.includes('.')) {
+    // Strip trailing zeros then trailing dot for clean output
+    return raw.replace(/0+$/, '').replace(/\.$/, '') || '0';
+  }
+
   const isNeg = raw.startsWith('-');
   const abs = isNeg ? raw.slice(1) : raw;
 
