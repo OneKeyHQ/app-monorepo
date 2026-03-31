@@ -8,6 +8,8 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
+
 import { DataViewer } from './DataViewer';
 
 type IProps = {
@@ -29,7 +31,7 @@ function DataViewerTab(props: IProps) {
     : dataGroup.filter((item) => item.data);
 
   return (
-    <YStack gap="$2.5">
+    <YStack gap="$2.5" testID={SignatureConfirmTestIDs.DataViewerTab}>
       <XStack>
         <XStack gap="$4" flex={1}>
           {items.map((item, index) => (
@@ -71,6 +73,7 @@ function DataViewerTab(props: IProps) {
         </XStack>
         {showCopy ? (
           <IconButton
+            testID={SignatureConfirmTestIDs.DataViewerCopy}
             variant="tertiary"
             icon="Copy3Outline"
             size="small"

@@ -56,6 +56,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
+import { SignatureConfirmTestIDs } from '../../testIDs';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
 
@@ -615,8 +616,9 @@ function TxConfirmActions(props: IProps) {
   }, [intl, sendFeeStatus.discountPercent, signOnly]);
 
   return (
-    <Page.Footer disableKeyboardAnimation>
+    <Page.Footer disableKeyboardAnimation testID={SignatureConfirmTestIDs.TxConfirmFooter}>
       <Page.FooterActions
+        testID={SignatureConfirmTestIDs.TxConfirmActions}
         confirmButtonProps={{
           disabled: isSubmitDisabled,
           loading: sendTxStatus.isSubmitting || isConfirmInitializing,
@@ -652,6 +654,7 @@ function TxConfirmActions(props: IProps) {
           />
           {showTakeRiskAlert ? (
             <Checkbox
+              testID={SignatureConfirmTestIDs.TxConfirmRiskCheckbox}
               label={intl.formatMessage({
                 id: ETranslations.dapp_connect_proceed_at_my_own_risk,
               })}

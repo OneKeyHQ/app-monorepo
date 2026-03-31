@@ -14,6 +14,7 @@ import {
   EMessageTypesTron,
 } from '@onekeyhq/shared/types/message';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
 import { DataViewer } from './DataViewer';
@@ -114,7 +115,7 @@ function MessageDataViewer(props: IProps) {
   }, [unsignedMessage]);
 
   return (
-    <SignatureConfirmItem>
+    <SignatureConfirmItem testID={SignatureConfirmTestIDs.MessageDataViewer}>
       <SignatureConfirmItem.Label>
         {intl.formatMessage({ id: ETranslations.dapp_connect_message })}
       </SignatureConfirmItem.Label>

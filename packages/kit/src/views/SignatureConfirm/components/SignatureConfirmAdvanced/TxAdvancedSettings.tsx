@@ -25,6 +25,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import { SignatureConfirmTestIDs } from '../../testIDs';
 import { DataViewerTab } from '../SignatureConfirmDataViewer';
 
 import { AdvancedSettings } from './AdvancedSettings';
@@ -272,7 +273,7 @@ function TxAdvancedSettings(props: IProps) {
                 </Button>
               }
             >
-              <Input flex={1} placeholder={currentNonce} />
+              <Input testID={SignatureConfirmTestIDs.NonceInput} flex={1} placeholder={currentNonce} />
             </Form.Field>
           </Form>
         ) : null}
@@ -304,7 +305,7 @@ function TxAdvancedSettings(props: IProps) {
     return null;
   }
 
-  return <AdvancedSettings>{renderAdvancedSettings()}</AdvancedSettings>;
+  return <AdvancedSettings testID={SignatureConfirmTestIDs.TxAdvancedSettings}>{renderAdvancedSettings()}</AdvancedSettings>;
 }
 
 export { TxAdvancedSettings };

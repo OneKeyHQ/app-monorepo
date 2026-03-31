@@ -1,6 +1,9 @@
 import { memo } from 'react';
 
+import { YStack } from '@onekeyhq/components';
 import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
+
+import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import SignatureConfirmDetails from './SignatureConfirmDetails';
 
@@ -14,13 +17,15 @@ function MessageConfirmDetails(props: IProps) {
   const { accountId, networkId, displayComponents } = props;
 
   return (
-    <SignatureConfirmDetails
-      accountId={accountId}
-      networkId={networkId}
-      displayComponents={displayComponents.map((component) => ({
-        component,
-      }))}
-    />
+    <YStack testID={SignatureConfirmTestIDs.MessageConfirmDetails}>
+      <SignatureConfirmDetails
+        accountId={accountId}
+        networkId={networkId}
+        displayComponents={displayComponents.map((component) => ({
+          component,
+        }))}
+      />
+    </YStack>
   );
 }
 
