@@ -131,3 +131,4 @@ debug.log
 /.claude/worktrees
 /.worktree
 .skillshare/logs/operations.log
+.gstack/

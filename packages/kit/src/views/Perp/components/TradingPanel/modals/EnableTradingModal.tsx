@@ -1,10 +1,23 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
+import {
+  CONTEXTUAL_ARTICLE_IDS,
+  buildHelpUrl,
+  openGuideUrl,
+} from '../../Guide/perpGuideData';
 
 interface IEnableTradingContentProps {
   onClose?: () => void;
@@ -55,6 +68,27 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
             id: ETranslations.perp_enable_trading_desc,
           })}
         </SizableText>
+        <XStack
+          gap="$1"
+          alignItems="center"
+          onPress={() => {
+            openGuideUrl(
+              buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.enableTrading}`),
+            );
+          }}
+          cursor="default"
+        >
+          <Icon name="QuestionmarkOutline" size="$3.5" color="$iconSubdued" />
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            hoverStyle={{ color: '$text' }}
+          >
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_guide_article_introduction,
+            })}
+          </SizableText>
+        </XStack>
       </YStack>
 
       <Button
