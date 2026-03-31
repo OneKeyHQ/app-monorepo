@@ -71,16 +71,28 @@ function WCAuthRequestModal() {
 
   const siweMessagePreview = useMemo(() => {
     try {
-      const domain =
-        authRequest?.params?.requester?.metadata?.url ?? 'Unknown';
-      const statement =
-        authRequest?.params?.authPayload?.statement ??
-        'Sign in with Ethereum to the app.';
+      const account = activeAccountInfo?.activeAccount?.account;
+      const authPayload = authRequest?.params?.authPayload;
+      if (account?.address && authPayload) {
+        // Show the exact message that will be signed
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { formatMessage } = require('@walletconnect/utils') as {
+          formatMessage: (payload: unknown, iss: string) => string;
+        };
+        const chain = authPayload.chains?.[0] ?? 'eip155:1';
+        const iss = `did:pkh:${chain}:${account.address}`;
+        return formatMessage(authPayload, iss);
+      }
+      // Fallback before account is selected — use authPayload.domain, not metadata.url
+      const domain = authPayload?.domain ?? 'Unknown';
+      const statement = authPayload?.statement ?? '';
       return `${domain} wants you to sign in with your Ethereum account.\n\n${statement}`;
     } catch {
-      return 'Sign-In with Ethereum request';
+      return intl.formatMessage({
+        id: ETranslations.dapp_connect_connection_request,
+      });
     }
-  }, [authRequest]);
+  }, [authRequest, activeAccountInfo, intl]);
 
   const onApproval = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {

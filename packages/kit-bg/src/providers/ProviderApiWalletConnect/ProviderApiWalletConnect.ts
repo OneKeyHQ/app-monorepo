@@ -17,6 +17,7 @@ import {
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 import type {
+  IConnectionAccountInfo,
   IWalletConnectAuthRequestResult,
   IWalletConnectSessionProposalResult,
 } from '@onekeyhq/shared/types/dappConnection';
@@ -344,7 +345,7 @@ class ProviderApiWalletConnect {
 
   onAuthRequest = async (args: WalletKitTypes.SessionAuthenticate) => {
     console.log('onAuthRequest: ', args);
-    const { serviceDApp } = this.backgroundApi;
+    const { serviceDApp, serviceWalletConnect } = this.backgroundApi;
     const origin = uriUtils.safeGetWalletConnectAuthOrigin(args);
     const metadata = args.params.requester.metadata;
     try {
@@ -373,20 +374,39 @@ class ProviderApiWalletConnect {
       })) as IWalletConnectAuthRequestResult;
 
       // Derive the chain from the auth payload or fall back to eip155:1
-      const chain =
-        args.params.authPayload.chains?.[0] ?? 'eip155:1';
-      const cacao = {
-        header: { t: 'eip4361' as const },
-        payload: {
-          ...args.params.authPayload,
-          iss: `did:pkh:${chain}:${result.address}`,
-        },
-        signature: { t: 'eip191' as const, s: result.signature },
-      };
-      await this.web3Wallet?.approveSessionAuthenticate({
+      const chain = args.params.authPayload.chains?.[0] ?? 'eip155:1';
+      const iss = `did:pkh:${chain}:${result.address}`;
+      const { buildAuthObject } = await import('@walletconnect/utils');
+      const cacao = buildAuthObject(
+        args.params.authPayload,
+        { t: 'eip191', s: result.signature },
+        iss,
+      );
+      const authResult = await this.web3Wallet?.approveSessionAuthenticate({
         id: args.id,
         auths: [cacao],
       });
+
+      // session_authenticate may optionally establish a session
+      if (authResult?.session) {
+        const networkImpl = chain.split(':')[0];
+        const accountInfo = {
+          networkImpl,
+          networkId: result.networkId,
+          accountId: result.accountId,
+          address: result.address,
+        } as IConnectionAccountInfo;
+        await serviceDApp.saveConnectionSession({
+          origin,
+          accountsInfo: [accountInfo],
+          storageType: 'walletConnect',
+          walletConnectTopic: authResult.session.topic,
+        });
+        void serviceWalletConnect.batchEmitNetworkChangedEvent({
+          topic: authResult.session.topic,
+          accountsInfo: [accountInfo],
+        });
+      }
       defaultLogger.discovery.dapp.dappUse({
         dappName: metadata.name,
         dappDomain: metadata.url,
