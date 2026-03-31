@@ -113,7 +113,7 @@ function TxHistorySettings() {
               id: ETranslations.global_filter,
             })}
             variant="tertiary"
-            icon="Filter1Outline"
+            icon="SliderHorOutline"
           />
         }
         renderContent={
