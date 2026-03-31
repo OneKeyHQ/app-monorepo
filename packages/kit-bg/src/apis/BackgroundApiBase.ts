@@ -464,11 +464,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       const bridgeRelay = this.getNativeBackgroundThreadBridgeRelay();
       const bridgeState =
         this.getNativeBackgroundThreadActiveBridgeState(targetOrigin);
-      if (
-        !bridgeRelay ||
-        !bridgeState ||
-        !bridgeState.globalOnMessageEnabled
-      ) {
+      if (!bridgeRelay || !bridgeState || !bridgeState.globalOnMessageEnabled) {
         return false;
       }
 
@@ -476,13 +472,13 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         data,
         origin: bridgeState.origin || targetOrigin,
       });
-      bridgeRelay.sendBridgeMessageToUi({
+      const delivered = bridgeRelay.sendBridgeMessageToUi({
         channel: bridgeState.channel,
         scope,
         data,
         targetOrigin,
       });
-      return true;
+      return delivered;
     }
 
     if (platformEnv.isExtension) {
@@ -505,21 +501,18 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
     for (const bridge of bridges) {
       const bridgeOrigin = bridge.remoteInfo?.origin;
-      if (!bridgeOrigin) {
-        continue;
+      const shouldSend =
+        Boolean(bridgeOrigin) &&
+        (!targetOrigin || targetOrigin === bridgeOrigin) &&
+        bridge.globalOnMessageEnabled;
+      if (shouldSend && bridgeOrigin) {
+        const payload = await this.resolveBridgeMessageData({
+          data,
+          origin: bridgeOrigin,
+        });
+        bridge.requestSync({ scope, data: payload });
+        delivered = true;
       }
-      if (targetOrigin && targetOrigin !== bridgeOrigin) {
-        continue;
-      }
-      if (!bridge.globalOnMessageEnabled) {
-        continue;
-      }
-      const payload = await this.resolveBridgeMessageData({
-        data,
-        origin: bridgeOrigin,
-      });
-      bridge.requestSync({ scope, data: payload });
-      delivered = true;
     }
 
     return delivered;

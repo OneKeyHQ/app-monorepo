@@ -275,7 +275,7 @@ export class BackgroundApiProxyBase
                   eventName: type,
                   payload,
                 },
-                async () => true,
+                async () => this.emitEvent(type as any, payload),
               )
               .catch((error: unknown) => {
                 console.error('appEventBus uiToBg relay failed', error);
