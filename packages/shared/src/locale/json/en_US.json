@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "View address in explorer",
   "settings.view_transaction_in_explorer": "View transaction in explorer",
   "settings.whats_new": "What’s new",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "When enabled, you can only send funds to accounts within the wallet or to any address in the address book.",
   "settings_protection.allowlist_title": "Transfer allowlist",
   "setup_choose_option_create_new_wallet": "Create New Wallet: If this is your first wallet",
