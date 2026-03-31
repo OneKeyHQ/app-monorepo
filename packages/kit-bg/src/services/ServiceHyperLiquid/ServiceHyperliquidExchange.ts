@@ -289,12 +289,20 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async enableDexAbstraction(): Promise<{ status: 'ok' } | undefined> {
+  async setAbstraction(
+    mode: 'i' | 'u' | 'p',
+  ): Promise<{ status: 'ok' } | undefined> {
     await this.checkAccountCanTrade();
     const response = await convertHyperLiquidResponse(() =>
-      this.exchangeClient.agentEnableDexAbstraction(),
+      this.exchangeClient.agentSetAbstraction({ abstraction: mode }),
     );
     return response;
+  }
+
+  /** @deprecated Use setAbstraction() instead */
+  @backgroundMethod()
+  async enableDexAbstraction(): Promise<{ status: 'ok' } | undefined> {
+    return this.setAbstraction('u');
   }
 
   @backgroundMethod()
