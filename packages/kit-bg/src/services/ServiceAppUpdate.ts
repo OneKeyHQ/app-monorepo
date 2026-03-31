@@ -28,6 +28,7 @@ import {
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1388,14 +1389,25 @@ class ServiceAppUpdate extends ServiceBase {
   // ---- Dev Bundle Switcher ----
 
   private getDevBundleSwitcherClient = memoizee(
-    async () =>
-      appApiClient.getBasicClient({
+    async () => {
+      const client = await appApiClient.getBasicClient({
         name: EServiceEndpointEnum.Utility,
         endpoint: buildServiceEndpoint({
           serviceName: EServiceEndpointEnum.Utility,
           env: 'test',
         }),
-      }),
+      });
+      // The test endpoint is not in the prod domain whitelist, so the global
+      // interceptor skips x-onekey-* headers. Inject them explicitly here.
+      client.interceptors.request.use(async (config) => {
+        const headers = await getRequestHeaders();
+        Object.entries(headers).forEach(([key, val]) => {
+          config.headers[key] = val;
+        });
+        return config;
+      });
+      return client;
+    },
     { promise: true },
   );
 

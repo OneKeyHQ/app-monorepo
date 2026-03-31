@@ -10,6 +10,10 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { SWAP_FAQ_HELP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -101,6 +105,7 @@ function SwapFAQ() {
                       </SizableText>
                       <Stack
                         animation="quick"
+                        animateOnly={ANIMATE_ONLY_TRANSFORM}
                         rotate={open ? '180deg' : '0deg'}
                       >
                         <Icon
@@ -120,6 +125,7 @@ function SwapFAQ() {
                     pb="$5"
                     pr="$8"
                     animation="100ms"
+                    animateOnly={ANIMATE_ONLY_OPACITY}
                     enterStyle={{ opacity: 0 }}
                     exitStyle={{ opacity: 0 }}
                   >

@@ -14,6 +14,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
@@ -415,6 +416,7 @@ const SwapQuoteResult = ({
               gap="$4"
               p="$0"
               animation="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY}
               exitStyle={{ opacity: 0 }}
             >
               <Divider mt="$4" />

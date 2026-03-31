@@ -30,6 +30,7 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import {
   useKeylessWallet,
   useKeylessWalletFeatureIsEnabled,
@@ -539,7 +540,7 @@ function GetStarted() {
                             <YStack
                               key="loading"
                               animation="quick"
-                              animateOnly={['transform', 'opacity']}
+                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                               enterStyle={{ scale: 0.7, opacity: 0 }}
                               exitStyle={{ scale: 0.7, opacity: 0 }}
                             >
@@ -549,7 +550,7 @@ function GetStarted() {
                             <YStack
                               key="icon"
                               animation="quick"
-                              animateOnly={['transform', 'opacity']}
+                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                               enterStyle={{ scale: 0.7, opacity: 0 }}
                               exitStyle={{ scale: 0.7, opacity: 0 }}
                             >
@@ -586,7 +587,7 @@ function GetStarted() {
                             <YStack
                               key="loading"
                               animation="quick"
-                              animateOnly={['transform', 'opacity']}
+                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                               enterStyle={{ scale: 0.7, opacity: 0 }}
                               exitStyle={{ scale: 0.7, opacity: 0 }}
                             >
@@ -596,7 +597,7 @@ function GetStarted() {
                             <YStack
                               key="icon"
                               animation="quick"
-                              animateOnly={['transform', 'opacity']}
+                              animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                               enterStyle={{ scale: 0.7, opacity: 0 }}
                               exitStyle={{ scale: 0.7, opacity: 0 }}
                             >
