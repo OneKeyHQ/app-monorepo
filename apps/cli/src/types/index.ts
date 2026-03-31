@@ -3,6 +3,9 @@ export type IOutputMode = 'agent' | 'human' | 'quiet';
 export interface IOutputMetadata {
   duration_ms?: number;
   chain?: string;
+  address?: string;
+  count?: number;
+  hasMore?: boolean;
   timestamp: string;
 }
 
