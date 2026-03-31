@@ -1,6 +1,6 @@
 ---
 name: 1k-auditing-pre-release-security
-description: Audits security and supply-chain risk between two git refs with Codex MCP cross-validation. 预发布安全审计（含 Codex 交叉验证）。Use when performing pre-release security audits, supply-chain reviews, or comparing two git refs for security regressions. Triggers on “预发布审计”, “security audit”, “release audit”, “安全预审”.
+description: Audits security and supply-chain risk between two git refs with Codex cross-validation. 预发布安全审计（含 Codex 交叉验证）。Use when performing pre-release security audits, supply-chain reviews, or comparing two git refs for security regressions. Triggers on “预发布审计”, “security audit”, “release audit”, “安全预审”.
 ---
 
 # Pre-Release Security Audit (Between Any Two Git Refs)
@@ -10,7 +10,7 @@ This skill compares **any two git refs** (tag/branch/commit SHA) and audits:
 - Dependency changes (direct + transitive) and lockfile determinism
 - Newly introduced package behaviors inside `node_modules`
 - CI/CD workflow risks in `.github/workflows` and build configs (Expo/EAS)
-- **Codex MCP cross-validation** — independent AI review for cross-checking
+- **Codex cross-validation** — independent AI review via official Codex plugin
 
 The output is a **Chinese** Markdown report, with a unique title and filename containing the refs to avoid overwrites.
 
@@ -52,26 +52,22 @@ Ask for the missing ref. Do **not** assume defaults unless the user explicitly s
 
 ---
 
-## 3) Pre-flight: Codex MCP readiness check
+## 3) Pre-flight: Codex readiness check
 
-Before starting any audit work, verify that Codex MCP is operational. This is a hard prerequisite — the audit relies on Codex for cross-validation, so a broken Codex means a degraded audit.
+Before starting any audit work, verify that Codex is operational. This is a hard prerequisite — the audit relies on Codex for cross-validation, so a broken Codex means a degraded audit.
 
 ### Check procedure
 
-1. **Tool availability** — Confirm `mcp__codex__codex` exists in available tools
-2. **Connectivity probe** — Send a lightweight test query to Codex:
-   ```
-   mcp__codex__codex: “Health check: respond with 'OK' if you can process requests.”
-   ```
-3. **Retrieve response** — Call `mcp__codex__codex-reply` to confirm a valid response is returned
+Confirm Codex CLI is installed and authenticated. You can verify this by checking whether the `codex:codex-rescue` subagent type is available for dispatch.
+
+If uncertain, invoke `/codex:setup` to check readiness.
 
 ### Outcome handling
 
 | Result | Action |
 |--------|--------|
-| **Tool not found** | Warn user: “⚠️ Codex MCP 未在可用工具中找到，请检查 MCP 服务器配置。审计将以降级模式继续（无交叉验证）。” Set `CODEX_AVAILABLE = false`. |
-| **Probe fails / timeout** | Warn user: “⚠️ Codex MCP 连接失败（超时或错误响应），请检查 MCP 服务是否正常运行。审计将以降级模式继续。” Set `CODEX_AVAILABLE = false`. |
-| **Probe returns valid response** | Log: “✅ Codex MCP 就绪。” Set `CODEX_AVAILABLE = true`. |
+| **Codex CLI ready** | Log: “✅ Codex 就绪。” Set `CODEX_AVAILABLE = true`. |
+| **Codex CLI not installed or not authenticated** | Warn user: “⚠️ Codex CLI 未就绪，请运行 `/codex:setup` 检查配置。审计将以降级模式继续（无交叉验证）。” Set `CODEX_AVAILABLE = false`. |
 
 Record the Codex status in the report header. Proceed with the audit regardless — Codex enhances but does not gate the audit.
 
@@ -148,18 +144,20 @@ Inspect `.github/workflows/**` and build configs:
 - [ ] Note install safety (`--ignore-scripts`, etc.)
 - [ ] Expo/EAS: flag hooks that download remote code, run arbitrary scripts, or leak env into logs
 
-### Step I — Codex MCP cross-validation audit
+### Step I — Codex cross-validation audit
 
 **Skip this step if `CODEX_AVAILABLE = false`.**
 
 The purpose of this step is to get an independent second opinion from Codex. Codex reviews the same diff without seeing your primary findings, so its conclusions serve as genuine cross-validation — agreement strengthens confidence, disagreement flags areas needing human attention.
 
-#### I.1 — Send audit request to Codex
+#### I.1 — Dispatch audit to Codex
 
-Prepare the diff summary and send to `mcp__codex__codex`:
+Use the `Agent` tool to dispatch an independent security review to Codex:
 
 ```
-Security audit for OneKey crypto wallet monorepo.
+Agent(
+  subagent_type = "codex:codex-rescue",
+  prompt = "Security audit for OneKey crypto wallet monorepo.
 Comparing ${BASE_REF} (${BASE_SHA}) → ${TARGET_REF} (${TARGET_SHA}).
 
 Changed files:
@@ -182,22 +180,21 @@ For each finding report:
 - Severity: Critical / High / Medium / Low
 - Category: secret-leak / supply-chain / auth-bypass / network / storage / ci-cd / dynamic-exec / other
 - Description of the risk
-- Suggested remediation
+- Suggested remediation"
+)
 ```
 
-If the diff is too large for a single message (>50KB), chunk by risk category:
-1. First message: dependency changes (`package.json` + `yarn.lock` diffs)
-2. Second message: security-critical source diffs (vault, signing, crypto, auth)
-3. Third message: CI/CD and build config changes
-4. Fourth message: remaining source diffs
+If the diff is too large (>50KB), prioritize including in the prompt:
+1. Dependency changes (`package.json` + `yarn.lock` diffs)
+2. Security-critical source diffs (vault, signing, crypto, auth)
+3. CI/CD and build config changes
+4. Note which areas were omitted from the prompt.
 
-#### I.2 — Retrieve Codex response
+#### I.2 — Parse Codex findings
 
-Call `mcp__codex__codex-reply` to collect the response. If the response is empty or an error, log it and continue without Codex findings.
+The Agent result returns Codex's output as a text string. If the result is empty or the Agent fails, log it and continue without Codex findings.
 
-#### I.3 — Parse Codex findings
-
-Extract structured findings from the Codex response. For each finding, record:
+Extract structured findings from the response. For each finding, record:
 - File path + line
 - Severity
 - Category
@@ -321,6 +318,6 @@ Write the report to:
 
 ## 审计方法说明
 - Primary 审计: 本地 AI 逐步执行 Steps A–H
-- Codex 交叉验证: 独立 AI 审查同一 diff（Step I）
+- Codex 交叉验证: 通过官方 Codex 插件独立审查同一 diff（Step I）
 - 合并策略: 交叉验证提升置信度，冲突标记人工复核（Step J）
 ```
