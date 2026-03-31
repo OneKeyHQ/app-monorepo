@@ -44,6 +44,15 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
+  public earnModeSwitch(params: {
+    mode: 'earn' | 'borrow';
+    switchType: 'default' | 'tap' | 'swipe';
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
   public selectAsset({ tokenSymbol }: { tokenSymbol: string }) {
     return {
       tokenSymbol,
