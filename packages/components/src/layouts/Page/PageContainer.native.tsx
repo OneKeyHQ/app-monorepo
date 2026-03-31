@@ -28,6 +28,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
 
   const {
     contentContainerStyle: rawContentContainerStyle,
+    keyboardShouldPersistTaps,
     ...restScrollProps
   } = scrollProps || {};
 
@@ -73,6 +74,7 @@ export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
             style={scrollViewStyle}
             contentContainerStyle={contentContainerStyle}
             bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+            keyboardShouldPersistTaps={keyboardShouldPersistTaps}
           >
             <ScrollViewRefProvider value={contextValue}>
               {children}

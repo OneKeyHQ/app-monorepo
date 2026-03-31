@@ -92,6 +92,7 @@
   "address_book.no_results_title_migration": "您还没有添加任何地址",
   "address_book.search_placeholder": "搜索",
   "address_book.title": "地址簿",
+  "address_book__action": "联系人",
   "address_book__desc": "添加常用地址，安心快捷转账。",
   "address_book_add_address.add_to_evm_chains": "同时添加到其他的 EVM 兼容链",
   "address_book_add_address.address": "地址",

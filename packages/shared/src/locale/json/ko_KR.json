@@ -92,6 +92,7 @@
   "address_book.no_results_title_migration": "추가된 주소가 없습니다",
   "address_book.search_placeholder": "검색",
   "address_book.title": "주소록",
+  "address_book__action": "Contacts",
   "address_book__desc": "자주 사용하는 주소를 추가하여 더 안전하고 빠른 전송을 하세요.",
   "address_book_add_address.add_to_evm_chains": "추가로 EVM 호환 체인들도 추가하세요",
   "address_book_add_address.address": "주소",

@@ -847,7 +847,7 @@ export default function RecipientQuickSelect({
       {
         label: formatLabel(
           intl.formatMessage({
-            id: ETranslations.global_bulk_copy_addresses_tabs_my_accounts,
+            id: ETranslations.global_accounts,
           }),
           'account',
         ),

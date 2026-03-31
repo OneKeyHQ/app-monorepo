@@ -92,6 +92,7 @@
   "address_book.no_results_title_migration": "No addresses added",
   "address_book.search_placeholder": "Search",
   "address_book.title": "Address book",
+  "address_book__action": "Contacts",
   "address_book__desc": "Add frequently used addresses for safer and faster transfers.",
   "address_book_add_address.add_to_evm_chains": "Also add to additional EVM-compatible Chains",
   "address_book_add_address.address": "Address",

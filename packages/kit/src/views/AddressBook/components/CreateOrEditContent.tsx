@@ -438,10 +438,6 @@ export function CreateOrEditContent({
               disabled: !form.formState.isValid || pending,
               onPress: form.submit,
               testID: 'address-form-save',
-              icon:
-                isSubmitLoading || form.formState.isSubmitting
-                  ? undefined
-                  : 'LockOutline',
             }}
           />
         </Stack>

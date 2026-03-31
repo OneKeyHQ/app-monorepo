@@ -206,19 +206,36 @@ function QuickSelectListItemBase({
               {primaryText}
             </SizableText>
             {item.isAddressBook ? (
-              <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                flexShrink={0}
+                maxWidth="$32"
+                numberOfLines={1}
+              >
                 {intl.formatMessage({
                   id: ETranslations.address_book_title,
                 })}
               </SizableText>
             ) : null}
             {showNetworkBadge ? (
-              <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
+              <SizableText
+                size="$bodySm"
+                color="$textDisabled"
+                flexShrink={0}
+                maxWidth="$24"
+                numberOfLines={1}
+              >
                 {item.lastTransferNetworkName}
               </SizableText>
             ) : null}
             {item.lastTransferTime && formatRelativeTime ? (
-              <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
+              <SizableText
+                size="$bodySm"
+                color="$textDisabled"
+                flexShrink={2}
+                numberOfLines={1}
+              >
                 {formatRelativeTime(item.lastTransferTime)}
               </SizableText>
             ) : null}
@@ -327,7 +344,36 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  const { formatDistanceToNow } = useFormatDate();
+  const { formatDistanceToNowStrict } = useFormatDate();
+
+  // Compact time format: "2h ago" / "3d ago" for Latin, "2小时前" / "3天前" for CJK
+  const formatCompactTime = useCallback(
+    (date: Date | number) => {
+      const now = Date.now();
+      const ts = typeof date === 'number' ? date : date.getTime();
+      const diffMs = now - ts;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+      const diffDay = Math.floor(diffHour / 24);
+      const diffMonth = Math.floor(diffDay / 30);
+      const diffYear = Math.floor(diffDay / 365);
+
+      // For CJK locales, use the localized strict format
+      if (/^(zh|ja|ko)/.test(intl.locale)) {
+        return formatDistanceToNowStrict(date);
+      }
+
+      // Short English-style format for all other locales
+      if (diffYear > 0) return `${diffYear}y ago`;
+      if (diffMonth > 0) return `${diffMonth}mo ago`;
+      if (diffDay > 0) return `${diffDay}d ago`;
+      if (diffHour > 0) return `${diffHour}h ago`;
+      if (diffMin > 0) return `${diffMin}m ago`;
+      return 'now';
+    },
+    [intl.locale, formatDistanceToNowStrict],
+  );
 
   const { result: recentRecipients = [], isLoading: isLoadingRecent } =
     usePromiseResult(
@@ -860,7 +906,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
           }}
           intl={intl}
           networkId={networkId}
-          formatRelativeTime={formatDistanceToNow}
+          formatRelativeTime={formatCompactTime}
           onPress={() => {
             onSelect?.({
               address: recipient.input ?? '',
@@ -896,7 +942,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     );
   }, [
     filteredRecentRecipients,
-    formatDistanceToNow,
+    formatCompactTime,
     intl,
     isLoadingRecent,
     isSearchActive,

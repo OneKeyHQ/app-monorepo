@@ -92,6 +92,7 @@
   "address_book.no_results_title_migration": "アドレスはまだ追加されていません",
   "address_book.search_placeholder": "検索",
   "address_book.title": "アドレス帳",
+  "address_book__action": "Contacts",
   "address_book__desc": "よく使うアドレスを追加して、安全で迅速な送金を行いましょう。",
   "address_book_add_address.add_to_evm_chains": "また、追加のEVM互換チェーンにも追加してください",
   "address_book_add_address.address": "住所",

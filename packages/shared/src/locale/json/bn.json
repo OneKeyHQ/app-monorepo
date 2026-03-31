@@ -92,6 +92,7 @@
   "address_book.no_results_title_migration": "কোনো ঠিকানা যোগ করা হয়নি",
   "address_book.search_placeholder": "অনুসন্ধান",
   "address_book.title": "ঠিকানা বই",
+  "address_book__action": "Contacts",
   "address_book__desc": "নিরাপদ এবং দ্রুত স্থানান্তরের জন্য প্রায়ই ব্যবহৃত ঠিকানা যোগ করুন।",
   "address_book_add_address.add_to_evm_chains": "অতিরিক্ত EVM-সামঞ্জস্যপূর্ণ চেইনগুলিতে যোগ করুন",
   "address_book_add_address.address": "ঠিকানা",

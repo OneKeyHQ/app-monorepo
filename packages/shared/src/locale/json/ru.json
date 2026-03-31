@@ -92,6 +92,7 @@
   "address_book.no_results_title_migration": "Адреса не добавлены",
   "address_book.search_placeholder": "Поиск",
   "address_book.title": "Адресная книга",
+  "address_book__action": "Contacts",
   "address_book__desc": "Добавьте часто используемые адреса для более безопасных и быстрых переводов.",
   "address_book_add_address.add_to_evm_chains": "Также добавьте в дополнительные совместимые с EVM цепочки",
   "address_book_add_address.address": "Адрес",

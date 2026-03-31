@@ -647,7 +647,13 @@ function SendDataInputContainer() {
   );
 
   return (
-    <Page scrollEnabled safeAreaEnabled>
+    <Page
+      scrollEnabled
+      safeAreaEnabled
+      scrollProps={{
+        keyboardShouldPersistTaps: 'handled',
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.select_address__title })}
         headerRight={renderAddressSecurityHeaderRightButton}

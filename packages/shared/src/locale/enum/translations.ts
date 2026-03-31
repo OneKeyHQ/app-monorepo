@@ -97,6 +97,7 @@ export enum ETranslations {
   address_book_no_results_title_migration = 'address_book.no_results_title_migration',
   address_book_search_placeholder = 'address_book.search_placeholder',
   address_book_title = 'address_book.title',
+  address_book__action = 'address_book__action',
   address_book__desc = 'address_book__desc',
   address_book_add_address_add_to_evm_chains = 'address_book_add_address.add_to_evm_chains',
   address_book_add_address_address = 'address_book_add_address.address',

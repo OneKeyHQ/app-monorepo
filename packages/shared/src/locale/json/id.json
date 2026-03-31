@@ -92,6 +92,7 @@
   "address_book.no_results_title_migration": "Belum ada alamat yang ditambahkan",
   "address_book.search_placeholder": "Cari",
   "address_book.title": "Buku Alamat",
+  "address_book__action": "Contacts",
   "address_book__desc": "Tambahkan alamat yang sering digunakan untuk transfer yang lebih aman dan lebih cepat.",
   "address_book_add_address.add_to_evm_chains": "Juga tambahkan ke Rantai yang kompatibel dengan EVM tambahan",
   "address_book_add_address.address": "Alamat",
