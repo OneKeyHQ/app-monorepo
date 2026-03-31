@@ -412,6 +412,7 @@ function BulkSendProcessContent({
         };
 
         feeCacheRef.current.set(cacheKey, nextFeeContext);
+        feeOverflowCheckedKeysRef.current.delete(cacheKey);
         logFeeProcess('info', 'fee-estimated', {
           txIndex,
           txAccountId,
@@ -437,6 +438,7 @@ function BulkSendProcessContent({
             selectedFeeInfo: reviewFeeInfo,
           };
           feeCacheRef.current.set(cacheKey, fallbackFeeContext);
+          feeOverflowCheckedKeysRef.current.delete(cacheKey);
           logFeeProcess('info', 'fee-review-fallback', {
             txIndex,
             txAccountId,
