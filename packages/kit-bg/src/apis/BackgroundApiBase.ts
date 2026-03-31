@@ -65,6 +65,19 @@ updateInterceptorRequestHelper();
 
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
+  private static readonly PENDING_BRIDGE_MESSAGE_TTL_MS = 10_000;
+
+  private static readonly MAX_PENDING_BRIDGE_MESSAGE_COUNT = 100;
+
+  private pendingInjectedBridgeMessages: Array<{
+    scope: IInjectedProviderNamesStrings;
+    data: unknown;
+    targetOrigin: string;
+    createdAt: number;
+  }> = [];
+
+  private isFlushingPendingInjectedBridgeMessages = false;
+
   private getNativeBackgroundThreadBridgeRelay() {
     const runtimeGlobal = globalThis as typeof globalThis & {
       __onekeyNativeBackgroundThreadBridgeRelay?: {
@@ -87,6 +100,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
             }
           | undefined;
       };
+      __onekeyNativeBackgroundThreadFlushPendingBridgeMessages?: () => void;
     };
 
     return runtimeGlobal.__onekeyNativeBackgroundThreadBridgeRelay;
@@ -126,6 +140,18 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.allAtoms = jotaiInit();
     if (process.env.NODE_ENV !== 'production') {
       appGlobals.$$backgroundApi = this as any;
+    }
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      (
+        globalThis as typeof globalThis & {
+          __onekeyNativeBackgroundThreadFlushPendingBridgeMessages?: () => void;
+        }
+      ).__onekeyNativeBackgroundThreadFlushPendingBridgeMessages = () => {
+        void this.flushPendingInjectedBridgeMessages();
+      };
     }
     // this.startDemoNowTimeUpdateInterval();
     appEventBus.registerBroadcastMethods(
@@ -215,10 +241,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       this.bridgeExtBg = bridge as unknown as JsBridgeExtBackground | null;
     }
     this.bridge = bridge;
+    if (bridge) {
+      void this.flushPendingInjectedBridgeMessages();
+    }
   }
 
   connectWebEmbedBridge(bridge: JsBridgeBase | null) {
     this.webEmbedBridge = bridge;
+    if (bridge) {
+      void this.flushPendingInjectedBridgeMessages();
+    }
   }
 
   protected rpcResult(
@@ -361,6 +393,70 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     data: unknown,
     targetOrigin: string,
   ) => {
+    const delivered = await this.trySendMessagesToInjectedBridge({
+      scope,
+      data,
+      targetOrigin,
+    });
+
+    if (!delivered) {
+      this.enqueuePendingInjectedBridgeMessage({
+        scope,
+        data,
+        targetOrigin,
+      });
+    }
+  };
+
+  private prunePendingInjectedBridgeMessages() {
+    const now = Date.now();
+    this.pendingInjectedBridgeMessages =
+      this.pendingInjectedBridgeMessages.filter(
+        (message) =>
+          now - message.createdAt <=
+          BackgroundApiBase.PENDING_BRIDGE_MESSAGE_TTL_MS,
+      );
+  }
+
+  private enqueuePendingInjectedBridgeMessage(params: {
+    scope: IInjectedProviderNamesStrings;
+    data: unknown;
+    targetOrigin: string;
+  }) {
+    this.prunePendingInjectedBridgeMessages();
+    this.pendingInjectedBridgeMessages.push({
+      ...params,
+      createdAt: Date.now(),
+    });
+
+    if (
+      this.pendingInjectedBridgeMessages.length >
+      BackgroundApiBase.MAX_PENDING_BRIDGE_MESSAGE_COUNT
+    ) {
+      this.pendingInjectedBridgeMessages.shift();
+    }
+  }
+
+  private async resolveBridgeMessageData(params: {
+    data: unknown;
+    origin: string;
+  }) {
+    let { data } = params;
+    if (isFunction(data)) {
+      data = await data({ origin: params.origin });
+    }
+    ensureSerializable(data);
+    return data;
+  }
+
+  private async trySendMessagesToInjectedBridge(params: {
+    scope: IInjectedProviderNamesStrings;
+    data: unknown;
+    targetOrigin: string;
+  }) {
+    const { scope, targetOrigin } = params;
+    let { data } = params;
+
     if (
       platformEnv.isNativeBackgroundThread &&
       platformEnv.enableNativeBackgroundThread
@@ -368,83 +464,90 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       const bridgeRelay = this.getNativeBackgroundThreadBridgeRelay();
       const bridgeState =
         this.getNativeBackgroundThreadActiveBridgeState(targetOrigin);
-      if (!bridgeRelay || !bridgeState) {
-        console.warn(
-          `sendMessagesToInjectedBridge ERROR: native bridge relay is not ready. scope=${scope}`,
-        );
-        return;
+      if (
+        !bridgeRelay ||
+        !bridgeState ||
+        !bridgeState.globalOnMessageEnabled
+      ) {
+        return false;
       }
-      if (isFunction(data)) {
-        // eslint-disable-next-line no-param-reassign
-        data = await data({ origin: bridgeState.origin || targetOrigin });
-      }
-      ensureSerializable(data);
 
-      if (bridgeState.globalOnMessageEnabled) {
-        bridgeRelay.sendBridgeMessageToUi({
-          channel: bridgeState.channel,
-          scope,
-          data,
-          targetOrigin,
-        });
-      }
-      return;
+      data = await this.resolveBridgeMessageData({
+        data,
+        origin: bridgeState.origin || targetOrigin,
+      });
+      bridgeRelay.sendBridgeMessageToUi({
+        channel: bridgeState.channel,
+        scope,
+        data,
+        targetOrigin,
+      });
+      return true;
     }
 
-    if (!this.bridge && !this.webEmbedBridge) {
-      if (!platformEnv.isWeb) {
-        console.warn(
-          `sendMessagesToInjectedBridge ERROR: bridge should be connected first. scope=${scope}`,
-        );
-      }
-      return;
-    }
     if (platformEnv.isExtension) {
-      // send to all dapp sites content-script
-
-      // * bridgeExtBg.requestToAllCS supports function data: await data({ origin })
       const currentSettings = await settingsPersistAtom.get();
+      let requestTargetOrigin = targetOrigin;
       if (
         currentSettings.alignPrimaryAccountMode ===
         EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
       ) {
-        // eslint-disable-next-line no-param-reassign
-        targetOrigin = consts.ONEKEY_REQUEST_TO_ALL_CS;
+        requestTargetOrigin = consts.ONEKEY_REQUEST_TO_ALL_CS;
       }
-      this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
-    } else {
-      if (this.bridge && this.bridge.remoteInfo.origin) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.bridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
-
-        if (scope === 'ethereum') {
-          // console.log('sendMessagesToInjectedBridge>>>>>>', scope, data, {
-          //   targetOrigin,
-          //   globalOnMessageEnabled: this.bridge.globalOnMessageEnabled,
-          // });
-        }
-
-        // this.bridge.requestSync({ scope, data });
-        if (this.bridge.globalOnMessageEnabled) {
-          this.bridge.requestSync({ scope, data });
-        }
-      }
-      if (this.webEmbedBridge && this.webEmbedBridge.remoteInfo.origin) {
-        if (isFunction(data)) {
-          // eslint-disable-next-line no-param-reassign
-          data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
-        }
-        ensureSerializable(data);
-
-        // this.bridge.requestSync({ scope, data });
-        if (this.webEmbedBridge.globalOnMessageEnabled) {
-          this.webEmbedBridge.requestSync({ scope, data });
-        }
-      }
+      this.bridgeExtBg?.requestToAllCS(scope, data, requestTargetOrigin);
+      return true;
     }
-  };
+
+    let delivered = false;
+    const bridges = [this.bridge, this.webEmbedBridge].filter(
+      (bridge): bridge is JsBridgeBase => Boolean(bridge),
+    );
+
+    for (const bridge of bridges) {
+      const bridgeOrigin = bridge.remoteInfo?.origin;
+      if (!bridgeOrigin) {
+        continue;
+      }
+      if (targetOrigin && targetOrigin !== bridgeOrigin) {
+        continue;
+      }
+      if (!bridge.globalOnMessageEnabled) {
+        continue;
+      }
+      const payload = await this.resolveBridgeMessageData({
+        data,
+        origin: bridgeOrigin,
+      });
+      bridge.requestSync({ scope, data: payload });
+      delivered = true;
+    }
+
+    return delivered;
+  }
+
+  private async flushPendingInjectedBridgeMessages() {
+    if (this.isFlushingPendingInjectedBridgeMessages) {
+      return;
+    }
+
+    this.isFlushingPendingInjectedBridgeMessages = true;
+    try {
+      this.prunePendingInjectedBridgeMessages();
+      const pendingMessages = this.pendingInjectedBridgeMessages.splice(0);
+      const undeliveredMessages: typeof pendingMessages = [];
+
+      for (const message of pendingMessages) {
+        const delivered = await this.trySendMessagesToInjectedBridge(message);
+        if (!delivered) {
+          undeliveredMessages.push(message);
+        }
+      }
+
+      this.pendingInjectedBridgeMessages.unshift(...undeliveredMessages);
+      this.prunePendingInjectedBridgeMessages();
+    } finally {
+      this.isFlushingPendingInjectedBridgeMessages = false;
+    }
+  }
 }
 export default BackgroundApiBase;

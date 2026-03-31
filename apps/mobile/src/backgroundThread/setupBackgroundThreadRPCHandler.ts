@@ -34,6 +34,7 @@ import {
 
 type IBackgroundRuntimeGlobal = typeof globalThis & {
   __setupBackgroundRPCHandler?: () => void;
+  __onekeyNativeBackgroundThreadFlushPendingBridgeMessages?: () => void;
   __onekeyNativeBackgroundThreadJotaiBridge?: {
     broadcastStateUpdateFromBgToUi: (
       payload: IBackgroundThreadJotaiStateBroadcastPayload,
@@ -192,6 +193,9 @@ function handleBridgeConnectRequest(
     origin: request.origin,
     globalOnMessageEnabled: request.globalOnMessageEnabled,
   };
+  (
+    globalThis as IBackgroundRuntimeGlobal
+  ).__onekeyNativeBackgroundThreadFlushPendingBridgeMessages?.();
   return true;
 }
 
