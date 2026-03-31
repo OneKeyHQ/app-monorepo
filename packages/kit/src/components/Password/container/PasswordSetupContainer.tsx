@@ -53,8 +53,7 @@ const BiologyAuthContainer = ({
   }, [isBiologyAuthSwitchOn]);
 
   return (biologyAuthIsSupport || webAuthIsSupport) &&
-    !platformEnv.isExtensionUiPopup &&
-    !platformEnv.isExtensionUiSidePanel ? (
+    !platformEnv.isExtensionUiPopup ? (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>
       <Stack>
