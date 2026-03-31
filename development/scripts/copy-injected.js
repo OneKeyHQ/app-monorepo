@@ -81,6 +81,13 @@ const srcDir = path.join(
 copyRecursiveSync(srcDir, jsSdkDestDir);
 console.log(`Copied ${srcDir} to ${jsSdkDestDir}`);
 
+// Generate translate inject code as .ts module
+const generateTranslateInject = path.join(
+  __dirname,
+  'generateTranslateInject.js',
+);
+execSync(`node "${generateTranslateInject}"`, { stdio: 'inherit' });
+
 // Build and copy web-embed
 const webEmbedScript = path.join(__dirname, 'web-embed.js');
 execSync(`node "${webEmbedScript}"`, { stdio: 'inherit' });

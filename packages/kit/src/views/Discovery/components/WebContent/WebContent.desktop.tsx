@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import type { PageFaviconUpdatedEvent } from '@onekeyhq/kit/src/components/WebView/DesktopWebView';
+import { notifyTabNavigation } from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -62,6 +63,7 @@ function WebContent({ id, url }: IWebContentProps) {
   const onDidStartNavigation = useCallback(
     ({ url: willNavigationUrl, isMainFrame }: DidStartNavigationEvent) => {
       if (isMainFrame) {
+        notifyTabNavigation(id);
         onNavigation({
           id,
           url: willNavigationUrl,

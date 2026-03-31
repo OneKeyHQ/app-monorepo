@@ -9,10 +9,10 @@ import {
   SegmentControl,
   Select,
   SizableText,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -273,13 +273,40 @@ export function TranslatePopoverTrigger({
   );
 }
 
-export function usePageTranslation(_tabId: string) {
-  const handleTranslate = useCallback(() => {
-    Toast.message({ title: 'Not yet implemented' });
+export function usePageTranslation(tabId: string) {
+  const intl = useIntl();
+  const [settings] = useTranslateSettingsPersistAtom();
+  const [isTranslated, setIsTranslated] = useState(false);
+
+  const onNavigate = useCallback(() => {
+    setIsTranslated(false);
   }, []);
 
+  const { toggleTranslate, translatingRef } = useWebViewTranslate(
+    tabId,
+    onNavigate,
+  );
+
+  // Resolve effective target language from settings
+  const resolvedTargetLang = useMemo(() => {
+    if (settings.targetLanguage === 'auto') {
+      // Map intl locale to Google Translate language code
+      const locale = intl.locale;
+      // Google Translate uses short codes like 'zh', 'ja', 'ko', 'fr'
+      // intl.locale may be 'zh-CN', 'en-US', etc.
+      return locale.split('-')[0];
+    }
+    return settings.targetLanguage.split('-')[0];
+  }, [settings.targetLanguage, intl.locale]);
+
+  const handleTranslate = useCallback(() => {
+    const willTranslate = !translatingRef.current;
+    toggleTranslate(resolvedTargetLang);
+    setIsTranslated(willTranslate);
+  }, [toggleTranslate, translatingRef, resolvedTargetLang]);
+
   return {
-    isTranslated: false,
+    isTranslated,
     handleTranslate,
   };
 }

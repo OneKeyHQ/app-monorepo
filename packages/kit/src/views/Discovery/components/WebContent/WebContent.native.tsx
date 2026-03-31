@@ -3,6 +3,10 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
+import {
+  notifyTabNavigation,
+  tryDispatchTranslateMessage,
+} from '@onekeyhq/kit/src/components/WebView/translateBridge';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
   homeTab,
@@ -20,6 +24,7 @@ import BlockAccessView from '../BlockAccessView';
 import type { IWebTab } from '../../types';
 import type {
   WebView as ReactNativeWebview,
+  WebViewMessageEvent,
   WebViewNavigation,
   WebViewProps,
 } from 'react-native-webview';
@@ -64,7 +69,7 @@ function WebContent({
   };
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
-    // const { hostname } = new URL(nativeEvent.url);
+    notifyTabNavigation(id);
 
     if (
       nativeEvent.url !== url &&
@@ -133,6 +138,13 @@ function WebContent({
     [validateWebviewSrc],
   );
 
+  const handleMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      tryDispatchTranslateMessage(id, event.nativeEvent.data);
+    },
+    [id],
+  );
+
   useBackHandler(
     useCallback(() => {
       if (isCurrent && webviewRefs[id] && canGoBack && id !== homeTab.id) {
@@ -183,6 +195,7 @@ function WebContent({
           }
         }}
         allowpopups
+        onMessage={handleMessage}
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd as any}
         onScroll={onScroll}
