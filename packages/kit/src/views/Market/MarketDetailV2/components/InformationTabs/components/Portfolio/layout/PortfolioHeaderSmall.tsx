@@ -11,16 +11,15 @@ function PortfolioHeaderSmallBase() {
   const intl = useIntl();
 
   return (
-    <XStack px="$5" py="$3" alignItems="center">
-      <SizableText {...commonTextProps} width="50%">
-        {intl.formatMessage({
-          id: ETranslations.dexmarket_details_history_amount,
-        })}
+    <XStack px="$5" py="$2" alignItems="center">
+      <SizableText {...commonTextProps} w={100} minWidth={0}>
+        {intl.formatMessage({ id: ETranslations.global_balance })}
       </SizableText>
-      <SizableText {...commonTextProps}>
-        {intl.formatMessage({
-          id: ETranslations.dexmarket_details_history_value,
-        })}
+      <SizableText {...commonTextProps} flex={1} textAlign="right">
+        {intl.formatMessage({ id: ETranslations.marketdex_unrealized_pnl })}
+      </SizableText>
+      <SizableText {...commonTextProps} w={110} textAlign="right">
+        {intl.formatMessage({ id: ETranslations.marketdex_total_pnl })}
       </SizableText>
     </XStack>
   );

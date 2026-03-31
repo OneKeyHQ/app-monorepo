@@ -130,3 +130,8 @@ export interface IMobileTabListEventProps {
   onShare: () => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
 }
+
+export {
+  ETranslateEngine,
+  ETranslateDisplayMode,
+} from '@onekeyhq/shared/types/discovery';

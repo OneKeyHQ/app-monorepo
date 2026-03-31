@@ -20,6 +20,7 @@ export const useMarketTokenColumns = (
   copyFrom?: ECopyFrom,
   hasStock?: boolean,
   showStockSubtitle?: boolean,
+  hiddenDesktopColumns?: readonly string[],
 ): ITableColumn<IMarketToken>[] => {
   const desktopColumns = useColumnsDesktop(
     networkId,
@@ -29,6 +30,7 @@ export const useMarketTokenColumns = (
     copyFrom,
     hasStock,
     showStockSubtitle,
+    hiddenDesktopColumns,
   );
   const mobileColumns = useColumnsMobile();
 

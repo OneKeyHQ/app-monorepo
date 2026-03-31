@@ -47,12 +47,13 @@ export const useColumnsDesktop = (
   copyFrom?: ECopyFrom,
   hasStock?: boolean,
   showStockSubtitle?: boolean,
+  hiddenDesktopColumns?: readonly string[],
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
   const watchlistNameWidth = gtLg ? 340 : 260;
 
-  return [
+  const columns = [
     {
       title: (
         <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
@@ -307,5 +308,13 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-  ].filter(Boolean);
+  ].filter(Boolean) as ITableColumn<IMarketToken>[];
+
+  if (!hiddenDesktopColumns?.length) {
+    return columns;
+  }
+
+  return columns.filter(
+    (column) => !hiddenDesktopColumns.includes(String(column.dataIndex)),
+  );
 };

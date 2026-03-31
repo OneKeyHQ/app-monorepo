@@ -91,13 +91,24 @@ Field details:
 
 Write the updated JSON with 2-space indentation.
 
-## Step 3: Commit and push
+## Step 3: Commit and create PR
+
+`release/*` branches are protected — direct pushes bypass required status checks and review. Always create a PR instead:
 
 ```bash
+git checkout -b "chore/release-$seq" "$RELEASE_BRANCH"
 git add RELEASES.json
 git commit -m "chore: release #$seq"
-git push origin $RELEASE_BRANCH
+git push -u origin "chore/release-$seq"
+
+gh pr create \
+  --base "$RELEASE_BRANCH" \
+  --head "chore/release-$seq" \
+  --title "chore: release #$seq" \
+  --body "Record bundle release #$seq in RELEASES.json."
 ```
+
+After the PR is merged, the release is finalized.
 
 ## Step 4: Output
 

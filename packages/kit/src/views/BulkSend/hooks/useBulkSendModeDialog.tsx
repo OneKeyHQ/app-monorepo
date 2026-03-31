@@ -1,26 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import { Dialog, Icon, Stack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
-
-const BULK_SEND_MODE_OPTIONS = [
-  {
-    mode: EBulkSendMode.OneToMany,
-    title: 'One-to-many',
-    subtitle: 'Send crypto from one address to multiple addresses in bulk',
-  },
-  {
-    mode: EBulkSendMode.ManyToOne,
-    title: 'Many-to-one',
-    subtitle: 'Send crypto from multiples addresses to one addresses in bulk',
-  },
-  {
-    mode: EBulkSendMode.ManyToMany,
-    title: 'Many-to-many',
-    subtitle: 'You can send multiple transactions in bulk',
-  },
-];
 
 function BulkSendModeIcon() {
   return (
@@ -38,15 +23,52 @@ function BulkSendModeIcon() {
 }
 
 export function useBulkSendModeDialog() {
+  const intl = useIntl();
+
+  const bulkSendModeOptions = useMemo(
+    () => [
+      {
+        mode: EBulkSendMode.OneToMany,
+        title: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_mode_one_to_many,
+        }),
+        subtitle: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_mode_one_to_many_subtitle,
+        }),
+      },
+      {
+        mode: EBulkSendMode.ManyToOne,
+        title: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_mode_many_to_one,
+        }),
+        subtitle: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_mode_many_to_one_subtitle,
+        }),
+      },
+      {
+        mode: EBulkSendMode.ManyToMany,
+        title: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_mode_many_to_many,
+        }),
+        subtitle: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_mode_many_to_many_subtitle,
+        }),
+      },
+    ],
+    [intl],
+  );
+
   const showBulkSendModeDialog = useCallback(
     ({ onSelect }: { onSelect: (mode: EBulkSendMode) => void }) => {
       const dialog = Dialog.show({
         icon: 'ChevronDoubleUpOutline',
-        title: 'Select bulk send type',
+        title: intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_select_mode_title,
+        }),
         showFooter: false,
         renderContent: (
           <YStack mx="$-5">
-            {BULK_SEND_MODE_OPTIONS.map((option) => (
+            {bulkSendModeOptions.map((option) => (
               <ListItem
                 key={option.mode}
                 drillIn
@@ -63,7 +85,7 @@ export function useBulkSendModeDialog() {
         ),
       });
     },
-    [],
+    [intl, bulkSendModeOptions],
   );
 
   return showBulkSendModeDialog;

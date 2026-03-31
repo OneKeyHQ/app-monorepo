@@ -3,7 +3,11 @@ import platformEnv from '../../platformEnv';
 import { getLoggerExtension } from '../extensions';
 import { defaultLoggerConfig } from '../loggerConfig';
 
-import type { IMethodDecoratorMetadata, Metadata } from '../types';
+import type {
+  ILoggerMethods,
+  IMethodDecoratorMetadata,
+  Metadata,
+} from '../types';
 
 let prevMsg: string | undefined;
 let repeatContentCount = 0;
@@ -70,7 +74,7 @@ export const logFn = ({
           // const logger = getLoggerExtension(extensionName);
           // msg including extensionName, don't need to create a new logger extension
 
-          const logger = getLoggerExtension(''); // use root logger instance
+          const logger: ILoggerMethods = getLoggerExtension('');
           if (shouldLogToConsole) {
             if (repeatContentCount > 0) {
               logger[metadata.level](`└───[${repeatContentCount} repeat]`);
