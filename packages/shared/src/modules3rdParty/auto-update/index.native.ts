@@ -6,6 +6,7 @@ import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 
 import platformEnv from '../../platformEnv';
 
@@ -272,6 +273,9 @@ export const BundleUpdate: IBundleUpdate = {
       bundleVersion: toNativeString(params?.bundleVersion),
       signature: toNativeString(params?.signature),
     });
+    // Reset boot_fail_count before planned restart so that the OTA bundle
+    // switch is not misinterpreted as consecutive crash-loops by BootRecovery.
+    BootRecovery.markBootSuccess();
     defaultLogger.app.appUpdate.restartRNApp();
     setTimeout(() => {
       RNRestart.restart();
@@ -283,6 +287,7 @@ export const BundleUpdate: IBundleUpdate = {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
   },
   restart: () => {
+    BootRecovery.markBootSuccess();
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);
@@ -315,6 +320,7 @@ export const BundleUpdate: IBundleUpdate = {
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     if (params.appVersion && params.bundleVersion) {
+      BootRecovery.markBootSuccess();
       setTimeout(() => {
         RNRestart.restart();
       }, 2500);
