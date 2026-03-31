@@ -377,6 +377,9 @@ module.exports = {
         ],
       },
     ],
+    // Registered so eslint-disable-next-line onekey/require-testid comments
+    // don't cause "unknown rule" errors (the real rule lives in oxlint)
+    'onekey/require-testid': 'off',
   },
   overrides: [
     {
