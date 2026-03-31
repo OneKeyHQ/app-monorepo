@@ -5,6 +5,7 @@ import { apiClient } from '../../infra';
 import { getSignerByImpl } from '../../signer';
 import { confirmTransaction } from '../../utils/confirm-transaction';
 import { amountToSmallestUnit, feeToWeiHex } from '../../utils/tx-utils';
+import { resolveApproveSpender } from './resolve-approve-spender';
 import { getProtocolConfig } from './swap-protocol-config';
 
 import type { IEndpointEnv } from '../../config';
@@ -551,17 +552,11 @@ export function registerSwapExecuteCommand(parent: Command): void {
                 }
               | undefined;
 
-            // Determine the correct spender (allowanceTarget).
-            // Primary source: allowanceResult from quote or build-tx response.
-            // Fallback: tx.to (the swap router) — most DEX aggregators use
-            // the router as the transferFrom caller, so it IS the spender.
-            // We MUST NOT skip the allowance check when allowanceResult is null,
-            // because null only means the provider didn't return allowance info,
-            // NOT that the token is already approved.
-            const knownSpender =
-              orderAllowance?.allowanceTarget ??
-              buildAllowance?.allowanceTarget ??
-              swapTxTo;
+            const knownSpender = resolveApproveSpender(
+              orderAllowance?.allowanceTarget,
+              buildAllowance?.allowanceTarget,
+              swapTxTo,
+            );
 
             if (knownSpender) {
               approveSpender = knownSpender;
