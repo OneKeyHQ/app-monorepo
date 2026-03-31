@@ -33,6 +33,8 @@ const consoleFunc = (msg: string) => {
     // eslint-disable-next-line no-console
     console.log(msg);
   }
+  // No JS-side dedup/truncation here — handled natively in OneKeyLog
+  // (iOS: OneKeyLog.swift, Android: OneKeyLog.kt — dedup + rate-limit + truncate at 4096 chars)
   NativeLogger.write(LogLevel.Info, msg);
 };
 
@@ -104,5 +106,20 @@ const getDeviceInfo = () =>
     `version: ${platformEnv.version ?? ''}`,
   ].join(',');
 
-const utils: IUtilsType = { getDeviceInfo, getLogFilePath, consoleFunc };
+/** Flush pending dedup repeat summary in native OneKeyLog before log export. */
+const flushPendingRepeat = () => {
+  // Guard: flushPendingRepeat may not exist in older native-logger versions
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  if (typeof (NativeLogger as any).flushPendingRepeat === 'function') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    (NativeLogger as any).flushPendingRepeat();
+  }
+};
+
+const utils: IUtilsType = {
+  getDeviceInfo,
+  getLogFilePath,
+  consoleFunc,
+  flushPendingRepeat,
+};
 export default utils;
