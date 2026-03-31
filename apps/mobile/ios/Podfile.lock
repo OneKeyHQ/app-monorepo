@@ -3485,7 +3485,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeGetRandomValues (1.1.46):
+  - ReactNativeGetRandomValues (1.1.36):
     - boost
     - DoubleConversion
     - fast_float
@@ -4331,7 +4331,7 @@ PODS:
     - ZXingObjC/Core
 
 DEPENDENCIES:
-  - "AutoSizeInput (from `../../../node_modules/@onekeyfe/react-native-auto-size-input`)"
+  - "AutoSizeInput (from `../node_modules/@onekeyfe/react-native-auto-size-input`)"
   - "BackgroundThread (from `../../../node_modules/@onekeyfe/react-native-background-thread`)"
   - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
   - boost (from `../../../node_modules/react-native/third-party-podspecs/boost.podspec`)
@@ -4538,7 +4538,7 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   AutoSizeInput:
-    :path: "../../../node_modules/@onekeyfe/react-native-auto-size-input"
+    :path: "../node_modules/@onekeyfe/react-native-auto-size-input"
   BackgroundThread:
     :path: "../../../node_modules/@onekeyfe/react-native-background-thread"
   BleUtils:
@@ -5042,7 +5042,7 @@ SPEC CHECKSUMS:
   ReactNativeCheckBiometricAuthChanged: f9065a3a6983718f4630c1fa941c77fa6e9dc708
   ReactNativeDeviceUtils: 86cb5cd345c20b56b29226283948e13b4bc631f2
   ReactNativeFs: fa4d6c721fedd16abb5a7eb5c591303f147677b5
-  ReactNativeGetRandomValues: 3c78fac4885e336474b87f6fbb48d85334d4eaef
+  ReactNativeGetRandomValues: 3d249a8a49b3a205fe866a648699c16f0299d3e7
   ReactNativeLiteCard: 8f685421ed72c443a81806fde12002b5b54cd582
   ReactNativeNativeLogger: e4213b3507a2a0f5396b6f6063753b9a47dbe74a
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd

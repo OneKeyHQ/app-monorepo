@@ -69,6 +69,10 @@ import {
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
 import RecipientQuickSelect from './RecipientQuickSelect';
+import {
+  normalizeOptionalRecipientText,
+  shouldSkipResolvedRecipientUpdate,
+} from './recipientSelectionUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -767,12 +771,14 @@ function SendDataInputContainer() {
                 note: selectedNote,
               }) => {
                 const fillRecipientInput = () => {
-                  if (selectedMemo) {
-                    form.setValue('memo', selectedMemo);
-                  }
-                  if (selectedNote) {
-                    form.setValue('note', selectedNote);
-                  }
+                  form.setValue(
+                    'memo',
+                    normalizeOptionalRecipientText(selectedMemo),
+                  );
+                  form.setValue(
+                    'note',
+                    normalizeOptionalRecipientText(selectedNote),
+                  );
                   const currentTo = form.getValues('to') as
                     | IAddressInputValue
                     | undefined;
@@ -781,12 +787,18 @@ function SendDataInputContainer() {
                   // won't re-trigger (same raw text), causing the Next button
                   // to disappear.
                   if (
-                    currentTo?.raw === selectedAddress &&
-                    currentTo?.resolved
+                    shouldSkipResolvedRecipientUpdate({
+                      currentTo,
+                      selectedAddress,
+                    })
                   ) {
                     return;
                   }
-                  form.setValue('to', { raw: selectedAddress });
+                  form.setValue('to.raw', selectedAddress, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
                 };
 
                 const isFromAccount =

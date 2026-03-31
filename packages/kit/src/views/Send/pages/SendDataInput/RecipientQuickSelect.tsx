@@ -10,14 +10,11 @@ import {
   MatchSizeableText,
   SegmentControl,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -34,9 +31,20 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
+import {
+  QuickSelectListItemFrame,
+  QuickSelectListSkeleton,
+} from './QuickSelectListShared';
 import RecentRecipients from './RecentRecipients';
-
-type IRecipientQuickSelectTab = 'recent' | 'account' | 'addressBook';
+import {
+  type IRecipientQuickSelectTab,
+  type IRecipientTabMatchStatus,
+  getAutoSwitchRecipientTab,
+} from './recipientQuickSelectTabUtils';
+import {
+  normalizeSearchKey,
+  prioritizeNameThenAddressMatches,
+} from './searchMatchUtils';
 
 type IRecipientQuickSelectProps = {
   accountId?: string;
@@ -73,72 +81,35 @@ type IQuickItem = {
   walletId?: string;
 };
 
-// Account avatar with wallet overlay for "My Accounts" items
-function AccountAvatarWithWallet({
-  address,
-  walletId,
-}: {
-  address: string;
-  walletId?: string;
-}) {
-  const { result: wallet } = usePromiseResult(
-    async () => {
-      if (!walletId) return undefined;
-      const w = await backgroundApiProxy.serviceAccount.getWallet({ walletId });
-      return w;
-    },
-    [walletId],
-    { initResult: undefined },
-  );
-
-  return <AccountAvatar size="default" address={address} wallet={wallet} />;
-}
-const MemoizedAccountAvatarWithWallet = memo(
-  AccountAvatarWithWallet,
-  (prev, next) =>
-    prev.address === next.address && prev.walletId === next.walletId,
-);
-
 const QuickSelectListItem = memo(
   ({ item, onPress }: { item: IQuickItem; onPress?: () => void }) => {
     // Use name if available, otherwise show truncated address as primary
     const displayName =
       item.name || accountUtils.shortenAddress({ address: item.address });
     return (
-      <ListItem
-        px="$5"
-        py="$3"
-        renderAvatar={() => (
-          <MemoizedAccountAvatarWithWallet
-            address={item.address}
-            walletId={item.walletId}
-          />
-        )}
+      <QuickSelectListItemFrame
+        address={item.address}
+        walletId={item.walletId}
         onPress={onPress}
         testID={`recipient-item-${item.address}`}
-      >
-        <ListItem.Text
-          flexGrow={1}
-          flexBasis={0}
-          primary={
-            <XStack gap="$2" alignItems="center">
-              <MatchSizeableText size="$bodyLgMedium">
-                {displayName}
-              </MatchSizeableText>
-              {item.deriveLabel ? (
-                <Badge badgeSize="sm" badgeType="default">
-                  {item.deriveLabel}
-                </Badge>
-              ) : null}
-            </XStack>
-          }
-          secondary={
-            <MatchSizeableText size="$bodyMd" color="$textSubdued">
-              {item.memo ? `${item.address} · ${item.memo}` : item.address}
+        primary={
+          <XStack gap="$2" alignItems="center">
+            <MatchSizeableText size="$bodyLgMedium">
+              {displayName}
             </MatchSizeableText>
-          }
-        />
-      </ListItem>
+            {item.deriveLabel ? (
+              <Badge badgeSize="sm" badgeType="default">
+                {item.deriveLabel}
+              </Badge>
+            ) : null}
+          </XStack>
+        }
+        secondary={
+          <MatchSizeableText size="$bodyMd" color="$textSubdued">
+            {item.memo ? `${item.address} · ${item.memo}` : item.address}
+          </MatchSizeableText>
+        }
+      />
     );
   },
   (prevProps, nextProps) =>
@@ -147,31 +118,10 @@ const QuickSelectListItem = memo(
     prevProps.item.name === nextProps.item.name &&
     prevProps.item.deriveLabel === nextProps.item.deriveLabel &&
     prevProps.item.memo === nextProps.item.memo &&
-    prevProps.item.note === nextProps.item.note,
+    prevProps.item.note === nextProps.item.note &&
+    prevProps.onPress === nextProps.onPress,
 );
 QuickSelectListItem.displayName = 'QuickSelectListItem';
-
-function QuickSelectSkeleton({ count = 3 }: { count?: number }) {
-  return (
-    <Stack>
-      {Array.from({ length: count }).map((_, index) => (
-        <ListItem
-          key={index}
-          px="$5"
-          py="$3"
-          renderAvatar={() => (
-            <Skeleton width="$10" height="$10" borderRadius="$2" bg="$bgApp" />
-          )}
-        >
-          <ListItem.Text
-            primary={<Skeleton height={18} width="50%" bg="$bgApp" />}
-            secondary={<Skeleton height={14} width="70%" bg="$bgApp" />}
-          />
-        </ListItem>
-      ))}
-    </Stack>
-  );
-}
 
 // Account with derive type info
 type IAccountWithDeriveInfo = {
@@ -314,9 +264,9 @@ function AccountRecipients({
     );
 
   const debouncedSearchKey = useDebounce(searchKey, 300);
-  const trimmedSearchKey = debouncedSearchKey?.trim().toLowerCase();
+  const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
-  const searchValue = trimmedSearchKey ?? '';
+  const searchValue = trimmedSearchKey;
   // Detect debounce gap: searchKey changed but debounce hasn't settled yet
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
 
@@ -339,28 +289,18 @@ function AccountRecipients({
         nameMatchedGroups.push(group);
       } else {
         const accounts = group.accounts ?? [];
-        const nameMatched: typeof accounts = [];
-        const addressOnlyMatched: typeof accounts = [];
+        const { nameMatched, sorted: sortedAccounts } =
+          prioritizeNameThenAddressMatches({
+            items: accounts,
+            isNameMatch: (item) =>
+              (item.account?.name ?? '').toLowerCase().includes(searchValue),
+            isAddressMatch: (item) => {
+              const address =
+                item.account?.address ?? item.account?.addressDetail?.address;
+              return address?.toLowerCase().includes(searchValue) ?? false;
+            },
+          });
 
-        for (const item of accounts) {
-          const { account } = item ?? {};
-          if (account) {
-            const address =
-              account.address ?? account.addressDetail?.address ?? '';
-            const isNameMatch = (account.name ?? '')
-              .toLowerCase()
-              .includes(searchValue);
-            const isAddressMatch = address.toLowerCase().includes(searchValue);
-
-            if (isNameMatch) {
-              nameMatched.push(item);
-            } else if (isAddressMatch) {
-              addressOnlyMatched.push(item);
-            }
-          }
-        }
-
-        const sortedAccounts = [...nameMatched, ...addressOnlyMatched];
         if (sortedAccounts.length > 0) {
           const updatedGroup = { ...group, accounts: sortedAccounts };
           if (nameMatched.length > 0) {
@@ -442,7 +382,7 @@ function AccountRecipients({
   const isInitialLoading =
     isLoadingAccounts !== false && walletGroups.length === 0;
   if (isInitialLoading) {
-    return <QuickSelectSkeleton />;
+    return <QuickSelectListSkeleton />;
   }
 
   if (filteredWalletGroups.length === 0) {
@@ -468,6 +408,7 @@ function AccountRecipients({
         deriveInfo?: IAccountDeriveInfo;
         hasMultipleDeriveTypes: boolean;
         walletId: string;
+        walletName: string;
       };
 
   const flattenedItems: IFlatItem[] = sections.flatMap((section) => {
@@ -488,6 +429,7 @@ function AccountRecipients({
         deriveInfo: item.deriveInfo,
         hasMultipleDeriveTypes: section.hasMultipleDeriveTypes,
         walletId: section.walletId,
+        walletName: section.title,
       });
     });
     return items;
@@ -521,9 +463,7 @@ function AccountRecipients({
           : undefined;
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
 
-        // Find the wallet name from the section this account belongs to
-        const walletName =
-          sections.find((s) => s.walletId === walletId)?.title ?? '';
+        const walletName = item.walletName;
         const displayName = walletName
           ? `${walletName} / ${account.name ?? ''}`
           : (account.name ?? '');
@@ -570,8 +510,8 @@ function AddressBookRecipients({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const debouncedSearchKey = useDebounce(searchKey, 300);
-  const trimmedSearchKey = debouncedSearchKey?.trim().toLowerCase();
-  const searchValue = trimmedSearchKey ?? '';
+  const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
+  const searchValue = trimmedSearchKey;
   const isSearchActive = !!(isSearchMode && trimmedSearchKey);
   // Detect debounce gap: searchKey changed but debounce hasn't settled yet
   const isDebouncing = isSearchMode && searchKey !== debouncedSearchKey;
@@ -608,18 +548,13 @@ function AddressBookRecipients({
     if (!isSearchActive) {
       return addressBookItems;
     }
-    const nameMatched: typeof addressBookItems = [];
-    const addressOnlyMatched: typeof addressBookItems = [];
-    for (const item of addressBookItems) {
-      const isNameMatch = (item.name ?? '').toLowerCase().includes(searchValue);
-      const isAddressMatch = item.address.toLowerCase().includes(searchValue);
-      if (isNameMatch) {
-        nameMatched.push(item);
-      } else if (isAddressMatch) {
-        addressOnlyMatched.push(item);
-      }
-    }
-    return [...nameMatched, ...addressOnlyMatched];
+    return prioritizeNameThenAddressMatches({
+      items: addressBookItems,
+      isNameMatch: (item) =>
+        (item.name ?? '').toLowerCase().includes(searchValue),
+      isAddressMatch: (item) =>
+        item.address.toLowerCase().includes(searchValue),
+    }).sorted;
   }, [addressBookItems, isSearchActive, searchValue]);
 
   // Notify parent of match status and count
@@ -633,7 +568,7 @@ function AddressBookRecipients({
 
   if (isInitialLoading) {
     // Keep layout occupied during first load to avoid blank flash
-    return <QuickSelectSkeleton count={4} />;
+    return <QuickSelectListSkeleton count={4} />;
   }
 
   if (filteredItems.length === 0) {
@@ -718,13 +653,12 @@ export default function RecipientQuickSelect({
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
 
   // Track match status for each tab (null = not yet reported by component)
-  const [tabMatchStatus, setTabMatchStatus] = useState<
-    Record<IRecipientQuickSelectTab, boolean | null>
-  >({
-    recent: null,
-    account: null,
-    addressBook: null,
-  });
+  const [tabMatchStatus, setTabMatchStatus] =
+    useState<IRecipientTabMatchStatus>({
+      recent: null,
+      account: null,
+      addressBook: null,
+    });
 
   // Track match counts for each tab (for display in tab labels)
   const [tabMatchCounts, setTabMatchCounts] = useState<
@@ -765,7 +699,7 @@ export default function RecipientQuickSelect({
 
   // Use debounced search key for auto-switch logic
   const debouncedSearchKey = useDebounce(searchKey, 300);
-  const trimmedSearchKey = debouncedSearchKey?.trim().toLowerCase();
+  const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
 
   // Track the search key at the time of last manual tab switch
   // Only allow auto-switch if user has typed something new
@@ -805,26 +739,16 @@ export default function RecipientQuickSelect({
 
   // Auto-switch to a tab with matches when current tab has no matches
   useEffect(() => {
-    if (!isSearchMode || !trimmedSearchKey) return;
+    const nextTab = getAutoSwitchRecipientTab({
+      isSearchMode,
+      trimmedSearchKey,
+      activeTab,
+      tabMatchStatus,
+      lastManualSwitchSearchKey: lastManualSwitchSearchKeyRef.current,
+    });
 
-    // If current tab has matches or hasn't reported yet, don't switch
-    if (tabMatchStatus[activeTab] !== false) return;
-
-    // Don't auto-switch if user manually switched tabs and hasn't typed anything new
-    if (lastManualSwitchSearchKeyRef.current === trimmedSearchKey) return;
-
-    // Find first tab with matches (in order: recent, account, addressBook)
-    const tabs: IRecipientQuickSelectTab[] = [
-      'recent',
-      'account',
-      'addressBook',
-    ];
-    const tabWithMatches = tabs.find(
-      (tab) => tab !== activeTab && tabMatchStatus[tab] === true,
-    );
-
-    if (tabWithMatches) {
-      setActiveTab(tabWithMatches);
+    if (nextTab) {
+      setActiveTab(nextTab);
     }
   }, [isSearchMode, trimmedSearchKey, activeTab, tabMatchStatus, setActiveTab]);
 
