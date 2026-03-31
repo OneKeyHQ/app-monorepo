@@ -70,7 +70,9 @@ export function parseBackgroundThreadRuntimePayload(
   }
 
   try {
-    const payload = JSON.parse(value) as Partial<IBackgroundThreadRuntimePayload>;
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadRuntimePayload>;
     if (
       payload.runtime !== 'background' ||
       (payload.status !== 'ready' && payload.status !== 'failed') ||

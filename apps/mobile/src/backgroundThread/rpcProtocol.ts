@@ -12,6 +12,11 @@ export type IBackgroundThreadServiceCallRequest = {
   sync: boolean;
 };
 
+export type IBackgroundThreadJotaiStateBroadcastPayload = {
+  name: string;
+  payload: any;
+};
+
 export type IBackgroundThreadResponsePayload = {
   ok: boolean;
   result?: unknown;
@@ -24,6 +29,7 @@ export type IBackgroundThreadResponsePayload = {
 
 export const BACKGROUND_THREAD_REQUEST_KEY_PREFIX = 'onekey:bg:req:';
 export const BACKGROUND_THREAD_RESPONSE_KEY_PREFIX = 'onekey:bg:res:';
+export const BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX = 'onekey:bg:jotai:';
 
 export function buildBackgroundThreadRequestKey(callId: string) {
   return `${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`;
@@ -31,6 +37,10 @@ export function buildBackgroundThreadRequestKey(callId: string) {
 
 export function buildBackgroundThreadResponseKey(callId: string) {
   return `${BACKGROUND_THREAD_RESPONSE_KEY_PREFIX}${callId}`;
+}
+
+export function buildBackgroundThreadJotaiStateKey(callId: string) {
+  return `${BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX}${callId}`;
 }
 
 export function parseBackgroundThreadCallId(
@@ -63,7 +73,9 @@ export function parseBackgroundThreadRequest(
   }
 
   try {
-    const payload = JSON.parse(value) as Partial<IBackgroundThreadServiceCallRequest>;
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadServiceCallRequest>;
     if (
       payload.type !== 'service-call' ||
       typeof payload.method !== 'string' ||
@@ -93,7 +105,9 @@ export function parseBackgroundThreadResponse(
   }
 
   try {
-    const payload = JSON.parse(value) as Partial<IBackgroundThreadResponsePayload>;
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadResponsePayload>;
     if (typeof payload.ok !== 'boolean') {
       return undefined;
     }
@@ -110,6 +124,33 @@ export function parseBackgroundThreadResponse(
     }
 
     return payload as IBackgroundThreadResponsePayload;
+  } catch {
+    return undefined;
+  }
+}
+
+export function serializeBackgroundThreadJotaiStateBroadcastPayload(
+  payload: IBackgroundThreadJotaiStateBroadcastPayload,
+) {
+  return JSON.stringify(payload);
+}
+
+export function parseBackgroundThreadJotaiStateBroadcastPayload(
+  value: string | number | boolean | undefined,
+): IBackgroundThreadJotaiStateBroadcastPayload | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadJotaiStateBroadcastPayload>;
+    if (typeof payload.name !== 'string') {
+      return undefined;
+    }
+
+    return payload as IBackgroundThreadJotaiStateBroadcastPayload;
   } catch {
     return undefined;
   }

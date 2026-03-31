@@ -15,7 +15,9 @@ import { Buffer } from 'buffer';
 if (typeof (globalThis as any).MessageChannel === 'undefined') {
   (globalThis as any).MessageChannel = class MessageChannel {
     port1: { onmessage: ((ev: { data: any }) => void) | null };
+
     port2: { postMessage: (data: any) => void };
+
     constructor() {
       this.port1 = { onmessage: null };
       const port1 = this.port1;

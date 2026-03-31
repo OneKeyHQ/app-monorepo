@@ -132,7 +132,10 @@ export class BackgroundApiProxyBase
       });
 
       if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
-        const resultPromise = serviceApi[methodName].call(serviceApi, ...params);
+        const resultPromise = serviceApi[methodName].call(
+          serviceApi,
+          ...params,
+        );
         ensurePromiseObject(resultPromise, {
           serviceName,
           methodName,
@@ -146,7 +149,10 @@ export class BackgroundApiProxyBase
       }
     };
 
-    if (platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread) {
+    if (
+      platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
       const transport = this.getNativeBackgroundThreadTransport();
       if (transport?.isEnabled()) {
         const backgroundMethod =

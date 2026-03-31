@@ -7,7 +7,8 @@
 ).__ONEKEY_RUNTIME_KIND__ = 'background';
 
 require('@onekeyhq/shared/src/polyfills');
-const { setBackgroundThreadRequestExecutor } = require('./src/backgroundThread/setupBackgroundThreadRPCHandler') as typeof import('./src/backgroundThread/setupBackgroundThreadRPCHandler');
+const { setBackgroundThreadRequestExecutor } =
+  require('./src/backgroundThread/setupBackgroundThreadRPCHandler') as typeof import('./src/backgroundThread/setupBackgroundThreadRPCHandler');
 const backgroundApiProxy = (
   require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy')
 ).default;

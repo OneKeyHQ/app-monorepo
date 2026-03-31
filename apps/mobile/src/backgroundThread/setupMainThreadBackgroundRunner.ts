@@ -4,15 +4,18 @@ import {
 } from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
+  BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
-  BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
-  parseBackgroundThreadCallId,
-  parseBackgroundThreadResponse,
   buildBackgroundThreadRequestKey,
+  parseBackgroundThreadCallId,
+  parseBackgroundThreadJotaiStateBroadcastPayload,
+  parseBackgroundThreadResponse,
   serializeBackgroundThreadRequest,
 } from './rpcProtocol';
 import {
@@ -38,6 +41,7 @@ type IPendingRemoteCall = {
   resolve: (value: any) => void;
   reject: (error: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
+  localFallback: () => Promise<any>;
 };
 
 type INativeBackgroundThreadTransport = {
@@ -59,6 +63,7 @@ let observerInstalled = false;
 let readyTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
 let requestSequence = 0;
 let transportState: IBackgroundThreadTransportState = 'idle';
+let queuedFlushPromise: Promise<void> | undefined;
 
 const queuedCalls: IQueuedCall[] = [];
 const pendingRemoteCalls = new Map<string, IPendingRemoteCall>();
@@ -128,16 +133,34 @@ function flushQueuedCallsToLocal() {
 
 function dispatchQueuedCallsToRemote() {
   const queuedCallsSnapshot = queuedCalls.splice(0);
-  queuedCallsSnapshot.forEach(({ request, localFallback, resolve, reject }) => {
-    void dispatchRemoteRequest(request, localFallback).then(resolve).catch(reject);
-  });
+  if (!queuedCallsSnapshot.length) {
+    return;
+  }
+
+  queuedFlushPromise = queuedCallsSnapshot
+    .reduce<Promise<void>>((promise, queuedCall) => {
+      return promise.finally(async () => {
+        try {
+          const result = await dispatchRemoteRequest(
+            queuedCall.request,
+            queuedCall.localFallback,
+          );
+          queuedCall.resolve(result);
+        } catch (error) {
+          queuedCall.reject(error);
+        }
+      });
+    }, Promise.resolve())
+    .finally(() => {
+      queuedFlushPromise = undefined;
+    });
 }
 
 function switchToFallbackLocal(reason: string) {
   if (!isNativeBackgroundThreadTransportEnabled()) {
     return;
   }
-  if (transportState === 'ready' || transportState === 'fallback-local') {
+  if (transportState === 'fallback-local') {
     return;
   }
 
@@ -145,12 +168,14 @@ function switchToFallbackLocal(reason: string) {
   clearReadyTimeoutTimer();
   flushQueuedCallsToLocal();
 
-  const error = createTransportError(reason);
-  pendingRemoteCalls.forEach(({ reject, timer }) => {
-    clearTimeout(timer);
-    reject(error);
-  });
+  const pendingRemoteCallsSnapshot = Array.from(pendingRemoteCalls.values());
   pendingRemoteCalls.clear();
+  pendingRemoteCallsSnapshot.forEach(
+    ({ localFallback, resolve, reject, timer }) => {
+      clearTimeout(timer);
+      void localFallback().then(resolve).catch(reject);
+    },
+  );
 }
 
 function handleRuntimeSignal(sharedRPC: ISharedRPC) {
@@ -163,7 +188,6 @@ function handleRuntimeSignal(sharedRPC: ISharedRPC) {
   }
 
   if (runtimePayload.status === 'failed') {
-    transportState = 'failed';
     switchToFallbackLocal(
       runtimePayload.errorMessage || 'Background runtime init failed',
     );
@@ -189,18 +213,18 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
     return;
   }
 
-  const pendingCall = cleanupPendingRemoteCall(callId);
+  const pendingCall = pendingRemoteCalls.get(callId);
   if (!pendingCall) {
     return;
   }
 
   const response = parseBackgroundThreadResponse(sharedRPC.read(key));
   if (!response) {
-    pendingCall.reject(
-      createTransportError(`Invalid background response payload. callId=${callId}`),
-    );
+    switchToFallbackLocal(`Invalid background response payload. callId=${callId}`);
     return;
   }
+
+  cleanupPendingRemoteCall(callId);
 
   if (response.ok) {
     pendingCall.resolve(response.result);
@@ -221,6 +245,24 @@ function handleBackgroundThreadResponse(sharedRPC: ISharedRPC, key: string) {
   pendingCall.reject(error);
 }
 
+function handleBackgroundThreadJotaiStateUpdate(
+  sharedRPC: ISharedRPC,
+  key: string,
+) {
+  const payload = parseBackgroundThreadJotaiStateBroadcastPayload(
+    sharedRPC.read(key),
+  );
+  if (!payload) {
+    return;
+  }
+
+  void jotaiUpdateFromUiByBgBroadcast({
+    $$isFromBgStatesSyncBroadcast: true,
+    name: payload.name,
+    payload: payload.payload,
+  });
+}
+
 function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
   if (!observerInstalled) {
     observerInstalled = true;
@@ -232,6 +274,11 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
 
       if (callId.startsWith(BACKGROUND_THREAD_RESPONSE_KEY_PREFIX)) {
         handleBackgroundThreadResponse(sharedRPC, callId);
+        return;
+      }
+
+      if (callId.startsWith(BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX)) {
+        handleBackgroundThreadJotaiStateUpdate(sharedRPC, callId);
       }
     });
   }
@@ -290,18 +337,19 @@ function dispatchRemoteRequest(
     if (transportState !== 'ready') {
       return localFallback();
     }
-    throw createTransportError('SharedRPC unavailable after background runtime ready');
+    switchToFallbackLocal('SharedRPC unavailable after background runtime ready');
+    return localFallback();
   }
 
   const callId = createRemoteCallId();
   const requestKey = buildBackgroundThreadRequestKey(callId);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      pendingRemoteCalls.delete(callId);
-      reject(
-        createTransportError(
-          `Background request timeout. method=${request.method}`,
-        ),
+      if (!pendingRemoteCalls.has(callId)) {
+        return;
+      }
+      switchToFallbackLocal(
+        `Background request timeout. method=${request.method}`,
       );
     }, REQUEST_TIMEOUT_MS);
 
@@ -309,6 +357,7 @@ function dispatchRemoteRequest(
       resolve,
       reject,
       timer,
+      localFallback,
     });
 
     sharedRPC.write(requestKey, serializeBackgroundThreadRequest(request));
@@ -328,6 +377,11 @@ function callServiceRequest(
   }
 
   if (transportState === 'ready') {
+    if (queuedFlushPromise) {
+      return queuedFlushPromise.then(() =>
+        dispatchRemoteRequest(request, localFallback),
+      );
+    }
     return dispatchRemoteRequest(request, localFallback);
   }
 

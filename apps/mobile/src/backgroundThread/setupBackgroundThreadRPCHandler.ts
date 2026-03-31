@@ -1,11 +1,14 @@
 import { getSharedRPC } from '@onekeyfe/react-native-background-thread';
 
 import {
-  type IBackgroundThreadServiceCallRequest,
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
+  type IBackgroundThreadJotaiStateBroadcastPayload,
+  type IBackgroundThreadServiceCallRequest,
+  buildBackgroundThreadJotaiStateKey,
   buildBackgroundThreadResponseKey,
   parseBackgroundThreadCallId,
   parseBackgroundThreadRequest,
+  serializeBackgroundThreadJotaiStateBroadcastPayload,
   serializeBackgroundThreadResponse,
 } from './rpcProtocol';
 import {
@@ -16,6 +19,11 @@ import {
 
 type IBackgroundRuntimeGlobal = typeof globalThis & {
   __setupBackgroundRPCHandler?: () => void;
+  __onekeyNativeBackgroundThreadJotaiBridge?: {
+    broadcastStateUpdateFromBgToUi: (
+      payload: IBackgroundThreadJotaiStateBroadcastPayload,
+    ) => boolean;
+  };
 };
 
 type IBackgroundThreadRequestExecutor = (
@@ -30,6 +38,7 @@ let handlerRetryCount = 0;
 let handlerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let handlerInstalled = false;
 let readySignalEmitted = false;
+let jotaiStateBroadcastSequence = 0;
 
 function buildErrorPayload(error: unknown) {
   const runtimeError = error as Error;
@@ -68,9 +77,7 @@ function emitBackgroundRuntimeReadySignal() {
     return false;
   }
 
-  return emitBackgroundRuntimeSignal(
-    serializeBackgroundThreadRuntimePayload(),
-  );
+  return emitBackgroundRuntimeSignal(serializeBackgroundThreadRuntimePayload());
 }
 
 function emitBackgroundRuntimeFailedSignal(error: unknown) {
@@ -84,6 +91,22 @@ function emitBackgroundRuntimeFailedSignal(error: unknown) {
   );
 }
 
+function broadcastJotaiStateUpdateFromBgToUi(
+  payload: IBackgroundThreadJotaiStateBroadcastPayload,
+) {
+  const sharedRPC = getSharedRPC();
+  if (!sharedRPC) {
+    return false;
+  }
+
+  jotaiStateBroadcastSequence = (jotaiStateBroadcastSequence + 1) % 512;
+  sharedRPC.write(
+    buildBackgroundThreadJotaiStateKey(`${jotaiStateBroadcastSequence}`),
+    serializeBackgroundThreadJotaiStateBroadcastPayload(payload),
+  );
+  return true;
+}
+
 async function handleRequest(callId: string) {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
@@ -91,7 +114,9 @@ async function handleRequest(callId: string) {
   }
 
   const responseKey = buildBackgroundThreadResponseKey(callId);
-  const request = parseBackgroundThreadRequest(sharedRPC.read(`${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`));
+  const request = parseBackgroundThreadRequest(
+    sharedRPC.read(`${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`),
+  );
 
   if (!request) {
     sharedRPC.write(
@@ -215,6 +240,9 @@ export function setupBackgroundThreadRPCHandler() {
 
   runtimeGlobal.__setupBackgroundRPCHandler = () => {
     ensureBackgroundRequestHandlerInstalled();
+  };
+  runtimeGlobal.__onekeyNativeBackgroundThreadJotaiBridge = {
+    broadcastStateUpdateFromBgToUi: broadcastJotaiStateUpdateFromBgToUi,
   };
 
   ensureBackgroundRequestHandlerInstalled();

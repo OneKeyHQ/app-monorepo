@@ -12,6 +12,22 @@ import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 export class JotaiBgSync {
   backgroundApiProxy!: BackgroundApiProxy;
 
+  private get shouldSyncFromUiToBg() {
+    return (
+      platformEnv.isExtensionUi ||
+      (platformEnv.isNativeMainThread &&
+        platformEnv.enableNativeBackgroundThread)
+    );
+  }
+
+  private get shouldBroadcastFromBgToUi() {
+    return (
+      platformEnv.isExtensionBackground ||
+      (platformEnv.isNativeBackgroundThread &&
+        platformEnv.enableNativeBackgroundThread)
+    );
+  }
+
   get backgroundApi() {
     return this.backgroundApiProxy?.backgroundApi || this.backgroundApiProxy;
   }
@@ -27,7 +43,7 @@ export class JotaiBgSync {
     name: EAtomNames;
     payload: any;
   }) {
-    if (!platformEnv.isExtensionUi) {
+    if (!this.shouldSyncFromUiToBg) {
       return;
     }
     return this.backgroundApi.setAtomValue(name, payload);
@@ -38,7 +54,7 @@ export class JotaiBgSync {
   // }>;
 
   async jotaiInitFromUi() {
-    if (!platformEnv.isExtensionUi) {
+    if (!this.shouldSyncFromUiToBg) {
       return;
     }
     const { states } = await this.backgroundApi.getAtomStates();
@@ -52,7 +68,7 @@ export class JotaiBgSync {
     name: EAtomNames;
     payload: any;
   }) {
-    if (!platformEnv.isExtensionBackground) {
+    if (!this.shouldBroadcastFromBgToUi) {
       return;
     }
     const p: IGlobalStatesSyncBroadcastParams = {
@@ -60,6 +76,31 @@ export class JotaiBgSync {
       name,
       payload,
     };
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      const runtimeGlobal = globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadJotaiBridge?: {
+          broadcastStateUpdateFromBgToUi: (params: {
+            name: string;
+            payload: any;
+          }) => boolean;
+        };
+      };
+
+      const bridge = runtimeGlobal.__onekeyNativeBackgroundThreadJotaiBridge;
+      if (!bridge) {
+        throw new OneKeyLocalError(
+          'native background thread jotai bridge is not ready',
+        );
+      }
+      bridge.broadcastStateUpdateFromBgToUi({
+        name,
+        payload,
+      });
+      return;
+    }
     if (!this.backgroundApi.bridgeExtBg) {
       throw new OneKeyLocalError('backgroundApi.bridgeExtBg is not ready');
     }
