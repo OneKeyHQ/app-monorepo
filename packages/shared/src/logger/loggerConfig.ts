@@ -1,111 +1,12 @@
-import { debounce, merge } from 'lodash';
-import natsort from 'natsort';
+import {
+  LoggerConfigManager,
+  createLoggerConfigFacade,
+} from './config/loggerConfigManager';
 
-import appGlobals from '../appGlobals';
-import platformEnv from '../platformEnv';
-import appStorage from '../storage/appStorage';
+export type { ILoggerConfig } from './config/loggerConfigShared';
 
-import type { BaseScene } from './base/baseScene';
-import type { BaseScope } from './base/baseScope';
+const loggerConfig = new LoggerConfigManager();
+void loggerConfig.init();
+const defaultLoggerConfig = createLoggerConfigFacade(loggerConfig);
 
-export type ILoggerConfig = {
-  highlightDurationGt?: string;
-  colorfulLog?: boolean;
-  enabled: {
-    [scope: string]: {
-      [scene: string]: boolean;
-    };
-  };
-};
-function buildLoggerConfig(): ILoggerConfig {
-  const config: ILoggerConfig = {
-    highlightDurationGt: '100',
-    colorfulLog: true,
-    enabled: {},
-  };
-  const defaultLoggerInstance =
-    (appGlobals.$defaultLogger as unknown as Record<string, BaseScope>) || {};
-  Object.keys(defaultLoggerInstance)
-    .toSorted((a, b) => natsort({ insensitive: true })(a, b))
-    .forEach((scope) => {
-      config.enabled[scope] = config.enabled[scope] || {};
-      Object.keys(
-        (defaultLoggerInstance as unknown as Record<string, BaseScope>)[
-          scope
-        ] || {},
-      )
-        .toSorted((a, b) => natsort({ insensitive: true })(a, b))
-        .forEach((scene) => {
-          if (defaultLoggerInstance[scope]) {
-            const sceneInstance = (
-              defaultLoggerInstance[scope] as unknown as Record<
-                string,
-                BaseScene
-              >
-            )[scene];
-            try {
-              //   const isProxy =
-              //     Object.getPrototypeOf(sceneInstance) === Proxy.prototype;
-              //   const isScene = sceneInstance instanceof BaseScene;
-              const isSceneLike = !!sceneInstance.mockBaseSceneMethod;
-              if (isSceneLike) {
-                config.enabled[scope][scene] = false;
-              }
-            } catch (_error) {
-              //
-            }
-          }
-        });
-    });
-  return config;
-}
-
-let savedLoggerConfig: ILoggerConfig | undefined;
-
-const storageKey = '$$OneKeyV5LoggerConfig';
-async function getSavedLoggerConfig() {
-  if (savedLoggerConfig) {
-    return savedLoggerConfig;
-  }
-  const config = await appStorage.getItem(storageKey);
-  savedLoggerConfig = config
-    ? merge(buildLoggerConfig(), (JSON.parse(config) as ILoggerConfig) || {})
-    : buildLoggerConfig();
-  return savedLoggerConfig;
-}
-
-const saveLoggerConfig = debounce(
-  async (config: ILoggerConfig) => {
-    await appStorage.setItem(storageKey, JSON.stringify(config));
-    if (savedLoggerConfig) {
-      Object.assign(savedLoggerConfig, config);
-    }
-  },
-  300,
-  {
-    leading: false,
-    trailing: true,
-  },
-);
-
-// eslint-disable-next-line no-async-promise-executor
-const savedLoggerConfigAsync = new Promise<ILoggerConfig>(async (resolve) => {
-  if (platformEnv.isWebEmbed) {
-    resolve({
-      highlightDurationGt: '100',
-      colorfulLog: false,
-      enabled: {},
-    });
-    return;
-  }
-  const config = await getSavedLoggerConfig();
-  resolve(config);
-});
-
-const defaultLoggerConfig = {
-  buildLoggerConfig,
-  getSavedLoggerConfig,
-  saveLoggerConfig,
-  savedLoggerConfigAsync,
-};
-export { defaultLoggerConfig };
+export { defaultLoggerConfig, loggerConfig, LoggerConfigManager };

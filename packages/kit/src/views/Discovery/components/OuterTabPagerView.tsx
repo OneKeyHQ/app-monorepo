@@ -92,6 +92,7 @@ interface IOuterTabPagerViewProps {
   marketContent: React.ReactNode;
   earnContent: React.ReactNode;
   browserContent: React.ReactNode;
+  onPageSelectedBySwipe?: () => void;
   marketTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnTabsRef?: React.RefObject<ITabContainerRef | null>;
   earnBorrowPagerRef?: React.RefObject<IEarnBorrowPagerViewRef | null>;
@@ -106,6 +107,7 @@ function OuterTabPagerViewComponent({
   marketContent,
   earnContent,
   browserContent,
+  onPageSelectedBySwipe,
   marketTabsRef,
   earnTabsRef,
   earnBorrowPagerRef,
@@ -282,10 +284,11 @@ function OuterTabPagerViewComponent({
 
       // Update atom only if tab actually changed
       if (tab && tab !== selectedHeaderTabRef.current) {
+        onPageSelectedBySwipe?.();
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(tab);
       }
     },
-    [markPagesVisited],
+    [markPagesVisited, onPageSelectedBySwipe],
   );
 
   // Determine which pages should be rendered

@@ -815,41 +815,6 @@ export function ApproveBaseStake({
     trackAllowance,
   ]);
 
-  const placeholderTokens = useMemo(
-    () => (
-      <>
-        {token ? (
-          <NumberSizeableText
-            color="$textPlaceholder"
-            size="$bodyLgMedium"
-            formatter="balance"
-            formatterOptions={{ tokenSymbol: token.symbol }}
-          >
-            0
-          </NumberSizeableText>
-        ) : null}
-        {apys?.rewards
-          ? Object.entries(apys.rewards).map(([tokenAddress, _apy]) =>
-              rewardAssets?.[tokenAddress] ? (
-                <NumberSizeableText
-                  key={tokenAddress}
-                  color="$textPlaceholder"
-                  size="$bodyLgMedium"
-                  formatter="balance"
-                  formatterOptions={{
-                    tokenSymbol: rewardAssets?.[tokenAddress].info.symbol,
-                  }}
-                >
-                  0
-                </NumberSizeableText>
-              ) : null,
-            )
-          : null}
-      </>
-    ),
-    [apys?.rewards, rewardAssets, token],
-  );
-
   const isShowStakeProgress =
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
@@ -1007,50 +972,7 @@ export function ApproveBaseStake({
             ) : null}
           </XStack>
         ) : null}
-        <YStack pt="$3.5" gap="$2">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: earnUtils.isFalconProvider({
-                providerName,
-              })
-                ? ETranslations.earn_est_daily_rewards
-                : ETranslations.earn_est_annual_rewards,
-            })}
-          </SizableText>
-          {estimatedAnnualRewards.length
-            ? estimatedAnnualRewards.map((reward) => (
-                <SizableText key={reward.token.address}>
-                  <NumberSizeableText
-                    size="$bodyLgMedium"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: reward.token.symbol }}
-                  >
-                    {reward.amount}
-                  </NumberSizeableText>
-                  {reward.fiatValue ? (
-                    <SizableText color="$textSubdued">
-                      <SizableText color="$textSubdued">{' ('}</SizableText>
-                      <NumberSizeableText
-                        size="$bodyLgMedium"
-                        formatter="value"
-                        color="$textSubdued"
-                        formatterOptions={{ currency: symbol }}
-                      >
-                        {reward.fiatValue}
-                      </NumberSizeableText>
-                      <SizableText color="$textSubdued">)</SizableText>
-                    </SizableText>
-                  ) : null}
-                  {reward.suffix ? (
-                    <SizableText pl="$1" color="$textSubdued">
-                      {reward.suffix}
-                    </SizableText>
-                  ) : null}
-                </SizableText>
-              ))
-            : placeholderTokens}
-        </YStack>
-        <Divider my="$5" />
+        <Divider mt="$3.5" mb="$5" />
 
         <Accordion
           overflow="hidden"
