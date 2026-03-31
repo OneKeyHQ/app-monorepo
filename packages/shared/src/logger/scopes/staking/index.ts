@@ -5,7 +5,7 @@ import { OrderScene } from './scenes/order';
 import { PageScene } from './scenes/page';
 
 export class StakingScope extends BaseScope {
-  protected override scopeName = EScopeName.app;
+  protected override scopeName = EScopeName.staking;
 
   page = this.createScene('page', PageScene);
 

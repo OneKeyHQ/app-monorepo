@@ -829,7 +829,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       tabRoute={ETabRoutes.Earn}
       showBackButton
       header={
-        <XStack ml={gtMd ? 'auto' : '0'} pr="$2">
+        <XStack ml={gtMd ? 'auto' : '0'} pr="$2" pt={gtMd ? undefined : '$4'}>
           <ManagersSection managers={detailInfo?.managers} noPadding />
         </XStack>
       }

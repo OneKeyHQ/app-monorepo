@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
 
 import { Accordion, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -83,6 +84,7 @@ export function ReferFriendsAccordionItem({
         <Accordion.Content
           unstyled
           animation="100ms"
+          animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           {...mergedContentProps}

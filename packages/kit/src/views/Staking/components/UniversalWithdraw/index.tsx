@@ -20,6 +20,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
@@ -1357,7 +1361,7 @@ export function UniversalWithdraw({
             />
           ) : null}
           {hasSummarySection && !usePendleSummaryLayout ? (
-            <YStack gap="$2">
+            <YStack gap="$1.5">
               <XStack ai="center" gap="$1">
                 <EarnText
                   text={transactionConfirmation?.title}
@@ -1384,7 +1388,6 @@ export function UniversalWithdraw({
                     key={reward.title.text}
                     gap="$1"
                     ai="flex-start"
-                    mt="$1.5"
                     flexWrap="wrap"
                   >
                     <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
@@ -1466,6 +1469,7 @@ export function UniversalWithdraw({
                           </XStack>
                           <YStack
                             animation="quick"
+                            animateOnly={ANIMATE_ONLY_TRANSFORM}
                             rotate={
                               open && !isAccordionTriggerDisabled
                                 ? '180deg'
@@ -1491,10 +1495,11 @@ export function UniversalWithdraw({
                 <Accordion.HeightAnimator animation="quick">
                   <Accordion.Content
                     animation="quick"
+                    animateOnly={ANIMATE_ONLY_OPACITY}
                     exitStyle={{ opacity: 0 }}
                     px={0}
                     pb={0}
-                    pt="$3.5"
+                    pt={accordionContent.length > 0 ? '$3.5' : '$0'}
                     gap={isPendleLikeLayout ? '$3.5' : '$2.5'}
                   >
                     {accordionContent}

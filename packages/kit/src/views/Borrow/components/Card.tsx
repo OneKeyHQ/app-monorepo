@@ -8,6 +8,7 @@ import {
   View,
   XStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 
 const CARD_ACCORDION_VALUE = 'card';
 
@@ -56,6 +57,7 @@ export const Card = ({
                 </SizableText>
                 <View
                   animation="quick"
+                  animateOnly={ANIMATE_ONLY_TRANSFORM}
                   rotate={open ? '180deg' : '0deg'}
                   transformOrigin="center"
                 >
