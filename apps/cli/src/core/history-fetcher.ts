@@ -1,6 +1,8 @@
 import { apiClient } from '../infra';
 
-// --- API response types (subset of shared/types/history.ts) ---
+// Types duplicated from @onekeyhq/shared/types/history.ts because that module
+// has transitive imports from @onekeyhq/kit (ICurrencyItem), which would violate
+// the import hierarchy (CLI cannot import from kit).
 
 interface IHistoryTxTransfer {
   type: number;
@@ -55,12 +57,12 @@ interface ITokenInfo {
   logoURI?: string;
 }
 
-interface IITokenMapEntry {
+interface ITokenMapEntry {
   info: ITokenInfo;
   price: string;
 }
 
-type ITokenMap = Record<string, IITokenMapEntry>;
+type ITokenMap = Record<string, ITokenMapEntry>;
 
 export interface IHistoryApiResponse {
   data: IHistoryTx[];
@@ -118,7 +120,7 @@ export function mapStatus(raw: string): string {
   return STATUS_MAP[raw] ?? 'unknown';
 }
 
-function formatAmount(raw: string, decimals: number): string {
+export function formatAmount(raw: string, decimals: number): string {
   if (!raw || raw === '0') return '0';
 
   const isNeg = raw.startsWith('-');
@@ -240,7 +242,7 @@ export async function fetchHistory(
     {
       networkId: params.networkId,
       accountAddress: params.accountAddress,
-      tokenAddress: params.tokenAddress ?? undefined,
+      tokenAddress: params.tokenAddress,
       isForceRefresh: true,
       limit: params.limit ?? 20,
     },

@@ -1,4 +1,5 @@
 import {
+  formatAmount,
   formatHistoryItem,
   formatHistoryList,
   mapStatus,
@@ -42,6 +43,36 @@ describe('history-fetcher', () => {
     });
     it('returns "unknown" for unexpected values', () => {
       expect(mapStatus('99')).toBe('unknown');
+    });
+  });
+
+  describe('formatAmount', () => {
+    it('converts wei to ETH (18 decimals)', () => {
+      expect(formatAmount('1500000000000000000', 18)).toBe('1.5');
+    });
+    it('handles sub-unit amount (1 wei)', () => {
+      expect(formatAmount('1', 18)).toBe('0.000000000000000001');
+    });
+    it('handles zero', () => {
+      expect(formatAmount('0', 18)).toBe('0');
+    });
+    it('handles empty string', () => {
+      expect(formatAmount('', 18)).toBe('0');
+    });
+    it('handles negative amount', () => {
+      expect(formatAmount('-1500000000000000000', 18)).toBe('-1.5');
+    });
+    it('handles large amount (1000 ETH)', () => {
+      expect(formatAmount('1000000000000000000000', 18)).toBe('1000');
+    });
+    it('handles zero decimals', () => {
+      expect(formatAmount('12345', 0)).toBe('12345');
+    });
+    it('handles 6 decimals (USDC)', () => {
+      expect(formatAmount('100000000', 6)).toBe('100');
+    });
+    it('strips trailing zeros', () => {
+      expect(formatAmount('1500000', 6)).toBe('1.5');
     });
   });
 
