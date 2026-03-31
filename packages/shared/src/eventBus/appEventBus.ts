@@ -75,7 +75,7 @@ export enum EFinalizeWalletSetupSteps {
 
 export type IEventBusPayloadShowToast = {
   // IToastProps
-  method: 'success' | 'error' | 'message';
+  method: 'success' | 'error' | 'message' | 'warning';
   title: string;
   message?: string;
   icon?: string;
