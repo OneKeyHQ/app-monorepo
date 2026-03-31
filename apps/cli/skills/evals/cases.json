@@ -301,9 +301,9 @@
   {
     "id": "wallet-history-basic",
     "skill": "onekey-wallet",
-    "prompt": "show my transaction history on ethereum",
+    "prompt": "show transaction history for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 on ethereum",
     "expect": {
-      "commands": ["onekey history --chain eth"],
+      "commands": ["onekey history --chain eth --address 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"],
       "forbidden": ["--help", "swap history"]
     }
   },
@@ -319,9 +319,9 @@
   {
     "id": "wallet-history-token-filter",
     "skill": "onekey-wallet",
-    "prompt": "show my USDC transactions on base",
+    "prompt": "show USDC transactions for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 on base",
     "expect": {
-      "commands": ["onekey history --chain base --token USDC"],
+      "commands": ["onekey history --chain base --token USDC --address 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"],
       "forbidden": ["--help"]
     }
   },
