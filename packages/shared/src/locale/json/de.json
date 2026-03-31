@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "Adresse im Explorer anzeigen",
   "settings.view_transaction_in_explorer": "Transaktion im Explorer anzeigen",
   "settings.whats_new": "Was gibt's Neues",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "Bei Aktivierung können Sie Guthaben nur an Konten in Ihrer Wallet oder an gespeicherte Adressen im Adressbuch senden.",
   "settings_protection.allowlist_title": "Übertragungserlaubnisliste",
   "setup_choose_option_create_new_wallet": "Neue Wallet erstellen: Wenn dies deine erste Wallet ist",
