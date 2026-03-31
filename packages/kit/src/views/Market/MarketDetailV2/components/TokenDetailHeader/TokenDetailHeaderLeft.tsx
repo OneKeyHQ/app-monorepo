@@ -27,6 +27,7 @@ import {
 } from '../../../components/PerpsBadges';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
+import { MarketTokenSelector } from '../TokenSelector/MarketTokenSelector';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
 import { ShareButton } from './ShareButton';
@@ -61,13 +62,11 @@ export function TokenDetailHeaderLeft({
 
   const {
     handleCopyAddress,
-    handleOpenContractAddress,
     handleOpenWebsite,
     handleOpenTwitter,
     handleOpenXSearch,
   } = useTokenDetailHeaderLeftActions({
     tokenDetail,
-    networkId,
   });
 
   const {
@@ -114,43 +113,47 @@ export function TokenDetailHeaderLeft({
         : {})}
     >
       <XStack gap="$3" ai="center">
-        <Token
-          size="md"
-          tokenImageUri={logoUrl}
-          tokenImageUris={logoUrls}
-          networkImageUri={effectiveNetworkLogoUri}
-          fallbackIcon="CryptoCoinOutline"
-        />
+        {md ? (
+          <Token
+            size="md"
+            tokenImageUri={logoUrl}
+            tokenImageUris={logoUrls}
+            networkImageUri={effectiveNetworkLogoUri}
+            fallbackIcon="CryptoCoinOutline"
+          />
+        ) : (
+          <MarketTokenSelector />
+        )}
 
         <YStack>
           <XStack ai="center" gap="$1">
-            <SizableText
-              size="$headingLg"
-              $gtMd={{
-                size: '$heading2xl',
-              }}
-              color="$text"
-              numberOfLines={1}
-              maxWidth="$60"
-              flexShrink={1}
-            >
-              {symbol}
-            </SizableText>
+            {md ? (
+              <SizableText
+                size="$headingLg"
+                color="$text"
+                numberOfLines={1}
+                maxWidth="$60"
+                flexShrink={1}
+              >
+                {symbol}
+              </SizableText>
+            ) : null}
             {md ? (
               <TokenTagsPopover
                 communityRecognized={communityRecognized}
                 stock={stock}
+                showAllInTrigger
               />
             ) : (
               <>
                 <StockSourceLogo stock={stock} />
                 {communityRecognized ? <CommunityRecognizedBadge /> : null}
+                {stock?.subtitle ? (
+                  <SubtitleBadge subtitle={stock.subtitle} />
+                ) : null}
+                {stock ? <StockIsOpenBadge stock={stock} /> : null}
               </>
             )}
-            {stock?.subtitle ? (
-              <SubtitleBadge subtitle={stock.subtitle} />
-            ) : null}
-            {stock ? <StockIsOpenBadge stock={stock} /> : null}
           </XStack>
 
           <XStack gap="$2" ai="center">
@@ -160,9 +163,9 @@ export function TokenDetailHeaderLeft({
                   size="$bodySm"
                   color="$textSubdued"
                   cursor="pointer"
-                  hoverStyle={{ color: '$text' }}
-                  pressStyle={{ color: '$textActive' }}
-                  onPress={handleOpenContractAddress}
+                  hoverStyle={{ opacity: 0.8 }}
+                  pressStyle={{ opacity: 0.6 }}
+                  onPress={handleCopyAddress}
                 >
                   {accountUtils.shortenAddress({
                     address,
@@ -173,8 +176,8 @@ export function TokenDetailHeaderLeft({
 
                 <InteractiveIcon
                   icon="Copy3Outline"
-                  onPress={handleCopyAddress}
                   size="$4"
+                  onPress={handleCopyAddress}
                 />
               </XStack>
             ) : null}
