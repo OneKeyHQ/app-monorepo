@@ -65,6 +65,15 @@ export class BrowserScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
+  public exploreTabView(params: {
+    tabName: 'market' | 'earn' | 'browser';
+    switchType: 'default' | 'tap' | 'swipe';
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
   public tabDragSorting() {
     return {};
   }
