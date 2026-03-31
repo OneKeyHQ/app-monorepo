@@ -1,21 +1,80 @@
+import type { ComponentProps } from 'react';
+
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
-import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
+
+// Helper to strip trailing APR/APY suffix from a text string
+const stripRewardUnitSuffix = (text: string) =>
+  text.replace(/\s*(APR|APY)$/i, '');
 
 // Helper function to build APR text
-const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
+const buildAprText = (apr: string, unit: string) => `${apr} ${unit}`;
+
+const buildAprRangeText = ({
+  minAprInfo,
+  maxAprInfo,
+  rewardUnit,
+}: {
+  minAprInfo?: IEarnAvailableAsset['minAprInfo'];
+  maxAprInfo?: IEarnAvailableAsset['maxAprInfo'];
+  rewardUnit?: IEarnAvailableAsset['rewardUnit'];
+}) => {
+  const minText = minAprInfo?.normal?.text?.trim();
+  const maxText = maxAprInfo?.normal?.text?.trim();
+
+  if (!minText || !maxText || !rewardUnit) {
+    return undefined;
+  }
+
+  return `${stripRewardUnitSuffix(minText).trim()} - ${stripRewardUnitSuffix(maxText).trim()} ${rewardUnit}`.trim();
+};
 
 // APR text component with aprInfo support
 export function AprText({
   asset,
+  size = '$bodyLgMedium',
+  hideSuffix = false,
 }: {
   asset: {
     aprInfo?: IEarnAvailableAsset['aprInfo'];
     aprWithoutFee: IEarnAvailableAsset['aprWithoutFee'];
     rewardUnit?: IEarnAvailableAsset['rewardUnit'];
+    minAprInfo?: IEarnAvailableAsset['minAprInfo'];
+    maxAprInfo?: IEarnAvailableAsset['maxAprInfo'];
   };
+  size?: ComponentProps<typeof SizableText>['size'];
+  hideSuffix?: boolean;
 }) {
-  const { aprInfo, aprWithoutFee, rewardUnit = 'APR' } = asset;
+  const {
+    aprInfo,
+    aprWithoutFee,
+    rewardUnit = 'APR',
+    minAprInfo,
+    maxAprInfo,
+  } = asset;
+  const strip = hideSuffix ? stripRewardUnitSuffix : (t: string) => t;
+  const aprRangeText = buildAprRangeText({
+    minAprInfo,
+    maxAprInfo,
+    rewardUnit,
+  });
+
+  if (aprRangeText) {
+    return (
+      <SizableText
+        size={size}
+        textAlign="right"
+        color={
+          minAprInfo?.normal?.color ||
+          maxAprInfo?.normal?.color ||
+          aprInfo?.normal?.color ||
+          '$text'
+        }
+      >
+        {strip(aprRangeText)}
+      </SizableText>
+    );
+  }
 
   // Special case: both highlight and deprecated exist
   if (aprInfo?.highlight && aprInfo?.deprecated) {
@@ -31,11 +90,11 @@ export function AprText({
             />
           ) : null}
           <SizableText
-            size="$bodyLgMedium"
+            size={size}
             textAlign="right"
             color={highlight.color || '$textSuccess'}
           >
-            {highlight.text}
+            {strip(highlight.text)}
           </SizableText>
         </XStack>
         <SizableText
@@ -44,7 +103,7 @@ export function AprText({
           color={deprecated.color || '$textSubdued'}
           textDecorationLine="line-through"
         >
-          {deprecated.text}
+          {strip(deprecated.text)}
         </SizableText>
       </YStack>
     );
@@ -63,11 +122,11 @@ export function AprText({
           />
         ) : null}
         <SizableText
-          size="$bodyLgMedium"
+          size={size}
           textAlign="right"
           color={highlight.color || '$textSuccess'}
         >
-          {highlight.text}
+          {strip(highlight.text)}
         </SizableText>
       </XStack>
     );
@@ -78,11 +137,11 @@ export function AprText({
     const { normal } = aprInfo;
     return (
       <SizableText
-        size="$bodyLgMedium"
+        size={size}
         textAlign="right"
         color={normal.color || '$text'}
       >
-        {normal.text}
+        {strip(normal.text)}
       </SizableText>
     );
   }
@@ -92,20 +151,20 @@ export function AprText({
     const { deprecated } = aprInfo;
     return (
       <SizableText
-        size="$bodyLgMedium"
+        size={size}
         textAlign="right"
         color={deprecated.color || '$textSubdued'}
         textDecorationLine="line-through"
       >
-        {deprecated.text}
+        {strip(deprecated.text)}
       </SizableText>
     );
   }
 
   // Priority 4: fallback to current logic
   return (
-    <SizableText size="$bodyLgMedium" textAlign="right">
-      {buildAprText(aprWithoutFee, rewardUnit as IEarnRewardUnit)}
+    <SizableText size={size} textAlign="right">
+      {hideSuffix ? aprWithoutFee : buildAprText(aprWithoutFee, rewardUnit)}
     </SizableText>
   );
 }

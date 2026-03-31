@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
@@ -1634,33 +1633,6 @@ class ServiceStaking extends ServiceBase {
     });
     return resp.data.data.delegations;
   }
-
-  @backgroundMethod()
-  fetchEarnHomePageBannerList({ theme }: { theme?: string } = {}) {
-    return this._fetchEarnHomePageBannerList({ theme });
-  }
-
-  @backgroundMethod()
-  async clearEarnHomePageBannerListCache() {
-    void this._fetchEarnHomePageBannerList.clear();
-  }
-
-  _fetchEarnHomePageBannerList = memoizee(
-    async ({ theme }: { theme?: string } = {}) => {
-      const client = await this.getClient(EServiceEndpointEnum.Utility);
-      const res = await client.get<{ data: IDiscoveryBanner[] }>(
-        '/utility/v1/earn-banner/list',
-        {
-          headers: theme ? { 'X-Onekey-Request-Theme': theme } : {},
-        },
-      );
-      return res.data.data;
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
-    },
-  );
 
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {

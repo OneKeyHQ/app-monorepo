@@ -9,6 +9,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -19,6 +20,20 @@ import { AdaManageContent } from './AdaManageContent';
 import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
+
+export type IManagePositionSelectedProtocol = {
+  networkId: string;
+  provider: string;
+  vault?: string;
+};
+
+export type IManagePositionProtocolSwitchConfig = {
+  currentProtocol?: IStakeProtocolListItem;
+  isLoading?: boolean;
+  protocols: IStakeProtocolListItem[];
+  selectedProtocol: IManagePositionSelectedProtocol;
+  onProtocolSelect: (protocol: IStakeProtocolListItem) => void | Promise<void>;
+};
 
 export interface IManagePositionContentProps {
   // Essential params
@@ -42,6 +57,7 @@ export interface IManagePositionContentProps {
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
   providerLogoUri?: string;
+  stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -104,6 +120,7 @@ export function ManagePositionContent({
   showApyDetail = false,
   fallbackTokenImageUri,
   providerLogoUri,
+  stakeProtocolSwitchConfig,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -530,6 +547,7 @@ export function ManagePositionContent({
       isInModalContext={isInModalContext}
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
+      stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
     />
