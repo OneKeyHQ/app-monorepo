@@ -7,17 +7,22 @@ import {
   Badge,
   Icon,
   Image,
+  Popover,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelCommissionRate,
   IInviteLevelDetail,
+  IInviteLevelUpgradeCondition,
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { CommissionRateCard } from './CommissionRateCard';
@@ -26,13 +31,20 @@ export function LevelAccordionItem({
   level,
   isCurrent,
   isLast,
+  isHighestLevel,
+  isLowestLevel,
+  retentionConditions,
 }: {
   level: IInviteLevelDetail['levels'][0];
   isCurrent: boolean;
   isFirst: boolean;
   isLast: boolean;
+  isHighestLevel: boolean;
+  isLowestLevel: boolean;
+  retentionConditions?: IInviteLevelUpgradeCondition[];
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const currencyInfo = useCurrency();
   const commissionRateItems = useMemo(() => {
     const rates = level.commissionRates;
@@ -63,6 +75,17 @@ export function LevelAccordionItem({
     }
     return fallback ?? '';
   };
+  const retentionLabel = intl.formatMessage({
+    id: ETranslations.referral_level_maintenance_conditions,
+  });
+  const retentionTooltip = intl.formatMessage({
+    id: ETranslations.referral_referral_level_desc2,
+  });
+  const retentionBadge = (
+    <Badge badgeSize="sm" badgeType="success">
+      {retentionLabel}
+    </Badge>
+  );
 
   return (
     <Accordion.Item value={`level-${level.level}`}>
@@ -95,7 +118,11 @@ export function LevelAccordionItem({
                 ) : null}
               </XStack>
             </XStack>
-            <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
+            <Stack
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
+              rotate={open ? '180deg' : '0deg'}
+            >
               <Icon
                 name="ChevronDownSmallOutline"
                 color={open ? '$iconActive' : '$iconSubdued'}
@@ -117,16 +144,17 @@ export function LevelAccordionItem({
           bg="$bgSubdued"
         >
           <YStack gap="$3">
-            {level.upgradeConditions.length > 0 ? (
-              <>
-                <YStack gap="$2">
-                  <SizableText size="$bodyMdMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_upgrade_condition,
-                    })}
-                  </SizableText>
-                  {level.upgradeConditions.map((condition, index) => (
-                    <XStack key={index} jc="space-between" ai="center">
+            {!isHighestLevel && level.upgradeConditions.length > 0 ? (
+              <YStack gap="$2">
+                {level.upgradeConditions.map((condition, index) => (
+                  <XStack
+                    key={`upgrade-${index}`}
+                    jc="space-between"
+                    ai="center"
+                    flexWrap="wrap"
+                    gap="$1"
+                  >
+                    <XStack gap="$2" ai="center">
                       <SizableText size="$bodyMd" color="$textSubdued">
                         {getDisplayLabel(
                           condition.levelUpLabelKey,
@@ -135,18 +163,77 @@ export function LevelAccordionItem({
                             getDefaultSubjectLabel(condition.subject),
                         )}
                       </SizableText>
-                      <XStack gap="$1" ai="center" jc="flex-end">
-                        <SizableText size="$bodyMdMedium" color="$text">
-                          {`${condition.currentFiatValue} / ${condition.thresholdFiatValue}`}
-                        </SizableText>
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {currencyInfo.id.toUpperCase()}
-                        </SizableText>
-                      </XStack>
+                      <Badge badgeSize="sm" badgeType="info">
+                        {intl.formatMessage({
+                          id: ETranslations.referral_level_upgrade_conditions,
+                        })}
+                      </Badge>
                     </XStack>
-                  ))}
-                </YStack>
-              </>
+                    <XStack gap="$1" ai="center" jc="flex-end">
+                      <SizableText size="$bodyMdMedium" color="$text">
+                        {`${condition.currentFiatValue} / ≥ ${condition.thresholdFiatValue}`}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {currencyInfo.id.toUpperCase()}
+                      </SizableText>
+                    </XStack>
+                  </XStack>
+                ))}
+              </YStack>
+            ) : null}
+
+            {!isLowestLevel &&
+            retentionConditions &&
+            retentionConditions.length > 0 ? (
+              <YStack gap="$2">
+                {retentionConditions.map((condition, index) => (
+                  <XStack
+                    key={`retention-${index}`}
+                    jc="space-between"
+                    ai="center"
+                    flexWrap="wrap"
+                    gap="$1"
+                  >
+                    <XStack gap="$2" ai="center">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {getDisplayLabel(
+                          condition.levelUpLabelKey,
+                          condition.levelUpLabel ??
+                            condition.label ??
+                            getDefaultSubjectLabel(condition.subject),
+                        )}
+                      </SizableText>
+                      {gtMd ? (
+                        <Tooltip
+                          renderTrigger={retentionBadge}
+                          renderContent={retentionTooltip}
+                        />
+                      ) : (
+                        <Popover
+                          placement="top"
+                          title={retentionLabel}
+                          renderTrigger={retentionBadge}
+                          renderContent={
+                            <YStack px="$5" py="$4">
+                              <SizableText size="$bodyMd">
+                                {retentionTooltip}
+                              </SizableText>
+                            </YStack>
+                          }
+                        />
+                      )}
+                    </XStack>
+                    <XStack gap="$1" ai="center" jc="flex-end">
+                      <SizableText size="$bodyMdMedium" color="$text">
+                        {`${condition.currentFiatValue} / ≥ ${condition.thresholdFiatValue}`}
+                      </SizableText>
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {currencyInfo.id.toUpperCase()}
+                      </SizableText>
+                    </XStack>
+                  </XStack>
+                ))}
+              </YStack>
             ) : null}
 
             <YStack gap="$2">
