@@ -97,10 +97,10 @@
   {
     "id": "swap-quote-same-chain",
     "skill": "swap",
-    "prompt": "查一下在以太坊上把 10 USDC 换成 ETH 的报价，只需要报价不需要执行",
+    "prompt": "我想把 100 USDC 换成 ETH，先看看报价",
     "expect": {
-      "commands": ["onekey swap quote --chain eth --from USDC --to ETH --amount 10"],
-      "forbidden": ["--help", "swap build", "swap execute"]
+      "commands": ["onekey swap quote --chain eth --from USDC --to ETH --amount 100"],
+      "forbidden": ["--help", "swap build"]
     }
   },
   {
@@ -145,7 +145,7 @@
   {
     "id": "routing-swap-not-market",
     "skill": "routing",
-    "prompt": "帮我把 USDC 换成 ETH",
+    "prompt": "换点 ETH",
     "expect": {
       "commands": ["onekey swap"],
       "forbidden": ["onekey token", "onekey market", "--help"]
@@ -181,9 +181,9 @@
   {
     "id": "security-before-swap",
     "skill": "swap",
-    "prompt": "这个新币 0x1234567890abcdef1234567890abcdef12345678 在以太坊上安全吗？我想买一些",
+    "prompt": "把 100 USDC 换成一个新币 0x1234567890abcdef1234567890abcdef12345678",
     "expect": {
-      "commands": ["onekey security audit --chain eth --token 0x1234567890abcdef1234567890abcdef12345678"],
+      "commands_ordered": ["onekey balance", "onekey security audit"],
       "forbidden": ["--help"]
     }
   },
@@ -289,7 +289,7 @@
   {
     "id": "wallet-transfer-dryrun",
     "skill": "wallet",
-    "prompt": "用 onekey transfer --dry-run 预估给 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 转 0.001 ETH 的 gas 费用",
+    "prompt": "预估一下给 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 转 1 ETH 需要多少 gas",
     "expect": {
       "commands": ["onekey transfer --dry-run"],
       "forbidden": ["--help"]

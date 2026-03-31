@@ -114,6 +114,9 @@ Wallet management and asset operations skill for OneKey CLI.
 - User wants to import or manage their wallet.
 - User asks about transaction history.
 - User wants to check CLI connectivity.
+- **User asks about gas estimation or transfer fees** → use `onekey transfer --dry-run`.
+  This estimates fees without actually sending. Always use `--dry-run` when
+  the user asks "how much gas", "estimate fee", or "预估 gas".
 
 ## When NOT To Use
 

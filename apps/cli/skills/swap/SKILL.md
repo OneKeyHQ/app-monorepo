@@ -116,27 +116,52 @@ quote to execution.
 - User wants to check a pending swap order status.
 - User wants to know which chains support swapping.
 
+**Defaults for vague requests**: If the user says something like "swap some ETH"
+without specifying chain, amount, or pair — use these defaults: chain=eth,
+check balance first to determine available amount, then proceed. Do NOT ask
+clarifying questions; act with reasonable defaults.
+
 ## When NOT To Use
 
 - User only wants to check prices/market data → use `onekey-market`.
 - User asks about token security/risk → use `onekey-security`.
 - User wants a direct transfer (not a swap) → use `onekey-wallet`.
 
-## Trade Flow — Strictly Follow, No Steps May Be Skipped
+## Operation Types
+
+**Read-only operations** (no wallet/balance needed):
+- `onekey swap quote` — get quotes without executing
+- `onekey swap networks` — list supported networks
+- `onekey swap history` — view past orders
+
+These do NOT require balance checks, security audits, or user confirmation.
+Execute them directly.
+
+**Fund-moving operations** (full trade flow required):
+- `onekey swap build` + `onekey swap execute` — actual token swap
+
+These MUST follow the Trade Flow below. No steps may be skipped.
+
+## Trade Flow — For Fund-Moving Operations Only
 
 ```
-1. Balance check ──→ Insufficient → abort
-2. Security audit ──→ Scan fails → deny (fail-safe)
-3. Get quote     ──→ Display all quote details to user
-4. Risk classify ──→ block → forbid, warn → re-confirm
-5. User confirm  ──→ No confirmation → do nothing
-6. Build tx      ──→ Quotes + builds unsigned tx, returns orderId
-7. Execute sign  ──→ Sign and broadcast using orderId
-8. Track status  ──→ Confirm transaction result
+1. Balance check   ──→ Insufficient → WARN but continue to step 2
+2. Security audit  ──→ Scan fails → deny (fail-safe). ALWAYS run, even if balance is insufficient.
+3. Get quote       ──→ Display all quote details to user
+4. Risk classify   ──→ block → forbid, warn → re-confirm
+5. User confirm    ──→ No confirmation → do nothing
+6. Build tx        ──→ Quotes + builds unsigned tx, returns orderId
+7. Execute sign    ──→ Sign and broadcast using orderId
+8. Track status    ──→ Confirm transaction result
 ```
 
-**Steps 1-5 must NEVER be skipped.** Even if the user urges "just swap it",
-all pre-flight checks must be completed.
+**Steps 1-5 must NEVER be skipped** for fund-moving operations. Even if the
+user urges "just swap it", all pre-flight checks must be completed.
+
+**Important**: Balance insufficient does NOT skip security audit. The user
+needs to know if a token is safe BEFORE deciding to fund their wallet.
+If balance is insufficient, warn the user after completing the security
+audit and showing the quote.
 
 ## Commands
 
