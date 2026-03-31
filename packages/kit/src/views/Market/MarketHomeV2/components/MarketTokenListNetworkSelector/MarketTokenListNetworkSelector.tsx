@@ -17,6 +17,8 @@ interface IMarketTokenListNetworkSelectorProps {
   containerStyle?: IListViewProps<any>['contentContainerStyle'];
   onStartListSelect?: () => void;
   startListSelect?: boolean;
+  borderColor?: string;
+  gradientBgColor?: string;
 }
 
 function MarketTokenListNetworkSelector({
@@ -26,6 +28,8 @@ function MarketTokenListNetworkSelector({
   containerStyle,
   onStartListSelect,
   startListSelect,
+  borderColor,
+  gradientBgColor,
 }: IMarketTokenListNetworkSelectorProps) {
   const { md } = useMedia();
   const normalComponentRef =
@@ -100,6 +104,8 @@ function MarketTokenListNetworkSelector({
       placement={placement}
       onStartListSelect={onStartListSelect}
       startListSelect={startListSelect}
+      borderColor={borderColor}
+      gradientBgColor={gradientBgColor}
     />
   );
 }
