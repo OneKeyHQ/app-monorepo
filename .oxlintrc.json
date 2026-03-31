@@ -449,7 +449,10 @@
     // Custom OneKey rules (JS plugin)
     // ============================================
     // Enforce OneKeyLocalError/OneKeyError instead of raw Error
-    "onekey/no-raw-error": "error"
+    "onekey/no-raw-error": "error",
+    // ============================================
+    // Require testID prop on interactive components for QA automation
+    "onekey/require-testid": "warn"
   },
   // Package-specific rules (migrated from ESLint overrides)
   "overrides": [
