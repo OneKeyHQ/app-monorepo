@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { FlatList } from 'react-native';
 
 import {
+  ListEndIndicator,
   NavBackButton,
   Page,
   SizableText,
@@ -36,6 +38,9 @@ import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
+import { MarketListColumnHeader } from '../MarketHomeV2/components/MarketListColumnHeader';
+import { TokenListItem } from '../MarketHomeV2/components/MarketTokenList/components/TokenListItem';
+import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import {
@@ -135,6 +140,15 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     [toDetailPage],
   );
 
+  const renderBannerItem = useCallback(
+    ({ item }: { item: IMarketToken }) => (
+      <TokenListItem item={item} onPress={() => handleItemPress(item)} />
+    ),
+    [handleItemPress],
+  );
+
+  const bannerKeyExtractor = useCallback((item: IMarketToken) => item.id, []);
+
   const setSortBy = useCallback(
     (val: string | undefined) => {
       const next = { ...sortRef.current, sortBy: val };
@@ -218,25 +232,68 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     return null;
   }, [isWebDesktop, gtMd, renderHeaderTitle, renderHeaderLeft]);
 
+  const renderTokenList = useMemo(() => {
+    if (isPerps) {
+      return <PerpsTokenListSection tokenListId={tokenListId} />;
+    }
+    // Native mobile: use FlatList + TokenListItem to match watchlist layout
+    if (platformEnv.isNative && !gtMd) {
+      if (tickerIsLoading && transformedData.length === 0) {
+        return (
+          <Stack flex={1}>
+            <MarketListColumnHeader />
+            <TokenListSkeleton count={15} />
+          </Stack>
+        );
+      }
+      return (
+        <Stack flex={1}>
+          <MarketListColumnHeader />
+          <FlatList<IMarketToken>
+            data={transformedData}
+            renderItem={renderBannerItem}
+            keyExtractor={bannerKeyExtractor}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={15}
+            maxToRenderPerBatch={20}
+            ListFooterComponent={
+              transformedData.length > 0 ? <ListEndIndicator /> : null
+            }
+          />
+        </Stack>
+      );
+    }
+
+    return (
+      <MarketTokenListBase
+        result={listResult}
+        onItemPress={handleItemPress}
+        hideTokenAge
+        clientSort
+        watchlistFrom={EWatchlistFrom.BannerList}
+        copyFrom={ECopyFrom.BannerList}
+        showEndReachedIndicator
+      />
+    );
+  }, [
+    isPerps,
+    tokenListId,
+    listResult,
+    handleItemPress,
+    gtMd,
+    tickerIsLoading,
+    transformedData,
+    renderBannerItem,
+    bannerKeyExtractor,
+  ]);
+
   return (
     <Page>
       {renderPageHeader}
       <Page.Body>
         <Stack flex={1} pt={gtMd ? 0 : top} px={gtMd ? '$4' : 0} gap="$4">
           {renderTitleSection}
-          {isPerps ? (
-            <PerpsTokenListSection tokenListId={tokenListId} />
-          ) : (
-            <MarketTokenListBase
-              result={listResult}
-              onItemPress={handleItemPress}
-              hideTokenAge
-              clientSort
-              watchlistFrom={EWatchlistFrom.BannerList}
-              copyFrom={ECopyFrom.BannerList}
-              showEndReachedIndicator
-            />
-          )}
+          {renderTokenList}
         </Stack>
       </Page.Body>
     </Page>
