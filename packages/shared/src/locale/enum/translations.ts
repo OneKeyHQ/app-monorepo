@@ -1,4 +1,4 @@
-// This file is automatically created by `yarn fetch:locale`.
+// This file is automatically created by `yarn i18n:pull`.
 
 // @ts-ignore
 /* eslint-disable  */
@@ -2600,6 +2600,28 @@
   passphrase_character_limit = 'passphrase_character_limit',
   passphrase_disabled_dialog_desc = 'passphrase_disabled_dialog_desc',
   passphrase_disabled_dialog_title = 'passphrase_disabled_dialog_title',
+  perp_guide_article_basic_concepts = 'perp.guide_article_basic_concepts',
+  perp_guide_article_deposit_withdrawal = 'perp.guide_article_deposit_withdrawal',
+  perp_guide_article_introduction = 'perp.guide_article_introduction',
+  perp_guide_article_open_position = 'perp.guide_article_open_position',
+  perp_guide_article_position_sharing = 'perp.guide_article_position_sharing',
+  perp_guide_article_trading_fees = 'perp.guide_article_trading_fees',
+  perp_guide_article_video_tutorials = 'perp.guide_article_video_tutorials',
+  perp_guide_article_view_close_positions = 'perp.guide_article_view_close_positions',
+  perp_guide_desc_basic_concepts = 'perp.guide_desc_basic_concepts',
+  perp_guide_desc_deposit_withdrawal = 'perp.guide_desc_deposit_withdrawal',
+  perp_guide_desc_introduction = 'perp.guide_desc_introduction',
+  perp_guide_desc_open_position = 'perp.guide_desc_open_position',
+  perp_guide_desc_position_sharing = 'perp.guide_desc_position_sharing',
+  perp_guide_desc_trading_fees = 'perp.guide_desc_trading_fees',
+  perp_guide_desc_video_tutorials = 'perp.guide_desc_video_tutorials',
+  perp_guide_desc_view_close_positions = 'perp.guide_desc_view_close_positions',
+  perp_guide_funds_and_fees = 'perp.guide_funds_and_fees',
+  perp_guide_getting_started = 'perp.guide_getting_started',
+  perp_guide_help_center = 'perp.guide_help_center',
+  perp_guide_search_placeholder = 'perp.guide_search_placeholder',
+  perp_guide_trading_operations = 'perp.guide_trading_operations',
+  perp_guide_video_tutorials = 'perp.guide_video_tutorials',
   perp_0_fee = 'perp.0_fee',
   perp_account_action = 'perp.account_action',
   perp_account_action_rewards = 'perp.account_action_rewards',
