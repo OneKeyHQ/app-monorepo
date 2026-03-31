@@ -49,6 +49,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
+import { HomeTestIDs } from '../testIDs';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 
@@ -344,6 +345,7 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.dexmarket_spot,
         }),
+        testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
       isDeFiEnabled
@@ -352,6 +354,7 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_earn,
             }),
+            testID: HomeTestIDs.tabDefi,
             component: <DeFiContainerWithProvider />,
           }
         : undefined,
@@ -361,6 +364,7 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_nft,
             }),
+            testID: HomeTestIDs.tabNFT,
             component: <NFTListContainerWithProvider />,
           }
         : undefined,
@@ -369,14 +373,33 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.global_history,
         }),
+        testID: HomeTestIDs.tabHistory,
         component: <TxHistoryListContainerWithProvider />,
       },
     ].filter(Boolean);
   }, [intl, isDeFiEnabled, isNFTEnabled]);
 
-  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
-    return <TabBarItem {...props} />;
-  }, []);
+  const tabTestIDMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const tab of tabConfigs) {
+      if (tab.testID) {
+        map[tab.name] = tab.testID;
+      }
+    }
+    return map;
+  }, [tabConfigs]);
+
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const testID = tabTestIDMap[props.name];
+      return (
+        <Stack testID={testID}>
+          <TabBarItem {...props} />
+        </Stack>
+      );
+    },
+    [tabTestIDMap],
+  );
 
   const renderToolbar = useCallback(
     ({ focusedTab }: { focusedTab: string }) => (
@@ -657,6 +680,10 @@ export function HomePageView({
   ]);
 
   return useMemo(() => {
-    return <Page fullPage>{homePage}</Page>;
+    return (
+      <Stack testID={HomeTestIDs.page} flex={1}>
+        <Page fullPage>{homePage}</Page>
+      </Stack>
+    );
   }, [homePage]);
 }

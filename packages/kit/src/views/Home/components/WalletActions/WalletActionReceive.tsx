@@ -14,6 +14,7 @@ import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IWalletActionBaseParams } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/walletActions';
 
+import { HomeTestIDs } from '../../testIDs';
 import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
@@ -123,6 +124,7 @@ function WalletActionReceive({
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-receive"
+      testID={HomeTestIDs.receiveButton}
     />
   );
 }

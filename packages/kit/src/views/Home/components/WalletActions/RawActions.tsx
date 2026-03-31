@@ -209,8 +209,10 @@ function ActionStaking(props: IActionItemsProps) {
 
 function ActionMore({
   renderItemsAsync,
+  testID,
 }: {
   renderItemsAsync: IActionListProps['renderItemsAsync'];
+  testID?: string;
 }) {
   const intl = useIntl();
   const label = intl.formatMessage({ id: ETranslations.global_more });
@@ -247,6 +249,7 @@ function ActionMore({
         }}
         $gtSm={{ display: 'none' }}
         onPress={handleMobilePress}
+        testID={testID}
       >
         <Stack>
           <Icon name="DotHorOutline" size="$6" color="$icon" />
@@ -262,7 +265,7 @@ function ActionMore({
           title={label}
           floatingPanelProps={{ w: '$60' }}
           renderTrigger={
-            <IconButton variant="secondary" size="large" icon="DotHorOutline" />
+            <IconButton variant="secondary" size="large" icon="DotHorOutline" testID={testID} />
           }
           renderItemsAsync={renderItemsAsync}
         />

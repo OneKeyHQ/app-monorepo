@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
+import { HomeTestIDs } from '../../testIDs';
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionBulkSend } from './WalletActionBulkSend';
@@ -259,5 +260,5 @@ export function WalletActionMore() {
     ],
   );
 
-  return <RawActions.More renderItemsAsync={renderItemsAsync} />;
+  return <RawActions.More renderItemsAsync={renderItemsAsync} testID={HomeTestIDs.moreButton} />;
 }

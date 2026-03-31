@@ -46,6 +46,7 @@ import {
 } from '../../../states/jotai/contexts/accountOverview';
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { HomeTestIDs } from '../testIDs';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 // Grace period (ms) after an account switch during which the previous
@@ -617,7 +618,7 @@ function HomeOverviewContainer() {
   const renderedBalanceString = displayBalanceString ?? debouncedBalanceString;
 
   return (
-    <YStack gap="$2.5" alignItems="flex-start">
+    <YStack gap="$2.5" alignItems="flex-start" testID={HomeTestIDs.walletOverview}>
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />
@@ -645,6 +646,7 @@ function HomeOverviewContainer() {
                 outlineStyle: 'solid',
               }}
               onPress={handleBalanceOnPress}
+              testID={HomeTestIDs.totalBalance}
             >
               <NumberSizeableTextWrapper
                 hideValue

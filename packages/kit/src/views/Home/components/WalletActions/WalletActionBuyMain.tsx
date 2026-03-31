@@ -11,6 +11,7 @@ import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { HomeTestIDs } from '../../testIDs';
 import { RawActions } from './RawActions';
 
 import type { IActionCustomization } from './types';
@@ -83,6 +84,7 @@ function WalletActionBuyMain({
       icon={customization?.icon}
       disabled={customization?.disabled ?? isBuyDisabled}
       trackID="wallet-buy"
+      testID={HomeTestIDs.buyButton}
     />
   );
 }

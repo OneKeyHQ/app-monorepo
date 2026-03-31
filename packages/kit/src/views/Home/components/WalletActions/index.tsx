@@ -25,6 +25,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { HomeTestIDs } from '../../testIDs';
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionBuyMain } from './WalletActionBuyMain';
@@ -235,6 +236,7 @@ function WalletActionSend({
       icon={customization?.icon}
       showButtonStyle={showButtonStyle}
       trackID="wallet-send"
+      testID={HomeTestIDs.sendButton}
     />
   );
 }
