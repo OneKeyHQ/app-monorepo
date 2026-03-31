@@ -52,7 +52,7 @@ public class MainApplication extends Application implements ReactApplication {
         @SuppressWarnings("UnnecessaryLocalVariable")
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
-        // All native modules are now Nitro modules (auto-linked)
+        packages.add(new SplitBundleLoaderPackage());
         return packages;
       }
 
