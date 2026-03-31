@@ -3875,6 +3875,8 @@ export enum ETranslations {
   settings_view_address_in_explorer = 'settings.view_address_in_explorer',
   settings_view_transaction_in_explorer = 'settings.view_transaction_in_explorer',
   settings_whats_new = 'settings.whats_new',
+  settings_menu_bar_tray = 'settings_menu_bar_tray',
+  settings_menu_bar_tray_desc = 'settings_menu_bar_tray_desc',
   settings_protection_allowlist_content = 'settings_protection.allowlist_content',
   settings_protection_allowlist_title = 'settings_protection.allowlist_title',
   setup_choose_option_create_new_wallet = 'setup_choose_option_create_new_wallet',

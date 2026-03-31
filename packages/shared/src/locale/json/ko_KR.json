@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "탐색기에서 주소 보기",
   "settings.view_transaction_in_explorer": "탐색기에서 거래 보기",
   "settings.whats_new": "새로운 기능",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "이 기능을 활성화하면 지갑 내 계정이나 주소록에 저장된 주소로만 자금을 전송할 수 있습니다.",
   "settings_protection.allowlist_title": "전송 허용 목록",
   "setup_choose_option_create_new_wallet": "새 지갑 만들기: 첫 지갑이라면",

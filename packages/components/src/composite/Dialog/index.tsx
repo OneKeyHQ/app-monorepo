@@ -380,7 +380,6 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
-              // @ts-expect-error
               trapFocus={effectiveTrapFocus}
               onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
