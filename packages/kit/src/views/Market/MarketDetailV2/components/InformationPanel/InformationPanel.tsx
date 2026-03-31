@@ -11,6 +11,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
   formatPriceChangeDisplay,
@@ -65,6 +66,8 @@ export function InformationPanel() {
     priceConverted,
     holders = 0,
     address = '',
+    communityRecognized,
+    stock,
   } = tokenDetail;
 
   const formattedMarketCap = formatStatValueWithFormatter(
@@ -86,31 +89,48 @@ export function InformationPanel() {
     formatPriceChangeDisplay(priceChange24hPercent);
 
   return (
-    <XStack px="$5" py="$4" gap="$4" jc="space-between" width="100%">
-      <YStack pointerEvents="none">
-        <MarketTokenPrice
-          size={getPriceSizeByValue(currentPrice)}
-          price={currentPrice}
-          tokenName={name}
-          tokenSymbol={symbol}
-        />
-        {priceConverted ? (
-          <NumberSizeableText
-            size="$bodySm"
-            color="$textSubdued"
-            formatter="price"
-            formatterOptions={{ currency: currencyInfo.symbol }}
-          >
-            {priceConverted}
-          </NumberSizeableText>
-        ) : null}
-        <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
-          {priceChangeDisplay}
-        </SizableText>
+    <XStack
+      px="$5"
+      py="$4"
+      gap="$4"
+      jc="space-between"
+      ai="flex-start"
+      width="100%"
+    >
+      <YStack>
+        <YStack pointerEvents="none">
+          <MarketTokenPrice
+            size={getPriceSizeByValue(currentPrice)}
+            price={currentPrice}
+            tokenName={name}
+            tokenSymbol={symbol}
+          />
+          {priceConverted ? (
+            <NumberSizeableText
+              size="$bodySm"
+              color="$textSubdued"
+              formatter="price"
+              formatterOptions={{ currency: currencyInfo.symbol }}
+            >
+              {priceConverted}
+            </NumberSizeableText>
+          ) : null}
+          <SizableText pt="$1" size="$bodyLgMedium" color={priceChangeColor}>
+            {priceChangeDisplay}
+          </SizableText>
+        </YStack>
+        <XStack ai="center" gap="$1" pt="$1">
+          <TokenTagsPopover
+            communityRecognized={communityRecognized}
+            stock={stock}
+            showAllInTrigger
+            hideCommunityInTrigger
+          />
+        </XStack>
       </YStack>
 
       {/* Stats Row */}
-      <YStack gap="$1" width="$40">
+      <YStack gap="$1" width="$40" pt="$1">
         <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_market_cap })}
