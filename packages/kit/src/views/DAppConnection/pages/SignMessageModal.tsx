@@ -46,6 +46,8 @@ import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
+import { DAppConnectionTestIDs } from '../testIDs';
+
 const WalletAccountListItem = ({
   networkId,
   accountId,
@@ -274,7 +276,7 @@ function SignMessageModal() {
   };
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage dappApprove={dappApprove} testID={DAppConnectionTestIDs.SignMessageModal}>
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -316,6 +318,10 @@ function SignMessageModal() {
             confirmButtonProps={{
               loading: isLoading,
               disabled: !continueOperate,
+              testID: DAppConnectionTestIDs.SignMessageConfirmButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.SignMessageRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={isRiskSignMethod ? EHostSecurityLevel.High : riskLevel}

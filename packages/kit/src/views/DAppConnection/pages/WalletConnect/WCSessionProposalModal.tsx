@@ -20,6 +20,8 @@ import {
 import { useRiskDetection } from '../../hooks/useRiskDetection';
 import DappOpenModalPage from '../DappOpenModalPage';
 
+import { DAppConnectionTestIDs } from '../../testIDs';
+
 import type {
   IHandleAccountChanged,
   IHandleAccountChangedParams,
@@ -160,7 +162,7 @@ function SessionProposalModal() {
   }, [accountChangedParamsMap]);
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage dappApprove={dappApprove} testID={DAppConnectionTestIDs.WCSessionProposalModal}>
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -193,6 +195,10 @@ function SessionProposalModal() {
             }}
             confirmButtonProps={{
               disabled: confirmDisabled,
+              testID: DAppConnectionTestIDs.WCSessionApproveButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.WCSessionRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

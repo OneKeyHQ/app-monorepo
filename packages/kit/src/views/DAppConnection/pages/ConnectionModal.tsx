@@ -29,6 +29,8 @@ import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import DappOpenModalPage from './DappOpenModalPage';
 
+import { DAppConnectionTestIDs } from '../testIDs';
+
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
 import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
@@ -215,7 +217,7 @@ function ConnectionModal() {
   );
 
   return (
-    <DappOpenModalPage dappApprove={dappApprove}>
+    <DappOpenModalPage dappApprove={dappApprove} testID={DAppConnectionTestIDs.ConnectionModal}>
       <>
         <Page.Header headerShown={false} />
         <Page.Body>
@@ -243,6 +245,10 @@ function ConnectionModal() {
             onCancel={() => dappApprove.reject()}
             confirmButtonProps={{
               disabled: confirmDisabled,
+              testID: DAppConnectionTestIDs.ConnectionApproveButton,
+            }}
+            cancelButtonProps={{
+              testID: DAppConnectionTestIDs.ConnectionRejectButton,
             }}
             showContinueOperateCheckbox={showContinueOperate}
             riskLevel={riskLevel}

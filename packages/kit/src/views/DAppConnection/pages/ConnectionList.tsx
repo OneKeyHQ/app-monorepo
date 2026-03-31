@@ -11,6 +11,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useShouldUpdateConnectedAccount } from '../../Discovery/hooks/useDAppNotifyChanges';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
+import { DAppConnectionTestIDs } from '../testIDs';
 
 const ItemSeparatorComponent = () => <Divider />;
 
@@ -60,6 +61,7 @@ function ConnectionList() {
       <Button
         variant="tertiary"
         size="medium"
+        testID={DAppConnectionTestIDs.ConnectionListRemoveAllButton}
         onPress={async () => {
           await serviceDApp.disconnectAllWebsites();
           void run();
@@ -74,7 +76,7 @@ function ConnectionList() {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
 
   return (
-    <Page>
+    <Page testID={DAppConnectionTestIDs.ConnectionList}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.explore_dapp_connections,
