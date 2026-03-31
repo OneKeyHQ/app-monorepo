@@ -102,6 +102,7 @@ function TimeRangeDropdownImpl({
       placement="bottom-end"
       renderTrigger={renderTrigger}
       renderContent={RenderContent}
+      floatingPanelProps={{ w: 'auto', minWidth: '$20' }}
     />
   );
 }
