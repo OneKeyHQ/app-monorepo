@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import { SearchBar, Shortcut, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { MarketTestIDs } from '../testIDs';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -21,6 +23,7 @@ export function MarketHomeHeaderSearchBar() {
   return (
     <XStack $gtSm={{ width: 184 }}>
       <SearchBar
+        testID={MarketTestIDs.searchBar}
         placeholder={intl.formatMessage({
           id: ETranslations.global_search,
         })}

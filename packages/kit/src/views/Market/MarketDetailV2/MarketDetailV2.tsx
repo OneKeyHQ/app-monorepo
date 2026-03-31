@@ -9,6 +9,7 @@ import {
   useIsSplitView,
   useMedia,
 } from '@onekeyhq/components';
+import { MarketTestIDs } from '../testIDs';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -71,7 +72,7 @@ function MarketDetail({
     <Page>
       <MarketDetailHeader />
 
-      <Page.Body>
+      <Page.Body testID={MarketTestIDs.detailPage}>
         {media.gtLg && !platformEnv.isNative ? (
           <DesktopLayout />
         ) : (

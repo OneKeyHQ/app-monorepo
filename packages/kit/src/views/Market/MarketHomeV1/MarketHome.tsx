@@ -9,6 +9,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { MarketTestIDs } from '../testIDs';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -142,7 +143,7 @@ function MarketHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>{renderTabContainer()}</Page.Body>
+      <Page.Body testID={MarketTestIDs.marketPage}>{renderTabContainer()}</Page.Body>
     </Page>
   );
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Tabs, Toast, useMedia } from '@onekeyhq/components';
+import { ActionList, Stack, Tabs, Toast, useMedia } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
@@ -344,24 +345,26 @@ function MarketWatchlistTokenList({
   }
 
   return (
-    <MarketTokenListBase
-      onItemPress={onItemPress}
-      toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
-      result={filteredResult}
-      isWatchlistMode
-      showEndReachedIndicator
-      draggable={isDraggable}
-      tabIntegrated={tabIntegrated}
-      tabName={tabName}
-      listContainerProps={listContainerProps}
-      hiddenDesktopColumns={hiddenDesktopColumns}
-      onDragEnd={handleDragEnd}
-      onItemLongPress={handleShowContextMenu}
-      onItemContextMenu={handleShowContextMenu}
-      onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
-      liveTokenOverride={liveTokenOverride}
-      rowBg={rowBg}
-    />
+    <Stack testID={MarketTestIDs.watchList} flex={1}>
+      <MarketTokenListBase
+        onItemPress={onItemPress}
+        toolbar={toolbar || (hidePerps ? undefined : categorySelector)}
+        result={filteredResult}
+        isWatchlistMode
+        showEndReachedIndicator
+        draggable={isDraggable}
+        tabIntegrated={tabIntegrated}
+        tabName={tabName}
+        listContainerProps={listContainerProps}
+        hiddenDesktopColumns={hiddenDesktopColumns}
+        onDragEnd={handleDragEnd}
+        onItemLongPress={handleShowContextMenu}
+        onItemContextMenu={handleShowContextMenu}
+        onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
+        liveTokenOverride={liveTokenOverride}
+        rowBg={rowBg}
+      />
+    </Stack>
   );
 }
 

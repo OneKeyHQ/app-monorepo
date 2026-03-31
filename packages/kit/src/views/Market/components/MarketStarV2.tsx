@@ -13,6 +13,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
+import { MarketTestIDs } from '../testIDs';
+
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 
 import { useWatchListV2Action } from './watchListHooksV2';
@@ -107,6 +109,11 @@ function BasicMarketStarV2({
 
   return (
     <IconButton
+      testID={
+        tokenSymbol
+          ? MarketTestIDs.tokenStarButton(tokenSymbol)
+          : undefined
+      }
       title={intl.formatMessage({
         id: checked
           ? ETranslations.market_remove_from_favorites

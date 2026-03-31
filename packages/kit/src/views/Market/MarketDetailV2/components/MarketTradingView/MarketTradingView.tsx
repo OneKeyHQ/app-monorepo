@@ -1,7 +1,9 @@
 import { memo } from 'react';
 
+import { Stack } from '@onekeyhq/components';
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
 
 interface IMarketTradingViewProps {
@@ -29,16 +31,18 @@ export const MarketTradingView = memo(
     const { accountAddress } = useNetworkAccountAddress(networkId);
 
     return (
-      <TradingViewV2
-        symbol={tokenSymbol}
-        tokenAddress={tokenAddress}
-        networkId={networkId}
-        decimal={decimal}
-        dataSource={dataSource}
-        accountAddress={accountAddress}
-        w={pageWidth}
-        onTouchScroll={onTouchScroll}
-      />
+      <Stack testID={MarketTestIDs.detailChart} flex={1}>
+        <TradingViewV2
+          symbol={tokenSymbol}
+          tokenAddress={tokenAddress}
+          networkId={networkId}
+          decimal={decimal}
+          dataSource={dataSource}
+          accountAddress={accountAddress}
+          w={pageWidth}
+          onTouchScroll={onTouchScroll}
+        />
+      </Stack>
     );
   },
 );

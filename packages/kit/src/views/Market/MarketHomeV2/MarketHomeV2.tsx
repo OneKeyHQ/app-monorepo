@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
+import { MarketTestIDs } from '../testIDs';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
@@ -142,7 +143,7 @@ function BaseMarketHome() {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Market}
       />
-      <Page.Body>
+      <Page.Body testID={MarketTestIDs.marketPage}>
         <BaseMarketHomeLayout />
       </Page.Body>
     </Page>

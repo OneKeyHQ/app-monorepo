@@ -8,6 +8,8 @@ import { runOnJS } from 'react-native-reanimated';
 import { Button, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { MarketTestIDs } from '../../../testIDs';
+
 // On Android, the native bottom tab navigator (react-native-bottom-tabs)
 // intercepts touches in the tab bar area, preventing RN's built-in touch
 // system from dispatching events to buttons in this region — even when the
@@ -47,7 +49,11 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
     <XStack gap="$2.5">
       <GestureDetector gesture={tradeGesture}>
         <View style={{ flex: 1 }}>
-          <Button size="large" variant="secondary">
+          <Button
+            testID={MarketTestIDs.detailSwapButton}
+            size="large"
+            variant="secondary"
+          >
             {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
           </Button>
         </View>
@@ -55,6 +61,7 @@ function SwapPanelFooterButtons({ onTrade, onInstant }: IProps) {
       <GestureDetector gesture={instantGesture}>
         <View style={{ flex: 1 }}>
           <Button
+            testID={MarketTestIDs.detailBuyButton}
             size="large"
             variant="primary"
             bg="$buttonSuccess"

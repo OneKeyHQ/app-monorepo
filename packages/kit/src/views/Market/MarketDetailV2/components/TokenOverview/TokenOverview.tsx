@@ -11,6 +11,7 @@ import {
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { MarketTestIDs } from '../../../testIDs';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { TokenSecurityAlertDialogContent } from '../TokenSecurityAlert/components';
 import { useTokenSecurity } from '../TokenSecurityAlert/hooks/useTokenSecurity';
@@ -172,7 +173,7 @@ export function TokenOverview() {
   }
 
   return (
-    <Stack gap="$2" px="$5" pt="$5" pb="$3">
+    <Stack testID={MarketTestIDs.detailAbout} gap="$2" px="$5" pt="$5" pb="$3">
       {/* Token Header with Avatar and Name */}
       <XStack alignItems="center" gap="$3" mb="$3">
         <Token size="lg" tokenImageUri={tokenDetail.logoUrl} />

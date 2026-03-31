@@ -34,6 +34,8 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketTestIDs } from '../testIDs';
+
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
@@ -88,7 +90,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const renderNotificationButton = useCallback(
     () => (
       <HeaderButtonGroup>
-        <HeaderNotificationIconButton testID="market-banner-detail-notification" />
+        <HeaderNotificationIconButton testID={MarketTestIDs.detailNotificationButton} />
       </HeaderButtonGroup>
     ),
     [],
