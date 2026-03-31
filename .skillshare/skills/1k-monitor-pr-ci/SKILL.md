@@ -23,15 +23,15 @@ Monitor a pull request's CI checks and review comments. Auto-fix CI failures, ad
 
 `$ARGUMENTS` — Two parts, space-separated:
 1. **PR identifier** (required if no current branch PR): PR number, GitHub PR URL
-2. **Polling interval** (optional, default `60s`): e.g. `30s`, `1m`, `2m`, `3分钟`, `5min`
+2. **Polling interval** (optional, default `6m`): e.g. `30s`, `1m`, `2m`, `3分钟`, `5min`, `6m`
 
-If `$ARGUMENTS` is empty, auto-detect PR from current branch and use default 60s interval.
+If `$ARGUMENTS` is empty, auto-detect PR from current branch and use default 6m interval.
 
 ## Step 0: Initial Setup
 
 1. **Parse arguments**: Split `$ARGUMENTS` into PR identifier and polling interval.
    - PR identifier: a number or a URL like `https://github.com/{owner}/{repo}/pull/{number}`
-   - Polling interval: any token matching a time pattern (digits + time unit). Recognize: `s`/`sec`/`秒`, `m`/`min`/`分钟`/`分`. Default: `60s`
+   - Polling interval: any token matching a time pattern (digits + time unit). Recognize: `s`/`sec`/`秒`, `m`/`min`/`分钟`/`分`. Default: `6m`
    - If `$ARGUMENTS` is empty, detect PR from current branch:
      ```bash
      gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number'
@@ -56,7 +56,9 @@ If `$ARGUMENTS` is empty, auto-detect PR from current branch and use default 60s
 
 Each iteration (`[Check N/30]`):
 
-**MUST run ALL three commands in parallel on every iteration** (missing any one may cause review comments to be silently ignored):
+### 1a. Fetch ALL data — EVERY iteration
+
+**CRITICAL: You MUST run ALL FOUR queries in parallel on EVERY iteration.** This is the most common failure mode — skipping query 3 or 4 on subsequent iterations causes new review comments to be silently ignored. Do NOT skip any query even if the previous iteration had no threads.
 
    ```bash
    # 1. CI check status
@@ -68,48 +70,43 @@ Each iteration (`[Check N/30]`):
    # 3. Inline review comments (e.g. from Devin, human reviewers)
    gh api repos/{owner}/{repo}/pulls/<PR_NUMBER>/comments \
      --jq '.[] | {user: .user.login, body: .body, path: .path, line: .original_line, created_at: .created_at}'
+
+   # 4. Unresolved review threads (GraphQL — provides thread IDs for resolving)
+   gh api graphql -f query='
+   query($owner: String!, $repo: String!, $pr: Int!) {
+     repository(owner: $owner, name: $repo) {
+       pullRequest(number: $pr) {
+         id
+         reviewThreads(first: 100) {
+           nodes {
+             id
+             isResolved
+             isOutdated
+             path
+             line
+             startLine
+             diffSide
+             comments(first: 20) {
+               nodes {
+                 id
+                 databaseId
+                 body
+                 author {
+                   login
+                 }
+                 createdAt
+               }
+             }
+           }
+         }
+       }
+     }
+   }' -f owner="OWNER" -f repo="REPO" -F pr=PR_NUMBER
    ```
 
-   > **Why all three?** `gh pr checks` only returns CI status. `gh pr view --json reviews` returns PR-level reviews but NOT inline file comments. `gh api .../pulls/.../comments` is the ONLY way to get inline code review comments (the kind that appear on specific lines in the diff). Skipping it means inline comments from bots like Devin or human reviewers will be completely invisible.
+   > **Why all four?** `gh pr checks` only returns CI status. `gh pr view --json reviews` returns PR-level reviews but NOT inline file comments. `gh api .../pulls/.../comments` is the ONLY way to get inline code review comments. The GraphQL query is the ONLY way to get thread IDs and resolution status. New comments can arrive at ANY time (from Devin, human reviewers, CI bots), so you MUST check on every iteration — not just the first.
 
-### 1b. Fetch unresolved review threads
-
-**Primary: GraphQL** (provides thread IDs needed for resolving):
-
-```bash
-gh api graphql -f query='
-query($owner: String!, $repo: String!, $pr: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
-      id
-      reviewThreads(first: 100) {
-        nodes {
-          id
-          isResolved
-          isOutdated
-          path
-          line
-          startLine
-          diffSide
-          comments(first: 20) {
-            nodes {
-              id
-              databaseId
-              body
-              author {
-                login
-              }
-              createdAt
-            }
-          }
-        }
-      }
-    }
-  }
-}' -f owner="OWNER" -f repo="REPO" -F pr=PR_NUMBER
-```
-
-**Fallback: REST API** (if GraphQL fails, e.g. token permission issues):
+**GraphQL fallback**: If GraphQL fails (e.g. token permission issues), fall back to the REST API for inline comments:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
@@ -120,7 +117,7 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/comments \
 
 Filter to only **unresolved** threads (`isResolved: false`). Skip threads where the last comment is from the current `gh` user (already replied).
 
-### 1c. Display status summary
+### 1b. Display status summary
 
 ```
 [Check 3/30]
@@ -137,7 +134,7 @@ Unresolved threads: 3
 - src/components/Card.tsx:88 (@reviewer): "Typo in variable name"
 ```
 
-### 1d. Decide next action
+### 1c. Decide next action
 
 | CI Status | Unresolved Threads | Action |
 |-----------|-------------------|--------|
@@ -278,7 +275,7 @@ Status: Ready for re-review / Ready to merge
 
 ## Polling Rules
 
-- Default **60 seconds** between checks (user can customize in Step 0)
+- Default **6 minutes** between checks (user can customize in Step 0)
 - **30 seconds** after fix+push to allow CI restart
 - **Maximum 30 iterations**, then ask user to continue or stop
 - Always show `[Check N/30]`
