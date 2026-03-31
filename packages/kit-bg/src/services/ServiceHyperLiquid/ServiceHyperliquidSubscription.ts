@@ -30,13 +30,18 @@ import type {
   IWsOpenOrders,
   IWsUserFills,
   IWsWebData2,
+  IWsSpotState,
   IWsWebData3,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EHyperLiquidAbstractionMode,
+  ESubscriptionType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
+  perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
   perpsActiveAccountStatusAtom,
   perpsActiveAssetAtom,
@@ -128,6 +133,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
 
+  private _abstractionSetupInFlight = false;
+
   async buildRequiredSubscriptionsMap() {
     const client = await this.getWebSocketClient();
     if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
@@ -183,21 +190,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
-
-    // Skip WEB_DATA3 subscription if user already has DEX abstraction enabled
-    if (activeAccount?.accountAddress) {
-      const isDexAbstractionEnabled =
-        await this.backgroundApi.simpleDb.perp.isDexAbstractionEnabled(
-          activeAccount.accountAddress,
-        );
-      if (isDexAbstractionEnabled) {
-        Object.keys(requiredSubSpecsMap).forEach((key) => {
-          if (requiredSubSpecsMap[key]?.type === ESubscriptionType.WEB_DATA3) {
-            delete requiredSubSpecsMap[key];
-          }
-        });
-      }
-    }
 
     return { requiredSubSpecsMap, params };
   }
@@ -684,7 +676,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
 
       // @ts-ignore
-      const wsRequester = innerTransport._wsRequester as {
+      const wsRequester = innerTransport._postRequest as {
         request: (method: string, payload: any) => Promise<void>;
       };
       // const payload = { type: "activeAssetCtx", ...params };
@@ -1020,34 +1012,59 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const webData3 = data as IWsWebData3;
         const { userState } = webData3;
         const userAddress = userState?.user;
-        if (userState?.dexAbstractionEnabled) {
-          if (userAddress) {
-            void this.backgroundApi.simpleDb.perp.setDexAbstractionEnabled(
-              userAddress,
-              true,
-            );
+
+        if (userAddress) {
+          // Read abstraction mode from WS (new field in SDK 0.32.2)
+          const wsAbstraction = (userState as any)?.abstraction as string | undefined;
+
+          // Account alignment check
+          const activeAccount = await perpsActiveAccountAtom.get();
+          if (activeAccount?.accountAddress?.toLowerCase() !== userAddress.toLowerCase()) {
+            return;
           }
-          void this.cancelSubscriptionByType(ESubscriptionType.WEB_DATA3);
-        } else {
-          // Enable HIP-3 DEX abstraction silently when not enabled
-          void (async () => {
-            const accountStatus = await perpsActiveAccountStatusAtom.get();
-            if (accountStatus?.canTrade) {
+
+          if (wsAbstraction) {
+            // WS provided a definite mode — update directly
+            await this.backgroundApi.simpleDb.perp.setUserAbstractionMode(
+              userAddress, wsAbstraction,
+            );
+            await perpsAbstractionModeAtom.set({
+              accountAddress: userAddress.toLowerCase() as IHex,
+              mode: wsAbstraction as EHyperLiquidAbstractionMode,
+            });
+          } else if (!this._abstractionSetupInFlight) {
+            // WS abstraction is undefined — use HTTP to get ground truth
+            this._abstractionSetupInFlight = true;
+            void (async () => {
               try {
-                await this.backgroundApi.serviceHyperliquidExchange.enableDexAbstraction();
-                if (userAddress) {
-                  await this.backgroundApi.simpleDb.perp.setDexAbstractionEnabled(
-                    userAddress,
-                    true,
-                  );
+                const httpMode = await this.backgroundApi.serviceHyperliquid
+                  .fetchUserAbstraction(userAddress);
+                // Only auto-set unified if HTTP confirms "default" (NOT on undefined/error)
+                if (httpMode === 'default') {
+                  const accountStatus = await perpsActiveAccountStatusAtom.get();
+                  if (accountStatus?.canTrade) {
+                    await this.backgroundApi.serviceHyperliquidExchange.setAbstraction('u');
+                    // Re-fetch to confirm new mode
+                    await this.backgroundApi.serviceHyperliquid
+                      .fetchUserAbstraction(userAddress);
+                  }
                 }
-                void this.cancelSubscriptionByType(ESubscriptionType.WEB_DATA3);
               } catch {
-                // Silently ignore, will retry on next webData3 update
+                // Silently retry on next WEB_DATA3 update
+              } finally {
+                this._abstractionSetupInFlight = false;
               }
-            }
-          })();
+            })();
+          }
         }
+        return;
+      }
+
+      if (subscriptionType === ESubscriptionType.SPOT_STATE) {
+        void this.backgroundApi.serviceHyperliquid.updateSpotBalances(
+          data as IWsSpotState,
+        );
+        this._emitHyperliquidDataUpdate(subscriptionType, data);
         return;
       }
 
