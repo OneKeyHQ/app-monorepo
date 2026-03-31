@@ -1,13 +1,28 @@
 import { getSharedRPC } from '@onekeyfe/react-native-background-thread';
 
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import {
+  BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX,
+  BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX,
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
+  type IBackgroundThreadAppEventRequest,
+  type IBackgroundThreadBridgeCallRequest,
+  type IBackgroundThreadBridgeConnectRequest,
+  type IBackgroundThreadBridgeChannel,
+  type IBackgroundThreadBridgeSendPayload,
+  type IBackgroundThreadBridgeStatePayload,
   type IBackgroundThreadJotaiStateBroadcastPayload,
+  type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
+  buildBackgroundThreadAppEventKey,
+  buildBackgroundThreadBridgeSendKey,
   buildBackgroundThreadJotaiStateKey,
   buildBackgroundThreadResponseKey,
   parseBackgroundThreadCallId,
   parseBackgroundThreadRequest,
+  serializeBackgroundThreadAppEventBroadcastPayload,
+  serializeBackgroundThreadBridgeSendPayload,
   serializeBackgroundThreadJotaiStateBroadcastPayload,
   serializeBackgroundThreadResponse,
 } from './rpcProtocol';
@@ -24,10 +39,24 @@ type IBackgroundRuntimeGlobal = typeof globalThis & {
       payload: IBackgroundThreadJotaiStateBroadcastPayload,
     ) => boolean;
   };
+  __onekeyNativeBackgroundThreadBridgeRelay?: {
+    emitAppEventToUi: (payload: {
+      eventName: string;
+      payload: unknown;
+    }) => boolean;
+    sendBridgeMessageToUi: (
+      payload: IBackgroundThreadBridgeSendPayload,
+    ) => boolean;
+    getBridgeState: (
+      channel: IBackgroundThreadBridgeChannel,
+    ) => IBackgroundThreadBridgeStatePayload | undefined;
+  };
 };
 
 type IBackgroundThreadRequestExecutor = (
-  request: IBackgroundThreadServiceCallRequest,
+  request:
+    | IBackgroundThreadServiceCallRequest
+    | IBackgroundThreadBridgeCallRequest,
 ) => Promise<unknown>;
 
 const HANDLER_RETRY_MS = 50;
@@ -39,6 +68,12 @@ let handlerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let handlerInstalled = false;
 let readySignalEmitted = false;
 let jotaiStateBroadcastSequence = 0;
+let appEventBroadcastSequence = 0;
+let bridgeSendSequence = 0;
+
+const bridgeStateMap: Partial<
+  Record<IBackgroundThreadBridgeChannel, IBackgroundThreadBridgeStatePayload>
+> = {};
 
 function buildErrorPayload(error: unknown) {
   const runtimeError = error as Error;
@@ -107,6 +142,59 @@ function broadcastJotaiStateUpdateFromBgToUi(
   return true;
 }
 
+function emitAppEventFromBgToUi(payload: {
+  eventName: string;
+  payload: unknown;
+}) {
+  const sharedRPC = getSharedRPC();
+  if (!sharedRPC) {
+    return false;
+  }
+
+  appEventBroadcastSequence = (appEventBroadcastSequence + 1) % 512;
+  sharedRPC.write(
+    buildBackgroundThreadAppEventKey(`${appEventBroadcastSequence}`),
+    serializeBackgroundThreadAppEventBroadcastPayload(payload),
+  );
+  return true;
+}
+
+function sendBridgeMessageFromBgToUi(payload: IBackgroundThreadBridgeSendPayload) {
+  const sharedRPC = getSharedRPC();
+  if (!sharedRPC) {
+    return false;
+  }
+
+  bridgeSendSequence = (bridgeSendSequence + 1) % 512;
+  sharedRPC.write(
+    buildBackgroundThreadBridgeSendKey(`${bridgeSendSequence}`),
+    serializeBackgroundThreadBridgeSendPayload(payload),
+  );
+  return true;
+}
+
+function handleAppEventRequest(request: IBackgroundThreadAppEventRequest) {
+  appEventBus.emitToSelf({
+    type: request.eventName as any,
+    payload: request.payload,
+    isRemote: true,
+    cloned: false,
+  });
+  return true;
+}
+
+function handleBridgeConnectRequest(
+  request: IBackgroundThreadBridgeConnectRequest,
+) {
+  bridgeStateMap[request.channel] = {
+    channel: request.channel,
+    connected: request.connected,
+    origin: request.origin,
+    globalOnMessageEnabled: request.globalOnMessageEnabled,
+  };
+  return true;
+}
+
 async function handleRequest(callId: string) {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
@@ -133,21 +221,41 @@ async function handleRequest(callId: string) {
   }
 
   if (!requestExecutor) {
-    sharedRPC.write(
-      responseKey,
-      serializeBackgroundThreadResponse({
-        ok: false,
-        error: {
-          name: 'BackgroundThreadExecutorUnavailableError',
-          message: 'Background request executor is not ready',
-        },
-      }),
-    );
-    return;
+    if (request.type === 'app-event' || request.type === 'bridge-connect') {
+      // handled below without the BackgroundApi executor
+    } else {
+      sharedRPC.write(
+        responseKey,
+        serializeBackgroundThreadResponse({
+          ok: false,
+          error: {
+            name: 'BackgroundThreadExecutorUnavailableError',
+            message: 'Background request executor is not ready',
+          },
+        }),
+      );
+      return;
+    }
   }
 
   try {
-    const result = await requestExecutor(request);
+    let result: unknown;
+    switch (request.type) {
+      case 'service-call':
+      case 'bridge-call':
+        result = await requestExecutor!(request);
+        break;
+      case 'app-event':
+        result = handleAppEventRequest(request);
+        break;
+      case 'bridge-connect':
+        result = handleBridgeConnectRequest(request);
+        break;
+      default:
+        throw new Error(
+          `Background request type is not supported: ${(request as IBackgroundThreadRequest).type}`,
+        );
+    }
     sharedRPC.write(
       responseKey,
       serializeBackgroundThreadResponse({
@@ -243,6 +351,11 @@ export function setupBackgroundThreadRPCHandler() {
   };
   runtimeGlobal.__onekeyNativeBackgroundThreadJotaiBridge = {
     broadcastStateUpdateFromBgToUi: broadcastJotaiStateUpdateFromBgToUi,
+  };
+  runtimeGlobal.__onekeyNativeBackgroundThreadBridgeRelay = {
+    emitAppEventToUi: emitAppEventFromBgToUi,
+    sendBridgeMessageToUi: sendBridgeMessageFromBgToUi,
+    getBridgeState: (channel) => bridgeStateMap[channel],
   };
 
   ensureBackgroundRequestHandlerInstalled();

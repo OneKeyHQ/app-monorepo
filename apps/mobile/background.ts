@@ -17,11 +17,18 @@ const { AppRegistry } =
   require('react-native') as typeof import('react-native');
 
 setBackgroundThreadRequestExecutor(async (request) => {
-  return backgroundApiProxy.callBackgroundMethod(
-    request.sync,
-    request.method,
-    ...request.params,
-  );
+  if (request.type === 'service-call') {
+    return backgroundApiProxy.callBackgroundMethod(
+      request.sync,
+      request.method,
+      ...request.params,
+    );
+  }
+  if (request.type === 'bridge-call') {
+    return backgroundApiProxy.bridgeReceiveHandler(request.payload);
+  }
+
+  return undefined;
 });
 
 const BackgroundThreadRoot = () => null;

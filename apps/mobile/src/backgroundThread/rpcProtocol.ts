@@ -1,9 +1,16 @@
+import type {
+  IInjectedProviderNamesStrings,
+  IJsBridgeMessagePayload,
+} from '@onekeyfe/cross-inpage-provider-types';
+
 export type IBackgroundThreadTransportState =
   | 'idle'
   | 'starting'
   | 'ready'
   | 'remote-broken'
   | 'fallback-local';
+
+export type IBackgroundThreadBridgeChannel = 'dapp' | 'webEmbed';
 
 export type IBackgroundThreadServiceCallRequest = {
   type: 'service-call';
@@ -12,9 +19,53 @@ export type IBackgroundThreadServiceCallRequest = {
   sync: boolean;
 };
 
+export type IBackgroundThreadBridgeCallRequest = {
+  type: 'bridge-call';
+  payload: IJsBridgeMessagePayload;
+};
+
+export type IBackgroundThreadBridgeConnectRequest = {
+  type: 'bridge-connect';
+  channel: IBackgroundThreadBridgeChannel;
+  connected: boolean;
+  origin?: string;
+  globalOnMessageEnabled: boolean;
+};
+
+export type IBackgroundThreadAppEventRequest = {
+  type: 'app-event';
+  eventName: string;
+  payload: unknown;
+};
+
+export type IBackgroundThreadRequest =
+  | IBackgroundThreadServiceCallRequest
+  | IBackgroundThreadBridgeCallRequest
+  | IBackgroundThreadBridgeConnectRequest
+  | IBackgroundThreadAppEventRequest;
+
 export type IBackgroundThreadJotaiStateBroadcastPayload = {
   name: string;
   payload: any;
+};
+
+export type IBackgroundThreadAppEventBroadcastPayload = {
+  eventName: string;
+  payload: unknown;
+};
+
+export type IBackgroundThreadBridgeSendPayload = {
+  channel: IBackgroundThreadBridgeChannel;
+  scope: IInjectedProviderNamesStrings;
+  data: unknown;
+  targetOrigin?: string;
+};
+
+export type IBackgroundThreadBridgeStatePayload = {
+  channel: IBackgroundThreadBridgeChannel;
+  connected: boolean;
+  origin?: string;
+  globalOnMessageEnabled: boolean;
 };
 
 export type IBackgroundThreadResponsePayload = {
@@ -30,6 +81,8 @@ export type IBackgroundThreadResponsePayload = {
 export const BACKGROUND_THREAD_REQUEST_KEY_PREFIX = 'onekey:bg:req:';
 export const BACKGROUND_THREAD_RESPONSE_KEY_PREFIX = 'onekey:bg:res:';
 export const BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX = 'onekey:bg:jotai:';
+export const BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX = 'onekey:bg:event:';
+export const BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX = 'onekey:bg:bridge:';
 
 export function buildBackgroundThreadRequestKey(callId: string) {
   return `${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`;
@@ -41,6 +94,14 @@ export function buildBackgroundThreadResponseKey(callId: string) {
 
 export function buildBackgroundThreadJotaiStateKey(callId: string) {
   return `${BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX}${callId}`;
+}
+
+export function buildBackgroundThreadAppEventKey(callId: string) {
+  return `${BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX}${callId}`;
+}
+
+export function buildBackgroundThreadBridgeSendKey(callId: string) {
+  return `${BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX}${callId}`;
 }
 
 export function parseBackgroundThreadCallId(
@@ -60,32 +121,53 @@ export function parseBackgroundThreadCallId(
 }
 
 export function serializeBackgroundThreadRequest(
-  payload: IBackgroundThreadServiceCallRequest,
+  payload: IBackgroundThreadRequest,
 ) {
   return JSON.stringify(payload);
 }
 
 export function parseBackgroundThreadRequest(
   value: string | number | boolean | undefined,
-): IBackgroundThreadServiceCallRequest | undefined {
+): IBackgroundThreadRequest | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
 
   try {
-    const payload = JSON.parse(
-      value,
-    ) as Partial<IBackgroundThreadServiceCallRequest>;
-    if (
-      payload.type !== 'service-call' ||
-      typeof payload.method !== 'string' ||
-      !Array.isArray(payload.params) ||
-      typeof payload.sync !== 'boolean'
-    ) {
-      return undefined;
+    const payload = JSON.parse(value) as Partial<IBackgroundThreadRequest>;
+    switch (payload.type) {
+      case 'service-call':
+        if (
+          typeof payload.method !== 'string' ||
+          !Array.isArray(payload.params) ||
+          typeof payload.sync !== 'boolean'
+        ) {
+          return undefined;
+        }
+        return payload as IBackgroundThreadServiceCallRequest;
+      case 'bridge-call':
+        if (!payload.payload || typeof payload.payload !== 'object') {
+          return undefined;
+        }
+        return payload as IBackgroundThreadBridgeCallRequest;
+      case 'bridge-connect':
+        if (
+          (payload.channel !== 'dapp' && payload.channel !== 'webEmbed') ||
+          typeof payload.connected !== 'boolean' ||
+          typeof payload.globalOnMessageEnabled !== 'boolean' ||
+          (payload.origin !== undefined && typeof payload.origin !== 'string')
+        ) {
+          return undefined;
+        }
+        return payload as IBackgroundThreadBridgeConnectRequest;
+      case 'app-event':
+        if (typeof payload.eventName !== 'string') {
+          return undefined;
+        }
+        return payload as IBackgroundThreadAppEventRequest;
+      default:
+        return undefined;
     }
-
-    return payload as IBackgroundThreadServiceCallRequest;
   } catch {
     return undefined;
   }
@@ -151,6 +233,61 @@ export function parseBackgroundThreadJotaiStateBroadcastPayload(
     }
 
     return payload as IBackgroundThreadJotaiStateBroadcastPayload;
+  } catch {
+    return undefined;
+  }
+}
+
+export function serializeBackgroundThreadAppEventBroadcastPayload(
+  payload: IBackgroundThreadAppEventBroadcastPayload,
+) {
+  return JSON.stringify(payload);
+}
+
+export function parseBackgroundThreadAppEventBroadcastPayload(
+  value: string | number | boolean | undefined,
+): IBackgroundThreadAppEventBroadcastPayload | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const payload = JSON.parse(
+      value,
+    ) as Partial<IBackgroundThreadAppEventBroadcastPayload>;
+    if (typeof payload.eventName !== 'string') {
+      return undefined;
+    }
+
+    return payload as IBackgroundThreadAppEventBroadcastPayload;
+  } catch {
+    return undefined;
+  }
+}
+
+export function serializeBackgroundThreadBridgeSendPayload(
+  payload: IBackgroundThreadBridgeSendPayload,
+) {
+  return JSON.stringify(payload);
+}
+
+export function parseBackgroundThreadBridgeSendPayload(
+  value: string | number | boolean | undefined,
+): IBackgroundThreadBridgeSendPayload | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const payload = JSON.parse(value) as Partial<IBackgroundThreadBridgeSendPayload>;
+    if (
+      (payload.channel !== 'dapp' && payload.channel !== 'webEmbed') ||
+      typeof payload.scope !== 'string'
+    ) {
+      return undefined;
+    }
+
+    return payload as IBackgroundThreadBridgeSendPayload;
   } catch {
     return undefined;
   }

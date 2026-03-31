@@ -4,16 +4,24 @@ import {
 } from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { jotaiUpdateFromUiByBgBroadcast } from '@onekeyhq/kit-bg/src/states/jotai/jotaiInitFromUi';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX,
+  BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX,
   BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX,
   BACKGROUND_THREAD_RESPONSE_KEY_PREFIX,
+  type IBackgroundThreadBridgeCallRequest,
+  type IBackgroundThreadBridgeChannel,
+  type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
   type IBackgroundThreadTransportState,
   buildBackgroundThreadRequestKey,
   parseBackgroundThreadCallId,
+  parseBackgroundThreadAppEventBroadcastPayload,
+  parseBackgroundThreadBridgeSendPayload,
   parseBackgroundThreadJotaiStateBroadcastPayload,
   parseBackgroundThreadResponse,
   serializeBackgroundThreadRequest,
@@ -24,6 +32,8 @@ import {
 } from './runtimeReady';
 import { setBackgroundThreadReadyPayload } from './runtimeState';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+
 const OBSERVER_RETRY_MS = 50;
 const MAX_OBSERVER_RETRY_COUNT = 600;
 const READY_TIMEOUT_MS = 10_000;
@@ -31,7 +41,7 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_REMOTE_CALL_SLOT_COUNT = 512;
 
 type IQueuedCall = {
-  request: IBackgroundThreadServiceCallRequest;
+  request: IBackgroundThreadRequest;
   localFallback: () => Promise<any>;
   resolve: (value: any) => void;
   reject: (error: unknown) => void;
@@ -47,6 +57,25 @@ type IPendingRemoteCall = {
 type INativeBackgroundThreadTransport = {
   callServiceRequest: (
     request: IBackgroundThreadServiceCallRequest,
+    localFallback: () => Promise<any>,
+  ) => Promise<any>;
+  emitAppEventRequest: (
+    request: {
+      type: 'app-event';
+      eventName: string;
+      payload: unknown;
+    },
+    localFallback: () => Promise<any>,
+  ) => Promise<any>;
+  callBridgeRequest: (
+    request: IBackgroundThreadBridgeCallRequest,
+    localFallback: () => Promise<any>,
+  ) => Promise<any>;
+  syncBridgeConnection: (
+    params: {
+      channel: IBackgroundThreadBridgeChannel;
+      bridge: JsBridgeBase | null;
+    },
     localFallback: () => Promise<any>,
   ) => Promise<any>;
   getState: () => IBackgroundThreadTransportState;
@@ -68,6 +97,9 @@ let remoteBrokenReason: string | undefined;
 
 const queuedCalls: IQueuedCall[] = [];
 const pendingRemoteCalls = new Map<string, IPendingRemoteCall>();
+const mainThreadBridgeMap: Partial<
+  Record<IBackgroundThreadBridgeChannel, JsBridgeBase | null>
+> = {};
 
 function isNativeBackgroundThreadTransportEnabled() {
   return Boolean(
@@ -123,6 +155,21 @@ function createRemoteCallId() {
   }
 
   throw createTransportError('Too many pending background requests');
+}
+
+function getRequestDebugLabel(request: IBackgroundThreadRequest) {
+  switch (request.type) {
+    case 'service-call':
+      return `service-call:${request.method}`;
+    case 'bridge-call':
+      return `bridge-call:${request.payload.scope || 'unknown-scope'}`;
+    case 'bridge-connect':
+      return `bridge-connect:${request.channel}`;
+    case 'app-event':
+      return `app-event:${request.eventName}`;
+    default:
+      return 'unknown-request';
+  }
 }
 
 function flushQueuedCallsToLocal() {
@@ -312,6 +359,47 @@ function handleBackgroundThreadJotaiStateUpdate(
   });
 }
 
+function handleBackgroundThreadAppEventUpdate(sharedRPC: ISharedRPC, key: string) {
+  const payload = parseBackgroundThreadAppEventBroadcastPayload(
+    sharedRPC.read(key),
+  );
+  if (!payload) {
+    return;
+  }
+
+  appEventBus.emitToSelf({
+    type: payload.eventName as any,
+    payload: payload.payload,
+    isRemote: true,
+    cloned: false,
+  });
+}
+
+function handleBackgroundThreadBridgeSend(
+  sharedRPC: ISharedRPC,
+  key: string,
+) {
+  const payload = parseBackgroundThreadBridgeSendPayload(sharedRPC.read(key));
+  if (!payload) {
+    return;
+  }
+
+  const bridge = mainThreadBridgeMap[payload.channel];
+  if (!bridge || !bridge.globalOnMessageEnabled) {
+    return;
+  }
+
+  const bridgeOrigin = bridge.remoteInfo?.origin;
+  if (payload.targetOrigin && bridgeOrigin && payload.targetOrigin !== bridgeOrigin) {
+    return;
+  }
+
+  bridge.requestSync({
+    scope: payload.scope,
+    data: payload.data,
+  });
+}
+
 function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
   if (!observerInstalled) {
     observerInstalled = true;
@@ -328,6 +416,16 @@ function installBackgroundRuntimeObserver(sharedRPC: ISharedRPC) {
 
       if (callId.startsWith(BACKGROUND_THREAD_JOTAI_STATE_KEY_PREFIX)) {
         handleBackgroundThreadJotaiStateUpdate(sharedRPC, callId);
+        return;
+      }
+
+      if (callId.startsWith(BACKGROUND_THREAD_APP_EVENT_KEY_PREFIX)) {
+        handleBackgroundThreadAppEventUpdate(sharedRPC, callId);
+        return;
+      }
+
+      if (callId.startsWith(BACKGROUND_THREAD_BRIDGE_SEND_KEY_PREFIX)) {
+        handleBackgroundThreadBridgeSend(sharedRPC, callId);
       }
     });
   }
@@ -371,7 +469,7 @@ function ensureBackgroundRuntimeObserver() {
 }
 
 function dispatchRemoteRequest(
-  request: IBackgroundThreadServiceCallRequest,
+  request: IBackgroundThreadRequest,
   localFallback: () => Promise<any>,
 ) {
   if (!isNativeBackgroundThreadTransportEnabled()) {
@@ -401,7 +499,9 @@ function dispatchRemoteRequest(
       if (!pendingRemoteCalls.has(callId)) {
         return;
       }
-      switchToRemoteBroken(`Background request timeout. method=${request.method}`);
+      switchToRemoteBroken(
+        `Background request timeout. request=${getRequestDebugLabel(request)}`,
+      );
     }, REQUEST_TIMEOUT_MS);
 
     pendingRemoteCalls.set(callId, {
@@ -415,8 +515,8 @@ function dispatchRemoteRequest(
   });
 }
 
-function callServiceRequest(
-  request: IBackgroundThreadServiceCallRequest,
+function callRemoteRequest(
+  request: IBackgroundThreadRequest,
   localFallback: () => Promise<any>,
 ) {
   if (!isNativeBackgroundThreadTransportEnabled()) {
@@ -451,9 +551,57 @@ function callServiceRequest(
   });
 }
 
+function callServiceRequest(
+  request: IBackgroundThreadServiceCallRequest,
+  localFallback: () => Promise<any>,
+) {
+  return callRemoteRequest(request, localFallback);
+}
+
+function callBridgeRequest(
+  request: IBackgroundThreadBridgeCallRequest,
+  localFallback: () => Promise<any>,
+) {
+  return callRemoteRequest(request, localFallback);
+}
+
+function emitAppEventRequest(
+  request: {
+    type: 'app-event';
+    eventName: string;
+    payload: unknown;
+  },
+  localFallback: () => Promise<any>,
+) {
+  return callRemoteRequest(request, localFallback);
+}
+
+function syncBridgeConnection(
+  params: {
+    channel: IBackgroundThreadBridgeChannel;
+    bridge: JsBridgeBase | null;
+  },
+  localFallback: () => Promise<any>,
+) {
+  mainThreadBridgeMap[params.channel] = params.bridge;
+  return callRemoteRequest(
+    {
+      type: 'bridge-connect',
+      channel: params.channel,
+      connected: Boolean(params.bridge),
+      origin: params.bridge?.remoteInfo?.origin,
+      globalOnMessageEnabled: Boolean(params.bridge?.globalOnMessageEnabled),
+    },
+    localFallback,
+  );
+}
+
 function installGlobalTransport() {
   getTransportGlobal().__onekeyNativeBackgroundThreadTransport = {
     callServiceRequest,
+    emitAppEventRequest,
+    callBridgeRequest,
+    syncBridgeConnection,
     getState: () => transportState,
     isEnabled: isNativeBackgroundThreadTransportEnabled,
   };

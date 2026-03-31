@@ -63,6 +63,28 @@ export class BackgroundApiProxyBase
         },
         localFallback: () => Promise<any>,
       ) => Promise<any>;
+      emitAppEventRequest: (
+        request: {
+          type: 'app-event';
+          eventName: string;
+          payload: unknown;
+        },
+        localFallback: () => Promise<any>,
+      ) => Promise<any>;
+      callBridgeRequest: (
+        request: {
+          type: 'bridge-call';
+          payload: IJsBridgeMessagePayload;
+        },
+        localFallback: () => Promise<any>,
+      ) => Promise<any>;
+      syncBridgeConnection: (
+        params: {
+          channel: 'dapp' | 'webEmbed';
+          bridge: JsBridgeBase | null;
+        },
+        localFallback: () => Promise<any>,
+      ) => Promise<any>;
       isEnabled: () => boolean;
     };
 
@@ -79,6 +101,33 @@ export class BackgroundApiProxyBase
     }
 
     return this.backgroundApi;
+  }
+
+  private async connectLocalBackgroundBridge(
+    channel: 'dapp' | 'webEmbed',
+    bridge: JsBridgeBase | null,
+  ) {
+    const backgroundApi = this.ensureLocalBackgroundApi();
+    if (!backgroundApi) {
+      throw new OneKeyLocalError('backgroundApi not found in non-ext env');
+    }
+
+    if (channel === 'webEmbed') {
+      backgroundApi.connectWebEmbedBridge(bridge);
+    } else {
+      backgroundApi.connectBridge(bridge);
+    }
+
+    return true;
+  }
+
+  private callLocalBridgeReceiveHandler(payload: IJsBridgeMessagePayload) {
+    const backgroundApi = this.ensureLocalBackgroundApi();
+    if (!backgroundApi) {
+      throw new OneKeyLocalError('backgroundApi not found in non-ext env');
+    }
+
+    return backgroundApi.bridgeReceiveHandler(payload);
   }
 
   private async _callBackgroundMethodAsync({
@@ -213,6 +262,28 @@ export class BackgroundApiProxyBase
     appEventBus.registerBroadcastMethods(
       EEventBusBroadcastMethodNames.uiToBg,
       async (type, payload) => {
+        if (
+          platformEnv.isNativeMainThread &&
+          platformEnv.enableNativeBackgroundThread
+        ) {
+          const transport = this.getNativeBackgroundThreadTransport();
+          if (transport?.isEnabled()) {
+            await transport
+              .emitAppEventRequest(
+                {
+                  type: 'app-event',
+                  eventName: type,
+                  payload,
+                },
+                async () => true,
+              )
+              .catch((error: unknown) => {
+                console.error('appEventBus uiToBg relay failed', error);
+              });
+            return;
+          }
+        }
+
         await this.emitEvent(type as any, payload);
       },
     );
@@ -245,16 +316,72 @@ export class BackgroundApiProxyBase
     return this.backgroundApi?.sendForProvider(providerName);
   }
 
-  connectBridge(bridge: JsBridgeBase) {
+  connectBridge(bridge: JsBridgeBase | null) {
+    if (
+      platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      const transport = this.getNativeBackgroundThreadTransport();
+      if (transport?.isEnabled()) {
+        void transport
+          .syncBridgeConnection(
+            {
+              channel: 'dapp',
+              bridge,
+            },
+            () => this.connectLocalBackgroundBridge('dapp', bridge),
+          )
+          .catch((error) => {
+            console.error('connectBridge relay failed', error);
+          });
+        return;
+      }
+    }
     this.backgroundApi?.connectBridge(bridge);
   }
 
-  connectWebEmbedBridge(bridge: JsBridgeBase) {
+  connectWebEmbedBridge(bridge: JsBridgeBase | null) {
+    if (
+      platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      const transport = this.getNativeBackgroundThreadTransport();
+      if (transport?.isEnabled()) {
+        void transport
+          .syncBridgeConnection(
+            {
+              channel: 'webEmbed',
+              bridge,
+            },
+            () => this.connectLocalBackgroundBridge('webEmbed', bridge),
+          )
+          .catch((error) => {
+            console.error('connectWebEmbedBridge relay failed', error);
+          });
+        return;
+      }
+    }
     this.backgroundApi?.connectWebEmbedBridge(bridge);
   }
 
-  bridgeReceiveHandler = (payload: IJsBridgeMessagePayload): unknown =>
-    this.backgroundApi?.bridgeReceiveHandler(payload);
+  bridgeReceiveHandler = (payload: IJsBridgeMessagePayload): unknown => {
+    if (
+      platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      const transport = this.getNativeBackgroundThreadTransport();
+      if (transport?.isEnabled()) {
+        return transport.callBridgeRequest(
+          {
+            type: 'bridge-call',
+            payload,
+          },
+          () => this.callLocalBridgeReceiveHandler(payload),
+        );
+      }
+    }
+    return this.backgroundApi?.bridgeReceiveHandler(payload);
+  };
 
   // init in NON-Ext UI env
   backgroundApi?: IBackgroundApi | null = null;

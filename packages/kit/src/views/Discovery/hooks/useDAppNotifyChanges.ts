@@ -72,6 +72,9 @@ export function useDAppNotifyChangesBase({
       return;
     }
     backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
+    return () => {
+      backgroundApiProxy.connectBridge(null);
+    };
   }, [isFocused, tabId]);
 
   // sent accountChanged notification

@@ -65,6 +65,61 @@ updateInterceptorRequestHelper();
 
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
+  private getNativeBackgroundThreadBridgeRelay() {
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __onekeyNativeBackgroundThreadBridgeRelay?: {
+        emitAppEventToUi: (payload: {
+          eventName: string;
+          payload: unknown;
+        }) => boolean;
+        sendBridgeMessageToUi: (payload: {
+          channel: 'dapp' | 'webEmbed';
+          scope: IInjectedProviderNamesStrings;
+          data: unknown;
+          targetOrigin?: string;
+        }) => boolean;
+        getBridgeState: (channel: 'dapp' | 'webEmbed') =>
+          | {
+              channel: 'dapp' | 'webEmbed';
+              connected: boolean;
+              origin?: string;
+              globalOnMessageEnabled: boolean;
+            }
+          | undefined;
+      };
+    };
+
+    return runtimeGlobal.__onekeyNativeBackgroundThreadBridgeRelay;
+  }
+
+  private getNativeBackgroundThreadActiveBridgeState(targetOrigin?: string) {
+    const bridgeRelay = this.getNativeBackgroundThreadBridgeRelay();
+    if (!bridgeRelay) {
+      return undefined;
+    }
+
+    const bridgeStates = ['dapp', 'webEmbed']
+      .map((channel) =>
+        bridgeRelay.getBridgeState(channel as 'dapp' | 'webEmbed'),
+      )
+      .filter((state) => state?.connected);
+
+    if (!bridgeStates.length) {
+      return undefined;
+    }
+
+    if (targetOrigin) {
+      const matchedBridgeState = bridgeStates.find(
+        (state) => state?.origin === targetOrigin,
+      );
+      if (matchedBridgeState) {
+        return matchedBridgeState;
+      }
+    }
+
+    return bridgeStates[0];
+  }
+
   constructor() {
     this.cycleDepsCheck();
     jotaiBgSync.setBackgroundApi(this as any);
@@ -76,6 +131,16 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     appEventBus.registerBroadcastMethods(
       EEventBusBroadcastMethodNames.bgToUi,
       async (type, payload) => {
+        if (
+          platformEnv.isNativeBackgroundThread &&
+          platformEnv.enableNativeBackgroundThread
+        ) {
+          this.getNativeBackgroundThreadBridgeRelay()?.emitAppEventToUi({
+            eventName: type,
+            payload,
+          });
+          return;
+        }
         const params: IGlobalEventBusSyncBroadcastParams = {
           $$isFromBgEventBusSyncBroadcast: true,
           type,
@@ -145,14 +210,14 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   // @ts-ignore
   _persistorUnsubscribe: () => void;
 
-  connectBridge(bridge: JsBridgeBase) {
+  connectBridge(bridge: JsBridgeBase | null) {
     if (platformEnv.isExtension) {
-      this.bridgeExtBg = bridge as unknown as JsBridgeExtBackground;
+      this.bridgeExtBg = bridge as unknown as JsBridgeExtBackground | null;
     }
     this.bridge = bridge;
   }
 
-  connectWebEmbedBridge(bridge: JsBridgeBase) {
+  connectWebEmbedBridge(bridge: JsBridgeBase | null) {
     this.webEmbedBridge = bridge;
   }
 
@@ -296,6 +361,36 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     data: unknown,
     targetOrigin: string,
   ) => {
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      const bridgeRelay = this.getNativeBackgroundThreadBridgeRelay();
+      const bridgeState =
+        this.getNativeBackgroundThreadActiveBridgeState(targetOrigin);
+      if (!bridgeRelay || !bridgeState) {
+        console.warn(
+          `sendMessagesToInjectedBridge ERROR: native bridge relay is not ready. scope=${scope}`,
+        );
+        return;
+      }
+      if (isFunction(data)) {
+        // eslint-disable-next-line no-param-reassign
+        data = await data({ origin: bridgeState.origin || targetOrigin });
+      }
+      ensureSerializable(data);
+
+      if (bridgeState.globalOnMessageEnabled) {
+        bridgeRelay.sendBridgeMessageToUi({
+          channel: bridgeState.channel,
+          scope,
+          data,
+          targetOrigin,
+        });
+      }
+      return;
+    }
+
     if (!this.bridge && !this.webEmbedBridge) {
       if (!platformEnv.isWeb) {
         console.warn(

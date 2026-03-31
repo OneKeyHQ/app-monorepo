@@ -296,6 +296,9 @@ export function WebViewWebEmbed({
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
+    return () => {
+      backgroundApiProxy.connectWebEmbedBridge(null);
+    };
   }, [webviewRef, webview, webEmbedAppSettings]);
 
   const webviewUrlOrUri = useMemo(() => {

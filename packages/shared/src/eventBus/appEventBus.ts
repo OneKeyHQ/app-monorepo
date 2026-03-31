@@ -601,6 +601,14 @@ class AppEventBusClass extends CrossEventEmitter {
 
   async emitToRemote(params: { type: string; payload: unknown }) {
     const { type, payload } = params;
+    const isRemoteEventPayload =
+      payload &&
+      typeof payload === 'object' &&
+      (
+        payload as {
+          $$isRemoteEvent?: boolean;
+        }
+      ).$$isRemoteEvent;
     const convertToRemoteEventPayload = (payloadValue: unknown): unknown => {
       const payloadCloned = cloneDeep(payloadValue);
       try {
@@ -617,14 +625,33 @@ class AppEventBusClass extends CrossEventEmitter {
       return payloadCloned;
     };
 
+    if (isRemoteEventPayload) {
+      return;
+    }
+
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
       throw new OneKeyLocalError(
         'offscreen or webembed event bus not support yet.',
       );
     }
-    if (platformEnv.isNative) {
-      // requestToWebEmbed
+    if (
+      platformEnv.isNativeMainThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      return this.broadcastMethods.uiToBg(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
+    }
+    if (
+      platformEnv.isNativeBackgroundThread &&
+      platformEnv.enableNativeBackgroundThread
+    ) {
+      return this.broadcastMethods.bgToUi(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
     }
     if (platformEnv.isExtensionUi) {
       // request background

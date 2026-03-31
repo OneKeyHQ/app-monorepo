@@ -134,8 +134,8 @@ export interface IBackgroundApiBridge {
   // **** webview bridge
   bridge: JsBridgeBase | null;
   bridgeExtBg: JsBridgeExtBackground | null;
-  connectBridge(bridge: JsBridgeBase): void;
-  connectWebEmbedBridge(bridge: JsBridgeBase): void;
+  connectBridge(bridge: JsBridgeBase | null): void;
+  connectWebEmbedBridge(bridge: JsBridgeBase | null): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   // **** dapp provider api
