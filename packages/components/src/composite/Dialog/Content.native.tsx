@@ -5,6 +5,7 @@ import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Spinner, Stack, YStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
 import type { IDialogContentProps } from './type';
 import type { LayoutChangeEvent, View } from 'react-native';
@@ -124,6 +125,7 @@ export function Content({
               <Stack
                 bg="$bg"
                 animation="medium"
+                animateOnly={ANIMATE_ONLY_OPACITY}
                 position="absolute"
                 top={0}
                 left={0}
