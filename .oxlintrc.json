@@ -596,7 +596,23 @@
         "apps/desktop/native-modules/**/*.js"
       ],
       "rules": {
-        "onekey/no-raw-error": "off"
+        "onekey/no-raw-error": "off",
+        "onekey/require-testid": "off"
+      }
+    },
+    {
+      // Non-UI packages — no interactive components, testID rule doesn't apply
+      "files": [
+        "packages/shared/src/**/*.ts",
+        "packages/shared/src/**/*.tsx",
+        "packages/core/src/**/*.ts",
+        "packages/core/src/**/*.tsx",
+        "packages/kit-bg/src/**/*.ts",
+        "packages/kit-bg/src/**/*.tsx",
+        "packages/qr-wallet-sdk/src/**/*.ts"
+      ],
+      "rules": {
+        "onekey/require-testid": "off"
       }
     },
     {
