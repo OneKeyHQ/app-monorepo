@@ -1036,11 +1036,9 @@ const MoreActionWalletGrid = () => {
         return true;
       }
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeFeatures,
+        screen: EPrimePages.PrimeDashboard,
         params: {
-          showAllFeatures: false,
-          selectedFeature: showFeature,
-          selectedSubscriptionPeriod: 'P1Y',
+          fromFeature: showFeature,
           networkId: network?.id,
         },
       });
