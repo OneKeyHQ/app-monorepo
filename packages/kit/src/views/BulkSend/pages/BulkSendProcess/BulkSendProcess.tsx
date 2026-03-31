@@ -434,6 +434,7 @@ function BulkSendProcessContent({
           // This fixes stale instructions (e.g. Solana ATA creation that
           // was already handled by a previous tx in this batch).
           let updatedTx = tx;
+          let rebuildSucceeded = false;
           if (transfersInfoState[i]) {
             try {
               const rebuiltTx =
@@ -449,6 +450,7 @@ function BulkSendProcessContent({
                 accountId: tx.accountId,
                 indexedAccountId: tx.indexedAccountId,
               };
+              rebuildSucceeded = true;
             } catch {
               // Keep pre-built tx on rebuild failure
             }
@@ -474,16 +476,6 @@ function BulkSendProcessContent({
 
           if (isAborted.current) break;
           await waitUntilInProgress();
-
-          // Rebuilt txs may already include a nonce, so the nonce branch below
-          // is not guaranteed to run. Attach the latest fee data here to ensure
-          // gas / fee fields are always present before signing.
-          updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
-            networkId,
-            accountId: txAccountId,
-            unsignedTx: updatedTx,
-            feeInfo,
-          });
 
           // Native token + max mode: update the tx with the latest max amount.
           let updatedMaxSendAmount: string | undefined;
@@ -525,13 +517,6 @@ function BulkSendProcessContent({
 
             const finalMaxSendAmount = nextMaxSendAmount;
             updatedMaxSendAmount = finalMaxSendAmount;
-            updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
-              networkId,
-              accountId: txAccountId,
-              unsignedTx: updatedTx,
-              feeInfo,
-              nativeAmountInfo: { maxSendAmount: finalMaxSendAmount },
-            });
             setTransfersInfoState((prev) =>
               prev.map((item, index) =>
                 index === i && item.amount !== finalMaxSendAmount
@@ -540,6 +525,30 @@ function BulkSendProcessContent({
               ),
             );
           }
+
+          // prepareSendConfirmUnsignedTx() already handles nonce for rebuilt txs.
+          // Only fallback to manual nonce assignment when rebuild failed and we
+          // are still using the original pre-built unsigned tx.
+          let nonceInfo: { nonce: number } | undefined;
+          if (!rebuildSucceeded && isUndefined(updatedTx.nonce)) {
+            const nonce = await backgroundApiProxy.serviceSend.getNextNonce({
+              accountId: txAccountId,
+              networkId,
+              accountAddress,
+            });
+            nonceInfo = { nonce };
+          }
+
+          updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
+            networkId,
+            accountId: txAccountId,
+            unsignedTx: updatedTx,
+            feeInfo,
+            nativeAmountInfo: updatedMaxSendAmount
+              ? { maxSendAmount: updatedMaxSendAmount }
+              : undefined,
+            nonceInfo,
+          });
 
           // Fee overflow check — only once (same network for all txs)
           if (!feeOverflowCheckedRef.current) {
@@ -573,22 +582,6 @@ function BulkSendProcessContent({
               }
               break;
             }
-          }
-
-          // Nonce management
-          if (isUndefined(updatedTx.nonce)) {
-            const nonce = await backgroundApiProxy.serviceSend.getNextNonce({
-              accountId: txAccountId,
-              networkId,
-              accountAddress,
-            });
-            updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
-              networkId,
-              accountId: txAccountId,
-              unsignedTx: updatedTx,
-              nonceInfo: { nonce },
-              feeInfo,
-            });
           }
 
           if (isAborted.current) break;
