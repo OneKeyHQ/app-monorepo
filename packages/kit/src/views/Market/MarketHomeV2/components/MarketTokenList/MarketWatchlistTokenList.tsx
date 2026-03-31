@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, Tabs, Toast } from '@onekeyhq/components';
+import { ActionList, Tabs, Toast, useMedia } from '@onekeyhq/components';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
@@ -27,7 +27,10 @@ import { InlineActionBar } from './components/InlineActionBar';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
 import { type IMarketToken } from './MarketTokenData';
-import { MarketTokenListBase } from './MarketTokenListBase';
+import {
+  type IMarketTokenListLiveOverride,
+  MarketTokenListBase,
+} from './MarketTokenListBase';
 import {
   type IWatchlistFilterType,
   MarketWatchlistCategorySelector,
@@ -44,6 +47,10 @@ type IMarketWatchlistTokenListProps = {
     paddingBottom: number;
   };
   hidePerps?: boolean;
+  hiddenDesktopColumns?: readonly string[];
+  liveTokenOverride?: IMarketTokenListLiveOverride;
+  pollingInterval?: number;
+  rowBg?: string;
 };
 
 function MarketWatchlistTokenList({
@@ -55,12 +62,18 @@ function MarketWatchlistTokenList({
   tabName,
   listContainerProps,
   hidePerps,
+  hiddenDesktopColumns,
+  liveTokenOverride,
+  pollingInterval,
+  rowBg,
 }: IMarketWatchlistTokenListProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
 
   // Get watchlist from atom if not provided externally
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
+  const recommendMaxSize = !platformEnv.isNative && gtMd ? 6 : 8;
 
   const actions = useWatchListV2Actions();
 
@@ -107,6 +120,7 @@ function MarketWatchlistTokenList({
   const watchlistResult = useMarketWatchlistTokenList({
     watchlist,
     pageSize: 999,
+    pollingInterval,
   });
 
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data, {
@@ -126,6 +140,12 @@ function MarketWatchlistTokenList({
         watchlistResult.data.length > 0 ? false : watchlistResult.isLoading,
     };
   }, [watchlistResult, filteredGroups, selectedFilter]);
+
+  // Disable drag reorder when the list is filtered (hidePerps or category filter).
+  // Dragging in a filtered view would pass visible-only neighbors to
+  // sortWatchListV2Items, which computes sortIndex against the full watchlist,
+  // producing incorrect order for hidden items.
+  const isDraggable = filteredResult.data === watchlistResult.data;
 
   const tokenToWatchListItem = useCallback(
     (token: IMarketToken): IMarketWatchListItemV2 => ({
@@ -308,11 +328,19 @@ function MarketWatchlistTokenList({
     if (tabIntegrated && platformEnv.isNative) {
       return (
         <Tabs.ScrollView>
-          <MarketRecommendList recommendedTokens={recommendedTokens} />
+          <MarketRecommendList
+            recommendedTokens={recommendedTokens}
+            maxSize={recommendMaxSize}
+          />
         </Tabs.ScrollView>
       );
     }
-    return <MarketRecommendList recommendedTokens={recommendedTokens} />;
+    return (
+      <MarketRecommendList
+        recommendedTokens={recommendedTokens}
+        maxSize={recommendMaxSize}
+      />
+    );
   }
 
   return (
@@ -322,14 +350,17 @@ function MarketWatchlistTokenList({
       result={filteredResult}
       isWatchlistMode
       showEndReachedIndicator
-      draggable
+      draggable={isDraggable}
       tabIntegrated={tabIntegrated}
       tabName={tabName}
       listContainerProps={listContainerProps}
+      hiddenDesktopColumns={hiddenDesktopColumns}
       onDragEnd={handleDragEnd}
       onItemLongPress={handleShowContextMenu}
       onItemContextMenu={handleShowContextMenu}
       onScrollBegin={activeActionItem ? dismissInlineActionBar : undefined}
+      liveTokenOverride={liveTokenOverride}
+      rowBg={rowBg}
     />
   );
 }
