@@ -13,16 +13,16 @@ const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
 );
 
+const ManagePosition = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
+);
+
 const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
 
 const ProtocolDetailsV2 = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetailsV2'),
-);
-
-const ManagePosition = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
 );
 
 const BorrowManagePosition = LazyLoad(
