@@ -41,9 +41,8 @@ function PrimeSubscriptionPlanItem({
   return (
     <YStack
       bg="$bg"
-      pl="$5"
-      pr="$4"
-      py="$5"
+      px="$3.5"
+      py="$3"
       borderWidth={2}
       borderColor={selected ? '$borderActive' : '$borderSubdued'}
       borderRadius="$3"
@@ -65,33 +64,35 @@ function PrimeSubscriptionPlanItem({
           </Badge.Text>
         </Badge>
       ) : null}
-      <SizableText size="$headingLg" mr="$2">
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
         {title}
       </SizableText>
-
-      <XStack flex={1} justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingLg">
-          {intl.formatMessage(
-            {
-              id: ETranslations.prime_prime_price_per_month,
-            },
-            {
-              price: pricePerMonthString,
-            },
-          )}
-        </SizableText>
-
-        <SizableText ml="$2" size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage(
-            {
-              id: ETranslations.prime_prime_price_per_year,
-            },
-            {
-              price: priceTotalPerYearString,
-            },
-          )}
-        </SizableText>
-      </XStack>
+      <SizableText
+        size="$headingLg"
+        mt="$0.5"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
+        {intl.formatMessage(
+          {
+            id: ETranslations.prime_prime_price_per_month,
+          },
+          {
+            price: pricePerMonthString,
+          },
+        )}
+      </SizableText>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage(
+          {
+            id: ETranslations.prime_prime_price_per_year,
+          },
+          {
+            price: priceTotalPerYearString,
+          },
+        )}
+      </SizableText>
     </YStack>
   );
 }
@@ -133,11 +134,7 @@ export function PrimeSubscriptionPlans({
       );
     }
     return (
-      <SizableText
-        size="$bodyMd"
-        // textAlign={gtMd ? 'left' : 'center'}
-        // alignSelf={gtMd ? 'flex-start' : 'center'}
-      >
+      <SizableText size="$bodyMd" color="$textSubdued">
         {text}
       </SizableText>
     );
@@ -146,32 +143,35 @@ export function PrimeSubscriptionPlans({
   if (!packages?.length) {
     return (
       <Theme name="dark">
-        <YStack gap="$2.5">
-          <Skeleton width="100%" height={100} />
-          <Skeleton width="100%" height={100} />
-        </YStack>
+        <XStack gap="$2.5">
+          <Skeleton flex={1} height={100} />
+          <Skeleton flex={1} height={100} />
+        </XStack>
       </Theme>
     );
   }
 
   return (
-    <YStack gap="$2.5">
-      {packages?.map((p) => {
-        const selected = selectedSubscriptionPeriod === p.subscriptionPeriod;
-        return (
-          <PrimeSubscriptionPlanItem
-            key={p.subscriptionPeriod}
-            selected={selected}
-            periodDuration={p.subscriptionPeriod}
-            pricePerMonthString={p.pricePerMonthString}
-            priceTotalPerYearString={p.priceTotalPerYearString}
-            onPress={() => {
-              onSubscriptionPeriodSelected(p.subscriptionPeriod);
-            }}
-          />
-        );
-      })}
-      <Stack>{autoRenewText}</Stack>
+    <YStack>
+      <XStack gap="$2.5">
+        {packages?.map((p) => {
+          const selected = selectedSubscriptionPeriod === p.subscriptionPeriod;
+          return (
+            <PrimeSubscriptionPlanItem
+              key={p.subscriptionPeriod}
+              flex={1}
+              selected={selected}
+              periodDuration={p.subscriptionPeriod}
+              pricePerMonthString={p.pricePerMonthString}
+              priceTotalPerYearString={p.priceTotalPerYearString}
+              onPress={() => {
+                onSubscriptionPeriodSelected(p.subscriptionPeriod);
+              }}
+            />
+          );
+        })}
+      </XStack>
+      <Stack mt="$1.5">{autoRenewText}</Stack>
     </YStack>
   );
 }
