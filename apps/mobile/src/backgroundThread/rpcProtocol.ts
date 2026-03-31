@@ -2,7 +2,7 @@ export type IBackgroundThreadTransportState =
   | 'idle'
   | 'starting'
   | 'ready'
-  | 'failed'
+  | 'remote-broken'
   | 'fallback-local';
 
 export type IBackgroundThreadServiceCallRequest = {
