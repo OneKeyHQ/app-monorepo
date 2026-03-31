@@ -4,6 +4,7 @@ import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { prepareLoggerExport } from '@onekeyhq/shared/src/logger/exportSupport';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ELogUploadStage,
@@ -49,6 +50,7 @@ export const collectLogDigest = async (
     });
   }
   await waitAsync(1000);
+  await prepareLoggerExport();
   const messages = await backgroundApiProxy.serviceLogger.getAllMsg();
   const content = messages.join('');
   const blob = new Blob(messages, {
