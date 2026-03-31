@@ -1543,8 +1543,10 @@ class ServiceAppUpdate extends ServiceBase {
     const results = await Promise.all(
       versions.map(async (v) => {
         const bundles = await this.devFetchBundlesForVersion(v.version);
-        const match = bundles.find((b) =>
-          (b.commitHash || '').toLowerCase().startsWith(needle),
+        const match = bundles.find(
+          (b) =>
+            (b.commitHash || '').toLowerCase().startsWith(needle) ||
+            b.ciBundleVersion.includes(needle),
         );
         return match ? { version: v.version, bundle: match } : null;
       }),
