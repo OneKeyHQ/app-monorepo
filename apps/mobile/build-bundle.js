@@ -167,6 +167,7 @@ const runReactNativeBundle = ({
   assetsDest,
   bundleOutput,
   sourceMapOutput,
+  runtimeTarget,
 }) => {
   execSync(
     `npx react-native bundle \
@@ -186,6 +187,7 @@ const runReactNativeBundle = ({
         ...process.env,
         NODE_OPTIONS: '--max-old-space-size=8192',
         NODE_ENV: 'production',
+        ...(runtimeTarget ? { METRO_RUNTIME_TARGET: runtimeTarget } : {}),
       },
     },
   );
@@ -260,6 +262,7 @@ const buildBackgroundBundle = async ({
     assetsDest: assetsOutputPath,
     bundleOutput: backgroundBundleJsPath,
     sourceMapOutput: backgroundBundlePackagerMapPath,
+    runtimeTarget: 'background',
   });
   log(`build ${platform} background bundle done`);
 
@@ -306,6 +309,7 @@ const buildIOSBundle = async () => {
     assetsDest: buildIOSOutputAssetPath('assets'),
     bundleOutput: buildIOSOutputAssetPath('main.jsbundle'),
     sourceMapOutput: buildIOSOutputAssetPath('main.jsbundle.map'),
+    runtimeTarget: 'main',
   });
   log('build ios bundle done');
 
@@ -446,6 +450,7 @@ const buildAndroidBundle = async () => {
     assetsDest: buildAndroidOutputAssetPath('assets'),
     bundleOutput: buildAndroidOutputAssetPath('main.jsbundle'),
     sourceMapOutput: buildAndroidOutputAssetPath('main.jsbundle.map'),
+    runtimeTarget: 'main',
   });
   log('build android bundle done');
 

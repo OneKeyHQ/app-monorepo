@@ -217,6 +217,36 @@ if (process.env.RN_HARNESS === 'true') {
   };
 }
 
+// --- Native background thread: redirect backgroundApiInit for main bundle ---
+// When ENABLE_NATIVE_BACKGROUND_THREAD is true and we're building the main bundle
+// (not the background bundle), redirect backgroundApiInit to a stub that returns null.
+// This prevents the entire BackgroundApi implementation graph from being statically
+// pulled into the main bundle. The real implementation is loaded asynchronously
+// only if the native background thread transport fails (async lazy fallback).
+const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+if (
+  buildTimeEnv.enableNativeBackgroundThread &&
+  process.env.METRO_RUNTIME_TARGET !== 'background'
+) {
+  const prevResolveRequestForNativeUi = config.resolver.resolveRequest;
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (
+      moduleName === './backgroundApiInit' &&
+      context.originModulePath &&
+      context.originModulePath.includes(
+        'background/instance/backgroundApiProxy',
+      )
+    ) {
+      return prevResolveRequestForNativeUi(
+        context,
+        './backgroundApiInit.native-ui',
+        platform,
+      );
+    }
+    return prevResolveRequestForNativeUi(context, moduleName, platform);
+  };
+}
+
 // ---- Optional monorepo setup for Yarn workspaces (commented) ----
 // const workspaceRoot = path.resolve(projectRoot, '../..');
 // config.watchFolders = [workspaceRoot];
