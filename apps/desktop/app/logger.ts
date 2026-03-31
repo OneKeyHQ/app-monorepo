@@ -221,7 +221,7 @@ logger.hooks.push((message: any, _transFn: any, transName?: string) => {
     return null; // truly skip — no file write at all
   }
 
-  pendingRepeatPrefix = repeatPrefix;
+  pendingRepeatPrefix = [...pendingRepeatPrefix, ...repeatPrefix];
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return message;
 });
