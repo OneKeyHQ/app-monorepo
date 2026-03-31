@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { SizableText, Stack } from '../../primitives';
 
@@ -8,22 +8,11 @@ const CELL_SIZE = '$10'; // 40px
 
 export const DayCell = memo(
   ({ day, onPress, hideOutOfMonth, fullWidth }: IDayCellProps) => {
-    const handlePress = () => {
+    const handlePress = useCallback(() => {
       if (!day.disabled) {
         onPress(day.date);
       }
-    };
-
-    if (hideOutOfMonth && !day.inCurrentMonth) {
-      return (
-        <Stack
-          flexBasis="14.28%"
-          flexGrow={0}
-          flexShrink={0}
-          height={CELL_SIZE}
-        />
-      );
-    }
+    }, [day.disabled, day.date, onPress]);
 
     const isSameDayRange =
       day.inCurrentMonth && day.range === 'range-start range-end';
@@ -67,6 +56,27 @@ export const DayCell = memo(
           : '$text';
     /* eslint-enable no-nested-ternary */
 
+    const hoverStyleValue = useMemo(
+      () =>
+        day.disabled
+          ? {}
+          : {
+              bg: isSelected ? innerBg : '$bgHover',
+            },
+      [day.disabled, isSelected, innerBg],
+    );
+
+    if (hideOutOfMonth && !day.inCurrentMonth) {
+      return (
+        <Stack
+          flexBasis="14.28%"
+          flexGrow={0}
+          flexShrink={0}
+          height={CELL_SIZE}
+        />
+      );
+    }
+
     return (
       <Stack
         flexBasis="14.28%"
@@ -93,13 +103,7 @@ export const DayCell = memo(
             borderBottomLeftRadius: 0,
           })}
           bg={innerBg}
-          hoverStyle={
-            day.disabled
-              ? {}
-              : {
-                  bg: isSelected ? innerBg : '$bgHover',
-                }
-          }
+          hoverStyle={hoverStyleValue}
           onPress={handlePress}
         >
           <SizableText

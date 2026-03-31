@@ -41,6 +41,7 @@ import {
   isExtensionInternalCall,
   isProviderApiPrivateAllowedMethod,
   isProviderApiPrivateAllowedOrigin,
+  isProviderApiPrivateKeylessMethod,
 } from './backgroundApiPermissions';
 
 import type {
@@ -180,8 +181,10 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
     if (
       scope === IInjectedProviderNames.$private &&
-      !isProviderApiPrivateAllowedOrigin(origin) &&
-      !isProviderApiPrivateAllowedMethod(payloadData?.method)
+      ((isProviderApiPrivateKeylessMethod(payloadData?.method) &&
+        !isProviderApiPrivateAllowedOrigin(origin)) ||
+        (!isProviderApiPrivateAllowedOrigin(origin) &&
+          !isProviderApiPrivateAllowedMethod(payloadData?.method)))
     ) {
       const error = new Error(
         `[${origin as string}] is not allowed to call $private methods: ${

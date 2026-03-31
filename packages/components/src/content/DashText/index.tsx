@@ -74,7 +74,6 @@ export function DashText({ tooltip, tooltipTitle, ...rest }: IDashTextProps) {
   }
 
   const trigger = <DashTextCore {...rest} cursor="help" />;
-
   if (gtMd) {
     return (
       <Tooltip

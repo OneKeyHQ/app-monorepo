@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -12,12 +12,15 @@ import type {
 } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { getBulkSendMinTransferDisplayAmount } from '../../../utils';
+
 type IUseTransferInfoActionsParams = {
   tokenInfo: IToken;
   transfersInfo: ITransferInfo[];
   setTransfersInfo: (transfersInfo: ITransferInfo[]) => void;
   transferInfoErrors: ITransferInfoErrors;
   setTransferInfoErrors: (errors: ITransferInfoErrors) => void;
+  minTransferAmount?: string;
 };
 
 export function useTransferInfoActions({
@@ -26,8 +29,17 @@ export function useTransferInfoActions({
   setTransfersInfo,
   transferInfoErrors,
   setTransferInfoErrors,
+  minTransferAmount,
 }: IUseTransferInfoActionsParams) {
   const intl = useIntl();
+  const minTransferDisplayAmount = useMemo(
+    () =>
+      getBulkSendMinTransferDisplayAmount({
+        minTransferAmount,
+        tokenDecimals: tokenInfo.decimals,
+      }),
+    [minTransferAmount, tokenInfo.decimals],
+  );
 
   // Ref to access latest errors in debounced callback without dependency churn
   const transferInfoErrorsRef = useRef(transferInfoErrors);
@@ -65,6 +77,10 @@ export function useTransferInfoActions({
         token: tokenInfo,
         amount: value,
         allowZero: false,
+        minAmount:
+          minTransferAmount && minTransferAmount !== '0'
+            ? minTransferAmount
+            : undefined,
         customErrorMessages: {
           emptyAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_invalid_amount,
@@ -78,6 +94,13 @@ export function useTransferInfoActions({
           zeroAmount: intl.formatMessage({
             id: ETranslations.wallet_bulk_send_error_amount_zero,
           }),
+          minAmount: intl.formatMessage(
+            { id: ETranslations.send_error_minimum_amount },
+            {
+              amount: minTransferDisplayAmount,
+              token: tokenInfo.symbol,
+            },
+          ),
           decimalPlaces: intl.formatMessage(
             {
               id: ETranslations.wallet_bulk_send_error_max_decimal_places,

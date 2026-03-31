@@ -150,6 +150,17 @@ interface IAvailableAssetsResponseV2 {
   };
 }
 
+interface IEarnBatchInvestmentDetailError {
+  vault: string;
+  symbol: string;
+  errorCode: string;
+}
+
+interface IEarnBatchInvestmentDetailResponse {
+  items: IEarnInvestmentItemV2[];
+  errors: IEarnBatchInvestmentDetailError[];
+}
+
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -1081,7 +1092,7 @@ class ServiceStaking extends ServiceBase {
         accountParams.push({
           accountAddress: account?.apiAddress,
           networkId: earnNetworkId,
-          publicKey: account?.pub,
+          publicKey: account?.pub?.trim() || undefined,
         });
       }
     });
@@ -1240,6 +1251,29 @@ class ServiceStaking extends ServiceBase {
           }),
       },
     );
+
+    return response.data.data;
+  }
+
+  @backgroundMethod()
+  async fetchInvestmentBatchDetail(params: {
+    publicKey?: string | undefined;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    accountId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const { accountId, ...rest } = params;
+
+    const response = await client.post<{
+      data: IEarnBatchInvestmentDetailResponse;
+    }>(`/earn/v1/investment/batch/detail`, rest, {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
 
     return response.data.data;
   }

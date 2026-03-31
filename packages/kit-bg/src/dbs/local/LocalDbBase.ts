@@ -111,7 +111,7 @@ import type {
   ICreateSignedTransactionParams,
 } from '@onekeyhq/shared/types/signatureRecord';
 
-import keylessCloudSyncUtils from '../../services/ServicePrimeCloudSync/keylessCloudSyncUtils';
+import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
 import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
@@ -653,52 +653,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx: ILocalDBTransaction;
   }): Promise<IKeylessCloudSyncCredential | null> {
     try {
-      const password =
-        await this.backgroundApi.servicePassword.getCachedPassword();
-      if (!password) {
-        return null;
-      }
-
-      const keylessWallet = await this.txGetKeylessWallet({ tx });
-      const keylessWalletId = keylessWallet?.id;
+      // const keylessWallet = await this.txGetKeylessWallet({ tx });
+      // const keylessWalletId = keylessWallet?.id;
+      const keylessWalletId =
+        await this.backgroundApi.serviceKeylessCloudSync.getCurrentCloudSyncKeylessWalletId();
       if (!keylessWalletId) {
         return null;
       }
-
-      const [credential] = await this.txGetRecordById({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        id: keylessWalletId,
-      });
-
-      if (!credential?.credential) {
-        return null;
-      }
-
-      const keylessCredential =
-        await keylessCloudSyncUtils.deriveKeylessCredential({
-          hdCredential: credential.credential,
-          password,
-          keylessWalletId,
-        });
-
-      return keylessCredential;
+      return await this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredential();
+      // const credential =
+      //   this.backgroundApi.serviceKeylessCloudSync.getKeylessCloudSyncCredentialCacheSync(
+      //     keylessWalletId,
+      //   );
+      // return credential ?? null;
     } catch (error) {
-      console.error('[LocalDb] Failed to derive keyless credential:', error);
+      console.error('[LocalDb] Failed to get keyless credential:', error);
       return null;
     }
   }
-
-  /**
-   * Get Keyless credential (wrapped with transaction)
-   * @returns Keyless credential or null if conditions not met
-   */
-  async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
-    return this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      return this.txGetKeylessCloudSyncCredential({ tx });
-    });
-  }
-
   // #endregion
 
   // #region ---------------------------------------------- wallet
@@ -1723,6 +1695,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
     let indexedAccountId = '';
+
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
         tx,
@@ -2011,6 +1984,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }) {
     if (items?.length) {
       // EIndexedDBBucketNames.cloudSync
+
       await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
         await this.txAddAndUpdateSyncItems({
           tx,
@@ -4059,6 +4033,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       })();
 
     // db transaction: add accounts to wallet
+
     const addResults = await this.withTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {

@@ -1,6 +1,6 @@
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import type { EOnboardingV2KeylessWalletCreationMode } from './onboardingv2';
 import type {
   IE2EESocketUserInfo,
@@ -36,6 +36,7 @@ export enum EPrimeFeatures {
   CloudTransfer = 'CloudTransfer',
   Notifications = 'Notifications',
   HistoryExport = 'HistoryExport',
+  DAppTranslate = 'DAppTranslate',
 }
 
 export type IPrimeParamList = {

@@ -121,7 +121,7 @@ export interface IMarketStockInfo {
   subtitle: string;
   source?: string;
   sourceLogoUri: string;
-  isOpen: boolean;
+  isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
 }
@@ -359,6 +359,12 @@ export interface IMarketBasicConfigData {
   lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
   HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
   perpsCategories?: IMarketPerpsCategory[];
+  spotCategories?: IMarketSpotCategory[];
+}
+
+export interface IMarketSpotCategory {
+  type: string;
+  name: string;
 }
 
 export interface IMarketPerpsCategory {
@@ -419,6 +425,14 @@ export interface IMarketTokenDetailResponse {
   data: IMarketTokenDetailData;
 }
 
+export interface IMarketAccountPortfolioPnl {
+  isPnlSupported: boolean;
+  totalPnlUsd: string;
+  totalPnlPercent: string;
+  unrealizedPnlUsd: string;
+  unrealizedPnlPercent: string;
+}
+
 export interface IMarketAccountPortfolioItem {
   accountAddress: string;
   tokenAddress: string;
@@ -426,6 +440,7 @@ export interface IMarketAccountPortfolioItem {
   symbol: string;
   tokenPrice: string;
   totalPrice: string;
+  pnl?: IMarketAccountPortfolioPnl;
 }
 
 export interface IMarketAccountPortfolioResponse {

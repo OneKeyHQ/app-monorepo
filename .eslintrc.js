@@ -32,6 +32,12 @@ Module._resolveFilename = function (request, ...args) {
       'development/plugins/eslint-plugin-import-js.js',
     );
   }
+  if (request === 'eslint-plugin-react-perf') {
+    return path.resolve(
+      __dirname,
+      'development/plugins/eslint-plugin-react-perf.js',
+    );
+  }
   return originalResolve.call(this, request, ...args);
 };
 
@@ -174,6 +180,7 @@ const tsRules = {
   '@typescript-eslint/lines-between-class-members': 'off',
   '@typescript-eslint/no-throw-literal': 'off',
   '@typescript-eslint/no-require-imports': 'off',
+  // '@typescript-eslint/no-duplicate-type-constituents': 'off',
   '@typescript-eslint/no-restricted-imports': [
     'error',
     {
@@ -235,40 +242,42 @@ const tsRules = {
       'ignoreDeclarationSort': true,
     },
   ],
-  'import/order': [
-    'warn',
-    {
-      'groups': [
-        'builtin',
-        'internal',
-        'index',
-        'external',
-        'parent',
-        'sibling',
-        'object',
-        'type',
-      ],
-      'pathGroups': [
-        {
-          'pattern': 'react',
-          'group': 'builtin',
-          'position': 'before',
-        },
-        {
-          'pattern': '@onekeyhq/**',
-          'group': 'external',
-          'position': 'after',
-        },
-      ],
-      'alphabetize': {
-        'order': 'asc',
-        'caseInsensitive': true,
-      },
-      'newlines-between': 'always',
-      'pathGroupsExcludedImportTypes': ['builtin'],
-      'warnOnUnassignedImports': true,
-    },
-  ],
+  // Original config kept for reference:
+  // 'import/order': [
+  //   'warn',
+  //   {
+  //     'groups': [
+  //       'builtin',
+  //       'internal',
+  //       'index',
+  //       'external',
+  //       'parent',
+  //       'sibling',
+  //       'object',
+  //       'type',
+  //     ],
+  //     'pathGroups': [
+  //       {
+  //         'pattern': 'react',
+  //         'group': 'builtin',
+  //         'position': 'before',
+  //       },
+  //       {
+  //         'pattern': '@onekeyhq/**',
+  //         'group': 'external',
+  //         'position': 'after',
+  //       },
+  //     ],
+  //     'alphabetize': {
+  //       'order': 'asc',
+  //       'caseInsensitive': true,
+  //     },
+  //     'newlines-between': 'always',
+  //     'pathGroupsExcludedImportTypes': ['builtin'],
+  //     'warnOnUnassignedImports': true,
+  //   },
+  // ],
+  'import/order': 'off',
   'no-restricted-syntax': [
     'error',
     {
@@ -300,6 +309,7 @@ module.exports = {
     'import',
     'onekey',
     'import-js',
+    'react-perf',
   ],
   settings: {
     'import/extensions': [
@@ -321,6 +331,8 @@ module.exports = {
   },
   ignorePatterns: [
     '*.wasm.bin',
+    '.worktree/**',
+    '.claude/worktrees/**',
     'apps/desktop/public/static/js-sdk*',
     'packages/components/src/primitives/Icon/Icons.tsx',
     'packages/components/src/primitives/Icon/react/*',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -11,11 +11,15 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useDebouncedValidation } from '@onekeyhq/kit/src/views/BulkSend/hooks/useDebouncedValidation';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   EInputAddressChangeType,
   type IAddressBadge,
@@ -25,8 +29,9 @@ import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 import { useBulkSendAddressesInputContext } from '../Context';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
+import { useMultiLineAddressValidation } from './useMultiLineAddressValidation';
 
-function SenderAddressesInput() {
+function SingleLineSenderInput() {
   const intl = useIntl();
   const {
     selectedAccountId,
@@ -36,14 +41,47 @@ function SenderAddressesInput() {
     setSelectedIndexedAccountId,
     selectedTokenDetail,
     tokenDetailsState,
-    bulkSendMode,
+    selectedDeriveType,
+    setSelectedDeriveType,
   } = useBulkSendAddressesInputContext();
   const { network } = useAccountData({ networkId: selectedNetworkId });
   const [addressBadges, setAddressBadges] = useState<IAddressBadge[]>([]);
 
+  const isBTC = useMemo(
+    () => networkUtils.isBTCNetwork(selectedNetworkId),
+    [selectedNetworkId],
+  );
+
+  const walletId = useMemo(() => {
+    if (selectedIndexedAccountId) {
+      return accountUtils.getWalletIdFromAccountId({
+        accountId: selectedIndexedAccountId,
+      });
+    }
+    return '';
+  }, [selectedIndexedAccountId]);
+
   // Use refs to store latest values for validation closure
   const selectedAccountIdRef = useRef(selectedAccountId);
   const selectedIndexedAccountIdRef = useRef(selectedIndexedAccountId);
+
+  const handleAddressTypeSelect = useCallback(
+    async ({
+      account,
+      deriveType,
+    }: {
+      account: { id: string } | undefined;
+      deriveInfo: unknown;
+      deriveType: IAccountDeriveTypes;
+    }) => {
+      setSelectedDeriveType(deriveType);
+      if (account?.id) {
+        selectedAccountIdRef.current = account.id;
+        setSelectedAccountId(account.id);
+      }
+    },
+    [setSelectedDeriveType, setSelectedAccountId],
+  );
 
   const handleValidateAddresses = useCallback(
     async (_value: string) => {
@@ -62,7 +100,6 @@ function SenderAddressesInput() {
 
       if (result.isValid) {
         try {
-          // wallet order: hw -> qr -> hd -> imported -> external -> watching
           const walletAccountItems =
             await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
               networkId: selectedNetworkId ?? '',
@@ -79,7 +116,6 @@ function SenderAddressesInput() {
             | { walletName: string; accountName: string; accountId: string }
             | undefined;
 
-          // Use refs to get the latest values (avoid closure stale state issue)
           const currentAccountId = selectedAccountIdRef.current;
           const currentIndexedAccountId = selectedIndexedAccountIdRef.current;
 
@@ -128,7 +164,6 @@ function SenderAddressesInput() {
                     },
                   );
                 if (networkAccounts[0].account) {
-                  // Update refs immediately before setState
                   selectedAccountIdRef.current = networkAccounts[0].account.id;
                   selectedIndexedAccountIdRef.current = item.accountId;
                   setSelectedAccountId(networkAccounts[0].account.id);
@@ -139,7 +174,6 @@ function SenderAddressesInput() {
                 accountUtils.isExternalAccount({ accountId: item.accountId }) ||
                 accountUtils.isImportedAccount({ accountId: item.accountId })
               ) {
-                // Update refs immediately before setState
                 selectedAccountIdRef.current = item.accountId;
                 selectedIndexedAccountIdRef.current = undefined;
                 setSelectedAccountId(item.accountId);
@@ -251,15 +285,38 @@ function SenderAddressesInput() {
     selectedIndexedAccountIdRef.current = selectedIndexedAccountId;
   }, [selectedAccountId, selectedIndexedAccountId]);
 
+  const renderLabelAddon = useMemo(() => {
+    if (isBTC && selectedIndexedAccountId && walletId) {
+      return (
+        <AddressTypeSelector
+          walletId={walletId}
+          networkId={selectedNetworkId ?? ''}
+          indexedAccountId={selectedIndexedAccountId}
+          activeDeriveType={selectedDeriveType}
+          onSelect={handleAddressTypeSelect}
+          onCreate={handleAddressTypeSelect}
+          changeDefaultAddressTypeAfterSelect={false}
+          placement="bottom-end"
+        />
+      );
+    }
+    return undefined;
+  }, [
+    isBTC,
+    selectedIndexedAccountId,
+    walletId,
+    selectedNetworkId,
+    selectedDeriveType,
+    handleAddressTypeSelect,
+  ]);
+
   return (
     <Form.Field
       name="senderAddresses"
       label={intl.formatMessage({
-        id:
-          bulkSendMode === EBulkSendMode.OneToMany
-            ? ETranslations.wallet_bulk_send_section_sending_address
-            : ETranslations.wallet_bulk_send_label_sending_addresses,
+        id: ETranslations.wallet_bulk_send_section_sending_address,
       })}
+      labelAddon={renderLabelAddon}
       description={renderSenderAddressesDescription()}
       rules={{
         validate: debouncedValidateAddresses,
@@ -270,7 +327,6 @@ function SenderAddressesInput() {
         showAddressBadges
         addressBadges={addressBadges}
         showPaste
-        // TODO: init account selector with selected account id or indexed account id
         showAccountSelector
         placeholder={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_placeholder_address,
@@ -288,6 +344,80 @@ function SenderAddressesInput() {
       />
     </Form.Field>
   );
+}
+
+function MultiLineSenderInput() {
+  const intl = useIntl();
+  const {
+    selectedNetworkId,
+    selectedToken,
+    selectedAccountId,
+    setResolvedSenderAccountIds,
+  } = useBulkSendAddressesInputContext();
+
+  const { handleValidateAddresses, errors } = useMultiLineAddressValidation({
+    selectedNetworkId,
+    selectedToken,
+    allowAmounts: true,
+    requireAmounts: false,
+    checkDuplicates: true,
+    checkAllowlist: false,
+    selectedAccountId,
+    resolveAccountId: true,
+    onResolvedAccountIds: setResolvedSenderAccountIds,
+  });
+
+  const validate = useCallback(
+    async (value: string) =>
+      handleValidateAddresses(
+        value,
+        ETranslations.wallet_bulk_send_error_sender_required,
+      ),
+    [handleValidateAddresses],
+  );
+
+  const debouncedValidate = useDebouncedValidation(validate);
+
+  return (
+    <Form.Field
+      name="senderAddresses"
+      label={intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_label_sending_addresses,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.wallet_bulk_send_label_receiving_desc,
+      })}
+      rules={{
+        required: true,
+        validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+      }}
+    >
+      <LineNumberedTextArea
+        showPaste
+        showUpload
+        showAccountSelector
+        accountSelector={{
+          num: 0,
+          clearNotMatch: true,
+        }}
+        placeholder={intl.formatMessage({
+          id: ETranslations.wallet_bulk_send_placeholder_addresses,
+        })}
+        errors={errors}
+        networkId={selectedNetworkId}
+        accountId={selectedAccountId}
+      />
+    </Form.Field>
+  );
+}
+
+function SenderAddressesInput() {
+  const { bulkSendMode } = useBulkSendAddressesInputContext();
+
+  if (bulkSendMode === EBulkSendMode.OneToMany) {
+    return <SingleLineSenderInput />;
+  }
+  return <MultiLineSenderInput />;
 }
 
 export default SenderAddressesInput;

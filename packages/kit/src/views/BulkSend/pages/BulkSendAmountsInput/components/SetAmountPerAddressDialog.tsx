@@ -9,6 +9,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EAmountInputMode,
   EBulkSendMode,
+  EIntervalMode,
   type IAmountInputError,
   type IAmountInputValues,
 } from '@onekeyhq/shared/types/bulkSend';
@@ -28,6 +29,7 @@ type ISetAmountPerAddressDialogProps = {
   transfersInfo: ITransferInfo[];
   initialMode: EAmountInputMode;
   initialValues: IAmountInputValues;
+  minTransferAmount?: string;
   onConfirm: (mode: EAmountInputMode, values: IAmountInputValues) => void;
 };
 
@@ -63,6 +65,7 @@ function SetAmountPerAddressDialogContent({
   transfersInfo,
   initialMode,
   initialValues,
+  minTransferAmount: minTransferAmountProp,
   onConfirm,
 }: ISetAmountPerAddressDialogProps) {
   const intl = useIntl();
@@ -113,6 +116,8 @@ function SetAmountPerAddressDialogContent({
       },
       setTokenDetailsState: () => {},
       bulkSendMode: EBulkSendMode.OneToMany,
+      isMaxMode: false,
+      setIsMaxMode: () => {},
       transfersInfo,
       setTransfersInfo: () => {},
       amountInputMode,
@@ -128,6 +133,13 @@ function SetAmountPerAddressDialogContent({
       totalFiatAmount,
       isInsufficientBalance: false,
       hasCustomAmounts: false,
+      minTransferAmount: minTransferAmountProp ?? '0',
+      intervalSettings: {
+        mode: EIntervalMode.None,
+        minSeconds: '',
+        maxSeconds: '',
+      },
+      setIntervalSettings: () => {},
       previewState: {
         specifiedPreviewed: false,
         rangePreviewed: false,
@@ -167,6 +179,13 @@ function SetAmountPerAddressDialogContent({
         totalTokenAmount: '0',
         totalFiatAmount: '0',
       } as IMobileModeData,
+      senderBalances: {},
+      setSenderBalances: () => {},
+      senderBalancesLoading: false,
+      setSenderBalancesLoading: () => {},
+      senderBalancesFailed: new Set<string>(),
+      setSenderBalancesFailed: () => {},
+      senderAccountIdMap: new Map(),
     }),
     [
       accountId,
@@ -180,6 +199,7 @@ function SetAmountPerAddressDialogContent({
       isAmountValid,
       totalTokenAmount,
       totalFiatAmount,
+      minTransferAmountProp,
     ],
   );
 

@@ -1,15 +1,14 @@
-/* eslint-disable import/order, import-js/order */
+/* eslint-disable import-js/order */
 // fix missing setimmediate
-// eslint-disable-next-line import/order
 import 'setimmediate';
 
-// eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/polyfills';
 
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 import urlParse from 'url-parse';
 
 import offscreenApiProxy from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy';
+import keylessWebBridge from '@onekeyhq/shared/src/keylessWallet/keylessWebBridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 
@@ -25,7 +24,7 @@ import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 function initBackground() {
   // TODO use backgroundApiInit
   const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-require-imports
     require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
 
   const bridge = bridgeSetup.background.createHostBridge({
@@ -44,6 +43,7 @@ if (platformEnv.isExtensionBackgroundServiceWorker) {
   // axios.defaults.adapter = axiosAdapter;
   setupKeepAlive();
   setupSidePanelPortInBg();
+  keylessWebBridge.setupKeylessWebBridgeInBackground();
   setupExtUIEvent();
   serviceWorker.disableCacheInBackground();
 }

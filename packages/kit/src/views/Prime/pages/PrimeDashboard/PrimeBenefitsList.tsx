@@ -1,4 +1,12 @@
+import { useEffect } from 'react';
+
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -23,6 +31,7 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IPrimeServerUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
 import { useNavigateToBulkSend } from '../../../BulkSend/hooks/useNavigateToBulkSend';
 import { useNavigateToApprovalList } from '../../../Home/hooks/useNavigateToApprovalList';
 import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
@@ -35,41 +44,64 @@ function PrimeBenefitsItem({
   subtitle,
   onPress,
   isComingSoon,
+  isHighlighted,
 }: {
   icon: IKeyOfIcons;
   title: string;
   subtitle: string;
   onPress: () => void;
   isComingSoon?: boolean;
+  isHighlighted?: boolean;
 }) {
   const intl = useIntl();
+  const highlightOpacity = useSharedValue(isHighlighted ? 1 : 0);
+
+  useEffect(() => {
+    if (isHighlighted) {
+      highlightOpacity.value = 1;
+      highlightOpacity.value = withDelay(
+        500,
+        withTiming(0, { duration: 1000 }),
+      );
+    }
+  }, [isHighlighted, highlightOpacity]);
+
+  const highlightStyle = useAnimatedStyle(() => ({
+    backgroundColor:
+      highlightOpacity.value > 0
+        ? `rgba(62, 220, 47, ${highlightOpacity.value * 0.15})`
+        : 'transparent',
+  }));
+
   return (
-    <ListItem drillIn onPress={onPress}>
-      <YStack borderRadius="$3" borderCurve="continuous" bg="$brand4" p="$2">
-        <Icon name={icon} size="$6" color="$brand9" />
-      </YStack>
-      <ListItem.Text
-        userSelect="none"
-        flex={1}
-        primary={
-          <XStack>
-            <SizableText textAlign="left" size="$bodyLgMedium">
-              {title}
-            </SizableText>
-            {isComingSoon ? (
-              <Badge ml="$2" badgeSize="sm">
-                <Badge.Text>
-                  {intl.formatMessage({
-                    id: ETranslations.id_prime_soon,
-                  })}
-                </Badge.Text>
-              </Badge>
-            ) : null}
-          </XStack>
-        }
-        secondary={subtitle}
-      />
-    </ListItem>
+    <Animated.View style={highlightStyle}>
+      <ListItem drillIn onPress={onPress}>
+        <YStack borderRadius="$3" borderCurve="continuous" bg="$brand4" p="$2">
+          <Icon name={icon} size="$6" color="$brand9" />
+        </YStack>
+        <ListItem.Text
+          userSelect="none"
+          flex={1}
+          primary={
+            <XStack>
+              <SizableText textAlign="left" size="$bodyLgMedium">
+                {title}
+              </SizableText>
+              {isComingSoon ? (
+                <Badge ml="$2" badgeSize="sm">
+                  <Badge.Text>
+                    {intl.formatMessage({
+                      id: ETranslations.id_prime_soon,
+                    })}
+                  </Badge.Text>
+                </Badge>
+              ) : null}
+            </XStack>
+          }
+          secondary={subtitle}
+        />
+      </ListItem>
+    </Animated.View>
   );
 }
 
@@ -77,10 +109,12 @@ export function PrimeBenefitsList({
   selectedSubscriptionPeriod,
   networkId,
   serverUserInfo,
+  fromFeature,
 }: {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
   networkId?: string;
   serverUserInfo?: IPrimeServerUserInfo;
+  fromFeature?: EPrimeFeatures;
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -91,45 +125,12 @@ export function PrimeBenefitsList({
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const navigateToBulkSend = useNavigateToBulkSend();
+  const showBulkSendModeDialog = useBulkSendModeDialog();
   const navigateToApprovalList = useNavigateToApprovalList();
 
   return (
     <Stack py="$2">
-      <PrimeBenefitsItem
-        icon="CloudOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_onekey_cloud,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.prime_onekey_cloud_desc,
-        })}
-        onPress={() => {
-          if (platformEnv.isWebDappMode) {
-            Toast.message({
-              title: intl.formatMessage({
-                id: ETranslations.global_web_feature_not_available_go_to_app,
-              }),
-            });
-            return;
-          }
-          if (isPrimeSubscriptionActive) {
-            navigation.navigate(EPrimePages.PrimeCloudSync, {
-              serverUserInfo,
-            });
-          } else {
-            defaultLogger.prime.subscription.primeEntryClick({
-              featureName: EPrimeFeatures.OneKeyCloud,
-              entryPoint: 'primePage',
-            });
-            navigation.navigate(EPrimePages.PrimeFeatures, {
-              showAllFeatures: true,
-              selectedFeature: EPrimeFeatures.OneKeyCloud,
-              selectedSubscriptionPeriod,
-              serverUserInfo,
-            });
-          }
-        }}
-      />
+      {/* OneKey Cloud removed — keyless sync is free, no longer a Prime benefit */}
       {/* <PrimeBenefitsItem
         icon="MultipleDevicesOutline"
         title={intl.formatMessage({
@@ -162,6 +163,7 @@ export function PrimeBenefitsList({
         subtitle={intl.formatMessage({
           id: ETranslations.prime_bulk_copy_addresses_desc,
         })}
+        isHighlighted={fromFeature === EPrimeFeatures.BulkCopyAddresses}
         onPress={() => {
           if (platformEnv.isWebDappMode) {
             Toast.message({
@@ -207,6 +209,7 @@ export function PrimeBenefitsList({
         subtitle={intl.formatMessage({
           id: ETranslations.global_bulk_revoke_desc,
         })}
+        isHighlighted={fromFeature === EPrimeFeatures.BulkRevoke}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
             void navigateToApprovalList({
@@ -238,12 +241,18 @@ export function PrimeBenefitsList({
         subtitle={intl.formatMessage({
           id: ETranslations.prime_bulk_send_desc,
         })}
+        isHighlighted={fromFeature === EPrimeFeatures.BulkSend}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
-            void navigateToBulkSend({
-              networkId: network?.id,
-              accountId: account?.id,
-              indexedAccountId: indexedAccount?.id,
+            showBulkSendModeDialog({
+              onSelect: (mode) => {
+                void navigateToBulkSend({
+                  networkId: network?.id,
+                  accountId: account?.id,
+                  indexedAccountId: indexedAccount?.id,
+                  bulkSendMode: mode,
+                });
+              },
             });
           } else {
             defaultLogger.prime.subscription.primeEntryClick({
@@ -272,6 +281,7 @@ export function PrimeBenefitsList({
             number: 100,
           },
         )}
+        isHighlighted={fromFeature === EPrimeFeatures.Notifications}
         onPress={() => {
           if (isPrimeSubscriptionActive) {
             navigation.navigate(EModalRoutes.NotificationsModal);
@@ -304,6 +314,7 @@ export function PrimeBenefitsList({
             networkCount: 12,
           },
         )}
+        isHighlighted={fromFeature === EPrimeFeatures.HistoryExport}
         onPress={() => {
           defaultLogger.prime.subscription.primeEntryClick({
             featureName: EPrimeFeatures.HistoryExport,

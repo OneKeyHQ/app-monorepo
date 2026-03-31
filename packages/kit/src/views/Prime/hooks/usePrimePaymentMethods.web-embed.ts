@@ -1,8 +1,8 @@
-/* eslint-disable import-js/order */
+/* oxlint-disable import-js/order */
 import { useCallback, useMemo } from 'react';
 
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
-// eslint-disable-next-line import/order
+// eslint-disable-next-line import-js/order
 import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';

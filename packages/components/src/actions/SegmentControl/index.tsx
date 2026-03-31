@@ -8,6 +8,15 @@ import { SizableText, XStack, YStack } from '../../primitives';
 
 import type { IXStackProps } from '../../primitives';
 
+const gtMdStyle = { zIndex: 4 } as const;
+const hoverStyleConst = { bg: '$bgHover' } as const;
+const pressStyleConst = { bg: '$bgActive' } as const;
+const focusVisibleStyleConst = {
+  outlineWidth: 2,
+  outlineColor: '$focusRing',
+  outlineStyle: 'solid',
+} as const;
+
 export interface ISegmentControlProps extends IXStackProps {
   fullWidth?: boolean;
   value: string | number;
@@ -52,29 +61,21 @@ function SegmentControlItem({
     <YStack
       py="$1.5"
       px="$3.5"
-      $gtMd={{ zIndex: 4 }}
+      $gtMd={gtMdStyle}
       onPress={handleChange}
       borderRadius="$full"
       borderCurve="continuous"
       userSelect="none"
       focusable={!disabled}
-      focusVisibleStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
+      focusVisibleStyle={focusVisibleStyleConst}
       testID={testID}
       {...(active
         ? {
             bg: activeBackgroundColor ?? '$bgPrimary',
           }
         : {
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
+            hoverStyle: hoverStyleConst,
+            pressStyle: pressStyleConst,
           })}
       {...(disabled && {
         opacity: 0.5,

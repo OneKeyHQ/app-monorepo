@@ -2,7 +2,7 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable no-inner-declarations */
 /* eslint-disable prefer-template */
-/* eslint-disable import-js/order */
+/* oxlint-disable import-js/order */
 
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');

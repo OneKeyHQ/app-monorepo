@@ -78,6 +78,7 @@ export type IEventBusPayloadShowToast = {
   method: 'success' | 'error' | 'message';
   title: string;
   message?: string;
+  icon?: string;
   duration?: number;
   errorCode?: number;
   httpStatusCode?: number;
@@ -263,12 +264,20 @@ export interface IAppEventBusPayload {
       modalParams: any;
     };
   };
-  [EAppEventBusNames.SidePanel_UIToBg]: {
-    type: 'dappRejectId';
-    payload: {
-      rejectId: number | string;
-    };
-  };
+  [EAppEventBusNames.SidePanel_UIToBg]:
+    | {
+        type: 'dappRejectId';
+        payload: {
+          rejectId: number | string;
+        };
+      }
+    | {
+        type: 'rejectDappRequest';
+        payload: {
+          rejectId: number | string;
+          errorMessage?: string;
+        };
+      };
   [EAppEventBusNames.SwapQuoteEvent]: {
     type: 'message' | 'done' | 'error' | 'close' | 'open';
     event: ISwapQuoteEvent;
@@ -592,20 +601,21 @@ class AppEventBusClass extends CrossEventEmitter {
 
   //
 
-  async emitToRemote(params: { type: string; payload: any }) {
+  async emitToRemote(params: { type: string; payload: unknown }) {
     const { type, payload } = params;
-    const convertToRemoteEventPayload = (p: any) => {
-      const payloadCloned = cloneDeep(p);
+    const convertToRemoteEventPayload = (payloadValue: unknown): unknown => {
+      const payloadCloned = cloneDeep(payloadValue);
       try {
-        if (payloadCloned) {
-          // @ts-ignore
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          payloadCloned.$$isRemoteEvent = true;
+        if (payloadCloned && typeof payloadCloned === 'object') {
+          (
+            payloadCloned as {
+              $$isRemoteEvent?: boolean;
+            }
+          ).$$isRemoteEvent = true;
         }
       } catch (_e) {
         // ignore
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return payloadCloned;
     };
 

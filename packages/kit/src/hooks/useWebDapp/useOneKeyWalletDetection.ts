@@ -42,10 +42,9 @@ export function useOneKeyWalletDetection() {
     return oneKeyProvider;
   }, [getEIP6963Providers]);
 
-  // get OneKey connection info - use EIP6963 first, fallback to injected
+  // get OneKey connection info via EIP6963 only
   const getOneKeyConnectionInfo =
     useCallback((): IExternalConnectionInfo | null => {
-      // use EIP6963 first
       if (oneKeyEIP6963Provider) {
         return {
           evmEIP6963: {
@@ -54,19 +53,8 @@ export function useOneKeyWalletDetection() {
         };
       }
 
-      // fallback to injected wallet
-      if (isOneKeyExtWalletInstalled) {
-        return {
-          evmInjected: {
-            global: 'ethereum',
-            name: 'OneKey Wallet',
-            icon: '',
-          },
-        };
-      }
-
       return null;
-    }, [oneKeyEIP6963Provider, isOneKeyExtWalletInstalled]);
+    }, [oneKeyEIP6963Provider]);
 
   // check if OneKey extension is installed
   const isOneKeyInstalled = useMemo(() => {

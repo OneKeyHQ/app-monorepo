@@ -45,12 +45,15 @@ export const useColumnsDesktop = (
   hideTokenAge?: boolean,
   watchlistFrom?: EWatchlistFrom,
   copyFrom?: ECopyFrom,
+  hasStock?: boolean,
+  showStockSubtitle?: boolean,
+  hiddenDesktopColumns?: readonly string[],
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const intl = useIntl();
   const watchlistNameWidth = gtLg ? 340 : 260;
 
-  return [
+  const columns = [
     {
       title: (
         <SizableText pl="$3.5" size="$bodyMd" color="$textSubdued">
@@ -82,7 +85,11 @@ export const useColumnsDesktop = (
     {
       title: intl.formatMessage({ id: ETranslations.global_name }),
       dataIndex: 'name',
-      columnWidth: isWatchlistMode ? watchlistNameWidth : 200,
+      columnWidth: (() => {
+        if (isWatchlistMode) return watchlistNameWidth;
+        if (hasStock && showStockSubtitle) return 240;
+        return 200;
+      })(),
       render: (_: unknown, record: IMarketToken) =>
         record.perpsCoin ? (
           <XStack
@@ -131,6 +138,7 @@ export const useColumnsDesktop = (
             copyFrom={copyFrom || ECopyFrom.Homepage}
             communityRecognized={record.communityRecognized}
             stock={record.stock}
+            showStockSubtitle={showStockSubtitle}
           />
         ),
       renderSkeleton: () => (
@@ -300,5 +308,13 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-  ].filter(Boolean);
+  ].filter(Boolean) as ITableColumn<IMarketToken>[];
+
+  if (!hiddenDesktopColumns?.length) {
+    return columns;
+  }
+
+  return columns.filter(
+    (column) => !hiddenDesktopColumns.includes(String(column.dataIndex)),
+  );
 };

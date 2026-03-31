@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   ThemeableStack,
@@ -190,6 +190,14 @@ const Progress = withStaticProperties(
         : undefined;
       const [width, setWidth] = useState(0);
 
+      const handleLayout = useCallback(
+        (e: LayoutChangeEvent) => {
+          setWidth(e.nativeEvent.layout.width);
+          IProgressProps.onLayout?.(e);
+        },
+        [IProgressProps],
+      );
+
       return (
         <ProgressProvider
           scope={__scopeProgress}
@@ -211,10 +219,7 @@ const Progress = withStaticProperties(
               size,
             })}
             {...IProgressProps}
-            onLayout={(e) => {
-              setWidth(e.nativeEvent.layout.width);
-              IProgressProps.onLayout?.(e);
-            }}
+            onLayout={handleLayout}
             ref={forwardedRef}
           />
         </ProgressProvider>
