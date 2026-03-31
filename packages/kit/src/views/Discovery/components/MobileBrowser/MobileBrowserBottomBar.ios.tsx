@@ -4,6 +4,7 @@ import { IconButton, Stack } from '@onekeyhq/components';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 import RefreshButton from './RefreshButton';
@@ -58,7 +59,7 @@ function MobileBrowserBottomBar({
           disabled={disabledGoBack}
           accessible={!disabledGoBack}
           onPress={handleGoBack}
-          testID="browser-bar-go-back"
+          testID={DiscoveryTestIDs.browserBackButton}
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -69,12 +70,12 @@ function MobileBrowserBottomBar({
           disabled={disabledGoForward}
           accessible={!disabledGoForward}
           onPress={handleGoForward}
-          testID="browser-bar-go-forward"
+          testID={DiscoveryTestIDs.browserForwardButton}
         />
       </Stack>
 
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <TabCountButton testID="browser-bar-tabs" />
+        <TabCountButton testID={DiscoveryTestIDs.tabListButton} />
       </Stack>
 
       <Stack flex={1} alignItems="center" justifyContent="center">

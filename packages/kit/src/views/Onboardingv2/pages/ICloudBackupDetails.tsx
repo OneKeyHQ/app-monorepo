@@ -38,6 +38,7 @@ import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs'
 import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView';
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 
 export default function ICloudBackupDetails({
@@ -190,7 +191,7 @@ export default function ICloudBackupDetails({
     return fetchLoading || checkLoading || !backupData || !walletData.length;
   }, [fetchLoading, checkLoading, backupData, walletData.length]);
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.iCloudBackupDetailsPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header title={formattedDate} />
         <OnboardingLayout.Body>

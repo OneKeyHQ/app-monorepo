@@ -173,6 +173,7 @@ const ListFooterComponent = ({
             />
           ) : (
             <Button
+              testID="tx-history-explorer-btn"
               size="small"
               variant="secondary"
               onPress={handleOnPress}

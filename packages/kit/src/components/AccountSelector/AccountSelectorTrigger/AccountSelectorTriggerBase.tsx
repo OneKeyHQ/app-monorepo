@@ -109,6 +109,7 @@ export function AccountSelectorTriggerBase({
       >
         {isWebDappModeWithNoWallet ? (
           <Button
+            testID="account-selector-connect-btn"
             size="small"
             variant="primary"
             h="$8"

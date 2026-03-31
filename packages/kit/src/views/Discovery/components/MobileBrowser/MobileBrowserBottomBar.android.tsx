@@ -113,9 +113,7 @@ function MobileBrowserBottomBar({
               }),
               icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
               onPress: () => handleBookmarkPress(!tab?.isBookmark),
-              testID: `action-list-item-${
-                !tab?.isBookmark ? 'bookmark' : 'remove-bookmark'
-              }`,
+              testID: DiscoveryTestIDs.tabActionBookmark,
             },
             {
               label: intl.formatMessage({
@@ -175,7 +173,7 @@ function MobileBrowserBottomBar({
               }),
               icon: 'ShareOutline',
               onPress: onShare,
-              testID: 'action-list-item-share',
+              testID: DiscoveryTestIDs.browserShareButton,
             },
           ],
         },
@@ -201,7 +199,7 @@ function MobileBrowserBottomBar({
               }),
               icon: 'CrossedLargeOutline',
               onPress: handleCloseTab,
-              testID: 'action-list-item-close-tab-in-browser',
+              testID: DiscoveryTestIDs.tabActionClose,
             },
             ...(onGoBackHomePage
               ? [
@@ -316,7 +314,7 @@ function MobileBrowserBottomBar({
             icon="ChevronLeftOutline"
             disabled={disabledGoBack}
             accessible={!disabledGoBack}
-            testID="browser-bar-go-back"
+            testID={DiscoveryTestIDs.browserBackButton}
           />
         </View>
       </GestureDetector>
@@ -328,14 +326,14 @@ function MobileBrowserBottomBar({
             icon="ChevronRightOutline"
             disabled={disabledGoForward}
             accessible={!disabledGoForward}
-            testID="browser-bar-go-forward"
+            testID={DiscoveryTestIDs.browserForwardButton}
           />
         </View>
       </GestureDetector>
 
       <GestureDetector gesture={tabListGesture}>
         <View style={barStyles.buttonContainer}>
-          <TabCountButton testID="browser-bar-tabs" />
+          <TabCountButton testID={DiscoveryTestIDs.tabListButton} />
         </View>
       </GestureDetector>
 

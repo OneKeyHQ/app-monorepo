@@ -61,6 +61,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       onPress?: () => void;
       loading?: boolean;
       iconText?: string;
+      testID?: string;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -356,6 +357,7 @@ export function AmountInput({
           py="$1"
           borderRadius={6}
           onPress={balanceProps.onPress}
+          testID={balanceProps.testID}
           {...(enableMaxAmount && {
             userSelect: 'none',
             hoverStyle: {

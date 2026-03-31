@@ -57,6 +57,7 @@ interface IPinInputLayoutProps {
   onAutoInputPin?: () => void;
   showInputSkeleton?: boolean;
   testID?: string;
+  inputTestID?: string;
 }
 
 export interface IPinInputLayoutRef {
@@ -88,6 +89,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
       onAutoInputPin,
       showInputSkeleton = false,
       testID,
+      inputTestID,
     },
     ref,
   ) => {
@@ -184,6 +186,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
                       <Skeleton h={50} w="100%" radius={12} />
                     ) : (
                       <Input
+                        testID={inputTestID}
                         ref={inputRef}
                         size="large"
                         placeholder={placeholder}

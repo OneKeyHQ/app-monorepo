@@ -14,6 +14,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useBannerData } from '../../hooks/useBannerData';
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
@@ -168,6 +169,7 @@ function DashboardContent({
   if (platformEnv.isNative) {
     return (
       <ScrollView
+        testID={DiscoveryTestIDs.dashboardPage}
         height="100%"
         onScroll={isFocused ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
@@ -181,7 +183,7 @@ function DashboardContent({
   }
 
   return (
-    <ScrollView>
+    <ScrollView testID={DiscoveryTestIDs.dashboardPage}>
       <Page.Container padded={false}>{content}</Page.Container>
     </ScrollView>
   );

@@ -202,6 +202,7 @@ const SwapSlippageCustomContent = ({
         <SlippageInput
           swapSlippage={swapSlippage}
           onChangeText={handleSlippageChange}
+          testID={SwapTestIDs.slippageCustomInput}
         />
         <XStack>
           {swapSlippageCustomDefaultList.map((item, index) => (

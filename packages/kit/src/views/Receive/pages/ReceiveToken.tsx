@@ -668,28 +668,30 @@ function ReceiveToken() {
               <Badge.Text>{network.name}</Badge.Text>
             </Badge>
             {vaultSettings?.mergeDeriveAssetsEnabled ? (
-              <AddressTypeSelector
-                placement="top-start"
-                offset={{
-                  mainAxis: 8,
-                }}
-                disableSelector={disableSelector}
-                activeDeriveType={currentDeriveType}
-                activeDeriveInfo={currentDeriveInfo}
-                showTriggerWhenDisabled
-                walletId={walletId}
-                networkId={networkId}
-                indexedAccountId={currentAccount?.indexedAccountId ?? ''}
-                onSelect={async (value) => {
-                  if (value.account) {
-                    setAddressState(EAddressState.Unverified);
-                    setCurrentAccount(value.account);
-                    setCurrentDeriveType(value.deriveType);
-                    setCurrentDeriveInfo(value.deriveInfo);
-                    onDeriveTypeChange?.(value.deriveType);
-                  }
-                }}
-              />
+              <YStack testID={ReceiveTestIDs.AddressTypeSelector}>
+                <AddressTypeSelector
+                  placement="top-start"
+                  offset={{
+                    mainAxis: 8,
+                  }}
+                  disableSelector={disableSelector}
+                  activeDeriveType={currentDeriveType}
+                  activeDeriveInfo={currentDeriveInfo}
+                  showTriggerWhenDisabled
+                  walletId={walletId}
+                  networkId={networkId}
+                  indexedAccountId={currentAccount?.indexedAccountId ?? ''}
+                  onSelect={async (value) => {
+                    if (value.account) {
+                      setAddressState(EAddressState.Unverified);
+                      setCurrentAccount(value.account);
+                      setCurrentDeriveType(value.deriveType);
+                      setCurrentDeriveInfo(value.deriveInfo);
+                      onDeriveTypeChange?.(value.deriveType);
+                    }
+                  }}
+                />
+              </YStack>
             ) : null}
             {shouldShowAddress && addressState === EAddressState.ForceShow ? (
               <Badge badgeType="critical">

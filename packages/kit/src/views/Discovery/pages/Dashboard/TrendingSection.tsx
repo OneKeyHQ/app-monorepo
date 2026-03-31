@@ -8,6 +8,7 @@ import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scene
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 import { TrendingSectionItems } from './TrendingSectionItems';
@@ -39,7 +40,7 @@ export function TrendingSection({
   );
 
   return (
-    <Stack minHeight="$40">
+    <Stack minHeight="$40" testID={DiscoveryTestIDs.trendingSection}>
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({

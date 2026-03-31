@@ -274,6 +274,7 @@ export function PrimeLoginPasswordDialog({
                 !isRegister ? (
                   <XStack>
                     <Button
+                      testID="prime-login-forget-password-btn"
                       size="small"
                       variant="tertiary"
                       onPress={async () => {
@@ -316,6 +317,7 @@ export function PrimeLoginPasswordDialog({
               }}
             >
               <Input
+                testID="prime-login-password-input"
                 autoFocus
                 allowSecureTextEye
                 placeholder={intl.formatMessage({
@@ -356,6 +358,7 @@ export function PrimeLoginPasswordDialog({
                 }}
               >
                 <Input
+                  testID="prime-login-confirm-password-input"
                   allowSecureTextEye
                   placeholder={intl.formatMessage({
                     id: ETranslations.auth_confirm_password_form_placeholder,
@@ -423,6 +426,7 @@ export function PrimeLoginPasswordDialog({
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
+          testID: 'prime-login-submit-btn',
           disabled: !form.formState.isValid,
         }}
         onConfirm={async ({ preventClose }) => {

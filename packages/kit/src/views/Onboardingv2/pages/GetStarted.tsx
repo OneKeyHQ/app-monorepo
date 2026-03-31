@@ -655,7 +655,7 @@ function GetStarted() {
           </YStack>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
-          <TermsAndPrivacy />
+          <TermsAndPrivacy testID={OnboardingTestIDs.termsAndPrivacy} />
         </OnboardingLayout.Footer>
       </OnboardingLayout>
     </Page>

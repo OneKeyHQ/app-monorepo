@@ -26,6 +26,7 @@ import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -163,7 +164,7 @@ function HistoryListModal() {
   }, 500);
 
   return (
-    <Page lazyLoad>
+    <Page testID={DiscoveryTestIDs.historyListPage} lazyLoad>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.browser_recently_closed,

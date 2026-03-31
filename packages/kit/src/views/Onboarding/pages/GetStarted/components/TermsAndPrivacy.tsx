@@ -13,6 +13,7 @@ import type { FormatXMLElementFn } from 'intl-messageformat';
 
 interface ITermsAndPrivacyProps {
   contentContainerProps?: Omit<IStackProps, 'children'>;
+  testID?: string;
 }
 
 export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
@@ -56,6 +57,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
 
   return (
     <SizableText
+      testID={props?.testID}
       alignSelf="center"
       size="$bodySm"
       color="$textDisabled"

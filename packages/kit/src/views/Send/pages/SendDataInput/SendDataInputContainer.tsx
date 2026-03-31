@@ -1194,6 +1194,7 @@ function SendDataInputContainer() {
       addons.push(
         <AddressTypeSelector
           key="address-type-selector"
+          testID={SendTestIDs.networkSelector}
           placement="top-end"
           walletId={walletId}
           networkId={currentAccount.networkId}
@@ -1271,6 +1272,7 @@ function SendDataInputContainer() {
             balanceProps={{
               loading: isLoadingAssets,
               value: maxBalance,
+              testID: SendTestIDs.maxButton,
               onPress: () => {
                 form.setValue(
                   'amount',

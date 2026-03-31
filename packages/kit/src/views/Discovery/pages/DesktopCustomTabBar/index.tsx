@@ -40,6 +40,7 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
@@ -301,7 +302,7 @@ function DesktopCustomTabBar({ isExpanded }: { isExpanded?: boolean }) {
           }
           icon="PlusSmallOutline"
           showTooltip={false}
-          testID="browser-bar-add"
+          testID={DiscoveryTestIDs.newTabButton}
           tabBarStyle={isCollapsed ? { justifyContent: 'center' } : undefined}
           onPress={(e) => {
             e.stopPropagation();

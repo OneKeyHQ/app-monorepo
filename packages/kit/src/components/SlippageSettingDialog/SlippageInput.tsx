@@ -13,10 +13,12 @@ const BaseSlippageInput = ({
   swapSlippage,
   onChangeText,
   props,
+  testID,
 }: {
   swapSlippage: ISwapSlippageSegmentItem;
   onChangeText: (text: string) => void;
   props?: IInputProps;
+  testID?: string;
 }) => {
   const [inputValue, setInputValue] = useState('');
   const isOriginalNumberDot = useRef(false);
@@ -47,6 +49,7 @@ const BaseSlippageInput = ({
 
   return (
     <Input
+      testID={testID}
       size="medium"
       containerProps={{ flex: 1 }}
       value={inputValue}

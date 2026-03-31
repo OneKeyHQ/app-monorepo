@@ -7,6 +7,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 export default function KeylessWalletRecovery({
   route: _route,
@@ -21,7 +22,7 @@ export default function KeylessWalletRecovery({
   }
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.keylessWalletRecoveryPage}>
       <OnboardingLayout>
         <OnboardingLayout.Header title="Restore your wallet" />
         <OnboardingLayout.Body constrained={false}>

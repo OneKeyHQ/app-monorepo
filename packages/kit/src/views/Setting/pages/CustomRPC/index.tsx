@@ -409,6 +409,7 @@ function CustomRPC() {
       Array.isArray(customRpcData?.customRpcNetworks) &&
       customRpcData.customRpcNetworks.length > 0 ? (
         <IconButton
+          testID={SettingTestIDs.customRpcAddButton}
           title={intl.formatMessage({ id: ETranslations.custom_rpc_cta_label })}
           variant="tertiary"
           icon="PlusLargeOutline"
@@ -429,7 +430,7 @@ function CustomRPC() {
   }
 
   return (
-    <Page>
+    <Page testID={SettingTestIDs.customRpcPage}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.custom_rpc_title })}
         headerRight={headerRight}

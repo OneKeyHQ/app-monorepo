@@ -5,6 +5,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
 interface ICustomHeaderRightProps {
@@ -17,6 +18,7 @@ function CustomHeaderSearch({ handleSearchBarPress }: ICustomHeaderRightProps) {
   return (
     <XStack $gtMd={{ minWidth: 280 }}>
       <SearchBar
+        testID={DiscoveryTestIDs.searchBar}
         placeholder={intl.formatMessage({
           id: ETranslations.browser_search_dapp_or_enter_url,
         })}

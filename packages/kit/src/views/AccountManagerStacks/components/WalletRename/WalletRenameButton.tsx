@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
+import { AccountManagerTestIDs } from '../../testIDs';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -76,6 +77,8 @@ export function WalletRenameButton({
                   contentType: EChangeHistoryContentType.Name,
                 },
                 disabledMaxLengthLabel: true,
+                inputTestID: AccountManagerTestIDs.walletRenameInput,
+                confirmTestID: AccountManagerTestIDs.walletRenameConfirm,
                 onSubmit: async (name) => {
                   if (wallet?.id && name) {
                     await serviceAccount.setWalletNameAndAvatar({

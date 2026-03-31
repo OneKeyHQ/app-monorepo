@@ -18,6 +18,7 @@ import { type ISettingsConfig, useSettingsConfig } from './config';
 import { SocialButtonGroup } from './CustomElement';
 import { TabSettingsListItem } from './ListItem';
 import { SearchView } from './SearchView';
+import { SettingTestIDs } from '../../testIDs';
 import { useSearch } from './useSearch';
 
 function SettingListItem({
@@ -42,6 +43,7 @@ function SettingListItem({
 
   return (
     <TabSettingsListItem
+      testID={config.testID}
       {...config.tabBarItemStyle}
       drillIn
       showDot={config.showDot}
@@ -65,7 +67,7 @@ export function SettingList() {
   }, [settingsConfig]);
   const { onSearch, searchResult, isSearching } = useSearch();
   return (
-    <Page>
+    <Page testID={SettingTestIDs.settingsPage}>
       <Page.Header
         headerShown
         title={intl.formatMessage({ id: ETranslations.global_settings })}

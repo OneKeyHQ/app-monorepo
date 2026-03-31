@@ -26,6 +26,7 @@ import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/use
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 import { trackHardwareWalletConnection } from '../utils';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
@@ -91,7 +92,7 @@ function ConnectQRCodePage() {
   }, [createQrWallet, isSoftwareWalletOnlyUser]);
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.connectQRCodePage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({ id: ETranslations.connect_with_qr_code })}

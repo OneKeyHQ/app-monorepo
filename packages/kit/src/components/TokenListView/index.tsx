@@ -508,6 +508,7 @@ function TokenListViewCmp(props: IProps) {
       return (
         <XStack pt="$3" px="$5" jc="center" ai="center">
           <Button
+            testID="token-list-show-more-btn"
             size="medium"
             variant="secondary"
             onPress={() =>
@@ -542,6 +543,7 @@ function TokenListViewCmp(props: IProps) {
         {overFlowState.isOverflow && !overFlowState.isSliced ? (
           <XStack jc="center" ai="center" pt="$3" px="$5">
             <Button
+              testID="token-list-show-less-btn"
               size="medium"
               variant="secondary"
               onPress={() =>

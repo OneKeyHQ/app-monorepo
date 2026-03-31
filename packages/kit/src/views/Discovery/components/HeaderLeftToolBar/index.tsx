@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 import HeaderLeftToolBarInput from './HeaderLeftToolBarInput';
 
@@ -98,7 +99,7 @@ function HeaderLeftToolBar({
           icon="ChevronLeftOutline"
           disabled={!canGoBack}
           onPress={goBack}
-          testID="browser-bar-go-back"
+          testID={DiscoveryTestIDs.browserBackButton}
         />
         <HeaderIconButton
           title={
@@ -110,7 +111,7 @@ function HeaderLeftToolBar({
           icon="ChevronRightOutline"
           disabled={!canGoForward}
           onPress={goForward}
-          testID="browser-bar-go-forward"
+          testID={DiscoveryTestIDs.browserForwardButton}
         />
         <HeaderIconButton
           title={
@@ -121,7 +122,7 @@ function HeaderLeftToolBar({
           titlePlacement="bottom"
           icon={loading ? 'CrossedLargeOutline' : 'RotateClockwiseOutline'}
           onPress={loading ? stopLoading : reload}
-          testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
+          testID={loading ? 'action-header-item-stop-loading' : DiscoveryTestIDs.browserRefreshButton}
         />
       </HeaderButtonGroup>
       <HeaderLeftToolBarInput

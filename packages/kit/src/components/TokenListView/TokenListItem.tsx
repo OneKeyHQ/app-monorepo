@@ -275,6 +275,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
   return (
     <ListItem
       key={token.name}
+      testID={`home-token-item-${token.symbol}`}
       userSelect="none"
       onPress={() => {
         onPress?.(token);

@@ -83,7 +83,7 @@ function TabToolBar({
           variant="secondary"
           size="medium"
           icon="PlusLargeOutline"
-          testID="browser-bar-add"
+          testID={DiscoveryTestIDs.newTabButton}
           onPress={onAddTab}
         />
       </Stack>
@@ -335,7 +335,7 @@ function MobileTabListModal() {
                 }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
-                testID: `action-list-item-close-close-tab`,
+                testID: DiscoveryTestIDs.tabActionClose,
               },
             ].filter(Boolean) as IActionListItemProps[],
           },

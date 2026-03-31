@@ -32,6 +32,9 @@ export const buildBleSettingsDialogProps = (
     onConfirmText: intl.formatMessage({
       id: ETranslations.global_go_to_settings,
     }),
+    confirmButtonProps: {
+      testID: 'hardware-ui-ble-settings-confirm-btn',
+    },
     onConfirm: async ({ close }) => {
       await close?.();
       await openBLESettings();
@@ -75,6 +78,9 @@ export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
     onConfirmText: intl.formatMessage({
       id: ETranslations.global_go_to_settings,
     }),
+    confirmButtonProps: {
+      testID: 'hardware-ui-ble-notify-error-confirm-btn',
+    },
     onConfirm: async ({ close }) => {
       await close?.();
       await openBLESettings();
@@ -125,6 +131,9 @@ function RequireBlePermissionDialogContainer(
       onConfirmText={intl.formatMessage({
         id: ETranslations.global_go_to_settings,
       })}
+      confirmButtonProps={{
+        testID: 'hardware-ui-ble-permission-confirm-btn',
+      }}
       onConfirm={async ({ close }) => {
         await close?.();
         await openBLEPermissionsSettings();

@@ -16,6 +16,7 @@ import type {
 import { SearchResultContent } from '../../components/SearchResultContent';
 import { useSearchModalData } from '../../hooks/useSearchModalData';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
+import { DiscoveryTestIDs } from '../../testIDs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -52,7 +53,7 @@ function SearchModal() {
 
   return useMemo(
     () => (
-      <Page safeAreaEnabled>
+      <Page safeAreaEnabled testID={DiscoveryTestIDs.searchModalPage}>
         <Page.Header
           headerTitle={intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
@@ -61,6 +62,7 @@ function SearchModal() {
         <Page.Body>
           <Stack mx="$4">
             <SearchBar
+              testID={DiscoveryTestIDs.searchInput}
               autoFocus
               zIndex={20}
               selectTextOnFocus

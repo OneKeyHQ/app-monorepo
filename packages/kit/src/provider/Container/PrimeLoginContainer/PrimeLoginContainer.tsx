@@ -40,6 +40,9 @@ const showTimeErrorDialog = throttle(
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_got_it,
       }),
+      confirmButtonProps: {
+        testID: 'prime-login-time-error-confirm-btn',
+      },
       dismissOnOverlayPress: false,
     });
   },

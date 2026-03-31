@@ -46,6 +46,7 @@ export function UniversalSearchInput({
           id: ETranslations.global_search_everything,
         })}
         onPress={toUniversalSearchPage}
+        testID="home-header-search-btn"
       />
     );
   }

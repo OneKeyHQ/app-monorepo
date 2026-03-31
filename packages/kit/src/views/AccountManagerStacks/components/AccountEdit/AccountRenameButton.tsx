@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { ActionList, Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
+import { AccountManagerTestIDs } from '../../testIDs';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -36,6 +37,8 @@ export function useAccountRenameMethod({
     showRenameDialog(name, {
       disabledMaxLengthLabel: true,
       indexedAccount,
+      inputTestID: AccountManagerTestIDs.accountRenameInput,
+      confirmTestID: AccountManagerTestIDs.accountRenameConfirm,
       nameHistoryInfo: {
         entityId: indexedAccount?.id || account?.id || '',
         entityType: indexedAccount?.id

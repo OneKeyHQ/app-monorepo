@@ -47,9 +47,7 @@ function MobileBrowserBottomOptions({
             }),
             icon: isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => onBookmarkPress(!isBookmark),
-            testID: `action-list-item-${
-              !isBookmark ? 'bookmark' : 'remove-bookmark'
-            }`,
+            testID: DiscoveryTestIDs.tabActionBookmark,
           },
           {
             label: intl.formatMessage({
@@ -109,7 +107,7 @@ function MobileBrowserBottomOptions({
             label: intl.formatMessage({ id: ETranslations.explore_share }),
             icon: 'ShareOutline',
             onPress: () => onShare(),
-            testID: 'action-list-item-share',
+            testID: DiscoveryTestIDs.browserShareButton,
           },
         ].filter(Boolean) as IActionListItemProps[],
       },
@@ -129,7 +127,7 @@ function MobileBrowserBottomOptions({
             }),
             icon: 'CrossedLargeOutline',
             onPress: onCloseTab,
-            testID: 'action-list-item-close-tab-in-browser',
+            testID: DiscoveryTestIDs.tabActionClose,
           },
           onGoBackHomePage
             ? {

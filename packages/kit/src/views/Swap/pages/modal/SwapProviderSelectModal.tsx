@@ -38,6 +38,7 @@ import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.cons
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
+import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -168,6 +169,7 @@ const SwapProviderSelectModal = () => {
       }
       return (
         <SwapProviderListItem
+          testID={SwapTestIDs.providerItem(item.info.providerName)}
           onPress={
             !disabled
               ? () => {

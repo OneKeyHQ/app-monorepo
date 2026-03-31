@@ -26,6 +26,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { SearchResultContent } from '../../../components/SearchResultContent';
+import { DiscoveryTestIDs } from '../../../testIDs';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../../hooks/useSearchPopover';
 import {
@@ -129,7 +130,7 @@ export function SearchInput() {
     <>
       <View position="relative" width="100%">
         <XStack
-          testID="search-input"
+          testID={DiscoveryTestIDs.searchBar}
           gap="$2"
           position="relative"
           width="100%"

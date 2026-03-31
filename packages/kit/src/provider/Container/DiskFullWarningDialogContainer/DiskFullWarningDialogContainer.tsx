@@ -43,6 +43,7 @@ export function DiskFullWarningDialogContainer() {
             id: ETranslations.global_got_it,
           }),
           confirmButtonProps: {
+            testID: 'disk-full-warning-confirm-btn',
             variant: 'secondary',
           },
         });

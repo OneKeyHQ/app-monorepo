@@ -207,6 +207,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
   if (result?.validStatus === 'unknown') {
     return (
       <IconButton
+        testID="address-input-refresh-btn"
         variant="tertiary"
         icon="RotateClockwiseSolid"
         size="small"

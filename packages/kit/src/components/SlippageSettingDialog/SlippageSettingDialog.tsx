@@ -138,6 +138,7 @@ const SlippageSettingDialog = ({
         <SlippageInput
           swapSlippage={swapSlippageStatus}
           onChangeText={handleSlippageChange}
+          testID="swap-slippage-custom-input"
         />
       ) : null}
       {swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM ? (
@@ -145,6 +146,7 @@ const SlippageSettingDialog = ({
           <SlippageInput
             swapSlippage={swapSlippageStatus}
             onChangeText={handleSlippageChange}
+            testID="swap-slippage-custom-input"
           />
           <XStack>
             {swapSlippageCustomDefaultList.map(

@@ -96,6 +96,7 @@ export interface ICustomElementProps {
   titleProps?: ISizableTextProps;
   iconProps?: IIconProps;
   icon?: IKeyOfIcons;
+  testID?: string;
   onPress?: () => void;
 }
 

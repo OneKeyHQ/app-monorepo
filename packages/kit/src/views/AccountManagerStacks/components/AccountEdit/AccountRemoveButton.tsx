@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { ActionList, Dialog } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AccountManagerTestIDs } from '../../testIDs';
 import type { IAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAccountSelectorActions,
@@ -77,6 +78,7 @@ export function AccountRemoveDialog({
       confirmButtonProps={{
         variant: indexedAccount && !account ? 'primary' : 'destructive',
         loading,
+        testID: AccountManagerTestIDs.accountRemoveConfirm,
       }}
       onConfirmText={intl.formatMessage({
         id: ETranslations.global_remove,
@@ -182,6 +184,7 @@ export function AccountRemoveButton({
 
   return (
     <ActionList.Item
+      testID={AccountManagerTestIDs.accountRemoveButton}
       icon={icon}
       label={label}
       destructive

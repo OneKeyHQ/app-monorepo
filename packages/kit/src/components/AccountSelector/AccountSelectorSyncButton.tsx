@@ -11,6 +11,7 @@ export function AccountSelectorSyncButton(
   const { from } = params;
   return (
     <Button
+      testID="account-selector-sync-btn"
       size="small"
       onPress={() => {
         void actions.current.syncFromScene(params);

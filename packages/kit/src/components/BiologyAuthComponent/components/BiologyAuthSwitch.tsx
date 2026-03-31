@@ -15,6 +15,7 @@ const BiologyAuthSwitch = ({
 }: IBiologyAuthSwitchProps) =>
   isSupport ? (
     <Switch
+      testID="biology-auth-switch"
       size={ESwitchSize.small}
       value={isBiologyAuthEnable}
       onChange={onChange}

@@ -367,6 +367,10 @@ const SwapInputContainer = ({
             direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
               : undefined,
+          testID:
+            direction === ESwapDirectionType.FROM
+              ? SwapTestIDs.maxButton
+              : undefined,
         }}
         valueProps={{
           value: amountPrice,

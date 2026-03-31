@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { AccountManagerTestIDs } from '../../testIDs';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -61,6 +62,7 @@ export function WalletRemoveButton({
 
   return (
     <ActionList.Item
+      testID={AccountManagerTestIDs.walletRemoveButton}
       icon={icon}
       destructive
       label={label}

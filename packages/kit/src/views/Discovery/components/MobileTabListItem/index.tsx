@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
+import { DiscoveryTestIDs } from '../../testIDs';
 
 import type { IWebTab } from '../../types';
 
@@ -43,7 +44,7 @@ function MobileTabListItem({
       pressStyle={{
         scale: 0.95,
       }}
-      testID={`tab-modal-list-item-${id}`}
+      testID={DiscoveryTestIDs.browserTabItem(id)}
     >
       <Stack
         borderRadius="$4"

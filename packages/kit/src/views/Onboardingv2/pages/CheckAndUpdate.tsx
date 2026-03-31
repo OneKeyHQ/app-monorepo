@@ -43,6 +43,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { OnboardingLayout } from '../components/OnboardingLayout';
+import { OnboardingTestIDs } from '../testIDs';
 import {
   useConnectDeviceError,
   useDeviceConnect,
@@ -819,7 +820,7 @@ function CheckAndUpdatePage({
   }, [checkFirmwareUpdate, handleDeviceSetupDone, handleVerifyHardware]);
 
   return (
-    <Page>
+    <Page testID={OnboardingTestIDs.checkAndUpdatePage}>
       <OnboardingLayout>
         <OnboardingLayout.Header
           title={intl.formatMessage({

@@ -83,6 +83,7 @@ type IProps = {
   confirmText?: string;
   offset?: PopoverProps['offset'];
   refreshOnOpen?: boolean;
+  testID?: string;
 };
 
 const StrongText = (chunks: (string | ReactElement)[]) => (
@@ -431,6 +432,7 @@ function AddressTypeSelector(props: IProps) {
     doubleConfirm,
     offset,
     refreshOnOpen = false,
+    testID,
   } = props;
 
   const { network } = useAccountData({
@@ -654,6 +656,7 @@ function AddressTypeSelector(props: IProps) {
           <AddressTypeSelectorTrigger
             activeDeriveInfo={activeDeriveInfo}
             disableSelector={isSelectorDisabled}
+            testID={testID}
           />
         ))
       : null;
@@ -667,7 +670,7 @@ function AddressTypeSelector(props: IProps) {
       showHeader={false}
       renderTrigger={
         renderSelectorTrigger ?? (
-          <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} />
+          <AddressTypeSelectorTrigger activeDeriveInfo={activeDeriveInfo} testID={testID} />
         )
       }
       renderContent={renderContent}

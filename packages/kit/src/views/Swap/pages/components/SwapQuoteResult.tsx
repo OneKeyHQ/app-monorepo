@@ -289,6 +289,7 @@ const SwapQuoteResult = ({
   if (swapApprovingTransaction && swapApprovingLoading) {
     return (
       <SwapApprovingItem
+        testID={SwapTestIDs.approveButton}
         approvingTransaction={swapApprovingTransaction}
         onComplete={() => {
           setInAppNotificationAtom((pre) => ({

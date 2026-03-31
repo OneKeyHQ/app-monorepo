@@ -72,7 +72,7 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
           })}
           variant="tertiary"
           icon="DotVerOutline"
-          testID={testID}
+          testID={testID ?? 'address-input-contacts-btn'}
         />
       }
     />
@@ -204,7 +204,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
         disabled={disabled}
         variant="tertiary"
         icon="PeopleCircleOutline"
-        testID={testID}
+        testID={testID ?? 'address-input-account-selector-btn'}
         onPress={onShowAccountSelector}
       />
     );
@@ -244,7 +244,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
           disabled={disabled}
           variant="tertiary"
           icon="PeopleCircleOutline"
-          testID={testID}
+          testID={testID ?? 'address-input-selector-btn'}
         />
       }
     />

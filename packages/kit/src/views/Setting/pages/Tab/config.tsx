@@ -53,6 +53,7 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { SettingTestIDs } from '../../testIDs';
 
 import {
   AutoLockListItem,
@@ -83,6 +84,7 @@ export interface ISubSettingConfig {
   title: string;
   subtitle?: string;
   keywords?: string[];
+  testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -113,6 +115,7 @@ export type ISettingsConfig = (
       title: string;
       subtitle?: string;
       name: ESettingsTabNames;
+      testID?: string;
       isHidden?: boolean;
       showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
@@ -325,6 +328,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
+                  testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
                     navigation?: ReturnType<typeof useAppNavigation>,
@@ -362,6 +366,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
                   }),
+                  testID: SettingTestIDs.addressBookItem,
                   onPress: (navigation) => {
                     void onPressAddressBook(navigation);
                   },
@@ -439,6 +444,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.Security,
         icon: 'Shield2CheckSolid',
+        testID: SettingTestIDs.securityItem,
         title: intl.formatMessage({
           id: ETranslations.global_security,
         }),
@@ -670,6 +676,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.About,
         icon: 'InfoCircleSolid',
+        testID: SettingTestIDs.aboutItem,
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),

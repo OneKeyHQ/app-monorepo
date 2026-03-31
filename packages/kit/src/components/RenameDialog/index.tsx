@@ -119,6 +119,7 @@ export function RenameInputWithNameSelector({
   indexedAccount,
   disabledMaxLengthLabel = false,
   nameHistoryInfo,
+  inputTestID,
 }: {
   maxLength?: number;
   value?: string;
@@ -131,6 +132,7 @@ export function RenameInputWithNameSelector({
     entityType: EChangeHistoryEntityType;
     contentType: EChangeHistoryContentType.Name;
   };
+  inputTestID?: string;
 }) {
   const intl = useIntl();
   const { result: shouldShowV4AccountNameSelector } =
@@ -149,6 +151,7 @@ export function RenameInputWithNameSelector({
     <>
       <Stack>
         <Input
+          testID={inputTestID}
           size="large"
           $gtMd={{ size: 'medium' }}
           maxLength={maxLength}
@@ -199,6 +202,8 @@ export const showRenameDialog = (
     indexedAccount,
     disabledMaxLengthLabel = false,
     nameHistoryInfo,
+    inputTestID,
+    confirmTestID,
     ...dialogProps
   }: IDialogShowProps & {
     indexedAccount?: IDBIndexedAccount;
@@ -210,6 +215,8 @@ export const showRenameDialog = (
       entityType: EChangeHistoryEntityType;
       contentType: EChangeHistoryContentType.Name;
     };
+    inputTestID?: string;
+    confirmTestID?: string;
   },
 ) =>
   Dialog.show({
@@ -240,6 +247,7 @@ export const showRenameDialog = (
             indexedAccount={indexedAccount}
             disabledMaxLengthLabel={disabledMaxLengthLabel}
             nameHistoryInfo={nameHistoryInfo}
+            inputTestID={inputTestID}
           />
         </Dialog.FormField>
       </Dialog.Form>
@@ -256,6 +264,14 @@ export const showRenameDialog = (
       });
     },
     ...dialogProps,
+    ...(confirmTestID
+      ? {
+          confirmButtonProps: {
+            ...dialogProps.confirmButtonProps,
+            testID: confirmTestID,
+          },
+        }
+      : {}),
   });
 
 interface IPrimeProfileFormValues {

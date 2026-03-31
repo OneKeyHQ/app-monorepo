@@ -48,6 +48,7 @@ export function PrimeSetMasterPasswordHintDialog({
       </YStack>
       <Stack pt="$2">
         <Checkbox
+          testID="prime-login-master-password-hint-checkbox"
           label={intl.formatMessage({
             id: ETranslations.prime_i_understand,
           })}
@@ -63,6 +64,7 @@ export function PrimeSetMasterPasswordHintDialog({
           id: ETranslations.global_continue,
         })}
         confirmButtonProps={{
+          testID: 'prime-login-master-password-hint-confirm-btn',
           disabled: !isChecked,
           // variant: 'destructive',
         }}

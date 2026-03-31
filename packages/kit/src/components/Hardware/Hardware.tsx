@@ -749,6 +749,7 @@ export function EnterPin({
             return (
               <Stack
                 key={index}
+                testID={`hardware-ui-pin-key-${num}`}
                 flexBasis="33.3333%"
                 h="$14"
                 borderRightWidth={isLastColumn ? 0 : StyleSheet.hairlineWidth}
@@ -780,6 +781,7 @@ export function EnterPin({
       </Stack>
       {/* TODO: add loading state while waiting for result */}
       <Button
+        testID="hardware-ui-pin-switch-on-device-btn"
         m="$0"
         mt="$2.5"
         $md={
@@ -901,6 +903,7 @@ export function EnterPhase({
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="hardware-ui-passphrase-info-btn"
                     variant="tertiary"
                     size="small"
                     icon="InfoCircleOutline"
@@ -929,6 +932,7 @@ export function EnterPhase({
           }
           labelAddon={
             <Button
+              testID="hardware-ui-passphrase-switch-on-device-btn"
               variant="tertiary"
               size="small"
               icon="OnekeyDeviceCustom"
@@ -966,6 +970,7 @@ export function EnterPhase({
           }}
         >
           <Input
+            testID="hardware-ui-passphrase-input"
             secureTextEntry={secureEntry1}
             placeholder={intl.formatMessage({
               id: ETranslations.global_enter_passphrase,
@@ -973,6 +978,7 @@ export function EnterPhase({
             addOns={[
               {
                 iconName: secureEntry1 ? 'EyeOutline' : 'EyeOffOutline',
+                testID: 'hardware-ui-passphrase-eye-btn',
                 onPress: () => {
                   setSecureEntry1(!secureEntry1);
                 },
@@ -1005,12 +1011,13 @@ export function EnterPhase({
               </SizableText>
             }
           >
-            <Switch size={ESwitchSize.small} />
+            <Switch testID="hardware-ui-passphrase-hide-immediately-switch" size={ESwitchSize.small} />
           </Form.Field>
         ) : null}
       </Form>
       {/* TODO: add loading state while waiting for result */}
       <Button
+        testID="hardware-ui-passphrase-confirm-btn"
         mt="$5"
         $md={
           {
@@ -1025,6 +1032,7 @@ export function EnterPhase({
       </Button>
       {allowUseAttachPin ? (
         <Button
+          testID="hardware-ui-passphrase-attach-pin-btn"
           m="$0"
           mt="$2.5"
           $md={
@@ -1105,6 +1113,7 @@ export function ConfirmPassphrase({
   return (
     <Stack>
       <Input
+        testID="hardware-ui-confirm-passphrase-input"
         size="large"
         $gtMd={{
           size: 'medium',
@@ -1115,6 +1124,7 @@ export function ConfirmPassphrase({
       />
       {/* TODO: add loading state while waiting for result */}
       <Button
+        testID="hardware-ui-confirm-passphrase-confirm-btn"
         mt="$5"
         $md={
           {
@@ -1127,6 +1137,7 @@ export function ConfirmPassphrase({
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
       <Button
+        testID="hardware-ui-confirm-passphrase-switch-on-device-btn"
         m="$0"
         mt="$2"
         $md={
@@ -1346,6 +1357,7 @@ export function BluetoothPermissionUnauthorizedContent() {
           })}
         </SizableText>
         <Button
+          testID="hardware-ui-bluetooth-go-to-settings-btn"
           size="small"
           variant="secondary"
           alignSelf="stretch"
