@@ -344,6 +344,24 @@
     }
   },
   {
+    "id": "wallet-history-no-wallet",
+    "skill": "onekey-wallet",
+    "prompt": "show my transaction history on ethereum",
+    "expect": {
+      "commands": ["onekey import --mnemonic"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
+    "id": "wallet-history-no-wallet-token",
+    "skill": "onekey-wallet",
+    "prompt": "show my USDC transactions on base",
+    "expect": {
+      "commands": ["onekey import --mnemonic"],
+      "forbidden": ["--help"]
+    }
+  },
+  {
     "id": "wallet-status",
     "skill": "onekey-wallet",
     "prompt": "看一下 onekey 连接状态",
