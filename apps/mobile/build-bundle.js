@@ -299,6 +299,87 @@ const buildBackgroundBundle = async ({
   fs.rmSync(`${backgroundBundleHbcPath}.map`, { force: true });
 };
 
+/**
+ * Build HBC segments from JS segment files produced by the segment serializer.
+ * For each .seg.js file in the segments directory:
+ *   1. Compile to HBC with hermesc
+ *   2. Compose sourcemaps
+ *   3. Copy debug ID for Sentry
+ *   4. Upload to Sentry
+ *   5. Clean up intermediate files
+ */
+const buildSegments = async ({ platform, buildOutputAssetPath }) => {
+  const segmentsInputDir = path.join(mobileDirPath, 'dist/segments');
+  if (!fs.existsSync(segmentsInputDir)) {
+    log(`No segments directory found at ${segmentsInputDir}, skipping`);
+    return;
+  }
+
+  const segFiles = fs.readdirSync(segmentsInputDir).filter((f) =>
+    f.endsWith('.seg.js'),
+  );
+  if (segFiles.length === 0) {
+    log('No segment files found, skipping');
+    return;
+  }
+
+  const segmentsOutputDir = buildOutputAssetPath('segments');
+  if (!fs.existsSync(segmentsOutputDir)) {
+    fs.mkdirSync(segmentsOutputDir, { recursive: true });
+  }
+
+  log(`build ${platform} segments: ${segFiles.length} segments found`);
+
+  for (const segFile of segFiles) {
+    const baseName = segFile.replace('.seg.js', '');
+    const segJsPath = path.join(segmentsInputDir, segFile);
+    const segHbcPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
+    const segFinalPath = path.join(segmentsOutputDir, `${baseName}.seg.hbc`);
+    const segMapPath = path.join(segmentsOutputDir, `${baseName}.seg.map`);
+
+    log(`  segment: ${baseName}`);
+
+    // Compile to HBC
+    execSync(
+      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${segHbcPath} ${segJsPath}`,
+      { stdio: 'inherit' },
+    );
+
+    // Compose sourcemaps (if packager map exists)
+    const packagerMapPath = segJsPath.replace('.seg.js', '.seg.packager.map');
+    if (fs.existsSync(packagerMapPath)) {
+      composeSourceMaps({
+        packagerMapPath,
+        hermesMapPath: `${segHbcPath}.map`,
+        outputPath: segMapPath,
+        label: `segment ${baseName}`,
+      });
+      copyDebugIdToSourceMap({
+        packagerMapPath,
+        sourceMapPath: segMapPath,
+        label: `segment ${baseName}`,
+      });
+    } else if (fs.existsSync(`${segHbcPath}.map`)) {
+      // No packager map — use HBC map directly
+      fs.moveSync(`${segHbcPath}.map`, segMapPath, { overwrite: true });
+    }
+
+    // Upload to Sentry
+    uploadSourceMapsToSentry({
+      bundlePath: segFinalPath,
+      sourceMapPath: segMapPath,
+      label: `segment ${baseName}`,
+    });
+
+    // Clean up intermediate HBC map
+    if (fs.existsSync(`${segHbcPath}.map`)) {
+      fs.rmSync(`${segHbcPath}.map`, { force: true });
+    }
+  }
+
+  log(`build ${platform} segments done`);
+};
+
 const buildIOSBundle = async () => {
   log('build ios bundle start');
   ensureBundleOutputPath();
@@ -395,6 +476,11 @@ const buildIOSBundle = async () => {
     assetsOutputPath: buildIOSOutputAssetPath('assets'),
   });
 
+  await buildSegments({
+    platform: 'ios',
+    buildOutputAssetPath: buildIOSOutputAssetPath,
+  });
+
   const distPath = buildIOSOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
     fs.mkdirSync(distPath);
@@ -411,6 +497,11 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('background.bundle'),
     buildIOSOutputAssetPath('dist/background.bundle'),
   );
+  // Move segments into dist if they exist
+  const iosSegmentsDir = buildIOSOutputAssetPath('segments');
+  if (fs.existsSync(iosSegmentsDir)) {
+    fs.moveSync(iosSegmentsDir, buildIOSOutputAssetPath('dist/segments'));
+  }
   log('build ios bundle compress dist to zip');
 
   const webEmbedIOSPath = path.join(distPath, 'web-embed');
@@ -525,6 +616,11 @@ const buildAndroidBundle = async () => {
     assetsOutputPath: buildAndroidOutputAssetPath('assets'),
   });
 
+  await buildSegments({
+    platform: 'android',
+    buildOutputAssetPath: buildAndroidOutputAssetPath,
+  });
+
   const distPath = buildAndroidOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
     fs.mkdirSync(distPath);
@@ -541,6 +637,11 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('background.bundle'),
     buildAndroidOutputAssetPath('dist/background.bundle'),
   );
+  // Move segments into dist if they exist
+  const androidSegmentsDir = buildAndroidOutputAssetPath('segments');
+  if (fs.existsSync(androidSegmentsDir)) {
+    fs.moveSync(androidSegmentsDir, buildAndroidOutputAssetPath('dist/segments'));
+  }
 
   const webEmbedAndroidPath = path.join(distPath, 'web-embed');
   if (!fs.existsSync(webEmbedAndroidPath)) {
