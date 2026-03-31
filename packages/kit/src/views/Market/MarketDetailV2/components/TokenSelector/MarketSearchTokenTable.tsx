@@ -104,4 +104,5 @@ function MarketSearchTokenTable({
   );
 }
 
-export default memo(MarketSearchTokenTable);
+const MemoMarketSearchTokenTable = memo(MarketSearchTokenTable);
+export { MemoMarketSearchTokenTable as MarketSearchTokenTable };

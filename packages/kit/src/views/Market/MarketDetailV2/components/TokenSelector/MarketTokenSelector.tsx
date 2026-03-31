@@ -33,7 +33,7 @@ import {
   TOKEN_SELECTOR_HIDDEN_DESKTOP_COLUMNS,
   TOKEN_SELECTOR_POLLING_INTERVAL,
 } from './constants';
-import MarketSearchTokenTable from './MarketSearchTokenTable';
+import { MarketSearchTokenTable } from './MarketSearchTokenTable';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
 
