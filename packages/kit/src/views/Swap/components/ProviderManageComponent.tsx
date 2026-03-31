@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -94,7 +95,7 @@ export const ProviderSwitch = ({
           ) : null}
         </XStack>
       </XStack>
-      <XStack animation="quick" gap="$2">
+      <XStack animation="quick" animateOnly={ANIMATE_ONLY_OPACITY} gap="$2">
         <Stack
           onPress={(e) => {
             e.preventDefault();
@@ -282,6 +283,7 @@ const ProviderFold = ({
       <Accordion.HeightAnimator animation="quick">
         <Accordion.Content
           animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
           bg="$transparent"
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
