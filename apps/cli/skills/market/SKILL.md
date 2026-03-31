@@ -1,14 +1,75 @@
 ---
-name: onekey-market
+name: market
 description: Token discovery, market data, and analysis for OneKey CLI.
   Use whenever the user asks about token prices, market cap, trending tokens,
   kline charts, candlesticks, trading volume, buy/sell activity, liquidity,
   top holders, or wants to research/analyze a token. Also use when the user
   says "what's hot", "what's trending", or asks to look up any token by name,
   symbol, or contract address.
-version: 1.0.0
 keywords: [token, price, market, kline, trending, trades, liquidity, search]
 ---
+
+## Pre-flight Checks
+
+Every time before running any `onekey` command, follow these steps in order.
+Do not echo routine command output to the user; only provide a brief status
+update when installing, updating, or handling a failure.
+
+1. **Check CLI installed**: Run `onekey version`.
+   - Not found → install: `npm install -g @onekeyfe/cli`
+   - Install failed → STOP, point to manual install docs.
+
+2. **Check version is latest** (once per session):
+   - Fetch latest: `npm view @onekeyfe/cli version`
+   - Compare with local `onekey version`
+   - Local version behind → **BLOCK operation**, run `npm update -g @onekeyfe/cli`
+   - Update failed → STOP, suggest manual update.
+   - Update succeeded → continue with original command.
+
+3. **Do NOT auto-reinstall on command failures.** Report error and suggest
+   `onekey version` or manual reinstall.
+
+## Parameter Rules
+
+### `--chain` Resolution
+
+`--chain` accepts chain name aliases. The CLI has built-in fuzzy matching
+(Levenshtein distance) and alias support.
+
+Common mappings:
+
+| User Input | `--chain` Value |
+|---|---|
+| ethereum, eth | `eth` |
+| bsc, bnb, binance | `bsc` |
+| polygon, matic | `polygon` |
+| arbitrum, arb | `arbitrum` |
+| base | `base` |
+| avalanche, avax | `avax` |
+| optimism, op | `optimism` |
+
+If no confident match → ask the user, show available chains via
+`onekey swap networks`.
+
+### Amount Units
+
+**ALWAYS pass amounts in human-readable units, NEVER in wei/lamports/base units.**
+The CLI handles unit conversion internally.
+
+| User says | `--amount` value | Wrong |
+|---|---|---|
+| "Swap 0.1 ETH" | `0.1` | `100000000000000000` |
+| "Swap 100 USDC" | `100` | `100000000` |
+
+### Token Identification
+
+- Native token: use symbol directly (ETH, BNB, MATIC).
+- ERC-20: use symbol or contract address.
+- If ambiguous (multiple tokens with same symbol) → show candidates, let user choose.
+
+### Address Format
+
+- EVM: `0x`-prefixed, 42 characters, checksummed or lowercase both accepted.
 
 # onekey-market
 

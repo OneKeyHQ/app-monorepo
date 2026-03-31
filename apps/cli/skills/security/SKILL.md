@@ -1,13 +1,32 @@
 ---
-name: onekey-security
+name: security
 description: Token security auditing and transaction simulation for OneKey
   CLI. Use whenever the user asks if a token is safe, wants to check for
   honeypots, rug pulls, scam tokens, or suspicious contracts, or wants to
   simulate a transaction before signing. Also triggered as a mandatory
   pre-check before any swap or trade operation.
-version: 1.0.0
 keywords: [security, audit, risk, honeypot, simulate, transaction, safety]
 ---
+
+## Pre-flight Checks
+
+Every time before running any `onekey` command, follow these steps in order.
+Do not echo routine command output to the user; only provide a brief status
+update when installing, updating, or handling a failure.
+
+1. **Check CLI installed**: Run `onekey version`.
+   - Not found → install: `npm install -g @onekeyfe/cli`
+   - Install failed → STOP, point to manual install docs.
+
+2. **Check version is latest** (once per session):
+   - Fetch latest: `npm view @onekeyfe/cli version`
+   - Compare with local `onekey version`
+   - Local version behind → **BLOCK operation**, run `npm update -g @onekeyfe/cli`
+   - Update failed → STOP, suggest manual update.
+   - Update succeeded → continue with original command.
+
+3. **Do NOT auto-reinstall on command failures.** Report error and suggest
+   `onekey version` or manual reinstall.
 
 # onekey-security
 
