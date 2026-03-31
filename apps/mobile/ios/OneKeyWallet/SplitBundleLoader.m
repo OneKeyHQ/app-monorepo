@@ -145,4 +145,100 @@ RCT_EXPORT_METHOD(loadSegment:(NSDictionary *)params
   }
 }
 
+// MARK: - loadSegmentInBackground (Phase 2.5 spike)
+
+RCT_EXPORT_METHOD(loadSegmentInBackground:(NSDictionary *)params
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+  NSNumber *segmentId = params[@"segmentId"];
+  NSString *segmentKey = params[@"segmentKey"];
+  NSString *relativePath = params[@"relativePath"];
+
+  if (!segmentId || !relativePath) {
+    reject(@"SPLIT_BUNDLE_INVALID_PARAMS", @"segmentId and relativePath are required", nil);
+    return;
+  }
+
+  @try {
+    // Resolve absolute path (same logic as loadSegment)
+    NSString *absolutePath = nil;
+
+    // Try OTA path first
+    Class bundleUpdateStoreClass = NSClassFromString(@"ReactNativeBundleUpdate.BundleUpdateStore");
+    if (bundleUpdateStoreClass) {
+      SEL sel = NSSelectorFromString(@"currentBundleMainJSBundle");
+      if ([bundleUpdateStoreClass respondsToSelector:sel]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        id result = [bundleUpdateStoreClass performSelector:sel];
+#pragma clang diagnostic pop
+        NSString *otaBundlePath = [result isKindOfClass:[NSString class]] ? (NSString *)result : nil;
+        if (otaBundlePath && otaBundlePath.length > 0) {
+          NSString *filePath = otaBundlePath;
+          if ([otaBundlePath hasPrefix:@"file://"]) {
+            filePath = [[NSURL URLWithString:otaBundlePath] path];
+          }
+          NSString *otaRoot = [filePath stringByDeletingLastPathComponent];
+          NSString *candidate = [otaRoot stringByAppendingPathComponent:relativePath];
+          if ([[NSFileManager defaultManager] fileExistsAtPath:candidate]) {
+            absolutePath = candidate;
+          }
+        }
+      }
+    }
+
+    // Fallback to builtin
+    if (!absolutePath) {
+      NSString *builtinRoot = [[NSBundle mainBundle] resourcePath];
+      NSString *candidate = [builtinRoot stringByAppendingPathComponent:relativePath];
+      if ([[NSFileManager defaultManager] fileExistsAtPath:candidate]) {
+        absolutePath = candidate;
+      }
+    }
+
+    if (!absolutePath) {
+      reject(@"SPLIT_BUNDLE_NOT_FOUND",
+             [NSString stringWithFormat:@"Segment file not found: %@ (key=%@)", relativePath, segmentKey],
+             nil);
+      return;
+    }
+
+    // Delegate to BackgroundThreadManager
+    Class managerClass = NSClassFromString(@"BackgroundThreadManager");
+    if (!managerClass) {
+      reject(@"SPLIT_BUNDLE_NO_BG_MANAGER", @"BackgroundThreadManager not available", nil);
+      return;
+    }
+
+    id manager = [managerClass performSelector:NSSelectorFromString(@"sharedInstance")];
+    SEL registerSel = NSSelectorFromString(@"registerSegmentInBackground:path:completion:");
+    if (![manager respondsToSelector:registerSel]) {
+      reject(@"SPLIT_BUNDLE_NO_BG_REGISTER", @"registerSegmentInBackground not available", nil);
+      return;
+    }
+
+    void (^completion)(NSError *) = ^(NSError *error) {
+      if (error) {
+        reject(@"SPLIT_BUNDLE_BG_LOAD_ERROR", error.localizedDescription, error);
+      } else {
+        resolve(nil);
+      }
+    };
+
+    NSMethodSignature *sig = [manager methodSignatureForSelector:registerSel];
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:sig];
+    [invocation setTarget:manager];
+    [invocation setSelector:registerSel];
+    [invocation setArgument:&segmentId atIndex:2];
+    [invocation setArgument:&absolutePath atIndex:3];
+    [invocation setArgument:&completion atIndex:4];
+    [invocation invoke];
+
+  } @catch (NSException *exception) {
+    reject(@"SPLIT_BUNDLE_BG_LOAD_ERROR",
+           [NSString stringWithFormat:@"Failed to load segment in background: %@", exception.reason],
+           nil);
+  }
+}
+
 @end

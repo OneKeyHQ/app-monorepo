@@ -129,6 +129,41 @@ public class SplitBundleLoaderModule extends ReactContextBaseJavaModule {
     }
 
     // -----------------------------------------------------------------------
+    // loadSegmentInBackground (Phase 2.5 spike)
+    // -----------------------------------------------------------------------
+
+    @ReactMethod
+    public void loadSegmentInBackground(ReadableMap params, Promise promise) {
+        try {
+            int segmentId = params.getInt("segmentId");
+            String segmentKey = params.getString("segmentKey");
+            String relativePath = params.getString("relativePath");
+
+            if (relativePath == null || relativePath.isEmpty()) {
+                promise.reject("SPLIT_BUNDLE_INVALID_PARAMS",
+                        "relativePath is required");
+                return;
+            }
+
+            String absolutePath = resolveSegmentPath(relativePath);
+            if (absolutePath == null) {
+                promise.reject("SPLIT_BUNDLE_NOT_FOUND",
+                        "Segment file not found: " + relativePath
+                                + " (key=" + segmentKey + ")");
+                return;
+            }
+
+            // Delegate to BackgroundThreadManager
+            com.backgroundthread.BackgroundThreadManager manager =
+                    com.backgroundthread.BackgroundThreadManager.getInstance();
+            manager.registerSegmentInBackground(segmentId, absolutePath);
+            promise.resolve(null);
+        } catch (Exception e) {
+            promise.reject("SPLIT_BUNDLE_BG_LOAD_ERROR", e.getMessage(), e);
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Path resolution helpers
     // -----------------------------------------------------------------------
 
