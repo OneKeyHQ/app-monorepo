@@ -150,9 +150,6 @@ function BasicCreateAddressContainer() {
         confirmButtonProps: {
           testID: 'create-address-switch-confirm-btn',
         },
-        cancelButtonProps: {
-          testID: 'create-address-switch-cancel-btn',
-        },
       });
     },
     [intl, showAccountSelector],

@@ -282,7 +282,7 @@ function MobileTabListModal() {
                 }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
-                testID: DiscoveryTestIDs.tabActionPin(tab.isPinned),
+                testID: DiscoveryTestIDs.tabActionPin(tab.isPinned ?? false),
               },
               {
                 label: intl.formatMessage({

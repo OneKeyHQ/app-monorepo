@@ -43,6 +43,10 @@ export type IBasicPageProps = PropsWithChildren<
      */
     scrollEnabled?: boolean;
     scrollProps?: Omit<IScrollViewProps, 'children'>;
+    /** @platform cross-platform
+     * @description Test ID for end-to-end testing.
+     */
+    testID?: string;
   } & IPageLifeCycle
 >;
 

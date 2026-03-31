@@ -10,6 +10,7 @@ type IWalletListViewProps = {
   onPick?: (item: IDBWallet) => void;
   ListEmptyComponent?: ComponentProps<typeof ListView>['ListEmptyComponent'];
   ListFooterComponent?: ComponentProps<typeof ListView>['ListFooterComponent'];
+  testID?: string;
 };
 
 export function WalletListView({

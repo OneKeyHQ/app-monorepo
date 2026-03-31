@@ -120,6 +120,7 @@ type IProps = {
   limit?: number;
   deferTokenManagement?: boolean;
   exchangeFilter?: IExchangeFilter;
+  testID?: string;
 };
 
 function TokenListViewCmp(props: IProps) {

@@ -139,7 +139,7 @@ export default function MobileBottomTabBar({
           isOverlay: boolean,
         ) => (
           <MobileTabItem
-            testID="Mobile-AppTabBar-TabItem-Icon"
+            testID={`tab-item-${route.name.toLowerCase()}`}
             // @ts-expect-error
             icon={options?.tabBarIcon?.(renderActive) as IKeyOfIcons}
             label={options?.tabBarLabel as string}
