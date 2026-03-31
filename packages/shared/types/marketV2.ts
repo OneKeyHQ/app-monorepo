@@ -426,6 +426,14 @@ export interface IMarketTokenDetailResponse {
   data: IMarketTokenDetailData;
 }
 
+export interface IMarketAccountPortfolioPnl {
+  isPnlSupported: boolean;
+  totalPnlUsd: string;
+  totalPnlPercent: string;
+  unrealizedPnlUsd: string;
+  unrealizedPnlPercent: string;
+}
+
 export interface IMarketAccountPortfolioItem {
   accountAddress: string;
   tokenAddress: string;
@@ -433,6 +441,7 @@ export interface IMarketAccountPortfolioItem {
   symbol: string;
   tokenPrice: string;
   totalPrice: string;
+  pnl?: IMarketAccountPortfolioPnl;
 }
 
 export interface IMarketAccountPortfolioResponse {

@@ -19,6 +19,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
+import { usePageTranslation } from '../../hooks/usePageTranslation';
 import {
   useDisplayHomePageFlag,
   useWebTabDataById,
@@ -72,6 +73,7 @@ export function useMobileBrowserBottomBarData({
     removeBrowserBookmark,
   } = useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
+  const { isTranslated, handleTranslate } = usePageTranslation(id);
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
@@ -208,5 +210,7 @@ export function useMobileBrowserBottomBarData({
     disabledGoBack,
     disabledGoForward,
     onGoBackHomePage,
+    isTranslated,
+    handleTranslate,
   };
 }

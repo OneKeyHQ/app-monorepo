@@ -1,5 +1,4 @@
-/* eslint-disable react/destructuring-assignment, react/state-in-constructor */
-// eslint-disable-next-line max-classes-per-file
+/* eslint-disable react/destructuring-assignment, react/state-in-constructor, max-classes-per-file */
 import { PureComponent } from 'react';
 
 import { SafeAreaView, Text } from 'react-native';
