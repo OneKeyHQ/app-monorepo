@@ -41,5 +41,21 @@
       "#10876"
     ],
     "notes": "Add portfolio & PnL analysis modal"
+  },
+  {
+    "seq": 3,
+    "commit": "4d0708a83afaa33b6a7e6ca68afa650d8de83595",
+    "date": "2026-03-31T06:17:53Z",
+    "prs": [
+      "#10883",
+      "#10908",
+      "#10922",
+      "#10926",
+      "#10927",
+      "#10929",
+      "#10939",
+      "#10953"
+    ],
+    "notes": "Update referral copy and condition badges, fix perps footer spacing and available balance display, navigate to perp detail from universal search, add contract approvals entry to More dropdown, inject x-onekey-* headers for dev bundle switcher, harden CI release workflow security and fix PR checkout"
   }
 ]
