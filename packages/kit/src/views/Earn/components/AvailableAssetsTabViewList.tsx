@@ -37,6 +37,8 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation } from '../earnUtils';
 
+import { EarnTestIDs } from '../testIDs';
+
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
 
@@ -293,6 +295,7 @@ export function AvailableAssetsTabViewList() {
   const mobileRenderItem = useCallback(
     (asset: IEarnAvailableAsset) => (
       <ListItem
+        testID={EarnTestIDs.assetItem(asset.symbol)}
         userSelect="none"
         onPress={() => handleRowPress(asset)}
         renderAvatar={
@@ -503,6 +506,7 @@ export function AvailableAssetsTabViewList() {
         />
         {media.gtMd ? (
           <SearchBar
+            testID={EarnTestIDs.assetSearchInput}
             placeholder={intl.formatMessage({
               id: ETranslations.global_search_asset,
             })}

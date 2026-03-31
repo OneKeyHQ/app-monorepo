@@ -12,6 +12,8 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
+import { EarnTestIDs } from '../testIDs';
+
 import { BannerItemV2 } from './BannerItemV2';
 
 import type { LayoutChangeEvent } from 'react-native';
@@ -168,7 +170,7 @@ function BannerV2Cmp({ data, onBannerPress, isActive = true }: IBannerV2Props) {
   ]);
 
   return (
-    <Stack width="100%" onLayout={handleLayout} overflow="hidden">
+    <Stack testID={EarnTestIDs.banner} width="100%" onLayout={handleLayout} overflow="hidden">
       {content}
     </Stack>
   );

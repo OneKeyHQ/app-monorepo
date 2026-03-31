@@ -16,6 +16,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { EarnTestIDs } from '../testIDs';
+
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 
 import type { RefreshControlProps } from 'react-native';
@@ -103,6 +105,7 @@ export function EarnPageContainer({
       )}
       <Page.Body>
         <ScrollView
+          testID={EarnTestIDs.earnPage}
           contentContainerStyle={{
             py: media.gtMd ? '$6' : 0,
             ...contentContainerStyle,

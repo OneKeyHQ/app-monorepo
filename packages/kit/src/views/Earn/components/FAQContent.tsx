@@ -12,6 +12,8 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
+import { EarnTestIDs } from '../testIDs';
+
 function FAQPanelSkeleton() {
   return (
     <YStack gap="$4">
@@ -51,7 +53,7 @@ function BaseFAQContent({
   }
 
   return (
-    <Accordion type="multiple" gap="$2" defaultValue={defaultValue}>
+    <Accordion testID={EarnTestIDs.faqSection} type="multiple" gap="$2" defaultValue={defaultValue}>
       {faqList.map(({ question, answer }, index) => (
         <Accordion.Item value={String(index)} key={question}>
           <Accordion.Trigger

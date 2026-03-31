@@ -43,6 +43,7 @@ import {
 import { useCurrency } from '../../../components/Currency';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
+import { EarnTestIDs } from '../testIDs';
 import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnTooltip';
 import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
@@ -555,7 +556,7 @@ const ProtocolHeader = ({
   const currencyInfo = useCurrency();
 
   return (
-    <YStack px="$pagePadding" py="$3">
+    <YStack px="$pagePadding" py="$3" testID={EarnTestIDs.portfolioItem(portfolioItem.protocol.providerDetail.name)}>
       <XStack ai="center">
         <Token
           size="xs"
