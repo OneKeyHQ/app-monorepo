@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { PerpTestIDs } from '../../../testIDs';
 import {
   CONTEXTUAL_ARTICLE_IDS,
   buildHelpUrl,
@@ -50,6 +51,7 @@ const MarginModeSelector = ({
 
   return (
     <XStack
+      testID={PerpTestIDs.MarginModeSelector}
       onPress={handlePress}
       disabled={disabled}
       height={isMobile ? 32 : 30}

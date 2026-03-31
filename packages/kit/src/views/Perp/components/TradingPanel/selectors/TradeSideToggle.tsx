@@ -12,6 +12,7 @@ import {
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { PerpTestIDs } from '../../../testIDs';
 import {
   type ITradeSide,
   PERP_TRADE_BUTTON_COLORS,
@@ -117,6 +118,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
 
     return (
       <SegmentControl
+        testID={PerpTestIDs.TradeSideToggle}
         value={value}
         onChange={handleChange}
         options={options}

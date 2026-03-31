@@ -29,6 +29,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { PerpTestIDs } from '../../../testIDs';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
   CONTEXTUAL_ARTICLE_IDS,
@@ -121,6 +122,7 @@ const LeverageContent = memo(
           <YStack p="$1" gap="$4" flex={1}>
             <XStack justifyContent="center" alignItems="center">
               <Input
+                testID={PerpTestIDs.LeverageInput}
                 containerProps={{
                   borderRadius: '$3',
                   borderWidth: 0,
@@ -161,6 +163,7 @@ const LeverageContent = memo(
             </XStack>
             <XStack flex={1} alignItems="center" gap="$4">
               <Slider
+                testID={PerpTestIDs.LeverageSlider}
                 value={value || 1}
                 onChange={handleSliderChange}
                 min={1}
@@ -229,6 +232,7 @@ const LeverageContent = memo(
           </XStack>
           <TradingGuardWrapper>
             <Button
+              testID={PerpTestIDs.LeverageConfirmButton}
               onPress={handleConfirm}
               disabled={isDisabled}
               loading={loading}
@@ -297,6 +301,7 @@ export const LeverageAdjustModal = memo(
 
     return (
       <Badge
+        testID={PerpTestIDs.LeverageSelector}
         borderRadius="$2"
         bg={isMobile ? '$bgSubdued' : '$bgStrong'}
         onPress={showLeverageDialog}

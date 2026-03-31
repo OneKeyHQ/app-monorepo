@@ -36,6 +36,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowGuide } from '../../../hooks/useShowGuide';
+import { PerpTestIDs } from '../../../testIDs';
 import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
 import { PerpsActivityCenterAction } from '../../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
@@ -111,6 +112,7 @@ function DepositButton() {
       borderRadius="$full"
       size="medium"
       variant={isEmptyAccount ? 'primary' : 'secondary'}
+      testID={PerpTestIDs.PortfolioButton}
       onPress={showPortfolio}
       alignItems="center"
       justifyContent="center"
@@ -174,7 +176,7 @@ export function PerpsHeaderRight() {
             <>
               <PerpsActivityCenterAction copyAsUrl />
               <PerpGuidePopover />
-              <PerpSettingsButton testID="perp-header-settings-button" />
+              <PerpSettingsButton testID={PerpTestIDs.HeaderSettingsButton} />
             </>
           );
         }

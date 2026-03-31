@@ -46,6 +46,7 @@ import {
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { PerpTestIDs } from '../../../testIDs';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
@@ -95,7 +96,7 @@ function MobileDepositButton() {
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   return (
     <IconButton
-      testID="perp-trading-form-mobile-deposit-button"
+      testID={PerpTestIDs.MobileDepositButton}
       size="small"
       variant="tertiary"
       iconSize="$3.5"
@@ -570,7 +571,7 @@ function PerpTradingForm({
           )}
           {formData.type === 'limit' ? (
             <Badge
-              testID="perp-bbo-toggle-button"
+              testID={PerpTestIDs.BBOToggleButton}
               borderRadius="$2"
               bg="$bgSubdued"
               borderWidth="$px"
@@ -642,6 +643,7 @@ function PerpTradingForm({
         <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
           <XStack alignItems="center" gap="$2">
             <Checkbox
+              testID={PerpTestIDs.TriggerReduceOnlyCheckbox}
               value={triggerReduceOnly}
               onChange={(checked) =>
                 updateForm({ triggerReduceOnly: !!checked })
@@ -670,6 +672,7 @@ function PerpTradingForm({
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
         <XStack alignItems="center" gap="$2">
           <Checkbox
+            testID={PerpTestIDs.TpslCheckbox}
             value={formData.hasTpsl}
             onChange={handleTpslCheckboxChange}
             disabled={isSubmitting}

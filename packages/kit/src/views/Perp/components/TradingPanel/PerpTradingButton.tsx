@@ -37,6 +37,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { PerpTestIDs } from '../../testIDs';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
@@ -302,6 +303,7 @@ export function PerpTradingButton({
     return (
       <Button
         {...sharedButtonProps}
+        testID={PerpTestIDs.ConnectWalletButton}
         variant="primary"
         onPress={handleConnectWallet}
       >
@@ -336,6 +338,7 @@ export function PerpTradingButton({
         </XStack>
         <Button
           {...sharedButtonProps}
+          testID={PerpTestIDs.EnableTradingButton}
           variant="primary"
           loading={isAccountLoading}
           onPress={async () => {
@@ -356,6 +359,7 @@ export function PerpTradingButton({
   return (
     <Button
       {...sharedButtonProps}
+      testID={PerpTestIDs.PlaceOrderButton}
       bg={buttonStyles.bg}
       hoverStyle={
         !buttonDisabled && !isSubmitting

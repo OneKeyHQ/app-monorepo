@@ -31,6 +31,7 @@ import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterActi
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
+import { PerpTestIDs } from '../testIDs';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -110,7 +111,7 @@ function PerpContent() {
         <>
           <PerpsActivityCenterAction size="small" copyAsUrl />
           <PerpGuidePopover />
-          <PerpSettingsButton testID="perp-header-settings-button" />
+          <PerpSettingsButton testID={PerpTestIDs.HeaderSettingsButton} />
           <HeaderIconButton
             icon="DownloadOutline"
             size="small"

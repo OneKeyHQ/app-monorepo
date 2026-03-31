@@ -61,6 +61,7 @@ import {
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
+import { PerpTestIDs } from '../../testIDs';
 import {
   type IFavoriteItem,
   usePerpActiveTabValidation,
