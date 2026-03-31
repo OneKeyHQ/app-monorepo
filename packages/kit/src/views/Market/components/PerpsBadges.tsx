@@ -83,6 +83,10 @@ const StockIsOpenBadge = memo(({ stock }: { stock: IMarketStockInfo }) => {
   const intl = useIntl();
   const { isOpen, description } = stock;
 
+  if (isOpen === undefined) {
+    return null;
+  }
+
   const statusText = intl.formatMessage({
     id: isOpen
       ? ETranslations.dexmarket_stock_status_open
