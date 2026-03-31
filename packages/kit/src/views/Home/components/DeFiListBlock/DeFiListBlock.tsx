@@ -169,10 +169,6 @@ function DeFiListBlock({
 
   const { run } = usePromiseResult(
     async () => {
-      if (refreshCacheOnly) {
-        return;
-      }
-
       if (!account || !network) {
         return;
       }
@@ -264,7 +260,6 @@ function DeFiListBlock({
     [
       account,
       network,
-      refreshCacheOnly,
       settings.currencyInfo.id,
       updateAccountDeFiOverview,
       updateDeFiListProtocols,
@@ -276,7 +271,9 @@ function DeFiListBlock({
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
-      pollingInterval: POLLING_INTERVAL_FOR_DEFI,
+      // Keep the hidden Portfolio refresher in sync, but avoid running
+      // background polling until the user actually opens the DeFi tab.
+      pollingInterval: refreshCacheOnly ? undefined : POLLING_INTERVAL_FOR_DEFI,
     },
   );
 
@@ -319,10 +316,6 @@ function DeFiListBlock({
       networkId: string;
       allNetworkDataInit?: boolean;
     }) => {
-      if (refreshCacheOnly) {
-        return;
-      }
-
       const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
         accountId,
         networkId,
@@ -387,7 +380,6 @@ function DeFiListBlock({
       updateDeFiListProtocolMap,
       sourceCurrencyInfo,
       targetCurrencyInfo,
-      refreshCacheOnly,
     ],
   );
 
@@ -432,10 +424,6 @@ function DeFiListBlock({
       deFiRawDataRef.current =
         (await backgroundApiProxy.simpleDb.deFi.getRawData()) ?? undefined;
 
-      if (refreshCacheOnly) {
-        return;
-      }
-
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.DEFI,
@@ -448,7 +436,7 @@ function DeFiListBlock({
         isReady: undefined,
       });
     },
-    [account?.id, network?.id, refreshCacheOnly, updateOverviewDeFiDataState],
+    [account?.id, network?.id, updateOverviewDeFiDataState],
   );
 
   const handleAllNetworkCacheRequests = useCallback(
@@ -573,10 +561,6 @@ function DeFiListBlock({
     }) => {
       isForceRefreshRef.current = false;
 
-      if (refreshCacheOnly) {
-        return;
-      }
-
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.DEFI,
@@ -584,7 +568,7 @@ function DeFiListBlock({
         networkId: networkId ?? '',
       });
     },
-    [refreshCacheOnly],
+    [],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -830,10 +814,6 @@ function DeFiListBlock({
 
   useEffect(() => {
     if (allNetworksResult) {
-      if (refreshCacheOnly) {
-        return;
-      }
-
       const tempOverview = {
         totalValue: 0,
         totalDebt: 0,
@@ -894,7 +874,6 @@ function DeFiListBlock({
     updateDeFiListProtocolMap,
     updateDeFiListState,
     settings.currencyInfo.id,
-    refreshCacheOnly,
   ]);
 
   useEffect(() => {
