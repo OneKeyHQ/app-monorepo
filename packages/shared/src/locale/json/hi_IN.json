@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "एक्सप्लोरर में पता देखें",
   "settings.view_transaction_in_explorer": "एक्सप्लोरर में लेन-देन देखें",
   "settings.whats_new": "क्या नया है",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "यह सुविधा सक्षम होने पर, आप केवल अपने वॉलेट के खातों या पता पुस्तिका में सहेजे गए पतों पर ही धन भेज सकते हैं।",
   "settings_protection.allowlist_title": "स्थानांतरण अनुमति सूची",
   "setup_choose_option_create_new_wallet": "नया वॉलेट बनाएं: अगर यह आपका पहला वॉलेट है",
