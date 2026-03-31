@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components/src/primitives';
 import { TMPopover, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -481,6 +482,7 @@ function OverflowMoreButton({
         enterStyle={ENTER_EXIT_STYLE}
         exitStyle={ENTER_EXIT_STYLE}
         animation={OVERFLOW_ANIMATION}
+        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
         onHoverIn={handleContentHoverIn}
         onHoverOut={handleHoverOut}
         $platform-web={PLATFORM_WEB_SHADOW_STYLE}

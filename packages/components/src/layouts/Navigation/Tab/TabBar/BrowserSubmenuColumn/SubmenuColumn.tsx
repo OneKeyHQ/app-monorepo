@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 
 import { Stack, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import { ANIMATE_ONLY_WIDTH } from '@onekeyhq/components/src/utils/animationConstants';
 import { MIN_SIDEBAR_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -54,6 +55,7 @@ export function SubmenuColumn({
         px="$3"
         zIndex={10}
         animation="quick"
+        animateOnly={ANIMATE_ONLY_WIDTH}
         borderTopRightRadius={isExpanded ? '$3' : 0}
         borderBottomRightRadius={isExpanded ? '$3' : 0}
         borderTopWidth={1}

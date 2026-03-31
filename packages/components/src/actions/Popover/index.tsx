@@ -43,6 +43,10 @@ import {
 } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_OPACITY_TRANSFORM,
+} from '../../utils/animationConstants';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -461,6 +465,7 @@ function RawPopover({
           $platform-web={POPOVER_PLATFORM_WEB_STYLE}
           $platform-native={POPOVER_PLATFORM_NATIVE}
           animation="popoverQuick"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           {...floatingPanelProps}
         >
           <TMPopover.ScrollView
@@ -503,6 +508,7 @@ function RawPopover({
                   zIndex={sheetProps?.zIndex || zIndex}
                   backgroundColor="$bgBackdrop"
                   animation="quick"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={OVERLAY_ENTER_STYLE}
                   exitStyle={OVERLAY_EXIT_STYLE}
                 />
