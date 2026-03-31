@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   ALWAYS_VERIFY_PASSCODE_WHEN_CHANGE_SET_MASTER_PASSWORD,
-  CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
+  CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID,
   EPrimeCloudSyncDataType,
   RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -112,26 +112,28 @@ class ServicePrimeCloudSync extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private _lastIdSyncUnavailableToastTime = 0;
+  private _lastSunsetReminderTime = 0;
 
-  private async notifyIfOnekeyIdSyncUnavailable() {
+  private async notifyOnekeyIdSyncSunset() {
     const now = Date.now();
-    const ONE_HOUR = timerUtils.getTimeDurationMs({ hour: 1 });
-    if (now - this._lastIdSyncUnavailableToastTime < ONE_HOUR) return;
+    const ONE_DAY = timerUtils.getTimeDurationMs({ day: 1 });
+    if (now - this._lastSunsetReminderTime < ONE_DAY) return;
 
     const { isCloudSyncEnabled } = await primeCloudSyncPersistAtom.get();
     if (!isCloudSyncEnabled) return;
 
-    this._lastIdSyncUnavailableToastTime = now;
+    this._lastSunsetReminderTime = now;
 
     void this.backgroundApi.serviceApp.showToast({
-      method: 'error',
-      icon: 'CloudDisconnectedSolid',
+      method: 'warning',
       title: appLocale.intl.formatMessage({
-        id: ETranslations.cloud_sync_issue_toast_title,
+        id: ETranslations.switch_to_keyless_wallet_sync__title,
       }),
-      toastId: CLOUD_SYNC_ID_UNAVAILABLE_TOAST_ID,
-      errorCode: ECustomCloudSyncError.OnekeyIdSyncUnavailable,
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.switch_to_keyless_wallet_sync__desc,
+      }),
+      toastId: CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID,
+      errorCode: ECustomCloudSyncError.OnekeyIdSyncSunsetReminder,
     });
   }
 
@@ -1223,9 +1225,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       // const syncMode = await this.getActiveSyncMode();
 
       if (!(await this.isCloudSyncIsAvailable())) {
-        if (!throwError) {
-          void this.notifyIfOnekeyIdSyncUnavailable();
-        }
         return;
       }
       await this.ensureCloudSyncIsAvailable({
@@ -1280,12 +1279,11 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
-      if (!throwError) {
-        void this.notifyIfOnekeyIdSyncUnavailable();
-      }
       if (throwError) {
         throw error;
       }
+    } finally {
+      void this.notifyOnekeyIdSyncSunset();
     }
 
     // the server data has been downloaded, but it may not have been updated to the business scenario, so it needs to be executed again

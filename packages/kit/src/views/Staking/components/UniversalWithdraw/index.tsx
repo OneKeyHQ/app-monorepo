@@ -1361,7 +1361,7 @@ export function UniversalWithdraw({
             />
           ) : null}
           {hasSummarySection && !usePendleSummaryLayout ? (
-            <YStack gap="$2">
+            <YStack gap="$1.5">
               <XStack ai="center" gap="$1">
                 <EarnText
                   text={transactionConfirmation?.title}
@@ -1388,7 +1388,6 @@ export function UniversalWithdraw({
                     key={reward.title.text}
                     gap="$1"
                     ai="flex-start"
-                    mt="$1.5"
                     flexWrap="wrap"
                   >
                     <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
@@ -1500,7 +1499,7 @@ export function UniversalWithdraw({
                     exitStyle={{ opacity: 0 }}
                     px={0}
                     pb={0}
-                    pt="$3.5"
+                    pt={accordionContent.length > 0 ? '$3.5' : '$0'}
                     gap={isPendleLikeLayout ? '$3.5' : '$2.5'}
                   >
                     {accordionContent}

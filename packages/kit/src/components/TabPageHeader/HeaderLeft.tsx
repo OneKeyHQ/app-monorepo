@@ -78,6 +78,7 @@ function SegmentText({
         | ETranslations.global_market
         | ETranslations.global_browser
         | ETranslations.global_earn,
+      switchType: 'tap',
     });
   }, [translationId]);
   return (
@@ -113,6 +114,7 @@ function AnimatedSegmentText({
         | ETranslations.global_market
         | ETranslations.global_browser
         | ETranslations.global_earn,
+      switchType: 'tap',
     });
   }, [translationId]);
 
