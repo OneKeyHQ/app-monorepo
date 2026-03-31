@@ -1,5 +1,3 @@
-import { isEqual } from 'lodash';
-
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   type ISwapReviewStepTexts,
@@ -18,7 +16,9 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { isEncodedTxMatch } from './marketEncodedTxUtils';
 import type { IMarketGasInfoEntry } from './marketDirectSendTx';
+
 
 function shouldEnableMarketReviewFeeLevel(steps: ISwapStep[]) {
   return steps.some((step) => step.type === ESwapStepType.APPROVE_TX);
@@ -88,18 +88,8 @@ export function findMarketTxConfirmFeeInfo({
     return undefined;
   }
 
-  return gasInfos.find(
-    (item) =>
-      isEqual(item.encodeTx, encodedTx) ||
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      ((item.encodeTx as any)?.rawSignTx &&
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (encodedTx as any)?.rawSignTx &&
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (item.encodeTx as any)?.rawSignTx ===
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          (encodedTx as any)?.rawSignTx),
-  )?.gasInfo as IFeeInfoUnit | undefined;
+  return gasInfos.find((item) => isEncodedTxMatch(item.encodeTx, encodedTx))
+    ?.gasInfo as IFeeInfoUnit | undefined;
 }
 
 export function shouldAutoContinueMarketResetApprove({

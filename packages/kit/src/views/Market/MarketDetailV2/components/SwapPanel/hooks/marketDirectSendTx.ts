@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-import { isEqual } from 'lodash';
 
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -29,6 +28,8 @@ import type {
   ISendTxBaseParams,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
+
+import { isEncodedTxMatch } from './marketEncodedTxUtils';
 
 export type IMarketGasInfoEntry = {
   encodeTx: IEncodedTx;
@@ -81,18 +82,7 @@ function findGasInfo(
   gasInfos: IMarketGasInfoEntry[],
   encodedTx: IEncodedTx,
 ): IMarketGasInfoEntry | undefined {
-  return gasInfos.find(
-    (item) =>
-      isEqual(item.encodeTx, encodedTx) ||
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      ((item.encodeTx as any)?.rawSignTx &&
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (encodedTx as any)?.rawSignTx &&
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (item.encodeTx as any)?.rawSignTx ===
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          (encodedTx as any)?.rawSignTx),
-  );
+  return gasInfos.find((item) => isEncodedTxMatch(item.encodeTx, encodedTx));
 }
 
 function buildGasInfo(

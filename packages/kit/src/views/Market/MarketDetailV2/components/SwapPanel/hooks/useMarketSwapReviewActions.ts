@@ -21,16 +21,53 @@ import {
 import type { IMarketSwapReviewAdapter } from './useSpeedSwapActions';
 import type { IMarketSwapReviewState } from '../MarketSwapReviewInitializer';
 
+function mergeReviewStateSteps(prevSteps: ISwapStep[], nextSteps: ISwapStep[]) {
+  return nextSteps.map((nextStep, index) => {
+    const prevStep = prevSteps[index];
+
+    if (
+      !prevStep ||
+      prevStep.type !== nextStep.type ||
+      prevStep.isResetApprove !== nextStep.isResetApprove ||
+      prevStep.status === ESwapStepStatus.READY
+    ) {
+      return nextStep;
+    }
+
+    const mergedStep: ISwapStep = {
+      ...nextStep,
+      status: prevStep.status,
+      txHash: prevStep.txHash,
+      orderId: prevStep.orderId,
+      stepSubTitle: prevStep.stepSubTitle,
+      errorMessage: prevStep.errorMessage,
+    };
+
+    if (typeof prevStep.canRetry !== 'undefined') {
+      mergedStep.canRetry = prevStep.canRetry;
+    }
+
+    return mergedStep;
+  });
+}
+
 function useReviewStepStateActions() {
   const [, setSwapSteps] = useSwapStepsAtom();
 
   const replaceReviewState = useCallback(
-    (reviewState: IMarketSwapReviewState) => {
-      setSwapSteps({
-        steps: reviewState.steps,
+    (
+      reviewState: IMarketSwapReviewState,
+      options?: {
+        preserveActiveSteps?: boolean;
+      },
+    ) => {
+      setSwapSteps((prev) => ({
+        steps: options?.preserveActiveSteps
+          ? mergeReviewStateSteps(prev.steps, reviewState.steps)
+          : reviewState.steps,
         preSwapData: reviewState.preSwapData,
         quoteResult: reviewState.quoteResult,
-      });
+      }));
     },
     [setSwapSteps],
   );
@@ -136,13 +173,18 @@ export function useMarketSwapReviewActions({
           quoteResult: data,
           networkFeeLevel: swapStepNetFeeLevel.networkFeeLevel,
         });
-        replaceReviewState({
-          ...reviewState,
-          preSwapData: {
-            ...reviewState.preSwapData,
-            stepBeforeActionsLoading: false,
+        replaceReviewState(
+          {
+            ...reviewState,
+            preSwapData: {
+              ...reviewState.preSwapData,
+              stepBeforeActionsLoading: false,
+            },
           },
-        });
+          {
+            preserveActiveSteps: true,
+          },
+        );
       } catch {
         setSwapSteps((prev) => ({
           ...prev,

@@ -314,6 +314,97 @@ describe('useMarketSwapReviewActions', () => {
     );
   });
 
+  it('preserves in-flight review steps while refreshing fee data', async () => {
+    const adapter = createAdapter();
+    adapter.prepareMarketSwapReview.mockResolvedValue(
+      createReviewState({
+        steps: [
+          {
+            type: ESwapStepType.APPROVE_TX,
+            status: ESwapStepStatus.READY,
+            shouldWaitApproved: true,
+          },
+          {
+            type: ESwapStepType.SEND_TX,
+            status: ESwapStepStatus.READY,
+          },
+        ],
+        quoteResult: createQuoteResult({
+          toAmount: '2600',
+        }),
+        preSwapData: {
+          supportNetworkFeeLevel: true,
+        },
+      }),
+    );
+
+    const { result } = renderHook(
+      () => {
+        const actions = useMarketSwapReviewActions({ adapter });
+        const [swapSteps] = useSwapStepsAtom();
+        return {
+          actions,
+          swapSteps,
+        };
+      },
+      {
+        wrapper: createWrapper(
+          createReviewState({
+            steps: [
+              {
+                type: ESwapStepType.APPROVE_TX,
+                status: ESwapStepStatus.PENDING,
+                shouldWaitApproved: true,
+                txHash: '0xapprove',
+                stepSubTitle: ETranslations.swap_btn_approving,
+              },
+              {
+                type: ESwapStepType.SEND_TX,
+                status: ESwapStepStatus.READY,
+              },
+            ],
+            preSwapData: {
+              supportNetworkFeeLevel: true,
+            },
+            quoteResult: createQuoteResult({
+              allowanceResult: {
+                allowanceTarget: '0xspender',
+                amount: '1',
+              },
+            }),
+          }),
+          ESwapNetworkFeeLevel.HIGH,
+        ),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.preSwapBeforeStepActions(
+        createQuoteResult({
+          allowanceResult: {
+            allowanceTarget: '0xspender',
+            amount: '1',
+          },
+        }),
+        fromToken,
+        toToken,
+      );
+    });
+
+    expect(result.current.swapSteps.steps[0]).toEqual(
+      expect.objectContaining({
+        type: ESwapStepType.APPROVE_TX,
+        status: ESwapStepStatus.PENDING,
+        txHash: '0xapprove',
+        stepSubTitle: ETranslations.swap_btn_approving,
+      }),
+    );
+    expect(result.current.swapSteps.steps[1].status).toBe(
+      ESwapStepStatus.READY,
+    );
+    expect(result.current.swapSteps.quoteResult?.toAmount).toBe('2600');
+  });
+
   it('clears stale network fee data when fee refresh fails', async () => {
     const adapter = createAdapter();
     adapter.prepareMarketSwapReview.mockRejectedValue(
