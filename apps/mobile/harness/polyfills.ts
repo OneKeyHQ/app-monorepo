@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 // Polyfills for Hermes environment in react-native-harness.
 // Provides Node.js globals, TextDecoder wrapping, structuredClone,
 // fake-indexeddb, and ES2023 Array methods.
@@ -15,6 +16,7 @@ import { Buffer } from 'buffer';
 if (typeof (globalThis as any).MessageChannel === 'undefined') {
   (globalThis as any).MessageChannel = function MessageChannel(this: {
     port1: { onmessage: ((ev: { data: any }) => void) | null };
+
     port2: { postMessage: (data: any) => void };
   }) {
     this.port1 = { onmessage: null };

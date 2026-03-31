@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "Lihat alamat di penjelajah",
   "settings.view_transaction_in_explorer": "Lihat transaksi di penjelajah",
   "settings.whats_new": "Apa yang baru",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "Saat fitur ini diaktifkan, Anda hanya dapat mengirim dana ke akun di dalam dompet atau alamat yang tersimpan di buku alamat.",
   "settings_protection.allowlist_title": "Transfer daftar putih",
   "setup_choose_option_create_new_wallet": "Buat Dompet Baru: Jika ini dompet pertama Anda",

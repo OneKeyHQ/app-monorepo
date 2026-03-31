@@ -3870,6 +3870,8 @@
   "settings.view_address_in_explorer": "エクスプローラーで住所を表示",
   "settings.view_transaction_in_explorer": "エクスプローラーでトランザクションを表示",
   "settings.whats_new": "新着情報",
+  "settings_menu_bar_tray": "Menu Bar",
+  "settings_menu_bar_tray_desc": "Show OneKey in the macOS menu bar for quick access to your portfolio and transactions.",
   "settings_protection.allowlist_content": "この機能を有効にすると、ウォレット内のアカウントまたはアドレス帳に登録されたアドレスへのみ送金できるようになります。",
   "settings_protection.allowlist_title": "転送許可リスト",
   "setup_choose_option_create_new_wallet": "新しいウォレットを作成：初めてのウォレットの場合",
