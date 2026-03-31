@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Toast, YStack } from '@onekeyhq/components';
+import { ScrollView, SizableText, Toast, YStack } from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
@@ -224,7 +224,13 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   }, [currentMarketToken?.networkId, currentMarketToken?.contractAddress]);
 
   return (
-    <YStack gap="$4">
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
+      <YStack gap="$4">
       {/* Trade type selector */}
       <TradeTypeSelector value={tradeType} onChange={setTradeType} />
 
@@ -334,6 +340,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           }}
         />
       )}
-    </YStack>
+      </YStack>
+    </ScrollView>
   );
 }
