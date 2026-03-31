@@ -15,6 +15,7 @@ import type {
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
+  EHyperLiquidAbstractionMode,
   EPerpUserType,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -74,6 +75,81 @@ export const {
 } = globalAtom<IPerpsActiveAccountSummaryAtom>({
   name: EAtomNames.perpsActiveAccountSummaryAtom,
   initialValue: undefined,
+});
+
+// #region Abstraction Mode
+export const {
+  target: perpsAbstractionModeAtom,
+  use: usePerpsAbstractionModeAtom,
+} = globalAtom<{
+  accountAddress: IHex | undefined;
+  mode: EHyperLiquidAbstractionMode | undefined;
+} | undefined>({
+  name: EAtomNames.perpsAbstractionModeAtom,
+  initialValue: undefined,
+});
+// #endregion
+
+// #region Spot Balances
+export interface ISpotBalanceItem {
+  coin: string;
+  token: number;
+  total: string;
+  hold: string;
+  entryNtl: string;
+}
+export const {
+  target: perpsSpotBalancesAtom,
+  use: usePerpsSpotBalancesAtom,
+} = globalAtom<{
+  accountAddress: IHex | undefined;
+  balances: ISpotBalanceItem[];
+  spotTotalUsd: string | undefined;
+} | undefined>({
+  name: EAtomNames.perpsSpotBalancesAtom,
+  initialValue: undefined,
+});
+// #endregion
+
+export const {
+  target: perpsComputedAccountValueAtom,
+  use: usePerpsComputedAccountValueAtom,
+} = globalAtomComputedR<{
+  accountValue: string | undefined;
+  isLoading: boolean;
+}>({
+  read: (get) => {
+    const modeData = get(perpsAbstractionModeAtom.atom());
+    const summary = get(perpsActiveAccountSummaryAtom.atom());
+    const spotData = get(perpsSpotBalancesAtom.atom());
+
+    const mode = modeData?.mode;
+
+    // Mode unknown → use existing clearinghouse value as fallback, mark loading
+    if (!mode) {
+      return { accountValue: summary?.accountValue, isLoading: true };
+    }
+
+    const isUnified =
+      mode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT ||
+      mode === EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN;
+
+    if (isUnified) {
+      // Unified/portfolio: account value = spot balance only
+      if (!spotData?.spotTotalUsd) {
+        return { accountValue: undefined, isLoading: true };
+      }
+      return { accountValue: spotData.spotTotalUsd, isLoading: false };
+    }
+
+    // disabled / dexAbstraction: account value = spot + perps clearinghouse
+    const perpsValue = new BigNumber(summary?.accountValue || '0');
+    const spotValue = new BigNumber(spotData?.spotTotalUsd || '0');
+    return {
+      accountValue: spotValue.plus(perpsValue).toFixed(),
+      isLoading: !spotData?.spotTotalUsd,
+    };
+  },
 });
 
 export const {
