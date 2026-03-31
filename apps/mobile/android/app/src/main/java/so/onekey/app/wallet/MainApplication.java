@@ -138,7 +138,19 @@ public class MainApplication extends Application implements ReactApplication {
       return "background.bundle";
     }
 
+    private boolean isNativeBackgroundThreadEnabled() {
+      return BuildConfig.ENABLE_NATIVE_BACKGROUND_THREAD;
+    }
+
     private void setupBackgroundThreadBootstrap() {
+      if (!isNativeBackgroundThreadEnabled()) {
+        OneKeyLog.info(
+          "BackgroundThread",
+          "setupBackgroundThreadBootstrap: disabled by ENABLE_NATIVE_BACKGROUND_THREAD"
+        );
+        return;
+      }
+
       ReactHost reactHost = getReactHost();
       if (reactHost == null) {
         OneKeyLog.warn("BackgroundThread", "setupBackgroundThreadBootstrap: ReactHost is null");

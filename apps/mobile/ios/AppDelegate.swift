@@ -205,6 +205,23 @@ public class AppDelegate: ExpoAppDelegate {
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
 
+  private func isNativeBackgroundThreadEnabled() -> Bool {
+#if DEBUG
+    if let envValue = ProcessInfo.processInfo.environment["ENABLE_NATIVE_BACKGROUND_THREAD"]?.lowercased() {
+      return ["1", "true", "yes", "on"].contains(envValue)
+    }
+#endif
+
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ENABLE_NATIVE_BACKGROUND_THREAD") as? NSNumber {
+      return enabled.boolValue
+    }
+    if let enabled = Bundle.main.object(forInfoDictionaryKey: "ENABLE_NATIVE_BACKGROUND_THREAD") as? String {
+      return ["1", "true", "yes", "on"].contains(enabled.lowercased())
+    }
+
+    return false
+  }
+
   private func backgroundDebugBundleURLString() -> String? {
     if let mainMetroURL = RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry"),
        var components = URLComponents(url: mainMetroURL, resolvingAgainstBaseURL: false) {
@@ -282,6 +299,11 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 
   override func hostDidStart(_ host: RCTHost) {
     super.hostDidStart(host)
+
+    guard isNativeBackgroundThreadEnabled() else {
+      NitroModuleBridge.logInfo("BackgroundThread", "hostDidStart: background thread disabled by ENABLE_NATIVE_BACKGROUND_THREAD")
+      return
+    }
 
     BackgroundThreadBridge.installSharedBridgeInMainRuntime(host)
 

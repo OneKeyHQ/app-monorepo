@@ -660,10 +660,11 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = BVJ3FU5H2K;
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BVJ3FU5H2K;
-				ENABLE_BITCODE = NO;
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = BVJ3FU5H2K;
+					"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BVJ3FU5H2K;
+					ENABLE_NATIVE_BACKGROUND_THREAD = false;
+					ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = "$(REACT_NATIVE_ROOT)/../react-native-lite-card/ios/GPChannelSDKCore.framework";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -706,9 +707,10 @@
 				CODE_SIGN_ENTITLEMENTS = OneKeyWallet/OneKeyWallet.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = BVJ3FU5H2K;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
+					CURRENT_PROJECT_VERSION = 1;
+					DEVELOPMENT_TEAM = BVJ3FU5H2K;
+					ENABLE_NATIVE_BACKGROUND_THREAD = false;
+					"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				INFOPLIST_FILE = OneKeyWallet/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (

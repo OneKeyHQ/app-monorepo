@@ -19,6 +19,8 @@ const isExtEdge = process.env.EXT_CHANNEL === 'edge';
 const isE2E = process.env.E2E_MODE === 'true';
 
 const enablePerfMonitor = process.env.PERF_MONITOR_ENABLED === '1';
+const enableNativeBackgroundThread =
+  process.env.ENABLE_NATIVE_BACKGROUND_THREAD === 'true';
 
 module.exports = {
   isJest,
@@ -34,4 +36,5 @@ module.exports = {
   isExtEdge,
   isE2E,
   enablePerfMonitor,
+  enableNativeBackgroundThread,
 };

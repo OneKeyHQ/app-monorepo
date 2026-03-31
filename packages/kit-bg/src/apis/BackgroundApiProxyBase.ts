@@ -50,6 +50,37 @@ export class BackgroundApiProxyBase
 {
   override serviceNameSpace = '';
 
+  private readonly backgroundApiFactory?: () => IBackgroundApi;
+
+  private getNativeBackgroundThreadTransport() {
+    type INativeBackgroundThreadTransport = {
+      callServiceRequest: (
+        request: {
+          type: 'service-call';
+          method: string;
+          params: Array<any>;
+          sync: boolean;
+        },
+        localFallback: () => Promise<any>,
+      ) => Promise<any>;
+      isEnabled: () => boolean;
+    };
+
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __onekeyNativeBackgroundThreadTransport?: INativeBackgroundThreadTransport;
+    };
+
+    return runtimeGlobal.__onekeyNativeBackgroundThreadTransport;
+  }
+
+  private ensureLocalBackgroundApi() {
+    if (!this.backgroundApi && this.backgroundApiFactory) {
+      this.backgroundApi = this.backgroundApiFactory();
+    }
+
+    return this.backgroundApi;
+  }
+
   private async _callBackgroundMethodAsync({
     sync,
     serviceName,
@@ -81,36 +112,60 @@ export class BackgroundApiProxyBase
       }
     }
 
-    // some third party modules call native object methods, so we should NOT rename method
-    //    react-native/node_modules/pretty-format
-    //    expo/node_modules/pretty-format
-    let backgroundMethodNameLocal = backgroundMethodName;
-    const IGNORE_METHODS = new Set(['hasOwnProperty', 'toJSON']);
-    if (platformEnv.isNative && IGNORE_METHODS.has(methodName)) {
-      backgroundMethodNameLocal = methodName;
-    }
-    if (!this.backgroundApi) {
-      throw new OneKeyLocalError('backgroundApi not found in non-ext env');
-    }
+    const callLocalBackgroundMethod = async () => {
+      // some third party modules call native object methods, so we should NOT rename method
+      //    react-native/node_modules/pretty-format
+      //    expo/node_modules/pretty-format
+      let backgroundMethodNameLocal = backgroundMethodName;
+      const IGNORE_METHODS = new Set(['hasOwnProperty', 'toJSON']);
+      if (platformEnv.isNative && IGNORE_METHODS.has(methodName)) {
+        backgroundMethodNameLocal = methodName;
+      }
+      const backgroundApi = this.ensureLocalBackgroundApi();
+      if (!backgroundApi) {
+        throw new OneKeyLocalError('backgroundApi not found in non-ext env');
+      }
 
-    const serviceApi = getBackgroundServiceApi({
-      serviceName,
-      backgroundApi: this.backgroundApi,
-    });
-
-    if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
-      const resultPromise = serviceApi[methodName].call(serviceApi, ...params);
-      ensurePromiseObject(resultPromise, {
+      const serviceApi = getBackgroundServiceApi({
         serviceName,
-        methodName,
+        backgroundApi,
       });
-      let result = await resultPromise;
-      result = ensureSerializable(result, true);
-      return result;
+
+      if (serviceApi[backgroundMethodNameLocal] && serviceApi[methodName]) {
+        const resultPromise = serviceApi[methodName].call(serviceApi, ...params);
+        ensurePromiseObject(resultPromise, {
+          serviceName,
+          methodName,
+        });
+        let result = await resultPromise;
+        result = ensureSerializable(result, true);
+        return result;
+      }
+      if (!IGNORE_METHODS.has(backgroundMethodNameLocal)) {
+        return throwMethodNotFound(serviceName, backgroundMethodNameLocal);
+      }
+    };
+
+    if (platformEnv.isNativeMainThread && platformEnv.enableNativeBackgroundThread) {
+      const transport = this.getNativeBackgroundThreadTransport();
+      if (transport?.isEnabled()) {
+        const backgroundMethod =
+          serviceName && serviceName !== 'ROOT'
+            ? `${serviceName}.${methodName}`
+            : methodName;
+        return transport.callServiceRequest(
+          {
+            type: 'service-call',
+            method: backgroundMethod,
+            params,
+            sync,
+          },
+          callLocalBackgroundMethod,
+        );
+      }
     }
-    if (!IGNORE_METHODS.has(backgroundMethodNameLocal)) {
-      return throwMethodNotFound(serviceName, backgroundMethodNameLocal);
-    }
+
+    return callLocalBackgroundMethod();
   }
 
   private _callBackgroundMethodCachedByKey = cacheUtils.memoizee(
@@ -137,13 +192,16 @@ export class BackgroundApiProxyBase
 
   constructor({
     backgroundApi,
+    getBackgroundApi,
   }: {
     backgroundApi?: any;
+    getBackgroundApi?: () => IBackgroundApi;
   } = {}) {
     super();
     if (backgroundApi) {
       this.backgroundApi = backgroundApi as IBackgroundApi;
     }
+    this.backgroundApiFactory = getBackgroundApi;
     jotaiBgSync.setBackgroundApi(this as any);
     void jotaiBgSync.jotaiInitFromUi();
     appEventBus.registerBroadcastMethods(
@@ -193,7 +251,7 @@ export class BackgroundApiProxyBase
     this.backgroundApi?.bridgeReceiveHandler(payload);
 
   // init in NON-Ext UI env
-  readonly backgroundApi?: IBackgroundApi | null = null;
+  backgroundApi?: IBackgroundApi | null = null;
 
   async callBackgroundMethod(
     sync = true,

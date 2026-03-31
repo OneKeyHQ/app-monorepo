@@ -46,6 +46,8 @@
 	<string>1</string>
 	<key>BUNDLE_VERSION</key>
 	<string>1</string>
+	<key>ENABLE_NATIVE_BACKGROUND_THREAD</key>
+	<string>$(ENABLE_NATIVE_BACKGROUND_THREAD)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>

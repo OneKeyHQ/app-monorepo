@@ -65,6 +65,7 @@ export type IPlatformEnv = {
   isProduction?: boolean;
   /** e2e mode */
   isE2E?: boolean;
+  enableNativeBackgroundThread?: boolean;
 
   /** running in the browsers */
   isWeb?: boolean;
@@ -162,6 +163,7 @@ const {
   isExtFirefox,
   isExtEdge,
   isE2E,
+  enableNativeBackgroundThread,
 }: {
   isJest: boolean;
   isDev: boolean;
@@ -175,6 +177,7 @@ const {
   isExtFirefox: boolean;
   isExtEdge: boolean;
   isE2E: boolean;
+  enableNativeBackgroundThread: boolean;
 } = require('./buildTimeEnv.js');
 
 const desktopDeskChannel = globalThis?.desktopApi?.deskChannel || '';
@@ -500,6 +503,7 @@ const platformEnv: IPlatformEnv = {
   isDev,
   isProduction,
   isE2E,
+  enableNativeBackgroundThread,
 
   isWeb,
   isWebDappMode,
