@@ -27,6 +27,7 @@ import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -198,7 +199,7 @@ function BtcAddresses() {
   const hasRows = rows.length > 0;
 
   return (
-    <Page>
+    <Page testID={ReceiveTestIDs.BtcAddressesPage}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.wallet_used_addresses,
@@ -211,7 +212,7 @@ function BtcAddresses() {
               <Spinner size="large" />
             </XStack>
           ) : (
-            <YStack flex={1} gap="$6">
+            <YStack testID={ReceiveTestIDs.BtcAddressTable} flex={1} gap="$6">
               {hasRows ? (
                 <Table
                   dataSource={rows}
@@ -273,6 +274,7 @@ function BtcAddresses() {
                             {text}
                           </SizableText>
                           <IconButton
+                            testID={ReceiveTestIDs.BtcAddressCopyButton}
                             variant="tertiary"
                             size="small"
                             icon="Copy3Outline"
@@ -331,6 +333,7 @@ function BtcAddresses() {
         <Page.Footer>
           <XStack justifyContent="flex-end" py="$6" px="$5">
             <Pagination
+              testID={ReceiveTestIDs.BtcAddressPagination}
               current={currentPage}
               total={totalPages}
               onChange={setCurrentPage}

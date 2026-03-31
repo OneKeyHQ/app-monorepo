@@ -63,6 +63,7 @@ import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddre
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
+import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -501,6 +502,7 @@ function ReceiveToken() {
 
     return (
       <IconButton
+        testID={ReceiveTestIDs.CopyAddressButton}
         size="medium"
         icon="Copy3Outline"
         onPress={handleCopyAddress}
@@ -526,6 +528,7 @@ function ReceiveToken() {
         }}
       >
         <Button
+          testID={ReceiveTestIDs.VerifyOnDeviceButton}
           variant="primary"
           size={media.gtMd ? 'medium' : 'large'}
           onPress={handleVerifyOnDevicePress}
@@ -538,6 +541,7 @@ function ReceiveToken() {
           })}
         </Button>
         <Button
+          testID={ReceiveTestIDs.SkipVerifyButton}
           size="medium"
           variant="tertiary"
           onPress={() => {
@@ -595,6 +599,7 @@ function ReceiveToken() {
 
     return (
       <XStack
+        testID={ReceiveTestIDs.AddressText}
         flex={platformEnv.isNative ? 1 : undefined}
         maxWidth={platformEnv.isNative ? undefined : 304}
         flexWrap="wrap"
@@ -720,6 +725,7 @@ function ReceiveToken() {
         isEnableBTCFreshAddressSetting &&
         !isBtcUsedAddressVerifyMode ? (
           <HyperlinkText
+            testID={ReceiveTestIDs.BtcFreshAddressLink}
             flexShrink={1}
             color="$textSubdued"
             size="$bodyMd"
@@ -809,7 +815,7 @@ function ReceiveToken() {
           })}
         >
           {shouldShowQRCode ? (
-            <YStack>
+            <YStack testID={ReceiveTestIDs.QRCode}>
               <QRCode value={displayAddress} size={224} />
               {network.isCustomNetwork ? null : (
                 <YStack
@@ -870,7 +876,7 @@ function ReceiveToken() {
     return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
   return (
-    <Page safeAreaEnabled={false}>
+    <Page testID={ReceiveTestIDs.ReceiveTokenPage} safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
@@ -879,6 +885,7 @@ function ReceiveToken() {
         <YStack gap="$2">
           {banner && shouldShowQRCode && !isBtcUsedAddressVerifyMode ? (
             <XStack
+              testID={ReceiveTestIDs.Banner}
               py="$2.5"
               px="$3"
               gap="$3"
