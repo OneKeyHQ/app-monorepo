@@ -80,9 +80,11 @@ export interface IEarnBorrowPagerViewRef {
   syncCurrentPage: () => void;
 }
 
+type IEarnModeSwitchType = 'default' | 'tap' | 'swipe';
+
 interface IEarnBorrowPagerViewProps {
   mode: IEarnHomeMode;
-  onModeChange: (mode: IEarnHomeMode) => void;
+  onModeChange: (mode: IEarnHomeMode, switchType?: IEarnModeSwitchType) => void;
   earnContent: React.ReactNode;
   borrowContent: React.ReactNode;
   pageScrollPosition?: SharedValue<number>;
@@ -171,7 +173,7 @@ function EarnBorrowPagerViewComponent(
 
       const newMode = INDEX_TO_MODE[position];
       if (newMode && newMode !== modeRef.current) {
-        onModeChange(newMode);
+        onModeChange(newMode, 'swipe');
       }
     },
     [onModeChange],

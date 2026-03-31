@@ -6,7 +6,6 @@ import { Button } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Recommended } from '../../../Earn/components/Recommended';
@@ -20,6 +19,7 @@ function EarnListView() {
       <Recommended
         withHeader={false}
         enableFetch={false}
+        disableHorizontalBleed
         recommendedItemContainerProps={{
           bg: '$bgSubdued',
           borderColor: '$neutral3',
@@ -66,13 +66,6 @@ function EarnListView() {
             id: ETranslations.global_view_more,
           })}
         </Button>
-      }
-      contentContainerProps={
-        platformEnv.isNative
-          ? {
-              mx: '$-pagePadding',
-            }
-          : { px: '$pagePadding' }
       }
       content={renderContent()}
       plainContentContainer
