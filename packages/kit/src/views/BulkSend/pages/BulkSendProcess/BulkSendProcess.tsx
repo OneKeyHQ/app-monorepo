@@ -475,6 +475,16 @@ function BulkSendProcessContent({
           if (isAborted.current) break;
           await waitUntilInProgress();
 
+          // Rebuilt txs may already include a nonce, so the nonce branch below
+          // is not guaranteed to run. Attach the latest fee data here to ensure
+          // gas / fee fields are always present before signing.
+          updatedTx = await backgroundApiProxy.serviceSend.updateUnsignedTx({
+            networkId,
+            accountId: txAccountId,
+            unsignedTx: updatedTx,
+            feeInfo,
+          });
+
           // Native token + max mode: update the tx with the latest max amount.
           let updatedMaxSendAmount: string | undefined;
           if (isMaxMode && tokenInfo?.isNative) {
