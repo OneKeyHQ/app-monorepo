@@ -11,8 +11,8 @@
 
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 
+import { createElement, createRef, useEffect } from 'react';
 import type { ComponentType } from 'react';
-import React from 'react';
 
 import TestRenderer from 'react-test-renderer';
 
@@ -86,13 +86,13 @@ function renderHook<Result, Props = undefined>(
     concurrentRoot?: boolean;
   },
 ) {
-  const result = React.createRef<Result>() as { current: Result };
+  const result = createRef<Result>() as { current: Result };
 
   function HookContainer({ hookProps }: { hookProps: Props }) {
     const renderResult = hookToRender(hookProps);
-    React.useEffect(() => {
+    useEffect(() => {
       result.current = renderResult;
-    });
+    }, [renderResult]);
     return null;
   }
 
@@ -100,11 +100,11 @@ function renderHook<Result, Props = undefined>(
 
   let renderer: TestRenderer.ReactTestRenderer;
   syncAct(() => {
-    const element = React.createElement(HookContainer, {
+    const element = createElement(HookContainer, {
       hookProps: initialProps as Props,
     }) as any;
     const wrappedElement = Wrapper
-      ? (React.createElement(Wrapper, null, element) as any)
+      ? (createElement(Wrapper, null, element) as any)
       : element;
     renderer = TestRenderer.create(wrappedElement, renderOptions as any);
   });
@@ -112,11 +112,11 @@ function renderHook<Result, Props = undefined>(
   return {
     result,
     rerender: (hookProps: Props) => {
-      const element = React.createElement(HookContainer, {
+      const element = createElement(HookContainer, {
         hookProps,
       }) as any;
       const wrappedElement = Wrapper
-        ? (React.createElement(Wrapper, null, element) as any)
+        ? (createElement(Wrapper, null, element) as any)
         : element;
       syncAct(() => {
         renderer!.update(wrappedElement);
@@ -150,19 +150,17 @@ async function waitFor<T>(
     let lastError: unknown;
     let finished = false;
     let promiseStatus: 'idle' | 'pending' | 'resolved' | 'rejected' = 'idle';
-
-    const overallTimeoutTimer = setTimeout(handleTimeout, timeout);
-    const intervalId = setInterval(checkExpectation, interval);
-
-    // Initial check
-    checkExpectation();
+    const timers: {
+      timeout?: ReturnType<typeof setTimeout>;
+      interval?: ReturnType<typeof setInterval>;
+    } = {};
 
     function onDone(
       done: { type: 'result'; result: T } | { type: 'error'; error: unknown },
     ) {
       finished = true;
-      clearTimeout(overallTimeoutTimer);
-      clearInterval(intervalId);
+      clearTimeout(timers.timeout);
+      clearInterval(timers.interval);
       if (done.type === 'error') {
         reject(done.error);
       } else {
@@ -205,6 +203,12 @@ async function waitFor<T>(
           : new Error(lastError ? String(lastError) : 'Timed out in waitFor.');
       onDone({ type: 'error', error });
     }
+
+    timers.timeout = setTimeout(handleTimeout, timeout);
+    timers.interval = setInterval(checkExpectation, interval);
+
+    // Initial check
+    checkExpectation();
   });
 }
 
